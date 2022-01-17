@@ -1,0 +1,16 @@
+*.*~
+*.so
+_build
+build
+python/ucxx/_lib/*.a
+python/ucxx/_lib/*.o
+python/ucxx/_lib/*.cpp
+
+dask-worker-space
+dist/
+__pytestcache__
+__pycache__
+*.egg-info/
+.vscode
+.pytest_cache
+
