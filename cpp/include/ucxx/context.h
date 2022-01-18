@@ -3,6 +3,8 @@
  *
  * See file LICENSE for terms.
  */
+#pragma once
+
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -10,16 +12,18 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/config.h>
 #include <ucxx/utils.h>
 
-namespace ucxx {
+namespace ucxx
+{
 
 
 class UCXXContext
 {
     private:
         ucp_context_h _handle{nullptr};
-        std::map<std::string, std::string> _config{};
+        UCPConfig _config{};
         uint64_t _feature_flags{0};
         bool _cuda_support{false};
 
@@ -49,7 +53,7 @@ class UCXXContext
         return *this;
     }
 
-    UCXXContext(std::map<std::string, std::string> ucx_config, uint64_t feature_flags) : _config{ucx_config}, _feature_flags{feature_flags}
+    UCXXContext(std::map<std::string, std::string> ucx_config, uint64_t feature_flags) : _config{UCPConfig(ucx_config)}, _feature_flags{feature_flags}
     {
         ucp_params_t ucp_params;
         ucs_status_t status;
@@ -65,24 +69,19 @@ class UCXXContext
         ucp_params.request_size = sizeof(ucxx::ucxx_request_t);
         ucp_params.request_init = ucx_py_request_reset;
 
-        ucp_config_t *config = _read_ucx_config(ucx_config);
-        status = ucp_init(&ucp_params, config, &this->_handle);
-
-        if (status == UCS_OK)
-            this->_config = ucx_config_to_dict(config);
-
-        ucp_config_release(config);
+        status = ucp_init(&ucp_params, this->_config.get_handle(), &this->_handle);
 
         if (status != UCS_OK)
             throw std::runtime_error("Error calling ucp_init()");
 
         // UCX supports CUDA if "cuda" is part of the TLS or TLS is "all"
-        auto tls = this->_config.find("TLS");
-        if (tls != this->_config.end())
+        auto config_map = this->_config.get();
+        auto tls = config_map.find("TLS");
+        if (tls != config_map.end())
             this->_cuda_support = tls->second == "all" || tls->second.find("cuda") != std::string::npos;
 
         std::cout << "UCP initiated using config: " << std::endl;
-        for (const auto& kv : this->_config)
+        for (const auto& kv : config_map)
             std::cout << "  " << kv.first << ": " << kv.second << std::endl;
     }
 
@@ -94,7 +93,7 @@ class UCXXContext
 
     std::map<std::string, std::string> get_config()
     {
-        return this->_config;
+        return this->_config.get();
     }
 
     ucp_context_h get_handle()
