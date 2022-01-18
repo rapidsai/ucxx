@@ -69,10 +69,7 @@ class UCXXContext
         ucp_params.request_size = sizeof(ucxx::ucxx_request_t);
         ucp_params.request_init = ucx_py_request_reset;
 
-        status = ucp_init(&ucp_params, this->_config.get_handle(), &this->_handle);
-
-        if (status != UCS_OK)
-            throw std::runtime_error("Error calling ucp_init()");
+        assert_ucs_status(ucp_init(&ucp_params, this->_config.get_handle(), &this->_handle));
 
         // UCX supports CUDA if "cuda" is part of the TLS or TLS is "all"
         auto config_map = this->_config.get();

@@ -3,16 +3,20 @@
  *
  * See file LICENSE for terms.
  */
+#pragma once
 
-namespace ucxx {
+namespace ucxx
+{
 
-typedef enum {
+typedef enum
+{
     UCXX_REQUEST_STATUS_PENDING = 0,
     UCXX_REQUEST_STATUS_FINISHED = 1,
     UCXX_REQUEST_STATUS_UNITIALIZED = -1,
 } ucxx_request_status_t;
 
-typedef struct ucxx_request {
+typedef struct ucxx_request
+{
     bool finished;
     unsigned int uid;
     ucxx_request_status_t status;
