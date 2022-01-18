@@ -10,6 +10,7 @@
 #include <string>
 #include <sstream>
 
+#include <ucxx/exception.h>
 #include <ucxx/typedefs.h>
 
 FILE * create_text_fd()
@@ -61,7 +62,7 @@ ucp_config_t * _read_ucx_config(std::map<std::string, std::string> user_options)
     if (status != UCS_OK)
     {
         status_msg = ucs_status_string(status);
-        throw std::runtime_error(std::string("Couldn't read the UCX options: ") + status_msg);
+        throw ucxx::UCXXConfigError(std::string("Couldn't read the UCX options: ") + status_msg);
     }
 
     // Modify the UCX configuration options based on `config_dict`
@@ -74,11 +75,11 @@ ucp_config_t * _read_ucx_config(std::map<std::string, std::string> user_options)
 
             if (status == UCS_ERR_NO_ELEM)
             {
-                throw std::runtime_error(std::string("Option ") + kv.first + std::string("doesn't exist"));
+                throw ucxx::UCXXConfigError(std::string("Option ") + kv.first + std::string("doesn't exist"));
             }
             else
             {
-                throw std::runtime_error(ucs_status_string(status));
+                throw ucxx::UCXXConfigError(ucs_status_string(status));
             }
         }
     }
@@ -127,5 +128,5 @@ bool assert_ucs_status(const ucs_status_t status, const std::string& msg_context
         msg = std::string("[" + msg_context + "] " + std::string(ucs_status));
     else
         msg = ucs_status;
-    throw std::runtime_error(msg);
+    throw ucxx::UCXXError(msg);
 }
