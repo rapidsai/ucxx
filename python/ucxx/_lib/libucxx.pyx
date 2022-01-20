@@ -9,6 +9,7 @@ import functools
 
 from libc.stdint cimport uintptr_t
 from libcpp.map cimport map as cpp_map
+from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport move
 
@@ -37,7 +38,7 @@ cdef class UCXContext():
         Tuple of UCX feature flags
     """
     cdef:
-        UCXXContext _context
+        shared_ptr[UCXXContext] _context
         dict _config
 
     def __init__(
@@ -57,9 +58,10 @@ cdef class UCXContext():
         feature_flags = functools.reduce(
             lambda x, y: x | y.value, feature_flags, 0
         )
-        self._context = move(UCXXContext(cpp_config, feature_flags))
+        self._context = UCXXContext.create(cpp_config, feature_flags)
+        cdef UCXXContext* context = self._context.get()
 
-        cdef dict context_config = self._context.get_config()
+        cdef dict context_config = context.get_config()
         self._config = {k.decode("utf-8"): v.decode("utf-8") for k, v in context_config.items()}
 
     cpdef dict get_config(self):
@@ -67,7 +69,9 @@ cdef class UCXContext():
 
     @property
     def handle(self):
-        return int(<uintptr_t>self._context.get_handle())
+        cdef UCXXContext* context = self._context.get()
+        return int(<uintptr_t>context.get_handle())
 
     cpdef str get_info(self):
-        return self._context.get_info().decode("utf-8")
+        cdef UCXXContext* context = self._context.get()
+        return context.get_info().decode("utf-8")

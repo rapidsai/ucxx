@@ -12,14 +12,19 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/component.h>
 #include <ucxx/config.h>
 #include <ucxx/utils.h>
+//#include <ucxx/worker.h>
 
 namespace ucxx
 {
 
 
-class UCXXContext
+class UCXXWorker;
+
+
+class UCXXContext : public UCXXComponent
 {
     private:
         ucp_context_h _handle{nullptr};
@@ -32,31 +37,9 @@ class UCXXContext
 
     UCXXContext() = default;
 
-    UCXXContext(const UCXXContext&) = delete;
-    UCXXContext& operator=(UCXXContext const&) = delete;
-
-    UCXXContext(UCXXContext&& o) noexcept
-        : _handle{std::exchange(o._handle, nullptr)},
-          _config{std::exchange(o._config, {})},
-          _feature_flags{std::exchange(o._feature_flags, 0)},
-          _cuda_support{std::exchange(o._cuda_support, false)}
-    {
-    }
-
-    UCXXContext& operator=(UCXXContext&& o) noexcept
-    {
-        this->_handle = std::exchange(o._handle, nullptr);
-        this->_config = std::exchange(o._config, {});
-        this->_feature_flags = std::exchange(o._feature_flags, 0);
-        this->_cuda_support = std::exchange(o._cuda_support, false);
-
-        return *this;
-    }
-
     UCXXContext(std::map<std::string, std::string> ucx_config, uint64_t feature_flags) : _config{UCPConfig(ucx_config)}, _feature_flags{feature_flags}
     {
         ucp_params_t ucp_params;
-        ucs_status_t status;
 
         // UCP
         std::memset(&ucp_params, 0, sizeof(ucp_params));
@@ -80,6 +63,33 @@ class UCXXContext
         std::cout << "UCP initiated using config: " << std::endl;
         for (const auto& kv : config_map)
             std::cout << "  " << kv.first << ": " << kv.second << std::endl;
+    }
+
+    UCXXContext(const UCXXContext&) = delete;
+    UCXXContext& operator=(UCXXContext const&) = delete;
+
+    UCXXContext(UCXXContext&& o) noexcept
+        : _handle{std::exchange(o._handle, nullptr)},
+          _config{std::exchange(o._config, {})},
+          _feature_flags{std::exchange(o._feature_flags, 0)},
+          _cuda_support{std::exchange(o._cuda_support, false)}
+    {
+    }
+
+    UCXXContext& operator=(UCXXContext&& o) noexcept
+    {
+        this->_handle = std::exchange(o._handle, nullptr);
+        this->_config = std::exchange(o._config, {});
+        this->_feature_flags = std::exchange(o._feature_flags, 0);
+        this->_cuda_support = std::exchange(o._cuda_support, false);
+
+        return *this;
+    }
+
+    static std::shared_ptr<UCXXContext> create(std::map<std::string, std::string> ucx_config, uint64_t feature_flags)
+    {
+        // TODO: make constructor private, probably using pImpl
+        return std::make_shared<UCXXContext>(ucx_config, feature_flags);
     }
 
     ~UCXXContext()
