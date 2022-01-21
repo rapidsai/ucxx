@@ -90,3 +90,20 @@ cdef class UCXWorker():
     def handle(self):
         cdef UCXXWorker* worker = self._worker.get()
         return int(<uintptr_t>worker.get_handle())
+
+    def createEndpointFromHostname(self, str ip_address, uint16_t port, bint endpoint_error_handling):
+        return UCXEndpoint.create(ip_address, port, endpoint_error_handling)
+
+
+cdef class UCXEndpoint():
+    cdef:
+        shared_ptr[UCXXEndpoint] _endpoint
+
+    def __init__(self, uintptr_t shared_ptr_endpoint):
+        self._endpoint = (<shared_ptr[UCXXEndpoint] *> shared_ptr_endpoint)[0]
+
+    @classmethod
+    def create(cls, UCXWorker worker, str ip_address, uint16_t port, bint endpoint_error_handling):
+        cdef UCXXWorker* w = worker._worker.get()
+        endpoint = w.createEndpointFromHostname(ip_address.encode("utf-8"), port, endpoint_error_handling)
+        return cls(<uintptr_t><void*>&endpoint)

@@ -6,7 +6,7 @@
 
 from posix cimport fcntl
 
-from libc.stdint cimport uint64_t
+from libc.stdint cimport uint16_t, uint64_t
 
 from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport shared_ptr
@@ -48,3 +48,9 @@ cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXWorker:
         UCXXWorker()
         ucp_worker_h get_handle() except +
+        shared_ptr[UCXXEndpoint] createEndpointFromHostname(string ip_address, uint16_t port, bint endpoint_error_handling)
+
+
+cdef extern from "<ucxx/endpoint.h>" namespace "ucxx" nogil:
+    cdef cppclass UCXXEndpoint:
+        pass
