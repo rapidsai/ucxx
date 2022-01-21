@@ -75,3 +75,18 @@ cdef class UCXContext():
     cpdef str get_info(self):
         cdef UCXXContext* context = self._context.get()
         return context.get_info().decode("utf-8")
+
+
+cdef class UCXWorker():
+    """Python representation of `ucp_worker_h`"""
+    cdef:
+        shared_ptr[UCXXWorker] _worker
+
+    def __init__(self, UCXContext context):
+        cdef UCXXContext* ctx = context._context.get()
+        self._worker = ctx.createWorker()
+
+    @property
+    def handle(self):
+        cdef UCXXWorker* worker = self._worker.get()
+        return int(<uintptr_t>worker.get_handle())

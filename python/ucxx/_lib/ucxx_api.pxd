@@ -19,6 +19,11 @@ cdef extern from "ucp/api/ucp.h":
 
     ctypedef ucp_context* ucp_context_h
 
+    ctypedef struct ucp_worker:
+        pass
+
+    ctypedef ucp_worker* ucp_worker_h
+
     int UCP_FEATURE_TAG
     int UCP_FEATURE_WAKEUP
     int UCP_FEATURE_STREAM
@@ -37,3 +42,9 @@ cdef extern from "<ucxx/context.h>" namespace "ucxx" nogil:
         cpp_map[string, string] get_config() except +
         ucp_context_h get_handle() except +
         string get_info() except +
+
+
+cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
+    cdef cppclass UCXXWorker:
+        UCXXWorker()
+        ucp_worker_h get_handle() except +

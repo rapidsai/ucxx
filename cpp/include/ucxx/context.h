@@ -12,6 +12,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/constructors.h>
 #include <ucxx/component.h>
 #include <ucxx/config.h>
 #include <ucxx/utils.h>
@@ -116,6 +117,19 @@ class UCXXContext : public UCXXComponent
         FILE *text_fd = create_text_fd();
         ucp_context_print_info(this->_handle, text_fd);
         return decode_text_fd(text_fd);
+    }
+
+    uint64_t get_feature_flags() const
+    {
+        return _feature_flags;
+    }
+
+    std::shared_ptr<UCXXWorker> createWorker()
+    {
+        auto context = std::dynamic_pointer_cast<UCXXContext>(shared_from_this());
+        auto worker = ucxx::createWorker(context);
+        addChild(std::dynamic_pointer_cast<UCXXComponent>(worker));
+        return worker;
     }
 };
 
