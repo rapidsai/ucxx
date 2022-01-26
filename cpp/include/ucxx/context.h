@@ -106,14 +106,11 @@ class UCXXContext : public UCXXComponent
 
     ucp_context_h get_handle()
     {
-        assert(this->initialized);
         return this->_handle;
     }
 
     std::string get_info()
     {
-        assert(this->initialized);
-
         FILE *text_fd = create_text_fd();
         ucp_context_print_info(this->_handle, text_fd);
         return decode_text_fd(text_fd);

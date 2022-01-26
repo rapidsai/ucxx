@@ -2,6 +2,7 @@
  * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
  * See file LICENSE for terms.
  */
+#pragma once
 
 #include <stdlib.h>
 #include <string.h>

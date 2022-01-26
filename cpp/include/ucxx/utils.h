@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <exception>
+#include <map>
 #include <string>
 #include <sstream>
 
