@@ -12,6 +12,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/address.h>
 #include <ucxx/component.h>
 #include <ucxx/exception.h>
 #include <ucxx/sockaddr_utils.h>
@@ -24,7 +25,7 @@ namespace ucxx
 struct EpParamsDeleter {
     void operator()(ucp_ep_params_t* ptr)
     {
-        if (ptr != nullptr)
+        if (ptr != nullptr && ptr->field_mask & UCP_EP_PARAM_FIELD_FLAGS)
             sockaddr_utils_free(&ptr->sockaddr);
     }
 };
@@ -145,6 +146,27 @@ class UCXXEndpoint : public UCXXComponent
             UCP_EP_PARAM_FIELD_ERR_HANDLER;
         params->flags = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK;
         params->conn_request = conn_request;
+
+        return std::shared_ptr<UCXXEndpoint>(new UCXXEndpoint(worker, std::move(params), endpoint_error_handling));
+    }
+
+
+    friend std::shared_ptr<UCXXEndpoint> createEndpointFromWorkerAddress(
+            std::shared_ptr<UCXXWorker> worker,
+            std::shared_ptr<UCXXAddress> address,
+            bool endpoint_error_handling
+        )
+    {
+        if (worker == nullptr || worker->get_handle() == nullptr)
+            throw ucxx::UCXXError("Worker not initialized");
+        if (address == nullptr || address->get_handle() == nullptr || address->length() == 0)
+            throw ucxx::UCXXError("Address not initialized");
+
+        auto params = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
+        params->field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS |
+            UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE |
+            UCP_EP_PARAM_FIELD_ERR_HANDLER;
+        params->address = address->get_handle();
 
         return std::shared_ptr<UCXXEndpoint>(new UCXXEndpoint(worker, std::move(params), endpoint_error_handling));
     }

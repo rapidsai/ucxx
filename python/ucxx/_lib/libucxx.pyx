@@ -77,6 +77,35 @@ cdef class UCXContext():
         return context.get_info().decode("utf-8")
 
 
+cdef class UCXAddress():
+    cdef:
+        shared_ptr[UCXXAddress] _address
+
+    def __init__(self, uintptr_t shared_ptr_address):
+        self._address = (<shared_ptr[UCXXAddress] *> shared_ptr_address)[0]
+
+    @classmethod
+    def create_from_worker(cls, UCXWorker worker):
+        cdef UCXXWorker* w = worker._worker.get()
+        address = w.getAddress()
+        return cls(<uintptr_t><void*>&address)
+
+    # For old UCX-Py API compatibility
+    @classmethod
+    def from_worker(cls, UCXWorker worker):
+        return cls.create_from_worker(worker)
+
+    @property
+    def address(self):
+        cdef shared_ptr[UCXXAddress] address = self._address
+        return <uintptr_t>address.get_handle()
+
+    @property
+    def length(self):
+        cdef shared_ptr[UCXXAddress] address = self._address
+        return int(address.getLength())
+
+
 cdef class UCXWorker():
     """Python representation of `ucp_worker_h`"""
     cdef:
@@ -91,11 +120,17 @@ cdef class UCXWorker():
         cdef UCXXWorker* worker = self._worker.get()
         return int(<uintptr_t>worker.get_handle())
 
+    def get_address(self):
+        return UCXAddress.create_from_worker(self)
+
     def createEndpointFromHostname(self, str ip_address, uint16_t port, bint endpoint_error_handling):
         return UCXEndpoint.create(self, ip_address, port, endpoint_error_handling)
 
     def createEndpointFromConnRequest(self, uintptr_t conn_request, bint endpoint_error_handling):
         return UCXEndpoint.create_from_conn_request(self, conn_request, endpoint_error_handling)
+
+    def createEndpointFromWorkerAddress(self, UCXAddress address, bint endpoint_error_handling):
+        return UCXEndpoint.create_from_worker_address(self, address, endpoint_error_handling)
 
     def progress(self):
         cdef UCXXWorker* worker = self._worker.get()
@@ -119,6 +154,13 @@ cdef class UCXEndpoint():
     def create_from_conn_request(cls, UCXWorker worker, uintptr_t conn_request, bint endpoint_error_handling):
         cdef UCXXWorker* w = worker._worker.get()
         endpoint = w.createEndpointFromConnRequest(<ucp_conn_request_h>conn_request, endpoint_error_handling)
+        return cls(<uintptr_t><void*>&endpoint)
+
+    @classmethod
+    def create_from_worker_address(cls, UCXWorker worker, UCXAddress address, bint endpoint_error_handling):
+        cdef UCXXWorker* w = worker._worker.get()
+        cdef shared_ptr[UCXXAddress] a = address._address
+        endpoint = w.createEndpointFromWorkerAddress(a, endpoint_error_handling)
         return cls(<uintptr_t><void*>&endpoint)
 
 

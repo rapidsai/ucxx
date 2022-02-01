@@ -17,6 +17,7 @@
 namespace ucxx
 {
 
+class UCXXAddress;
 class UCXXEndpoint;
 class UCXXListener;
 
@@ -62,7 +63,6 @@ class UCXXWorker : public UCXXComponent
     template <class ...Args>
     friend std::shared_ptr<UCXXWorker> createWorker(Args&& ...args)
     {
-        std::cout << "UCXXWorker::createWorker" << std::endl;
         return std::shared_ptr<UCXXWorker>(new UCXXWorker(std::forward<Args>(args)...));
     }
 
@@ -78,6 +78,7 @@ class UCXXWorker : public UCXXComponent
     {
         return _handle;
     }
+
     int init_blocking_progress_mode()
     {
         // In blocking progress mode, we create an epoll file
@@ -127,6 +128,14 @@ class UCXXWorker : public UCXXComponent
         }
     }
 
+    std::shared_ptr<UCXXAddress> getAddress()
+    {
+        auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
+        auto address = ucxx::createAddressFromWorker(worker);
+        addChild(std::dynamic_pointer_cast<UCXXComponent>(address));
+        return address;
+    }
+
     std::shared_ptr<UCXXEndpoint> createEndpointFromHostname(std::string ip_address, uint16_t port=0, bool endpoint_error_handling=true)
     {
         auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
@@ -139,6 +148,14 @@ class UCXXWorker : public UCXXComponent
     {
         auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
         auto endpoint = ucxx::createEndpointFromConnRequest(worker, conn_request, endpoint_error_handling);
+        addChild(std::dynamic_pointer_cast<UCXXComponent>(endpoint));
+        return endpoint;
+    }
+
+    std::shared_ptr<UCXXEndpoint> createEndpointFromWorkerAddress(std::shared_ptr<UCXXAddress> address, bool endpoint_error_handling=true)
+    {
+        auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
+        auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, endpoint_error_handling);
         addChild(std::dynamic_pointer_cast<UCXXComponent>(endpoint));
         return endpoint;
     }
