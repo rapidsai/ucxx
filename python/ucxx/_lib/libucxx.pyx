@@ -92,7 +92,14 @@ cdef class UCXWorker():
         return int(<uintptr_t>worker.get_handle())
 
     def createEndpointFromHostname(self, str ip_address, uint16_t port, bint endpoint_error_handling):
-        return UCXEndpoint.create(ip_address, port, endpoint_error_handling)
+        return UCXEndpoint.create(self, ip_address, port, endpoint_error_handling)
+
+    def createEndpointFromConnRequest(self, uintptr_t conn_request, bint endpoint_error_handling):
+        return UCXEndpoint.create_from_conn_request(self, conn_request, endpoint_error_handling)
+
+    def progress(self):
+        cdef UCXXWorker* worker = self._worker.get()
+        worker.progress()
 
 
 cdef class UCXEndpoint():
@@ -107,3 +114,50 @@ cdef class UCXEndpoint():
         cdef UCXXWorker* w = worker._worker.get()
         endpoint = w.createEndpointFromHostname(ip_address.encode("utf-8"), port, endpoint_error_handling)
         return cls(<uintptr_t><void*>&endpoint)
+
+    @classmethod
+    def create_from_conn_request(cls, UCXWorker worker, uintptr_t conn_request, bint endpoint_error_handling):
+        cdef UCXXWorker* w = worker._worker.get()
+        endpoint = w.createEndpointFromConnRequest(<ucp_conn_request_h>conn_request, endpoint_error_handling)
+        return cls(<uintptr_t><void*>&endpoint)
+
+
+cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with gil:
+    """Callback function used by UCXListener"""
+    cdef dict cb_data = <dict> args
+
+    cb_data['cb_func'](
+        int(<uintptr_t>conn_request),
+        *cb_data['cb_args'],
+        **cb_data['cb_kwargs']
+    )
+
+
+cdef class UCXListener():
+    cdef:
+        shared_ptr[UCXXListener] _listener
+        dict _cb_data
+
+    def __init__(self, uintptr_t shared_ptr_listener, dict cb_data):
+        self._listener = (<shared_ptr[UCXXListener] *> shared_ptr_listener)[0]
+        self._cb_data = cb_data
+
+    @classmethod
+    def create(cls, UCXWorker worker, uint16_t port, cb_func, tuple cb_args=None, dict cb_kwargs=None):
+        if cb_args is None:
+            cb_args = ()
+        if cb_kwargs is None:
+            cb_kwargs = {}
+
+        cdef UCXXWorker* w = worker._worker.get()
+        cdef ucp_listener_conn_callback_t listener_cb = (
+            <ucp_listener_conn_callback_t>_listener_callback
+        )
+        cdef dict cb_data = {
+            "cb_func": cb_func,
+            "cb_args": cb_args,
+            "cb_kwargs": cb_kwargs,
+        }
+
+        listener = w.createListener(port, listener_cb, <void*>cb_data)
+        return cls(<uintptr_t><void*>&listener, cb_data)

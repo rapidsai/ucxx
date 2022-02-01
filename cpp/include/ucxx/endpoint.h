@@ -7,10 +7,15 @@
 
 #include <netdb.h>
 
+#include <memory>
+#include <string>
+
 #include <ucp/api/ucp.h>
 
+#include <ucxx/component.h>
 #include <ucxx/exception.h>
 #include <ucxx/sockaddr_utils.h>
+#include <ucxx/utils.h>
 #include <ucxx/worker.h>
 
 namespace ucxx
@@ -24,7 +29,6 @@ struct EpParamsDeleter {
     }
 };
 
-
 class UCXXEndpoint : public UCXXComponent
 {
     private:
@@ -34,7 +38,7 @@ class UCXXEndpoint : public UCXXComponent
 
     UCXXEndpoint(
             std::shared_ptr<UCXXWorker> worker,
-            ucp_ep_params_t* params,
+            std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
             bool endpoint_error_handling
         ) : _endpoint_error_handling{endpoint_error_handling}
     {
@@ -47,7 +51,7 @@ class UCXXEndpoint : public UCXXComponent
         params->err_handler.cb = nullptr;
         params->err_handler.arg = nullptr;
 
-        assert_ucs_status(ucp_ep_create(worker->get_handle(), params, &_handle));
+        assert_ucs_status(ucp_ep_create(worker->get_handle(), params.get(), &_handle));
     }
 
     public:
@@ -122,7 +126,27 @@ class UCXXEndpoint : public UCXXComponent
         if (sockaddr_utils_set(&params->sockaddr, hostname->h_name, port))
             throw std::bad_alloc();
 
-        return std::shared_ptr<UCXXEndpoint>(new UCXXEndpoint(worker, params.get(), endpoint_error_handling));
+        return std::shared_ptr<UCXXEndpoint>(new UCXXEndpoint(worker, std::move(params), endpoint_error_handling));
+    }
+
+    friend std::shared_ptr<UCXXEndpoint> createEndpointFromConnRequest(
+            std::shared_ptr<UCXXWorker> worker,
+            ucp_conn_request_h conn_request,
+            bool endpoint_error_handling
+        )
+    {
+        if (worker == nullptr || worker->get_handle() == nullptr)
+            throw ucxx::UCXXError("Worker not initialized");
+
+        auto params = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
+        params->field_mask = UCP_EP_PARAM_FIELD_FLAGS |
+            UCP_EP_PARAM_FIELD_CONN_REQUEST |
+            UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE |
+            UCP_EP_PARAM_FIELD_ERR_HANDLER;
+        params->flags = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK;
+        params->conn_request = conn_request;
+
+        return std::shared_ptr<UCXXEndpoint>(new UCXXEndpoint(worker, std::move(params), endpoint_error_handling));
     }
 
 };

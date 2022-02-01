@@ -24,6 +24,17 @@ cdef extern from "ucp/api/ucp.h":
 
     ctypedef ucp_worker* ucp_worker_h
 
+    ctypedef ucp_conn_request* ucp_conn_request_h
+
+    ctypedef struct ucp_conn_request:
+        pass
+
+    ctypedef void(*ucp_listener_conn_callback_t)(ucp_conn_request_h request, void *arg)
+
+    ctypedef struct ucp_listener_conn_handler_t:
+        ucp_listener_conn_callback_t cb
+        void *arg
+
     int UCP_FEATURE_TAG
     int UCP_FEATURE_WAKEUP
     int UCP_FEATURE_STREAM
@@ -47,10 +58,19 @@ cdef extern from "<ucxx/context.h>" namespace "ucxx" nogil:
 cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXWorker:
         UCXXWorker()
+        UCXXWorker(shared_ptr[UCXXContext] context) except +
         ucp_worker_h get_handle() except +
-        shared_ptr[UCXXEndpoint] createEndpointFromHostname(string ip_address, uint16_t port, bint endpoint_error_handling)
+        shared_ptr[UCXXEndpoint] createEndpointFromHostname(string ip_address, uint16_t port, bint endpoint_error_handling) except +
+        shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(ucp_conn_request_h conn_request, bint endpoint_error_handling) except +
+        shared_ptr[UCXXListener] createListener(uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args) except +
+        void progress() except+
 
 
 cdef extern from "<ucxx/endpoint.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXEndpoint:
+        pass
+
+
+cdef extern from "<ucxx/listener.h>" namespace "ucxx" nogil:
+    cdef cppclass UCXXListener:
         pass

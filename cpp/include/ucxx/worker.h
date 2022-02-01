@@ -17,6 +17,8 @@
 namespace ucxx
 {
 
+class UCXXEndpoint;
+class UCXXListener;
 
 class UCXXWorker : public UCXXComponent
 {
@@ -76,7 +78,6 @@ class UCXXWorker : public UCXXComponent
     {
         return _handle;
     }
-
     int init_blocking_progress_mode()
     {
         // In blocking progress mode, we create an epoll file
@@ -132,6 +133,22 @@ class UCXXWorker : public UCXXComponent
         auto endpoint = ucxx::createEndpointFromHostname(worker, ip_address, port, endpoint_error_handling);
         addChild(std::dynamic_pointer_cast<UCXXComponent>(endpoint));
         return endpoint;
+    }
+
+    std::shared_ptr<UCXXEndpoint> createEndpointFromConnRequest(ucp_conn_request_h conn_request, bool endpoint_error_handling=true)
+    {
+        auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
+        auto endpoint = ucxx::createEndpointFromConnRequest(worker, conn_request, endpoint_error_handling);
+        addChild(std::dynamic_pointer_cast<UCXXComponent>(endpoint));
+        return endpoint;
+    }
+
+    std::shared_ptr<UCXXListener> createListener(uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args)
+    {
+        auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
+        auto listener = ucxx::createListener(worker, port, callback, callback_args);
+        addChild(std::dynamic_pointer_cast<UCXXComponent>(listener));
+        return listener;
     }
 };
 
