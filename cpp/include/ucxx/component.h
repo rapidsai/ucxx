@@ -8,14 +8,18 @@
 #include <memory>
 
 
+namespace ucxx
+{
+
 class UCXXComponent : public std::enable_shared_from_this<UCXXComponent>
 {
     protected:
-        std::shared_ptr<UCXXComponent> _parent;
+        std::shared_ptr<UCXXComponent> _parent{nullptr};
 
     public:
         virtual ~UCXXComponent() {}
 
+        // Called from child's constructor
         void setParent(std::shared_ptr<UCXXComponent> parent)
         {
             _parent = parent;
@@ -25,7 +29,6 @@ class UCXXComponent : public std::enable_shared_from_this<UCXXComponent>
         {
             return _parent;
         }
-
-        virtual void addChild(std::shared_ptr<UCXXComponent> child) {}
-        virtual void removeChild(UCXXComponent* child) {}
 };
+
+}  // namespace ucxx

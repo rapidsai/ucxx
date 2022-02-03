@@ -96,7 +96,6 @@ class UCXXListener : public UCXXComponent
 
     ~UCXXListener()
     {
-        _parent->removeChild(this);
     }
 
     friend std::shared_ptr<UCXXListener> createListener(
@@ -113,7 +112,6 @@ class UCXXListener : public UCXXComponent
     {
         auto listener = std::dynamic_pointer_cast<UCXXListener>(shared_from_this());
         auto endpoint = ucxx::createEndpointFromConnRequest(listener, conn_request, endpoint_error_handling);
-        addChild(std::dynamic_pointer_cast<UCXXComponent>(endpoint));
         return endpoint;
     }
 

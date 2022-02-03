@@ -103,8 +103,6 @@ class UCXXEndpoint : public UCXXComponent
         {
             std::cerr << "Error while closing endpoint: " << ucs_status_string(UCS_PTR_STATUS(status)) << std::endl;
         }
-
-        _parent->removeChild(this);
     }
 
     static std::shared_ptr<UCXXWorker> getWorker(std::shared_ptr<UCXXComponent> worker_or_listener)

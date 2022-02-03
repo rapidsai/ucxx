@@ -86,8 +86,6 @@ class UCXXWorker : public UCXXComponent
             close(_epoll_fd);
         if (_cancel_efd >= 0)
             close(_cancel_efd);
-
-        _parent->removeChild(this);
     }
 
     ucp_worker_h get_handle()
@@ -187,7 +185,6 @@ class UCXXWorker : public UCXXComponent
     {
         auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
         auto address = ucxx::createAddressFromWorker(worker);
-        addChild(std::dynamic_pointer_cast<UCXXComponent>(address));
         return address;
     }
 
@@ -195,7 +192,6 @@ class UCXXWorker : public UCXXComponent
     {
         auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
         auto endpoint = ucxx::createEndpointFromHostname(worker, ip_address, port, endpoint_error_handling);
-        addChild(std::dynamic_pointer_cast<UCXXComponent>(endpoint));
         return endpoint;
     }
 
@@ -203,7 +199,6 @@ class UCXXWorker : public UCXXComponent
     {
         auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
         auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, endpoint_error_handling);
-        addChild(std::dynamic_pointer_cast<UCXXComponent>(endpoint));
         return endpoint;
     }
 
@@ -211,7 +206,6 @@ class UCXXWorker : public UCXXComponent
     {
         auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
         auto listener = ucxx::createListener(worker, port, callback, callback_args);
-        addChild(std::dynamic_pointer_cast<UCXXComponent>(listener));
         return listener;
     }
 };

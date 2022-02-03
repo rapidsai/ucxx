@@ -119,7 +119,6 @@ class UCXXContext : public UCXXComponent
     {
         auto context = std::dynamic_pointer_cast<UCXXContext>(shared_from_this());
         auto worker = ucxx::createWorker(context);
-        addChild(std::dynamic_pointer_cast<UCXXComponent>(worker));
         return worker;
     }
 };
