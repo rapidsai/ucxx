@@ -97,12 +97,12 @@ cdef class UCXAddress():
 
     @property
     def address(self):
-        cdef shared_ptr[UCXXAddress] address = self._address
-        return <uintptr_t>address.get_handle()
+        cdef UCXXAddress* address = self._address.get()
+        return int(<uintptr_t>address.getHandle())
 
     @property
     def length(self):
-        cdef shared_ptr[UCXXAddress] address = self._address
+        cdef UCXXAddress* address = self._address.get()
         return int(address.getLength())
 
 

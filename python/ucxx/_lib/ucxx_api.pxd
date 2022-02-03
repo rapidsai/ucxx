@@ -35,6 +35,9 @@ cdef extern from "ucp/api/ucp.h":
         ucp_listener_conn_callback_t cb
         void *arg
 
+    ctypedef struct ucp_address_t:
+        pass
+
     int UCP_FEATURE_TAG
     int UCP_FEATURE_WAKEUP
     int UCP_FEATURE_STREAM
@@ -79,4 +82,6 @@ cdef extern from "<ucxx/listener.h>" namespace "ucxx" nogil:
 
 cdef extern from "<ucxx/address.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXAddress:
-        pass
+        ucp_address_t* getHandle()
+        size_t getLength()
+        string getString()

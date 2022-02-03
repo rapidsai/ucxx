@@ -173,14 +173,14 @@ class UCXXEndpoint : public UCXXComponent
     {
         if (worker == nullptr || worker->get_handle() == nullptr)
             throw ucxx::UCXXError("Worker not initialized");
-        if (address == nullptr || address->get_handle() == nullptr || address->length() == 0)
+        if (address == nullptr || address->getHandle() == nullptr || address->getLength() == 0)
             throw ucxx::UCXXError("Address not initialized");
 
         auto params = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
         params->field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS |
             UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE |
             UCP_EP_PARAM_FIELD_ERR_HANDLER;
-        params->address = address->get_handle();
+        params->address = address->getHandle();
 
         return std::shared_ptr<UCXXEndpoint>(new UCXXEndpoint(worker, std::move(params), endpoint_error_handling));
     }
