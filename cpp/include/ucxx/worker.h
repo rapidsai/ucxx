@@ -6,6 +6,8 @@
 #pragma once
 
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <unistd.h>
 
 #include <ucp/api/ucp.h>
 
@@ -25,6 +27,9 @@ class UCXXWorker : public UCXXComponent
 {
     private:
         ucp_worker_h _handle{nullptr};
+        int _epoll_fd{-1};
+        int _worker_fd{-1};
+        int _cancel_efd{-1};
 
     UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context)
     {
@@ -49,13 +54,19 @@ class UCXXWorker : public UCXXComponent
     UCXXWorker& operator=(UCXXWorker const&) = delete;
 
     UCXXWorker(UCXXWorker&& o) noexcept
-        : _handle{std::exchange(o._handle, nullptr)}
+        : _handle{std::exchange(o._handle, nullptr)},
+          _epoll_fd{std::exchange(o._epoll_fd, -1)},
+          _worker_fd{std::exchange(o._worker_fd, -1)},
+          _cancel_efd{std::exchange(o._cancel_efd, -1)}
     {
     }
 
     UCXXWorker& operator=(UCXXWorker&& o) noexcept
     {
         this->_handle = std::exchange(o._handle, nullptr);
+        this->_epoll_fd = std::exchange(o._epoll_fd, -1);
+        this->_worker_fd = std::exchange(o._worker_fd, -1);
+        this->_cancel_efd = std::exchange(o._cancel_efd, -1);
 
         return *this;
     }
@@ -71,6 +82,11 @@ class UCXXWorker : public UCXXComponent
     {
         ucp_worker_destroy(_handle);
 
+        if (_epoll_fd >= 0)
+            close(_epoll_fd);
+        if (_cancel_efd >= 0)
+            close(_cancel_efd);
+
         _parent->removeChild(this);
     }
 
@@ -79,32 +95,46 @@ class UCXXWorker : public UCXXComponent
         return _handle;
     }
 
-    int init_blocking_progress_mode()
+    void init_blocking_progress_mode()
     {
         // In blocking progress mode, we create an epoll file
         // descriptor that we can wait on later.
-        int ucp_epoll_fd, epoll_fd;
-        epoll_event ev;
+        // We also introduce an additional eventfd to allow
+        // canceling the wait.
         int err;
 
-        assert_ucs_status(ucp_worker_get_efd(_handle, &ucp_epoll_fd));
+        assert_ucs_status(ucp_worker_get_efd(_handle, &_worker_fd));
+
         arm();
 
-        epoll_fd = epoll_create(1);
-        if (epoll_fd == -1)
+        _epoll_fd = epoll_create(1);
+        if (_epoll_fd == -1)
             throw std::ios_base::failure("epoll_create(1) returned -1");
-        ev.data.fd = ucp_epoll_fd;
-        ev.data.ptr = NULL;
-        ev.data.u32 = 0;
-        ev.data.u64 = 0;
-        ev.events = EPOLLIN;
 
-        err = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ucp_epoll_fd, &ev);
+        _cancel_efd = eventfd(0, EFD_NONBLOCK);
+        if (_cancel_efd < 0)
+            throw std::ios_base::failure("eventfd(0, EFD_NONBLOCK) returned -1");
 
+
+        epoll_event worker_ev = {
+            .events = EPOLLIN,
+            .data = {
+                .fd = _worker_fd,
+            }
+        };
+        epoll_event cancel_ev = {
+            .events = EPOLLIN,
+            .data = {
+                .fd = _cancel_efd,
+            }
+        };
+
+        err = epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _worker_fd, &worker_ev);
         if (err != 0)
             throw std::ios_base::failure(std::string("epoll_ctl() returned " + err));
-
-        return epoll_fd;
+        err = epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _cancel_efd, &cancel_ev);
+        if (err != 0)
+            throw std::ios_base::failure(std::string("epoll_ctl() returned " + err));
     }
 
     bool arm()
@@ -116,16 +146,41 @@ class UCXXWorker : public UCXXComponent
         return true;
     }
 
-    void progress()
+    bool progress_worker_event()
+    {
+        int ret;
+        epoll_event ev;
+
+        if (progress())
+            return true;
+
+        if ((_epoll_fd == -1) || !arm())
+            return false;
+
+        do {
+            ret = epoll_wait(_epoll_fd, &ev, 1, -1);
+        } while ((ret == - 1) && (errno == EINTR || errno == EAGAIN));
+
+        return false;
+    }
+
+    void cancel_progress_worker_event()
+    {
+        int err = eventfd_write(_cancel_efd, 1);
+        if (err < 0)
+            throw std::ios_base::failure(std::string("eventfd_write() returned " + err));
+    }
+
+    bool wait_progress()
+    {
+        assert_ucs_status(ucp_worker_wait(_handle));
+        return progress();
+    }
+
+    bool progress()
     {
         // Try to progress the communication layer
-
-        // Warning, it is illegal to call this from a call-back function such as
-        // the call-back function given to UCXListener, tag_send_nb, and tag_recv_nb.
-
-        while (ucp_worker_progress(_handle) != 0)
-        {
-        }
+        return ucp_worker_progress(_handle) != 0;
     }
 
     std::shared_ptr<UCXXAddress> getAddress()
