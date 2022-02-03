@@ -17,6 +17,7 @@
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
 #include <ucxx/sockaddr_utils.h>
+#include <ucxx/transfer_tag.h>
 #include <ucxx/utils.h>
 #include <ucxx/worker.h>
 
@@ -183,6 +184,23 @@ class UCXXEndpoint : public UCXXComponent
         params->address = address->getHandle();
 
         return std::shared_ptr<UCXXEndpoint>(new UCXXEndpoint(worker, std::move(params), endpoint_error_handling));
+    }
+
+    ucp_ep_h getHandle()
+    {
+        return _handle;
+    }
+
+    std::shared_ptr<ucxx_request_t> tag_send(void* buffer, size_t length, ucp_tag_t tag)
+    {
+        auto worker = UCXXEndpoint::getWorker(_parent);
+        return tag_msg(worker->get_handle(), _handle, true, buffer, length, tag);
+    }
+
+    std::shared_ptr<ucxx_request_t> tag_recv(void* buffer, size_t length, ucp_tag_t tag)
+    {
+        auto worker = UCXXEndpoint::getWorker(_parent);
+        return tag_msg(worker->get_handle(), _handle, false, buffer, length, tag);
     }
 
 };

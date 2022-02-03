@@ -5,21 +5,14 @@
  */
 #pragma once
 
+#include <future>
+
 namespace ucxx
 {
 
-typedef enum
-{
-    UCXX_REQUEST_STATUS_PENDING = 0,
-    UCXX_REQUEST_STATUS_FINISHED = 1,
-    UCXX_REQUEST_STATUS_UNITIALIZED = -1,
-} ucxx_request_status_t;
-
 typedef struct ucxx_request
 {
-    bool finished;
-    unsigned int uid;
-    ucxx_request_status_t status;
+    std::promise<ucs_status_t> completed_promise;
 } ucxx_request_t;
 
 }  // namespace ucxx

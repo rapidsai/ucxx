@@ -12,7 +12,6 @@
 #include <sstream>
 
 #include <ucxx/exception.h>
-#include <ucxx/typedefs.h>
 
 FILE * create_text_fd()
 {
@@ -44,15 +43,6 @@ std::string decode_text_fd(FILE * text_fd)
 }
 
 
-// This function will be called by UCX only on the very first time
-// a request memory is initialized
-void ucx_py_request_reset(void* request)
-{
-    ucxx::ucxx_request_t* req = (ucxx::ucxx_request_t*) request;
-    req->finished = false;
-    req->uid = 0;
-    req->status = ucxx::UCXX_REQUEST_STATUS_UNITIALIZED;
-}
 ucp_config_t * _read_ucx_config(std::map<std::string, std::string> user_options)
 {
     ucp_config_t *config;

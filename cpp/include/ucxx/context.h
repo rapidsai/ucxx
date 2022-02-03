@@ -44,14 +44,8 @@ class UCXXContext : public UCXXComponent
 
         // UCP
         std::memset(&ucp_params, 0, sizeof(ucp_params));
-        ucp_params.field_mask = (
-            UCP_PARAM_FIELD_FEATURES |
-            UCP_PARAM_FIELD_REQUEST_SIZE |
-            UCP_PARAM_FIELD_REQUEST_INIT
-        );
+        ucp_params.field_mask = UCP_PARAM_FIELD_FEATURES;
         ucp_params.features = feature_flags;
-        ucp_params.request_size = sizeof(ucxx::ucxx_request_t);
-        ucp_params.request_init = ucx_py_request_reset;
 
         assert_ucs_status(ucp_init(&ucp_params, this->_config.get_handle(), &this->_handle));
 
