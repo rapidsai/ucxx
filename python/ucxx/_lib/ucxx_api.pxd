@@ -62,7 +62,6 @@ cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
         ucp_worker_h get_handle() except +
         shared_ptr[UCXXAddress] getAddress() except +
         shared_ptr[UCXXEndpoint] createEndpointFromHostname(string ip_address, uint16_t port, bint endpoint_error_handling) except +
-        shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(ucp_conn_request_h conn_request, bint endpoint_error_handling) except +
         shared_ptr[UCXXEndpoint] createEndpointFromWorkerAddress(shared_ptr[UCXXAddress] address, bint endpoint_error_handling) except +
         shared_ptr[UCXXListener] createListener(uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args) except +
         void progress() except+
@@ -75,7 +74,7 @@ cdef extern from "<ucxx/endpoint.h>" namespace "ucxx" nogil:
 
 cdef extern from "<ucxx/listener.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXListener:
-        pass
+        shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(ucp_conn_request_h conn_request, bint endpoint_error_handling) except +
 
 
 cdef extern from "<ucxx/address.h>" namespace "ucxx" nogil:

@@ -15,6 +15,7 @@
 #include <ucxx/address.h>
 #include <ucxx/component.h>
 #include <ucxx/exception.h>
+#include <ucxx/listener.h>
 #include <ucxx/sockaddr_utils.h>
 #include <ucxx/utils.h>
 #include <ucxx/worker.h>
@@ -38,15 +39,17 @@ class UCXXEndpoint : public UCXXComponent
         bool _endpoint_error_handling{true};
 
     UCXXEndpoint(
-            std::shared_ptr<UCXXWorker> worker,
+            std::shared_ptr<UCXXComponent> worker_or_listener,
             std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
             bool endpoint_error_handling
         ) : _endpoint_error_handling{endpoint_error_handling}
     {
+        auto worker = UCXXEndpoint::getWorker(worker_or_listener);
+
         if (worker == nullptr || worker->get_handle() == nullptr)
             throw ucxx::UCXXError("Worker not initialized");
 
-        setParent(worker);
+        setParent(worker_or_listener);
 
         params->err_mode = UCP_ERR_HANDLING_MODE_NONE;
         params->err_handler.cb = nullptr;
@@ -90,7 +93,7 @@ class UCXXEndpoint : public UCXXComponent
         ucs_status_ptr_t status = ucp_ep_close_nb(_handle, close_mode);
         if (UCS_PTR_IS_PTR(status))
         {
-            auto worker = std::dynamic_pointer_cast<UCXXWorker>(_parent);
+            auto worker = UCXXEndpoint::getWorker(_parent);
             while (ucp_request_check_status(status) == UCS_INPROGRESS)
                 worker->progress();
             ucp_request_free(status);
@@ -101,6 +104,17 @@ class UCXXEndpoint : public UCXXComponent
         }
 
         _parent->removeChild(this);
+    }
+
+    static std::shared_ptr<UCXXWorker> getWorker(std::shared_ptr<UCXXComponent> worker_or_listener)
+    {
+        auto worker = std::dynamic_pointer_cast<UCXXWorker>(worker_or_listener);
+        if (worker == nullptr)
+        {
+            auto listener = std::dynamic_pointer_cast<UCXXListener>(worker_or_listener);
+            worker = std::dynamic_pointer_cast<UCXXWorker>(listener->getParent());
+        }
+        return worker;
     }
 
     friend std::shared_ptr<UCXXEndpoint> createEndpointFromHostname(
@@ -131,12 +145,12 @@ class UCXXEndpoint : public UCXXComponent
     }
 
     friend std::shared_ptr<UCXXEndpoint> createEndpointFromConnRequest(
-            std::shared_ptr<UCXXWorker> worker,
+            std::shared_ptr<UCXXListener> listener,
             ucp_conn_request_h conn_request,
             bool endpoint_error_handling
         )
     {
-        if (worker == nullptr || worker->get_handle() == nullptr)
+        if (listener == nullptr || listener->get_handle() == nullptr)
             throw ucxx::UCXXError("Worker not initialized");
 
         auto params = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
@@ -147,7 +161,7 @@ class UCXXEndpoint : public UCXXComponent
         params->flags = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK;
         params->conn_request = conn_request;
 
-        return std::shared_ptr<UCXXEndpoint>(new UCXXEndpoint(worker, std::move(params), endpoint_error_handling));
+        return std::shared_ptr<UCXXEndpoint>(new UCXXEndpoint(listener, std::move(params), endpoint_error_handling));
     }
 
 

@@ -25,7 +25,7 @@ std::shared_ptr<UCXXEndpoint> createEndpointFromHostname(
 );
 
 std::shared_ptr<UCXXEndpoint> createEndpointFromConnRequest(
-        std::shared_ptr<UCXXWorker> worker,
+        std::shared_ptr<UCXXListener> listener,
         ucp_conn_request_h conn_request,
         bool endpoint_error_handling
 );

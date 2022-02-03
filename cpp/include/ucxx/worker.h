@@ -199,14 +199,6 @@ class UCXXWorker : public UCXXComponent
         return endpoint;
     }
 
-    std::shared_ptr<UCXXEndpoint> createEndpointFromConnRequest(ucp_conn_request_h conn_request, bool endpoint_error_handling=true)
-    {
-        auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());
-        auto endpoint = ucxx::createEndpointFromConnRequest(worker, conn_request, endpoint_error_handling);
-        addChild(std::dynamic_pointer_cast<UCXXComponent>(endpoint));
-        return endpoint;
-    }
-
     std::shared_ptr<UCXXEndpoint> createEndpointFromWorkerAddress(std::shared_ptr<UCXXAddress> address, bool endpoint_error_handling=true)
     {
         auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());

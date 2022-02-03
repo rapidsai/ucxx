@@ -109,6 +109,14 @@ class UCXXListener : public UCXXComponent
         return std::shared_ptr<UCXXListener>(new UCXXListener(worker, port, callback, callback_args));
     }
 
+    std::shared_ptr<UCXXEndpoint> createEndpointFromConnRequest(ucp_conn_request_h conn_request, bool endpoint_error_handling=true)
+    {
+        auto listener = std::dynamic_pointer_cast<UCXXListener>(shared_from_this());
+        auto endpoint = ucxx::createEndpointFromConnRequest(listener, conn_request, endpoint_error_handling);
+        addChild(std::dynamic_pointer_cast<UCXXComponent>(endpoint));
+        return endpoint;
+    }
+
     ucp_listener_h get_handle()
     {
         return _handle.get();

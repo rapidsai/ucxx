@@ -126,9 +126,6 @@ cdef class UCXWorker():
     def createEndpointFromHostname(self, str ip_address, uint16_t port, bint endpoint_error_handling):
         return UCXEndpoint.create(self, ip_address, port, endpoint_error_handling)
 
-    def createEndpointFromConnRequest(self, uintptr_t conn_request, bint endpoint_error_handling):
-        return UCXEndpoint.create_from_conn_request(self, conn_request, endpoint_error_handling)
-
     def createEndpointFromWorkerAddress(self, UCXAddress address, bint endpoint_error_handling):
         return UCXEndpoint.create_from_worker_address(self, address, endpoint_error_handling)
 
@@ -151,9 +148,9 @@ cdef class UCXEndpoint():
         return cls(<uintptr_t><void*>&endpoint)
 
     @classmethod
-    def create_from_conn_request(cls, UCXWorker worker, uintptr_t conn_request, bint endpoint_error_handling):
-        cdef UCXXWorker* w = worker._worker.get()
-        endpoint = w.createEndpointFromConnRequest(<ucp_conn_request_h>conn_request, endpoint_error_handling)
+    def create_from_conn_request(cls, UCXListener listener, uintptr_t conn_request, bint endpoint_error_handling):
+        cdef UCXXListener* l = listener._listener.get()
+        endpoint = l.createEndpointFromConnRequest(<ucp_conn_request_h>conn_request, endpoint_error_handling)
         return cls(<uintptr_t><void*>&endpoint)
 
     @classmethod
@@ -203,3 +200,6 @@ cdef class UCXListener():
 
         listener = w.createListener(port, listener_cb, <void*>cb_data)
         return cls(<uintptr_t><void*>&listener, cb_data)
+
+    def createEndpointFromConnRequest(self, uintptr_t conn_request, bint endpoint_error_handling):
+        return UCXEndpoint.create_from_conn_request(self, conn_request, endpoint_error_handling)
