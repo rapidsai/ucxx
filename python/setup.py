@@ -20,7 +20,8 @@ setup_dir = os.path.dirname(os.path.realpath(__file__))
 include_dirs = [os.path.dirname(get_python_inc())]
 library_dirs = [get_config_var("LIBDIR")]
 libraries = ["ucp", "uct", "ucm", "ucs"]
-extra_compile_args = ["-std=c++14", "-Werror"]
+cpp_extra_compile_args = ["-std=c++14", "-Werror", "-g"]
+c_extra_compile_args = ["-Werror", "-g"]
 depends = []
 
 # Add ucxx headers from the source tree (if available)
@@ -56,7 +57,15 @@ ext_modules = cythonize(
             libraries=libraries,
             depends=depends,
             language="c++",
-            extra_compile_args=extra_compile_args,
+            extra_compile_args=cpp_extra_compile_args,
+        ),
+        Extension(
+            "ucxx._lib.arr",
+            sources=["ucxx/_lib/arr.pyx"],
+            include_dirs=include_dirs,
+            library_dirs=library_dirs,
+            libraries=libraries,
+            extra_compile_args=c_extra_compile_args,
         ),
     ],
     compile_time_env={"CY_UCP_AM_SUPPORTED": _am_supported},
