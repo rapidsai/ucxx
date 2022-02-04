@@ -10,7 +10,19 @@ from libc.stdint cimport uint16_t, uint64_t
 
 from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport shared_ptr
+from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
+
+from .exception import UCXError
+
+
+cdef extern from "<future>" namespace "std" nogil:
+    cdef cppclass future[T]:
+        # future() except +
+        T get() except +
+
+    cdef cppclass promise[T]:
+        future[T] get_future() except +
 
 
 cdef extern from "ucp/api/ucp.h":
@@ -38,6 +50,11 @@ cdef extern from "ucp/api/ucp.h":
     ctypedef struct ucp_address_t:
         pass
 
+    ctypedef uint64_t ucp_tag_t
+
+    ctypedef enum ucs_status_t:
+        pass
+
     int UCP_FEATURE_TAG
     int UCP_FEATURE_WAKEUP
     int UCP_FEATURE_STREAM
@@ -45,6 +62,11 @@ cdef extern from "ucp/api/ucp.h":
     int UCP_FEATURE_AMO32
     int UCP_FEATURE_AMO64
     int UCP_FEATURE_AM
+
+
+cdef extern from "<ucxx/typedefs.h>" namespace "ucxx" nogil:
+    ctypedef struct ucxx_request_t:
+        promise[ucs_status_t] completed_promise;
 
 
 cdef extern from "<ucxx/context.h>" namespace "ucxx" nogil:
@@ -68,11 +90,14 @@ cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
         shared_ptr[UCXXEndpoint] createEndpointFromWorkerAddress(shared_ptr[UCXXAddress] address, bint endpoint_error_handling) except +
         shared_ptr[UCXXListener] createListener(uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args) except +
         void progress() except+
+        void startProgressThread() except +
+        void stopProgressThread() except +
 
 
 cdef extern from "<ucxx/endpoint.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXEndpoint:
-        pass
+        shared_ptr[ucxx_request_t] tag_send(void* buffer, size_t length, ucp_tag_t tag) except +
+        shared_ptr[ucxx_request_t] tag_recv(void* buffer, size_t length, ucp_tag_t tag) except +
 
 
 cdef extern from "<ucxx/listener.h>" namespace "ucxx" nogil:

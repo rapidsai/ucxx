@@ -14,6 +14,7 @@ from libcpp.string cimport string
 from libcpp.utility cimport move
 
 from . cimport ucxx_api
+from .arr cimport Array
 from .ucxx_api cimport *
 
 
@@ -133,6 +134,14 @@ cdef class UCXWorker():
         cdef UCXXWorker* worker = self._worker.get()
         worker.progress()
 
+    def startProgressThread(self):
+        cdef UCXXWorker* worker = self._worker.get()
+        worker.startProgressThread()
+
+    def stopProgressThread(self):
+        cdef UCXXWorker* worker = self._worker.get()
+        worker.stopProgressThread()
+
 
 cdef class UCXEndpoint():
     cdef:
@@ -160,8 +169,20 @@ cdef class UCXEndpoint():
         endpoint = w.createEndpointFromWorkerAddress(a, endpoint_error_handling)
         return cls(<uintptr_t><void*>&endpoint)
 
+    def tag_send(self, Array arr, int tag):
+        cdef UCXXEndpoint* e = self._endpoint.get()
+        cdef shared_ptr[ucxx_request_t] req = e.tag_send(<void*>arr.ptr, arr.nbytes, tag)
+        cdef ucxx_request_t* r = req.get()
+        return r.completed_promise.get_future().get()
 
-cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with gil:
+    def tag_recv(self, Array arr, int tag):
+        cdef UCXXEndpoint* e = self._endpoint.get()
+        cdef shared_ptr[ucxx_request_t] req = e.tag_recv(<void*>arr.ptr, arr.nbytes, tag)
+        cdef ucxx_request_t* r = req.get()
+        return r.completed_promise.get_future().get()
+
+
+cdef void _listener_callback(ucp_conn_request_h conn_request, void *args):
     """Callback function used by UCXListener"""
     cdef dict cb_data = <dict> args
 
