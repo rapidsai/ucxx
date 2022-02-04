@@ -5,6 +5,9 @@
  */
 #pragma once
 
+#include <functional>
+#include <thread>
+
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
@@ -30,6 +33,9 @@ class UCXXWorker : public UCXXComponent
         int _epoll_fd{-1};
         int _worker_fd{-1};
         int _cancel_efd{-1};
+        std::thread _progressThread{};
+        bool _stopProgressThread{false};
+        bool _progressThreadPollingMode{false};
 
     UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context)
     {
@@ -57,7 +63,10 @@ class UCXXWorker : public UCXXComponent
         : _handle{std::exchange(o._handle, nullptr)},
           _epoll_fd{std::exchange(o._epoll_fd, -1)},
           _worker_fd{std::exchange(o._worker_fd, -1)},
-          _cancel_efd{std::exchange(o._cancel_efd, -1)}
+          _cancel_efd{std::exchange(o._cancel_efd, -1)},
+          _progressThread{std::exchange(o._progressThread, {})},
+          _stopProgressThread{std::exchange(o._stopProgressThread, false)},
+          _progressThreadPollingMode{std::exchange(o._progressThreadPollingMode, false)}
     {
     }
 
@@ -67,6 +76,9 @@ class UCXXWorker : public UCXXComponent
         this->_epoll_fd = std::exchange(o._epoll_fd, -1);
         this->_worker_fd = std::exchange(o._worker_fd, -1);
         this->_cancel_efd = std::exchange(o._cancel_efd, -1);
+        this->_progressThread = std::exchange(o._progressThread, {});
+        this->_stopProgressThread = std::exchange(o._stopProgressThread, false);
+        this->_progressThreadPollingMode = std::exchange(o._progressThreadPollingMode, false);
 
         return *this;
     }
@@ -100,6 +112,10 @@ class UCXXWorker : public UCXXComponent
         // We also introduce an additional eventfd to allow
         // canceling the wait.
         int err;
+
+        // Return if blocking progress mode was already initialized
+        if (_epoll_fd >= 0)
+            return;
 
         assert_ucs_status(ucp_worker_get_efd(_handle, &_worker_fd));
 
@@ -179,6 +195,45 @@ class UCXXWorker : public UCXXComponent
     {
         // Try to progress the communication layer
         return ucp_worker_progress(_handle) != 0;
+    }
+
+    static void progressUntilSync(std::function<bool(void)> progressFunction, const bool& stopProgressThread)
+    {
+        while (!stopProgressThread)
+            progressFunction();
+    }
+
+    void startProgressThread(const bool pollingMode = true)
+    {
+        if (_progressThread.joinable())
+            return;
+
+        _stopProgressThread = false;
+        _progressThreadPollingMode = pollingMode;
+
+        if (pollingMode)
+            init_blocking_progress_mode();
+        auto progressFunction = pollingMode ?
+            std::bind(&UCXXWorker::progress_worker_event, this) :
+            std::bind(&UCXXWorker::progress, this);
+        _progressThread = std::thread(
+                UCXXWorker::progressUntilSync,
+                progressFunction,
+                std::ref(_stopProgressThread)
+        );
+    }
+
+    void stopProgressThread()
+    {
+        if (!_progressThread.joinable())
+            return;
+
+        _stopProgressThread = true;
+        if (_progressThreadPollingMode)
+        {
+            cancel_progress_worker_event();
+        }
+        _progressThread.join();
     }
 
     std::shared_ptr<UCXXAddress> getAddress()
