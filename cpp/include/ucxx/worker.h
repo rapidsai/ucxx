@@ -92,6 +92,8 @@ class UCXXWorker : public UCXXComponent
 
     ~UCXXWorker()
     {
+        stopProgressThread();
+
         ucp_worker_destroy(_handle);
 
         if (_epoll_fd >= 0)
