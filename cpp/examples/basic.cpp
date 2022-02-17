@@ -191,41 +191,35 @@ int main(int argc, char **argv)
 
     // Allocate send buffers
     std::vector<int> sendWireupBuffer{1, 2, 3};
-    std::vector<int> sendBuffer1(500);
-    std::iota(std::begin(sendBuffer1), std::end(sendBuffer1), 0);
-    std::vector<int> sendBuffer2(10000);
-    std::iota(std::begin(sendBuffer2), std::end(sendBuffer2), 0);
+    std::vector<std::vector<int>> sendBuffers{std::vector<int>(5), std::vector<int>(500), std::vector<int>(50000)};
 
     // Allocate receive buffers
     std::vector<int> recvWireupBuffer(sendWireupBuffer.size(), 0);
-    std::vector<int> recvBuffer1(sendBuffer1.size(), 0);
-    std::vector<int> recvBuffer2(sendBuffer2.size(), 0);
-
-    // Compute message lengths
-    size_t wireupMsgLength = sendWireupBuffer.size() * sizeof(int);
-    size_t msgLength1 = sendBuffer1.size() * sizeof(int);
-    size_t msgLength2 = sendBuffer2.size() * sizeof(int);
+    std::vector<std::vector<int>> recvBuffers;
+    for (const auto& v : sendBuffers)
+        recvBuffers.push_back(std::vector<int>(v.size(), 0));
 
     // Schedule small wireup messages to let UCX identify capabilities between endpoints
-    promises.push_back(listener_ctx->getEndpoint()->tag_send(sendWireupBuffer.data(), wireupMsgLength, 0));
-    promises.push_back(endpoint->tag_recv(recvWireupBuffer.data(), wireupMsgLength, 0));
+    promises.push_back(listener_ctx->getEndpoint()->tag_send(sendWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
+    promises.push_back(endpoint->tag_recv(recvWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
 
-    // Schedule send and recv messages on different tags and different orders
-    promises.push_back(listener_ctx->getEndpoint()->tag_send(sendBuffer1.data(), msgLength1, 0));
-    promises.push_back(listener_ctx->getEndpoint()->tag_recv(recvBuffer2.data(), msgLength2, 1));
-    promises.push_back(endpoint->tag_send(sendBuffer2.data(), msgLength2, 1));
-    promises.push_back(endpoint->tag_recv(recvBuffer1.data(), msgLength1, 0));
+    // Schedule send and recv messages on different tags and different ordering
+    promises.push_back(listener_ctx->getEndpoint()->tag_send(sendBuffers[0].data(), sendBuffers[0].size() * sizeof(int), 0));
+    promises.push_back(listener_ctx->getEndpoint()->tag_recv(recvBuffers[1].data(), recvBuffers[1].size() * sizeof(int), 1));
+    promises.push_back(listener_ctx->getEndpoint()->tag_send(sendBuffers[2].data(), sendBuffers[2].size() * sizeof(int), 2));
+    promises.push_back(endpoint->tag_recv(recvBuffers[2].data(), recvBuffers[2].size() * sizeof(int), 2));
+    promises.push_back(endpoint->tag_send(sendBuffers[1].data(), sendBuffers[1].size() * sizeof(int), 1));
+    promises.push_back(endpoint->tag_recv(recvBuffers[0].data(), recvBuffers[0].size() * sizeof(int), 0));
 
     // Wait for promises to be set, i.e., transfers complete
     waitPromises(worker, promises);
 
     // Verify results
-    for (size_t i = 0; i < sendWireupBuffer.size(); i++)
+    for (size_t i = 0; i < sendWireupBuffer.size(); ++i)
         assert(recvWireupBuffer[i] == sendWireupBuffer[i]);
-    for (size_t i = 0; i < sendBuffer1.size(); i++)
-        assert(recvBuffer1[i] == sendBuffer1[i]);
-    for (size_t i = 0; i < sendBuffer2.size(); i++)
-        assert(recvBuffer2[i] == sendBuffer2[i]);
+    for (size_t i = 0; i < sendBuffers.size(); ++i)
+        for (size_t j = 0; j < sendBuffers[i].size(); ++j)
+            assert(recvBuffers[i][j] == sendBuffers[i][j]);
 
     // Stop progress thread
     if (progress_mode == PROGRESS_MODE_THREADED)
