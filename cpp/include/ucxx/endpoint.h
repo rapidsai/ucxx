@@ -32,6 +32,13 @@ struct EpParamsDeleter {
     }
 };
 
+void _err_cb(void *arg, ucp_ep_h ep, ucs_status_t status)
+{
+    ucs_status_t* _status = (ucs_status_t*)arg;
+    *_status = status;
+    std::cout << "Error callback called with status " << status << "(" << ucs_status_string(status) << ")" << std::endl;
+}
+
 class UCXXEndpoint : public UCXXComponent
 {
     private:
@@ -53,8 +60,8 @@ class UCXXEndpoint : public UCXXComponent
         setParent(worker_or_listener);
 
         params->err_mode = UCP_ERR_HANDLING_MODE_NONE;
-        params->err_handler.cb = nullptr;
-        params->err_handler.arg = nullptr;
+        params->err_handler.cb = _err_cb;
+        params->err_handler.arg = &_status;
 
         assert_ucs_status(ucp_ep_create(worker->get_handle(), params.get(), &_handle));
     }
