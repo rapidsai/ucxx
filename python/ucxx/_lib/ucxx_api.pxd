@@ -90,7 +90,9 @@ cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
         shared_ptr[UCXXEndpoint] createEndpointFromHostname(string ip_address, uint16_t port, bint endpoint_error_handling) except +
         shared_ptr[UCXXEndpoint] createEndpointFromWorkerAddress(shared_ptr[UCXXAddress] address, bint endpoint_error_handling) except +
         shared_ptr[UCXXListener] createListener(uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args) except +
-        void progress() except+
+        void init_blocking_progress_mode() except +
+        void progress() except +
+        void progress_worker_event() except +
         void startProgressThread() except +
         void stopProgressThread() except +
 

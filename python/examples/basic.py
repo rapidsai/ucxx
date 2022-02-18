@@ -1,15 +1,49 @@
+import argparse
 import numpy as np
 
 from ucxx._lib.arr import Array
 import ucxx._lib.libucxx as ucx_api
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Basic UCXX-Py Example")
+    parser.add_argument(
+        "-m",
+        "--progress-mode",
+        default="threaded",
+        help="Progress mode for the UCP worker. Valid options are: "
+        "'threaded' (default) and 'blocking'.",
+        type=str,
+    )
+    parser.add_argument(
+        "-p",
+        "--port",
+        default=12345,
+        help="The port the listener will bind to.",
+        type=int,
+    )
+
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+
+    valid_progress_modes = ["blocking", "threaded"]
+    if not any(args.progress_mode == v for v in valid_progress_modes):
+        raise ValueError(
+            f"Unknown progress mode '{args.progress_mode}', "
+            f"valid modes are {valid_progress_modes}",
+        )
+
     ctx = ucx_api.UCXContext()
 
     worker = ucx_api.UCXWorker(ctx)
 
-    worker.startProgressThread()
+    if args.progress_mode == "blocking":
+        worker.init_blocking_progress_mode()
+    else:
+        worker.startProgressThread()
 
     wireup_send_buf = np.arange(3)
     wireup_recv_buf = np.empty_like(wireup_send_buf)
@@ -29,20 +63,22 @@ def main():
         listener_ep = listener.createEndpointFromConnRequest(conn_request, True)
         callback_finished = True
 
-    listener = ucx_api.UCXListener.create(worker, 12345, listener_callback,)
+    listener = ucx_api.UCXListener.create(worker, args.port, listener_callback,)
 
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", 12345, endpoint_error_handling=True,
+        worker, "127.0.0.1", args.port, endpoint_error_handling=True,
     )
 
     while listener_ep is None:
-        pass
+        if args.progress_mode == "blocking":
+            worker.progress_worker_event()
 
     wireup_recv_req = ep.tag_send(Array(wireup_send_buf), tag=0)
     wireup_send_req = listener_ep.tag_recv(Array(wireup_recv_buf), tag=0)
 
     while not wireup_recv_req.is_ready() or not wireup_send_req.is_ready():
-        pass
+        if args.progress_mode == "blocking":
+            worker.progress_worker_event()
 
     np.testing.assert_equal(wireup_recv_buf, wireup_send_buf)
 
@@ -55,15 +91,19 @@ def main():
         ep.tag_recv(Array(recv_bufs[2]), tag=2),
     ]
     while not all(r.is_ready() for r in requests):
-        pass
+        if args.progress_mode == "blocking":
+            worker.progress_worker_event()
 
     while callback_finished is not True:
-        pass
+        if args.progress_mode == "blocking":
+            worker.progress_worker_event()
 
-    worker.stopProgressThread()
+    if args.progress_mode == "threaded":
+        worker.stopProgressThread()
 
     for recv_buf, send_buf in zip(recv_bufs, send_bufs):
         np.testing.assert_equal(recv_buf, send_buf)
 
 
-main()
+if __name__ == "__main__":
+    main()

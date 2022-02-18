@@ -130,9 +130,17 @@ cdef class UCXWorker():
     def createEndpointFromWorkerAddress(self, UCXAddress address, bint endpoint_error_handling):
         return UCXEndpoint.create_from_worker_address(self, address, endpoint_error_handling)
 
+    def init_blocking_progress_mode(self):
+        cdef UCXXWorker* worker = self._worker.get()
+        worker.init_blocking_progress_mode()
+
     def progress(self):
         cdef UCXXWorker* worker = self._worker.get()
         worker.progress()
+
+    def progress_worker_event(self):
+        cdef UCXXWorker* worker = self._worker.get()
+        worker.progress_worker_event()
 
     def startProgressThread(self):
         cdef UCXXWorker* worker = self._worker.get()
