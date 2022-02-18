@@ -1,11 +1,14 @@
 #include <memory>
 
+#include <ucxx/typedefs.h>
+
 namespace ucxx
 {
 
 class UCXXAddress;
 class UCXXEndpoint;
 class UCXXListener;
+class UCXXRequest;
 class UCXXWorker;
 
 template <class ...Args>
@@ -41,6 +44,11 @@ std::shared_ptr<UCXXListener> createListener(
         uint16_t port,
         ucp_listener_conn_callback_t callback,
         void *callback_args
+);
+
+std::shared_ptr<UCXXRequest> createRequest(
+        std::shared_ptr<UCXXEndpoint>& endpoint,
+        std::shared_ptr<ucxx_request_t> request
 );
 
 }  // namespace ucxx

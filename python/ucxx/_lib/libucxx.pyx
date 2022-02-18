@@ -143,6 +143,22 @@ cdef class UCXWorker():
         worker.stopProgressThread()
 
 
+cdef class UCXRequest():
+    cdef:
+        shared_ptr[UCXXRequest] _request
+
+    def __init__(self, uintptr_t shared_ptr_request):
+        self._request = (<shared_ptr[UCXXRequest] *> shared_ptr_request)[0]
+
+    def is_ready(self, period_ns=0):
+        cdef UCXXRequest* r = self._request.get()
+        return r.isCompleted(period_ns)
+
+    def wait(self):
+        cdef UCXXRequest* r = self._request.get()
+        return r.wait()
+
+
 cdef class UCXEndpoint():
     cdef:
         shared_ptr[UCXXEndpoint] _endpoint
@@ -171,15 +187,13 @@ cdef class UCXEndpoint():
 
     def tag_send(self, Array arr, int tag):
         cdef UCXXEndpoint* e = self._endpoint.get()
-        cdef shared_ptr[ucxx_request_t] req = e.tag_send(<void*>arr.ptr, arr.nbytes, tag)
-        cdef ucxx_request_t* r = req.get()
-        return r.completed_promise.get_future().get()
+        cdef shared_ptr[UCXXRequest] req = e.tag_send(<void*>arr.ptr, arr.nbytes, tag)
+        return UCXRequest(<uintptr_t><void*>&req)
 
     def tag_recv(self, Array arr, int tag):
         cdef UCXXEndpoint* e = self._endpoint.get()
-        cdef shared_ptr[ucxx_request_t] req = e.tag_recv(<void*>arr.ptr, arr.nbytes, tag)
-        cdef ucxx_request_t* r = req.get()
-        return r.completed_promise.get_future().get()
+        cdef shared_ptr[UCXXRequest] req = e.tag_recv(<void*>arr.ptr, arr.nbytes, tag)
+        return UCXRequest(<uintptr_t><void*>&req)
 
 
 cdef void _listener_callback(ucp_conn_request_h conn_request, void *args):

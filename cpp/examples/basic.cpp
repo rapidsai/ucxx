@@ -137,26 +137,24 @@ ucs_status_t parseCommand(int argc, char* const argv[])
     return UCS_OK;
 }
 
-void waitPromises(std::shared_ptr<ucxx::UCXXWorker> worker, std::vector<std::shared_ptr<ucxx::ucxx_request_t>>& promises)
+void waitRequests(std::shared_ptr<ucxx::UCXXWorker> worker, std::vector<std::shared_ptr<ucxx::UCXXRequest>>& requests)
 {
     // Wait until all messages are completed
     if (progress_mode == PROGRESS_MODE_BLOCKING)
     {
-        for (auto& p : promises)
+        for (auto& r : requests)
         {
-            auto fut = p->completed_promise.get_future();
-            std::future_status status;
             do
             {
                 worker->progress_worker_event();
-                status = fut.wait_for(std::chrono::nanoseconds::zero());
-            } while (status != std::future_status::ready);
+            } while (!r->isCompleted());
+            assert_ucs_status(r->wait());
         }
     }
     else
     {
-        for (auto& p : promises)
-            assert_ucs_status(p->completed_promise.get_future().get());
+        for (auto& r : requests)
+            assert_ucs_status(r->wait());
     }
 }
 
@@ -187,7 +185,7 @@ int main(int argc, char **argv)
         // Else progress thread is enabled
     }
 
-    std::vector<std::shared_ptr<ucxx::ucxx_request_t>> promises;
+    std::vector<std::shared_ptr<ucxx::UCXXRequest>> requests;
 
     // Allocate send buffers
     std::vector<int> sendWireupBuffer{1, 2, 3};
@@ -200,19 +198,19 @@ int main(int argc, char **argv)
         recvBuffers.push_back(std::vector<int>(v.size(), 0));
 
     // Schedule small wireup messages to let UCX identify capabilities between endpoints
-    promises.push_back(listener_ctx->getEndpoint()->tag_send(sendWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
-    promises.push_back(endpoint->tag_recv(recvWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
+    requests.push_back(listener_ctx->getEndpoint()->tag_send(sendWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
+    requests.push_back(endpoint->tag_recv(recvWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
 
     // Schedule send and recv messages on different tags and different ordering
-    promises.push_back(listener_ctx->getEndpoint()->tag_send(sendBuffers[0].data(), sendBuffers[0].size() * sizeof(int), 0));
-    promises.push_back(listener_ctx->getEndpoint()->tag_recv(recvBuffers[1].data(), recvBuffers[1].size() * sizeof(int), 1));
-    promises.push_back(listener_ctx->getEndpoint()->tag_send(sendBuffers[2].data(), sendBuffers[2].size() * sizeof(int), 2));
-    promises.push_back(endpoint->tag_recv(recvBuffers[2].data(), recvBuffers[2].size() * sizeof(int), 2));
-    promises.push_back(endpoint->tag_send(sendBuffers[1].data(), sendBuffers[1].size() * sizeof(int), 1));
-    promises.push_back(endpoint->tag_recv(recvBuffers[0].data(), recvBuffers[0].size() * sizeof(int), 0));
+    requests.push_back(listener_ctx->getEndpoint()->tag_send(sendBuffers[0].data(), sendBuffers[0].size() * sizeof(int), 0));
+    requests.push_back(listener_ctx->getEndpoint()->tag_recv(recvBuffers[1].data(), recvBuffers[1].size() * sizeof(int), 1));
+    requests.push_back(listener_ctx->getEndpoint()->tag_send(sendBuffers[2].data(), sendBuffers[2].size() * sizeof(int), 2));
+    requests.push_back(endpoint->tag_recv(recvBuffers[2].data(), recvBuffers[2].size() * sizeof(int), 2));
+    requests.push_back(endpoint->tag_send(sendBuffers[1].data(), sendBuffers[1].size() * sizeof(int), 1));
+    requests.push_back(endpoint->tag_recv(recvBuffers[0].data(), recvBuffers[0].size() * sizeof(int), 0));
 
-    // Wait for promises to be set, i.e., transfers complete
-    waitPromises(worker, promises);
+    // Wait for requests to be set, i.e., transfers complete
+    waitRequests(worker, requests);
 
     // Verify results
     for (size_t i = 0; i < sendWireupBuffer.size(); ++i)

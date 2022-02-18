@@ -6,8 +6,9 @@
 
 from posix cimport fcntl
 
-from libc.stdint cimport uint16_t, uint64_t
+from libc.stdint cimport int64_t, uint16_t, uint64_t
 
+from libcpp cimport bool as cpp_bool
 from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport shared_ptr
 from libcpp.memory cimport shared_ptr
@@ -96,8 +97,8 @@ cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
 
 cdef extern from "<ucxx/endpoint.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXEndpoint:
-        shared_ptr[ucxx_request_t] tag_send(void* buffer, size_t length, ucp_tag_t tag) except +
-        shared_ptr[ucxx_request_t] tag_recv(void* buffer, size_t length, ucp_tag_t tag) except +
+        shared_ptr[UCXXRequest] tag_send(void* buffer, size_t length, ucp_tag_t tag) except +
+        shared_ptr[UCXXRequest] tag_recv(void* buffer, size_t length, ucp_tag_t tag) except +
 
 
 cdef extern from "<ucxx/listener.h>" namespace "ucxx" nogil:
@@ -110,3 +111,9 @@ cdef extern from "<ucxx/address.h>" namespace "ucxx" nogil:
         ucp_address_t* getHandle()
         size_t getLength()
         string getString()
+
+
+cdef extern from "<ucxx/request.h>" namespace "ucxx" nogil:
+    cdef cppclass UCXXRequest:
+        ucs_status_t wait()
+        cpp_bool isCompleted(int64_t period_ns)

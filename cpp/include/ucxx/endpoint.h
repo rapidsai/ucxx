@@ -24,6 +24,8 @@
 namespace ucxx
 {
 
+class UCXXRequest;
+
 struct EpParamsDeleter {
     void operator()(ucp_ep_params_t* ptr)
     {
@@ -196,16 +198,24 @@ class UCXXEndpoint : public UCXXComponent
         return _handle;
     }
 
-    std::shared_ptr<ucxx_request_t> tag_send(void* buffer, size_t length, ucp_tag_t tag)
+    std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<ucxx_request_t> request)
     {
-        auto worker = UCXXEndpoint::getWorker(_parent);
-        return tag_msg(worker->get_handle(), _handle, true, buffer, length, tag);
+        auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
+        return ucxx::createRequest(endpoint, request);
     }
 
-    std::shared_ptr<ucxx_request_t> tag_recv(void* buffer, size_t length, ucp_tag_t tag)
+    std::shared_ptr<UCXXRequest> tag_send(void* buffer, size_t length, ucp_tag_t tag)
     {
         auto worker = UCXXEndpoint::getWorker(_parent);
-        return tag_msg(worker->get_handle(), _handle, false, buffer, length, tag);
+        auto request = tag_msg(worker->get_handle(), _handle, true, buffer, length, tag);
+        return createRequest(request);
+    }
+
+    std::shared_ptr<UCXXRequest> tag_recv(void* buffer, size_t length, ucp_tag_t tag)
+    {
+        auto worker = UCXXEndpoint::getWorker(_parent);
+        auto request = tag_msg(worker->get_handle(), _handle, false, buffer, length, tag);
+        return createRequest(request);
     }
 
 };
