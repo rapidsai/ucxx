@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import numpy as np
 
 from ucxx._lib.arr import Array
@@ -7,6 +8,13 @@ import ucxx._lib.libucxx as ucx_api
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Basic UCXX-Py Example")
+    parser.add_argument(
+        "-a",
+        "--asyncio",
+        default=False,
+        action="store_true",
+        help="Wait for transfer requests with Python's asyncio.",
+    )
     parser.add_argument(
         "-m",
         "--progress-mode",
@@ -76,7 +84,7 @@ def main():
     wireup_recv_req = ep.tag_send(Array(wireup_send_buf), tag=0)
     wireup_send_req = listener_ep.tag_recv(Array(wireup_recv_buf), tag=0)
 
-    while not wireup_recv_req.is_ready() or not wireup_send_req.is_ready():
+    while not wireup_recv_req.is_completed() or not wireup_send_req.is_completed():
         if args.progress_mode == "blocking":
             worker.progress_worker_event()
 
@@ -90,9 +98,23 @@ def main():
         ep.tag_recv(Array(recv_bufs[1]), tag=1),
         ep.tag_recv(Array(recv_bufs[2]), tag=2),
     ]
-    while not all(r.is_ready() for r in requests):
-        if args.progress_mode == "blocking":
-            worker.progress_worker_event()
+
+    if args.asyncio:
+        async def wait_for_requests(requests):
+            await asyncio.gather(*[r.is_completed_async() for r in requests])
+            # Check results, raises an exception if any of them failed
+            for r in requests:
+                r.wait()
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(wait_for_requests(requests))
+    else:
+        while not all(r.is_completed() for r in requests):
+            if args.progress_mode == "blocking":
+                worker.progress_worker_event()
+        # Check results, raises an exception if any of them failed
+        for r in requests:
+            r.wait()
 
     while callback_finished is not True:
         if args.progress_mode == "blocking":

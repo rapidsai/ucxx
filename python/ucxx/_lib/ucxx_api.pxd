@@ -27,6 +27,7 @@ cdef extern from "<future>" namespace "std" nogil:
 
 
 cdef extern from "ucp/api/ucp.h":
+    # Typedefs
     ctypedef struct ucp_context:
         pass
 
@@ -56,6 +57,9 @@ cdef extern from "ucp/api/ucp.h":
     ctypedef enum ucs_status_t:
         pass
 
+    # Constants
+    ucs_status_t UCS_OK
+
     int UCP_FEATURE_TAG
     int UCP_FEATURE_WAKEUP
     int UCP_FEATURE_STREAM
@@ -63,6 +67,9 @@ cdef extern from "ucp/api/ucp.h":
     int UCP_FEATURE_AMO32
     int UCP_FEATURE_AMO64
     int UCP_FEATURE_AM
+
+    # Functions
+    const char *ucs_status_string(ucs_status_t status)
 
 
 cdef extern from "<ucxx/typedefs.h>" namespace "ucxx" nogil:

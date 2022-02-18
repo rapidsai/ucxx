@@ -4,6 +4,7 @@
 # distutils: language = c++
 # cython: language_level=3
 
+import asyncio
 import enum
 import functools
 
@@ -158,13 +159,26 @@ cdef class UCXRequest():
     def __init__(self, uintptr_t shared_ptr_request):
         self._request = (<shared_ptr[UCXXRequest] *> shared_ptr_request)[0]
 
-    def is_ready(self, period_ns=0):
+    def is_completed(self, period_ns=0):
         cdef UCXXRequest* r = self._request.get()
         return r.isCompleted(period_ns)
 
     def wait(self):
         cdef UCXXRequest* r = self._request.get()
-        return r.wait()
+        cdef ucs_status_t status = r.wait()
+
+        if status == UCS_OK:
+            return
+
+        cdef str error_msg = ucs_status_string(status).decode("utf-8")
+
+        raise RuntimeError(error_msg)
+
+    async def is_completed_async(self, period_ns=0):
+        while True:
+            if self.is_ready():
+                return True
+            await asyncio.sleep(0)
 
 
 cdef class UCXEndpoint():
