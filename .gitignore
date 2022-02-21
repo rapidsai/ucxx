@@ -4,7 +4,9 @@ _build
 build
 python/ucxx/_lib/*.a
 python/ucxx/_lib/*.o
+python/ucxx/_lib/*.c
 python/ucxx/_lib/*.cpp
+python/ucxx/_lib/*.h
 
 dask-worker-space
 dist/
