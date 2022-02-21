@@ -29,7 +29,7 @@ class UCXXRequest;
 struct EpParamsDeleter {
     void operator()(ucp_ep_params_t* ptr)
     {
-        if (ptr != nullptr && ptr->field_mask & UCP_EP_PARAM_FIELD_FLAGS)
+        if (ptr != nullptr && ptr->field_mask & UCP_EP_PARAM_FIELD_SOCK_ADDR)
             sockaddr_utils_free(&ptr->sockaddr);
     }
 };

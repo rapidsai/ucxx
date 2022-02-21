@@ -68,7 +68,7 @@ def main():
 
     def listener_callback(conn_request):
         global listener_ep, callback_finished
-        listener_ep = listener.create_endpoint_from_conn_requests(conn_request, True)
+        listener_ep = listener.create_endpoint_from_conn_request(conn_request, True)
         callback_finished = True
 
     listener = ucx_api.UCXListener.create(worker, args.port, listener_callback,)
