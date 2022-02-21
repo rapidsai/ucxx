@@ -77,6 +77,10 @@ cdef extern from "<ucxx/typedefs.h>" namespace "ucxx" nogil:
         promise[ucs_status_t] completed_promise;
 
 
+cdef extern from "<ucxx/exception_py.h>" namespace "ucxx" nogil:
+    cdef void raise_py_error()
+
+
 cdef extern from "<ucxx/context.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXContext:
         UCXXContext()
@@ -96,7 +100,7 @@ cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
         shared_ptr[UCXXAddress] getAddress() except +
         shared_ptr[UCXXEndpoint] createEndpointFromHostname(string ip_address, uint16_t port, bint endpoint_error_handling) except +
         shared_ptr[UCXXEndpoint] createEndpointFromWorkerAddress(shared_ptr[UCXXAddress] address, bint endpoint_error_handling) except +
-        shared_ptr[UCXXListener] createListener(uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args) except +
+        shared_ptr[UCXXListener] createListener(uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args) except +raise_py_error
         void init_blocking_progress_mode() except +
         void progress() except +
         void progress_worker_event() except +

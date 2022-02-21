@@ -14,10 +14,32 @@ from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport move
 
+from cpython.ref cimport PyObject
+
 from . cimport ucxx_api
 from .arr cimport Array
 from .ucxx_api cimport *
 
+
+###############################################################################
+#                               Exceptions                                    #
+###############################################################################
+
+class UCXXError(Exception):
+    pass
+
+
+class UCXXConfigError(UCXXError):
+    pass
+
+
+cdef public PyObject* ucxx_error = <PyObject*>UCXXError
+cdef public PyObject* ucxx_config_error = <PyObject*>UCXXConfigError
+
+
+###############################################################################
+#                                   Types                                     #
+###############################################################################
 
 class Feature(enum.Enum):
     TAG = UCP_FEATURE_TAG
@@ -28,6 +50,10 @@ class Feature(enum.Enum):
     STREAM = UCP_FEATURE_STREAM
     AM = UCP_FEATURE_AM
 
+
+###############################################################################
+#                                   Classes                                   #
+###############################################################################
 
 cdef class UCXContext():
     """Python representation of `ucp_context_h`
