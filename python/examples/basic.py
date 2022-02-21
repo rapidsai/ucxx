@@ -51,7 +51,7 @@ def main():
     if args.progress_mode == "blocking":
         worker.init_blocking_progress_mode()
     else:
-        worker.startProgressThread()
+        worker.start_progress_thread()
 
     wireup_send_buf = np.arange(3)
     wireup_recv_buf = np.empty_like(wireup_send_buf)
@@ -68,7 +68,7 @@ def main():
 
     def listener_callback(conn_request):
         global listener_ep, callback_finished
-        listener_ep = listener.createEndpointFromConnRequest(conn_request, True)
+        listener_ep = listener.create_endpoint_from_conn_requests(conn_request, True)
         callback_finished = True
 
     listener = ucx_api.UCXListener.create(worker, args.port, listener_callback,)
@@ -121,7 +121,7 @@ def main():
             worker.progress_worker_event()
 
     if args.progress_mode == "threaded":
-        worker.stopProgressThread()
+        worker.stop_progress_thread()
 
     for recv_buf, send_buf in zip(recv_bufs, send_bufs):
         np.testing.assert_equal(recv_buf, send_buf)

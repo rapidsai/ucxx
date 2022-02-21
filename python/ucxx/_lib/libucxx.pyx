@@ -125,10 +125,10 @@ cdef class UCXWorker():
     def get_address(self):
         return UCXAddress.create_from_worker(self)
 
-    def createEndpointFromHostname(self, str ip_address, uint16_t port, bint endpoint_error_handling):
+    def create_endpoint_from_hostname(self, str ip_address, uint16_t port, bint endpoint_error_handling):
         return UCXEndpoint.create(self, ip_address, port, endpoint_error_handling)
 
-    def createEndpointFromWorkerAddress(self, UCXAddress address, bint endpoint_error_handling):
+    def create_endpoint_from_worker_address(self, UCXAddress address, bint endpoint_error_handling):
         return UCXEndpoint.create_from_worker_address(self, address, endpoint_error_handling)
 
     def init_blocking_progress_mode(self):
@@ -143,11 +143,11 @@ cdef class UCXWorker():
         cdef UCXXWorker* worker = self._worker.get()
         worker.progress_worker_event()
 
-    def startProgressThread(self):
+    def start_progress_thread(self):
         cdef UCXXWorker* worker = self._worker.get()
         worker.startProgressThread()
 
-    def stopProgressThread(self):
+    def stop_progress_thread(self):
         cdef UCXXWorker* worker = self._worker.get()
         worker.stopProgressThread()
 
@@ -258,5 +258,5 @@ cdef class UCXListener():
         listener = w.createListener(port, listener_cb, <void*>cb_data)
         return cls(<uintptr_t><void*>&listener, cb_data)
 
-    def createEndpointFromConnRequest(self, uintptr_t conn_request, bint endpoint_error_handling):
+    def create_endpoint_from_conn_request(self, uintptr_t conn_request, bint endpoint_error_handling):
         return UCXEndpoint.create_from_conn_request(self, conn_request, endpoint_error_handling)
