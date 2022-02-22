@@ -119,6 +119,11 @@ class UCXXListener : public UCXXComponent
     {
         return _handle.get();
     }
+
+    uint16_t getPort()
+    {
+        return _port;
+    }
 };
 
 }  // namespace ucxx

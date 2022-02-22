@@ -117,6 +117,7 @@ cdef extern from "<ucxx/endpoint.h>" namespace "ucxx" nogil:
 cdef extern from "<ucxx/listener.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXListener:
         shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(ucp_conn_request_h conn_request, bint endpoint_error_handling) except +
+        uint16_t getPort()
 
 
 cdef extern from "<ucxx/address.h>" namespace "ucxx" nogil:

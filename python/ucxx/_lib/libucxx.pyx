@@ -284,5 +284,10 @@ cdef class UCXListener():
         listener = w.createListener(port, listener_cb, <void*>cb_data)
         return cls(<uintptr_t><void*>&listener, cb_data)
 
+    @property
+    def port(self):
+        cdef UCXXListener* l = self._listener.get()
+        return l.getPort()
+
     def create_endpoint_from_conn_request(self, uintptr_t conn_request, bint endpoint_error_handling):
         return UCXEndpoint.create_from_conn_request(self, conn_request, endpoint_error_handling)
