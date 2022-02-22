@@ -85,38 +85,38 @@ cdef extern from "<ucxx/context.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXContext:
         UCXXContext()
         @staticmethod
-        shared_ptr[UCXXContext] create(cpp_map[string, string] ucx_config, uint64_t feature_flags) except +
-        shared_ptr[UCXXWorker] createWorker() except +
-        cpp_map[string, string] get_config() except +
-        ucp_context_h get_handle() except +
-        string get_info() except +
+        shared_ptr[UCXXContext] create(cpp_map[string, string] ucx_config, uint64_t feature_flags) except +raise_py_error
+        shared_ptr[UCXXWorker] createWorker() except +raise_py_error
+        cpp_map[string, string] get_config() except +raise_py_error
+        ucp_context_h get_handle()
+        string get_info() except +raise_py_error
 
 
 cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXWorker:
         UCXXWorker()
         UCXXWorker(shared_ptr[UCXXContext] context) except +
-        ucp_worker_h get_handle() except +
-        shared_ptr[UCXXAddress] getAddress() except +
-        shared_ptr[UCXXEndpoint] createEndpointFromHostname(string ip_address, uint16_t port, bint endpoint_error_handling) except +
-        shared_ptr[UCXXEndpoint] createEndpointFromWorkerAddress(shared_ptr[UCXXAddress] address, bint endpoint_error_handling) except +
+        ucp_worker_h get_handle()
+        shared_ptr[UCXXAddress] getAddress() except +raise_py_error
+        shared_ptr[UCXXEndpoint] createEndpointFromHostname(string ip_address, uint16_t port, bint endpoint_error_handling) except +raise_py_error
+        shared_ptr[UCXXEndpoint] createEndpointFromWorkerAddress(shared_ptr[UCXXAddress] address, bint endpoint_error_handling) except +raise_py_error
         shared_ptr[UCXXListener] createListener(uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args) except +raise_py_error
-        void init_blocking_progress_mode() except +
-        void progress() except +
-        void progress_worker_event() except +
-        void startProgressThread() except +
-        void stopProgressThread() except +
+        void init_blocking_progress_mode() except +raise_py_error
+        void progress()
+        void progress_worker_event()
+        void startProgressThread() except +raise_py_error
+        void stopProgressThread() except +raise_py_error
 
 
 cdef extern from "<ucxx/endpoint.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXEndpoint:
-        shared_ptr[UCXXRequest] tag_send(void* buffer, size_t length, ucp_tag_t tag) except +
-        shared_ptr[UCXXRequest] tag_recv(void* buffer, size_t length, ucp_tag_t tag) except +
+        shared_ptr[UCXXRequest] tag_send(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
+        shared_ptr[UCXXRequest] tag_recv(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
 
 
 cdef extern from "<ucxx/listener.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXListener:
-        shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(ucp_conn_request_h conn_request, bint endpoint_error_handling) except +
+        shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(ucp_conn_request_h conn_request, bint endpoint_error_handling) except +raise_py_error
         uint16_t getPort()
 
 
