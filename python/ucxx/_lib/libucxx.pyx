@@ -244,7 +244,7 @@ cdef class UCXEndpoint():
         return UCXRequest(<uintptr_t><void*>&req)
 
 
-cdef void _listener_callback(ucp_conn_request_h conn_request, void *args):
+cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with gil:
     """Callback function used by UCXListener"""
     cdef dict cb_data = <dict> args
 
