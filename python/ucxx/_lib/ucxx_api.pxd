@@ -17,15 +17,6 @@ from libcpp.string cimport string
 from .exception import UCXError
 
 
-cdef extern from "<future>" namespace "std" nogil:
-    cdef cppclass future[T]:
-        # future() except +
-        T get() except +
-
-    cdef cppclass promise[T]:
-        future[T] get_future() except +
-
-
 cdef extern from "ucp/api/ucp.h":
     # Typedefs
     ctypedef struct ucp_context:
@@ -70,11 +61,6 @@ cdef extern from "ucp/api/ucp.h":
 
     # Functions
     const char *ucs_status_string(ucs_status_t status)
-
-
-cdef extern from "<ucxx/typedefs.h>" namespace "ucxx" nogil:
-    ctypedef struct ucxx_request_t:
-        promise[ucs_status_t] completed_promise;
 
 
 cdef extern from "<ucxx/exception_py.h>" namespace "ucxx" nogil:

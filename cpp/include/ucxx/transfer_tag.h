@@ -23,7 +23,7 @@ static void _callback(void *request, ucs_status_t status, void *arg, std::string
                    operation.c_str(), status, ucs_status_string(status));
 
     status = ucp_request_check_status(request);
-    ucxx_req->completed_promise.set_value(UCS_OK);
+    ucxx_req->status = status;
 
     ucp_request_free(request);
 }
@@ -73,8 +73,7 @@ static void request_wait(ucp_worker_h worker, void *request,
         ucxx_trace_req("%s completed immediately", operationName.c_str());
     }
 
-    ucxx_req->completed_promise.set_value(status);
-    return;
+    ucxx_req->status = status;
 }
 
 

@@ -5,15 +5,13 @@
  */
 #pragma once
 
-#include <future>
-
 namespace ucxx
 {
 
 // Non-blocking requests
 typedef struct ucxx_request
 {
-    std::promise<ucs_status_t> completed_promise;
+    ucs_status_t status = UCS_INPROGRESS;
 } ucxx_request_t;
 
 // Logging levels
