@@ -15,8 +15,9 @@
 #include <ucxx/constructors.h>
 #include <ucxx/component.h>
 #include <ucxx/config.h>
+#include <ucxx/initializer.h>
+#include <ucxx/log.h>
 #include <ucxx/utils.h>
-//#include <ucxx/worker.h>
 
 namespace ucxx
 {
@@ -42,6 +43,8 @@ class UCXXContext : public UCXXComponent
     {
         ucp_params_t ucp_params;
 
+        ucxx::UCXXInitializer::getInstance();
+
         // UCP
         std::memset(&ucp_params, 0, sizeof(ucp_params));
         ucp_params.field_mask = UCP_PARAM_FIELD_FEATURES;
@@ -55,9 +58,9 @@ class UCXXContext : public UCXXComponent
         if (tls != config_map.end())
             this->_cuda_support = tls->second == "all" || tls->second.find("cuda") != std::string::npos;
 
-        std::cout << "UCP initiated using config: " << std::endl;
+        ucxx_info("UCP initiated using config: ");
         for (const auto& kv : config_map)
-            std::cout << "  " << kv.first << ": " << kv.second << std::endl;
+            ucxx_info("  %s: %s", kv.first.c_str(), kv.second.c_str());
     }
 
     UCXXContext(const UCXXContext&) = delete;

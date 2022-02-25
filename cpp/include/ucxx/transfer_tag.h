@@ -15,14 +15,12 @@ static void _callback(void *request, ucs_status_t status, void *arg, std::string
     ucxx_request_t* ucxx_req = (ucxx_request_t*)arg;
 
     if (ucxx_req == nullptr)
-        std::cerr << "[0x" << std::hex << std::this_thread::get_id() << "] " <<
-            "error when _callback was called for \"" << operation << "\", " <<
-            "probably due to tag_msg() return value being deleted before completion." <<
-            std::endl;
+        ucxx_error("error when _callback was called for \"%s\", "
+                   "probably due to tag_msg() return value being deleted "
+                   "before completion.", operation.c_str());
 
-    std::cout << "[0x" << std::hex << std::this_thread::get_id() << "] _callback called for \"" <<
-        operation << "\" with status " << status << " (" << ucs_status_string(status) << ")" <<
-        std::endl;
+    ucxx_trace_req("_calback called for \"%s\" with status %d (%s)",
+                   operation.c_str(), status, ucs_status_string(status));
 
     status = ucp_request_check_status(request);
     ucxx_req->completed_promise.set_value(UCS_OK);
@@ -32,11 +30,13 @@ static void _callback(void *request, ucs_status_t status, void *arg, std::string
 
 static void tag_send_callback(void *request, ucs_status_t status, void *arg)
 {
+    ucxx_trace_req("tag_send_callback");
     return _callback(request, status, arg, std::string{"tag_send"});
 }
 
 static void tag_recv_callback(void *request, ucs_status_t status, const ucp_tag_recv_info_t *info, void *arg)
 {
+    ucxx_trace_req("tag_recv_callback");
     return _callback(request, status, arg, std::string{"tag_recv"});
 }
 
@@ -63,10 +63,15 @@ static void request_wait(ucp_worker_h worker, void *request,
     }
 
     if (status != UCS_OK)
-        std::cerr << "error on " << operationName << "(" <<
-            ucs_status_string(status) << ")" << std::endl;
+    {
+        ucxx_error("error on %s with status %d (%s)",
+                   operationName.c_str(), status, ucs_status_string(status));
+        throw UCXXError(std::string("Error on ") + operationName + std::string(" message"));
+    }
     else
-        std::cout << operationName << " completed" << std::endl;
+    {
+        ucxx_trace_req("%s completed immediately", operationName.c_str());
+    }
 
     ucxx_req->completed_promise.set_value(status);
     return;
@@ -107,6 +112,8 @@ std::shared_ptr<ucxx_request_t> tag_msg(ucp_worker_h worker, ucp_ep_h ep,
     std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
     std::string operationName{send ? "tag_send" : "tag_recv"};
     void* status = tag_request(worker, ep, send, buffer, length, tag, request.get());
+    ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
+                   operationName.c_str(), status, buffer, length);
     request_wait(worker, status, request.get(), operationName);
     return request;
 }

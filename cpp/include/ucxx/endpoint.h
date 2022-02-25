@@ -38,7 +38,7 @@ void _err_cb(void *arg, ucp_ep_h ep, ucs_status_t status)
 {
     ucs_status_t* _status = (ucs_status_t*)arg;
     *_status = status;
-    std::cout << "Error callback called with status " << status << "(" << ucs_status_string(status) << ")" << std::endl;
+    ucxx_error("Error callback called with status %d (%s)", status, ucs_status_string(status));
 }
 
 class UCXXEndpoint : public UCXXComponent
