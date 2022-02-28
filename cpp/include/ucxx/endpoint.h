@@ -61,7 +61,9 @@ class UCXXEndpoint : public UCXXComponent
 
         setParent(worker_or_listener);
 
-        params->err_mode = UCP_ERR_HANDLING_MODE_NONE;
+        params->err_mode = (endpoint_error_handling ?
+                            UCP_ERR_HANDLING_MODE_PEER :
+                            UCP_ERR_HANDLING_MODE_NONE);
         params->err_handler.cb = _err_cb;
         params->err_handler.arg = &_status;
 
@@ -93,7 +95,7 @@ class UCXXEndpoint : public UCXXComponent
             return;
 
         // Close the endpoint
-        unsigned close_mode = UCP_EP_CLOSE_MODE_FLUSH;
+        unsigned close_mode = UCP_EP_CLOSE_MODE_FORCE;
         if (_endpoint_error_handling and _status != UCS_OK)
         {
             // We force close endpoint if endpoint error handling is enabled and
