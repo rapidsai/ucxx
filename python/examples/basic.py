@@ -6,14 +6,24 @@ from ucxx._lib.arr import Array
 import ucxx._lib.libucxx as ucx_api
 
 
+async def _wait_requests_async(worker, requests):
+    await asyncio.gather(*[r.is_completed_async() for r in requests])
+
+
+def _wait_requests(worker, progress_mode, requests):
+    while not all([r.is_completed() for r in requests]):
+        if progress_mode == "blocking":
+            worker.progress_worker_event()
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Basic UCXX-Py Example")
     parser.add_argument(
-        "-a",
-        "--asyncio",
+        "--asyncio-wait",
         default=False,
         action="store_true",
-        help="Wait for transfer requests with Python's asyncio.",
+        help="Wait for transfer requests with Python's asyncio, requires"
+        "--threaded-progress. (Default: disabled)",
     )
     parser.add_argument(
         "-m",
@@ -31,7 +41,13 @@ def parse_args():
         type=int,
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.asyncio_wait and args.progress_mode != "threaded":
+        raise RuntimeError(
+            "`--asyncio-wait` requires `--progress-mode='threaded'`"
+        )
+
+    return args
 
 
 def main():
@@ -62,14 +78,12 @@ def main():
     ]
     recv_bufs = [np.empty_like(b) for b in send_bufs]
 
-    global listener_ep, callback_finished
+    global listener_ep
     listener_ep = None
-    callback_finished = False
 
     def listener_callback(conn_request):
-        global listener_ep, callback_finished
+        global listener_ep
         listener_ep = listener.create_endpoint_from_conn_request(conn_request, True)
-        callback_finished = True
 
     listener = ucx_api.UCXListener.create(worker, args.port, listener_callback,)
 
@@ -81,12 +95,11 @@ def main():
         if args.progress_mode == "blocking":
             worker.progress_worker_event()
 
-    wireup_recv_req = ep.tag_send(Array(wireup_send_buf), tag=0)
-    wireup_send_req = listener_ep.tag_recv(Array(wireup_recv_buf), tag=0)
-
-    while not wireup_recv_req.is_completed() or not wireup_send_req.is_completed():
-        if args.progress_mode == "blocking":
-            worker.progress_worker_event()
+    wireup_requests = [
+        ep.tag_send(Array(wireup_send_buf), tag=0),
+        listener_ep.tag_recv(Array(wireup_recv_buf), tag=0),
+    ]
+    _wait_requests(worker, args.progress_mode, wireup_requests)
 
     np.testing.assert_equal(wireup_recv_buf, wireup_send_buf)
 
@@ -99,26 +112,15 @@ def main():
         ep.tag_recv(Array(recv_bufs[2]), tag=2),
     ]
 
-    if args.asyncio:
-        async def wait_for_requests(requests):
-            await asyncio.gather(*[r.is_completed_async() for r in requests])
-            # Check results, raises an exception if any of them failed
-            for r in requests:
-                r.wait()
-
+    if args.asyncio_wait:
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(wait_for_requests(requests))
+        loop.run_until_complete(_wait_requests_async(worker, requests))
     else:
-        while not all(r.is_completed() for r in requests):
-            if args.progress_mode == "blocking":
-                worker.progress_worker_event()
+        _wait_requests(worker, args.progress_mode, requests)
+
         # Check results, raises an exception if any of them failed
         for r in requests:
             r.wait()
-
-    while callback_finished is not True:
-        if args.progress_mode == "blocking":
-            worker.progress_worker_event()
 
     if args.progress_mode == "threaded":
         worker.stop_progress_thread()

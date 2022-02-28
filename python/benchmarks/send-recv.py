@@ -1,44 +1,24 @@
 """
-Benchmark send receive on one machine (UCX < 1.10):
-UCX_TLS=tcp,sockcm,cuda_copy,cuda_ipc UCX_SOCKADDR_TLS_PRIORITY=sockcm python \
-    send-recv-core.py --server-dev 2 --client-dev 1 \
-    --object_type rmm --reuse-alloc --n-bytes 1GB
-
-
-Benchmark send receive on one machine (UCX >= 1.10):
-UCX_TLS=tcp,cuda_copy,cuda_ipc python send-recv-core.py \
+Benchmark send receive on one machine:
+UCX_TLS=tcp,cuda_copy,cuda_ipc python send-recv.py \
         --server-dev 2 --client-dev 1 --object_type rmm \
         --reuse-alloc --n-bytes 1GB
 
 
-Benchmark send receive on two machines (IB testing, UCX < 1.10):
+Benchmark send receive on two machines (IB testing):
 # server process
-UCX_NET_DEVICES=mlx5_0:1 UCX_TLS=tcp,sockcm,cuda_copy,rc \
-    UCX_SOCKADDR_TLS_PRIORITY=sockcm python send-recv-core.py \
-    --server-dev 0 --client-dev 5 --object_type rmm --reuse-alloc \
-    --n-bytes 1GB --server-only --port 13337 --n-iter 100
-
-# client process
-UCX_NET_DEVICES=mlx5_2:1 UCX_TLS=tcp,sockcm,cuda_copy,rc \
-    UCX_SOCKADDR_TLS_PRIORITY=sockcm python send-recv-core.py \
-    --server-dev 0 --client-dev 5 --object_type rmm --reuse-alloc \
-    --n-bytes 1GB --client-only --server-address SERVER_IP --port 13337 \
-    --n-iter 100
-
-
-Benchmark send receive on two machines (IB testing, UCX >= 1.10):
-# server process
-UCX_MAX_RNDV_RAILS=1 UCX_TLS=tcp,cuda_copy,rc python send-recv-core.py \
+UCX_MAX_RNDV_RAILS=1 UCX_TLS=tcp,cuda_copy,rc python send-recv.py \
         --server-dev 0 --client-dev 5 --object_type rmm --reuse-alloc \
         --n-bytes 1GB --server-only --port 13337 --n-iter 100
 
 # client process
-UCX_MAX_RNDV_RAILS=1 UCX_TLS=tcp,cuda_copy,rc python send-recv-core.py \
+UCX_MAX_RNDV_RAILS=1 UCX_TLS=tcp,cuda_copy,rc python send-recv.py \
         --server-dev 0 --client-dev 5 --object_type rmm --reuse-alloc \
         --n-bytes 1GB --client-only --server-address SERVER_IP --port 13337 \
         --n-iter 100
 """
 import argparse
+import asyncio
 import multiprocessing as mp
 import os
 import time
@@ -67,16 +47,20 @@ def _transfer_wireup(ep, server):
             ep.tag_send(message, tag=0),
         ]
     else:
-        message = Array(np.zeros_like(message, dtype="u8"))
+        message = Array(np.zeros_like(message))
         return [
             ep.tag_send(message, tag=0),
             ep.tag_recv(message, tag=0),
         ]
 
 
-def _wait_requests(worker, threaded_progress, requests):
+async def _wait_requests_async(worker, requests):
+    await asyncio.gather(*[r.is_completed_async() for r in requests])
+
+
+def _wait_requests(worker, progress_mode, requests):
     while not all([r.is_completed() for r in requests]):
-        if not threaded_progress:
+        if progress_mode == "blocking":
             worker.progress_worker_event()
 
 
@@ -107,7 +91,7 @@ def server(queue, args):
     ctx = ucx_api.UCXContext()
     worker = ucx_api.UCXWorker(ctx)
 
-    if args.threaded_progress:
+    if args.progress_mode == "threaded":
         worker.start_progress_thread()
     else:
         worker.init_blocking_progress_mode()
@@ -131,25 +115,37 @@ def server(queue, args):
     time.sleep(0.1)
 
     while ep is None:
-        if not args.threaded_progress:
+        if args.progress_mode == "blocking":
             worker.progress_worker_event()
 
     # Wireup before starting to transfer data
     wireup_requests = _transfer_wireup(ep, server=True)
-    _wait_requests(worker, args.threaded_progress, wireup_requests)
+    _wait_requests(worker, args.progress_mode, wireup_requests)
 
-    if args.reuse_alloc:
-        recv_msg = Array(xp.zeros(args.n_bytes, dtype="u1"))
-
-    for i in range(args.n_iter):
-        if not args.reuse_alloc:
+    async def _transfer():
+        if args.reuse_alloc:
             recv_msg = Array(xp.zeros(args.n_bytes, dtype="u1"))
 
-        requests = [
-            ep.tag_recv(recv_msg, tag=0),
-            ep.tag_send(recv_msg, tag=0),
-        ]
-        _wait_requests(worker, args.threaded_progress, requests)
+        for i in range(args.n_iter):
+            if not args.reuse_alloc:
+                recv_msg = Array(xp.zeros(args.n_bytes, dtype="u1"))
+
+            requests = [
+                ep.tag_recv(recv_msg, tag=0),
+                ep.tag_send(recv_msg, tag=0),
+            ]
+
+            if args.asyncio_wait:
+                await _wait_requests_async(worker, requests)
+            else:
+                _wait_requests(worker, args.progress_mode, requests)
+
+                # Check all requests completed successfully
+                for r in requests:
+                    r.wait()
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(_transfer())
 
 
 def client(port, server_address, args):
@@ -183,7 +179,7 @@ def client(port, server_address, args):
     ctx = ucx_api.UCXContext()
     worker = ucx_api.UCXWorker(ctx)
 
-    if args.threaded_progress:
+    if args.progress_mode == "threaded":
         worker.start_progress_thread()
     else:
         worker.init_blocking_progress_mode()
@@ -194,32 +190,45 @@ def client(port, server_address, args):
 
     # Wireup before starting to transfer data
     wireup_requests = _transfer_wireup(ep, server=False)
-    _wait_requests(worker, args.threaded_progress, wireup_requests)
-
-    if args.reuse_alloc:
-        recv_msg = Array(xp.zeros(args.n_bytes, dtype="u1"))
-
-    if args.cuda_profile:
-        xp.cuda.profiler.start()
+    _wait_requests(worker, args.progress_mode, wireup_requests)
 
     times = []
-    for i in range(args.n_iter):
-        start = clock()
 
-        if not args.reuse_alloc:
+    async def _transfer():
+        if args.reuse_alloc:
             recv_msg = Array(xp.zeros(args.n_bytes, dtype="u1"))
 
-        requests = [
-            ep.tag_send(send_msg, tag=0),
-            ep.tag_recv(recv_msg, tag=0),
-        ]
-        _wait_requests(worker, args.threaded_progress, requests)
+        if args.cuda_profile:
+            xp.cuda.profiler.start()
 
-        stop = clock()
-        times.append(stop - start)
+        for i in range(args.n_iter):
+            start = clock()
 
-    if args.cuda_profile:
-        xp.cuda.profiler.stop()
+            if not args.reuse_alloc:
+                recv_msg = Array(xp.zeros(args.n_bytes, dtype="u1"))
+
+            requests = [
+                ep.tag_send(send_msg, tag=0),
+                ep.tag_recv(recv_msg, tag=0),
+            ]
+
+            if args.asyncio_wait:
+                await _wait_requests_async(worker, requests)
+            else:
+                _wait_requests(worker, args.progress_mode, requests)
+
+                # Check all requests completed successfully
+                for r in requests:
+                    r.wait()
+
+            stop = clock()
+            times.append(stop - start)
+
+        if args.cuda_profile:
+            xp.cuda.profiler.stop()
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(_transfer())
 
     assert len(times) == args.n_iter
     print("Roundtrip benchmark")
@@ -228,7 +237,8 @@ def client(port, server_address, args):
     print(f"n_bytes         | {format_bytes(args.n_bytes)}")
     print(f"object          | {args.object_type}")
     print(f"reuse alloc     | {args.reuse_alloc}")
-    print(f"thread progress | {args.threaded_progress}")
+    print(f"progress mode   | {args.progress_mode}")
+    print(f"asyncio wait    | {args.asyncio_wait}")
     print(f"UCX_TLS         | {ctx.get_config()['TLS']}")
     print(f"UCX_NET_DEVICES | {ctx.get_config()['NET_DEVICES']}")
     print("==========================")
@@ -376,10 +386,18 @@ def parse_args():
         type=int,
     )
     parser.add_argument(
-        "--threaded-progress",
+        "--progress-mode",
+        default="threaded",
+        help="Progress for the UCP worker. Valid options are: "
+        "'threaded' (default) and 'blocking'.",
+        type=str,
+    )
+    parser.add_argument(
+        "--asyncio-wait",
         default=False,
         action="store_true",
-        help="Progress UCP worker in a dedicated thread. (Default: disabled)",
+        help="Wait for transfer requests with Python's asyncio, requires"
+        "`--progress-mode=threaded`. (Default: disabled)",
     )
     parser.add_argument(
         "--no-detailed-report",
@@ -392,6 +410,14 @@ def parse_args():
     if args.cuda_profile and args.object_type == "numpy":
         raise RuntimeError(
             "`--cuda-profile` requires `--object_type=cupy` or `--object_type=rmm`"
+        )
+    if args.progress_mode != "blocking" and args.progress_mode != "threaded":
+        raise RuntimeError(
+            f"Invalid `--progress-mode`: '{args.progress_mode}'"
+        )
+    if args.asyncio_wait and args.progress_mode != "threaded":
+        raise RuntimeError(
+            "`--asyncio-wait` requires `--progress-mode=threaded`"
         )
     return args
 
