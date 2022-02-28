@@ -202,8 +202,8 @@ cdef class UCXRequest():
 
     async def is_completed_async(self, period_ns=0):
         while True:
-            if self.is_ready():
-                return True
+            if self.is_completed():
+                return self.wait()
             await asyncio.sleep(0)
 
 
