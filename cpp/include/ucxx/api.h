@@ -5,3 +5,5 @@
 #include <ucxx/request.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/worker.h>
+
+#include <ucxx/worker_impl.h>

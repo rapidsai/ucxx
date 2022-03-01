@@ -6,6 +6,7 @@
 #pragma once
 
 #include <functional>
+#include <mutex>
 #include <thread>
 
 #include <sys/epoll.h>
@@ -36,6 +37,8 @@ class UCXXWorker : public UCXXComponent
         std::thread _progressThread{};
         bool _stopProgressThread{false};
         bool _progressThreadPollingMode{false};
+        inflight_requests_t _inflightRequestsToCancel{std::make_shared<inflight_request_map_t>()};
+        std::mutex _inflightMutex;
 
     UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context)
     {
@@ -236,6 +239,14 @@ class UCXXWorker : public UCXXComponent
             cancel_progress_worker_event();
         }
         _progressThread.join();
+    }
+
+    inline size_t cancelInflightRequests();
+
+    void scheduleRequestCancel(inflight_requests_t inflightRequests)
+    {
+        std::lock_guard<std::mutex> lock(_inflightMutex);
+        _inflightRequestsToCancel->insert(inflightRequests->begin(), inflightRequests->end());
     }
 
     std::shared_ptr<UCXXAddress> getAddress()

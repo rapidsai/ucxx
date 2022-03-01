@@ -67,7 +67,7 @@ cdef extern from "<ucxx/exception_py.h>" namespace "ucxx" nogil:
     cdef void raise_py_error()
 
 
-cdef extern from "<ucxx/context.h>" namespace "ucxx" nogil:
+cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXContext:
         UCXXContext()
         @staticmethod
@@ -77,8 +77,6 @@ cdef extern from "<ucxx/context.h>" namespace "ucxx" nogil:
         ucp_context_h get_handle()
         string get_info() except +raise_py_error
 
-
-cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXWorker:
         UCXXWorker()
         UCXXWorker(shared_ptr[UCXXContext] context) except +
@@ -92,28 +90,21 @@ cdef extern from "<ucxx/worker.h>" namespace "ucxx" nogil:
         void progress_worker_event()
         void startProgressThread() except +raise_py_error
         void stopProgressThread() except +raise_py_error
+        size_t cancelInflightRequests() except +raise_py_error
 
-
-cdef extern from "<ucxx/endpoint.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXEndpoint:
         shared_ptr[UCXXRequest] tag_send(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
         shared_ptr[UCXXRequest] tag_recv(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
 
-
-cdef extern from "<ucxx/listener.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXListener:
         shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(ucp_conn_request_h conn_request, bint endpoint_error_handling) except +raise_py_error
         uint16_t getPort()
 
-
-cdef extern from "<ucxx/address.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXAddress:
         ucp_address_t* getHandle()
         size_t getLength()
         string getString()
 
-
-cdef extern from "<ucxx/request.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXRequest:
         cpp_bool isCompleted(int64_t period_ns)
         ucs_status_t getStatus()

@@ -182,6 +182,10 @@ cdef class UCXWorker():
         cdef UCXXWorker* worker = self._worker.get()
         worker.stopProgressThread()
 
+    def cancel_inflight_requests(self):
+        cdef UCXXWorker* worker = self._worker.get()
+        return worker.cancelInflightRequests()
+
 
 cdef class UCXRequest():
     cdef:

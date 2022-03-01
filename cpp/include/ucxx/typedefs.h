@@ -5,13 +5,18 @@
  */
 #pragma once
 
+#include <unordered_map>
+
 namespace ucxx
 {
+
+class UCXXRequest;
 
 // Non-blocking requests
 typedef struct ucxx_request
 {
     ucs_status_t status = UCS_INPROGRESS;
+    void* request = nullptr;
 } ucxx_request_t;
 
 // Logging levels
@@ -31,5 +36,8 @@ typedef enum {
     UCXX_LOG_LEVEL_LAST,
     UCXX_LOG_LEVEL_PRINT        /* Temporary output */
 } ucxx_log_level_t;
+
+typedef std::unordered_map<UCXXRequest*, std::weak_ptr<UCXXRequest>> inflight_request_map_t;
+typedef std::shared_ptr<inflight_request_map_t> inflight_requests_t;
 
 }  // namespace ucxx

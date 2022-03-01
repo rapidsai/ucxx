@@ -48,6 +48,7 @@ std::shared_ptr<UCXXListener> createListener(
 
 std::shared_ptr<UCXXRequest> createRequest(
         std::shared_ptr<UCXXEndpoint>& endpoint,
+        inflight_requests_t inflight_requests,
         std::shared_ptr<ucxx_request_t> request
 );
 

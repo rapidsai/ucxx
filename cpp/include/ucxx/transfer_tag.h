@@ -54,12 +54,19 @@ static void request_wait(ucp_worker_h worker, void *request,
     else
     {
         if (UCS_PTR_IS_ERR(request))
+        {
             status = UCS_PTR_STATUS(request);
+        }
         else if (UCS_PTR_IS_PTR(request))
+        {
             // Completion will be handled by callback
+            ucxx_req->request = request;
             return;
+        }
         else
+        {
             status = UCS_OK;
+        }
     }
 
     if (status != UCS_OK)

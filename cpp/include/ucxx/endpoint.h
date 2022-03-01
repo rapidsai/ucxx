@@ -18,6 +18,7 @@
 #include <ucxx/listener.h>
 #include <ucxx/sockaddr_utils.h>
 #include <ucxx/transfer_tag.h>
+#include <ucxx/typedefs.h>
 #include <ucxx/utils.h>
 #include <ucxx/worker.h>
 
@@ -34,19 +35,27 @@ struct EpParamsDeleter {
     }
 };
 
+typedef struct error_callback_data {
+    ucs_status_t status;
+    inflight_requests_t inflightRequests;
+    std::shared_ptr<UCXXWorker> worker;
+} error_callback_data_t;
+
 void _err_cb(void *arg, ucp_ep_h ep, ucs_status_t status)
 {
-    ucs_status_t* _status = (ucs_status_t*)arg;
-    *_status = status;
-    ucxx_error("Error callback called with status %d (%s)", status, ucs_status_string(status));
+    error_callback_data_t* data = (error_callback_data_t*)arg;
+    data->status = status;
+    data->worker->scheduleRequestCancel(data->inflightRequests);
+    ucxx_error("Error callback for endpoint %p called with status %d: %s", ep, status, ucs_status_string(status));
 }
 
 class UCXXEndpoint : public UCXXComponent
 {
     private:
         ucp_ep_h _handle{nullptr};
-        ucs_status_t _status{UCS_OK};
         bool _endpoint_error_handling{true};
+        std::unique_ptr<error_callback_data_t> _callbackData{nullptr};
+        inflight_requests_t _inflightRequests{std::make_shared<inflight_request_map_t>()};
 
     UCXXEndpoint(
             std::shared_ptr<UCXXComponent> worker_or_listener,
@@ -61,11 +70,17 @@ class UCXXEndpoint : public UCXXComponent
 
         setParent(worker_or_listener);
 
+        _callbackData = std::make_unique<error_callback_data_t>((error_callback_data_t){
+            .status             = UCS_OK,
+            .inflightRequests   = _inflightRequests,
+            .worker             = worker
+        });
+
         params->err_mode = (endpoint_error_handling ?
                             UCP_ERR_HANDLING_MODE_PEER :
                             UCP_ERR_HANDLING_MODE_NONE);
         params->err_handler.cb = _err_cb;
-        params->err_handler.arg = &_status;
+        params->err_handler.arg = _callbackData.get();
 
         assert_ucs_status(ucp_ep_create(worker->get_handle(), params.get(), &_handle));
     }
@@ -78,13 +93,19 @@ class UCXXEndpoint : public UCXXComponent
     UCXXEndpoint& operator=(UCXXEndpoint const&) = delete;
 
     UCXXEndpoint(UCXXEndpoint&& o) noexcept
-        : _handle{std::exchange(o._handle, nullptr)}
+        : _handle{std::exchange(o._handle, nullptr)},
+          _endpoint_error_handling{std::exchange(o._endpoint_error_handling, true)},
+          _callbackData{std::exchange(o._callbackData, nullptr)},
+          _inflightRequests{std::exchange(o._inflightRequests, nullptr)}
     {
     }
 
     UCXXEndpoint& operator=(UCXXEndpoint&& o) noexcept
     {
         this->_handle = std::exchange(o._handle, nullptr);
+        this->_endpoint_error_handling = std::exchange(o._endpoint_error_handling, true);
+        this->_callbackData = std::exchange(o._callbackData, nullptr);
+        this->_inflightRequests = std::exchange(o._inflightRequests, nullptr);
 
         return *this;
     }
@@ -96,7 +117,7 @@ class UCXXEndpoint : public UCXXComponent
 
         // Close the endpoint
         unsigned close_mode = UCP_EP_CLOSE_MODE_FORCE;
-        if (_endpoint_error_handling and _status != UCS_OK)
+        if (_endpoint_error_handling and _callbackData->status != UCS_OK)
         {
             // We force close endpoint if endpoint error handling is enabled and
             // the endpoint status is not UCS_OK
@@ -203,7 +224,10 @@ class UCXXEndpoint : public UCXXComponent
     std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<ucxx_request_t> request)
     {
         auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
-        return ucxx::createRequest(endpoint, request);
+        auto req = ucxx::createRequest(endpoint, _inflightRequests, request);
+        std::weak_ptr<UCXXRequest> weak_req = req;
+        _inflightRequests->insert({req.get(), weak_req});
+        return req;
     }
 
     std::shared_ptr<UCXXRequest> tag_send(void* buffer, size_t length, ucp_tag_t tag)
