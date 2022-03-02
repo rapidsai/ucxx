@@ -221,6 +221,14 @@ class UCXXEndpoint : public UCXXComponent
         return _handle;
     }
 
+    bool isAlive() const
+    {
+        if (!_endpoint_error_handling)
+            return true;
+
+        return _callbackData->status == UCS_OK;
+    }
+
     std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<ucxx_request_t> request)
     {
         auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());

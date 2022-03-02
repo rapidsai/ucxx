@@ -95,6 +95,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXEndpoint:
         shared_ptr[UCXXRequest] tag_send(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
         shared_ptr[UCXXRequest] tag_recv(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
+        bint isAlive()
 
     cdef cppclass UCXXListener:
         shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(ucp_conn_request_h conn_request, bint endpoint_error_handling) except +raise_py_error

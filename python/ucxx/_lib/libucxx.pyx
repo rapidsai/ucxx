@@ -249,6 +249,10 @@ cdef class UCXEndpoint():
         cdef shared_ptr[UCXXRequest] req = e.tag_recv(<void*>arr.ptr, arr.nbytes, tag)
         return UCXRequest(<uintptr_t><void*>&req)
 
+    def is_alive(self):
+        cdef UCXXEndpoint* e = self._endpoint.get()
+        return e.isAlive()
+
 
 cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with gil:
     """Callback function used by UCXListener"""

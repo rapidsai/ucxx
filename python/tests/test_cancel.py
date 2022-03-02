@@ -40,6 +40,8 @@ def _client_cancel(queue):
         worker, "127.0.0.1", port, endpoint_error_handling=True,
     )
 
+    assert ep.is_alive()
+
     msg = Array(bytearray(1))
     request = ep.tag_recv(msg, tag=0)
 
@@ -50,6 +52,9 @@ def _client_cancel(queue):
 
     with pytest.raises(ucx_api.UCXCanceled):
         request.check_error()
+
+    while ep.is_alive():
+        worker.progress()
 
     assert canceled == 1
 
