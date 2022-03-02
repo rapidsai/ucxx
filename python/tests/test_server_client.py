@@ -56,7 +56,7 @@ def _echo_server(get_queue, put_queue, msg_size, progress_mode):
     ]
     _wait_requests(worker, progress_mode, requests)
     for r in requests:
-        r.wait()
+        r.check_error()
 
     while True:
         try:

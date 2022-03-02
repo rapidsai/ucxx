@@ -148,13 +148,13 @@ void waitRequests(std::shared_ptr<ucxx::UCXXWorker> worker, std::vector<std::sha
             {
                 worker->progress_worker_event();
             } while (!r->isCompleted());
-            assert_ucs_status(r->wait());
+            r->checkError();
         }
     }
     else
     {
         for (auto& r : requests)
-            assert_ucs_status(r->wait());
+            r->checkError();
     }
 }
 

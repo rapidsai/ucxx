@@ -65,9 +65,22 @@ class UCXXRequest : public UCXXComponent
         return std::shared_ptr<UCXXRequest>(new UCXXRequest(endpoint, request));
     }
 
-    ucs_status_t wait()
+    ucs_status_t getStatus()
     {
         return _future.get();
+    }
+
+    void checkError()
+    {
+        switch (_handle->status)
+        {
+            case UCS_OK || UCS_INPROGRESS:
+                return;
+            case UCS_ERR_CANCELED:
+                throw UCXXCanceledError(ucs_status_string(_handle->status));
+            default:
+                throw UCXXError(ucs_status_string(_handle->status));
+        }
     }
 
     template<typename Rep, typename Period>

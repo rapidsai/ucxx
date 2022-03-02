@@ -129,5 +129,6 @@ cdef extern from "<ucxx/address.h>" namespace "ucxx" nogil:
 
 cdef extern from "<ucxx/request.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXRequest:
-        ucs_status_t wait()
         cpp_bool isCompleted(int64_t period_ns)
+        ucs_status_t getStatus()
+        void checkError() except +raise_py_error

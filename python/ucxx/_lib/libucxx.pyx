@@ -194,21 +194,18 @@ cdef class UCXRequest():
         cdef UCXXRequest* r = self._request.get()
         return r.isCompleted(period_ns)
 
-    def wait(self):
+    def get_status(self):
         cdef UCXXRequest* r = self._request.get()
-        cdef ucs_status_t status = r.wait()
+        return r.getStatus()
 
-        if status == UCS_OK:
-            return
-
-        cdef str error_msg = ucs_status_string(status).decode("utf-8")
-
-        raise RuntimeError(error_msg)
+    def check_error(self):
+        cdef UCXXRequest* r = self._request.get()
+        return r.checkError()
 
     async def is_completed_async(self, period_ns=0):
         while True:
             if self.is_completed():
-                return self.wait()
+                return self.check_error()
             await asyncio.sleep(0)
 
 

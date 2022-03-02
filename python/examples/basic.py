@@ -120,7 +120,7 @@ def main():
 
         # Check results, raises an exception if any of them failed
         for r in requests:
-            r.wait()
+            r.check_error()
 
     if args.progress_mode == "threaded":
         worker.stop_progress_thread()

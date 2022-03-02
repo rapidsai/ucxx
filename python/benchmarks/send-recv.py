@@ -142,7 +142,7 @@ def server(queue, args):
 
                 # Check all requests completed successfully
                 for r in requests:
-                    r.wait()
+                    r.check_error()
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(_transfer())
@@ -219,7 +219,7 @@ def client(port, server_address, args):
 
                 # Check all requests completed successfully
                 for r in requests:
-                    r.wait()
+                    r.check_error()
 
             stop = clock()
             times.append(stop - start)
