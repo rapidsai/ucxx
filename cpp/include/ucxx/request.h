@@ -94,12 +94,15 @@ class UCXXRequest : public UCXXComponent
     {
         switch (_handle->status)
         {
-            case UCS_OK || UCS_INPROGRESS:
+            case UCS_OK:
+            case UCS_INPROGRESS:
                 return;
             case UCS_ERR_CANCELED:
                 throw UCXXCanceledError(ucs_status_string(_handle->status));
+                break;
             default:
                 throw UCXXError(ucs_status_string(_handle->status));
+                break;
         }
     }
 
