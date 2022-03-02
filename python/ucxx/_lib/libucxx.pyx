@@ -239,6 +239,16 @@ cdef class UCXEndpoint():
         endpoint = w.createEndpointFromWorkerAddress(a, endpoint_error_handling)
         return cls(<uintptr_t><void*>&endpoint)
 
+    def stream_send(self, Array arr):
+        cdef UCXXEndpoint* e = self._endpoint.get()
+        cdef shared_ptr[UCXXRequest] req = e.stream_send(<void*>arr.ptr, arr.nbytes)
+        return UCXRequest(<uintptr_t><void*>&req)
+
+    def stream_recv(self, Array arr):
+        cdef UCXXEndpoint* e = self._endpoint.get()
+        cdef shared_ptr[UCXXRequest] req = e.stream_recv(<void*>arr.ptr, arr.nbytes)
+        return UCXRequest(<uintptr_t><void*>&req)
+
     def tag_send(self, Array arr, int tag):
         cdef UCXXEndpoint* e = self._endpoint.get()
         cdef shared_ptr[UCXXRequest] req = e.tag_send(<void*>arr.ptr, arr.nbytes, tag)

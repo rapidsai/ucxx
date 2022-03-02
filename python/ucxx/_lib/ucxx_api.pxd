@@ -93,6 +93,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         size_t cancelInflightRequests() except +raise_py_error
 
     cdef cppclass UCXXEndpoint:
+        shared_ptr[UCXXRequest] stream_send(void* buffer, size_t length) except +raise_py_error
+        shared_ptr[UCXXRequest] stream_recv(void* buffer, size_t length) except +raise_py_error
         shared_ptr[UCXXRequest] tag_send(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
         shared_ptr[UCXXRequest] tag_recv(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
         bint isAlive()

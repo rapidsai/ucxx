@@ -17,6 +17,7 @@
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
 #include <ucxx/sockaddr_utils.h>
+#include <ucxx/transfer_stream.h>
 #include <ucxx/transfer_tag.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils.h>
@@ -236,6 +237,20 @@ class UCXXEndpoint : public UCXXComponent
         std::weak_ptr<UCXXRequest> weak_req = req;
         _inflightRequests->insert({req.get(), weak_req});
         return req;
+    }
+
+    std::shared_ptr<UCXXRequest> stream_send(void* buffer, size_t length)
+    {
+        auto worker = UCXXEndpoint::getWorker(_parent);
+        auto request = stream_msg(worker->get_handle(), _handle, true, buffer, length);
+        return createRequest(request);
+    }
+
+    std::shared_ptr<UCXXRequest> stream_recv(void* buffer, size_t length)
+    {
+        auto worker = UCXXEndpoint::getWorker(_parent);
+        auto request = stream_msg(worker->get_handle(), _handle, false, buffer, length);
+        return createRequest(request);
     }
 
     std::shared_ptr<UCXXRequest> tag_send(void* buffer, size_t length, ucp_tag_t tag)

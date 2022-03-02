@@ -13,6 +13,20 @@ mp = mp.get_context("spawn")
 WireupMessageSize = 10
 
 
+def _send(ep, api, message):
+    if api == "stream":
+        return ep.stream_send(message)
+    else:
+        return ep.tag_send(message, tag=0)
+
+
+def _recv(ep, api, message):
+    if api == "stream":
+        return ep.stream_recv(message)
+    else:
+        return ep.tag_recv(message, tag=0)
+
+
 def _wait_requests(worker, progress_mode, requests):
     if not isinstance(requests, list):
         requests = [requests]
@@ -25,7 +39,7 @@ def _wait_requests(worker, progress_mode, requests):
         r.check_error()
 
 
-def _echo_server(get_queue, put_queue, msg_size, progress_mode):
+def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
     """Server that send received message back to the client
 
     Notice, since it is illegal to call progress() in call-back functions,
@@ -48,7 +62,9 @@ def _echo_server(get_queue, put_queue, msg_size, progress_mode):
     def _listener_handler(conn_request):
         ep[0] = listener.create_endpoint_from_conn_request(conn_request, True)
 
-    listener = ucx_api.UCXListener.create(worker=worker, port=0, cb_func=_listener_handler)
+    listener = ucx_api.UCXListener.create(
+        worker=worker, port=0, cb_func=_listener_handler
+    )
     put_queue.put(listener.port)
 
     while ep[0] is None:
@@ -56,16 +72,16 @@ def _echo_server(get_queue, put_queue, msg_size, progress_mode):
             worker.progress()
 
     wireup_msg = Array(bytearray(WireupMessageSize))
-    wireup_request = ep[0].tag_recv(wireup_msg, tag=0)
+    wireup_request = _recv(ep[0], transfer_api, wireup_msg)
     _wait_requests(worker, progress_mode, wireup_request)
 
     msg = Array(bytearray(msg_size))
 
     # We reuse the message buffer, so we must receive, wait, and then send
     # it back again.
-    requests = [ep[0].tag_recv(msg, tag=0)]
+    requests = [_recv(ep[0], transfer_api, msg)]
     _wait_requests(worker, progress_mode, requests)
-    requests = [ep[0].tag_send(msg, tag=0)]
+    requests = [_send(ep[0], transfer_api, msg)]
     _wait_requests(worker, progress_mode, requests)
 
     while True:
@@ -77,7 +93,7 @@ def _echo_server(get_queue, put_queue, msg_size, progress_mode):
             break
 
 
-def _echo_client(msg_size, progress_mode, port):
+def _echo_client(transfer_api, msg_size, progress_mode, port):
     ctx = ucx_api.UCXContext()
     worker = ucx_api.UCXWorker(ctx)
 
@@ -94,28 +110,34 @@ def _echo_client(msg_size, progress_mode, port):
         worker.progress()
 
     wireup_msg = Array(bytes(os.urandom(WireupMessageSize)))
-    wireup_request = ep.tag_send(wireup_msg, tag=0)
+    wireup_request = _send(ep, transfer_api, wireup_msg)
     _wait_requests(worker, progress_mode, wireup_request)
 
     send_msg = bytes(os.urandom(msg_size))
     recv_msg = bytearray(msg_size)
     requests = [
-        ep.tag_send(Array(send_msg), tag=0),
-        ep.tag_recv(Array(recv_msg), tag=0),
+        _send(ep, transfer_api, Array(send_msg)),
+        _recv(ep, transfer_api, Array(recv_msg)),
     ]
     _wait_requests(worker, progress_mode, requests)
 
     assert recv_msg == send_msg
 
 
+@pytest.mark.parametrize("transfer_api", ["stream", "tag"])
 @pytest.mark.parametrize("msg_size", [10, 2 ** 24])
 @pytest.mark.parametrize("progress_mode", ["blocking", "threaded"])
-def test_server_client(msg_size, progress_mode):
+def test_server_client(transfer_api, msg_size, progress_mode):
     put_queue, get_queue = mp.Queue(), mp.Queue()
-    server = mp.Process(target=_echo_server, args=(put_queue, get_queue, msg_size, progress_mode),)
+    server = mp.Process(
+        target=_echo_server,
+        args=(put_queue, get_queue, transfer_api, msg_size, progress_mode),
+    )
     server.start()
     port = get_queue.get()
-    client = mp.Process(target=_echo_client, args=(msg_size, progress_mode, port))
+    client = mp.Process(
+        target=_echo_client, args=(transfer_api, msg_size, progress_mode, port)
+    )
     client.start()
     client.join(timeout=60)
     assert client.exitcode == 0
