@@ -14,6 +14,7 @@
 extern "C"
 {
     extern PyObject *ucxx_error;
+    extern PyObject *ucxx_canceled_error;
     extern PyObject *ucxx_config_error;
 }
 
@@ -25,6 +26,8 @@ void raise_py_error()
     try
     {
         throw;
+    } catch (const UCXXCanceledError& e) {
+        PyErr_SetString(ucxx_canceled_error, e.what());
     } catch (const UCXXConfigError& e) {
         PyErr_SetString(ucxx_config_error, e.what());
     } catch (const UCXXError& e) {

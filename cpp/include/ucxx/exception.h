@@ -28,6 +28,14 @@ class UCXXError : public std::exception
         }
 };
 
+class UCXXCanceledError : public UCXXError
+{
+    public:
+        UCXXCanceledError(const std::string& msg) : UCXXError(msg)
+        {
+        }
+};
+
 class UCXXConfigError : public UCXXError
 {
     public:

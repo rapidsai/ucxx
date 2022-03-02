@@ -29,11 +29,16 @@ class UCXXError(Exception):
     pass
 
 
+class UCXXCanceled(UCXXError):
+    pass
+
+
 class UCXXConfigError(UCXXError):
     pass
 
 
 cdef public PyObject* ucxx_error = <PyObject*>UCXXError
+cdef public PyObject* ucxx_canceled_error = <PyObject*>UCXXCanceled
 cdef public PyObject* ucxx_config_error = <PyObject*>UCXXConfigError
 
 
