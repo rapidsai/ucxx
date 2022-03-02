@@ -25,21 +25,21 @@ from .ucxx_api cimport *
 #                               Exceptions                                    #
 ###############################################################################
 
-class UCXXError(Exception):
+class UCXError(Exception):
     pass
 
 
-class UCXXCanceled(UCXXError):
+class UCXCanceled(UCXError):
     pass
 
 
-class UCXXConfigError(UCXXError):
+class UCXConfigError(UCXError):
     pass
 
 
-cdef public PyObject* ucxx_error = <PyObject*>UCXXError
-cdef public PyObject* ucxx_canceled_error = <PyObject*>UCXXCanceled
-cdef public PyObject* ucxx_config_error = <PyObject*>UCXXConfigError
+cdef public PyObject* ucxx_error = <PyObject*>UCXError
+cdef public PyObject* ucxx_canceled_error = <PyObject*>UCXCanceled
+cdef public PyObject* ucxx_config_error = <PyObject*>UCXConfigError
 
 
 ###############################################################################
