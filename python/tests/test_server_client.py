@@ -10,10 +10,19 @@ import ucxx._lib.libucxx as ucx_api
 mp = mp.get_context("spawn")
 
 
+WireupMessageSize = 10
+
+
 def _wait_requests(worker, progress_mode, requests):
+    if not isinstance(requests, list):
+        requests = [requests]
+
     while not all([r.is_completed() for r in requests]):
         if progress_mode == "blocking":
             worker.progress_worker_event()
+
+    for r in requests:
+        r.check_error()
 
 
 def _echo_server(get_queue, put_queue, msg_size, progress_mode):
@@ -32,31 +41,32 @@ def _echo_server(get_queue, put_queue, msg_size, progress_mode):
         worker.start_progress_thread()
 
     # A reference to listener's endpoint is stored to prevent it from going
-    # out of scope too early.
-    global ep, msg, requests
-    ep = None
-    msg = Array(bytearray(msg_size))
-    requests = []
+    # out of scope too early and allow transfers outside of the listsner's
+    # callback even after it has terminated.
+    ep = [None]
 
     def _listener_handler(conn_request):
-        global ep, msg, requests
-        ep = listener.create_endpoint_from_conn_request(conn_request, True)
+        ep[0] = listener.create_endpoint_from_conn_request(conn_request, True)
 
     listener = ucx_api.UCXListener.create(worker=worker, port=0, cb_func=_listener_handler)
     put_queue.put(listener.port)
 
-    while ep is None:
+    while ep[0] is None:
         if progress_mode == "blocking":
             worker.progress()
 
+    wireup_msg = Array(bytearray(WireupMessageSize))
+    wireup_request = ep[0].tag_recv(wireup_msg, tag=0)
+    _wait_requests(worker, progress_mode, wireup_request)
+
     msg = Array(bytearray(msg_size))
-    requests = [
-        ep.tag_recv(msg, tag=0),
-        ep.tag_send(msg, tag=0),
-    ]
+
+    # We reuse the message buffer, so we must receive, wait, and then send
+    # it back again.
+    requests = [ep[0].tag_recv(msg, tag=0)]
     _wait_requests(worker, progress_mode, requests)
-    for r in requests:
-        r.check_error()
+    requests = [ep[0].tag_send(msg, tag=0)]
+    _wait_requests(worker, progress_mode, requests)
 
     while True:
         try:
@@ -83,15 +93,19 @@ def _echo_client(msg_size, progress_mode, port):
     if progress_mode == "blocking":
         worker.progress()
 
+    wireup_msg = Array(bytes(os.urandom(WireupMessageSize)))
+    wireup_request = ep.tag_send(wireup_msg, tag=0)
+    _wait_requests(worker, progress_mode, wireup_request)
+
     send_msg = bytes(os.urandom(msg_size))
     recv_msg = bytearray(msg_size)
     requests = [
         ep.tag_send(Array(send_msg), tag=0),
         ep.tag_recv(Array(recv_msg), tag=0),
     ]
-
     _wait_requests(worker, progress_mode, requests)
-    assert send_msg == recv_msg
+
+    assert recv_msg == send_msg
 
 
 @pytest.mark.parametrize("msg_size", [10, 2 ** 24])
