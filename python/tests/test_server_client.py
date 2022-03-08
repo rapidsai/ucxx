@@ -4,6 +4,7 @@ from queue import Empty as QueueIsEmpty
 
 import pytest
 
+from ucxx.testing import wait_requests
 from ucxx._lib.arr import Array
 import ucxx._lib.libucxx as ucx_api
 
@@ -25,18 +26,6 @@ def _recv(ep, api, message):
         return ep.stream_recv(message)
     else:
         return ep.tag_recv(message, tag=0)
-
-
-def _wait_requests(worker, progress_mode, requests):
-    if not isinstance(requests, list):
-        requests = [requests]
-
-    while not all([r.is_completed() for r in requests]):
-        if progress_mode == "blocking":
-            worker.progress_worker_event()
-
-    for r in requests:
-        r.check_error()
 
 
 def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
@@ -79,16 +68,16 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
 
     wireup_msg = Array(bytearray(WireupMessageSize))
     wireup_request = _recv(ep[0], transfer_api, wireup_msg)
-    _wait_requests(worker, progress_mode, wireup_request)
+    wait_requests(worker, progress_mode, wireup_request)
 
     msg = Array(bytearray(msg_size))
 
     # We reuse the message buffer, so we must receive, wait, and then send
     # it back again.
     requests = [_recv(ep[0], transfer_api, msg)]
-    _wait_requests(worker, progress_mode, requests)
+    wait_requests(worker, progress_mode, requests)
     requests = [_send(ep[0], transfer_api, msg)]
-    _wait_requests(worker, progress_mode, requests)
+    wait_requests(worker, progress_mode, requests)
 
     while True:
         try:
@@ -123,7 +112,7 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
 
     wireup_msg = Array(bytes(os.urandom(WireupMessageSize)))
     wireup_request = _send(ep, transfer_api, wireup_msg)
-    _wait_requests(worker, progress_mode, wireup_request)
+    wait_requests(worker, progress_mode, wireup_request)
 
     send_msg = bytes(os.urandom(msg_size))
     recv_msg = bytearray(msg_size)
@@ -131,7 +120,7 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
         _send(ep, transfer_api, Array(send_msg)),
         _recv(ep, transfer_api, Array(recv_msg)),
     ]
-    _wait_requests(worker, progress_mode, requests)
+    wait_requests(worker, progress_mode, requests)
 
     assert recv_msg == send_msg
 

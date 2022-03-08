@@ -3,6 +3,7 @@
 
 
 from . import _version
+from . import testing  # noqa
 from ._lib import libucxx  # type: ignore
 
 __version__ = _version.get_versions()["version"]
