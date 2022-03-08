@@ -28,6 +28,11 @@ cdef extern from "ucp/api/ucp.h":
 
     ctypedef ucp_worker* ucp_worker_h
 
+    ctypedef struct ucp_ep:
+        pass
+
+    ctypedef ucp_ep* ucp_ep_h
+
     ctypedef ucp_conn_request* ucp_conn_request_h
 
     ctypedef struct ucp_conn_request:
@@ -99,8 +104,10 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void startProgressThread() except +raise_py_error
         void stopProgressThread() except +raise_py_error
         size_t cancelInflightRequests() except +raise_py_error
+        bint tagProbe(ucp_tag_t)
 
     cdef cppclass UCXXEndpoint:
+        ucp_ep_h* getHandle()
         shared_ptr[UCXXRequest] stream_send(
             void* buffer, size_t length
         ) except +raise_py_error

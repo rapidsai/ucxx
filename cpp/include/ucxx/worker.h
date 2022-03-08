@@ -249,6 +249,14 @@ class UCXXWorker : public UCXXComponent
         _inflightRequestsToCancel->insert(inflightRequests->begin(), inflightRequests->end());
     }
 
+    bool tagProbe(ucp_tag_t tag)
+    {
+        ucp_tag_recv_info_t info;
+        ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);
+
+        return tag_message != NULL;
+    }
+
     std::shared_ptr<UCXXAddress> getAddress()
     {
         auto worker = std::dynamic_pointer_cast<UCXXWorker>(shared_from_this());

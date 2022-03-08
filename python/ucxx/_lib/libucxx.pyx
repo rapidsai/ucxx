@@ -204,6 +204,10 @@ cdef class UCXWorker():
         cdef UCXXWorker* ucxx_worker = self._worker.get()
         return ucxx_worker.cancelInflightRequests()
 
+    def tag_probe(self, tag):
+        cdef UCXXWorker* ucxx_worker = self._worker.get()
+        return ucxx_worker.tagProbe(tag)
+
 
 cdef class UCXRequest():
     cdef:
@@ -289,6 +293,11 @@ cdef class UCXEndpoint():
             ucxx_address, endpoint_error_handling
         )
         return cls(<uintptr_t><void*>&endpoint)
+
+    @property
+    def handle(self):
+        cdef UCXXEndpoint* e = self._endpoint.get()
+        return int(<uintptr_t>e.getHandle())
 
     def stream_send(self, Array arr):
         cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
