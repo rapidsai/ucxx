@@ -46,7 +46,13 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
     we keep a reference to the listener's endpoint and execute tranfers
     outside of the callback function.
     """
-    ctx = ucx_api.UCXContext()
+    feature_flags = [ucx_api.Feature.WAKEUP]
+    if transfer_api == "stream":
+        feature_flags.append(ucx_api.Feature.STREAM)
+    else:
+        feature_flags.append(ucx_api.Feature.TAG)
+
+    ctx = ucx_api.UCXContext(feature_flags=tuple(feature_flags))
     worker = ucx_api.UCXWorker(ctx)
 
     if progress_mode == "blocking":
@@ -94,7 +100,13 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
 
 
 def _echo_client(transfer_api, msg_size, progress_mode, port):
-    ctx = ucx_api.UCXContext()
+    feature_flags = [ucx_api.Feature.WAKEUP]
+    if transfer_api == "stream":
+        feature_flags.append(ucx_api.Feature.STREAM)
+    else:
+        feature_flags.append(ucx_api.Feature.TAG)
+
+    ctx = ucx_api.UCXContext(feature_flags=tuple(feature_flags))
     worker = ucx_api.UCXWorker(ctx)
 
     if progress_mode == "blocking":

@@ -12,7 +12,7 @@ def _server_cancel(queue):
     """Server that establishes an endpoint to client and immediately closes
     it, triggering received messages to be canceled on the client.
     """
-    ctx = ucx_api.UCXContext()
+    ctx = ucx_api.UCXContext(feature_flags=(ucx_api.Feature.TAG, ucx_api.Feature.WAKEUP))
     worker = ucx_api.UCXWorker(ctx)
 
     # Keep endpoint to be used from outside the listener callback
@@ -33,7 +33,7 @@ def _client_cancel(queue):
     because the server closes without sending anything, the messages will
     trigger cancelation.
     """
-    ctx = ucx_api.UCXContext()
+    ctx = ucx_api.UCXContext(feature_flags=(ucx_api.Feature.TAG, ucx_api.Feature.WAKEUP))
     worker = ucx_api.UCXWorker(ctx)
     port = queue.get()
     ep = ucx_api.UCXEndpoint.create(

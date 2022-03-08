@@ -34,8 +34,7 @@ def _server(queue, server_close_callback):
     Notice, since it is illegal to call progress() in call-back functions,
     we use a "chain" of call-back functions.
     """
-    # ctx = ucx_api.UCXContext(feature_flags=(ucx_api.Feature.TAG,))
-    ctx = ucx_api.UCXContext()
+    ctx = ucx_api.UCXContext(feature_flags=(ucx_api.Feature.TAG,))
     worker = ucx_api.UCXWorker(ctx)
 
     listener_finished = [False]
@@ -73,8 +72,7 @@ def _server(queue, server_close_callback):
 
 
 def _client(port, server_close_callback):
-    # ctx = ucx_api.UCXContext(feature_flags=(ucx_api.Feature.TAG,))
-    ctx = ucx_api.UCXContext()
+    ctx = ucx_api.UCXContext(feature_flags=(ucx_api.Feature.TAG,))
     worker = ucx_api.UCXWorker(ctx)
     ep = ucx_api.UCXEndpoint.create(
         worker, "127.0.0.1", port, endpoint_error_handling=True,
