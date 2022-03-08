@@ -275,10 +275,6 @@ cdef class UCXEndpoint():
         cdef UCXXEndpoint* e = self._endpoint.get()
         return e.isAlive()
 
-    def close(self):
-        cdef UCXXEndpoint* e = self._endpoint.get()
-        e.close()
-
     def set_close_callback(self, cb_func, tuple cb_args=None, dict cb_kwargs=None):
         if cb_args is None:
             cb_args = ()

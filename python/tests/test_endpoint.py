@@ -81,10 +81,7 @@ def _client(port, server_close_callback):
     wireup_msg = Array(bytes(os.urandom(WireupMessageSize)))
     wireup_request = ep.tag_send(wireup_msg, tag=0)
     _wait_requests(worker, "blocking", wireup_request)
-    if server_close_callback is True:
-        ep.close()
-        worker.progress()
-    else:
+    if server_close_callback is False:
         closed = [False]
         ep.set_close_callback(_close_callback, cb_args=(closed,))
         while closed[0] is False:
