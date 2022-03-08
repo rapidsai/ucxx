@@ -9,6 +9,7 @@ import enum
 import functools
 
 from libc.stdint cimport uintptr_t
+from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
@@ -213,9 +214,20 @@ cdef class UCXRequest():
             await asyncio.sleep(0)
 
 
+cdef void _endpoint_close_callback(void *args) with gil:
+    """Callback function called when UCXEndpoint closes or errors"""
+    cdef dict cb_data = <dict> args
+
+    cb_data['cb_func'](
+        *cb_data['cb_args'],
+        **cb_data['cb_kwargs']
+    )
+
+
 cdef class UCXEndpoint():
     cdef:
         shared_ptr[UCXXEndpoint] _endpoint
+        dict _close_cb_data
 
     def __init__(self, uintptr_t shared_ptr_endpoint):
         self._endpoint = (<shared_ptr[UCXXEndpoint] *> shared_ptr_endpoint)[0]
@@ -262,6 +274,28 @@ cdef class UCXEndpoint():
     def is_alive(self):
         cdef UCXXEndpoint* e = self._endpoint.get()
         return e.isAlive()
+
+    def close(self):
+        cdef UCXXEndpoint* e = self._endpoint.get()
+        e.close()
+
+    def set_close_callback(self, cb_func, tuple cb_args=None, dict cb_kwargs=None):
+        if cb_args is None:
+            cb_args = ()
+        if cb_kwargs is None:
+            cb_kwargs = {}
+
+        self._close_cb_data = {
+            "cb_func": cb_func,
+            "cb_args": cb_args,
+            "cb_kwargs": cb_kwargs,
+        }
+
+        cdef UCXXEndpoint* e = self._endpoint.get()
+
+        cdef function[void(void*)]* func_close_callback = new function[void(void*)](_endpoint_close_callback)
+        e.setCloseCallback(func_close_callback[0], <void*>self._close_cb_data)
+        del func_close_callback
 
 
 cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with gil:

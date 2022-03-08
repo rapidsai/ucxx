@@ -39,6 +39,8 @@ struct EpParamsDeleter {
 typedef struct error_callback_data {
     ucs_status_t status;
     inflight_requests_t inflightRequests;
+    std::function<void(void*)> closeCallback;
+    void* closeCallbackArg;
     std::shared_ptr<UCXXWorker> worker;
 } error_callback_data_t;
 
@@ -47,6 +49,8 @@ void _err_cb(void *arg, ucp_ep_h ep, ucs_status_t status)
     error_callback_data_t* data = (error_callback_data_t*)arg;
     data->status = status;
     data->worker->scheduleRequestCancel(data->inflightRequests);
+    if (data->closeCallback)
+        data->closeCallback(data->closeCallbackArg);
     ucxx_error("Error callback for endpoint %p called with status %d: %s", ep, status, ucs_status_string(status));
 }
 
@@ -113,29 +117,7 @@ class UCXXEndpoint : public UCXXComponent
 
     ~UCXXEndpoint()
     {
-        if (_handle == nullptr)
-            return;
-
-        // Close the endpoint
-        unsigned close_mode = UCP_EP_CLOSE_MODE_FORCE;
-        if (_endpoint_error_handling and _callbackData->status != UCS_OK)
-        {
-            // We force close endpoint if endpoint error handling is enabled and
-            // the endpoint status is not UCS_OK
-            close_mode = UCP_EP_CLOSE_MODE_FORCE;
-        }
-        ucs_status_ptr_t status = ucp_ep_close_nb(_handle, close_mode);
-        if (UCS_PTR_IS_PTR(status))
-        {
-            auto worker = UCXXEndpoint::getWorker(_parent);
-            while (ucp_request_check_status(status) == UCS_INPROGRESS)
-                worker->progress();
-            ucp_request_free(status);
-        }
-        else if (UCS_PTR_STATUS(status) != UCS_OK)
-        {
-            std::cerr << "Error while closing endpoint: " << ucs_status_string(UCS_PTR_STATUS(status)) << std::endl;
-        }
+        close();
     }
 
     static std::shared_ptr<UCXXWorker> getWorker(std::shared_ptr<UCXXComponent> worker_or_listener)
@@ -222,12 +204,53 @@ class UCXXEndpoint : public UCXXComponent
         return _handle;
     }
 
+    void close()
+    {
+        if (_handle == nullptr)
+            return;
+
+        // Close the endpoint
+        unsigned close_mode = UCP_EP_CLOSE_MODE_FORCE;
+        if (_endpoint_error_handling and _callbackData->status != UCS_OK)
+        {
+            // We force close endpoint if endpoint error handling is enabled and
+            // the endpoint status is not UCS_OK
+            close_mode = UCP_EP_CLOSE_MODE_FORCE;
+        }
+        ucs_status_ptr_t status = ucp_ep_close_nb(_handle, close_mode);
+        if (UCS_PTR_IS_PTR(status))
+        {
+            auto worker = UCXXEndpoint::getWorker(_parent);
+            while (ucp_request_check_status(status) == UCS_INPROGRESS)
+                worker->progress();
+            ucp_request_free(status);
+        }
+        else if (UCS_PTR_STATUS(status) != UCS_OK)
+        {
+            std::cerr << "Error while closing endpoint: " << ucs_status_string(UCS_PTR_STATUS(status)) << std::endl;
+        }
+
+        // If the status is not UCS_OK, the close callback was already called
+        // during error handler.
+        if (_callbackData->status == UCS_OK)
+            if (_callbackData->closeCallback)
+                _callbackData->closeCallback(_callbackData->closeCallbackArg);
+
+        _handle = nullptr;
+    }
+
     bool isAlive() const
     {
         if (!_endpoint_error_handling)
             return true;
 
         return _callbackData->status == UCS_OK;
+    }
+
+    void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg)
+    {
+        _callbackData->closeCallback = closeCallback;
+        _callbackData->closeCallbackArg = closeCallbackArg;
     }
 
     std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<ucxx_request_t> request)
