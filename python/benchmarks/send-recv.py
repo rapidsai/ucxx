@@ -26,8 +26,8 @@ from time import perf_counter as clock
 
 from dask.utils import format_bytes, parse_bytes
 
-from ucxx._lib.arr import Array
 import ucxx._lib.libucxx as ucx_api
+from ucxx._lib.arr import Array
 
 mp = mp.get_context("spawn")
 
@@ -412,13 +412,9 @@ def parse_args():
             "`--cuda-profile` requires `--object_type=cupy` or `--object_type=rmm`"
         )
     if args.progress_mode != "blocking" and args.progress_mode != "threaded":
-        raise RuntimeError(
-            f"Invalid `--progress-mode`: '{args.progress_mode}'"
-        )
+        raise RuntimeError(f"Invalid `--progress-mode`: '{args.progress_mode}'")
     if args.asyncio_wait and args.progress_mode != "threaded":
-        raise RuntimeError(
-            "`--asyncio-wait` requires `--progress-mode=threaded`"
-        )
+        raise RuntimeError("`--asyncio-wait` requires `--progress-mode=threaded`")
     return args
 
 

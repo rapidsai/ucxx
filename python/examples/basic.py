@@ -1,9 +1,10 @@
 import argparse
 import asyncio
+
 import numpy as np
 
-from ucxx._lib.arr import Array
 import ucxx._lib.libucxx as ucx_api
+from ucxx._lib.arr import Array
 
 
 async def _wait_requests_async(worker, requests):
@@ -43,9 +44,7 @@ def parse_args():
 
     args = parser.parse_args()
     if args.asyncio_wait and args.progress_mode != "threaded":
-        raise RuntimeError(
-            "`--asyncio-wait` requires `--progress-mode='threaded'`"
-        )
+        raise RuntimeError("`--asyncio-wait` requires `--progress-mode='threaded'`")
 
     return args
 

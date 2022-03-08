@@ -1,6 +1,7 @@
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
+
 def wait_requests(worker, progress_mode, requests):
     if not isinstance(requests, list):
         requests = [requests]

@@ -3,9 +3,9 @@ import os
 
 import pytest
 
-from ucxx.testing import wait_requests
-from ucxx._lib.arr import Array
 import ucxx._lib.libucxx as ucx_api
+from ucxx._lib.arr import Array
+from ucxx.testing import wait_requests
 
 mp = mp.get_context("spawn")
 

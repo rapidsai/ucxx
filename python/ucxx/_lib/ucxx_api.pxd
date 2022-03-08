@@ -7,11 +7,9 @@
 from posix cimport fcntl
 
 from libc.stdint cimport int64_t, uint16_t, uint64_t
-
 from libcpp cimport bool as cpp_bool
 from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
-from libcpp.memory cimport shared_ptr
 from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
 
@@ -71,8 +69,11 @@ cdef extern from "<ucxx/exception_py.h>" namespace "ucxx" nogil:
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXContext:
         UCXXContext()
+
         @staticmethod
-        shared_ptr[UCXXContext] create(cpp_map[string, string] ucx_config, uint64_t feature_flags) except +raise_py_error
+        shared_ptr[UCXXContext] create(
+            cpp_map[string, string] ucx_config, uint64_t feature_flags
+        ) except +raise_py_error
         shared_ptr[UCXXWorker] createWorker() except +raise_py_error
         cpp_map[string, string] get_config() except +raise_py_error
         ucp_context_h get_handle()
@@ -83,9 +84,15 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         UCXXWorker(shared_ptr[UCXXContext] context) except +
         ucp_worker_h get_handle()
         shared_ptr[UCXXAddress] getAddress() except +raise_py_error
-        shared_ptr[UCXXEndpoint] createEndpointFromHostname(string ip_address, uint16_t port, bint endpoint_error_handling) except +raise_py_error
-        shared_ptr[UCXXEndpoint] createEndpointFromWorkerAddress(shared_ptr[UCXXAddress] address, bint endpoint_error_handling) except +raise_py_error
-        shared_ptr[UCXXListener] createListener(uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args) except +raise_py_error
+        shared_ptr[UCXXEndpoint] createEndpointFromHostname(
+            string ip_address, uint16_t port, bint endpoint_error_handling
+        ) except +raise_py_error
+        shared_ptr[UCXXEndpoint] createEndpointFromWorkerAddress(
+            shared_ptr[UCXXAddress] address, bint endpoint_error_handling
+        ) except +raise_py_error
+        shared_ptr[UCXXListener] createListener(
+            uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args
+        ) except +raise_py_error
         void init_blocking_progress_mode() except +raise_py_error
         void progress()
         void progress_worker_event()
@@ -94,15 +101,27 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         size_t cancelInflightRequests() except +raise_py_error
 
     cdef cppclass UCXXEndpoint:
-        shared_ptr[UCXXRequest] stream_send(void* buffer, size_t length) except +raise_py_error
-        shared_ptr[UCXXRequest] stream_recv(void* buffer, size_t length) except +raise_py_error
-        shared_ptr[UCXXRequest] tag_send(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
-        shared_ptr[UCXXRequest] tag_recv(void* buffer, size_t length, ucp_tag_t tag) except +raise_py_error
+        shared_ptr[UCXXRequest] stream_send(
+            void* buffer, size_t length
+        ) except +raise_py_error
+        shared_ptr[UCXXRequest] stream_recv(
+            void* buffer, size_t length
+        ) except +raise_py_error
+        shared_ptr[UCXXRequest] tag_send(
+            void* buffer, size_t length, ucp_tag_t tag
+        ) except +raise_py_error
+        shared_ptr[UCXXRequest] tag_recv(
+            void* buffer, size_t length, ucp_tag_t tag
+        ) except +raise_py_error
         bint isAlive()
-        void setCloseCallback(function[void(void*)] close_callback, void* close_callback_arg)
+        void setCloseCallback(
+            function[void(void*)] close_callback, void* close_callback_arg
+        )
 
     cdef cppclass UCXXListener:
-        shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(ucp_conn_request_h conn_request, bint endpoint_error_handling) except +raise_py_error
+        shared_ptr[UCXXEndpoint] createEndpointFromConnRequest(
+            ucp_conn_request_h conn_request, bint endpoint_error_handling
+        ) except +raise_py_error
         uint16_t getPort()
 
     cdef cppclass UCXXAddress:
