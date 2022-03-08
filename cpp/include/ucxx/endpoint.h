@@ -240,6 +240,23 @@ class UCXXEndpoint : public UCXXComponent
         return _callbackData->status == UCS_OK;
     }
 
+    void raiseOnError()
+    {
+        ucs_status_t status = _callbackData->status;
+
+        if (status == UCS_OK || !_endpoint_error_handling)
+            return;
+
+        std::string statusString{ucs_status_string(status)};
+        std::stringstream errorMsgStream;
+        errorMsgStream << "Endpoint " << std::hex << _handle << " error: " << statusString;
+
+        if (status == UCS_ERR_CONNECTION_RESET)
+            throw UCXXConnectionResetError(errorMsgStream.str());
+        else
+            throw UCXXError(errorMsgStream.str());
+    }
+
     void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg)
     {
         _callbackData->closeCallback = closeCallback;

@@ -44,5 +44,13 @@ class UCXXConfigError : public UCXXError
         }
 };
 
+class UCXXConnectionResetError : public UCXXError
+{
+    public:
+        UCXXConnectionResetError(const std::string& msg) : UCXXError(msg)
+        {
+        }
+};
+
 
 } // namespace ucxx

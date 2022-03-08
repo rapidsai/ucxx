@@ -38,9 +38,14 @@ class UCXConfigError(UCXError):
     pass
 
 
+class UCXConnectionResetError(UCXError):
+    pass
+
+
 cdef public PyObject* ucxx_error = <PyObject*>UCXError
 cdef public PyObject* ucxx_canceled_error = <PyObject*>UCXCanceled
 cdef public PyObject* ucxx_config_error = <PyObject*>UCXConfigError
+cdef public PyObject* ucxx_connection_reset_error = <PyObject*>UCXConnectionResetError
 
 
 ###############################################################################

@@ -16,6 +16,7 @@ extern "C"
     extern PyObject *ucxx_error;
     extern PyObject *ucxx_canceled_error;
     extern PyObject *ucxx_config_error;
+    extern PyObject *ucxx_connection_reset_error;
 }
 
 namespace ucxx
@@ -30,6 +31,8 @@ void raise_py_error()
         PyErr_SetString(ucxx_canceled_error, e.what());
     } catch (const UCXXConfigError& e) {
         PyErr_SetString(ucxx_config_error, e.what());
+    } catch (const UCXXConnectionResetError& e) {
+        PyErr_SetString(ucxx_connection_reset_error, e.what());
     } catch (const UCXXError& e) {
         PyErr_SetString(ucxx_error, e.what());
     } catch (const std::bad_alloc& e) {
