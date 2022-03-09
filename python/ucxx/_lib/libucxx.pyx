@@ -418,3 +418,9 @@ cdef class UCXListener():
         return UCXEndpoint.create_from_conn_request(
             self, conn_request, endpoint_error_handling,
         )
+
+
+def get_ucx_version():
+    cdef unsigned int a, b, c
+    ucp_get_version(&a, &b, &c)
+    return (a, b, c)

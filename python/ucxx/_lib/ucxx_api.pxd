@@ -66,6 +66,10 @@ cdef extern from "ucp/api/ucp.h":
     # Functions
     const char *ucs_status_string(ucs_status_t status)
 
+    void ucp_get_version(unsigned * major_version,
+                         unsigned *minor_version,
+                         unsigned *release_number)
+
 
 cdef extern from "<ucxx/exception_py.h>" namespace "ucxx" nogil:
     cdef void raise_py_error()
