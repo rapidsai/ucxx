@@ -33,6 +33,10 @@ class UCXCanceled(UCXError):
     pass
 
 
+class UCXCloseError(UCXError):
+    pass
+
+
 class UCXConfigError(UCXError):
     pass
 
@@ -313,14 +317,14 @@ cdef class UCXEndpoint():
         )
         return UCXRequest(<uintptr_t><void*>&req)
 
-    def tag_send(self, Array arr, int tag):
+    def tag_send(self, Array arr, size_t tag):
         cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
         cdef shared_ptr[UCXXRequest] req = (
             ucxx_endpoint.tag_send(<void*>arr.ptr, arr.nbytes, tag)
         )
         return UCXRequest(<uintptr_t><void*>&req)
 
-    def tag_recv(self, Array arr, int tag):
+    def tag_recv(self, Array arr, size_t tag):
         cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
         cdef shared_ptr[UCXXRequest] req = (
             ucxx_endpoint.tag_recv(<void*>arr.ptr, arr.nbytes, tag)
@@ -363,7 +367,12 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
     cdef dict cb_data = <dict> args
 
     cb_data['cb_func'](
-        int(<uintptr_t>conn_request),
+        (
+            cb_data['listener'].create_endpoint_from_conn_request(
+                int(<uintptr_t>conn_request), True
+            ) if 'listener' in cb_data else
+            int(<uintptr_t>conn_request)
+        ),
         *cb_data['cb_args'],
         **cb_data['cb_kwargs']
     )
@@ -385,7 +394,8 @@ cdef class UCXListener():
             uint16_t port,
             cb_func,
             tuple cb_args=None,
-            dict cb_kwargs=None
+            dict cb_kwargs=None,
+            bint deliver_endpoint=False,
     ):
         if cb_args is None:
             cb_args = ()
@@ -403,7 +413,10 @@ cdef class UCXListener():
         }
 
         listener = ucxx_worker.createListener(port, listener_cb, <void*>cb_data)
-        return cls(<uintptr_t><void*>&listener, cb_data)
+        ret = cls(<uintptr_t><void*>&listener, cb_data)
+        if deliver_endpoint is True:
+            cb_data["listener"] = ret
+        return ret
 
     @property
     def port(self):
