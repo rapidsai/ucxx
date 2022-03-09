@@ -121,6 +121,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             void* buffer, size_t length, ucp_tag_t tag
         ) except +raise_py_error
         bint isAlive()
+        void raiseOnError() except +raise_py_error
         void setCloseCallback(
             function[void(void*)] close_callback, void* close_callback_arg
         )

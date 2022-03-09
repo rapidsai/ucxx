@@ -331,6 +331,10 @@ cdef class UCXEndpoint():
         cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
         return ucxx_endpoint.isAlive()
 
+    def raise_on_error(self):
+        cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
+        return ucxx_endpoint.raiseOnError()
+
     def set_close_callback(self, cb_func, tuple cb_args=None, dict cb_kwargs=None):
         if cb_args is None:
             cb_args = ()
