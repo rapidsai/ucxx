@@ -111,7 +111,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         bint tagProbe(ucp_tag_t)
 
     cdef cppclass UCXXEndpoint:
-        ucp_ep_h* getHandle()
+        ucp_ep_h getHandle()
         shared_ptr[UCXXRequest] stream_send(
             void* buffer, size_t length
         ) except +raise_py_error

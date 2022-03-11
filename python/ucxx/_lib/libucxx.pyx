@@ -94,16 +94,21 @@ cdef class UCXContext():
             Feature.RMA
         )
     ):
-        cdef cpp_map[string, string] cpp_config
+        cdef cpp_map[string, string] cpp_config_in, cpp_config_out
+        cdef dict context_config
+
         for k, v in config_dict.items():
-            cpp_config[k.encode("utf-8")] = v.encode("utf-8")
-        feature_flags = functools.reduce(
+            cpp_config_in[k.encode("utf-8")] = v.encode("utf-8")
+        cdef uint64_t feature_flags_uint = functools.reduce(
             lambda x, y: x | y.value, feature_flags, 0
         )
-        self._context = UCXXContext.create(cpp_config, feature_flags)
-        cdef UCXXContext* ucxx_context = self._context.get()
 
-        cdef dict context_config = ucxx_context.get_config()
+        with nogil:
+            self._context = UCXXContext.create(cpp_config_in, feature_flags_uint)
+            cpp_config_out = self._context.get().get_config()
+
+        context_config = cpp_config_out
+
         self._config = {
             k.decode("utf-8"): v.decode("utf-8") for k, v in context_config.items()
         }
@@ -113,12 +118,22 @@ cdef class UCXContext():
 
     @property
     def handle(self):
-        cdef UCXXContext* ucxx_context = self._context.get()
-        return int(<uintptr_t>ucxx_context.get_handle())
+        cdef ucp_context_h handle
+
+        with nogil:
+            handle = self._context.get().get_handle()
+
+        return int(<uintptr_t>handle)
 
     cpdef str get_info(self):
-        cdef UCXXContext* ucxx_context = self._context.get()
-        return ucxx_context.get_info().decode("utf-8")
+        cdef UCXXContext* ucxx_context
+        cdef string info
+
+        with nogil:
+            ucxx_context = self._context.get()
+            info = ucxx_context.get_info()
+
+        return info.decode("utf-8")
 
 
 cdef class UCXAddress():
@@ -130,8 +145,11 @@ cdef class UCXAddress():
 
     @classmethod
     def create_from_worker(cls, UCXWorker worker):
-        cdef UCXXWorker* ucxx_worker = worker._worker.get()
-        address = ucxx_worker.getAddress()
+        cdef shared_ptr[UCXXAddress] address
+
+        with nogil:
+            address = worker._worker.get().getAddress()
+
         return cls(<uintptr_t><void*>&address)
 
     # For old UCX-Py API compatibility
@@ -141,13 +159,21 @@ cdef class UCXAddress():
 
     @property
     def address(self):
-        cdef UCXXAddress* ucxx_address = self._address.get()
-        return int(<uintptr_t>ucxx_address.getHandle())
+        cdef ucp_address_t* address
+
+        with nogil:
+            address = self._address.get().getHandle()
+
+        return int(<uintptr_t>address)
 
     @property
     def length(self):
-        cdef UCXXAddress* ucxx_address = self._address.get()
-        return int(ucxx_address.getLength())
+        cdef size_t getLength
+
+        with nogil:
+            length = self._address.get().getLength()
+
+        return int(length)
 
 
 cdef class UCXWorker():
@@ -156,13 +182,17 @@ cdef class UCXWorker():
         shared_ptr[UCXXWorker] _worker
 
     def __init__(self, UCXContext context):
-        cdef UCXXContext* ucxx_context = context._context.get()
-        self._worker = ucxx_context.createWorker()
+        with nogil:
+            self._worker = context._context.get().createWorker()
 
     @property
     def handle(self):
-        cdef UCXXWorker* ucxx_worker = self._worker.get()
-        return int(<uintptr_t>ucxx_worker.get_handle())
+        cdef ucp_worker_h handle
+
+        with nogil:
+            handle = self._worker.get().get_handle()
+
+        return int(<uintptr_t>handle)
 
     def get_address(self):
         return UCXAddress.create_from_worker(self)
@@ -185,32 +215,40 @@ cdef class UCXWorker():
         )
 
     def init_blocking_progress_mode(self):
-        cdef UCXXWorker* ucxx_worker = self._worker.get()
-        ucxx_worker.init_blocking_progress_mode()
+        with nogil:
+            self._worker.get().init_blocking_progress_mode()
 
     def progress(self):
-        cdef UCXXWorker* ucxx_worker = self._worker.get()
-        ucxx_worker.progress()
+        with nogil:
+            self._worker.get().progress()
 
     def progress_worker_event(self):
-        cdef UCXXWorker* ucxx_worker = self._worker.get()
-        ucxx_worker.progress_worker_event()
+        with nogil:
+            self._worker.get().progress_worker_event()
 
     def start_progress_thread(self):
-        cdef UCXXWorker* ucxx_worker = self._worker.get()
-        ucxx_worker.startProgressThread()
+        with nogil:
+            self._worker.get().startProgressThread()
 
     def stop_progress_thread(self):
-        cdef UCXXWorker* ucxx_worker = self._worker.get()
-        ucxx_worker.stopProgressThread()
+        with nogil:
+            self._worker.get().stopProgressThread()
 
     def cancel_inflight_requests(self):
-        cdef UCXXWorker* ucxx_worker = self._worker.get()
-        return ucxx_worker.cancelInflightRequests()
+        cdef size_t num_canceled
 
-    def tag_probe(self, tag):
-        cdef UCXXWorker* ucxx_worker = self._worker.get()
-        return ucxx_worker.tagProbe(tag)
+        with nogil:
+            num_canceled = self._worker.get().cancelInflightRequests()
+
+        return num_canceled
+
+    def tag_probe(self, size_t tag):
+        cdef bint tag_matched
+
+        with nogil:
+            tag_matched = self._worker.get().tagProbe(tag)
+
+        return tag_matched
 
 
 cdef class UCXRequest():
@@ -220,17 +258,25 @@ cdef class UCXRequest():
     def __init__(self, uintptr_t shared_ptr_request):
         self._request = (<shared_ptr[UCXXRequest] *> shared_ptr_request)[0]
 
-    def is_completed(self, period_ns=0):
-        cdef UCXXRequest* ucxx_request = self._request.get()
-        return ucxx_request.isCompleted(period_ns)
+    def is_completed(self, int64_t period_ns=0):
+        cdef bint is_completed
+
+        with nogil:
+            is_completed = self._request.get().isCompleted(period_ns)
+
+        return is_completed
 
     def get_status(self):
-        cdef UCXXRequest* ucxx_request = self._request.get()
-        return ucxx_request.getStatus()
+        cdef ucs_status_t status
+
+        with nogil:
+            status = self._request.get().getStatus()
+
+        return status
 
     def check_error(self):
-        cdef UCXXRequest* ucxx_request = self._request.get()
-        return ucxx_request.checkError()
+        with nogil:
+            self._request.get().checkError()
 
     async def is_completed_async(self, period_ns=0):
         while True:
@@ -265,10 +311,14 @@ cdef class UCXEndpoint():
             uint16_t port,
             bint endpoint_error_handling
     ):
-        cdef UCXXWorker* ucxx_worker = worker._worker.get()
-        endpoint = ucxx_worker.createEndpointFromHostname(
-            ip_address.encode("utf-8"), port, endpoint_error_handling
-        )
+        cdef shared_ptr[UCXXEndpoint] endpoint
+        cdef string addr = ip_address.encode("utf-8")
+
+        with nogil:
+            endpoint = worker._worker.get().createEndpointFromHostname(
+                addr, port, endpoint_error_handling
+            )
+
         return cls(<uintptr_t><void*>&endpoint)
 
     @classmethod
@@ -278,10 +328,13 @@ cdef class UCXEndpoint():
             uintptr_t conn_request,
             bint endpoint_error_handling
     ):
-        cdef UCXXListener* ucxx_listener = listener._listener.get()
-        endpoint = ucxx_listener.createEndpointFromConnRequest(
-            <ucp_conn_request_h>conn_request, endpoint_error_handling
-        )
+        cdef shared_ptr[UCXXEndpoint] endpoint
+
+        with nogil:
+            endpoint = listener._listener.get().createEndpointFromConnRequest(
+                <ucp_conn_request_h>conn_request, endpoint_error_handling
+            )
+
         return cls(<uintptr_t><void*>&endpoint)
 
     @classmethod
@@ -291,53 +344,76 @@ cdef class UCXEndpoint():
             UCXAddress address,
             bint endpoint_error_handling
     ):
-        cdef UCXXWorker* ucxx_worker = worker._worker.get()
         cdef shared_ptr[UCXXAddress] ucxx_address = address._address
-        endpoint = ucxx_worker.createEndpointFromWorkerAddress(
-            ucxx_address, endpoint_error_handling
-        )
+        cdef shared_ptr[UCXXEndpoint] endpoint
+
+        with nogil:
+            endpoint = worker._worker.get().createEndpointFromWorkerAddress(
+                ucxx_address, endpoint_error_handling
+            )
+
         return cls(<uintptr_t><void*>&endpoint)
 
     @property
     def handle(self):
-        cdef UCXXEndpoint* e = self._endpoint.get()
-        return int(<uintptr_t>e.getHandle())
+        cdef ucp_ep_h handle
+
+        with nogil:
+            handle = self._endpoint.get().getHandle()
+
+        return int(<uintptr_t>handle)
 
     def stream_send(self, Array arr):
-        cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
-        cdef shared_ptr[UCXXRequest] req = (
-            ucxx_endpoint.stream_send(<void*>arr.ptr, arr.nbytes)
-        )
+        cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
+        cdef shared_ptr[UCXXRequest] req
+
+        with nogil:
+            req = self._endpoint.get().stream_send(buf, nbytes)
+
         return UCXRequest(<uintptr_t><void*>&req)
 
     def stream_recv(self, Array arr):
-        cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
-        cdef shared_ptr[UCXXRequest] req = (
-            ucxx_endpoint.stream_recv(<void*>arr.ptr, arr.nbytes)
-        )
+        cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
+        cdef shared_ptr[UCXXRequest] req
+
+        with nogil:
+            req = self._endpoint.get().stream_recv(buf, nbytes)
+
         return UCXRequest(<uintptr_t><void*>&req)
 
     def tag_send(self, Array arr, size_t tag):
-        cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
-        cdef shared_ptr[UCXXRequest] req = (
-            ucxx_endpoint.tag_send(<void*>arr.ptr, arr.nbytes, tag)
-        )
+        cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
+        cdef shared_ptr[UCXXRequest] req
+
+        with nogil:
+            req = self._endpoint.get().tag_send(buf, nbytes, tag)
+
         return UCXRequest(<uintptr_t><void*>&req)
 
     def tag_recv(self, Array arr, size_t tag):
-        cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
-        cdef shared_ptr[UCXXRequest] req = (
-            ucxx_endpoint.tag_recv(<void*>arr.ptr, arr.nbytes, tag)
-        )
+        cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
+        cdef shared_ptr[UCXXRequest] req
+
+        with nogil:
+            req = self._endpoint.get().tag_recv(buf, nbytes, tag)
+
         return UCXRequest(<uintptr_t><void*>&req)
 
     def is_alive(self):
-        cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
-        return ucxx_endpoint.isAlive()
+        cdef bint is_alive
+
+        with nogil:
+            is_alive = self._endpoint.get().isAlive()
+
+        return is_alive
 
     def raise_on_error(self):
-        cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
-        return ucxx_endpoint.raiseOnError()
+        with nogil:
+            self._endpoint.get().raiseOnError()
 
     def set_close_callback(self, cb_func, tuple cb_args=None, dict cb_kwargs=None):
         if cb_args is None:
@@ -351,14 +427,13 @@ cdef class UCXEndpoint():
             "cb_kwargs": cb_kwargs,
         }
 
-        cdef UCXXEndpoint* ucxx_endpoint = self._endpoint.get()
-
         cdef function[void(void*)]* func_close_callback = (
             new function[void(void*)](_endpoint_close_callback)
         )
-        ucxx_endpoint.setCloseCallback(
-            func_close_callback[0], <void*>self._close_cb_data
-        )
+        with nogil:
+            self._endpoint.get().setCloseCallback(
+                func_close_callback[0], <void*>self._close_cb_data
+            )
         del func_close_callback
 
 
@@ -402,7 +477,7 @@ cdef class UCXListener():
         if cb_kwargs is None:
             cb_kwargs = {}
 
-        cdef UCXXWorker* ucxx_worker = worker._worker.get()
+        cdef shared_ptr[UCXXListener] ucxx_listener
         cdef ucp_listener_conn_callback_t listener_cb = (
             <ucp_listener_conn_callback_t>_listener_callback
         )
@@ -412,16 +487,24 @@ cdef class UCXListener():
             "cb_kwargs": cb_kwargs,
         }
 
-        listener = ucxx_worker.createListener(port, listener_cb, <void*>cb_data)
-        ret = cls(<uintptr_t><void*>&listener, cb_data)
+        with nogil:
+            ucxx_listener = worker._worker.get().createListener(
+                port, listener_cb, <void*>cb_data
+            )
+
+        listener = cls(<uintptr_t><void*>&ucxx_listener, cb_data)
         if deliver_endpoint is True:
-            cb_data["listener"] = ret
-        return ret
+            cb_data["listener"] = listener
+        return listener
 
     @property
     def port(self):
-        cdef UCXXListener* ucxx_listener = self._listener.get()
-        return ucxx_listener.getPort()
+        cdef uint16_t port
+
+        with nogil:
+            port = self._listener.get().getPort()
+
+        return port
 
     def create_endpoint_from_conn_request(
             self,
