@@ -222,6 +222,14 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().progress()
 
+    def progress_once(self):
+        cdef bint progress_made
+
+        with nogil:
+            progress_made = self._worker.get().progress_once()
+
+        return progress_made
+
     def progress_worker_event(self):
         with nogil:
             self._worker.get().progress_worker_event()

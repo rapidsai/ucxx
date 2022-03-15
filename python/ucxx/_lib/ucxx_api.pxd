@@ -104,6 +104,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         void init_blocking_progress_mode() except +raise_py_error
         void progress()
+        bint progress_once()
         void progress_worker_event()
         void startProgressThread() except +raise_py_error
         void stopProgressThread() except +raise_py_error

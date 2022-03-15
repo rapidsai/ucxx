@@ -170,7 +170,7 @@ class UCXXWorker : public UCXXComponent
         int ret;
         epoll_event ev;
 
-        if (progress())
+        if (progress_once())
             return true;
 
         if ((_epoll_fd == -1) || !arm())
@@ -193,13 +193,17 @@ class UCXXWorker : public UCXXComponent
     bool wait_progress()
     {
         assert_ucs_status(ucp_worker_wait(_handle));
-        return progress();
+        return progress_once();
     }
 
-    bool progress()
+    bool progress_once()
     {
-        // Try to progress the communication layer
         return ucp_worker_progress(_handle) != 0;
+    }
+
+    void progress()
+    {
+        while (ucp_worker_progress(_handle) != 0);
     }
 
     static void progressUntilSync(std::function<bool(void)> progressFunction, const bool& stopProgressThread)
@@ -220,7 +224,7 @@ class UCXXWorker : public UCXXComponent
             init_blocking_progress_mode();
         auto progressFunction = pollingMode ?
             std::bind(&UCXXWorker::progress_worker_event, this) :
-            std::bind(&UCXXWorker::progress, this);
+            std::bind(&UCXXWorker::progress_once, this);
         _progressThread = std::thread(
                 UCXXWorker::progressUntilSync,
                 progressFunction,
