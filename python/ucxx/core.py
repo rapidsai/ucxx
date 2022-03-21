@@ -358,7 +358,7 @@ class Listener:
 
     def closed(self):
         """Is the listener closed?"""
-        return self._b is None
+        return self._listener is None
 
     @property
     def ip(self):
@@ -607,6 +607,9 @@ class Endpoint:
         >>> ep.set_close_callback(lambda: print("Executing close callback"))
         """
         self._ep.set_close_callback(callback_func, cb_args, cb_kwargs)
+
+    def is_alive(self):
+        return self._ep.is_alive()
 
 
 # The following functions initialize and use a single ApplicationContext instance
