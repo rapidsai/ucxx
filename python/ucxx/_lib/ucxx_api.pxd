@@ -110,6 +110,9 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void stopProgressThread() except +raise_py_error
         size_t cancelInflightRequests() except +raise_py_error
         bint tagProbe(ucp_tag_t)
+        void setProgressThreadStartCallback(
+            function[void(void*)] callback, void* callback_arg
+        )
 
     cdef cppclass UCXXEndpoint:
         ucp_ep_h getHandle()

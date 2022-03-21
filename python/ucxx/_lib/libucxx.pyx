@@ -176,10 +176,24 @@ cdef class UCXAddress():
         return int(length)
 
 
+cdef void _generic_callback(void *args) with gil:
+    """Callback function called when UCXEndpoint closes or errors"""
+    cdef dict cb_data = <dict> args
+
+    try:
+        cb_data['cb_func'](
+            *cb_data['cb_args'],
+            **cb_data['cb_kwargs']
+        )
+    except Exception as e:
+        pass
+
+
 cdef class UCXWorker():
     """Python representation of `ucp_worker_h`"""
     cdef:
         shared_ptr[UCXXWorker] _worker
+        dict _progress_thread_start_cb_data
 
     def __init__(self, UCXContext context):
         with nogil:
@@ -257,6 +271,27 @@ cdef class UCXWorker():
             tag_matched = self._worker.get().tagProbe(tag)
 
         return tag_matched
+
+    def set_progress_thread_start_callback(self, cb_func, tuple cb_args=None, dict cb_kwargs=None):
+        if cb_args is None:
+            cb_args = ()
+        if cb_kwargs is None:
+            cb_kwargs = {}
+
+        self._progress_thread_start_cb_data = {
+            "cb_func": cb_func,
+            "cb_args": cb_args,
+            "cb_kwargs": cb_kwargs,
+        }
+
+        cdef function[void(void*)]* func_generic_callback = (
+            new function[void(void*)](_generic_callback)
+        )
+        with nogil:
+            self._worker.get().setProgressThreadStartCallback(
+                func_generic_callback[0], <void*>self._progress_thread_start_cb_data
+            )
+        del func_generic_callback
 
 
 cdef class UCXRequest():

@@ -40,6 +40,8 @@ class UCXXWorker : public UCXXComponent
         bool _progressThreadPollingMode{false};
         inflight_requests_t _inflightRequestsToCancel{std::make_shared<inflight_request_map_t>()};
         std::mutex _inflightMutex;
+        std::function<void(void*)> _progressThreadStartCallback;
+        void* _progressThreadStartCallbackArg;
 
     UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context)
     {
@@ -240,8 +242,20 @@ class UCXXWorker : public UCXXComponent
         while (ucp_worker_progress(_handle) != 0);
     }
 
-    static void progressUntilSync(std::function<bool(void)> progressFunction, const bool& stopProgressThread)
+    void setProgressThreadStartCallback(std::function<void(void*)> callback, void* callbackArg)
     {
+        _progressThreadStartCallback = callback;
+        _progressThreadStartCallbackArg = callbackArg;
+    }
+
+    static void progressUntilSync(
+            std::function<bool(void)> progressFunction,
+            const bool& stopProgressThread,
+            std::function<void(void*)> progressThreadStartCallback,
+            void* progressThreadStartCallbackArg)
+    {
+        if (progressThreadStartCallback)
+            progressThreadStartCallback(progressThreadStartCallbackArg);
         while (!stopProgressThread)
             progressFunction();
     }
@@ -262,7 +276,9 @@ class UCXXWorker : public UCXXComponent
         _progressThread = std::thread(
                 UCXXWorker::progressUntilSync,
                 progressFunction,
-                std::ref(_stopProgressThread)
+                std::ref(_stopProgressThread),
+                _progressThreadStartCallback,
+                _progressThreadStartCallbackArg
         );
     }
 
