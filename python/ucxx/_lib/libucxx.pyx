@@ -25,23 +25,27 @@ from .ucxx_api cimport *
 ###############################################################################
 
 
-class UCXError(Exception):
+class UCXBaseException(Exception):
     pass
 
 
-class UCXCanceled(UCXError):
+class UCXError(UCXBaseException):
     pass
 
 
-class UCXCloseError(UCXError):
+class UCXCanceled(UCXBaseException):
     pass
 
 
-class UCXConfigError(UCXError):
+class UCXCloseError(UCXBaseException):
     pass
 
 
-class UCXConnectionResetError(UCXError):
+class UCXConfigError(UCXBaseException):
+    pass
+
+
+class UCXConnectionResetError(UCXBaseException):
     pass
 
 

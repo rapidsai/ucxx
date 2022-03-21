@@ -13,7 +13,14 @@ from os import close as close_fd
 
 from ._lib import libucxx as ucx_api
 from ._lib.arr import Array
-from ._lib.libucxx import UCXCanceled, UCXCloseError, UCXError
+from ._lib.libucxx import (
+    UCXBaseException,
+    UCXError,
+    UCXCloseError,
+    UCXConnectionResetError,
+    UCXCanceled,
+    UCXCloseError,
+)
 from .continuous_ucx_progress import NonBlockingMode, ThreadMode
 from .utils import hash64bits
 
