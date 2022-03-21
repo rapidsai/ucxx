@@ -50,8 +50,18 @@ void _err_cb(void *arg, ucp_ep_h ep, ucs_status_t status)
     data->status = status;
     data->worker->scheduleRequestCancel(data->inflightRequests);
     if (data->closeCallback)
+    {
         data->closeCallback(data->closeCallbackArg);
-    ucxx_error("Error callback for endpoint %p called with status %d: %s", ep, status, ucs_status_string(status));
+        data->closeCallback = nullptr;
+        data->closeCallbackArg = nullptr;
+    }
+
+    // Connection reset and timeout often represent just a normal remote
+    // endpoint disconnect
+    if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
+        ucxx_debug("Error callback for endpoint %p called with status %d: %s", ep, status, ucs_status_string(status));
+    else
+        ucxx_error("Error callback for endpoint %p called with status %d: %s", ep, status, ucs_status_string(status));
 }
 
 class UCXXEndpoint : public UCXXComponent
@@ -138,14 +148,9 @@ class UCXXEndpoint : public UCXXComponent
         }
         else if (UCS_PTR_STATUS(status) != UCS_OK)
         {
-            std::cerr << "Error while closing endpoint: " << ucs_status_string(UCS_PTR_STATUS(status)) << std::endl;
+            ucxx_error("Error while closing endpoint: %s",
+                       ucs_status_string(UCS_PTR_STATUS(status)));
         }
-
-        // If the status is not UCS_OK, the close callback was already called
-        // during error handler.
-        if (_callbackData->status == UCS_OK)
-            if (_callbackData->closeCallback)
-                _callbackData->closeCallback(_callbackData->closeCallbackArg);
     }
 
     static std::shared_ptr<UCXXWorker> getWorker(std::shared_ptr<UCXXComponent> worker_or_listener)
