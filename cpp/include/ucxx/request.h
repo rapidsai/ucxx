@@ -92,16 +92,20 @@ class UCXXRequest : public UCXXComponent
 
     void checkError()
     {
-        switch (_handle->status)
+        // Marking the pointer volatile is necessary to ensure the compiler
+        // won't optimize the condition out when using a separate worker
+        // progress thread
+        volatile auto handle = _handle.get();
+        switch (handle->status)
         {
             case UCS_OK:
             case UCS_INPROGRESS:
                 return;
             case UCS_ERR_CANCELED:
-                throw UCXXCanceledError(ucs_status_string(_handle->status));
+                throw UCXXCanceledError(ucs_status_string(handle->status));
                 break;
             default:
-                throw UCXXError(ucs_status_string(_handle->status));
+                throw UCXXError(ucs_status_string(handle->status));
                 break;
         }
     }
@@ -109,7 +113,11 @@ class UCXXRequest : public UCXXComponent
     template<typename Rep, typename Period>
     bool isCompleted(std::chrono::duration<Rep, Period> period)
     {
-        return _handle->status != UCS_INPROGRESS;
+        // Marking the pointer volatile is necessary to ensure the compiler
+        // won't optimize the condition out when using a separate worker
+        // progress thread
+        volatile auto handle = _handle.get();
+        return handle->status != UCS_INPROGRESS;
     }
 
     bool isCompleted(int64_t periodNs = 0)
