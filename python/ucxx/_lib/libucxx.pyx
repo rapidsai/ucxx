@@ -7,6 +7,7 @@
 import asyncio
 import enum
 import functools
+import logging
 
 from cpython.ref cimport PyObject
 from libc.stdint cimport uintptr_t
@@ -19,6 +20,8 @@ from libcpp.utility cimport move
 from . cimport ucxx_api
 from .arr cimport Array
 from .ucxx_api cimport *
+
+logger = logging.getLogger("ucx")
 
 ###############################################################################
 #                               Exceptions                                    #
@@ -336,10 +339,13 @@ cdef void _endpoint_close_callback(void *args) with gil:
     """Callback function called when UCXEndpoint closes or errors"""
     cdef dict cb_data = <dict> args
 
-    cb_data['cb_func'](
-        *cb_data['cb_args'],
-        **cb_data['cb_kwargs']
-    )
+    try:
+        cb_data['cb_func'](
+            *cb_data['cb_args'],
+            **cb_data['cb_kwargs']
+        )
+    except Exception as e:
+        logger.debug(f"{type(e)} when calling endpoint close callback: {e}")
 
 
 cdef class UCXEndpoint():
