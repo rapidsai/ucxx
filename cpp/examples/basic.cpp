@@ -200,6 +200,8 @@ int main(int argc, char **argv)
     // Schedule small wireup messages to let UCX identify capabilities between endpoints
     requests.push_back(listener_ctx->getEndpoint()->tag_send(sendWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
     requests.push_back(endpoint->tag_recv(recvWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
+    waitRequests(worker, requests);
+    requests.clear();
 
     // Schedule send and recv messages on different tags and different ordering
     requests.push_back(listener_ctx->getEndpoint()->tag_send(sendBuffers[0].data(), sendBuffers[0].size() * sizeof(int), 0));
