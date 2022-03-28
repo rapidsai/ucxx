@@ -13,8 +13,6 @@ from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
 
-from .exception import UCXError
-
 
 cdef extern from "ucp/api/ucp.h":
     # Typedefs
