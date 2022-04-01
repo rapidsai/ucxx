@@ -2,6 +2,7 @@
 # See file LICENSE for terms.
 
 # distutils: language = c++
+# distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 # cython: language_level=3
 
 import asyncio
@@ -11,9 +12,10 @@ import logging
 
 from cpython.ref cimport PyObject
 from libc.stdint cimport uintptr_t
+from libcpp.cast cimport dynamic_cast
 from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
-from libcpp.memory cimport shared_ptr
+from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport move
 
@@ -21,7 +23,34 @@ from . cimport ucxx_api
 from .arr cimport Array
 from .ucxx_api cimport *
 
+from rmm._lib.device_buffer cimport DeviceBuffer
+
 logger = logging.getLogger("ucx")
+
+
+import numpy as np
+np.import_array()
+
+
+cdef ptr_to_ndarray(void* ptr, np.npy_intp N):
+    cdef np.ndarray[np.uint8_t, ndim=1, mode="c"] arr = (
+        np.PyArray_SimpleNewFromData(1, &N, np.NPY_UINT8, <np.uint8_t*>ptr)
+    )
+    PyArray_ENABLEFLAGS(arr, NPY_ARRAY_OWNDATA)
+    return arr
+
+
+def _get_rmm_buffer(uintptr_t unique_ptr_recv_buffer):
+    cdef unique_ptr[UCXXPyBuffer] recv_buffer = move((<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer)[0])
+    cdef UCXXPyRMMBufferPtr rmm_buffer = dynamic_cast[UCXXPyRMMBufferPtr](recv_buffer.get())
+    return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.get()))
+
+
+def _get_host_buffer(uintptr_t unique_ptr_recv_buffer):
+    cdef unique_ptr[UCXXPyBuffer] recv_buffer = move((<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer)[0])
+    cdef UCXXPyHostBufferPtr host_buffer = dynamic_cast[UCXXPyHostBufferPtr](recv_buffer.get())
+    return ptr_to_ndarray(host_buffer.release(), host_buffer.getSize())
+
 
 ###############################################################################
 #                               Exceptions                                    #
@@ -455,6 +484,40 @@ cdef class UCXEndpoint():
             req = self._endpoint.get().tag_recv(buf, nbytes, tag)
 
         return UCXRequest(<uintptr_t><void*>&req)
+
+    def tag_send_multi_b(self, tuple buffer, tuple size, tuple is_cuda, size_t tag):
+        cdef vector[void*] v_buffer
+        cdef vector[size_t] v_size
+        cdef vector[int] v_is_cuda
+
+        for b, s, c in zip(buffer, size, is_cuda):
+            v_buffer.push_back(<void*><uintptr_t>b.ptr)
+            v_size.push_back(s)
+            v_is_cuda.push_back(c)
+
+        with nogil:
+            tag_send_multi_b(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
+
+    def tag_recv_multi_b(self, size_t tag):
+        cdef vector[unique_ptr[UCXXPyBuffer]] recv_buffers
+        cdef list buffers = []
+
+        cdef UCXXPyBuffer* buffer
+        cdef unique_ptr[UCXXPyHostBuffer] host_buffer
+        cdef UCXXPyHostBuffer* host_buffer_raw
+        cdef UCXXPyRMMBuffer* rmm_buffer_raw
+
+        with nogil:
+            recv_buffers = move(tag_recv_multi_b(self._endpoint, tag))
+
+        for i in range(recv_buffers.size()):
+            if recv_buffers[i].get().isCUDA():
+                buffers.append(_get_rmm_buffer(<uintptr_t><void*>&recv_buffers[i]))
+            else:
+                buffers.append(_get_host_buffer(<uintptr_t><void*>&recv_buffers[i]))
+
+        return buffers
+
 
     def is_alive(self):
         cdef bint is_alive

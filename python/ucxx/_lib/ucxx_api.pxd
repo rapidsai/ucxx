@@ -10,11 +10,21 @@ from libc.stdint cimport int64_t, uint16_t, uint64_t
 from libcpp cimport bool as cpp_bool
 from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
-from libcpp.memory cimport shared_ptr
+from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.string cimport string
+from libcpp.vector cimport vector
+
+cimport numpy as np
 
 
-cdef extern from "ucp/api/ucp.h":
+cdef extern from "numpy/arrayobject.h" nogil:
+    void PyArray_ENABLEFLAGS(np.ndarray arr, int flags)
+
+    enum:
+        NPY_ARRAY_OWNDATA
+
+
+cdef extern from "ucp/api/ucp.h" nogil:
     # Typedefs
     ctypedef struct ucp_context:
         pass
@@ -69,8 +79,38 @@ cdef extern from "ucp/api/ucp.h":
                          unsigned *release_number)
 
 
+cdef extern from "rmm/device_buffer.hpp" namespace "rmm" nogil:
+    cdef cppclass device_buffer:
+        pass
+
+
 cdef extern from "<ucxx/exception_py.h>" namespace "ucxx" nogil:
     cdef void raise_py_error()
+
+cdef extern from "<ucxx/buffer_helper.h>" namespace "ucxx" nogil:
+    ctypedef void (*UCXXPyBufferDeleter)(void*)
+
+    cdef cppclass UCXXPyBuffer:
+        bint isValid()
+        size_t getSize()
+        bint isCUDA()
+
+    cdef cppclass UCXXPyHostBuffer:
+        bint isValid()
+        size_t getSize()
+        bint isCUDA()
+        unique_ptr[void, UCXXPyBufferDeleter] get() except +raise_py_error
+        void* release() except +raise_py_error
+
+    ctypedef UCXXPyHostBuffer* UCXXPyHostBufferPtr
+
+    cdef cppclass UCXXPyRMMBuffer:
+        bint isValid()
+        size_t getSize()
+        bint isCUDA()
+        unique_ptr[device_buffer] get() except +raise_py_error
+
+    ctypedef UCXXPyRMMBuffer* UCXXPyRMMBufferPtr
 
 
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
@@ -147,3 +187,17 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         cpp_bool isCompleted(int64_t period_ns)
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
+
+
+cdef extern from "<ucxx/transfer_tag_multi.h>" namespace "ucxx" nogil:
+        void tag_send_multi_b(
+            shared_ptr[UCXXEndpoint] endpoint,
+            vector[void*] buffer,
+            vector[size_t] length,
+            vector[int] isCUDA,
+            ucp_tag_t tag,
+        ) except +raise_py_error
+        vector[unique_ptr[UCXXPyBuffer]] tag_recv_multi_b(
+            shared_ptr[UCXXEndpoint] endpoint,
+            ucp_tag_t tag,
+        ) except +raise_py_error
