@@ -35,6 +35,20 @@ def parse_args():
         type=str,
     )
     parser.add_argument(
+        "-o",
+        "--object-type",
+        default="numpy",
+        choices=["numpy", "rmm"],
+        help="In-memory array type.",
+        type=str,
+    )
+    parser.add_argument(
+        "--multi-buffer-transfer",
+        default=False,
+        action="store_true",
+        help="If specified, use the multi-buffer TAG transfer API.",
+    )
+    parser.add_argument(
         "-p",
         "--port",
         default=12345,
@@ -59,6 +73,19 @@ def main():
             f"valid modes are {valid_progress_modes}",
         )
 
+    if args.object_type == "rmm":
+        import cupy as xp
+        import rmm
+
+        rmm.reinitialize(
+            pool_allocator=True,
+            managed_memory=False,
+        )
+        xp.cuda.runtime.setDevice(0)
+        xp.cuda.set_allocator(rmm.rmm_cupy_allocator)
+    else:
+        import numpy as xp
+
     ctx = ucx_api.UCXContext()
 
     worker = ucx_api.UCXWorker(ctx)
@@ -71,11 +98,13 @@ def main():
     wireup_send_buf = np.arange(3)
     wireup_recv_buf = np.empty_like(wireup_send_buf)
     send_bufs = [
-        np.arange(50),
-        np.arange(500),
-        np.arange(50000),
+        xp.arange(50, dtype="u1"),
+        xp.arange(500, dtype="u1"),
+        xp.arange(50000, dtype="u1"),
     ]
-    recv_bufs = [np.empty_like(b) for b in send_bufs]
+
+    if args.multi_buffer_transfer is False:
+        recv_bufs = [np.empty_like(b) for b in send_bufs]
 
     global listener_ep
     listener_ep = None
@@ -102,30 +131,45 @@ def main():
 
     np.testing.assert_equal(wireup_recv_buf, wireup_send_buf)
 
-    requests = [
-        listener_ep.tag_send(Array(send_bufs[0]), tag=0),
-        listener_ep.tag_send(Array(send_bufs[1]), tag=1),
-        listener_ep.tag_send(Array(send_bufs[2]), tag=2),
-        ep.tag_recv(Array(recv_bufs[0]), tag=0),
-        ep.tag_recv(Array(recv_bufs[1]), tag=1),
-        ep.tag_recv(Array(recv_bufs[2]), tag=2),
-    ]
+    if args.multi_buffer_transfer:
+        frames = (
+            Array(send_bufs[0]),
+            Array(send_bufs[1]),
+            Array(send_bufs[2]),
+        )
+        sizes = tuple(f.nbytes for f in frames)
+        is_cuda = tuple(f.cuda for f in frames)
 
-    if args.asyncio_wait:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(_wait_requests_async(worker, requests))
+        listener_ep.tag_send_multi_b(frames, sizes, is_cuda, tag=0)
+        recv_bufs = ep.tag_recv_multi_b(0)
     else:
-        _wait_requests(worker, args.progress_mode, requests)
+        requests = [
+            listener_ep.tag_send(Array(send_bufs[0]), tag=0),
+            listener_ep.tag_send(Array(send_bufs[1]), tag=1),
+            listener_ep.tag_send(Array(send_bufs[2]), tag=2),
+            ep.tag_recv(Array(recv_bufs[0]), tag=0),
+            ep.tag_recv(Array(recv_bufs[1]), tag=1),
+            ep.tag_recv(Array(recv_bufs[2]), tag=2),
+        ]
 
-        # Check results, raises an exception if any of them failed
-        for r in requests:
-            r.check_error()
+        if args.asyncio_wait:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(_wait_requests_async(worker, requests))
+        else:
+            _wait_requests(worker, args.progress_mode, requests)
+
+            # Check results, raises an exception if any of them failed
+            for r in requests:
+                r.check_error()
 
     if args.progress_mode == "threaded":
         worker.stop_progress_thread()
 
     for recv_buf, send_buf in zip(recv_bufs, send_bufs):
-        np.testing.assert_equal(recv_buf, send_buf)
+        if args.object_type == "numpy":
+            xp.testing.assert_equal(recv_buf, send_buf)
+        else:
+            xp.testing.assert_array_equal(xp.asarray(recv_buf), send_buf)
 
 
 if __name__ == "__main__":
