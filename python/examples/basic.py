@@ -140,8 +140,22 @@ def main():
         sizes = tuple(f.nbytes for f in frames)
         is_cuda = tuple(f.cuda for f in frames)
 
-        listener_ep.tag_send_multi_b(frames, sizes, is_cuda, tag=0)
-        recv_bufs = ep.tag_recv_multi_b(0)
+        send_buffer_requests = listener_ep.tag_send_multi(frames, sizes, is_cuda, tag=0)
+        recv_buffer_requests = ep.tag_recv_multi(0)
+
+        requests = [br.getRequest() for br in send_buffer_requests + recv_buffer_requests]
+
+        if args.asyncio_wait:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(_wait_requests_async(worker, requests))
+        else:
+            _wait_requests(worker, args.progress_mode, requests)
+
+            # Check results, raises an exception if any of them failed
+            for r in requests:
+                r.check_error()
+
+        recv_bufs = [br.getPyBuffer() for br in recv_buffer_requests]
     else:
         requests = [
             listener_ep.tag_send(Array(send_bufs[0]), tag=0),
