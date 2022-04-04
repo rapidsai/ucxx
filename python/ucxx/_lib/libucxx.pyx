@@ -364,6 +364,36 @@ cdef class UCXRequest():
             await asyncio.sleep(0)
 
 
+cdef class UCXBufferRequest:
+    cdef:
+        shared_ptr[UCXXBufferRequest] _buffer_request
+
+    def __init__(self, uintptr_t shared_ptr_buffer_request):
+        self._buffer_request = (<shared_ptr[UCXXBufferRequest] *> shared_ptr_buffer_request)[0]
+
+    def getRequest(self):
+        return UCXRequest(<uintptr_t><void*>&self._buffer_request.get().request)
+
+    def getPyBuffer(self):
+        cdef unique_ptr[UCXXPyBuffer] buf
+
+        with nogil:
+            buf = move(self._buffer_request.get().pyBuffer)
+
+        if buf.get().isCUDA():
+            return _get_rmm_buffer(<uintptr_t><void*>&buf)
+        else:
+            return _get_host_buffer(<uintptr_t><void*>&buf)
+
+
+cdef _buffer_requests_to_python_list(vector[shared_ptr[UCXXBufferRequest]] buffer_requests):
+    buffer_requests_list = []
+    for i in range(buffer_requests.size()):
+        buffer_requests_list.append(UCXBufferRequest(<uintptr_t><void*>&buffer_requests[i]))
+
+    return buffer_requests_list
+
+
 cdef void _endpoint_close_callback(void *args) with gil:
     """Callback function called when UCXEndpoint closes or errors"""
     cdef dict cb_data = <dict> args
@@ -485,6 +515,23 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req)
 
+    def tag_send_multi(self, tuple buffer, tuple size, tuple is_cuda, size_t tag):
+        cdef vector[void*] v_buffer
+        cdef vector[size_t] v_size
+        cdef vector[int] v_is_cuda
+
+        for b, s, c in zip(buffer, size, is_cuda):
+            v_buffer.push_back(<void*><uintptr_t>b.ptr)
+            v_size.push_back(s)
+            v_is_cuda.push_back(c)
+
+        cdef vector[shared_ptr[UCXXBufferRequest]] buffer_requests
+
+        with nogil:
+            buffer_requests = tag_send_multi(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
+
+        return _buffer_requests_to_python_list(buffer_requests)
+
     def tag_send_multi_b(self, tuple buffer, tuple size, tuple is_cuda, size_t tag):
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
@@ -498,14 +545,17 @@ cdef class UCXEndpoint():
         with nogil:
             tag_send_multi_b(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
 
+    def tag_recv_multi(self, size_t tag):
+        cdef vector[shared_ptr[UCXXBufferRequest]] buffer_requests
+
+        with nogil:
+            buffer_requests = move(tag_recv_multi(self._endpoint, tag))
+
+        return _buffer_requests_to_python_list(buffer_requests)
+
     def tag_recv_multi_b(self, size_t tag):
         cdef vector[unique_ptr[UCXXPyBuffer]] recv_buffers
         cdef list buffers = []
-
-        cdef UCXXPyBuffer* buffer
-        cdef unique_ptr[UCXXPyHostBuffer] host_buffer
-        cdef UCXXPyHostBuffer* host_buffer_raw
-        cdef UCXXPyRMMBuffer* rmm_buffer_raw
 
         with nogil:
             recv_buffers = move(tag_recv_multi_b(self._endpoint, tag))

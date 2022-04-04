@@ -190,14 +190,30 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
 
 cdef extern from "<ucxx/transfer_tag_multi.h>" namespace "ucxx" nogil:
-        void tag_send_multi_b(
-            shared_ptr[UCXXEndpoint] endpoint,
-            vector[void*] buffer,
-            vector[size_t] length,
-            vector[int] isCUDA,
-            ucp_tag_t tag,
-        ) except +raise_py_error
-        vector[unique_ptr[UCXXPyBuffer]] tag_recv_multi_b(
-            shared_ptr[UCXXEndpoint] endpoint,
-            ucp_tag_t tag,
-        ) except +raise_py_error
+    ctypedef struct UCXXBufferRequest:
+        shared_ptr[UCXXRequest] request
+        shared_ptr[string] stringBuffer
+        unique_ptr[UCXXPyBuffer] pyBuffer
+
+    vector[shared_ptr[UCXXBufferRequest]] tag_send_multi(
+        shared_ptr[UCXXEndpoint] endpoint,
+        vector[void*]& buffer,
+        vector[size_t]& length,
+        vector[int]& isCUDA,
+        ucp_tag_t tag,
+    ) except +raise_py_error
+    void tag_send_multi_b(
+        shared_ptr[UCXXEndpoint] endpoint,
+        vector[void*]& buffer,
+        vector[size_t]& length,
+        vector[int]& isCUDA,
+        ucp_tag_t tag,
+    ) except +raise_py_error
+    vector[shared_ptr[UCXXBufferRequest]] tag_recv_multi(
+        shared_ptr[UCXXEndpoint] endpoint,
+        ucp_tag_t tag,
+    ) except +raise_py_error
+    vector[unique_ptr[UCXXPyBuffer]] tag_recv_multi_b(
+        shared_ptr[UCXXEndpoint] endpoint,
+        ucp_tag_t tag,
+    ) except +raise_py_error
