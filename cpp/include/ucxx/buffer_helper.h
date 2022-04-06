@@ -192,7 +192,6 @@ public:
 
     static void free(void* ptr)
     {
-        std::cout << "UCXXPyHostBuffer.free(): " << ptr << std::endl;
         free(ptr);
     }
 };

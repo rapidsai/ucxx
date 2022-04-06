@@ -25,13 +25,17 @@ struct UCXXBufferRequest
     std::unique_ptr<UCXXPyBuffer> pyBuffer{nullptr};
 };
 
-std::vector<std::shared_ptr<UCXXBufferRequest>> tag_recv_multi(
+typedef std::shared_ptr<UCXXBufferRequest> UCXXBufferRequestPtr;
+typedef std::vector<UCXXBufferRequestPtr> UCXXBufferRequests;
+typedef std::unique_ptr<UCXXBufferRequests> UCXXBufferRequestsPtr;
+
+UCXXBufferRequestsPtr tag_recv_multi(
     std::shared_ptr<UCXXEndpoint> endpoint,
     ucp_tag_t tag)
 {
     auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
 
-    std::vector<std::shared_ptr<UCXXBufferRequest>> bufferRequests;
+    auto bufferRequests = std::make_unique<UCXXBufferRequests>();
     Header header;
     std::vector<Header> headers;
 
@@ -51,7 +55,7 @@ std::vector<std::shared_ptr<UCXXBufferRequest>> tag_recv_multi(
             auto buf = allocateBuffer(h.isCUDA[i], h.size[i]);
             bufferRequest->request = endpoint->tag_recv(buf->data(), buf->getSize(), tag);
             bufferRequest->pyBuffer = std::move(buf);
-            bufferRequests.push_back(bufferRequest);
+            bufferRequests->push_back(bufferRequest);
         }
     }
 
@@ -68,7 +72,7 @@ std::vector<std::unique_ptr<UCXXPyBuffer>> tag_recv_multi_b(
 
     std::vector<std::shared_ptr<UCXXRequest>> requestsOnly;
     std::vector<std::unique_ptr<UCXXPyBuffer>> recvBuffers;
-    for (auto& r: requests)
+    for (auto& r : *requests)
     {
         requestsOnly.push_back(r->request);
         recvBuffers.push_back(std::move(r->pyBuffer));
@@ -79,14 +83,14 @@ std::vector<std::unique_ptr<UCXXPyBuffer>> tag_recv_multi_b(
     return recvBuffers;
 }
 
-std::vector<std::shared_ptr<UCXXBufferRequest>> tag_send_multi(
+UCXXBufferRequestsPtr tag_send_multi(
     std::shared_ptr<UCXXEndpoint> endpoint,
     std::vector<void*>& buffer,
     std::vector<size_t>& size,
     std::vector<int>& isCUDA,
     ucp_tag_t tag)
 {
-    std::vector<std::shared_ptr<UCXXBufferRequest>> requests;
+    auto bufferRequests = std::make_unique<UCXXBufferRequests>();
 
     size_t totalFrames = buffer.size();
     size_t totalHeaders = (totalFrames + HeaderFramesSize - 1) / HeaderFramesSize;
@@ -104,7 +108,7 @@ std::vector<std::shared_ptr<UCXXBufferRequest>> tag_send_multi(
         auto bufferRequest = std::make_shared<UCXXBufferRequest>();
         bufferRequest->request = r;
         bufferRequest->stringBuffer = serializedHeader;
-        requests.push_back(bufferRequest);
+        bufferRequests->push_back(bufferRequest);
     }
 
     for (size_t i = 0; i < buffer.size(); ++i)
@@ -112,10 +116,10 @@ std::vector<std::shared_ptr<UCXXBufferRequest>> tag_send_multi(
         auto r = endpoint->tag_send(buffer[i], size[i], tag);
         auto bufferRequest = std::make_shared<UCXXBufferRequest>();
         bufferRequest->request = r;
-        requests.push_back(bufferRequest);
+        bufferRequests->push_back(bufferRequest);
     }
 
-    return requests;
+    return bufferRequests;
 }
 
 void tag_send_multi_b(std::shared_ptr<UCXXEndpoint> endpoint,
@@ -129,7 +133,7 @@ void tag_send_multi_b(std::shared_ptr<UCXXEndpoint> endpoint,
     auto requests = tag_send_multi(endpoint, buffer, size, isCUDA, tag);
 
     std::vector<std::shared_ptr<UCXXRequest>> requestsOnly;
-    for (auto& r: requests)
+    for (auto& r : *requests)
         requestsOnly.push_back(r->request);
 
     waitRequests(worker, requestsOnly);
