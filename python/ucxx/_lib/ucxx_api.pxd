@@ -144,7 +144,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void progress()
         bint progress_once()
         void progress_worker_event()
-        void startProgressThread() except +raise_py_error
+        void startProgressThread(bint pollingMode) except +raise_py_error
         void stopProgressThread() except +raise_py_error
         size_t cancelInflightRequests() except +raise_py_error
         bint tagProbe(ucp_tag_t)
@@ -190,14 +190,21 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
 
 cdef extern from "<ucxx/transfer_tag_multi.h>" namespace "ucxx" nogil:
-    ctypedef shared_ptr[UCXXBufferRequest] UCXXBufferRequestPtr
-    ctypedef vector[UCXXBufferRequestPtr] UCXXBufferRequests
-    ctypedef unique_ptr[UCXXBufferRequests] UCXXBufferRequestsPtr
 
     ctypedef struct UCXXBufferRequest:
         shared_ptr[UCXXRequest] request
         shared_ptr[string] stringBuffer
         unique_ptr[UCXXPyBuffer] pyBuffer
+
+    ctypedef shared_ptr[UCXXBufferRequest] UCXXBufferRequestPtr
+
+    ctypedef struct UCXXBufferRequests:
+        vector[UCXXBufferRequestPtr] bufferRequests
+        bint isFilled
+        shared_ptr[UCXXEndpoint] endpoint
+        ucp_tag_t tag
+
+    ctypedef shared_ptr[UCXXBufferRequests] UCXXBufferRequestsPtr
 
     UCXXBufferRequestsPtr tag_send_multi(
         shared_ptr[UCXXEndpoint] endpoint,

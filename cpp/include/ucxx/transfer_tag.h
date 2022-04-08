@@ -53,13 +53,16 @@ ucs_status_ptr_t tag_request(ucp_worker_h worker, ucp_ep_h ep,
 
 std::shared_ptr<ucxx_request_t> tag_msg(ucp_worker_h worker, ucp_ep_h ep,
              bool send, void* buffer, size_t length,
-             ucp_tag_t tag)
+             ucp_tag_t tag, void* callbackFunction = nullptr, std::shared_ptr<void> callbackData = nullptr)
 {
     std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
+    request->callback = callbackFunction;
+    request->callback_data = callbackData;
+    // std::cout << "tag_msg: " << request->callback << std::endl;
     std::string operationName{send ? "tag_send" : "tag_recv"};
     void* status = tag_request(worker, ep, send, buffer, length, tag, request.get());
-    ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
-                   operationName.c_str(), status, buffer, length);
+    ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
+                   operationName.c_str(), status, tag, buffer, length);
     request_wait(worker, status, request.get(), operationName);
     return request;
 }

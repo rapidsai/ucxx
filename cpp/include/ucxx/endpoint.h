@@ -291,17 +291,17 @@ class UCXXEndpoint : public UCXXComponent
         return createRequest(request);
     }
 
-    std::shared_ptr<UCXXRequest> tag_send(void* buffer, size_t length, ucp_tag_t tag)
+    std::shared_ptr<UCXXRequest> tag_send(void* buffer, size_t length, ucp_tag_t tag, void* callbackFunction = nullptr, std::shared_ptr<void> callbackData = nullptr)
     {
         auto worker = UCXXEndpoint::getWorker(_parent);
-        auto request = tag_msg(worker->get_handle(), _handle, true, buffer, length, tag);
+        auto request = tag_msg(worker->get_handle(), _handle, true, buffer, length, tag, callbackFunction, callbackData);
         return createRequest(request);
     }
 
-    std::shared_ptr<UCXXRequest> tag_recv(void* buffer, size_t length, ucp_tag_t tag)
+    std::shared_ptr<UCXXRequest> tag_recv(void* buffer, size_t length, ucp_tag_t tag, void* callbackFunction = nullptr, std::shared_ptr<void> callbackData = nullptr)
     {
         auto worker = UCXXEndpoint::getWorker(_parent);
-        auto request = tag_msg(worker->get_handle(), _handle, false, buffer, length, tag);
+        auto request = tag_msg(worker->get_handle(), _handle, false, buffer, length, tag, callbackFunction, callbackData);
         return createRequest(request);
     }
 

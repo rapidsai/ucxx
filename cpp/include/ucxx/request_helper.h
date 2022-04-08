@@ -17,6 +17,7 @@ void waitSingleRequest(std::shared_ptr<UCXXWorker> worker, std::shared_ptr<UCXXR
 {
     while (!request->isCompleted())
         worker->progress();
+    // while (!request->isCompleted());
 
     request->checkError();
 }

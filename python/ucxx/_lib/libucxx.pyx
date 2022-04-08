@@ -284,9 +284,9 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().progress_worker_event()
 
-    def start_progress_thread(self):
+    def start_progress_thread(self, bint polling_mode=True):
         with nogil:
-            self._worker.get().startProgressThread()
+            self._worker.get().startProgressThread(polling_mode)
 
     def stop_progress_thread(self):
         with nogil:
@@ -385,7 +385,10 @@ cdef class UCXBufferRequest:
         with nogil:
             buf = move(self._buffer_request.get().pyBuffer)
 
-        if buf.get().isCUDA():
+        # If pyBuffer == NULL, it holds a header
+        if buf.get() == NULL:
+            return None
+        elif buf.get().isCUDA():
             return _get_rmm_buffer(<uintptr_t><void*>&buf)
         else:
             return _get_host_buffer(<uintptr_t><void*>&buf)
@@ -402,21 +405,20 @@ cdef class UCXBufferRequests:
         cdef UCXXBufferRequests ucxx_buffer_requests
         self._is_completed = False
 
-        self._ucxx_buffer_requests = move(
-            (<UCXXBufferRequestsPtr *> unique_ptr_buffer_requests)[0]
-        )
-        ucxx_buffer_requests = (
-            UCXXBufferRequests(self._ucxx_buffer_requests.get()[0])
-        )
+        self._ucxx_buffer_requests = (<UCXXBufferRequestsPtr *> unique_ptr_buffer_requests)[0]
 
+    def is_completed(self, int64_t period_ns=0):
+        if self._ucxx_buffer_requests.get().isFilled is False:
+            return False
+
+        ucxx_buffer_requests = self._ucxx_buffer_requests.get()[0]
         self._buffer_requests = tuple([
-            UCXBufferRequest(<uintptr_t><void*>&(ucxx_buffer_requests[i]))
-            for i in range(ucxx_buffer_requests.size())
+            UCXBufferRequest(<uintptr_t><void*>&(ucxx_buffer_requests.bufferRequests[i]))
+            for i in range(ucxx_buffer_requests.bufferRequests.size())
         ])
 
         self._requests = tuple([br.get_request() for br in self._buffer_requests])
 
-    def is_completed(self, int64_t period_ns=0):
         if self._is_completed is False:
             self._is_completed = all([r.is_completed(period_ns=period_ns) for r in self._requests])
         return self._is_completed
@@ -436,7 +438,9 @@ cdef class UCXBufferRequests:
         if not self.is_completed():
             raise RuntimeError("Some requests are not completed yet")
 
-        return tuple([br.get_py_buffer() for br in self._buffer_requests])
+        py_buffers = [br.get_py_buffer() for br in self._buffer_requests]
+        # PyBuffers that are None are headers
+        return [b for b in py_buffers if b is not None]
 
 
 cdef void _endpoint_close_callback(void *args) with gil:
@@ -560,20 +564,42 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req)
 
-    def tag_send_multi(self, tuple buffer, tuple size, tuple is_cuda, size_t tag):
+    # def tag_send_multi(self, tuple buffer, tuple size, tuple is_cuda, size_t tag):
+    #     cdef vector[void*] v_buffer
+    #     cdef vector[size_t] v_size
+    #     cdef vector[int] v_is_cuda
+
+    #     for b, s, c in zip(buffer, size, is_cuda):
+    #         v_buffer.push_back(<void*><uintptr_t>b)
+    #         v_size.push_back(s)
+    #         v_is_cuda.push_back(c)
+
+    #     cdef UCXXBufferRequestsPtr ucxx_buffer_requests
+
+    #     with nogil:
+    #         ucxx_buffer_requests = move(tag_send_multi(self._endpoint, v_buffer, v_size, v_is_cuda, tag))
+
+    #     return UCXBufferRequests(<uintptr_t><void*>&ucxx_buffer_requests)
+
+    def tag_send_multi(self, tuple arrays, size_t tag):
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
-
-        for b, s, c in zip(buffer, size, is_cuda):
-            v_buffer.push_back(<void*><uintptr_t>b.ptr)
-            v_size.push_back(s)
-            v_is_cuda.push_back(c)
-
         cdef UCXXBufferRequestsPtr ucxx_buffer_requests
 
+        for arr in arrays:
+            if not isinstance(arr, Array):
+                raise ValueError(
+                    "All elements of the `arrays` should be of `Array` type"
+                )
+
+        for arr in arrays:
+            v_buffer.push_back(<void*><uintptr_t>arr.ptr)
+            v_size.push_back(arr.nbytes)
+            v_is_cuda.push_back(arr.cuda)
+
         with nogil:
-            ucxx_buffer_requests = move(tag_send_multi(self._endpoint, v_buffer, v_size, v_is_cuda, tag))
+            ucxx_buffer_requests = tag_send_multi(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
 
         return UCXBufferRequests(<uintptr_t><void*>&ucxx_buffer_requests)
 
@@ -583,7 +609,7 @@ cdef class UCXEndpoint():
         cdef vector[int] v_is_cuda
 
         for b, s, c in zip(buffer, size, is_cuda):
-            v_buffer.push_back(<void*><uintptr_t>b.ptr)
+            v_buffer.push_back(<void*><uintptr_t>b)
             v_size.push_back(s)
             v_is_cuda.push_back(c)
 
@@ -598,20 +624,20 @@ cdef class UCXEndpoint():
 
         return UCXBufferRequests(<uintptr_t><void*>&buffer_requests)
 
-    def tag_recv_multi_b(self, size_t tag):
-        cdef vector[unique_ptr[UCXXPyBuffer]] recv_buffers
-        cdef list buffers = []
+    # def tag_recv_multi_b(self, size_t tag):
+    #     cdef vector[unique_ptr[UCXXPyBuffer]] recv_buffers
+    #     cdef list buffers = []
 
-        with nogil:
-            recv_buffers = move(tag_recv_multi_b(self._endpoint, tag))
+    #     with nogil:
+    #         recv_buffers = tag_recv_multi_b(self._endpoint, tag)
 
-        for i in range(recv_buffers.size()):
-            if recv_buffers[i].get().isCUDA():
-                buffers.append(_get_rmm_buffer(<uintptr_t><void*>&recv_buffers[i]))
-            else:
-                buffers.append(_get_host_buffer(<uintptr_t><void*>&recv_buffers[i]))
+    #     for i in range(recv_buffers.size()):
+    #         if recv_buffers[i].get().isCUDA():
+    #             buffers.append(_get_rmm_buffer(<uintptr_t><void*>&recv_buffers[i]))
+    #         else:
+    #             buffers.append(_get_host_buffer(<uintptr_t><void*>&recv_buffers[i]))
 
-        return buffers
+    #     return buffers
 
 
     def is_alive(self):

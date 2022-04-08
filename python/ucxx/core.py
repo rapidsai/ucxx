@@ -494,6 +494,54 @@ class Endpoint:
             if self._ep is None:
                 raise e
 
+    async def send_multi(self, buffers, tag=None, force_tag=False):
+        """Send `buffer` to connected peer.
+
+        Parameters
+        ----------
+        buffer: exposing the buffer protocol or array/cuda interface
+            The buffer to send. Raise ValueError if buffer is smaller
+            than nbytes.
+        tag: hashable, optional
+        tag: hashable, optional
+            Set a tag that the receiver must match. Currently the tag
+            is hashed together with the internal Endpoint tag that is
+            agreed with the remote end at connection time. To enforce
+            using the user tag, make sure to specify `force_tag=True`.
+        force_tag: bool
+            If true, force using `tag` as is, otherwise the value
+            specified with `tag` (if any) will be hashed with the
+            internal Endpoint tag.
+        """
+        self._ep.raise_on_error()
+        if self.closed():
+            raise UCXCloseError("Endpoint closed")
+        if not (isinstance(buffers, list) or isinstance(buffers, tuple)):
+            raise ValueError("The `buffers` argument must be a `list` or `tuple`")
+        buffers = tuple([Array(b) if not isinstance(b, Array) else b for b in buffers])
+        if tag is None:
+            tag = self._tags["msg_send"]
+        elif not force_tag:
+            tag = hash64bits(self._tags["msg_send"], hash(tag))
+        # nbytes = buffer.nbytes
+        log = "[Send Multi #%03d] ep: %s, tag: %s, nbytes: %s, type: %s" % (
+            self._send_count,
+            hex(self.uid),
+            hex(tag),
+            tuple([b.nbytes for b in buffers]),  # nbytes,
+            tuple([type(b.obj) for b in buffers]),
+        )
+        logger.debug(log)
+        self._send_count += 1
+
+        try:
+            return await self._ep.tag_send_multi(buffers, tag).is_completed_async()
+        except UCXCanceled as e:
+            # If self._ep has already been closed and destroyed, we reraise the
+            # UCXCanceled exception.
+            if self._ep is None:
+                raise e
+
     # @ucx_api.nvtx_annotate("UCXPY_RECV", color="red", domain="ucxpy")
     async def recv(self, buffer, tag=None, force_tag=False):
         """Receive from connected peer into `buffer`.
@@ -538,6 +586,64 @@ class Endpoint:
         self._recv_count += 1
 
         ret = await self._ep.tag_recv(buffer, tag).is_completed_async()
+
+        self._finished_recv_count += 1
+        if (
+            self._close_after_n_recv is not None
+            and self._finished_recv_count >= self._close_after_n_recv
+        ):
+            self.abort()
+        return ret
+
+    async def recv_multi(self, tag=None, force_tag=False):
+        """Receive from connected peer into `buffer`.
+
+        Parameters
+        ----------
+        tag: hashable, optional
+            Set a tag that must match the received message. Currently
+            the tag is hashed together with the internal Endpoint tag
+            that is agreed with the remote end at connection time.
+            To enforce using the user tag, make sure to specify
+            `force_tag=True`.
+        force_tag: bool
+            If true, force using `tag` as is, otherwise the value
+            specified with `tag` (if any) will be hashed with the
+            internal Endpoint tag.
+        """
+        if tag is None:
+            tag = self._tags["msg_recv"]
+        elif not force_tag:
+            tag = hash64bits(self._tags["msg_recv"], hash(tag))
+
+        if not self._ctx.worker.tag_probe(tag):
+            self._ep.raise_on_error()
+            if self.closed():
+                raise UCXCloseError("Endpoint closed")
+
+        # if not isinstance(buffer, Array):
+        #     buffer = Array(buffer)
+        # nbytes = buffer.nbytes
+        # log = "[Recv #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
+        #     self._recv_count,
+        #     hex(self.uid),
+        #     hex(tag),
+        #     nbytes,
+        #     type(buffer.obj),
+        # )
+        log = "[Recv Multi #%03d] ep: %s, tag: %s" % (
+            self._recv_count,
+            hex(self.uid),
+            hex(tag),
+        )
+        logger.debug(log)
+        self._recv_count += 1
+
+        buffer_requests = self._ep.tag_recv_multi(tag)
+        await buffer_requests.is_completed_async()
+        for r in buffer_requests.get_requests():
+            r.check_error()
+        ret = buffer_requests.get_py_buffers()
 
         self._finished_recv_count += 1
         if (

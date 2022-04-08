@@ -132,15 +132,20 @@ def main():
     np.testing.assert_equal(wireup_recv_buf, wireup_send_buf)
 
     if args.multi_buffer_transfer:
-        frames = (
+        frames = tuple([
             Array(send_bufs[0]),
             Array(send_bufs[1]),
             Array(send_bufs[2]),
-        )
-        sizes = tuple(f.nbytes for f in frames)
-        is_cuda = tuple(f.cuda for f in frames)
+        ])
 
-        send_buffer_requests = listener_ep.tag_send_multi(frames, sizes, is_cuda, tag=0)
+        # data_ptrs = tuple(f.ptr for f in frames)
+        # sizes = tuple(f.nbytes for f in frames)
+        # is_cuda = tuple(f.cuda for f in frames)
+        # send_buffer_requests = listener_ep.tag_send_multi(
+        #     data_ptrs, sizes, is_cuda, tag=0
+        # )
+
+        send_buffer_requests = listener_ep.tag_send_multi(frames, tag=0)
         recv_buffer_requests = ep.tag_recv_multi(0)
 
         requests = [send_buffer_requests, recv_buffer_requests]
@@ -152,7 +157,10 @@ def main():
             _wait_requests(worker, args.progress_mode, requests)
 
             # Check results, raises an exception if any of them failed
-            for r in send_buffer_requests.get_requests() + recv_buffer_requests.get_requests():
+            for r in (
+                send_buffer_requests.get_requests()
+                + recv_buffer_requests.get_requests()
+            ):
                 r.check_error()
 
         recv_bufs = recv_buffer_requests.get_py_buffers()
