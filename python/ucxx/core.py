@@ -52,11 +52,11 @@ async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener):
     # Send/recv peer information. Notice, we force an `await` between the two
     # streaming calls (see <https://github.com/rapidsai/ucx-py/pull/509>)
     if listener is True:
-        await endpoint.stream_send(my_info_arr).is_completed_async()
-        await endpoint.stream_recv(peer_info_arr).is_completed_async()
+        await endpoint.stream_send(my_info_arr).wait_yield()
+        await endpoint.stream_recv(peer_info_arr).wait_yield()
     else:
-        await endpoint.stream_recv(peer_info_arr).is_completed_async()
-        await endpoint.stream_send(my_info_arr).is_completed_async()
+        await endpoint.stream_recv(peer_info_arr).wait_yield()
+        await endpoint.stream_send(my_info_arr).wait_yield()
 
     # Unpacking and sanity check of the peer information
     ret = {}
@@ -487,7 +487,7 @@ class Endpoint:
         self._send_count += 1
 
         try:
-            return await self._ep.tag_send(buffer, tag).is_completed_async()
+            return await self._ep.tag_send(buffer, tag).wait_yield()
         except UCXCanceled as e:
             # If self._ep has already been closed and destroyed, we reraise the
             # UCXCanceled exception.
@@ -535,7 +535,7 @@ class Endpoint:
         self._send_count += 1
 
         try:
-            return await self._ep.tag_send_multi(buffers, tag).is_completed_async()
+            return await self._ep.tag_send_multi(buffers, tag).wait_yield()
         except UCXCanceled as e:
             # If self._ep has already been closed and destroyed, we reraise the
             # UCXCanceled exception.
@@ -585,7 +585,7 @@ class Endpoint:
         logger.debug(log)
         self._recv_count += 1
 
-        ret = await self._ep.tag_recv(buffer, tag).is_completed_async()
+        ret = await self._ep.tag_recv(buffer, tag).wait_yield()
 
         self._finished_recv_count += 1
         if (
@@ -640,7 +640,7 @@ class Endpoint:
         self._recv_count += 1
 
         buffer_requests = self._ep.tag_recv_multi(tag)
-        await buffer_requests.is_completed_async()
+        await buffer_requests.wait_yield()
         for r in buffer_requests.get_requests():
             r.check_error()
         ret = buffer_requests.get_py_buffers()

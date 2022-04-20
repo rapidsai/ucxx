@@ -55,7 +55,7 @@ def _transfer_wireup(ep, server):
 
 
 async def _wait_requests_async(worker, requests):
-    await asyncio.gather(*[r.is_completed_async() for r in requests])
+    await asyncio.gather(*[r.wait_yield() for r in requests])
 
 
 def _wait_requests(worker, progress_mode, requests):

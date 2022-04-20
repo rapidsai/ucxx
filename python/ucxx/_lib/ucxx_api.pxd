@@ -14,7 +14,14 @@ from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 
+# from cython.cimports.cpython.ref import PyObject
+# from cpython.ref import PyObject
+
 cimport numpy as np
+
+
+cdef extern from "Python.h" nogil:
+    ctypedef struct PyObject
 
 
 cdef extern from "numpy/arrayobject.h" nogil:
@@ -188,6 +195,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         cpp_bool isCompleted(int64_t period_ns)
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
+        PyObject* getPyFuture() except +raise_py_error
 
 
 cdef extern from "<ucxx/transfer_tag_multi.h>" namespace "ucxx" nogil:

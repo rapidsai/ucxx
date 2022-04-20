@@ -362,11 +362,20 @@ cdef class UCXRequest():
         with nogil:
             self._request.get().checkError()
 
-    async def is_completed_async(self, period_ns=0):
+    async def wait_yield(self, period_ns=0):
         while True:
-            if self.is_completed():
+            if self.is_completed(period_ns=period_ns):
                 return self.check_error()
             await asyncio.sleep(0)
+
+    def get_future(self):
+        cdef PyObject* future_ptr = NULL
+
+        with nogil:
+            future_ptr = self._request.get().getPyFuture()
+
+        return <object>future_ptr
+
 
 
 cdef class UCXBufferRequest:
@@ -404,32 +413,54 @@ cdef class UCXBufferRequests:
     def __init__(self, uintptr_t unique_ptr_buffer_requests):
         cdef UCXXBufferRequests ucxx_buffer_requests
         self._is_completed = False
+        self._requests = tuple()
 
         self._ucxx_buffer_requests = (<UCXXBufferRequestsPtr *> unique_ptr_buffer_requests)[0]
 
+    def _populate_requests(self):
+        if len(self._requests) == 0:
+            ucxx_buffer_requests = self._ucxx_buffer_requests.get()[0]
+            self._buffer_requests = tuple([
+                UCXBufferRequest(<uintptr_t><void*>&(ucxx_buffer_requests.bufferRequests[i]))
+                for i in range(ucxx_buffer_requests.bufferRequests.size())
+            ])
+
+            self._requests = tuple([br.get_request() for br in self._buffer_requests])
+
     def is_completed(self, int64_t period_ns=0):
-        if self._ucxx_buffer_requests.get().isFilled is False:
-            return False
-
-        ucxx_buffer_requests = self._ucxx_buffer_requests.get()[0]
-        self._buffer_requests = tuple([
-            UCXBufferRequest(<uintptr_t><void*>&(ucxx_buffer_requests.bufferRequests[i]))
-            for i in range(ucxx_buffer_requests.bufferRequests.size())
-        ])
-
-        self._requests = tuple([br.get_request() for br in self._buffer_requests])
-
         if self._is_completed is False:
+            if self._ucxx_buffer_requests.get().isFilled is False:
+                return False
+
+            self._populate_requests()
+
             self._is_completed = all([r.is_completed(period_ns=period_ns) for r in self._requests])
+
         return self._is_completed
 
-    async def is_completed_async(self, period_ns=0):
+    async def wait_yield(self, period_ns=0):
         while True:
             if self.is_completed():
                 for r in self._requests:
                     r.check_error()
                 return
             await asyncio.sleep(0)
+
+    async def _generate_future(self):
+        if self._is_completed is False:
+            while self._ucxx_buffer_requests.get().isFilled is False:
+                await asyncio.sleep(0)
+
+            self._populate_requests()
+
+            futures = [r.get_future() for r in self._requests]
+            await asyncio.gather(*futures)
+            self._is_completed = True
+
+        return self._is_completed
+
+    def get_future(self):
+        return self._generate_future()
 
     def get_requests(self):
         return self._requests

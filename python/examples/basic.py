@@ -7,8 +7,31 @@ import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
 
 
-async def _wait_requests_async(worker, requests):
-    await asyncio.gather(*[r.is_completed_async() for r in requests])
+async def _progress_coroutine(worker):
+    while True:
+        try:
+            if worker is None:
+                return
+            worker.progress()
+            await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            return
+
+
+async def _wait_requests_async_future(loop, worker, requests):
+    progress_task = loop.create_task(_progress_coroutine(worker))
+
+    await asyncio.gather(*[r.get_future() for r in requests])
+
+    progress_task.cancel()
+
+
+async def _wait_requests_async_yield(loop, worker, requests):
+    progress_task = loop.create_task(_progress_coroutine(worker))
+
+    await asyncio.gather(*[r.wait_yield() for r in requests])
+
+    progress_task.cancel()
 
 
 def _wait_requests(worker, progress_mode, requests):
@@ -20,11 +43,20 @@ def _wait_requests(worker, progress_mode, requests):
 def parse_args():
     parser = argparse.ArgumentParser(description="Basic UCXX-Py Example")
     parser.add_argument(
-        "--asyncio-wait",
+        "--asyncio-wait-future",
         default=False,
         action="store_true",
-        help="Wait for transfer requests with Python's asyncio, requires"
-        "--threaded-progress. (Default: disabled)",
+        help="Wait for transfer requests with Python's asyncio using futures "
+        "(`UCXRequest.get_future()`), requires `--progress-mode blocking`. "
+        "(default: disabled)",
+    )
+    parser.add_argument(
+        "--asyncio-wait-yield",
+        default=False,
+        action="store_true",
+        help="Wait for transfer requests with Python's asyncio by checking "
+        "for request completion and yielding (`UCXRequest.wait_yield()`). "
+        "(default: disabled)",
     )
     parser.add_argument(
         "-m",
@@ -57,21 +89,20 @@ def parse_args():
     )
 
     args = parser.parse_args()
-    if args.asyncio_wait and args.progress_mode != "threaded":
-        raise RuntimeError("`--asyncio-wait` requires `--progress-mode='threaded'`")
-
-    return args
-
-
-def main():
-    args = parse_args()
-
     valid_progress_modes = ["blocking", "threaded"]
     if not any(args.progress_mode == v for v in valid_progress_modes):
         raise ValueError(
             f"Unknown progress mode '{args.progress_mode}', "
             f"valid modes are {valid_progress_modes}",
         )
+    if args.asyncio_wait_future and args.progress_mode != "blocking":
+        raise RuntimeError("`--asyncio-wait-future` requires `--progress-mode='blocking'`")
+
+    return args
+
+
+def main():
+    args = parse_args()
 
     if args.object_type == "rmm":
         import cupy as xp
@@ -150,9 +181,12 @@ def main():
 
         requests = [send_buffer_requests, recv_buffer_requests]
 
-        if args.asyncio_wait:
+        if args.asyncio_wait_future:
             loop = asyncio.get_event_loop()
-            loop.run_until_complete(_wait_requests_async(worker, requests))
+            loop.run_until_complete(_wait_requests_async_future(loop, worker, requests))
+        elif args.asyncio_wait_yield:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(_wait_requests_async_yield(loop, worker, requests))
         else:
             _wait_requests(worker, args.progress_mode, requests)
 
@@ -174,9 +208,12 @@ def main():
             ep.tag_recv(Array(recv_bufs[2]), tag=2),
         ]
 
-        if args.asyncio_wait:
+        if args.asyncio_wait_future:
             loop = asyncio.get_event_loop()
-            loop.run_until_complete(_wait_requests_async(worker, requests))
+            loop.run_until_complete(_wait_requests_async_future(loop, worker, requests))
+        elif args.asyncio_wait_yield:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(_wait_requests_async_yield(loop, worker, requests))
         else:
             _wait_requests(worker, args.progress_mode, requests)
 
