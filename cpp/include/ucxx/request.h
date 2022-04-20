@@ -13,6 +13,10 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/typedefs.h>
 
+#ifdef UCXX_ENABLE_PYTHON
+#include <Python.h>
+#endif
+
 namespace ucxx
 {
 
@@ -89,6 +93,13 @@ class UCXXRequest : public UCXXComponent
     {
         return _handle->status;
     }
+
+#ifdef UCXX_ENABLE_PYTHON
+    PyObject* getPyFuture()
+    {
+        return (PyObject*)_handle->py_future;
+    }
+#endif
 
     void checkError()
     {

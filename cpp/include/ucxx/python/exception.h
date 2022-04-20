@@ -9,6 +9,8 @@
 
 #include "Python.h"
 
+#include <ucp/api/ucp.h>
+
 #include <ucxx/exception.h>
 
 extern "C"
@@ -61,6 +63,19 @@ void raise_py_error()
     catch (...)
     {
         PyErr_SetString(PyExc_RuntimeError, "Unknown exception");
+    }
+}
+
+PyObject* get_python_exception_from_ucs_status(ucs_status_t status)
+{
+    switch (status)
+    {
+        case UCS_ERR_CANCELED:
+            return ucxx_canceled_error;
+        case UCS_ERR_CONNECTION_RESET:
+            return ucxx_connection_reset_error;
+        default:
+            return ucxx_error;
     }
 }
 

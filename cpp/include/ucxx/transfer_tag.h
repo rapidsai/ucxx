@@ -10,6 +10,10 @@
 #include <ucxx/transfer_common.h>
 #include <ucxx/typedefs.h>
 
+#ifdef UCXX_ENABLE_PYTHON
+#include <ucxx/python/future.h>
+#endif
+
 namespace ucxx
 {
 
@@ -56,6 +60,9 @@ std::shared_ptr<ucxx_request_t> tag_msg(ucp_worker_h worker, ucp_ep_h ep,
              ucp_tag_t tag, void* callbackFunction = nullptr, std::shared_ptr<void> callbackData = nullptr)
 {
     std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
+#ifdef UCXX_ENABLE_PYTHON
+    request->py_future = create_python_future();
+#endif
     request->callback = callbackFunction;
     request->callback_data = callbackData;
     // std::cout << "tag_msg: " << request->callback << std::endl;

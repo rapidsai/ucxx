@@ -10,6 +10,10 @@
 #include <ucxx/transfer_common.h>
 #include <ucxx/typedefs.h>
 
+#ifdef UCXX_ENABLE_PYTHON
+#include <ucxx/python/future.h>
+#endif
+
 namespace ucxx
 {
 
@@ -55,6 +59,9 @@ std::shared_ptr<ucxx_request_t> stream_msg(ucp_worker_h worker, ucp_ep_h ep,
              bool send, void* buffer, size_t length)
 {
     std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
+#ifdef UCXX_ENABLE_PYTHON
+    request->py_future = create_python_future();
+#endif
     std::string operationName{send ? "stream_send" : "stream_recv"};
     void* status = stream_request(ep, send, buffer, length, request.get());
     ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",

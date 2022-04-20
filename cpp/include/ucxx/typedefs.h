@@ -17,6 +17,7 @@ typedef struct ucxx_request
 {
     ucs_status_t status = UCS_INPROGRESS;
     void* request = nullptr;
+    void* py_future = nullptr;
     void* callback = nullptr;
     std::shared_ptr<void> callback_data = nullptr;
 } ucxx_request_t;
