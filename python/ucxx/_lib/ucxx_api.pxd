@@ -84,8 +84,9 @@ cdef extern from "rmm/device_buffer.hpp" namespace "rmm" nogil:
         pass
 
 
-cdef extern from "<ucxx/exception_py.h>" namespace "ucxx" nogil:
+cdef extern from "<ucxx/python/exception.h>" namespace "ucxx" nogil:
     cdef void raise_py_error()
+
 
 cdef extern from "<ucxx/buffer_helper.h>" namespace "ucxx" nogil:
     ctypedef void (*UCXXPyBufferDeleter)(void*)
