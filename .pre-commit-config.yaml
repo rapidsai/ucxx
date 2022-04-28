@@ -27,5 +27,14 @@ repos:
                 name: flake8-cython
                 args: ["--config=python/.flake8.cython"]
                 types: [cython]
+      - repo: https://github.com/pre-commit/mirrors-clang-format
+        rev: v11.1.0
+        hooks:
+              - id: clang-format
+                files: \.(h|cpp)$
+                types_or: [file]
+                args: ['-fallback-style=none', '-style=file', '-i']
+
+
 default_language_version:
       python: python3
