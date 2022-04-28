@@ -19,16 +19,16 @@ from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport move
 
+import numpy as np
+from rmm._lib.device_buffer cimport DeviceBuffer
+
 from . cimport ucxx_api
 from .arr cimport Array
 from .ucxx_api cimport *
 
-from rmm._lib.device_buffer cimport DeviceBuffer
-
 logger = logging.getLogger("ucx")
 
 
-import numpy as np
 np.import_array()
 
 
@@ -41,14 +41,22 @@ cdef ptr_to_ndarray(void* ptr, np.npy_intp N):
 
 
 def _get_rmm_buffer(uintptr_t unique_ptr_recv_buffer):
-    cdef unique_ptr[UCXXPyBuffer] recv_buffer = move((<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer)[0])
-    cdef UCXXPyRMMBufferPtr rmm_buffer = dynamic_cast[UCXXPyRMMBufferPtr](recv_buffer.get())
+    cdef unique_ptr[UCXXPyBuffer] recv_buffer = (
+        move((<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer)[0])
+    )
+    cdef UCXXPyRMMBufferPtr rmm_buffer = (
+        dynamic_cast[UCXXPyRMMBufferPtr](recv_buffer.get())
+    )
     return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.get()))
 
 
 def _get_host_buffer(uintptr_t unique_ptr_recv_buffer):
-    cdef unique_ptr[UCXXPyBuffer] recv_buffer = move((<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer)[0])
-    cdef UCXXPyHostBufferPtr host_buffer = dynamic_cast[UCXXPyHostBufferPtr](recv_buffer.get())
+    cdef unique_ptr[UCXXPyBuffer] recv_buffer = (
+        move((<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer)[0])
+    )
+    cdef UCXXPyHostBufferPtr host_buffer = (
+        dynamic_cast[UCXXPyHostBufferPtr](recv_buffer.get())
+    )
     return ptr_to_ndarray(host_buffer.release(), host_buffer.getSize())
 
 
@@ -308,7 +316,9 @@ cdef class UCXWorker():
 
         return tag_matched
 
-    def set_progress_thread_start_callback(self, cb_func, tuple cb_args=None, dict cb_kwargs=None):
+    def set_progress_thread_start_callback(
+            self, cb_func, tuple cb_args=None, dict cb_kwargs=None
+    ):
         if cb_args is None:
             cb_args = ()
         if cb_kwargs is None:
@@ -377,7 +387,6 @@ cdef class UCXRequest():
         return <object>future_ptr
 
 
-
 cdef class UCXBufferRequest:
     cdef:
         UCXXBufferRequestPtr _buffer_request
@@ -415,13 +424,17 @@ cdef class UCXBufferRequests:
         self._is_completed = False
         self._requests = tuple()
 
-        self._ucxx_buffer_requests = (<UCXXBufferRequestsPtr *> unique_ptr_buffer_requests)[0]
+        self._ucxx_buffer_requests = (
+            (<UCXXBufferRequestsPtr *> unique_ptr_buffer_requests)[0]
+        )
 
     def _populate_requests(self):
         if len(self._requests) == 0:
             ucxx_buffer_requests = self._ucxx_buffer_requests.get()[0]
             self._buffer_requests = tuple([
-                UCXBufferRequest(<uintptr_t><void*>&(ucxx_buffer_requests.bufferRequests[i]))
+                UCXBufferRequest(
+                    <uintptr_t><void*>&(ucxx_buffer_requests.bufferRequests[i])
+                )
                 for i in range(ucxx_buffer_requests.bufferRequests.size())
             ])
 
@@ -434,7 +447,9 @@ cdef class UCXBufferRequests:
 
             self._populate_requests()
 
-            self._is_completed = all([r.is_completed(period_ns=period_ns) for r in self._requests])
+            self._is_completed = all(
+                [r.is_completed(period_ns=period_ns) for r in self._requests]
+            )
 
         return self._is_completed
 
@@ -595,23 +610,6 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req)
 
-    # def tag_send_multi(self, tuple buffer, tuple size, tuple is_cuda, size_t tag):
-    #     cdef vector[void*] v_buffer
-    #     cdef vector[size_t] v_size
-    #     cdef vector[int] v_is_cuda
-
-    #     for b, s, c in zip(buffer, size, is_cuda):
-    #         v_buffer.push_back(<void*><uintptr_t>b)
-    #         v_size.push_back(s)
-    #         v_is_cuda.push_back(c)
-
-    #     cdef UCXXBufferRequestsPtr ucxx_buffer_requests
-
-    #     with nogil:
-    #         ucxx_buffer_requests = move(tag_send_multi(self._endpoint, v_buffer, v_size, v_is_cuda, tag))
-
-    #     return UCXBufferRequests(<uintptr_t><void*>&ucxx_buffer_requests)
-
     def tag_send_multi(self, tuple arrays, size_t tag):
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
@@ -630,7 +628,9 @@ cdef class UCXEndpoint():
             v_is_cuda.push_back(arr.cuda)
 
         with nogil:
-            ucxx_buffer_requests = tag_send_multi(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
+            ucxx_buffer_requests = tag_send_multi(
+                self._endpoint, v_buffer, v_size, v_is_cuda, tag
+            )
 
         return UCXBufferRequests(<uintptr_t><void*>&ucxx_buffer_requests)
 
@@ -654,22 +654,6 @@ cdef class UCXEndpoint():
             buffer_requests = move(tag_recv_multi(self._endpoint, tag))
 
         return UCXBufferRequests(<uintptr_t><void*>&buffer_requests)
-
-    # def tag_recv_multi_b(self, size_t tag):
-    #     cdef vector[unique_ptr[UCXXPyBuffer]] recv_buffers
-    #     cdef list buffers = []
-
-    #     with nogil:
-    #         recv_buffers = tag_recv_multi_b(self._endpoint, tag)
-
-    #     for i in range(recv_buffers.size()):
-    #         if recv_buffers[i].get().isCUDA():
-    #             buffers.append(_get_rmm_buffer(<uintptr_t><void*>&recv_buffers[i]))
-    #         else:
-    #             buffers.append(_get_host_buffer(<uintptr_t><void*>&recv_buffers[i]))
-
-    #     return buffers
-
 
     def is_alive(self):
         cdef bint is_alive

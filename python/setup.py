@@ -6,12 +6,11 @@ import os
 import re
 from distutils.sysconfig import get_config_var, get_python_inc
 
+import numpy as np
 from Cython.Build import cythonize
 from Cython.Distutils.build_ext import new_build_ext as build_ext
 from setuptools import find_packages, setup
 from setuptools.extension import Extension
-
-import numpy as np
 
 import versioneer
 
@@ -22,7 +21,7 @@ setup_dir = os.path.dirname(os.path.realpath(__file__))
 include_dirs = [
     os.path.dirname(get_python_inc()),
     np.get_include(),
-    "/usr/local/cuda/include"
+    "/usr/local/cuda/include",
 ]
 library_dirs = [get_config_var("LIBDIR"), "/usr/local/cuda/lib64"]
 libraries = ["ucp", "uct", "ucm", "ucs", "cudart", "cuda"]

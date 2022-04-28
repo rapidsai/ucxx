@@ -9,6 +9,7 @@ from ucxx._lib.arr import Array
 
 def _create_cuda_context():
     import numba.cuda
+
     numba.cuda.current_context()
 
 
@@ -101,7 +102,9 @@ def parse_args():
             f"valid modes are {valid_progress_modes}",
         )
     if args.asyncio_wait_future and args.progress_mode != "blocking":
-        raise RuntimeError("`--asyncio-wait-future` requires `--progress-mode='blocking'`")
+        raise RuntimeError(
+            "`--asyncio-wait-future` requires `--progress-mode='blocking'`"
+        )
 
     return args
 
@@ -111,6 +114,7 @@ def main():
 
     if args.object_type == "rmm":
         import cupy as xp
+
         import rmm
 
         rmm.reinitialize(
@@ -152,10 +156,17 @@ def main():
         global listener_ep
         listener_ep = listener.create_endpoint_from_conn_request(conn_request, True)
 
-    listener = ucx_api.UCXListener.create(worker, args.port, listener_callback,)
+    listener = ucx_api.UCXListener.create(
+        worker,
+        args.port,
+        listener_callback,
+    )
 
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", args.port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        args.port,
+        endpoint_error_handling=True,
     )
 
     while listener_ep is None:
@@ -171,11 +182,13 @@ def main():
     np.testing.assert_equal(wireup_recv_buf, wireup_send_buf)
 
     if args.multi_buffer_transfer:
-        frames = tuple([
-            Array(send_bufs[0]),
-            Array(send_bufs[1]),
-            Array(send_bufs[2]),
-        ])
+        frames = tuple(
+            [
+                Array(send_bufs[0]),
+                Array(send_bufs[1]),
+                Array(send_bufs[2]),
+            ]
+        )
 
         # data_ptrs = tuple(f.ptr for f in frames)
         # sizes = tuple(f.nbytes for f in frames)

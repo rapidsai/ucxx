@@ -6,18 +6,14 @@
 
 from posix cimport fcntl
 
-from libc.stdint cimport int64_t, uint16_t, uint64_t
-from libcpp cimport bool as cpp_bool
-from libcpp.functional cimport function
-from libcpp.map cimport map as cpp_map
-from libcpp.memory cimport shared_ptr, unique_ptr
-from libcpp.string cimport string
-from libcpp.vector cimport vector
-
-# from cython.cimports.cpython.ref import PyObject
-# from cpython.ref import PyObject
-
 cimport numpy as np
+from libc.stdint cimport int64_t, uint16_t, uint64_t  # noqa: E402
+from libcpp cimport bool as cpp_bool  # noqa: E402
+from libcpp.functional cimport function  # noqa: E402
+from libcpp.map cimport map as cpp_map  # noqa: E402
+from libcpp.memory cimport shared_ptr, unique_ptr  # noqa: E402
+from libcpp.string cimport string  # noqa: E402
+from libcpp.vector cimport vector  # noqa: E402
 
 
 cdef extern from "Python.h" nogil:

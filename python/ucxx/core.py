@@ -15,11 +15,10 @@ from ._lib import libucxx as ucx_api
 from ._lib.arr import Array
 from ._lib.libucxx import (
     UCXBaseException,
-    UCXError,
-    UCXCloseError,
-    UCXConnectionResetError,
     UCXCanceled,
     UCXCloseError,
+    UCXConnectionResetError,
+    UCXError,
 )
 from .continuous_ucx_progress import NonBlockingMode, ThreadMode
 from .utils import hash64bits
@@ -87,7 +86,10 @@ async def _listener_handler_coroutine(conn_request, ctx, func, endpoint_error_ha
     ctrl_tag = hash64bits("ctrl_tag", seed, endpoint.handle)
 
     peer_info = await exchange_peer_info(
-        endpoint=endpoint, msg_tag=msg_tag, ctrl_tag=ctrl_tag, listener=True,
+        endpoint=endpoint,
+        msg_tag=msg_tag,
+        ctrl_tag=ctrl_tag,
+        listener=True,
     )
     tags = {
         "msg_send": peer_info["msg_tag"],
@@ -125,7 +127,10 @@ def _listener_handler(
 ):
     asyncio.run_coroutine_threadsafe(
         _listener_handler_coroutine(
-            conn_request, ctx, callback_func, endpoint_error_handling,
+            conn_request,
+            ctx,
+            callback_func,
+            endpoint_error_handling,
         ),
         event_loop,
     )
@@ -167,7 +172,10 @@ class ApplicationContext:
         self.continuous_ucx_progress()
 
     def create_listener(
-        self, callback_func, port=0, endpoint_error_handling=True,
+        self,
+        callback_func,
+        port=0,
+        endpoint_error_handling=True,
     ):
         """Create and start a listener to accept incoming connections
 
@@ -251,7 +259,10 @@ class ApplicationContext:
         msg_tag = hash64bits("msg_tag", seed, ucx_ep.handle)
         ctrl_tag = hash64bits("ctrl_tag", seed, ucx_ep.handle)
         peer_info = await exchange_peer_info(
-            endpoint=ucx_ep, msg_tag=msg_tag, ctrl_tag=ctrl_tag, listener=False,
+            endpoint=ucx_ep,
+            msg_tag=msg_tag,
+            ctrl_tag=ctrl_tag,
+            listener=False,
         )
         tags = {
             "msg_send": peer_info["msg_tag"],
@@ -277,7 +288,9 @@ class ApplicationContext:
         return ep
 
     async def create_endpoint_from_worker_address(
-        self, address, endpoint_error_handling=True,
+        self,
+        address,
+        endpoint_error_handling=True,
     ):
         """Create a new endpoint to a server
 
@@ -299,7 +312,9 @@ class ApplicationContext:
         self.continuous_ucx_progress()
 
         ucx_ep = ucx_api.UCXEndpoint.create_from_worker_address(
-            self.worker, address, endpoint_error_handling,
+            self.worker,
+            address,
+            endpoint_error_handling,
         )
         self.worker.progress()
 
@@ -806,21 +821,27 @@ def progress():
 
 def create_listener(callback_func, port=None, endpoint_error_handling=True):
     return _get_ctx().create_listener(
-        callback_func, port, endpoint_error_handling=endpoint_error_handling,
+        callback_func,
+        port,
+        endpoint_error_handling=endpoint_error_handling,
     )
 
 
 async def create_endpoint(ip_address, port, endpoint_error_handling=True):
     return await _get_ctx().create_endpoint(
-        ip_address, port, endpoint_error_handling=endpoint_error_handling,
+        ip_address,
+        port,
+        endpoint_error_handling=endpoint_error_handling,
     )
 
 
 async def create_endpoint_from_worker_address(
-    address, endpoint_error_handling=True,
+    address,
+    endpoint_error_handling=True,
 ):
     return await _get_ctx().create_endpoint_from_worker_address(
-        address, endpoint_error_handling=endpoint_error_handling,
+        address,
+        endpoint_error_handling=endpoint_error_handling,
     )
 
 
