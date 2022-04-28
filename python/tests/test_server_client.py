@@ -104,7 +104,10 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
         worker.start_progress_thread()
 
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        port,
+        endpoint_error_handling=True,
     )
 
     if progress_mode == "blocking":
@@ -126,7 +129,7 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
 
 
 @pytest.mark.parametrize("transfer_api", ["stream", "tag"])
-@pytest.mark.parametrize("msg_size", [10, 2 ** 24])
+@pytest.mark.parametrize("msg_size", [10, 2**24])
 @pytest.mark.parametrize("progress_mode", ["blocking", "threaded"])
 def test_server_client(transfer_api, msg_size, progress_mode):
     put_queue, get_queue = mp.Queue(), mp.Queue()

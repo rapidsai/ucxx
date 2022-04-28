@@ -64,7 +64,10 @@ def _client(port, server_close_callback):
     ctx = ucx_api.UCXContext(feature_flags=(ucx_api.Feature.TAG,))
     worker = ucx_api.UCXWorker(ctx)
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        port,
+        endpoint_error_handling=True,
     )
     worker.progress()
     wireup_msg = Array(bytes(os.urandom(WireupMessageSize)))
@@ -80,10 +83,16 @@ def _client(port, server_close_callback):
 @pytest.mark.parametrize("server_close_callback", [True, False])
 def test_close_callback(server_close_callback):
     queue = mp.Queue()
-    server = mp.Process(target=_server, args=(queue, server_close_callback),)
+    server = mp.Process(
+        target=_server,
+        args=(queue, server_close_callback),
+    )
     server.start()
     port = queue.get()
-    client = mp.Process(target=_client, args=(port, server_close_callback),)
+    client = mp.Process(
+        target=_client,
+        args=(port, server_close_callback),
+    )
     client.start()
     client.join(timeout=120)
     server.join(timeout=120)

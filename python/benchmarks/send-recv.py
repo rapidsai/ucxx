@@ -185,7 +185,10 @@ def client(port, server_address, args):
         worker.init_blocking_progress_mode()
 
     ep = ucx_api.UCXEndpoint.create(
-        worker, server_address, port, endpoint_error_handling=True,
+        worker,
+        server_address,
+        port,
+        endpoint_error_handling=True,
     )
 
     # Wireup before starting to transfer data

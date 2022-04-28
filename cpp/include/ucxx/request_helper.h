@@ -10,22 +10,22 @@
 #include <ucxx/request.h>
 #include <ucxx/worker.h>
 
-namespace ucxx
-{
+namespace ucxx {
 
 void waitSingleRequest(std::shared_ptr<UCXXWorker> worker, std::shared_ptr<UCXXRequest> request)
 {
-    while (!request->isCompleted())
-        worker->progress();
-    // while (!request->isCompleted());
+  while (!request->isCompleted())
+    worker->progress();
+  // while (!request->isCompleted());
 
-    request->checkError();
+  request->checkError();
 }
 
-void waitRequests(std::shared_ptr<UCXXWorker> worker, std::vector<std::shared_ptr<UCXXRequest>> requests)
+void waitRequests(std::shared_ptr<UCXXWorker> worker,
+                  std::vector<std::shared_ptr<UCXXRequest>> requests)
 {
-    for (auto& r : requests)
-        waitSingleRequest(worker, r);
+  for (auto& r : requests)
+    waitSingleRequest(worker, r);
 }
 
 }  // namespace ucxx

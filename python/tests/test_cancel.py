@@ -43,7 +43,10 @@ def _client_cancel(queue):
     worker = ucx_api.UCXWorker(ctx)
     port = queue.get()
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        port,
+        endpoint_error_handling=True,
     )
 
     assert ep.is_alive()
@@ -67,9 +70,15 @@ def _client_cancel(queue):
 
 def test_message_probe():
     queue = mp.Queue()
-    server = mp.Process(target=_server_cancel, args=(queue,),)
+    server = mp.Process(
+        target=_server_cancel,
+        args=(queue,),
+    )
     server.start()
-    client = mp.Process(target=_client_cancel, args=(queue,),)
+    client = mp.Process(
+        target=_client_cancel,
+        args=(queue,),
+    )
     client.start()
     client.join(timeout=10)
     server.join(timeout=10)

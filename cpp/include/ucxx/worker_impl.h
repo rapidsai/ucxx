@@ -5,30 +5,25 @@
  */
 #pragma once
 
-
-namespace ucxx
-{
+namespace ucxx {
 
 inline size_t UCXXWorker::cancelInflightRequests()
 {
-    // Fast path when no requests have been scheduled for cancelation
-    if (_inflightRequestsToCancel->size() == 0)
-        return 0;
+  // Fast path when no requests have been scheduled for cancelation
+  if (_inflightRequestsToCancel->size() == 0) return 0;
 
-    size_t total = 0;
-    std::lock_guard<std::mutex> lock(_inflightMutex);
+  size_t total = 0;
+  std::lock_guard<std::mutex> lock(_inflightMutex);
 
-    for (auto &r : *_inflightRequestsToCancel)
-    {
-        if (auto request = r.second.lock())
-        {
-            request->cancel();
-            ++total;
-        }
+  for (auto& r : *_inflightRequestsToCancel) {
+    if (auto request = r.second.lock()) {
+      request->cancel();
+      ++total;
     }
+  }
 
-    _inflightRequestsToCancel->clear();
-    return total;
+  _inflightRequestsToCancel->clear();
+  return total;
 }
 
 }  // namespace ucxx

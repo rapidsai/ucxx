@@ -62,7 +62,10 @@ def _client_probe(queue):
     worker = ucx_api.UCXWorker(ctx)
     port = queue.get()
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        port,
+        endpoint_error_handling=True,
     )
 
     requests = [

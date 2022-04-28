@@ -37,6 +37,7 @@ class ProgressTask(object):
 
 def _create_context():
     import numba.cuda
+
     numba.cuda.current_context()
 
 

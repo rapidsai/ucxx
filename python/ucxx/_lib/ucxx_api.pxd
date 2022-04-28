@@ -15,6 +15,9 @@ from libcpp.memory cimport shared_ptr, unique_ptr  # noqa: E402
 from libcpp.string cimport string  # noqa: E402
 from libcpp.vector cimport vector  # noqa: E402
 
+# from cython.cimports.cpython.ref import PyObject
+# from cpython.ref import PyObject
+
 
 cdef extern from "Python.h" nogil:
     ctypedef struct PyObject
