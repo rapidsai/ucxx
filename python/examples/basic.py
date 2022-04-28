@@ -7,6 +7,11 @@ import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
 
 
+def _create_cuda_context():
+    import numba.cuda
+    numba.cuda.current_context()
+
+
 async def _progress_coroutine(worker):
     while True:
         try:
@@ -124,6 +129,9 @@ def main():
     if args.progress_mode == "blocking":
         worker.init_blocking_progress_mode()
     else:
+        if args.object_type == "rmm":
+            worker.set_progress_thread_start_callback(_create_cuda_context)
+
         worker.start_progress_thread()
 
     wireup_send_buf = np.arange(3)

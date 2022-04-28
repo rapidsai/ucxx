@@ -55,22 +55,54 @@ ucs_status_ptr_t tag_request(ucp_worker_h worker, ucp_ep_h ep,
     }
 }
 
-std::shared_ptr<ucxx_request_t> tag_msg(ucp_worker_h worker, ucp_ep_h ep,
+typedef struct
+{
+    ucp_worker_h worker = nullptr;
+    ucp_ep_h ep = nullptr;
+    bool send = false;
+    void* buffer = nullptr;
+    size_t length = 0;
+    ucp_tag_t tag = 0;
+    ucxx_request_t* request = nullptr;
+
+} delayed_notification_request_t;
+
+void populate_delayed_notification_request(std::shared_ptr<void> delayed_notification_request)
+{
+    auto data = std::static_pointer_cast<delayed_notification_request_t>(delayed_notification_request);
+
+    std::string operationName{data->send ? "tag_send" : "tag_recv"};
+    void* status = tag_request(data->worker, data->ep, data->send, data->buffer, data->length, data->tag, data->request);
+    ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
+                   operationName.c_str(), status, data->tag, data->buffer, data->length);
+    request_wait(data->worker, status, data->request, operationName);
+}
+
+std::shared_ptr<ucxx_request_t> tag_msg(std::shared_ptr<UCXXWorker> worker, ucp_ep_h ep,
              bool send, void* buffer, size_t length,
              ucp_tag_t tag, void* callbackFunction = nullptr, std::shared_ptr<void> callbackData = nullptr)
 {
-    std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
+    auto  request = std::make_shared<ucxx_request_t>();
 #ifdef UCXX_ENABLE_PYTHON
     request->py_future = create_python_future();
 #endif
     request->callback = callbackFunction;
     request->callback_data = callbackData;
-    // std::cout << "tag_msg: " << request->callback << std::endl;
-    std::string operationName{send ? "tag_send" : "tag_recv"};
-    void* status = tag_request(worker, ep, send, buffer, length, tag, request.get());
-    ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
-                   operationName.c_str(), status, tag, buffer, length);
-    request_wait(worker, status, request.get(), operationName);
+
+    // A delayed notification request is not populated immediately, instead it is
+    // delayed to allow the worker progress thread to set its status, and more
+    // importantly the Python future later on, so that we don't need the GIL here.
+    auto delayed_notification_request = std::make_shared<delayed_notification_request_t>();
+    delayed_notification_request->worker = worker->get_handle();
+    delayed_notification_request->ep = ep;
+    delayed_notification_request->send = send;
+    delayed_notification_request->buffer = buffer;
+    delayed_notification_request->length = length;
+    delayed_notification_request->tag = tag;
+    // TODO: Fix passing shared_ptr instead of raw pointer, this may be dangerous in this context
+    delayed_notification_request->request = request.get();
+    worker->registerDelayedNotificationRequest(populate_delayed_notification_request, delayed_notification_request);
+
     return request;
 }
 

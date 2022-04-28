@@ -28,6 +28,15 @@ class UCXXAddress;
 class UCXXEndpoint;
 class UCXXListener;
 
+typedef struct
+{
+    std::function<void(std::shared_ptr<void>)> delayedNotificationRequestCallback;
+    std::shared_ptr<void> delayedNotificationRequestCallbackData;
+} delayed_notification_request_callback_t;
+
+typedef std::shared_ptr<delayed_notification_request_callback_t> DelayedNotificationRequestCallbackPtr;
+typedef std::vector<DelayedNotificationRequestCallbackPtr> DelayedNotificationRequestCallbacksPtr;
+
 class UCXXWorker : public UCXXComponent
 {
     private:
@@ -39,9 +48,11 @@ class UCXXWorker : public UCXXComponent
         bool _stopProgressThread{false};
         bool _progressThreadPollingMode{false};
         inflight_requests_t _inflightRequestsToCancel{std::make_shared<inflight_request_map_t>()};
-        std::mutex _inflightMutex;
-        std::function<void(void*)> _progressThreadStartCallback;
-        void* _progressThreadStartCallbackArg;
+        std::mutex _inflightMutex{};
+        std::function<void(void*)> _progressThreadStartCallback{nullptr};
+        void* _progressThreadStartCallbackArg{nullptr};
+        std::mutex _delayedNotificationRequestCallbacksMutex{};
+        DelayedNotificationRequestCallbacksPtr _delayedNotificationRequestCallbacks{};
 
     UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context)
     {
@@ -97,29 +108,8 @@ class UCXXWorker : public UCXXComponent
     UCXXWorker(const UCXXWorker&) = delete;
     UCXXWorker& operator=(UCXXWorker const&) = delete;
 
-    UCXXWorker(UCXXWorker&& o) noexcept
-        : _handle{std::exchange(o._handle, nullptr)},
-          _epoll_fd{std::exchange(o._epoll_fd, -1)},
-          _worker_fd{std::exchange(o._worker_fd, -1)},
-          _cancel_efd{std::exchange(o._cancel_efd, -1)},
-          _progressThread{std::exchange(o._progressThread, {})},
-          _stopProgressThread{std::exchange(o._stopProgressThread, false)},
-          _progressThreadPollingMode{std::exchange(o._progressThreadPollingMode, false)}
-    {
-    }
-
-    UCXXWorker& operator=(UCXXWorker&& o) noexcept
-    {
-        this->_handle = std::exchange(o._handle, nullptr);
-        this->_epoll_fd = std::exchange(o._epoll_fd, -1);
-        this->_worker_fd = std::exchange(o._worker_fd, -1);
-        this->_cancel_efd = std::exchange(o._cancel_efd, -1);
-        this->_progressThread = std::exchange(o._progressThread, {});
-        this->_stopProgressThread = std::exchange(o._stopProgressThread, false);
-        this->_progressThreadPollingMode = std::exchange(o._progressThreadPollingMode, false);
-
-        return *this;
-    }
+    UCXXWorker(UCXXWorker&& o) = delete;
+    UCXXWorker& operator=(UCXXWorker&& o) = delete;
 
     template <class ...Args>
     friend std::shared_ptr<UCXXWorker> createWorker(Args&& ...args)
@@ -252,12 +242,51 @@ class UCXXWorker : public UCXXComponent
             std::function<bool(void)> progressFunction,
             const bool& stopProgressThread,
             std::function<void(void*)> progressThreadStartCallback,
-            void* progressThreadStartCallbackArg)
+            void* progressThreadStartCallbackArg,
+            DelayedNotificationRequestCallbacksPtr& delayedNotificationRequests,
+            std::mutex& delayedNotificationRequestsMutex)
     {
         if (progressThreadStartCallback)
             progressThreadStartCallback(progressThreadStartCallbackArg);
+
         while (!stopProgressThread)
+        {
+            if (delayedNotificationRequests.size() > 0)
+                ucxx_trace_req("Submitting %lu requests", delayedNotificationRequests.size());
+
+            // Make a local copy of delayedNotificationRequests to hold the lock for as little as possible
+            DelayedNotificationRequestCallbacksPtr delayedNotificationRequestsToProcess;
+            {
+                std::lock_guard<std::mutex> lock(delayedNotificationRequestsMutex);
+                delayedNotificationRequestsToProcess = delayedNotificationRequests;
+                delayedNotificationRequests.clear();
+            }
+
+            for (auto& sr : delayedNotificationRequestsToProcess)
+            {
+                ucxx_trace_req("Submitting request: %p %p",
+                               sr->delayedNotificationRequestCallback.target<void(*)(std::shared_ptr<void>)>(),
+                               sr->delayedNotificationRequestCallbackData.get());
+                if (sr->delayedNotificationRequestCallback)
+                    sr->delayedNotificationRequestCallback(sr->delayedNotificationRequestCallbackData);
+            }
+
             progressFunction();
+        }
+    }
+
+    void registerDelayedNotificationRequest(std::function<void(std::shared_ptr<void>)> callback, std::shared_ptr<void> callbackData)
+    {
+        auto r = std::make_shared<delayed_notification_request_callback_t>();
+        r->delayedNotificationRequestCallback = callback;
+        r->delayedNotificationRequestCallbackData = callbackData;
+
+        std::lock_guard<std::mutex> lock(_delayedNotificationRequestCallbacksMutex);
+        DelayedNotificationRequestCallbackPtr delayedNotificationRequestsToProcess;
+        _delayedNotificationRequestCallbacks.push_back(r);
+        ucxx_trace_req("Registered submit request: %p %p",
+                       callback.target<void(*)(std::shared_ptr<void>)>(),
+                       callbackData.get());
     }
 
     void startProgressThread(const bool pollingMode = true)
@@ -273,12 +302,15 @@ class UCXXWorker : public UCXXComponent
         auto progressFunction = pollingMode ?
             std::bind(&UCXXWorker::progress_worker_event, this) :
             std::bind(&UCXXWorker::progress_once, this);
+
         _progressThread = std::thread(
                 UCXXWorker::progressUntilSync,
                 progressFunction,
                 std::ref(_stopProgressThread),
                 _progressThreadStartCallback,
-                _progressThreadStartCallbackArg
+                _progressThreadStartCallbackArg,
+                std::ref(_delayedNotificationRequestCallbacks),
+                std::ref(_delayedNotificationRequestCallbacksMutex)
         );
     }
 
