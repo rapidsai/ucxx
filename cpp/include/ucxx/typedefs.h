@@ -10,15 +10,26 @@
 namespace ucxx {
 
 class UCXXRequest;
+class PythonFuture;
 
 // Non-blocking requests
 typedef struct ucxx_request {
-  ucs_status_t status                 = UCS_INPROGRESS;
-  void* request                       = nullptr;
-  void* py_future                     = nullptr;
-  void* callback                      = nullptr;
-  std::shared_ptr<void> callback_data = nullptr;
+  ucs_status_t status                     = UCS_INPROGRESS;
+  void* request                           = nullptr;
+  std::shared_ptr<PythonFuture> py_future = nullptr;
+  void* callback                          = nullptr;
+  std::shared_ptr<void> callback_data     = nullptr;
 } ucxx_request_t;
+
+typedef struct {
+  ucp_worker_h worker = nullptr;
+  ucp_ep_h ep         = nullptr;
+  bool send           = false;
+  void* buffer        = nullptr;
+  size_t length       = 0;
+  ucp_tag_t tag       = 0;
+  std::shared_ptr<ucxx_request_t> request{nullptr};
+} delayed_notification_request_t;
 
 // Logging levels
 typedef enum {

@@ -1,4 +1,12 @@
+/**
+ * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ *
+ * See file LICENSE for terms.
+ */
 #pragma once
+
+#include <ucxx/log.h>
+
 #ifdef UCXX_ENABLE_PYTHON
 #include <Python.h>
 
@@ -6,6 +14,7 @@ namespace ucxx {
 
 PyObject* py_ucxx_asyncio_str = NULL;
 PyObject* py_ucxx_future_str  = NULL;
+PyObject* py_future_object    = NULL;
 
 static int intern_strings(void)
 {
@@ -31,7 +40,8 @@ err:
 static PyObject* get_future_object()
 {
   PyObject* asyncio_module = NULL;
-  PyObject* result         = NULL;
+
+  if (py_future_object) return py_future_object;
 
   PyGILState_STATE state = PyGILState_Ensure();
 
@@ -41,16 +51,19 @@ static PyObject* get_future_object()
   }
 
   asyncio_module = PyImport_Import(py_ucxx_asyncio_str);
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
+  if (PyErr_Occurred()) PyErr_Print();
   if (asyncio_module == NULL) goto finish;
 
-  result = PyObject_GetAttr(asyncio_module, py_ucxx_future_str);
+  py_future_object = PyObject_GetAttr(asyncio_module, py_ucxx_future_str);
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
+  if (PyErr_Occurred()) PyErr_Print();
   Py_DECREF(asyncio_module);
-  if (result == NULL) { goto finish; }
-
-  PyGILState_Release(state);
+  if (py_future_object == NULL) { goto finish; }
 
 finish:
-  return result;
+  PyGILState_Release(state);
+  return py_future_object;
 }
 
 static PyObject* create_python_future()
@@ -76,9 +89,10 @@ static PyObject* create_python_future()
   }
 
   result = PyObject_CallFunctionObjArgs(future_object, NULL);
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
+  if (PyErr_Occurred()) PyErr_Print();
 
 finish:
-  Py_XDECREF(future_object);
   PyGILState_Release(state);
   return result;
 }
@@ -87,8 +101,14 @@ static PyCFunction get_future_method(const char* method_name)
 {
   PyCFunction result = NULL;
 
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
+  PyGILState_STATE state = PyGILState_Ensure();
+
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
   PyObject* future_object = get_future_object();
-  PyMethodDef* m          = ((PyTypeObject*)future_object)->tp_methods;
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
+  if (PyErr_Occurred()) PyErr_Print();
+  PyMethodDef* m = ((PyTypeObject*)future_object)->tp_methods;
 
   for (; m != NULL; ++m) {
     if (m->ml_name && !strcmp(m->ml_name, method_name)) {
@@ -100,7 +120,7 @@ static PyCFunction get_future_method(const char* method_name)
   if (!result)
     PyErr_Format(PyExc_RuntimeError, "Unable to load function pointer for `Future.set_result`.");
 
-  Py_XDECREF(future_object);
+  PyGILState_Release(state);
   return result;
 }
 
@@ -108,11 +128,17 @@ static PyObject* future_set_result(PyObject* future, PyObject* value)
 {
   PyObject* result = NULL;
 
-  PyCFunction f = get_future_method("set_result");
-
+  if (PyErr_Occurred()) PyErr_Print();
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
   PyGILState_STATE state = PyGILState_Ensure();
-  result                 = f(future, value);
+
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
+  if (PyErr_Occurred()) PyErr_Print();
+  PyCFunction f = get_future_method("set_result");
+  result        = f(future, value);
+
   PyGILState_Release(state);
+
   return result;
 }
 

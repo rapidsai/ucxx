@@ -48,18 +48,49 @@ ucs_status_ptr_t stream_request(
   }
 }
 
-std::shared_ptr<ucxx_request_t> stream_msg(
-  ucp_worker_h worker, ucp_ep_h ep, bool send, void* buffer, size_t length)
+void populate_delayed_notification_stream_request(
+  std::shared_ptr<void> delayed_notification_request)
 {
-  std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
+  auto data =
+    std::static_pointer_cast<delayed_notification_request_t>(delayed_notification_request);
+
+  std::string operationName{data->send ? "stream_send" : "stream_recv"};
+  void* status =
+    stream_request(data->ep, data->send, data->buffer, data->length, data->request.get());
+  ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
+                 operationName.c_str(),
+                 status,
+                 data->buffer,
+                 data->length,
+                 data->request->py_future.get(),
+                 data->request->py_future->getHandle());
+  request_wait(data->worker, status, data->request.get(), operationName);
+}
+
+std::shared_ptr<ucxx_request_t> stream_msg(
+  std::shared_ptr<UCXXWorker> worker, ucp_ep_h ep, bool send, void* buffer, size_t length)
+{
+  auto request = std::make_shared<ucxx_request_t>();
 #ifdef UCXX_ENABLE_PYTHON
-  request->py_future = create_python_future();
+  request->py_future = worker->getPythonFuture();
+  ucxx_trace_req("request: %p, request->py_future: %p", request.get(), request->py_future.get());
 #endif
-  std::string operationName{send ? "stream_send" : "stream_recv"};
-  void* status = stream_request(ep, send, buffer, length, request.get());
-  ucxx_trace_req(
-    "%s request: %p, buffer: %p, size: %lu", operationName.c_str(), status, buffer, length);
-  request_wait(worker, status, request.get(), operationName);
+  request->callback      = nullptr;
+  request->callback_data = nullptr;
+
+  // A delayed notification request is not populated immediately, instead it is
+  // delayed to allow the worker progress thread to set its status, and more
+  // importantly the Python future later on, so that we don't need the GIL here.
+  auto delayed_notification_request     = std::make_shared<delayed_notification_request_t>();
+  delayed_notification_request->worker  = worker->get_handle();
+  delayed_notification_request->ep      = ep;
+  delayed_notification_request->send    = send;
+  delayed_notification_request->buffer  = buffer;
+  delayed_notification_request->length  = length;
+  delayed_notification_request->request = request;
+  worker->registerDelayedNotificationRequest(populate_delayed_notification_stream_request,
+                                             delayed_notification_request);
+
   return request;
 }
 

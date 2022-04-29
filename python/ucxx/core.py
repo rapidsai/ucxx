@@ -7,6 +7,7 @@ import gc
 import logging
 import os
 import struct
+import threading
 import weakref
 from functools import partial
 from os import close as close_fd
@@ -51,11 +52,15 @@ async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener):
     # Send/recv peer information. Notice, we force an `await` between the two
     # streaming calls (see <https://github.com/rapidsai/ucx-py/pull/509>)
     if listener is True:
-        await endpoint.stream_send(my_info_arr).wait_yield()
-        await endpoint.stream_recv(peer_info_arr).wait_yield()
+        req = endpoint.stream_send(my_info_arr)
+        await req.get_future()
+        req = endpoint.stream_recv(peer_info_arr)
+        await req.get_future()
     else:
-        await endpoint.stream_recv(peer_info_arr).wait_yield()
-        await endpoint.stream_send(my_info_arr).wait_yield()
+        req = endpoint.stream_recv(peer_info_arr)
+        await req.get_future()
+        req = endpoint.stream_send(my_info_arr)
+        await req.get_future()
 
     # Unpacking and sanity check of the peer information
     ret = {}
@@ -117,7 +122,10 @@ async def _listener_handler_coroutine(conn_request, ctx, func, endpoint_error_ha
 
     # Finally, we call `func`
     if asyncio.iscoroutinefunction(func):
-        await func(ep)
+        try:
+            await func(ep)
+        except Exception as e:
+            logger.debug(f"Uncatched listener callback error {type(e)}: {e}")
     else:
         func(ep)
 
@@ -136,6 +144,48 @@ def _listener_handler(
     )
 
 
+async def _run_request_notifier(worker):
+    worker.run_request_notifier()
+
+
+async def _notifier_coroutine(worker):
+    worker.populate_python_futures_pool()
+    finished = worker.wait_request_notifier()
+    if finished:
+        return True
+
+    # Notify all enqueued waiting futures
+    await _run_request_notifier(worker)
+
+    return False
+
+
+def _notifierThread(event_loop, worker):
+    logger.debug("Starting Notifier Thread")
+    asyncio.set_event_loop(event_loop)
+
+    if True:
+        while True:
+            worker.populate_python_futures_pool()
+            finished = worker.wait_request_notifier()
+            if finished:
+                return
+
+            # Notify all enqueued waiting futures
+            task = asyncio.run_coroutine_threadsafe(
+                _run_request_notifier(worker), event_loop
+            )
+            task.result()
+    else:
+        while True:
+            print("Starting _notifier_coroutine")
+            task = asyncio.run_coroutine_threadsafe(
+                _notifier_coroutine(worker), event_loop
+            )
+            if task.result() is True:
+                return
+
+
 class ApplicationContext:
     """
     The context of the Asyncio interface of UCX.
@@ -143,10 +193,25 @@ class ApplicationContext:
 
     def __init__(self, config_dict={}, progress_mode=None):
         self.progress_tasks = []
+        loop = asyncio.get_event_loop()
 
         # For now, a application context only has one worker
         self.context = ucx_api.UCXContext(config_dict)
         self.worker = ucx_api.UCXWorker(self.context)
+
+        # Thread sets `daemon=True` to prevent it from deadlocking at
+        # `worker.wait_request_notifier()` at shutdown.
+        # TODO: Long-term we should find a better way to signal the thread for
+        # proper shutdown, which may require the wait operation to contain a
+        # timeout or finding a way to execute `worker.stop_request_notifier_thread()`
+        # during `_shutdown()` from `threading.py`.
+        self.notifierThread = threading.Thread(
+            target=_notifierThread,
+            args=(loop, self.worker),
+            name="UCX-Py Async Notifier Thread",
+            daemon=True,
+        )
+        self.notifierThread.start()
 
         if progress_mode is not None:
             self.progress_mode = progress_mode
@@ -502,7 +567,8 @@ class Endpoint:
         self._send_count += 1
 
         try:
-            return await self._ep.tag_send(buffer, tag).wait_yield()
+            request = self._ep.tag_send(buffer, tag)
+            return await request.get_future()
         except UCXCanceled as e:
             # If self._ep has already been closed and destroyed, we reraise the
             # UCXCanceled exception.
@@ -550,7 +616,7 @@ class Endpoint:
         self._send_count += 1
 
         try:
-            return await self._ep.tag_send_multi(buffers, tag).wait_yield()
+            return await self._ep.tag_send_multi(buffers, tag).get_future()
         except UCXCanceled as e:
             # If self._ep has already been closed and destroyed, we reraise the
             # UCXCanceled exception.
@@ -600,7 +666,8 @@ class Endpoint:
         logger.debug(log)
         self._recv_count += 1
 
-        ret = await self._ep.tag_recv(buffer, tag).wait_yield()
+        req = self._ep.tag_recv(buffer, tag)
+        ret = await req.get_future()
 
         self._finished_recv_count += 1
         if (
@@ -655,7 +722,7 @@ class Endpoint:
         self._recv_count += 1
 
         buffer_requests = self._ep.tag_recv_multi(tag)
-        await buffer_requests.wait_yield()
+        await buffer_requests.get_future()
         for r in buffer_requests.get_requests():
             r.check_error()
         ret = buffer_requests.get_py_buffers()

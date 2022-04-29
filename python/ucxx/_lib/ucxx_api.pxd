@@ -158,6 +158,10 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callback_arg
         )
+        void stopRequestNotifierThread() except +raise_py_error
+        bint waitRequestNotifier() except +raise_py_error
+        void runRequestNotifier() except +raise_py_error
+        void populatePythonFuturesPool() except +raise_py_error
 
     cdef cppclass UCXXEndpoint:
         ucp_ep_h getHandle()

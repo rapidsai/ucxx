@@ -84,7 +84,7 @@ class UCXXRequest : public UCXXComponent {
   ucs_status_t getStatus() { return _handle->status; }
 
 #ifdef UCXX_ENABLE_PYTHON
-  PyObject* getPyFuture() { return (PyObject*)_handle->py_future; }
+  PyObject* getPyFuture() { return (PyObject*)_handle->py_future->getHandle(); }
 #endif
 
   void checkError()

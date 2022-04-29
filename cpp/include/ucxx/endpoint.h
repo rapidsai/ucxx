@@ -257,14 +257,14 @@ class UCXXEndpoint : public UCXXComponent {
   std::shared_ptr<UCXXRequest> stream_send(void* buffer, size_t length)
   {
     auto worker  = UCXXEndpoint::getWorker(_parent);
-    auto request = stream_msg(worker->get_handle(), _handle, true, buffer, length);
+    auto request = stream_msg(worker, _handle, true, buffer, length);
     return createRequest(request);
   }
 
   std::shared_ptr<UCXXRequest> stream_recv(void* buffer, size_t length)
   {
     auto worker  = UCXXEndpoint::getWorker(_parent);
-    auto request = stream_msg(worker->get_handle(), _handle, false, buffer, length);
+    auto request = stream_msg(worker, _handle, false, buffer, length);
     return createRequest(request);
   }
 

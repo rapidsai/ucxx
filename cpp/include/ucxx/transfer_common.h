@@ -10,7 +10,7 @@
 #include <ucxx/typedefs.h>
 
 #ifdef UCXX_ENABLE_PYTHON
-#include <ucxx/python/future.h>
+#include <ucxx/python/python_future.h>
 #endif
 
 namespace ucxx {
@@ -19,14 +19,8 @@ void set_ucxx_request_status(ucxx_request_t* ucxx_req, ucs_status_t status)
 {
   ucxx_req->status = status;
 
-#ifdef UCXX_ENABLE_PYTHON
-  if (status == UCS_OK)
-    future_set_result((PyObject*)ucxx_req->py_future, Py_True);
-  else
-    future_set_exception((PyObject*)ucxx_req->py_future,
-                         ucxx::get_python_exception_from_ucs_status(status),
-                         ucs_status_string(status));
-#endif
+  auto future = std::static_pointer_cast<PythonFuture>(ucxx_req->py_future);
+  future->notify(status);
 }
 
 static void _callback(void* request, ucs_status_t status, void* arg, std::string operation)

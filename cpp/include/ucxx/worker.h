@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <mutex>
+#include <queue>
 #include <thread>
 
 #include <sys/epoll.h>
@@ -18,8 +19,13 @@
 #include <ucxx/component.h>
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
+#include <ucxx/notifier.h>
 #include <ucxx/transfer_common.h>
 #include <ucxx/utils.h>
+
+#ifdef UCXX_ENABLE_PYTHON
+#include <ucxx/python/python_future.h>
+#endif
 
 namespace ucxx {
 
@@ -51,6 +57,9 @@ class UCXXWorker : public UCXXComponent {
   void* _progressThreadStartCallbackArg{nullptr};
   std::mutex _delayedNotificationRequestCallbacksMutex{};
   DelayedNotificationRequestCallbacksPtr _delayedNotificationRequestCallbacks{};
+  std::mutex _pythonFuturesPoolMutex{};
+  std::queue<std::shared_ptr<PythonFuture>> _pythonFuturesPool{};
+  std::shared_ptr<UCXXNotifier> _notifier{std::make_shared<UCXXNotifier>()};
 
   UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context)
   {
@@ -99,7 +108,7 @@ class UCXXWorker : public UCXXComponent {
   }
 
  public:
-  UCXXWorker() = default;
+  UCXXWorker() = delete;
 
   UCXXWorker(const UCXXWorker&) = delete;
   UCXXWorker& operator=(UCXXWorker const&) = delete;
@@ -116,6 +125,7 @@ class UCXXWorker : public UCXXComponent {
   ~UCXXWorker()
   {
     stopProgressThread();
+    _notifier->stopRequestNotifierThread();
 
     drainWorkerTagRecv();
 
@@ -223,24 +233,26 @@ class UCXXWorker : public UCXXComponent {
     if (progressThreadStartCallback) progressThreadStartCallback(progressThreadStartCallbackArg);
 
     while (!stopProgressThread) {
-      if (delayedNotificationRequests.size() > 0)
+      if (delayedNotificationRequests.size() > 0) {
         ucxx_trace_req("Submitting %lu requests", delayedNotificationRequests.size());
 
-      // Make a local copy of delayedNotificationRequests to hold the lock for as little as possible
-      DelayedNotificationRequestCallbacksPtr delayedNotificationRequestsToProcess;
-      {
-        std::lock_guard<std::mutex> lock(delayedNotificationRequestsMutex);
-        delayedNotificationRequestsToProcess = delayedNotificationRequests;
-        delayedNotificationRequests.clear();
-      }
+        // Make a local copy of delayedNotificationRequests to hold the lock for as little as
+        // possible
+        DelayedNotificationRequestCallbacksPtr delayedNotificationRequestsToProcess;
+        {
+          std::lock_guard<std::mutex> lock(delayedNotificationRequestsMutex);
+          delayedNotificationRequestsToProcess = delayedNotificationRequests;
+          delayedNotificationRequests.clear();
+        }
 
-      for (auto& sr : delayedNotificationRequestsToProcess) {
-        ucxx_trace_req(
-          "Submitting request: %p %p",
-          sr->delayedNotificationRequestCallback.target<void (*)(std::shared_ptr<void>)>(),
-          sr->delayedNotificationRequestCallbackData.get());
-        if (sr->delayedNotificationRequestCallback)
-          sr->delayedNotificationRequestCallback(sr->delayedNotificationRequestCallbackData);
+        for (auto& sr : delayedNotificationRequestsToProcess) {
+          ucxx_trace_req(
+            "Submitting request: %p %p",
+            sr->delayedNotificationRequestCallback.target<void (*)(std::shared_ptr<void>)>(),
+            sr->delayedNotificationRequestCallbackData.get());
+          if (sr->delayedNotificationRequestCallback)
+            sr->delayedNotificationRequestCallback(sr->delayedNotificationRequestCallbackData);
+        }
       }
 
       progressFunction();
@@ -254,13 +266,43 @@ class UCXXWorker : public UCXXComponent {
     r->delayedNotificationRequestCallback     = callback;
     r->delayedNotificationRequestCallbackData = callbackData;
 
-    std::lock_guard<std::mutex> lock(_delayedNotificationRequestCallbacksMutex);
-    DelayedNotificationRequestCallbackPtr delayedNotificationRequestsToProcess;
-    _delayedNotificationRequestCallbacks.push_back(r);
+    {
+      std::lock_guard<std::mutex> lock(_delayedNotificationRequestCallbacksMutex);
+      _delayedNotificationRequestCallbacks.push_back(r);
+    }
     ucxx_trace_req("Registered submit request: %p %p",
                    callback.target<void (*)(std::shared_ptr<void>)>(),
                    callbackData.get());
   }
+
+  void populatePythonFuturesPool()
+  {
+    ucxx_trace_req("populatePythonFuturesPool: %p %p", this, shared_from_this().get());
+    // If the pool goes under half expected size, fill it up again.
+    if (_pythonFuturesPool.size() < 50) {
+      std::lock_guard<std::mutex> lock(_pythonFuturesPoolMutex);
+      while (_pythonFuturesPool.size() < 100)
+        _pythonFuturesPool.emplace(std::make_shared<PythonFuture>(_notifier));
+    }
+  }
+
+  std::shared_ptr<PythonFuture> getPythonFuture()
+  {
+    std::shared_ptr<PythonFuture> ret{nullptr};
+    {
+      std::lock_guard<std::mutex> lock(_pythonFuturesPoolMutex);
+      ret = _pythonFuturesPool.front();
+      _pythonFuturesPool.pop();
+    }
+    ucxx_trace_req("getPythonFuture: %p %p", ret.get(), ret->getHandle());
+    return ret;
+  }
+
+  bool waitRequestNotifier() { return _notifier->waitRequestNotifier(); }
+
+  void runRequestNotifier() { return _notifier->runRequestNotifier(); }
+
+  void stopRequestNotifierThread() { return _notifier->stopRequestNotifierThread(); }
 
   void startProgressThread(const bool pollingMode = true)
   {

@@ -339,6 +339,26 @@ cdef class UCXWorker():
             )
         del func_generic_callback
 
+    def stop_request_notifier_thread(self):
+        with nogil:
+            self._worker.get().stopRequestNotifierThread()
+
+    def wait_request_notifier(self):
+        cdef bint stop
+
+        with nogil:
+            stop = self._worker.get().waitRequestNotifier()
+
+        return stop
+
+    def run_request_notifier(self):
+        with nogil:
+            self._worker.get().runRequestNotifier()
+
+    def populate_python_futures_pool(self):
+        with nogil:
+            self._worker.get().populatePythonFuturesPool()
+
 
 cdef class UCXRequest():
     cdef:
