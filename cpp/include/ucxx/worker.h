@@ -23,6 +23,7 @@
 #include <ucxx/notifier.h>
 #include <ucxx/transfer_common.h>
 #include <ucxx/utils.h>
+#include <ucxx/worker_progress_thread.h>
 
 #ifdef UCXX_ENABLE_PYTHON
 #include <ucxx/python/python_future.h>
@@ -40,9 +41,7 @@ class UCXXWorker : public UCXXComponent {
   int _epoll_fd{-1};
   int _worker_fd{-1};
   int _cancel_efd{-1};
-  std::thread _progressThread{};
-  bool _stopProgressThread{false};
-  bool _progressThreadPollingMode{false};
+  std::shared_ptr<UCXXWorkerProgressThread> _progressThread{nullptr};
   inflight_requests_t _inflightRequestsToCancel{std::make_shared<inflight_request_map_t>()};
   std::mutex _inflightMutex{};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
@@ -208,28 +207,6 @@ class UCXXWorker : public UCXXComponent {
       ;
   }
 
-  void setProgressThreadStartCallback(std::function<void(void*)> callback, void* callbackArg)
-  {
-    _progressThreadStartCallback    = callback;
-    _progressThreadStartCallbackArg = callbackArg;
-  }
-
-  static void progressUntilSync(
-    std::function<bool(void)> progressFunction,
-    const bool& stopProgressThread,
-    std::function<void(void*)> progressThreadStartCallback,
-    void* progressThreadStartCallbackArg,
-    DelayedNotificationRequestCollection& delayedNotificationRequestCollection)
-  {
-    if (progressThreadStartCallback) progressThreadStartCallback(progressThreadStartCallbackArg);
-
-    while (!stopProgressThread) {
-      delayedNotificationRequestCollection.process();
-
-      progressFunction();
-    }
-  }
-
   void registerDelayedNotificationRequest(std::function<void(std::shared_ptr<void>)> callback,
                                           std::shared_ptr<void> callbackData)
   {
@@ -265,32 +242,40 @@ class UCXXWorker : public UCXXComponent {
 
   void stopRequestNotifierThread() { return _notifier->stopRequestNotifierThread(); }
 
+  void setProgressThreadStartCallback(std::function<void(void*)> callback, void* callbackArg)
+  {
+    _progressThreadStartCallback    = callback;
+    _progressThreadStartCallbackArg = callbackArg;
+  }
+
   void startProgressThread(const bool pollingMode = true)
   {
-    if (_progressThread.joinable()) return;
-
-    _stopProgressThread        = false;
-    _progressThreadPollingMode = pollingMode;
+    if (_progressThread) {
+      ucxx_warn("Worker progress thread already running");
+      return;
+    }
 
     if (pollingMode) init_blocking_progress_mode();
     auto progressFunction = pollingMode ? std::bind(&UCXXWorker::progress_worker_event, this)
                                         : std::bind(&UCXXWorker::progress_once, this);
 
-    _progressThread = std::thread(UCXXWorker::progressUntilSync,
-                                  progressFunction,
-                                  std::ref(_stopProgressThread),
-                                  _progressThreadStartCallback,
-                                  _progressThreadStartCallbackArg,
-                                  std::ref(_delayedNotificationRequestCollection));
+    _progressThread =
+      std::make_shared<UCXXWorkerProgressThread>(pollingMode,
+                                                 progressFunction,
+                                                 _progressThreadStartCallback,
+                                                 _progressThreadStartCallbackArg,
+                                                 _delayedNotificationRequestCollection);
   }
 
   void stopProgressThread()
   {
-    if (!_progressThread.joinable()) return;
+    if (!_progressThread) {
+      ucxx_warn("Worker progress thread not running or already stopped");
+      return;
+    }
 
-    _stopProgressThread = true;
-    if (_progressThreadPollingMode) { cancel_progress_worker_event(); }
-    _progressThread.join();
+    if (_progressThread->pollingMode()) cancel_progress_worker_event();
+    _progressThread = nullptr;
   }
 
   inline size_t cancelInflightRequests();
