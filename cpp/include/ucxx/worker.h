@@ -19,6 +19,7 @@
 #include <ucxx/component.h>
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
+#include <ucxx/delayed_notification_request.h>
 #include <ucxx/notifier.h>
 #include <ucxx/transfer_common.h>
 #include <ucxx/utils.h>
@@ -33,15 +34,6 @@ class UCXXAddress;
 class UCXXEndpoint;
 class UCXXListener;
 
-typedef struct {
-  std::function<void(std::shared_ptr<void>)> delayedNotificationRequestCallback;
-  std::shared_ptr<void> delayedNotificationRequestCallbackData;
-} delayed_notification_request_callback_t;
-
-typedef std::shared_ptr<delayed_notification_request_callback_t>
-  DelayedNotificationRequestCallbackPtr;
-typedef std::vector<DelayedNotificationRequestCallbackPtr> DelayedNotificationRequestCallbacksPtr;
-
 class UCXXWorker : public UCXXComponent {
  private:
   ucp_worker_h _handle{nullptr};
@@ -55,8 +47,7 @@ class UCXXWorker : public UCXXComponent {
   std::mutex _inflightMutex{};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
   void* _progressThreadStartCallbackArg{nullptr};
-  std::mutex _delayedNotificationRequestCallbacksMutex{};
-  DelayedNotificationRequestCallbacksPtr _delayedNotificationRequestCallbacks{};
+  DelayedNotificationRequestCollection _delayedNotificationRequestCollection{};
   std::mutex _pythonFuturesPoolMutex{};
   std::queue<std::shared_ptr<PythonFuture>> _pythonFuturesPool{};
   std::shared_ptr<UCXXNotifier> _notifier{std::make_shared<UCXXNotifier>()};
@@ -223,37 +214,17 @@ class UCXXWorker : public UCXXComponent {
     _progressThreadStartCallbackArg = callbackArg;
   }
 
-  static void progressUntilSync(std::function<bool(void)> progressFunction,
-                                const bool& stopProgressThread,
-                                std::function<void(void*)> progressThreadStartCallback,
-                                void* progressThreadStartCallbackArg,
-                                DelayedNotificationRequestCallbacksPtr& delayedNotificationRequests,
-                                std::mutex& delayedNotificationRequestsMutex)
+  static void progressUntilSync(
+    std::function<bool(void)> progressFunction,
+    const bool& stopProgressThread,
+    std::function<void(void*)> progressThreadStartCallback,
+    void* progressThreadStartCallbackArg,
+    DelayedNotificationRequestCollection& delayedNotificationRequestCollection)
   {
     if (progressThreadStartCallback) progressThreadStartCallback(progressThreadStartCallbackArg);
 
     while (!stopProgressThread) {
-      if (delayedNotificationRequests.size() > 0) {
-        ucxx_trace_req("Submitting %lu requests", delayedNotificationRequests.size());
-
-        // Make a local copy of delayedNotificationRequests to hold the lock for as little as
-        // possible
-        DelayedNotificationRequestCallbacksPtr delayedNotificationRequestsToProcess;
-        {
-          std::lock_guard<std::mutex> lock(delayedNotificationRequestsMutex);
-          delayedNotificationRequestsToProcess = delayedNotificationRequests;
-          delayedNotificationRequests.clear();
-        }
-
-        for (auto& sr : delayedNotificationRequestsToProcess) {
-          ucxx_trace_req(
-            "Submitting request: %p %p",
-            sr->delayedNotificationRequestCallback.target<void (*)(std::shared_ptr<void>)>(),
-            sr->delayedNotificationRequestCallbackData.get());
-          if (sr->delayedNotificationRequestCallback)
-            sr->delayedNotificationRequestCallback(sr->delayedNotificationRequestCallbackData);
-        }
-      }
+      delayedNotificationRequestCollection.process();
 
       progressFunction();
     }
@@ -262,17 +233,7 @@ class UCXXWorker : public UCXXComponent {
   void registerDelayedNotificationRequest(std::function<void(std::shared_ptr<void>)> callback,
                                           std::shared_ptr<void> callbackData)
   {
-    auto r = std::make_shared<delayed_notification_request_callback_t>();
-    r->delayedNotificationRequestCallback     = callback;
-    r->delayedNotificationRequestCallbackData = callbackData;
-
-    {
-      std::lock_guard<std::mutex> lock(_delayedNotificationRequestCallbacksMutex);
-      _delayedNotificationRequestCallbacks.push_back(r);
-    }
-    ucxx_trace_req("Registered submit request: %p %p",
-                   callback.target<void (*)(std::shared_ptr<void>)>(),
-                   callbackData.get());
+    _delayedNotificationRequestCollection.registerRequest(callback, callbackData);
   }
 
   void populatePythonFuturesPool()
@@ -320,8 +281,7 @@ class UCXXWorker : public UCXXComponent {
                                   std::ref(_stopProgressThread),
                                   _progressThreadStartCallback,
                                   _progressThreadStartCallbackArg,
-                                  std::ref(_delayedNotificationRequestCallbacks),
-                                  std::ref(_delayedNotificationRequestCallbacksMutex));
+                                  std::ref(_delayedNotificationRequestCollection));
   }
 
   void stopProgressThread()
