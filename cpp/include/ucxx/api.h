@@ -6,6 +6,9 @@
 #include <ucxx/typedefs.h>
 #include <ucxx/worker.h>
 
-#include <ucxx/notifier_impl.h>
-#include <ucxx/python/python_future_impl.h>
 #include <ucxx/worker_impl.h>
+
+#ifdef UCXX_ENABLE_PYTHON
+#include <ucxx/python/notifier_impl.h>
+#include <ucxx/python/python_future_impl.h>
+#endif

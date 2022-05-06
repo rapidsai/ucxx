@@ -20,12 +20,12 @@
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/delayed_notification_request.h>
-#include <ucxx/notifier.h>
 #include <ucxx/transfer_common.h>
 #include <ucxx/utils.h>
 #include <ucxx/worker_progress_thread.h>
 
 #ifdef UCXX_ENABLE_PYTHON
+#include <ucxx/python/notifier.h>
 #include <ucxx/python/python_future.h>
 #endif
 
@@ -48,8 +48,10 @@ class UCXXWorker : public UCXXComponent {
   void* _progressThreadStartCallbackArg{nullptr};
   DelayedNotificationRequestCollection _delayedNotificationRequestCollection{};
   std::mutex _pythonFuturesPoolMutex{};
+#ifdef UCXX_ENABLE_PYTHON
   std::queue<std::shared_ptr<PythonFuture>> _pythonFuturesPool{};
   std::shared_ptr<UCXXNotifier> _notifier{std::make_shared<UCXXNotifier>()};
+#endif
 
   UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context)
   {
@@ -115,7 +117,9 @@ class UCXXWorker : public UCXXComponent {
   ~UCXXWorker()
   {
     stopProgressThread();
+#ifdef UCXX_ENABLE_PYTHON
     _notifier->stopRequestNotifierThread();
+#endif
 
     drainWorkerTagRecv();
 
@@ -213,6 +217,7 @@ class UCXXWorker : public UCXXComponent {
     _delayedNotificationRequestCollection.registerRequest(callback, callbackData);
   }
 
+#ifdef UCXX_ENABLE_PYTHON
   void populatePythonFuturesPool()
   {
     ucxx_trace_req("populatePythonFuturesPool: %p %p", this, shared_from_this().get());
@@ -241,6 +246,7 @@ class UCXXWorker : public UCXXComponent {
   void runRequestNotifier() { return _notifier->runRequestNotifier(); }
 
   void stopRequestNotifierThread() { return _notifier->stopRequestNotifierThread(); }
+#endif
 
   void setProgressThreadStartCallback(std::function<void(void*)> callback, void* callbackArg)
   {

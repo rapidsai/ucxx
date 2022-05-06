@@ -57,6 +57,7 @@ void populate_delayed_notification_stream_request(
   std::string operationName{data->_send ? "stream_send" : "stream_recv"};
   void* status =
     stream_request(data->_ep, data->_send, data->_buffer, data->_length, data->_request.get());
+#ifdef UCXX_ENABLE_PYTHON
   ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                  operationName.c_str(),
                  status,
@@ -64,6 +65,13 @@ void populate_delayed_notification_stream_request(
                  data->_length,
                  data->_request->py_future.get(),
                  data->_request->py_future->getHandle());
+#else
+  ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
+                 operationName.c_str(),
+                 status,
+                 data->_buffer,
+                 data->_length);
+#endif
   request_wait(data->_worker, status, data->_request.get(), operationName);
 }
 

@@ -19,8 +19,10 @@ void set_ucxx_request_status(ucxx_request_t* ucxx_req, ucs_status_t status)
 {
   ucxx_req->status = status;
 
+#ifdef UCXX_ENABLE_PYTHON
   auto future = std::static_pointer_cast<PythonFuture>(ucxx_req->py_future);
   future->notify(status);
+#endif
 }
 
 static void _callback(void* request, ucs_status_t status, void* arg, std::string operation)
