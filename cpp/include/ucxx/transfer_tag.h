@@ -7,6 +7,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/delayed_notification_request.h>
 #include <ucxx/transfer_common.h>
 #include <ucxx/typedefs.h>
 
@@ -56,24 +57,29 @@ ucs_status_ptr_t tag_request(ucp_worker_h worker,
   }
 }
 
-void populate_delayed_notification_tag_request(std::shared_ptr<void> delayed_notification_request)
+void populate_delayed_notification_tag_request(
+  std::shared_ptr<DelayedNotificationRequest> delayedNotificationRequest)
 {
-  auto data =
-    std::static_pointer_cast<delayed_notification_request_t>(delayed_notification_request);
+  auto data = delayedNotificationRequest;
   ucxx_trace_req("use_count: %lu", data.use_count());
 
-  std::string operationName{data->send ? "tag_send" : "tag_recv"};
-  void* status = tag_request(
-    data->worker, data->ep, data->send, data->buffer, data->length, data->tag, data->request.get());
+  std::string operationName{data->_send ? "tag_send" : "tag_recv"};
+  void* status = tag_request(data->_worker,
+                             data->_ep,
+                             data->_send,
+                             data->_buffer,
+                             data->_length,
+                             data->_tag,
+                             data->_request.get());
   ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
                  operationName.c_str(),
                  status,
-                 data->tag,
-                 data->buffer,
-                 data->length,
-                 data->request->py_future.get(),
-                 data->request->py_future->getHandle());
-  request_wait(data->worker, status, data->request.get(), operationName);
+                 data->_tag,
+                 data->_buffer,
+                 data->_length,
+                 data->_request->py_future.get(),
+                 data->_request->py_future->getHandle());
+  request_wait(data->_worker, status, data->_request.get(), operationName);
 }
 
 std::shared_ptr<ucxx_request_t> tag_msg(std::shared_ptr<UCXXWorker> worker,
@@ -96,16 +102,10 @@ std::shared_ptr<ucxx_request_t> tag_msg(std::shared_ptr<UCXXWorker> worker,
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
   // importantly the Python future later on, so that we don't need the GIL here.
-  auto delayed_notification_request     = std::make_shared<delayed_notification_request_t>();
-  delayed_notification_request->worker  = worker->get_handle();
-  delayed_notification_request->ep      = ep;
-  delayed_notification_request->send    = send;
-  delayed_notification_request->buffer  = buffer;
-  delayed_notification_request->length  = length;
-  delayed_notification_request->tag     = tag;
-  delayed_notification_request->request = request;
+  auto delayedNotificationRequest = std::make_shared<DelayedNotificationRequest>(
+    worker->get_handle(), ep, request, send, buffer, length, tag);
   worker->registerDelayedNotificationRequest(populate_delayed_notification_tag_request,
-                                             delayed_notification_request);
+                                             delayedNotificationRequest);
 
   return request;
 }

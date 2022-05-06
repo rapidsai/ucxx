@@ -207,8 +207,8 @@ class UCXXWorker : public UCXXComponent {
       ;
   }
 
-  void registerDelayedNotificationRequest(std::function<void(std::shared_ptr<void>)> callback,
-                                          std::shared_ptr<void> callbackData)
+  void registerDelayedNotificationRequest(DelayedNotificationRequestCallbackType callback,
+                                          DelayedNotificationRequestCallbackDataType callbackData)
   {
     _delayedNotificationRequestCollection.registerRequest(callback, callbackData);
   }

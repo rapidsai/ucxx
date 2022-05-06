@@ -7,6 +7,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/delayed_notification_request.h>
 #include <ucxx/transfer_common.h>
 #include <ucxx/typedefs.h>
 
@@ -49,22 +50,21 @@ ucs_status_ptr_t stream_request(
 }
 
 void populate_delayed_notification_stream_request(
-  std::shared_ptr<void> delayed_notification_request)
+  std::shared_ptr<DelayedNotificationRequest> delayedNotificationRequest)
 {
-  auto data =
-    std::static_pointer_cast<delayed_notification_request_t>(delayed_notification_request);
+  auto data = delayedNotificationRequest;
 
-  std::string operationName{data->send ? "stream_send" : "stream_recv"};
+  std::string operationName{data->_send ? "stream_send" : "stream_recv"};
   void* status =
-    stream_request(data->ep, data->send, data->buffer, data->length, data->request.get());
+    stream_request(data->_ep, data->_send, data->_buffer, data->_length, data->_request.get());
   ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                  operationName.c_str(),
                  status,
-                 data->buffer,
-                 data->length,
-                 data->request->py_future.get(),
-                 data->request->py_future->getHandle());
-  request_wait(data->worker, status, data->request.get(), operationName);
+                 data->_buffer,
+                 data->_length,
+                 data->_request->py_future.get(),
+                 data->_request->py_future->getHandle());
+  request_wait(data->_worker, status, data->_request.get(), operationName);
 }
 
 std::shared_ptr<ucxx_request_t> stream_msg(
@@ -81,15 +81,10 @@ std::shared_ptr<ucxx_request_t> stream_msg(
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
   // importantly the Python future later on, so that we don't need the GIL here.
-  auto delayed_notification_request     = std::make_shared<delayed_notification_request_t>();
-  delayed_notification_request->worker  = worker->get_handle();
-  delayed_notification_request->ep      = ep;
-  delayed_notification_request->send    = send;
-  delayed_notification_request->buffer  = buffer;
-  delayed_notification_request->length  = length;
-  delayed_notification_request->request = request;
+  auto delayedNotificationRequest = std::make_shared<DelayedNotificationRequest>(
+    worker->get_handle(), ep, request, send, buffer, length);
   worker->registerDelayedNotificationRequest(populate_delayed_notification_stream_request,
-                                             delayed_notification_request);
+                                             delayedNotificationRequest);
 
   return request;
 }

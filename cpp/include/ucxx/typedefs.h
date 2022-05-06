@@ -21,16 +21,6 @@ typedef struct ucxx_request {
   std::shared_ptr<void> callback_data     = nullptr;
 } ucxx_request_t;
 
-typedef struct {
-  ucp_worker_h worker = nullptr;
-  ucp_ep_h ep         = nullptr;
-  bool send           = false;
-  void* buffer        = nullptr;
-  size_t length       = 0;
-  ucp_tag_t tag       = 0;
-  std::shared_ptr<ucxx_request_t> request{nullptr};
-} delayed_notification_request_t;
-
 // Logging levels
 typedef enum {
   UCXX_LOG_LEVEL_FATAL,       /* Immediate termination */
