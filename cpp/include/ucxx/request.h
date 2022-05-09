@@ -13,7 +13,7 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/typedefs.h>
 
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
 #include <Python.h>
 #endif
 
@@ -83,9 +83,14 @@ class UCXXRequest : public UCXXComponent {
 
   ucs_status_t getStatus() { return _handle->status; }
 
-#ifdef UCXX_ENABLE_PYTHON
-  PyObject* getPyFuture() { return (PyObject*)_handle->py_future->getHandle(); }
+  PyObject* getPyFuture()
+  {
+#if UCXX_ENABLE_PYTHON
+    return (PyObject*)_handle->py_future->getHandle();
+#else
+    return NULL;
 #endif
+  }
 
   void checkError()
   {

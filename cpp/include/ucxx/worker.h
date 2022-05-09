@@ -24,7 +24,7 @@
 #include <ucxx/utils.h>
 #include <ucxx/worker_progress_thread.h>
 
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
 #include <ucxx/python/notifier.h>
 #include <ucxx/python/python_future.h>
 #endif
@@ -48,7 +48,7 @@ class UCXXWorker : public UCXXComponent {
   void* _progressThreadStartCallbackArg{nullptr};
   DelayedNotificationRequestCollection _delayedNotificationRequestCollection{};
   std::mutex _pythonFuturesPoolMutex{};
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
   std::queue<std::shared_ptr<PythonFuture>> _pythonFuturesPool{};
   std::shared_ptr<UCXXNotifier> _notifier{std::make_shared<UCXXNotifier>()};
 #endif
@@ -117,7 +117,7 @@ class UCXXWorker : public UCXXComponent {
   ~UCXXWorker()
   {
     stopProgressThread();
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
     _notifier->stopRequestNotifierThread();
 #endif
 
@@ -217,9 +217,9 @@ class UCXXWorker : public UCXXComponent {
     _delayedNotificationRequestCollection.registerRequest(callback, callbackData);
   }
 
-#ifdef UCXX_ENABLE_PYTHON
   void populatePythonFuturesPool()
   {
+#if UCXX_ENABLE_PYTHON
     ucxx_trace_req("populatePythonFuturesPool: %p %p", this, shared_from_this().get());
     // If the pool goes under half expected size, fill it up again.
     if (_pythonFuturesPool.size() < 50) {
@@ -227,10 +227,22 @@ class UCXXWorker : public UCXXComponent {
       while (_pythonFuturesPool.size() < 100)
         _pythonFuturesPool.emplace(std::make_shared<PythonFuture>(_notifier));
     }
+#else
+    std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+#endif
   }
 
   std::shared_ptr<PythonFuture> getPythonFuture()
   {
+#if UCXX_ENABLE_PYTHON
+    if (_pythonFuturesPool.size() == 0) {
+      ucxx_warn(
+        "No Python Futures available during getPythonFuture(), make sure the "
+        "Notifier Thread is running and calling populatePythonFuturesPool() "
+        "periodically. Filling futures pool now, but this is inefficient.");
+      populatePythonFuturesPool();
+    }
+
     std::shared_ptr<PythonFuture> ret{nullptr};
     {
       std::lock_guard<std::mutex> lock(_pythonFuturesPoolMutex);
@@ -239,14 +251,39 @@ class UCXXWorker : public UCXXComponent {
     }
     ucxx_trace_req("getPythonFuture: %p %p", ret.get(), ret->getHandle());
     return ret;
+#else
+    std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+    return nullptr;
+#endif
   }
 
-  bool waitRequestNotifier() { return _notifier->waitRequestNotifier(); }
-
-  void runRequestNotifier() { return _notifier->runRequestNotifier(); }
-
-  void stopRequestNotifierThread() { return _notifier->stopRequestNotifierThread(); }
+  bool waitRequestNotifier()
+  {
+#if UCXX_ENABLE_PYTHON
+    return _notifier->waitRequestNotifier();
+#else
+    std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+    return false;
 #endif
+  }
+
+  void runRequestNotifier()
+  {
+#if UCXX_ENABLE_PYTHON
+    _notifier->runRequestNotifier();
+#else
+    std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+#endif
+  }
+
+  void stopRequestNotifierThread()
+  {
+#if UCXX_ENABLE_PYTHON
+    _notifier->stopRequestNotifierThread();
+#else
+    std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+#endif
+  }
 
   void setProgressThreadStartCallback(std::function<void(void*)> callback, void* callbackArg)
   {

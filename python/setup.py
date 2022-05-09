@@ -25,7 +25,7 @@ include_dirs = [
 ]
 library_dirs = [get_config_var("LIBDIR"), "/usr/local/cuda/lib64"]
 libraries = ["ucp", "uct", "ucm", "ucs", "cudart", "cuda"]
-cpp_extra_compile_args = ["-std=c++17", "-Werror", "-g", "-DUCXX_ENABLE_PYTHON"]
+cpp_extra_compile_args = ["-std=c++17", "-Werror", "-g", "-DUCXX_ENABLE_PYTHON=1"]
 c_extra_compile_args = ["-Werror", "-g"]
 depends = []
 

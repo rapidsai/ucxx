@@ -53,14 +53,14 @@ async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener):
     # streaming calls (see <https://github.com/rapidsai/ucx-py/pull/509>)
     if listener is True:
         req = endpoint.stream_send(my_info_arr)
-        await req.get_future()
+        await req.wait()
         req = endpoint.stream_recv(peer_info_arr)
-        await req.get_future()
+        await req.wait()
     else:
         req = endpoint.stream_recv(peer_info_arr)
-        await req.get_future()
+        await req.wait()
         req = endpoint.stream_send(my_info_arr)
-        await req.get_future()
+        await req.wait()
 
     # Unpacking and sanity check of the peer information
     ret = {}
@@ -205,13 +205,19 @@ class ApplicationContext:
         # proper shutdown, which may require the wait operation to contain a
         # timeout or finding a way to execute `worker.stop_request_notifier_thread()`
         # during `_shutdown()` from `threading.py`.
-        self.notifierThread = threading.Thread(
-            target=_notifierThread,
-            args=(loop, self.worker),
-            name="UCX-Py Async Notifier Thread",
-            daemon=True,
-        )
-        self.notifierThread.start()
+        if self.worker.is_request_notifier_available():
+            logger.debug("UCXX_ENABLE_PYTHON available, enabling notifier thread")
+            self.notifierThread = threading.Thread(
+                target=_notifierThread,
+                args=(loop, self.worker),
+                name="UCX-Py Async Notifier Thread",
+                daemon=True,
+            )
+            self.notifierThread.start()
+        else:
+            logger.debug(
+                "UCXX not compiled with UCXX_ENABLE_PYTHON, disabling notifier thread"
+            )
 
         if progress_mode is not None:
             self.progress_mode = progress_mode
@@ -568,7 +574,7 @@ class Endpoint:
 
         try:
             request = self._ep.tag_send(buffer, tag)
-            return await request.get_future()
+            return await request.wait()
         except UCXCanceled as e:
             # If self._ep has already been closed and destroyed, we reraise the
             # UCXCanceled exception.
@@ -616,7 +622,7 @@ class Endpoint:
         self._send_count += 1
 
         try:
-            return await self._ep.tag_send_multi(buffers, tag).get_future()
+            return await self._ep.tag_send_multi(buffers, tag).wait()
         except UCXCanceled as e:
             # If self._ep has already been closed and destroyed, we reraise the
             # UCXCanceled exception.
@@ -667,7 +673,7 @@ class Endpoint:
         self._recv_count += 1
 
         req = self._ep.tag_recv(buffer, tag)
-        ret = await req.get_future()
+        ret = await req.wait()
 
         self._finished_recv_count += 1
         if (
@@ -722,7 +728,7 @@ class Endpoint:
         self._recv_count += 1
 
         buffer_requests = self._ep.tag_recv_multi(tag)
-        await buffer_requests.get_future()
+        await buffer_requests.wait()
         for r in buffer_requests.get_requests():
             r.check_error()
         ret = buffer_requests.get_py_buffers()

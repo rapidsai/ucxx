@@ -1,3 +1,7 @@
+#ifndef UCXX_ENABLE_PYTHON
+#define UCXX_ENABLE_PYTHON 0
+#endif
+
 #include <ucxx/address.h>
 #include <ucxx/context.h>
 #include <ucxx/endpoint.h>
@@ -8,7 +12,7 @@
 
 #include <ucxx/worker_impl.h>
 
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
 #include <ucxx/python/notifier_impl.h>
 #include <ucxx/python/python_future_impl.h>
 #endif

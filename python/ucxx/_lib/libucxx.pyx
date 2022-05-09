@@ -113,6 +113,13 @@ class Feature(enum.Enum):
 #                                   Classes                                   #
 ###############################################################################
 
+def UCXXPythonEnabled():
+    cdef int python_enabled
+    with nogil:
+        python_enabled = UCXX_ENABLE_PYTHON
+    return bool(python_enabled)
+
+
 cdef class UCXContext():
     """Python representation of `ucp_context_h`
 
@@ -238,10 +245,12 @@ cdef class UCXWorker():
     cdef:
         shared_ptr[UCXXWorker] _worker
         dict _progress_thread_start_cb_data
+        bint _is_request_notifier_available
 
     def __init__(self, UCXContext context):
         with nogil:
             self._worker = context._context.get().createWorker()
+        self._is_request_notifier_available = UCXXPythonEnabled()
 
     @property
     def handle(self):
@@ -359,6 +368,9 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().populatePythonFuturesPool()
 
+    def is_request_notifier_available(self):
+        return self._is_request_notifier_available
+
 
 cdef class UCXRequest():
     cdef:
@@ -399,12 +411,18 @@ cdef class UCXRequest():
             await asyncio.sleep(0)
 
     def get_future(self):
-        cdef PyObject* future_ptr = NULL
+        cdef PyObject* future_ptr
 
         with nogil:
             future_ptr = self._request.get().getPyFuture()
 
         return <object>future_ptr
+
+    async def wait(self):
+        if UCXXPythonEnabled():
+            await self.get_future()
+        else:
+            await self.wait_yield()
 
 
 cdef class UCXBufferRequest:

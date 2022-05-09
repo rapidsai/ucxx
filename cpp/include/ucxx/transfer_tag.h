@@ -11,7 +11,7 @@
 #include <ucxx/transfer_common.h>
 #include <ucxx/typedefs.h>
 
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
 #include <ucxx/python/future.h>
 #endif
 
@@ -71,7 +71,7 @@ void populate_delayed_notification_tag_request(
                              data->_length,
                              data->_tag,
                              data->_request.get());
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
   ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
                  operationName.c_str(),
                  status,
@@ -101,7 +101,7 @@ std::shared_ptr<ucxx_request_t> tag_msg(std::shared_ptr<UCXXWorker> worker,
                                         std::shared_ptr<void> callbackData = nullptr)
 {
   auto request = std::make_shared<ucxx_request_t>();
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
   request->py_future = worker->getPythonFuture();
   ucxx_trace_req("request->py_future: %p", request->py_future.get());
 #endif

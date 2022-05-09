@@ -8,7 +8,7 @@
 #include <memory>
 #include <mutex>
 
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
 #include <ucxx/python/python_future.h>
 #endif
 

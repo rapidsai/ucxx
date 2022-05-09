@@ -7,7 +7,7 @@
 
 #include <ucxx/log.h>
 
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
 #include <Python.h>
 
 namespace ucxx {

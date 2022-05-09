@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
 #include <functional>
 #include <memory>
 

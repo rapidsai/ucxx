@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
 #include <Python.h>
 
 #include <ucp/api/ucp.h>

@@ -11,7 +11,7 @@
 #include <ucxx/transfer_common.h>
 #include <ucxx/typedefs.h>
 
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
 #include <ucxx/python/future.h>
 #endif
 
@@ -57,7 +57,7 @@ void populate_delayed_notification_stream_request(
   std::string operationName{data->_send ? "stream_send" : "stream_recv"};
   void* status =
     stream_request(data->_ep, data->_send, data->_buffer, data->_length, data->_request.get());
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
   ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                  operationName.c_str(),
                  status,
@@ -79,7 +79,7 @@ std::shared_ptr<ucxx_request_t> stream_msg(
   std::shared_ptr<UCXXWorker> worker, ucp_ep_h ep, bool send, void* buffer, size_t length)
 {
   auto request = std::make_shared<ucxx_request_t>();
-#ifdef UCXX_ENABLE_PYTHON
+#if UCXX_ENABLE_PYTHON
   request->py_future = worker->getPythonFuture();
   ucxx_trace_req("request: %p, request->py_future: %p", request.get(), request->py_future.get());
 #endif

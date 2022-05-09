@@ -120,6 +120,10 @@ cdef extern from "<ucxx/buffer_helper.h>" namespace "ucxx" nogil:
     ctypedef UCXXPyRMMBuffer* UCXXPyRMMBufferPtr
 
 
+cdef extern from "<ucxx/api.h>" nogil:
+    int UCXX_ENABLE_PYTHON
+
+
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass UCXXContext:
         UCXXContext()
