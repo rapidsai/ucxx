@@ -19,7 +19,12 @@ class UCPConfig {
  public:
   UCPConfig() = default;
 
-  UCPConfig(std::map<std::string, std::string>& ucx_config)
+  UCPConfig(const UCPConfig&) = delete;
+  UCPConfig& operator=(UCPConfig const&) = delete;
+  UCPConfig(UCPConfig&& o)               = delete;
+  UCPConfig& operator=(UCPConfig&& o) = delete;
+
+  UCPConfig(std::map<std::string, std::string> ucx_config)
   {
     this->_handle = _read_ucx_config(ucx_config);
   }
@@ -27,18 +32,6 @@ class UCPConfig {
   ~UCPConfig()
   {
     if (this->_handle != nullptr) ucp_config_release(this->_handle);
-  }
-
-  UCPConfig(const UCPConfig&) = delete;
-  UCPConfig& operator=(UCPConfig const&) = delete;
-
-  UCPConfig(UCPConfig&& o) noexcept : _handle{std::exchange(o._handle, nullptr)} {}
-
-  UCPConfig& operator=(UCPConfig&& o) noexcept
-  {
-    this->_handle = std::exchange(o._handle, nullptr);
-
-    return *this;
   }
 
   std::map<std::string, std::string> get()

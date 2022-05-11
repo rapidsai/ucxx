@@ -113,28 +113,11 @@ class UCXXPyBuffer {
   {
   }
 
-  UCXXPyBuffer() = default;
-
+  UCXXPyBuffer()                    = delete;
   UCXXPyBuffer(const UCXXPyBuffer&) = delete;
   UCXXPyBuffer& operator=(UCXXPyBuffer const&) = delete;
-
-  UCXXPyBuffer(UCXXPyBuffer&& o) noexcept
-    : _ptr{std::exchange(o._ptr, nullptr)},
-      _isCUDA{std::exchange(o._isCUDA, false)},
-      _size{std::exchange(o._size, 0)},
-      _isValid{std::exchange(o._isValid, false)}
-  {
-  }
-
-  UCXXPyBuffer& operator=(UCXXPyBuffer&& o) noexcept
-  {
-    this->_ptr     = std::exchange(o._ptr, nullptr);
-    this->_isCUDA  = std::exchange(o._isCUDA, false);
-    this->_size    = std::exchange(o._size, 0);
-    this->_isValid = std::exchange(o._isValid, false);
-
-    return *this;
-  }
+  UCXXPyBuffer(UCXXPyBuffer&& o)               = delete;
+  UCXXPyBuffer& operator=(UCXXPyBuffer&& o) = delete;
 
   bool isValid() const { return _isValid; }
 

@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#if UCXX_ENABLE_PYTHON
 #include <memory>
 #include <mutex>
 
@@ -28,13 +29,12 @@ class UCXXNotifier {
   RequestNotifierThreadState _notifierThreadFutureStatusFinished{RequestNotifierThreadNotRunning};
   std::condition_variable _notifierThreadConditionVariable{};
 
- public:
   UCXXNotifier() = default;
 
+ public:
   UCXXNotifier(const UCXXNotifier&) = delete;
   UCXXNotifier& operator=(UCXXNotifier const&) = delete;
-
-  UCXXNotifier(UCXXNotifier&& o) = delete;
+  UCXXNotifier(UCXXNotifier&& o)               = delete;
   UCXXNotifier& operator=(UCXXNotifier&& o) = delete;
 
   template <class... Args>
@@ -86,3 +86,4 @@ class UCXXNotifier {
 };
 
 }  // namespace ucxx
+#endif

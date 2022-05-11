@@ -39,4 +39,11 @@ std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<UCXXEndpoint>& endpoi
                                            inflight_requests_t inflight_requests,
                                            std::shared_ptr<ucxx_request_t> request);
 
+#if UCXX_ENABLE_PYTHON
+class UCXXNotifier;
+
+template <class... Args>
+std::shared_ptr<UCXXNotifier> createNotifier(Args&&... args);
+#endif
+
 }  // namespace ucxx

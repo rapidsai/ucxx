@@ -50,7 +50,7 @@ class UCXXWorker : public UCXXComponent {
   std::mutex _pythonFuturesPoolMutex{};
 #if UCXX_ENABLE_PYTHON
   std::queue<std::shared_ptr<PythonFuture>> _pythonFuturesPool{};
-  std::shared_ptr<UCXXNotifier> _notifier{std::make_shared<UCXXNotifier>()};
+  std::shared_ptr<UCXXNotifier> _notifier{createNotifier()};
 #endif
 
   UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context)
@@ -100,12 +100,10 @@ class UCXXWorker : public UCXXComponent {
   }
 
  public:
-  UCXXWorker() = delete;
-
+  UCXXWorker()                  = delete;
   UCXXWorker(const UCXXWorker&) = delete;
   UCXXWorker& operator=(UCXXWorker const&) = delete;
-
-  UCXXWorker(UCXXWorker&& o) = delete;
+  UCXXWorker(UCXXWorker&& o)               = delete;
   UCXXWorker& operator=(UCXXWorker&& o) = delete;
 
   template <class... Args>

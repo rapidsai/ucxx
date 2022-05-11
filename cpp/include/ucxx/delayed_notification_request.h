@@ -79,12 +79,10 @@ class DelayedNotificationRequestCollection {
   std::mutex _mutex{};
 
  public:
-  DelayedNotificationRequestCollection() = default;
-
+  DelayedNotificationRequestCollection()                                            = default;
   DelayedNotificationRequestCollection(const DelayedNotificationRequestCollection&) = delete;
   DelayedNotificationRequestCollection& operator=(DelayedNotificationRequestCollection const&) =
     delete;
-
   DelayedNotificationRequestCollection(DelayedNotificationRequestCollection&& o) = delete;
   DelayedNotificationRequestCollection& operator=(DelayedNotificationRequestCollection&& o) =
     delete;

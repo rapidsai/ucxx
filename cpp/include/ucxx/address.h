@@ -27,23 +27,11 @@ class UCXXAddress : public UCXXComponent {
   }
 
  public:
-  UCXXAddress() = default;
-
+  UCXXAddress()                   = delete;
   UCXXAddress(const UCXXAddress&) = delete;
   UCXXAddress& operator=(UCXXAddress const&) = delete;
-
-  UCXXAddress(UCXXAddress&& o) noexcept
-    : _handle{std::exchange(o._handle, nullptr)}, _length{std::exchange(o._length, 0)}
-  {
-  }
-
-  UCXXAddress& operator=(UCXXAddress&& o) noexcept
-  {
-    this->_handle = std::exchange(o._handle, nullptr);
-    this->_length = std::exchange(o._length, 0);
-
-    return *this;
-  }
+  UCXXAddress(UCXXAddress&& o)               = delete;
+  UCXXAddress& operator=(UCXXAddress&& o) = delete;
 
   ~UCXXAddress()
   {

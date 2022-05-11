@@ -34,7 +34,11 @@ class UCXXContext : public UCXXComponent {
   static constexpr uint64_t default_feature_flags =
     UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
 
-  UCXXContext() = default;
+  UCXXContext()                   = delete;
+  UCXXContext(const UCXXContext&) = delete;
+  UCXXContext& operator=(UCXXContext const&) = delete;
+  UCXXContext(UCXXContext&& o)               = delete;
+  UCXXContext& operator=(UCXXContext&& o) = delete;
 
   UCXXContext(std::map<std::string, std::string> ucx_config, uint64_t feature_flags)
     : _config{UCPConfig(ucx_config)}, _feature_flags{feature_flags}
@@ -59,27 +63,6 @@ class UCXXContext : public UCXXComponent {
     ucxx_info("UCP initiated using config: ");
     for (const auto& kv : config_map)
       ucxx_info("  %s: %s", kv.first.c_str(), kv.second.c_str());
-  }
-
-  UCXXContext(const UCXXContext&) = delete;
-  UCXXContext& operator=(UCXXContext const&) = delete;
-
-  UCXXContext(UCXXContext&& o) noexcept
-    : _handle{std::exchange(o._handle, nullptr)},
-      _config{std::exchange(o._config, {})},
-      _feature_flags{std::exchange(o._feature_flags, 0)},
-      _cuda_support{std::exchange(o._cuda_support, false)}
-  {
-  }
-
-  UCXXContext& operator=(UCXXContext&& o) noexcept
-  {
-    this->_handle        = std::exchange(o._handle, nullptr);
-    this->_config        = std::exchange(o._config, {});
-    this->_feature_flags = std::exchange(o._feature_flags, 0);
-    this->_cuda_support  = std::exchange(o._cuda_support, false);
-
-    return *this;
   }
 
   static std::shared_ptr<UCXXContext> create(std::map<std::string, std::string> ucx_config,

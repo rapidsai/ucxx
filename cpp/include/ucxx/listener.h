@@ -68,19 +68,11 @@ class UCXXListener : public UCXXComponent {
   }
 
  public:
-  UCXXListener() = default;
-
+  UCXXListener()                    = delete;
   UCXXListener(const UCXXListener&) = delete;
   UCXXListener& operator=(UCXXListener const&) = delete;
-
-  UCXXListener(UCXXListener&& o) noexcept : _handle{std::exchange(o._handle, nullptr)} {}
-
-  UCXXListener& operator=(UCXXListener&& o) noexcept
-  {
-    this->_handle = std::exchange(o._handle, nullptr);
-
-    return *this;
-  }
+  UCXXListener(UCXXListener&& o)               = delete;
+  UCXXListener& operator=(UCXXListener&& o) = delete;
 
   ~UCXXListener() {}
 

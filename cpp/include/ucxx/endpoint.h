@@ -99,28 +99,11 @@ class UCXXEndpoint : public UCXXComponent {
   }
 
  public:
-  UCXXEndpoint() = default;
-
+  UCXXEndpoint()                    = delete;
   UCXXEndpoint(const UCXXEndpoint&) = delete;
   UCXXEndpoint& operator=(UCXXEndpoint const&) = delete;
-
-  UCXXEndpoint(UCXXEndpoint&& o) noexcept
-    : _handle{std::exchange(o._handle, nullptr)},
-      _endpoint_error_handling{std::exchange(o._endpoint_error_handling, true)},
-      _callbackData{std::exchange(o._callbackData, nullptr)},
-      _inflightRequests{std::exchange(o._inflightRequests, nullptr)}
-  {
-  }
-
-  UCXXEndpoint& operator=(UCXXEndpoint&& o) noexcept
-  {
-    this->_handle                  = std::exchange(o._handle, nullptr);
-    this->_endpoint_error_handling = std::exchange(o._endpoint_error_handling, true);
-    this->_callbackData            = std::exchange(o._callbackData, nullptr);
-    this->_inflightRequests        = std::exchange(o._inflightRequests, nullptr);
-
-    return *this;
-  }
+  UCXXEndpoint(UCXXEndpoint&& o)               = delete;
+  UCXXEndpoint& operator=(UCXXEndpoint&& o) = delete;
 
   ~UCXXEndpoint()
   {

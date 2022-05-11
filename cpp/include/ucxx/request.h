@@ -36,24 +36,11 @@ class UCXXRequest : public UCXXComponent {
   }
 
  public:
-  UCXXRequest() = default;
-
+  UCXXRequest()                   = delete;
   UCXXRequest(const UCXXRequest&) = delete;
   UCXXRequest& operator=(UCXXRequest const&) = delete;
-
-  UCXXRequest(UCXXRequest&& o) noexcept
-    : _handle{std::exchange(o._handle, nullptr)},
-      _inflight_requests{std::exchange(o._inflight_requests, nullptr)}
-  {
-  }
-
-  UCXXRequest& operator=(UCXXRequest&& o) noexcept
-  {
-    this->_handle            = std::exchange(o._handle, nullptr);
-    this->_inflight_requests = std::exchange(o._inflight_requests, nullptr);
-
-    return *this;
-  }
+  UCXXRequest(UCXXRequest&& o)               = delete;
+  UCXXRequest& operator=(UCXXRequest&& o) = delete;
 
   ~UCXXRequest()
   {
