@@ -515,6 +515,12 @@ cdef class UCXBufferRequests:
     def get_future(self):
         return self._generate_future()
 
+    async def wait(self):
+        if UCXXPythonEnabled():
+            await self.get_future()
+        else:
+            await self.wait_yield()
+
     def get_requests(self):
         return self._requests
 
