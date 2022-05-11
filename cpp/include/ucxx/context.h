@@ -26,7 +26,7 @@ class UCXXWorker;
 class UCXXContext : public UCXXComponent {
  private:
   ucp_context_h _handle{nullptr};
-  UCPConfig _config{};
+  UCXXConfig _config{};
   uint64_t _feature_flags{0};
   bool _cuda_support{false};
 
@@ -40,8 +40,8 @@ class UCXXContext : public UCXXComponent {
   UCXXContext(UCXXContext&& o)               = delete;
   UCXXContext& operator=(UCXXContext&& o) = delete;
 
-  UCXXContext(std::map<std::string, std::string> ucx_config, uint64_t feature_flags)
-    : _config{UCPConfig(ucx_config)}, _feature_flags{feature_flags}
+  UCXXContext(UCXXConfigMap ucx_config, uint64_t feature_flags)
+    : _config{UCXXConfig(ucx_config)}, _feature_flags{feature_flags}
   {
     ucp_params_t ucp_params;
 
@@ -65,8 +65,7 @@ class UCXXContext : public UCXXComponent {
       ucxx_info("  %s: %s", kv.first.c_str(), kv.second.c_str());
   }
 
-  static std::shared_ptr<UCXXContext> create(std::map<std::string, std::string> ucx_config,
-                                             uint64_t feature_flags)
+  static std::shared_ptr<UCXXContext> create(UCXXConfigMap ucx_config, uint64_t feature_flags)
   {
     // TODO: make constructor private, probably using pImpl
     return std::make_shared<UCXXContext>(ucx_config, feature_flags);
@@ -77,7 +76,7 @@ class UCXXContext : public UCXXComponent {
     if (this->_handle != nullptr) ucp_cleanup(this->_handle);
   }
 
-  std::map<std::string, std::string> get_config() { return this->_config.get(); }
+  UCXXConfigMap get_config() { return this->_config.get(); }
 
   ucp_context_h get_handle() { return this->_handle; }
 

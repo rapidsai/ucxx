@@ -10,9 +10,11 @@ cimport numpy as np
 from libc.stdint cimport int64_t, uint16_t, uint64_t  # noqa: E402
 from libcpp cimport bool as cpp_bool  # noqa: E402
 from libcpp.functional cimport function  # noqa: E402
-from libcpp.map cimport map as cpp_map  # noqa: E402
 from libcpp.memory cimport shared_ptr, unique_ptr  # noqa: E402
 from libcpp.string cimport string  # noqa: E402
+from libcpp.unordered_map cimport (  # noqa: E402
+    unordered_map as cpp_unordered_map,
+)
 from libcpp.vector cimport vector  # noqa: E402
 
 # from cython.cimports.cpython.ref import PyObject
@@ -125,15 +127,17 @@ cdef extern from "<ucxx/api.h>" nogil:
 
 
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
+    ctypedef cpp_unordered_map[string, string] UCXXConfigMap
+
     cdef cppclass UCXXContext:
         UCXXContext()
 
         @staticmethod
         shared_ptr[UCXXContext] create(
-            cpp_map[string, string] ucx_config, uint64_t feature_flags
+            UCXXConfigMap ucx_config, uint64_t feature_flags
         ) except +raise_py_error
         shared_ptr[UCXXWorker] createWorker() except +raise_py_error
-        cpp_map[string, string] get_config() except +raise_py_error
+        UCXXConfigMap get_config() except +raise_py_error
         ucp_context_h get_handle()
         string get_info() except +raise_py_error
 

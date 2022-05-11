@@ -145,7 +145,7 @@ cdef class UCXContext():
             Feature.RMA
         )
     ):
-        cdef cpp_map[string, string] cpp_config_in, cpp_config_out
+        cdef UCXXConfigMap cpp_config_in, cpp_config_out
         cdef dict context_config
 
         for k, v in config_dict.items():
