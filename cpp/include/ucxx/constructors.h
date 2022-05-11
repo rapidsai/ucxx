@@ -5,17 +5,18 @@
 namespace ucxx {
 
 class UCXXAddress;
+class UCXXContext;
 class UCXXEndpoint;
 class UCXXListener;
 class UCXXRequest;
 class UCXXWorker;
 
-template <class... Args>
-std::shared_ptr<UCXXWorker> createWorker(Args&&... args);
-
 std::shared_ptr<UCXXAddress> createAddressFromWorker(std::shared_ptr<ucxx::UCXXWorker> worker);
 
 std::shared_ptr<UCXXAddress> createAddressFromString(std::string addressString);
+
+template <class... Args>
+std::shared_ptr<UCXXContext> createContext(Args&&... args);
 
 std::shared_ptr<UCXXEndpoint> createEndpointFromHostname(std::shared_ptr<UCXXWorker> worker,
                                                          std::string ip_address,
@@ -38,6 +39,9 @@ std::shared_ptr<UCXXListener> createListener(std::shared_ptr<UCXXWorker> worker,
 std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<UCXXEndpoint>& endpoint,
                                            inflight_requests_t inflight_requests,
                                            std::shared_ptr<ucxx_request_t> request);
+
+template <class... Args>
+std::shared_ptr<UCXXWorker> createWorker(Args&&... args);
 
 #if UCXX_ENABLE_PYTHON
 class UCXXNotifier;

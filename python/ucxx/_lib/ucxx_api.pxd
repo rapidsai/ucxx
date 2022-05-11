@@ -129,13 +129,11 @@ cdef extern from "<ucxx/api.h>" nogil:
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     ctypedef cpp_unordered_map[string, string] UCXXConfigMap
 
-    cdef cppclass UCXXContext:
-        UCXXContext()
+    shared_ptr[UCXXContext] createContext(
+        UCXXConfigMap ucx_config, uint64_t feature_flags
+    ) except +raise_py_error
 
-        @staticmethod
-        shared_ptr[UCXXContext] create(
-            UCXXConfigMap ucx_config, uint64_t feature_flags
-        ) except +raise_py_error
+    cdef cppclass UCXXContext:
         shared_ptr[UCXXWorker] createWorker() except +raise_py_error
         UCXXConfigMap get_config() except +raise_py_error
         ucp_context_h get_handle()

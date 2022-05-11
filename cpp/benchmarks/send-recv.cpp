@@ -239,7 +239,7 @@ int main(int argc, char** argv)
   if (parseCommand(&app_context, argc, argv) != UCS_OK) return -1;
 
   // Setup: create UCP context, worker, listener and client endpoint.
-  auto context = ucxx::UCXXContext::create({}, ucxx::UCXXContext::default_feature_flags);
+  auto context = ucxx::createContext({}, ucxx::UCXXContext::default_feature_flags);
   auto worker  = context->createWorker();
 
   bool is_server = app_context.server_addr == NULL;

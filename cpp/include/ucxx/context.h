@@ -30,16 +30,6 @@ class UCXXContext : public UCXXComponent {
   uint64_t _feature_flags{0};
   bool _cuda_support{false};
 
- public:
-  static constexpr uint64_t default_feature_flags =
-    UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
-
-  UCXXContext()                   = delete;
-  UCXXContext(const UCXXContext&) = delete;
-  UCXXContext& operator=(UCXXContext const&) = delete;
-  UCXXContext(UCXXContext&& o)               = delete;
-  UCXXContext& operator=(UCXXContext&& o) = delete;
-
   UCXXContext(UCXXConfigMap ucx_config, uint64_t feature_flags)
     : _config{UCXXConfig(ucx_config)}, _feature_flags{feature_flags}
   {
@@ -65,10 +55,20 @@ class UCXXContext : public UCXXComponent {
       ucxx_info("  %s: %s", kv.first.c_str(), kv.second.c_str());
   }
 
-  static std::shared_ptr<UCXXContext> create(UCXXConfigMap ucx_config, uint64_t feature_flags)
+ public:
+  static constexpr uint64_t default_feature_flags =
+    UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
+
+  UCXXContext()                   = delete;
+  UCXXContext(const UCXXContext&) = delete;
+  UCXXContext& operator=(UCXXContext const&) = delete;
+  UCXXContext(UCXXContext&& o)               = delete;
+  UCXXContext& operator=(UCXXContext&& o) = delete;
+
+  template <class... Args>
+  friend std::shared_ptr<UCXXContext> createContext(Args&&... args)
   {
-    // TODO: make constructor private, probably using pImpl
-    return std::make_shared<UCXXContext>(ucx_config, feature_flags);
+    return std::shared_ptr<UCXXContext>(new UCXXContext(std::forward<Args>(args)...));
   }
 
   ~UCXXContext()

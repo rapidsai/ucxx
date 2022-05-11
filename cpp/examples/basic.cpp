@@ -127,7 +127,7 @@ int main(int argc, char** argv)
   if (parseCommand(argc, argv) != UCS_OK) return -1;
 
   // Setup: create UCP context, worker, listener and client endpoint.
-  auto context      = ucxx::UCXXContext::create({}, ucxx::UCXXContext::default_feature_flags);
+  auto context      = ucxx::createContext({}, ucxx::UCXXContext::default_feature_flags);
   auto worker       = context->createWorker();
   auto listener_ctx = std::make_unique<ListenerContext>(worker);
   auto listener     = worker->createListener(listener_port, listener_cb, listener_ctx.get());

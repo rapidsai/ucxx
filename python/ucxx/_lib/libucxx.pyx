@@ -155,7 +155,7 @@ cdef class UCXContext():
         )
 
         with nogil:
-            self._context = UCXXContext.create(cpp_config_in, feature_flags_uint)
+            self._context = createContext(cpp_config_in, feature_flags_uint)
             cpp_config_out = self._context.get().get_config()
 
         context_config = cpp_config_out
