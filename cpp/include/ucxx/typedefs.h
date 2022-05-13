@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <functional>
 #include <unordered_map>
 
 namespace ucxx {
@@ -14,11 +15,11 @@ class PythonFuture;
 
 // Non-blocking requests
 typedef struct ucxx_request {
-  ucs_status_t status                     = UCS_INPROGRESS;
-  void* request                           = nullptr;
-  std::shared_ptr<PythonFuture> py_future = nullptr;
-  void* callback                          = nullptr;
-  std::shared_ptr<void> callback_data     = nullptr;
+  ucs_status_t status                                 = UCS_INPROGRESS;
+  void* request                                       = nullptr;
+  std::shared_ptr<PythonFuture> py_future             = nullptr;
+  std::function<void(std::shared_ptr<void>)> callback = nullptr;
+  std::shared_ptr<void> callback_data                 = nullptr;
 } ucxx_request_t;
 
 // Logging levels

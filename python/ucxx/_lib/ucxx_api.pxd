@@ -216,30 +216,32 @@ cdef extern from "<ucxx/transfer_tag_multi.h>" namespace "ucxx" nogil:
 
     ctypedef shared_ptr[UCXXBufferRequest] UCXXBufferRequestPtr
 
-    ctypedef struct UCXXBufferRequests:
-        vector[UCXXBufferRequestPtr] bufferRequests
-        bint isFilled
-        shared_ptr[UCXXEndpoint] endpoint
-        ucp_tag_t tag
-
     ctypedef shared_ptr[UCXXBufferRequests] UCXXBufferRequestsPtr
 
-    UCXXBufferRequestsPtr tag_send_multi(
+    cdef cppclass UCXXBufferRequests:
+        vector[UCXXBufferRequestPtr] _bufferRequests
+        bint _isFilled
+        shared_ptr[UCXXEndpoint] _endpoint
+        ucp_tag_t _tag
+        bint _send
+
+    UCXXBufferRequestsPtr tagMultiRecv(
+        shared_ptr[UCXXEndpoint] endpoint,
+        ucp_tag_t tag,
+    ) except +raise_py_error
+    UCXXBufferRequestsPtr tagMultiSend(
         shared_ptr[UCXXEndpoint] endpoint,
         vector[void*]& buffer,
         vector[size_t]& length,
         vector[int]& isCUDA,
         ucp_tag_t tag,
     ) except +raise_py_error
+
     void tag_send_multi_b(
         shared_ptr[UCXXEndpoint] endpoint,
         vector[void*]& buffer,
         vector[size_t]& length,
         vector[int]& isCUDA,
-        ucp_tag_t tag,
-    ) except +raise_py_error
-    UCXXBufferRequestsPtr tag_recv_multi(
-        shared_ptr[UCXXEndpoint] endpoint,
         ucp_tag_t tag,
     ) except +raise_py_error
     vector[unique_ptr[UCXXPyBuffer]] tag_recv_multi_b(

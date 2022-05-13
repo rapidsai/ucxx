@@ -44,11 +44,8 @@ static void _callback(void* request, ucs_status_t status, void* arg, std::string
 
   set_ucxx_request_status(ucxx_req, ucp_request_check_status(request));
 
-  ucxx_trace_req("ucxx_req->callback: %p", ucxx_req->callback);
-  if (ucxx_req->callback != nullptr) {
-    void (*callback)(std::shared_ptr<void>) = (void (*)(std::shared_ptr<void>))ucxx_req->callback;
-    callback(ucxx_req->callback_data);
-  }
+  ucxx_trace_req("ucxx_req->callback: %p", ucxx_req->callback.target<void (*)(void)>());
+  if (ucxx_req->callback) ucxx_req->callback(ucxx_req->callback_data);
 
   ucp_request_free(request);
 }
@@ -77,11 +74,8 @@ static void request_wait(ucp_worker_h worker,
 
   set_ucxx_request_status(ucxx_req, status);
 
-  ucxx_trace_req("ucxx_req->callback: %p", ucxx_req->callback);
-  if (ucxx_req->callback != nullptr) {
-    void (*callback)(std::shared_ptr<void>) = (void (*)(std::shared_ptr<void>))ucxx_req->callback;
-    callback(ucxx_req->callback_data);
-  }
+  ucxx_trace_req("ucxx_req->callback: %p", ucxx_req->callback.target<void (*)(void)>());
+  if (ucxx_req->callback) ucxx_req->callback(ucxx_req->callback_data);
 
   if (status != UCS_OK) {
     ucxx_error(

@@ -11,15 +11,19 @@ import functools
 import logging
 
 from cpython.ref cimport PyObject
+from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
+from libcpp cimport nullptr
 from libcpp.cast cimport dynamic_cast
 from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport move
+from libcpp.vector cimport vector
 
 import numpy as np
+
 from rmm._lib.device_buffer cimport DeviceBuffer
 
 from . cimport ucxx_api
@@ -467,20 +471,22 @@ cdef class UCXBufferRequests:
         )
 
     def _populate_requests(self):
+        cdef vector[UCXXBufferRequestPtr] requests
         if len(self._requests) == 0:
-            ucxx_buffer_requests = self._ucxx_buffer_requests.get()[0]
+            requests = deref(self._ucxx_buffer_requests)._bufferRequests
+            total_requests = requests.size()
             self._buffer_requests = tuple([
                 UCXBufferRequest(
-                    <uintptr_t><void*>&(ucxx_buffer_requests.bufferRequests[i])
+                    <uintptr_t><void*>&(requests[i])
                 )
-                for i in range(ucxx_buffer_requests.bufferRequests.size())
+                for i in range(total_requests)
             ])
 
             self._requests = tuple([br.get_request() for br in self._buffer_requests])
 
     def is_completed(self, int64_t period_ns=0):
         if self._is_completed is False:
-            if self._ucxx_buffer_requests.get().isFilled is False:
+            if self._ucxx_buffer_requests.get()._isFilled is False:
                 return False
 
             self._populate_requests()
@@ -501,7 +507,7 @@ cdef class UCXBufferRequests:
 
     async def _generate_future(self):
         if self._is_completed is False:
-            while self._ucxx_buffer_requests.get().isFilled is False:
+            while self._ucxx_buffer_requests.get()._isFilled is False:
                 await asyncio.sleep(0)
 
             self._populate_requests()
@@ -672,7 +678,7 @@ cdef class UCXEndpoint():
             v_is_cuda.push_back(arr.cuda)
 
         with nogil:
-            ucxx_buffer_requests = tag_send_multi(
+            ucxx_buffer_requests = tagMultiSend(
                 self._endpoint, v_buffer, v_size, v_is_cuda, tag
             )
 
@@ -695,9 +701,9 @@ cdef class UCXEndpoint():
         cdef UCXXBufferRequestsPtr ucxx_buffer_requests
 
         with nogil:
-            buffer_requests = move(tag_recv_multi(self._endpoint, tag))
+            ucxx_buffer_requests = tagMultiRecv(self._endpoint, tag)
 
-        return UCXBufferRequests(<uintptr_t><void*>&buffer_requests)
+        return UCXBufferRequests(<uintptr_t><void*>&ucxx_buffer_requests)
 
     def is_alive(self):
         cdef bint is_alive

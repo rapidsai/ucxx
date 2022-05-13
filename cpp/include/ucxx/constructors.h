@@ -5,6 +5,7 @@
 namespace ucxx {
 
 class UCXXAddress;
+class UCXXBufferRequests;
 class UCXXContext;
 class UCXXEndpoint;
 class UCXXListener;
@@ -42,6 +43,14 @@ std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<UCXXEndpoint>& endpoi
 
 template <class... Args>
 std::shared_ptr<UCXXWorker> createWorker(Args&&... args);
+
+std::shared_ptr<UCXXBufferRequests> tagMultiSend(std::shared_ptr<UCXXEndpoint> endpoint,
+                                                 std::vector<void*>& buffer,
+                                                 std::vector<size_t>& size,
+                                                 std::vector<int>& isCUDA,
+                                                 const ucp_tag_t tag);
+std::shared_ptr<UCXXBufferRequests> tagMultiRecv(std::shared_ptr<UCXXEndpoint> endpoint,
+                                                 const ucp_tag_t tag);
 
 #if UCXX_ENABLE_PYTHON
 class UCXXNotifier;

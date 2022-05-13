@@ -91,14 +91,15 @@ void populate_delayed_notification_tag_request(
   request_wait(data->_worker, status, data->_request.get(), operationName);
 }
 
-std::shared_ptr<ucxx_request_t> tag_msg(std::shared_ptr<UCXXWorker> worker,
-                                        ucp_ep_h ep,
-                                        bool send,
-                                        void* buffer,
-                                        size_t length,
-                                        ucp_tag_t tag,
-                                        void* callbackFunction             = nullptr,
-                                        std::shared_ptr<void> callbackData = nullptr)
+std::shared_ptr<ucxx_request_t> tag_msg(
+  std::shared_ptr<UCXXWorker> worker,
+  ucp_ep_h ep,
+  bool send,
+  void* buffer,
+  size_t length,
+  ucp_tag_t tag,
+  std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
+  std::shared_ptr<void> callbackData                          = nullptr)
 {
   auto request = std::make_shared<ucxx_request_t>();
 #if UCXX_ENABLE_PYTHON
