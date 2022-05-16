@@ -43,31 +43,6 @@ typedef struct error_callback_data {
   std::shared_ptr<UCXXWorker> worker;
 } error_callback_data_t;
 
-void _err_cb(void* arg, ucp_ep_h ep, ucs_status_t status)
-{
-  error_callback_data_t* data = (error_callback_data_t*)arg;
-  data->status                = status;
-  data->worker->scheduleRequestCancel(data->inflightRequests);
-  if (data->closeCallback) {
-    data->closeCallback(data->closeCallbackArg);
-    data->closeCallback    = nullptr;
-    data->closeCallbackArg = nullptr;
-  }
-
-  // Connection reset and timeout often represent just a normal remote
-  // endpoint disconnect
-  if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
-    ucxx_debug("Error callback for endpoint %p called with status %d: %s",
-               ep,
-               status,
-               ucs_status_string(status));
-  else
-    ucxx_error("Error callback for endpoint %p called with status %d: %s",
-               ep,
-               status,
-               ucs_status_string(status));
-}
-
 class UCXXEndpoint : public UCXXComponent {
  private:
   ucp_ep_h _handle{nullptr};
@@ -92,7 +67,7 @@ class UCXXEndpoint : public UCXXComponent {
 
     params->err_mode =
       (endpoint_error_handling ? UCP_ERR_HANDLING_MODE_PEER : UCP_ERR_HANDLING_MODE_NONE);
-    params->err_handler.cb  = _err_cb;
+    params->err_handler.cb  = UCXXEndpoint::errorCallback;
     params->err_handler.arg = _callbackData.get();
 
     assert_ucs_status(ucp_ep_create(worker->get_handle(), params.get(), &_handle));
@@ -276,6 +251,31 @@ class UCXXEndpoint : public UCXXComponent {
     auto request =
       tag_msg(worker, _handle, false, buffer, length, tag, callbackFunction, callbackData);
     return createRequest(request);
+  }
+
+  static void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
+  {
+    error_callback_data_t* data = (error_callback_data_t*)arg;
+    data->status                = status;
+    data->worker->scheduleRequestCancel(data->inflightRequests);
+    if (data->closeCallback) {
+      data->closeCallback(data->closeCallbackArg);
+      data->closeCallback    = nullptr;
+      data->closeCallbackArg = nullptr;
+    }
+
+    // Connection reset and timeout often represent just a normal remote
+    // endpoint disconnect, log only in debug mode.
+    if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
+      ucxx_debug("Error callback for endpoint %p called with status %d: %s",
+                 ep,
+                 status,
+                 ucs_status_string(status));
+    else
+      ucxx_error("Error callback for endpoint %p called with status %d: %s",
+                 ep,
+                 status,
+                 ucs_status_string(status));
   }
 };
 
