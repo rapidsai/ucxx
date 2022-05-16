@@ -26,14 +26,7 @@ class UCXXRequest : public UCXXComponent {
 
   UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
               inflight_requests_t inflight_requests,
-              std::shared_ptr<ucxx_request_t> request)
-    : _handle{request}, _inflight_requests{inflight_requests}
-  {
-    if (endpoint == nullptr || endpoint->getHandle() == nullptr)
-      throw ucxx::UCXXError("Endpoint not initialized");
-
-    setParent(endpoint);
-  }
+              std::shared_ptr<ucxx_request_t> request);
 
  public:
   UCXXRequest()                   = delete;
@@ -42,15 +35,7 @@ class UCXXRequest : public UCXXComponent {
   UCXXRequest(UCXXRequest&& o)               = delete;
   UCXXRequest& operator=(UCXXRequest&& o) = delete;
 
-  ~UCXXRequest()
-  {
-    if (_handle == nullptr) return;
-
-    if (_inflight_requests != nullptr) {
-      auto search = _inflight_requests->find(this);
-      if (search != _inflight_requests->end()) _inflight_requests->erase(search);
-    }
-  }
+  ~UCXXRequest();
 
   friend std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<UCXXEndpoint>& endpoint,
                                                     inflight_requests_t inflight_requests,
@@ -59,51 +44,20 @@ class UCXXRequest : public UCXXComponent {
     return std::shared_ptr<UCXXRequest>(new UCXXRequest(endpoint, inflight_requests, request));
   }
 
-  void cancel()
-  {
-    auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(getParent());
-    auto worker   = std::dynamic_pointer_cast<UCXXWorker>(endpoint->getParent());
-    ucp_request_cancel(worker->get_handle(), _handle->request);
-  }
+  void cancel();
 
-  std::shared_ptr<ucxx_request_t> getHandle() { return _handle; }
+  std::shared_ptr<ucxx_request_t> getHandle();
 
-  ucs_status_t getStatus() { return _handle->status; }
+  ucs_status_t getStatus();
 
-  PyObject* getPyFuture()
-  {
-#if UCXX_ENABLE_PYTHON
-    return (PyObject*)_handle->py_future->getHandle();
-#else
-    return NULL;
-#endif
-  }
+  PyObject* getPyFuture();
 
-  void checkError()
-  {
-    // Marking the pointer volatile is necessary to ensure the compiler
-    // won't optimize the condition out when using a separate worker
-    // progress thread
-    volatile auto handle = _handle.get();
-    switch (handle->status) {
-      case UCS_OK:
-      case UCS_INPROGRESS: return;
-      case UCS_ERR_CANCELED: throw UCXXCanceledError(ucs_status_string(handle->status)); break;
-      default: throw UCXXError(ucs_status_string(handle->status)); break;
-    }
-  }
+  void checkError();
 
   template <typename Rep, typename Period>
-  bool isCompleted(std::chrono::duration<Rep, Period> period)
-  {
-    // Marking the pointer volatile is necessary to ensure the compiler
-    // won't optimize the condition out when using a separate worker
-    // progress thread
-    volatile auto handle = _handle.get();
-    return handle->status != UCS_INPROGRESS;
-  }
+  bool isCompleted(std::chrono::duration<Rep, Period> period);
 
-  bool isCompleted(int64_t periodNs = 0) { return isCompleted(std::chrono::nanoseconds(periodNs)); }
+  bool isCompleted(int64_t periodNs = 0);
 };
 
 }  // namespace ucxx

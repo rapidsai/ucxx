@@ -10,6 +10,8 @@
 #include <ucxx/typedefs.h>
 #include <ucxx/worker.h>
 
+#include <ucxx/endpoint_impl.h>
+#include <ucxx/request_impl.h>
 #include <ucxx/worker_impl.h>
 
 #if UCXX_ENABLE_PYTHON
