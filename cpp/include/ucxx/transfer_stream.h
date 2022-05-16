@@ -7,7 +7,7 @@
 
 #include <ucp/api/ucp.h>
 
-#include <ucxx/delayed_notification_request.h>
+#include <ucxx/notification_request.h>
 #include <ucxx/transfer_common.h>
 #include <ucxx/typedefs.h>
 
@@ -49,10 +49,9 @@ ucs_status_ptr_t stream_request(
   }
 }
 
-void populate_delayed_notification_stream_request(
-  std::shared_ptr<DelayedNotificationRequest> delayedNotificationRequest)
+void populateNotificationRequestStream(std::shared_ptr<NotificationRequest> notificationRequest)
 {
-  auto data = delayedNotificationRequest;
+  auto data = notificationRequest;
 
   std::string operationName{data->_send ? "stream_send" : "stream_recv"};
   void* status =
@@ -89,10 +88,9 @@ std::shared_ptr<ucxx_request_t> stream_msg(
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
   // importantly the Python future later on, so that we don't need the GIL here.
-  auto delayedNotificationRequest = std::make_shared<DelayedNotificationRequest>(
-    worker->get_handle(), ep, request, send, buffer, length);
-  worker->registerDelayedNotificationRequest(populate_delayed_notification_stream_request,
-                                             delayedNotificationRequest);
+  auto notificationRequest =
+    std::make_shared<NotificationRequest>(worker->get_handle(), ep, request, send, buffer, length);
+  worker->registerNotificationRequest(populateNotificationRequestStream, notificationRequest);
 
   return request;
 }

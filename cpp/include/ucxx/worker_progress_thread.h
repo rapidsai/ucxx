@@ -29,12 +29,13 @@ class UCXXWorkerProgressThread {
     const bool& stop,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,
-    DelayedNotificationRequestCollection& delayedNotificationRequestCollection)
+    std::shared_ptr<DelayedNotificationRequestCollection> delayedNotificationRequestCollection)
   {
     if (startCallback) startCallback(startCallbackArg);
 
     while (!stop) {
-      delayedNotificationRequestCollection.process();
+      if (delayedNotificationRequestCollection != nullptr)
+        delayedNotificationRequestCollection->process();
 
       progressFunction();
     }
@@ -48,7 +49,7 @@ class UCXXWorkerProgressThread {
     std::function<bool(void)> progressFunction,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,
-    DelayedNotificationRequestCollection& delayedNotificationRequestCollection)
+    std::shared_ptr<DelayedNotificationRequestCollection> delayedNotificationRequestCollection)
     : _pollingMode(pollingMode), _startCallback(startCallback), _startCallbackArg(startCallbackArg)
   {
     _thread = std::thread(UCXXWorkerProgressThread::progressUntilSync,
@@ -56,7 +57,7 @@ class UCXXWorkerProgressThread {
                           std::ref(_stop),
                           _startCallback,
                           _startCallbackArg,
-                          std::ref(delayedNotificationRequestCollection));
+                          delayedNotificationRequestCollection);
   }
 
   ~UCXXWorkerProgressThread()

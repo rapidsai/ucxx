@@ -15,13 +15,12 @@
 
 namespace ucxx {
 
-class DelayedNotificationRequest;
+class NotificationRequest;
 
-typedef std::shared_ptr<DelayedNotificationRequest> DelayedNotificationRequestCallbackDataType;
-typedef std::function<void(DelayedNotificationRequestCallbackDataType)>
-  DelayedNotificationRequestCallbackType;
+typedef std::shared_ptr<NotificationRequest> NotificationRequestCallbackDataType;
+typedef std::function<void(NotificationRequestCallbackDataType)> NotificationRequestCallbackType;
 
-class DelayedNotificationRequest {
+class NotificationRequest {
  public:
   ucp_worker_h _worker{nullptr};
   ucp_ep_h _ep{nullptr};
@@ -31,15 +30,15 @@ class DelayedNotificationRequest {
   size_t _length{0};
   ucp_tag_t _tag{0};
 
-  DelayedNotificationRequest() = delete;
+  NotificationRequest() = delete;
 
-  DelayedNotificationRequest(ucp_worker_h worker,
-                             ucp_ep_h ep,
-                             std::shared_ptr<ucxx_request_t> request,
-                             const bool send,
-                             void* buffer,
-                             const size_t length,
-                             const ucp_tag_t tag = 0)
+  NotificationRequest(ucp_worker_h worker,
+                      ucp_ep_h ep,
+                      std::shared_ptr<ucxx_request_t> request,
+                      const bool send,
+                      void* buffer,
+                      const size_t length,
+                      const ucp_tag_t tag = 0)
     : _worker(worker),
       _ep(ep),
       _request(request),
@@ -51,31 +50,29 @@ class DelayedNotificationRequest {
   }
 };
 
-class DelayedNotificationRequestCallback {
+class NotificationRequestCallback {
  private:
-  DelayedNotificationRequestCallbackType _callback{nullptr};
-  DelayedNotificationRequestCallbackDataType _callbackData{nullptr};
+  NotificationRequestCallbackType _callback{nullptr};
+  NotificationRequestCallbackDataType _callbackData{nullptr};
 
  public:
-  DelayedNotificationRequestCallback(DelayedNotificationRequestCallbackType callback,
-                                     DelayedNotificationRequestCallbackDataType callbackData)
+  NotificationRequestCallback(NotificationRequestCallbackType callback,
+                              NotificationRequestCallbackDataType callbackData)
     : _callback(callback), _callbackData(callbackData)
   {
   }
 
-  std::pair<DelayedNotificationRequestCallbackType, DelayedNotificationRequestCallbackDataType>
-  get()
+  std::pair<NotificationRequestCallbackType, NotificationRequestCallbackDataType> get()
   {
     return std::pair(_callback, _callbackData);
   }
 };
 
-typedef std::shared_ptr<DelayedNotificationRequestCallback>
-  DelayedNotificationRequestCallbackPtrType;
+typedef std::shared_ptr<NotificationRequestCallback> NotificationRequestCallbackPtrType;
 
 class DelayedNotificationRequestCollection {
  private:
-  std::vector<DelayedNotificationRequestCallbackPtrType> _collection{};
+  std::vector<NotificationRequestCallbackPtrType> _collection{};
   std::mutex _mutex{};
 
  public:
@@ -114,10 +111,10 @@ class DelayedNotificationRequestCollection {
     }
   }
 
-  void registerRequest(DelayedNotificationRequestCallbackType callback,
-                       DelayedNotificationRequestCallbackDataType callbackData)
+  void registerRequest(NotificationRequestCallbackType callback,
+                       NotificationRequestCallbackDataType callbackData)
   {
-    auto r = std::make_shared<DelayedNotificationRequestCallback>(callback, callbackData);
+    auto r = std::make_shared<NotificationRequestCallback>(callback, callbackData);
 
     {
       std::lock_guard<std::mutex> lock(_mutex);

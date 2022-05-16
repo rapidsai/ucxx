@@ -191,13 +191,27 @@ class ApplicationContext:
     The context of the Asyncio interface of UCX.
     """
 
-    def __init__(self, config_dict={}, progress_mode=None):
+    def __init__(
+        self, config_dict={}, progress_mode=None, enable_delayed_notification=None
+    ):
         self.progress_tasks = []
         loop = asyncio.get_event_loop()
 
+        if enable_delayed_notification is None:
+            if "UCXPY_ENABLE_DELAYED_NOTIFICATION" in os.environ:
+                enable_delayed_notification = (
+                    False
+                    if os.environ["UCXPY_ENABLE_DELAYED_NOTIFICATION"] == "0"
+                    else True
+                )
+            else:
+                enable_delayed_notification = True
+
         # For now, a application context only has one worker
         self.context = ucx_api.UCXContext(config_dict)
-        self.worker = ucx_api.UCXWorker(self.context)
+        self.worker = ucx_api.UCXWorker(
+            self.context, enable_delayed_notification=enable_delayed_notification
+        )
 
         # Thread sets `daemon=True` to prevent it from deadlocking at
         # `worker.wait_request_notifier()` at shutdown.

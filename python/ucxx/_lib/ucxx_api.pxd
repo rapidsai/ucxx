@@ -134,14 +134,17 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     ) except +raise_py_error
 
     cdef cppclass UCXXContext:
-        shared_ptr[UCXXWorker] createWorker() except +raise_py_error
+        shared_ptr[UCXXWorker] createWorker(
+            bint enable_delayed_notification
+        ) except +raise_py_error
         UCXXConfigMap get_config() except +raise_py_error
         ucp_context_h get_handle()
         string get_info() except +raise_py_error
 
     cdef cppclass UCXXWorker:
-        UCXXWorker()
-        UCXXWorker(shared_ptr[UCXXContext] context) except +
+        UCXXWorker(
+            shared_ptr[UCXXContext] context, bint enable_delayed_notification
+        ) except +
         ucp_worker_h get_handle()
         shared_ptr[UCXXAddress] getAddress() except +raise_py_error
         shared_ptr[UCXXEndpoint] createEndpointFromHostname(

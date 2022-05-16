@@ -89,10 +89,10 @@ class UCXXContext : public UCXXComponent {
 
   uint64_t get_feature_flags() const { return _feature_flags; }
 
-  std::shared_ptr<UCXXWorker> createWorker()
+  std::shared_ptr<UCXXWorker> createWorker(const bool enableDelayedNotification = true)
   {
     auto context = std::dynamic_pointer_cast<UCXXContext>(shared_from_this());
-    auto worker  = ucxx::createWorker(context);
+    auto worker  = ucxx::createWorker(context, enableDelayedNotification);
     return worker;
   }
 };

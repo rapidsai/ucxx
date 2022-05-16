@@ -19,7 +19,7 @@
 #include <ucxx/component.h>
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
-#include <ucxx/delayed_notification_request.h>
+#include <ucxx/notification_request.h>
 #include <ucxx/transfer_common.h>
 #include <ucxx/utils.h>
 #include <ucxx/worker_progress_thread.h>
@@ -46,14 +46,16 @@ class UCXXWorker : public UCXXComponent {
   std::mutex _inflightMutex{};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
   void* _progressThreadStartCallbackArg{nullptr};
-  DelayedNotificationRequestCollection _delayedNotificationRequestCollection{};
+  std::shared_ptr<DelayedNotificationRequestCollection> _delayedNotificationRequestCollection{
+    nullptr};
   std::mutex _pythonFuturesPoolMutex{};
 #if UCXX_ENABLE_PYTHON
   std::queue<std::shared_ptr<PythonFuture>> _pythonFuturesPool{};
   std::shared_ptr<UCXXNotifier> _notifier{createNotifier()};
 #endif
 
-  UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context)
+  UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context,
+             const bool enableDelayedNotification = true)
   {
     ucp_worker_params_t worker_params;
 
@@ -64,6 +66,14 @@ class UCXXWorker : public UCXXComponent {
     worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
     worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
     assert_ucs_status(ucp_worker_create(context->get_handle(), &worker_params, &_handle));
+
+    if (enableDelayedNotification) {
+      ucxx_info("Worker %p created with delayed request notification", this);
+      _delayedNotificationRequestCollection =
+        std::make_shared<DelayedNotificationRequestCollection>();
+    } else {
+      ucxx_info("Worker %p created with immediate request notification", this);
+    }
 
     setParent(std::dynamic_pointer_cast<UCXXComponent>(context));
   }
@@ -209,10 +219,13 @@ class UCXXWorker : public UCXXComponent {
       ;
   }
 
-  void registerDelayedNotificationRequest(DelayedNotificationRequestCallbackType callback,
-                                          DelayedNotificationRequestCallbackDataType callbackData)
+  void registerNotificationRequest(NotificationRequestCallbackType callback,
+                                   NotificationRequestCallbackDataType callbackData)
   {
-    _delayedNotificationRequestCollection.registerRequest(callback, callbackData);
+    if (_delayedNotificationRequestCollection == nullptr)
+      callback(callbackData);
+    else
+      _delayedNotificationRequestCollection->registerRequest(callback, callbackData);
   }
 
   void populatePythonFuturesPool()
