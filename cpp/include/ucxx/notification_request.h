@@ -21,8 +21,6 @@ typedef std::function<void()> NotificationRequestCallbackType;
 
 class NotificationRequest {
  public:
-  ucp_worker_h _worker{nullptr};
-  ucp_ep_h _ep{nullptr};
   bool _send{false};
   void* _buffer{nullptr};
   size_t _length{0};
@@ -30,13 +28,8 @@ class NotificationRequest {
 
   NotificationRequest() = delete;
 
-  NotificationRequest(ucp_worker_h worker,
-                      ucp_ep_h ep,
-                      const bool send,
-                      void* buffer,
-                      const size_t length,
-                      const ucp_tag_t tag = 0)
-    : _worker(worker), _ep(ep), _send(send), _buffer(buffer), _length(length), _tag(tag)
+  NotificationRequest(const bool send, void* buffer, const size_t length, const ucp_tag_t tag = 0)
+    : _send(send), _buffer(buffer), _length(length), _tag(tag)
   {
   }
 };

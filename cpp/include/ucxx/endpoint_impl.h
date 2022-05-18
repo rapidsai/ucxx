@@ -117,18 +117,16 @@ void UCXXEndpoint::removeInflightRequest(UCXXRequest* request)
 
 std::shared_ptr<UCXXRequest> UCXXEndpoint::stream_send(void* buffer, size_t length)
 {
-  auto worker   = UCXXEndpoint::getWorker(_parent);
   auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
-  auto request  = createRequestStream(worker, endpoint, true, buffer, length);
+  auto request  = createRequestStream(endpoint, true, buffer, length);
   registerInflightRequest(request);
   return request;
 }
 
 std::shared_ptr<UCXXRequest> UCXXEndpoint::stream_recv(void* buffer, size_t length)
 {
-  auto worker   = UCXXEndpoint::getWorker(_parent);
   auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
-  auto request  = createRequestStream(worker, endpoint, false, buffer, length);
+  auto request  = createRequestStream(endpoint, false, buffer, length);
   registerInflightRequest(request);
   return request;
 }
@@ -140,10 +138,9 @@ std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_send(
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData)
 {
-  auto worker   = UCXXEndpoint::getWorker(_parent);
   auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
   auto request =
-    createRequestTag(worker, endpoint, true, buffer, length, tag, callbackFunction, callbackData);
+    createRequestTag(endpoint, true, buffer, length, tag, callbackFunction, callbackData);
   registerInflightRequest(request);
   return request;
 }
@@ -155,10 +152,9 @@ std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_recv(
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData)
 {
-  auto worker   = UCXXEndpoint::getWorker(_parent);
   auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
   auto request =
-    createRequestTag(worker, endpoint, false, buffer, length, tag, callbackFunction, callbackData);
+    createRequestTag(endpoint, false, buffer, length, tag, callbackFunction, callbackData);
   registerInflightRequest(request);
   return request;
 }

@@ -10,14 +10,12 @@
 
 namespace ucxx {
 
-std::shared_ptr<UCXXRequestStream> createRequestStream(std::shared_ptr<UCXXWorker> worker,
-                                                       std::shared_ptr<UCXXEndpoint> endpoint,
+std::shared_ptr<UCXXRequestStream> createRequestStream(std::shared_ptr<UCXXEndpoint> endpoint,
                                                        bool send,
                                                        void* buffer,
                                                        size_t length)
 {
-  return std::shared_ptr<UCXXRequestStream>(
-    new UCXXRequestStream(worker, endpoint, send, buffer, length));
+  return std::shared_ptr<UCXXRequestStream>(new UCXXRequestStream(endpoint, send, buffer, length));
 }
 
 }  // namespace ucxx

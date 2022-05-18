@@ -50,13 +50,11 @@ std::shared_ptr<UCXXBufferRequests> tagMultiSend(std::shared_ptr<UCXXEndpoint> e
 std::shared_ptr<UCXXBufferRequests> tagMultiRecv(std::shared_ptr<UCXXEndpoint> endpoint,
                                                  const ucp_tag_t tag);
 
-std::shared_ptr<UCXXRequestStream> createRequestStream(std::shared_ptr<UCXXWorker> worker,
-                                                       std::shared_ptr<UCXXEndpoint> endpoint,
+std::shared_ptr<UCXXRequestStream> createRequestStream(std::shared_ptr<UCXXEndpoint> endpoint,
                                                        bool send,
                                                        void* buffer,
                                                        size_t length);
 std::shared_ptr<UCXXRequestTag> createRequestTag(
-  std::shared_ptr<UCXXWorker> worker,
   std::shared_ptr<UCXXEndpoint> endpoint,
   bool send,
   void* buffer,

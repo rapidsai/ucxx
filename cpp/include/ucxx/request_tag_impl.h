@@ -11,7 +11,6 @@
 namespace ucxx {
 
 std::shared_ptr<UCXXRequestTag> createRequestTag(
-  std::shared_ptr<UCXXWorker> worker,
   std::shared_ptr<UCXXEndpoint> endpoint,
   bool send,
   void* buffer,
@@ -20,8 +19,8 @@ std::shared_ptr<UCXXRequestTag> createRequestTag(
   std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
   std::shared_ptr<void> callbackData                          = nullptr)
 {
-  return std::shared_ptr<UCXXRequestTag>(new UCXXRequestTag(
-    worker, endpoint, send, buffer, length, tag, callbackFunction, callbackData));
+  return std::shared_ptr<UCXXRequestTag>(
+    new UCXXRequestTag(endpoint, send, buffer, length, tag, callbackFunction, callbackData));
 }
 
 }  // namespace ucxx

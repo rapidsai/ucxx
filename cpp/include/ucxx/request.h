@@ -24,12 +24,13 @@ class UCXXRequest : public UCXXComponent {
   std::shared_ptr<ucxx_request_t> _handle{nullptr};
   std::shared_ptr<UCXXEndpoint> _endpoint{nullptr};
   std::shared_ptr<NotificationRequest> _notificationRequest{nullptr};
+  std::string _operationName{"request_undefined"};
 
   UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
-              std::shared_ptr<ucxx_request_t> request,
-              std::shared_ptr<NotificationRequest> notificationRequest);
+              std::shared_ptr<NotificationRequest> notificationRequest,
+              const std::string operationName);
 
-  void process(ucp_worker_h worker, void* request, std::string operationName);
+  void process(void* request);
 
  public:
   UCXXRequest()                   = delete;
@@ -55,39 +56,28 @@ class UCXXRequest : public UCXXComponent {
 
   bool isCompleted(int64_t periodNs = 0);
 
-  static void callback(void* request, ucs_status_t status, void* arg, std::string operation)
+  void callback(void* request, ucs_status_t status)
   {
-    ucxx_request_t* ucxx_req = (ucxx_request_t*)arg;
-    status                   = ucp_request_check_status(request);
+    status = ucp_request_check_status(request);
 
-    if (ucxx_req == nullptr)
+    if (_handle == nullptr)
       ucxx_error(
         "error when _callback was called for \"%s\", "
         "probably due to tag_msg() return value being deleted "
         "before completion.",
-        operation.c_str());
+        _operationName.c_str());
 
     ucxx_trace_req("_calback called for \"%s\" with status %d (%s)",
-                   operation.c_str(),
+                   _operationName.c_str(),
                    status,
                    ucs_status_string(status));
 
-    UCXXRequest::setStatus(ucxx_req, ucp_request_check_status(request));
+    setStatus(ucp_request_check_status(request));
 
-    ucxx_trace_req("ucxx_req->callback: %p", ucxx_req->callback.target<void (*)(void)>());
-    if (ucxx_req->callback) ucxx_req->callback(ucxx_req->callback_data);
+    ucxx_trace_req("_handle->callback: %p", _handle->callback.target<void (*)(void)>());
+    if (_handle->callback) _handle->callback(_handle->callback_data);
 
     ucp_request_free(request);
-  }
-
-  static void setStatus(ucxx_request_t* ucxx_req, ucs_status_t status)
-  {
-    ucxx_req->status = status;
-
-#if UCXX_ENABLE_PYTHON
-    auto future = std::static_pointer_cast<PythonFuture>(ucxx_req->py_future);
-    future->notify(status);
-#endif
   }
 
   void setStatus(ucs_status_t status)
@@ -98,22 +88,6 @@ class UCXXRequest : public UCXXComponent {
     auto future = std::static_pointer_cast<PythonFuture>(_handle->py_future);
     future->notify(status);
 #endif
-  }
-
-  static std::shared_ptr<ucxx_request_t> createRequestBase(
-    std::shared_ptr<UCXXWorker> worker,
-    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
-    std::shared_ptr<void> callbackData                          = nullptr)
-  {
-    auto request = std::make_shared<ucxx_request_t>();
-#if UCXX_ENABLE_PYTHON
-    request->py_future = worker->getPythonFuture();
-    ucxx_trace_req("request->py_future: %p", request->py_future.get());
-#endif
-    request->callback      = callbackFunction;
-    request->callback_data = callbackData;
-
-    return request;
   }
 
   virtual void populateNotificationRequest() = 0;

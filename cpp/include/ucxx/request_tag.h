@@ -19,8 +19,7 @@ namespace ucxx {
 
 class UCXXRequestTag : public UCXXRequest {
  private:
-  UCXXRequestTag(std::shared_ptr<UCXXWorker> worker,
-                 std::shared_ptr<UCXXEndpoint> endpoint,
+  UCXXRequestTag(std::shared_ptr<UCXXEndpoint> endpoint,
                  bool send,
                  void* buffer,
                  size_t length,
@@ -28,10 +27,14 @@ class UCXXRequestTag : public UCXXRequest {
                  std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
                  std::shared_ptr<void> callbackData                          = nullptr)
     : UCXXRequest(endpoint,
-                  UCXXRequest::createRequestBase(worker, callbackFunction, callbackData),
-                  std::make_shared<NotificationRequest>(
-                    worker->get_handle(), endpoint->getHandle(), send, buffer, length, tag))
+                  std::make_shared<NotificationRequest>(send, buffer, length, tag),
+                  std::string(send ? "tag_send" : "tag_recv"))
   {
+    auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
+
+    _handle->callback      = callbackFunction;
+    _handle->callback_data = callbackData;
+
     // A delayed notification request is not populated immediately, instead it is
     // delayed to allow the worker progress thread to set its status, and more
     // importantly the Python future later on, so that we don't need the GIL here.
@@ -43,7 +46,8 @@ class UCXXRequestTag : public UCXXRequest {
   static void tag_send_callback(void* request, ucs_status_t status, void* arg)
   {
     ucxx_trace_req("tag_send_callback");
-    return UCXXRequest::callback(request, status, arg, std::string{"tag_send"});
+    UCXXRequest* req = (UCXXRequest*)arg;
+    return req->callback(request, status);
   }
 
   static void tag_recv_callback(void* request,
@@ -52,31 +56,36 @@ class UCXXRequestTag : public UCXXRequest {
                                 void* arg)
   {
     ucxx_trace_req("tag_recv_callback");
-    return UCXXRequest::callback(request, status, arg, std::string{"tag_recv"});
+    UCXXRequest* req = (UCXXRequest*)arg;
+    return req->callback(request, status);
   }
 
-  static ucs_status_ptr_t request(ucp_worker_h worker,
-                                  ucp_ep_h ep,
-                                  bool send,
-                                  void* buffer,
-                                  size_t length,
-                                  ucp_tag_t tag,
-                                  ucxx_request_t* request)
+  ucs_status_ptr_t request()
   {
     static const ucp_tag_t tag_mask = -1;
+    auto worker                     = UCXXEndpoint::getWorker(_endpoint->getParent());
 
     ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                  UCP_OP_ATTR_FIELD_DATATYPE |
                                                  UCP_OP_ATTR_FIELD_USER_DATA,
                                  .datatype  = ucp_dt_make_contig(1),
-                                 .user_data = request};
+                                 .user_data = this};
 
-    if (send) {
+    if (_notificationRequest->_send) {
       param.cb.send = tag_send_callback;
-      return ucp_tag_send_nbx(ep, buffer, length, tag, &param);
+      return ucp_tag_send_nbx(_endpoint->getHandle(),
+                              _notificationRequest->_buffer,
+                              _notificationRequest->_length,
+                              _notificationRequest->_tag,
+                              &param);
     } else {
       param.cb.recv = tag_recv_callback;
-      return ucp_tag_recv_nbx(worker, buffer, length, tag, tag_mask, &param);
+      return ucp_tag_recv_nbx(worker->get_handle(),
+                              _notificationRequest->_buffer,
+                              _notificationRequest->_length,
+                              _notificationRequest->_tag,
+                              tag_mask,
+                              &param);
     }
   }
 
@@ -84,36 +93,28 @@ class UCXXRequestTag : public UCXXRequest {
   {
     auto data = _notificationRequest;
 
-    std::string operationName{data->_send ? "tag_send" : "tag_recv"};
-    void* status = UCXXRequestTag::request(data->_worker,
-                                           data->_ep,
-                                           data->_send,
-                                           data->_buffer,
-                                           data->_length,
-                                           data->_tag,
-                                           _handle.get());
+    void* status = request();
 #if UCXX_ENABLE_PYTHON
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
-                   operationName.c_str(),
+                   _operationName.c_str(),
                    status,
-                   data->_tag,
-                   data->_buffer,
-                   data->_length,
+                   _notificationRequest->_tag,
+                   _notificationRequest->_buffer,
+                   _notificationRequest->_length,
                    _handle->py_future.get(),
                    _handle->py_future->getHandle());
 #else
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
-                   operationName.c_str(),
+                   _operationName.c_str(),
                    status,
-                   data->_tag,
-                   data->_buffer,
-                   data->_length);
+                   _notificationRequest->_tag,
+                   _notificationRequest->_buffer,
+                   _notificationRequest->_length);
 #endif
-    process(data->_worker, status, operationName);
+    process(status);
   }
 
   friend std::shared_ptr<UCXXRequestTag> createRequestTag(
-    std::shared_ptr<UCXXWorker> worker,
     std::shared_ptr<UCXXEndpoint> endpoint,
     bool send,
     void* buffer,

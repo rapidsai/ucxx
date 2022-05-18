@@ -21,12 +21,22 @@
 namespace ucxx {
 
 UCXXRequest::UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
-                         std::shared_ptr<ucxx_request_t> request,
-                         std::shared_ptr<NotificationRequest> notificationRequest)
-  : _handle{request}, _endpoint{endpoint}, _notificationRequest(notificationRequest)
+                         std::shared_ptr<NotificationRequest> notificationRequest,
+                         const std::string operationName)
+  : _endpoint{endpoint}, _notificationRequest(notificationRequest), _operationName(operationName)
 {
+  auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
+
+  if (worker == nullptr || worker->get_handle() == nullptr)
+    throw ucxx::UCXXError("Worker not initialized");
   if (endpoint == nullptr || endpoint->getHandle() == nullptr)
     throw ucxx::UCXXError("Endpoint not initialized");
+
+  _handle = std::make_shared<ucxx_request_t>();
+#if UCXX_ENABLE_PYTHON
+  _handle->py_future = worker->getPythonFuture();
+  ucxx_trace_req("request->py_future: %p", _handle->py_future.get());
+#endif
 
   setParent(endpoint);
 }
@@ -87,7 +97,7 @@ bool UCXXRequest::isCompleted(int64_t periodNs)
   return isCompleted(std::chrono::nanoseconds(periodNs));
 }
 
-void UCXXRequest::process(ucp_worker_h worker, void* request, std::string operationName)
+void UCXXRequest::process(void* request)
 {
   ucs_status_t status;
 
@@ -113,10 +123,10 @@ void UCXXRequest::process(ucp_worker_h worker, void* request, std::string operat
 
   if (status != UCS_OK) {
     ucxx_error(
-      "error on %s with status %d (%s)", operationName.c_str(), status, ucs_status_string(status));
-    throw UCXXError(std::string("Error on ") + operationName + std::string(" message"));
+      "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
+    throw UCXXError(std::string("Error on ") + _operationName + std::string(" message"));
   } else {
-    ucxx_trace_req("%s completed immediately", operationName.c_str());
+    ucxx_trace_req("%s completed immediately", _operationName.c_str());
   }
 }
 
