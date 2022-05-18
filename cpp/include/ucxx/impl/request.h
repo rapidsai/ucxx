@@ -11,7 +11,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/component.h>
-#include <ucxx/endpoint_impl.h>
+#include <ucxx/endpoint.h>
 #include <ucxx/typedefs.h>
 
 #if UCXX_ENABLE_PYTHON
