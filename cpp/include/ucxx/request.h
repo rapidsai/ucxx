@@ -22,11 +22,9 @@ namespace ucxx {
 class UCXXRequest : public UCXXComponent {
  protected:
   std::shared_ptr<ucxx_request_t> _handle{nullptr};
-  inflight_requests_t _inflight_requests{nullptr};
+  std::shared_ptr<UCXXEndpoint> _endpoint{nullptr};
 
-  UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
-              inflight_requests_t inflight_requests,
-              std::shared_ptr<ucxx_request_t> request);
+  UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint, std::shared_ptr<ucxx_request_t> request);
 
  public:
   UCXXRequest()                   = delete;
@@ -36,13 +34,6 @@ class UCXXRequest : public UCXXComponent {
   UCXXRequest& operator=(UCXXRequest&& o) = delete;
 
   ~UCXXRequest();
-
-  friend std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<UCXXEndpoint> endpoint,
-                                                    inflight_requests_t inflight_requests,
-                                                    std::shared_ptr<ucxx_request_t> request)
-  {
-    return std::shared_ptr<UCXXRequest>(new UCXXRequest(endpoint, inflight_requests, request));
-  }
 
   void cancel();
 
@@ -132,7 +123,24 @@ class UCXXRequest : public UCXXComponent {
     }
   }
 
-  // void populateNotificationRequest(std::shared_ptr<NotificationRequest> notificationRequest) = 0;
+  static std::shared_ptr<ucxx_request_t> createRequestBase(
+    std::shared_ptr<UCXXWorker> worker,
+    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
+    std::shared_ptr<void> callbackData                          = nullptr)
+  {
+    auto request = std::make_shared<ucxx_request_t>();
+#if UCXX_ENABLE_PYTHON
+    request->py_future = worker->getPythonFuture();
+    ucxx_trace_req("request->py_future: %p", request->py_future.get());
+#endif
+    request->callback      = callbackFunction;
+    request->callback_data = callbackData;
+
+    return request;
+  }
+
+  virtual void populateNotificationRequest(
+    std::shared_ptr<NotificationRequest> notificationRequest) = 0;
 };
 
 }  // namespace ucxx

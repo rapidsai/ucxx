@@ -19,10 +19,8 @@ namespace ucxx {
 
 class UCXXRequestStream : public UCXXRequest {
  private:
-  UCXXRequestStream(std::shared_ptr<UCXXEndpoint> endpoint,
-                    inflight_requests_t inflightRequests,
-                    std::shared_ptr<ucxx_request_t> request)
-    : UCXXRequest(endpoint, inflightRequests, request)
+  UCXXRequestStream(std::shared_ptr<UCXXWorker> worker, std::shared_ptr<UCXXEndpoint> endpoint)
+    : UCXXRequest(endpoint, UCXXRequest::createRequestBase(worker))
   {
   }
 
@@ -59,8 +57,7 @@ class UCXXRequestStream : public UCXXRequest {
     }
   }
 
-  static void populateNotificationRequestStream(
-    std::shared_ptr<NotificationRequest> notificationRequest)
+  virtual void populateNotificationRequest(std::shared_ptr<NotificationRequest> notificationRequest)
   {
     auto data = notificationRequest;
 

@@ -41,6 +41,7 @@ class UCXXEndpoint : public UCXXComponent {
   ucp_ep_h _handle{nullptr};
   bool _endpoint_error_handling{true};
   std::unique_ptr<error_callback_data_t> _callbackData{nullptr};
+  inflight_requests_t _inflightRequests{std::make_shared<inflight_request_map_t>()};
 
   UCXXEndpoint(std::shared_ptr<UCXXComponent> worker_or_listener,
                std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
@@ -52,9 +53,6 @@ class UCXXEndpoint : public UCXXComponent {
   UCXXEndpoint& operator=(UCXXEndpoint const&) = delete;
   UCXXEndpoint(UCXXEndpoint&& o)               = delete;
   UCXXEndpoint& operator=(UCXXEndpoint&& o) = delete;
-
-  // TODO: Make private again
-  inflight_requests_t _inflightRequests{std::make_shared<inflight_request_map_t>()};
 
   ~UCXXEndpoint();
 
@@ -124,9 +122,12 @@ class UCXXEndpoint : public UCXXComponent {
 
   void raiseOnError();
 
-  void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
+  void registerInflightRequest(std::shared_ptr<UCXXRequest> request);
 
-  std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<ucxx_request_t> request);
+  // void removeInflightRequest(std::shared_ptr<UCXXRequest> request);
+  void removeInflightRequest(UCXXRequest* request);
+
+  void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
 
   std::shared_ptr<UCXXRequest> stream_send(void* buffer, size_t length);
 

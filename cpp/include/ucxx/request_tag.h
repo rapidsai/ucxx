@@ -19,10 +19,11 @@ namespace ucxx {
 
 class UCXXRequestTag : public UCXXRequest {
  private:
-  UCXXRequestTag(std::shared_ptr<UCXXEndpoint> endpoint,
-                 inflight_requests_t inflightRequests,
-                 std::shared_ptr<ucxx_request_t> request)
-    : UCXXRequest(endpoint, inflightRequests, request)
+  UCXXRequestTag(std::shared_ptr<UCXXWorker> worker,
+                 std::shared_ptr<UCXXEndpoint> endpoint,
+                 std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
+                 std::shared_ptr<void> callbackData                          = nullptr)
+    : UCXXRequest(endpoint, UCXXRequest::createRequestBase(worker, callbackFunction, callbackData))
   {
   }
 
@@ -67,7 +68,7 @@ class UCXXRequestTag : public UCXXRequest {
     }
   }
 
-  static void populateNotificationRequest(std::shared_ptr<NotificationRequest> notificationRequest)
+  virtual void populateNotificationRequest(std::shared_ptr<NotificationRequest> notificationRequest)
   {
     auto data = notificationRequest;
 

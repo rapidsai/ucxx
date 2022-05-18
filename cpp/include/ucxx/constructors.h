@@ -39,10 +39,6 @@ std::shared_ptr<UCXXListener> createListener(std::shared_ptr<UCXXWorker> worker,
                                              ucp_listener_conn_callback_t callback,
                                              void* callback_args);
 
-std::shared_ptr<UCXXRequest> createRequest(std::shared_ptr<UCXXEndpoint>& endpoint,
-                                           inflight_requests_t inflight_requests,
-                                           std::shared_ptr<ucxx_request_t> request);
-
 template <class... Args>
 std::shared_ptr<UCXXWorker> createWorker(Args&&... args);
 

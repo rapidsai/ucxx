@@ -20,24 +20,20 @@ std::shared_ptr<UCXXRequestTag> createRequestTag(
   std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
   std::shared_ptr<void> callbackData                          = nullptr)
 {
-  auto request = std::make_shared<ucxx_request_t>();
-#if UCXX_ENABLE_PYTHON
-  request->py_future = worker->getPythonFuture();
-  ucxx_trace_req("request->py_future: %p", request->py_future.get());
-#endif
-  request->callback      = callbackFunction;
-  request->callback_data = callbackData;
+  auto request = std::shared_ptr<UCXXRequestTag>(
+    new UCXXRequestTag(worker, endpoint, callbackFunction, callbackData));
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
   // importantly the Python future later on, so that we don't need the GIL here.
   auto notificationRequest = std::make_shared<NotificationRequest>(
-    worker->get_handle(), endpoint->getHandle(), request, send, buffer, length, tag);
-  worker->registerNotificationRequest(UCXXRequestTag::populateNotificationRequest,
-                                      notificationRequest);
+    worker->get_handle(), endpoint->getHandle(), request->getHandle(), send, buffer, length, tag);
+  worker->registerNotificationRequest(
+    std::bind(
+      std::mem_fn(&UCXXRequest::populateNotificationRequest), request, std::placeholders::_1),
+    notificationRequest);
 
-  return std::shared_ptr<UCXXRequestTag>(
-    new UCXXRequestTag(endpoint, endpoint->_inflightRequests, request));
+  return request;
 }
 
 }  // namespace ucxx

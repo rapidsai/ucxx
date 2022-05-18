@@ -6,6 +6,7 @@
 #pragma once
 
 #include <chrono>
+#include <memory>
 
 #include <ucp/api/ucp.h>
 
@@ -20,9 +21,8 @@
 namespace ucxx {
 
 UCXXRequest::UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
-                         inflight_requests_t inflight_requests,
                          std::shared_ptr<ucxx_request_t> request)
-  : _handle{request}, _inflight_requests{inflight_requests}
+  : _handle{request}, _endpoint{endpoint}
 {
   if (endpoint == nullptr || endpoint->getHandle() == nullptr)
     throw ucxx::UCXXError("Endpoint not initialized");
@@ -34,10 +34,7 @@ UCXXRequest::~UCXXRequest()
 {
   if (_handle == nullptr) return;
 
-  if (_inflight_requests != nullptr) {
-    auto search = _inflight_requests->find(this);
-    if (search != _inflight_requests->end()) _inflight_requests->erase(search);
-  }
+  _endpoint->removeInflightRequest(this);
 }
 
 void UCXXRequest::cancel()
