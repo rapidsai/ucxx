@@ -12,6 +12,8 @@
 
 #include <ucxx/endpoint_impl.h>
 #include <ucxx/request_impl.h>
+#include <ucxx/request_stream_impl.h>
+#include <ucxx/request_tag_impl.h>
 #include <ucxx/worker_impl.h>
 
 #if UCXX_ENABLE_PYTHON

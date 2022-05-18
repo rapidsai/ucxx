@@ -11,9 +11,9 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
+#include <ucxx/request_stream.h>
+#include <ucxx/request_tag.h>
 #include <ucxx/sockaddr_utils.h>
-#include <ucxx/transfer_stream.h>
-#include <ucxx/transfer_tag.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils.h>
 #include <ucxx/worker.h>
@@ -103,27 +103,32 @@ void UCXXEndpoint::setCloseCallback(std::function<void(void*)> closeCallback,
   _callbackData->closeCallbackArg = closeCallbackArg;
 }
 
-std::shared_ptr<UCXXRequest> UCXXEndpoint::createRequest(std::shared_ptr<ucxx_request_t> request)
-{
-  auto endpoint                       = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
-  auto req                            = ucxx::createRequest(endpoint, _inflightRequests, request);
-  std::weak_ptr<UCXXRequest> weak_req = req;
-  _inflightRequests->insert({req.get(), weak_req});
-  return req;
-}
+// std::shared_ptr<UCXXRequest> UCXXEndpoint::createRequest(std::shared_ptr<ucxx_request_t> request)
+// {
+//   auto endpoint                       =
+//   std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this()); auto req =
+//   ucxx::createRequest(endpoint, _inflightRequests, request); std::weak_ptr<UCXXRequest> weak_req
+//   = req; _inflightRequests->insert({req.get(), weak_req}); return req;
+// }
 
 std::shared_ptr<UCXXRequest> UCXXEndpoint::stream_send(void* buffer, size_t length)
 {
-  auto worker  = UCXXEndpoint::getWorker(_parent);
-  auto request = stream_msg(worker, _handle, true, buffer, length);
-  return createRequest(request);
+  auto worker                         = UCXXEndpoint::getWorker(_parent);
+  auto endpoint                       = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
+  auto request                        = createRequestStream(worker, endpoint, true, buffer, length);
+  std::weak_ptr<UCXXRequest> weak_req = request;
+  _inflightRequests->insert({request.get(), weak_req});
+  return request;
 }
 
 std::shared_ptr<UCXXRequest> UCXXEndpoint::stream_recv(void* buffer, size_t length)
 {
-  auto worker  = UCXXEndpoint::getWorker(_parent);
-  auto request = stream_msg(worker, _handle, false, buffer, length);
-  return createRequest(request);
+  auto worker   = UCXXEndpoint::getWorker(_parent);
+  auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
+  auto request  = createRequestStream(worker, endpoint, false, buffer, length);
+  std::weak_ptr<UCXXRequest> weak_req = request;
+  _inflightRequests->insert({request.get(), weak_req});
+  return request;
 }
 
 std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_send(
@@ -133,10 +138,13 @@ std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_send(
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData)
 {
-  auto worker = UCXXEndpoint::getWorker(_parent);
+  auto worker   = UCXXEndpoint::getWorker(_parent);
+  auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
   auto request =
-    tag_msg(worker, _handle, true, buffer, length, tag, callbackFunction, callbackData);
-  return createRequest(request);
+    createRequestTag(worker, endpoint, true, buffer, length, tag, callbackFunction, callbackData);
+  std::weak_ptr<UCXXRequest> weak_req = request;
+  _inflightRequests->insert({request.get(), weak_req});
+  return request;
 }
 
 std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_recv(
@@ -146,10 +154,13 @@ std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_recv(
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData)
 {
-  auto worker = UCXXEndpoint::getWorker(_parent);
+  auto worker   = UCXXEndpoint::getWorker(_parent);
+  auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
   auto request =
-    tag_msg(worker, _handle, false, buffer, length, tag, callbackFunction, callbackData);
-  return createRequest(request);
+    createRequestTag(worker, endpoint, false, buffer, length, tag, callbackFunction, callbackData);
+  std::weak_ptr<UCXXRequest> weak_req = request;
+  _inflightRequests->insert({request.get(), weak_req});
+  return request;
 }
 
 }  // namespace ucxx

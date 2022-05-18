@@ -10,6 +10,8 @@ class UCXXContext;
 class UCXXEndpoint;
 class UCXXListener;
 class UCXXRequest;
+class UCXXRequestStream;
+class UCXXRequestTag;
 class UCXXWorker;
 
 std::shared_ptr<UCXXAddress> createAddressFromWorker(std::shared_ptr<ucxx::UCXXWorker> worker);
@@ -51,6 +53,21 @@ std::shared_ptr<UCXXBufferRequests> tagMultiSend(std::shared_ptr<UCXXEndpoint> e
                                                  const ucp_tag_t tag);
 std::shared_ptr<UCXXBufferRequests> tagMultiRecv(std::shared_ptr<UCXXEndpoint> endpoint,
                                                  const ucp_tag_t tag);
+
+std::shared_ptr<UCXXRequestStream> createRequestStream(std::shared_ptr<UCXXWorker> worker,
+                                                       std::shared_ptr<UCXXEndpoint> endpoint,
+                                                       bool send,
+                                                       void* buffer,
+                                                       size_t length);
+std::shared_ptr<UCXXRequestTag> createRequestTag(
+  std::shared_ptr<UCXXWorker> worker,
+  std::shared_ptr<UCXXEndpoint> endpoint,
+  bool send,
+  void* buffer,
+  size_t length,
+  ucp_tag_t tag,
+  std::function<void(std::shared_ptr<void>)> callbackFunction,
+  std::shared_ptr<void> callbackData);
 
 #if UCXX_ENABLE_PYTHON
 class UCXXNotifier;

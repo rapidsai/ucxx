@@ -18,8 +18,6 @@
 #include <ucxx/listener.h>
 #include <ucxx/request.h>
 #include <ucxx/sockaddr_utils.h>
-#include <ucxx/transfer_stream.h>
-#include <ucxx/transfer_tag.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils.h>
 #include <ucxx/worker.h>
@@ -43,7 +41,6 @@ class UCXXEndpoint : public UCXXComponent {
   ucp_ep_h _handle{nullptr};
   bool _endpoint_error_handling{true};
   std::unique_ptr<error_callback_data_t> _callbackData{nullptr};
-  inflight_requests_t _inflightRequests{std::make_shared<inflight_request_map_t>()};
 
   UCXXEndpoint(std::shared_ptr<UCXXComponent> worker_or_listener,
                std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
@@ -55,6 +52,9 @@ class UCXXEndpoint : public UCXXComponent {
   UCXXEndpoint& operator=(UCXXEndpoint const&) = delete;
   UCXXEndpoint(UCXXEndpoint&& o)               = delete;
   UCXXEndpoint& operator=(UCXXEndpoint&& o) = delete;
+
+  // TODO: Make private again
+  inflight_requests_t _inflightRequests{std::make_shared<inflight_request_map_t>()};
 
   ~UCXXEndpoint();
 

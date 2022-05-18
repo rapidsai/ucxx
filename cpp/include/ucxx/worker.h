@@ -20,7 +20,6 @@
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/notification_request.h>
-#include <ucxx/transfer_common.h>
 #include <ucxx/utils.h>
 #include <ucxx/worker_progress_thread.h>
 
@@ -80,33 +79,34 @@ class UCXXWorker : public UCXXComponent {
 
   void drainWorkerTagRecv()
   {
-    auto context = std::dynamic_pointer_cast<UCXXContext>(_parent);
-    if (!(context->get_feature_flags() & UCP_FEATURE_TAG)) return;
+    // TODO: Uncomment, requires specialized UCXXTransferTag
+    // auto context = std::dynamic_pointer_cast<UCXXContext>(_parent);
+    // if (!(context->get_feature_flags() & UCP_FEATURE_TAG)) return;
 
-    ucp_tag_message_h message;
-    ucp_tag_recv_info_t info;
+    // ucp_tag_message_h message;
+    // ucp_tag_recv_info_t info;
 
-    while ((message = ucp_tag_probe_nb(_handle, 0, 0, 1, &info)) != NULL) {
-      ucxx_debug("Draining tag receive messages, worker: %p, tag: 0x%lx, length: %lu",
-                 _handle,
-                 info.sender_tag,
-                 info.length);
+    // while ((message = ucp_tag_probe_nb(_handle, 0, 0, 1, &info)) != NULL) {
+    //   ucxx_debug("Draining tag receive messages, worker: %p, tag: 0x%lx, length: %lu",
+    //              _handle,
+    //              info.sender_tag,
+    //              info.length);
 
-      std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
-      ucp_request_param_t param               = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                                                   UCP_OP_ATTR_FIELD_DATATYPE |
-                                                   UCP_OP_ATTR_FIELD_USER_DATA,
-                                   .datatype  = ucp_dt_make_contig(1),
-                                   .user_data = request.get()};
+    //   std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
+    //   ucp_request_param_t param               = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+    //                                                UCP_OP_ATTR_FIELD_DATATYPE |
+    //                                                UCP_OP_ATTR_FIELD_USER_DATA,
+    //                                .datatype  = ucp_dt_make_contig(1),
+    //                                .user_data = request.get()};
 
-      std::unique_ptr<char> buf = std::make_unique<char>(info.length);
-      ucs_status_ptr_t status =
-        ucp_tag_msg_recv_nbx(_handle, buf.get(), info.length, message, &param);
-      request_wait(_handle, status, request.get(), "drain_tag_recv");
+    //   std::unique_ptr<char> buf = std::make_unique<char>(info.length);
+    //   ucs_status_ptr_t status =
+    //     ucp_tag_msg_recv_nbx(_handle, buf.get(), info.length, message, &param);
+    //   request_wait(_handle, status, request.get(), "drain_tag_recv");
 
-      while (request->status == UCS_INPROGRESS)
-        progress();
-    }
+    //   while (request->status == UCS_INPROGRESS)
+    //     progress();
+    // }
   }
 
  public:
