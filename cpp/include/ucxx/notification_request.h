@@ -17,14 +17,12 @@ namespace ucxx {
 
 class NotificationRequest;
 
-typedef std::shared_ptr<NotificationRequest> NotificationRequestCallbackDataType;
-typedef std::function<void(NotificationRequestCallbackDataType)> NotificationRequestCallbackType;
+typedef std::function<void()> NotificationRequestCallbackType;
 
 class NotificationRequest {
  public:
   ucp_worker_h _worker{nullptr};
   ucp_ep_h _ep{nullptr};
-  std::shared_ptr<ucxx_request_t> _request{nullptr};
   bool _send{false};
   void* _buffer{nullptr};
   size_t _length{0};
@@ -34,18 +32,11 @@ class NotificationRequest {
 
   NotificationRequest(ucp_worker_h worker,
                       ucp_ep_h ep,
-                      std::shared_ptr<ucxx_request_t> request,
                       const bool send,
                       void* buffer,
                       const size_t length,
                       const ucp_tag_t tag = 0)
-    : _worker(worker),
-      _ep(ep),
-      _request(request),
-      _send(send),
-      _buffer(buffer),
-      _length(length),
-      _tag(tag)
+    : _worker(worker), _ep(ep), _send(send), _buffer(buffer), _length(length), _tag(tag)
   {
   }
 };
@@ -53,19 +44,11 @@ class NotificationRequest {
 class NotificationRequestCallback {
  private:
   NotificationRequestCallbackType _callback{nullptr};
-  NotificationRequestCallbackDataType _callbackData{nullptr};
 
  public:
-  NotificationRequestCallback(NotificationRequestCallbackType callback,
-                              NotificationRequestCallbackDataType callbackData)
-    : _callback(callback), _callbackData(callbackData)
-  {
-  }
+  NotificationRequestCallback(NotificationRequestCallbackType callback) : _callback(callback) {}
 
-  std::pair<NotificationRequestCallbackType, NotificationRequestCallbackDataType> get()
-  {
-    return std::pair(_callback, _callbackData);
-  }
+  NotificationRequestCallbackType get() { return _callback; }
 };
 
 typedef std::shared_ptr<NotificationRequestCallback> NotificationRequestCallbackPtrType;
@@ -98,31 +81,26 @@ class DelayedNotificationRequestCollection {
       }
 
       for (auto& dnr : toProcess) {
-        auto callbackPair = dnr->get();
-        auto callback     = callbackPair.first;
-        auto callbackData = callbackPair.second;
+        auto callback = dnr->get();
 
-        ucxx_trace_req("Submitting request: %p %p",
-                       callback.target<void (*)(std::shared_ptr<void>)>(),
-                       callbackData.get());
+        ucxx_trace_req("Submitting request: %p",
+                       callback.target<void (*)(std::shared_ptr<void>)>());
 
-        if (callback) callback(callbackData);
+        if (callback) callback();
       }
     }
   }
 
-  void registerRequest(NotificationRequestCallbackType callback,
-                       NotificationRequestCallbackDataType callbackData)
+  void registerRequest(NotificationRequestCallbackType callback)
   {
-    auto r = std::make_shared<NotificationRequestCallback>(callback, callbackData);
+    auto r = std::make_shared<NotificationRequestCallback>(callback);
 
     {
       std::lock_guard<std::mutex> lock(_mutex);
       _collection.push_back(r);
     }
-    ucxx_trace_req("Registered submit request: %p %p",
-                   callback.target<void (*)(std::shared_ptr<void>)>(),
-                   callbackData.get());
+    ucxx_trace_req("Registered submit request: %p",
+                   callback.target<void (*)(std::shared_ptr<void>)>());
   }
 };
 

@@ -21,10 +21,22 @@ class UCXXRequestTag : public UCXXRequest {
  private:
   UCXXRequestTag(std::shared_ptr<UCXXWorker> worker,
                  std::shared_ptr<UCXXEndpoint> endpoint,
+                 bool send,
+                 void* buffer,
+                 size_t length,
+                 ucp_tag_t tag,
                  std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
                  std::shared_ptr<void> callbackData                          = nullptr)
-    : UCXXRequest(endpoint, UCXXRequest::createRequestBase(worker, callbackFunction, callbackData))
+    : UCXXRequest(endpoint,
+                  UCXXRequest::createRequestBase(worker, callbackFunction, callbackData),
+                  std::make_shared<NotificationRequest>(
+                    worker->get_handle(), endpoint->getHandle(), send, buffer, length, tag))
   {
+    // A delayed notification request is not populated immediately, instead it is
+    // delayed to allow the worker progress thread to set its status, and more
+    // importantly the Python future later on, so that we don't need the GIL here.
+    worker->registerNotificationRequest(
+      std::bind(std::mem_fn(&UCXXRequest::populateNotificationRequest), this));
   }
 
  public:
@@ -68,9 +80,9 @@ class UCXXRequestTag : public UCXXRequest {
     }
   }
 
-  virtual void populateNotificationRequest(std::shared_ptr<NotificationRequest> notificationRequest)
+  virtual void populateNotificationRequest()
   {
-    auto data = notificationRequest;
+    auto data = _notificationRequest;
 
     std::string operationName{data->_send ? "tag_send" : "tag_recv"};
     void* status = UCXXRequestTag::request(data->_worker,
@@ -79,7 +91,7 @@ class UCXXRequestTag : public UCXXRequest {
                                            data->_buffer,
                                            data->_length,
                                            data->_tag,
-                                           data->_request.get());
+                                           _handle.get());
 #if UCXX_ENABLE_PYTHON
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
                    operationName.c_str(),
@@ -87,8 +99,8 @@ class UCXXRequestTag : public UCXXRequest {
                    data->_tag,
                    data->_buffer,
                    data->_length,
-                   data->_request->py_future.get(),
-                   data->_request->py_future->getHandle());
+                   _handle->py_future.get(),
+                   _handle->py_future->getHandle());
 #else
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
                    operationName.c_str(),
@@ -97,7 +109,7 @@ class UCXXRequestTag : public UCXXRequest {
                    data->_buffer,
                    data->_length);
 #endif
-    UCXXRequest::process(data->_worker, status, data->_request.get(), operationName);
+    process(data->_worker, status, operationName);
   }
 
   friend std::shared_ptr<UCXXRequestTag> createRequestTag(

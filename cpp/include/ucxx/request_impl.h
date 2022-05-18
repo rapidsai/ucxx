@@ -21,8 +21,9 @@
 namespace ucxx {
 
 UCXXRequest::UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
-                         std::shared_ptr<ucxx_request_t> request)
-  : _handle{request}, _endpoint{endpoint}
+                         std::shared_ptr<ucxx_request_t> request,
+                         std::shared_ptr<NotificationRequest> notificationRequest)
+  : _handle{request}, _endpoint{endpoint}, _notificationRequest(notificationRequest)
 {
   if (endpoint == nullptr || endpoint->getHandle() == nullptr)
     throw ucxx::UCXXError("Endpoint not initialized");
@@ -84,6 +85,39 @@ bool UCXXRequest::isCompleted(std::chrono::duration<Rep, Period> period)
 bool UCXXRequest::isCompleted(int64_t periodNs)
 {
   return isCompleted(std::chrono::nanoseconds(periodNs));
+}
+
+void UCXXRequest::process(ucp_worker_h worker, void* request, std::string operationName)
+{
+  ucs_status_t status;
+
+  // Operation completed immediately
+  if (request == NULL) {
+    status = UCS_OK;
+  } else {
+    if (UCS_PTR_IS_ERR(request)) {
+      status = UCS_PTR_STATUS(request);
+    } else if (UCS_PTR_IS_PTR(request)) {
+      // Completion will be handled by callback
+      _handle->request = request;
+      return;
+    } else {
+      status = UCS_OK;
+    }
+  }
+
+  setStatus(status);
+
+  ucxx_trace_req("_handle->callback: %p", _handle->callback.target<void (*)(void)>());
+  if (_handle->callback) _handle->callback(_handle->callback_data);
+
+  if (status != UCS_OK) {
+    ucxx_error(
+      "error on %s with status %d (%s)", operationName.c_str(), status, ucs_status_string(status));
+    throw UCXXError(std::string("Error on ") + operationName + std::string(" message"));
+  } else {
+    ucxx_trace_req("%s completed immediately", operationName.c_str());
+  }
 }
 
 }  // namespace ucxx

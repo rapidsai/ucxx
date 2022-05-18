@@ -23,8 +23,13 @@ class UCXXRequest : public UCXXComponent {
  protected:
   std::shared_ptr<ucxx_request_t> _handle{nullptr};
   std::shared_ptr<UCXXEndpoint> _endpoint{nullptr};
+  std::shared_ptr<NotificationRequest> _notificationRequest{nullptr};
 
-  UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint, std::shared_ptr<ucxx_request_t> request);
+  UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
+              std::shared_ptr<ucxx_request_t> request,
+              std::shared_ptr<NotificationRequest> notificationRequest);
+
+  void process(ucp_worker_h worker, void* request, std::string operationName);
 
  public:
   UCXXRequest()                   = delete;
@@ -85,42 +90,14 @@ class UCXXRequest : public UCXXComponent {
 #endif
   }
 
-  static void process(ucp_worker_h worker,
-                      void* request,
-                      ucxx_request_t* ucxx_req,
-                      std::string operationName)
+  void setStatus(ucs_status_t status)
   {
-    ucs_status_t status;
+    _handle->status = status;
 
-    // Operation completed immediately
-    if (request == NULL) {
-      status = UCS_OK;
-    } else {
-      if (UCS_PTR_IS_ERR(request)) {
-        status = UCS_PTR_STATUS(request);
-      } else if (UCS_PTR_IS_PTR(request)) {
-        // Completion will be handled by callback
-        ucxx_req->request = request;
-        return;
-      } else {
-        status = UCS_OK;
-      }
-    }
-
-    UCXXRequest::setStatus(ucxx_req, status);
-
-    ucxx_trace_req("ucxx_req->callback: %p", ucxx_req->callback.target<void (*)(void)>());
-    if (ucxx_req->callback) ucxx_req->callback(ucxx_req->callback_data);
-
-    if (status != UCS_OK) {
-      ucxx_error("error on %s with status %d (%s)",
-                 operationName.c_str(),
-                 status,
-                 ucs_status_string(status));
-      throw UCXXError(std::string("Error on ") + operationName + std::string(" message"));
-    } else {
-      ucxx_trace_req("%s completed immediately", operationName.c_str());
-    }
+#if UCXX_ENABLE_PYTHON
+    auto future = std::static_pointer_cast<PythonFuture>(_handle->py_future);
+    future->notify(status);
+#endif
   }
 
   static std::shared_ptr<ucxx_request_t> createRequestBase(
@@ -139,8 +116,7 @@ class UCXXRequest : public UCXXComponent {
     return request;
   }
 
-  virtual void populateNotificationRequest(
-    std::shared_ptr<NotificationRequest> notificationRequest) = 0;
+  virtual void populateNotificationRequest() = 0;
 };
 
 }  // namespace ucxx

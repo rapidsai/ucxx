@@ -19,9 +19,21 @@ namespace ucxx {
 
 class UCXXRequestStream : public UCXXRequest {
  private:
-  UCXXRequestStream(std::shared_ptr<UCXXWorker> worker, std::shared_ptr<UCXXEndpoint> endpoint)
-    : UCXXRequest(endpoint, UCXXRequest::createRequestBase(worker))
+  UCXXRequestStream(std::shared_ptr<UCXXWorker> worker,
+                    std::shared_ptr<UCXXEndpoint> endpoint,
+                    bool send,
+                    void* buffer,
+                    size_t length)
+    : UCXXRequest(endpoint,
+                  UCXXRequest::createRequestBase(worker),
+                  std::make_shared<NotificationRequest>(
+                    worker->get_handle(), endpoint->getHandle(), send, buffer, length))
   {
+    // A delayed notification request is not populated immediately, instead it is
+    // delayed to allow the worker progress thread to set its status, and more
+    // importantly the Python future later on, so that we don't need the GIL here.
+    worker->registerNotificationRequest(
+      std::bind(std::mem_fn(&UCXXRequest::populateNotificationRequest), this));
   }
 
  public:
@@ -57,21 +69,21 @@ class UCXXRequestStream : public UCXXRequest {
     }
   }
 
-  virtual void populateNotificationRequest(std::shared_ptr<NotificationRequest> notificationRequest)
+  virtual void populateNotificationRequest()
   {
-    auto data = notificationRequest;
+    auto data = _notificationRequest;
 
     std::string operationName{data->_send ? "stream_send" : "stream_recv"};
     void* status =
-      stream_request(data->_ep, data->_send, data->_buffer, data->_length, data->_request.get());
+      stream_request(data->_ep, data->_send, data->_buffer, data->_length, _handle.get());
 #if UCXX_ENABLE_PYTHON
     ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                    operationName.c_str(),
                    status,
                    data->_buffer,
                    data->_length,
-                   data->_request->py_future.get(),
-                   data->_request->py_future->getHandle());
+                   _handle->py_future.get(),
+                   _handle->py_future->getHandle());
 #else
     ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
                    operationName.c_str(),
@@ -79,7 +91,7 @@ class UCXXRequestStream : public UCXXRequest {
                    data->_buffer,
                    data->_length);
 #endif
-    UCXXRequest::process(data->_worker, status, data->_request.get(), operationName);
+    process(data->_worker, status, operationName);
   }
 
   friend std::shared_ptr<UCXXRequestStream> createRequestStream(

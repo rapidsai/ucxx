@@ -219,13 +219,12 @@ class UCXXWorker : public UCXXComponent {
       ;
   }
 
-  void registerNotificationRequest(NotificationRequestCallbackType callback,
-                                   NotificationRequestCallbackDataType callbackData)
+  void registerNotificationRequest(NotificationRequestCallbackType callback)
   {
     if (_delayedNotificationRequestCollection == nullptr)
-      callback(callbackData);
+      callback();
     else
-      _delayedNotificationRequestCollection->registerRequest(callback, callbackData);
+      _delayedNotificationRequestCollection->registerRequest(callback);
   }
 
   void populatePythonFuturesPool()
