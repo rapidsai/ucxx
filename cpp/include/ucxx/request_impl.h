@@ -97,6 +97,31 @@ bool UCXXRequest::isCompleted(int64_t periodNs)
   return isCompleted(std::chrono::nanoseconds(periodNs));
 }
 
+void UCXXRequest::callback(void* request, ucs_status_t status)
+{
+  _requestStatus = ucp_request_check_status(request);
+
+  if (_handle == nullptr)
+    ucxx_error(
+      "error when _callback was called for \"%s\", "
+      "probably due to tag_msg() return value being deleted "
+      "before completion.",
+      _operationName.c_str());
+
+  ucxx_trace_req("_calback called for \"%s\" with status %d (%s)",
+                 _operationName.c_str(),
+                 _requestStatus,
+                 ucs_status_string(_requestStatus));
+
+  _requestStatus = ucp_request_check_status(_requestStatusPtr);
+  setStatus();
+
+  ucxx_trace_req("_handle->callback: %p", _handle->callback.target<void (*)(void)>());
+  if (_handle->callback) _handle->callback(_handle->callback_data);
+
+  ucp_request_free(request);
+}
+
 void UCXXRequest::process()
 {
   // Operation completed immediately
@@ -128,6 +153,16 @@ void UCXXRequest::process()
   } else {
     ucxx_trace_req("%s completed immediately", _operationName.c_str());
   }
+}
+
+void UCXXRequest::setStatus()
+{
+  _handle->status = _requestStatus;
+
+#if UCXX_ENABLE_PYTHON
+  auto future = std::static_pointer_cast<PythonFuture>(_handle->py_future);
+  future->notify(_requestStatus);
+#endif
 }
 
 }  // namespace ucxx
