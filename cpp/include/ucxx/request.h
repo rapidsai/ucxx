@@ -25,12 +25,14 @@ class UCXXRequest : public UCXXComponent {
   std::shared_ptr<UCXXEndpoint> _endpoint{nullptr};
   std::shared_ptr<NotificationRequest> _notificationRequest{nullptr};
   std::string _operationName{"request_undefined"};
+  ucs_status_ptr_t _requestStatusPtr{nullptr};
+  ucs_status_t _requestStatus{UCS_INPROGRESS};
 
   UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
               std::shared_ptr<NotificationRequest> notificationRequest,
               const std::string operationName);
 
-  void process(void* request);
+  void process();
 
  public:
   UCXXRequest()                   = delete;
@@ -58,7 +60,7 @@ class UCXXRequest : public UCXXComponent {
 
   void callback(void* request, ucs_status_t status)
   {
-    status = ucp_request_check_status(request);
+    _requestStatus = ucp_request_check_status(request);
 
     if (_handle == nullptr)
       ucxx_error(
@@ -69,10 +71,11 @@ class UCXXRequest : public UCXXComponent {
 
     ucxx_trace_req("_calback called for \"%s\" with status %d (%s)",
                    _operationName.c_str(),
-                   status,
-                   ucs_status_string(status));
+                   _requestStatus,
+                   ucs_status_string(_requestStatus));
 
-    setStatus(ucp_request_check_status(request));
+    _requestStatus = ucp_request_check_status(_requestStatusPtr);
+    setStatus();
 
     ucxx_trace_req("_handle->callback: %p", _handle->callback.target<void (*)(void)>());
     if (_handle->callback) _handle->callback(_handle->callback_data);
@@ -80,13 +83,13 @@ class UCXXRequest : public UCXXComponent {
     ucp_request_free(request);
   }
 
-  void setStatus(ucs_status_t status)
+  void setStatus()
   {
-    _handle->status = status;
+    _handle->status = _requestStatus;
 
 #if UCXX_ENABLE_PYTHON
     auto future = std::static_pointer_cast<PythonFuture>(_handle->py_future);
-    future->notify(status);
+    future->notify(_requestStatus);
 #endif
   }
 

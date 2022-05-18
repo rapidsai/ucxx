@@ -97,33 +97,33 @@ bool UCXXRequest::isCompleted(int64_t periodNs)
   return isCompleted(std::chrono::nanoseconds(periodNs));
 }
 
-void UCXXRequest::process(void* request)
+void UCXXRequest::process()
 {
-  ucs_status_t status;
-
   // Operation completed immediately
-  if (request == NULL) {
-    status = UCS_OK;
+  if (_requestStatusPtr == NULL) {
+    _requestStatus = UCS_OK;
   } else {
-    if (UCS_PTR_IS_ERR(request)) {
-      status = UCS_PTR_STATUS(request);
-    } else if (UCS_PTR_IS_PTR(request)) {
+    if (UCS_PTR_IS_ERR(_requestStatusPtr)) {
+      _requestStatus = UCS_PTR_STATUS(_requestStatusPtr);
+    } else if (UCS_PTR_IS_PTR(_requestStatusPtr)) {
       // Completion will be handled by callback
-      _handle->request = request;
+      _handle->request = _requestStatusPtr;
       return;
     } else {
-      status = UCS_OK;
+      _requestStatus = UCS_OK;
     }
   }
 
-  setStatus(status);
+  setStatus();
 
   ucxx_trace_req("_handle->callback: %p", _handle->callback.target<void (*)(void)>());
   if (_handle->callback) _handle->callback(_handle->callback_data);
 
-  if (status != UCS_OK) {
-    ucxx_error(
-      "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
+  if (_requestStatus != UCS_OK) {
+    ucxx_error("error on %s with status %d (%s)",
+               _operationName.c_str(),
+               _requestStatus,
+               ucs_status_string(_requestStatus));
     throw UCXXError(std::string("Error on ") + _operationName + std::string(" message"));
   } else {
     ucxx_trace_req("%s completed immediately", _operationName.c_str());

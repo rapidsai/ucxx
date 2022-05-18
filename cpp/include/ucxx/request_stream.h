@@ -48,7 +48,7 @@ class UCXXRequestStream : public UCXXRequest {
     return req->callback(request, status);
   }
 
-  ucs_status_ptr_t stream_request()
+  void stream_request()
   {
     ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                  UCP_OP_ATTR_FIELD_DATATYPE |
@@ -57,20 +57,20 @@ class UCXXRequestStream : public UCXXRequest {
                                  .user_data = this};
 
     if (_notificationRequest->_send) {
-      param.cb.send = stream_send_callback;
-      return ucp_stream_send_nbx(_endpoint->getHandle(),
-                                 _notificationRequest->_buffer,
-                                 _notificationRequest->_length,
-                                 &param);
+      param.cb.send     = stream_send_callback;
+      _requestStatusPtr = ucp_stream_send_nbx(_endpoint->getHandle(),
+                                              _notificationRequest->_buffer,
+                                              _notificationRequest->_length,
+                                              &param);
     } else {
       param.op_attr_mask |= UCP_OP_ATTR_FIELD_FLAGS;
       param.flags          = UCP_STREAM_RECV_FLAG_WAITALL;
       param.cb.recv_stream = stream_recv_callback;
-      return ucp_stream_recv_nbx(_endpoint->getHandle(),
-                                 _notificationRequest->_buffer,
-                                 _notificationRequest->_length,
-                                 &_notificationRequest->_length,
-                                 &param);
+      _requestStatusPtr    = ucp_stream_recv_nbx(_endpoint->getHandle(),
+                                              _notificationRequest->_buffer,
+                                              _notificationRequest->_length,
+                                              &_notificationRequest->_length,
+                                              &param);
     }
   }
 
@@ -78,11 +78,11 @@ class UCXXRequestStream : public UCXXRequest {
   {
     auto data = _notificationRequest;
 
-    void* status = stream_request();
+    stream_request();
 #if UCXX_ENABLE_PYTHON
     ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                    _operationName.c_str(),
-                   status,
+                   _requestStatusPtr,
                    _notificationRequest->_buffer,
                    _notificationRequest->_length,
                    _handle->py_future.get(),
@@ -90,11 +90,11 @@ class UCXXRequestStream : public UCXXRequest {
 #else
     ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
                    _operationName.c_str(),
-                   status,
+                   _requestStatusPtr,
                    _notificationRequest->_buffer,
                    _notificationRequest->_length);
 #endif
-    process(status);
+    process();
   }
 
   friend std::shared_ptr<UCXXRequestStream> createRequestStream(

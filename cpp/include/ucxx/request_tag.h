@@ -60,7 +60,7 @@ class UCXXRequestTag : public UCXXRequest {
     return req->callback(request, status);
   }
 
-  ucs_status_ptr_t request()
+  void request()
   {
     static const ucp_tag_t tag_mask = -1;
     auto worker                     = UCXXEndpoint::getWorker(_endpoint->getParent());
@@ -72,20 +72,20 @@ class UCXXRequestTag : public UCXXRequest {
                                  .user_data = this};
 
     if (_notificationRequest->_send) {
-      param.cb.send = tag_send_callback;
-      return ucp_tag_send_nbx(_endpoint->getHandle(),
-                              _notificationRequest->_buffer,
-                              _notificationRequest->_length,
-                              _notificationRequest->_tag,
-                              &param);
+      param.cb.send     = tag_send_callback;
+      _requestStatusPtr = ucp_tag_send_nbx(_endpoint->getHandle(),
+                                           _notificationRequest->_buffer,
+                                           _notificationRequest->_length,
+                                           _notificationRequest->_tag,
+                                           &param);
     } else {
-      param.cb.recv = tag_recv_callback;
-      return ucp_tag_recv_nbx(worker->get_handle(),
-                              _notificationRequest->_buffer,
-                              _notificationRequest->_length,
-                              _notificationRequest->_tag,
-                              tag_mask,
-                              &param);
+      param.cb.recv     = tag_recv_callback;
+      _requestStatusPtr = ucp_tag_recv_nbx(worker->get_handle(),
+                                           _notificationRequest->_buffer,
+                                           _notificationRequest->_length,
+                                           _notificationRequest->_tag,
+                                           tag_mask,
+                                           &param);
     }
   }
 
@@ -93,11 +93,11 @@ class UCXXRequestTag : public UCXXRequest {
   {
     auto data = _notificationRequest;
 
-    void* status = request();
+    request();
 #if UCXX_ENABLE_PYTHON
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
                    _operationName.c_str(),
-                   status,
+                   _requestStatusPtr,
                    _notificationRequest->_tag,
                    _notificationRequest->_buffer,
                    _notificationRequest->_length,
@@ -106,12 +106,12 @@ class UCXXRequestTag : public UCXXRequest {
 #else
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
                    _operationName.c_str(),
-                   status,
+                   _requestStatusPtr,
                    _notificationRequest->_tag,
                    _notificationRequest->_buffer,
                    _notificationRequest->_length);
 #endif
-    process(status);
+    process();
   }
 
   friend std::shared_ptr<UCXXRequestTag> createRequestTag(
