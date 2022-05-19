@@ -150,6 +150,7 @@ void UCXXRequestTagMulti::recvFrames()
 
 void UCXXRequestTagMulti::markCompleted(std::shared_ptr<void> request)
 {
+  ucxx_trace_req("UCXXRequestTagMulti::markCompleted request: %p, tag: %lx", this, _tag);
   std::lock_guard<std::mutex> lock(_completedRequestsMutex);
 
   /* TODO: Move away from std::shared_ptr<void> to avoid casting void* to
@@ -163,6 +164,12 @@ void UCXXRequestTagMulti::markCompleted(std::shared_ptr<void> request)
     _status = UCS_OK;
     _pythonFuture->notify(UCS_OK);
   }
+
+  ucxx_trace_req("UCXXRequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
+                 this,
+                 _tag,
+                 _completedRequests.size(),
+                 _totalFrames);
 }
 
 void UCXXRequestTagMulti::recvHeader()
@@ -267,6 +274,38 @@ void UCXXRequestTagMulti::send(std::vector<void*>& buffer,
 
   _isFilled = true;
   ucxx_trace_req("tag_send_multi request: %p, tag: %lx, isFilled: %d", this, _tag, _isFilled);
+}
+
+ucs_status_t UCXXRequestTagMulti::getStatus() { return _status; }
+
+PyObject* UCXXRequestTagMulti::getPyFuture()
+{
+#if UCXX_ENABLE_PYTHON
+  return (PyObject*)_pythonFuture->getHandle();
+#else
+  return NULL;
+#endif
+}
+
+void UCXXRequestTagMulti::checkError()
+{
+  switch (_status) {
+    case UCS_OK:
+    case UCS_INPROGRESS: return;
+    case UCS_ERR_CANCELED: throw UCXXCanceledError(ucs_status_string(_status)); break;
+    default: throw UCXXError(ucs_status_string(_status)); break;
+  }
+}
+
+template <typename Rep, typename Period>
+bool UCXXRequestTagMulti::isCompleted(std::chrono::duration<Rep, Period> period)
+{
+  return _status != UCS_INPROGRESS;
+}
+
+bool UCXXRequestTagMulti::isCompleted(int64_t periodNs)
+{
+  return isCompleted(std::chrono::nanoseconds(periodNs));
 }
 
 }  // namespace ucxx

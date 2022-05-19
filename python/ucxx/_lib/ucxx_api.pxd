@@ -228,6 +228,11 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         ucp_tag_t _tag
         bint _send
 
+        cpp_bool isCompleted(int64_t period_ns)
+        ucs_status_t getStatus()
+        void checkError() except +raise_py_error
+        PyObject* getPyFuture() except +raise_py_error
+
     UCXXRequestTagMultiPtr tagMultiRecv(
         shared_ptr[UCXXEndpoint] endpoint,
         ucp_tag_t tag,

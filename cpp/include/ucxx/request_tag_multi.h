@@ -89,6 +89,17 @@ class UCXXRequestTagMulti : public std::enable_shared_from_this<UCXXRequestTagMu
   void callback(std::shared_ptr<void> arg = nullptr);
 
   void send(std::vector<void*>& buffer, std::vector<size_t>& size, std::vector<int>& isCUDA);
+
+  ucs_status_t getStatus();
+
+  PyObject* getPyFuture();
+
+  void checkError();
+
+  template <typename Rep, typename Period>
+  bool isCompleted(std::chrono::duration<Rep, Period> period);
+
+  bool isCompleted(int64_t periodNs = 0);
 };
 
 typedef std::shared_ptr<UCXXRequestTagMulti> UCXXRequestTagMultiPtr;

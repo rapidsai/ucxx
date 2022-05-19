@@ -459,7 +459,7 @@ cdef class UCXBufferRequest:
 
 cdef class UCXBufferRequests:
     cdef:
-        UCXXRequestTagMultiPtr _ucxx_buffer_requests
+        UCXXRequestTagMultiPtr _ucxx_request_tag_multi
         bint _is_completed
         tuple _buffer_requests
         tuple _requests
@@ -469,14 +469,14 @@ cdef class UCXBufferRequests:
         self._is_completed = False
         self._requests = tuple()
 
-        self._ucxx_buffer_requests = (
+        self._ucxx_request_tag_multi = (
             deref(<UCXXRequestTagMultiPtr *> unique_ptr_buffer_requests)
         )
 
     def _populate_requests(self):
         cdef vector[UCXXBufferRequestPtr] requests
         if len(self._requests) == 0:
-            requests = deref(self._ucxx_buffer_requests)._bufferRequests
+            requests = deref(self._ucxx_request_tag_multi)._bufferRequests
             total_requests = requests.size()
             self._buffer_requests = tuple([
                 UCXBufferRequest(
@@ -487,9 +487,9 @@ cdef class UCXBufferRequests:
 
             self._requests = tuple([br.get_request() for br in self._buffer_requests])
 
-    def is_completed(self, int64_t period_ns=0):
+    def is_completed_all(self, int64_t period_ns=0):
         if self._is_completed is False:
-            if self._ucxx_buffer_requests.get()._isFilled is False:
+            if self._ucxx_request_tag_multi.get()._isFilled is False:
                 return False
 
             self._populate_requests()
@@ -497,6 +497,16 @@ cdef class UCXBufferRequests:
             self._is_completed = all(
                 [r.is_completed(period_ns=period_ns) for r in self._requests]
             )
+
+        return self._is_completed
+
+    def is_completed(self, int64_t period_ns=0):
+        cdef bint is_completed
+
+        if self._is_completed is False:
+            with nogil:
+                is_completed = self._ucxx_request_tag_multi.get().isCompleted(period_ns)
+            self._is_completed = is_completed
 
         return self._is_completed
 
@@ -510,7 +520,7 @@ cdef class UCXBufferRequests:
 
     async def _generate_future(self):
         if self._is_completed is False:
-            while self._ucxx_buffer_requests.get()._isFilled is False:
+            while self._ucxx_request_tag_multi.get()._isFilled is False:
                 await asyncio.sleep(0)
 
             self._populate_requests()
@@ -521,8 +531,16 @@ cdef class UCXBufferRequests:
 
         return self._is_completed
 
-    def get_future(self):
+    def get_generator_future(self):
         return self._generate_future()
+
+    def get_future(self):
+        cdef PyObject* future_ptr
+
+        with nogil:
+            future_ptr = self._ucxx_request_tag_multi.get().getPyFuture()
+
+        return <object>future_ptr
 
     async def wait(self):
         if UCXXPythonEnabled():
@@ -536,6 +554,8 @@ cdef class UCXBufferRequests:
     def get_py_buffers(self):
         if not self.is_completed():
             raise RuntimeError("Some requests are not completed yet")
+
+        self._populate_requests()
 
         py_buffers = [br.get_py_buffer() for br in self._buffer_requests]
         # PyBuffers that are None are headers
