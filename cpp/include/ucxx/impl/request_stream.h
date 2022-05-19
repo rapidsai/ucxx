@@ -8,6 +8,10 @@
 #include <ucxx/notification_request.h>
 #include <ucxx/request_stream.h>
 
+#if UCXX_ENABLE_PYTHON
+#include <ucxx/python/python_future.h>
+#endif
+
 namespace ucxx {
 
 UCXXRequestStream::UCXXRequestStream(std::shared_ptr<UCXXEndpoint> endpoint,

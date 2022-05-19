@@ -8,6 +8,10 @@
 #include <ucxx/notification_request.h>
 #include <ucxx/request_tag.h>
 
+#if UCXX_ENABLE_PYTHON
+#include <ucxx/python/python_future.h>
+#endif
+
 namespace ucxx {
 
 std::shared_ptr<UCXXRequestTag> createRequestTag(

@@ -11,10 +11,6 @@
 #include <ucxx/request.h>
 #include <ucxx/typedefs.h>
 
-#if UCXX_ENABLE_PYTHON
-#include <ucxx/python/future.h>
-#endif
-
 namespace ucxx {
 
 class UCXXRequestStream : public UCXXRequest {

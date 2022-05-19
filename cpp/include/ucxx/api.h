@@ -14,6 +14,7 @@
 #include <ucxx/impl/request.h>
 #include <ucxx/impl/request_stream.h>
 #include <ucxx/impl/request_tag.h>
+#include <ucxx/impl/request_tag_multi.h>
 #include <ucxx/impl/worker.h>
 
 #if UCXX_ENABLE_PYTHON
