@@ -125,7 +125,7 @@ async def _listener_handler_coroutine(conn_request, ctx, func, endpoint_error_ha
         try:
             await func(ep)
         except Exception as e:
-            logger.debug(f"Uncatched listener callback error {type(e)}: {e}")
+            logger.error(f"Uncatched listener callback error {type(e)}: {e}")
     else:
         func(ep)
 
