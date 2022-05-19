@@ -5,7 +5,9 @@
  */
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include <ucxx/endpoint.h>
@@ -14,6 +16,10 @@
 
 #include <ucxx/buffer_helper.h>
 #include <ucxx/request_helper.h>
+
+#if UCXX_ENABLE_PYTHON
+#include <ucxx/python/python_future.h>
+#endif
 
 namespace ucxx {
 
@@ -26,10 +32,19 @@ struct UCXXBufferRequest {
 typedef std::shared_ptr<UCXXBufferRequest> UCXXBufferRequestPtr;
 
 class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequests> {
- public:
+ private:
   std::shared_ptr<UCXXEndpoint> _endpoint = nullptr;
   bool _send{false};
-  ucp_tag_t _tag = 0;
+  ucp_tag_t _tag{0};
+  size_t _totalFrames{0};
+  std::mutex _completedRequestsMutex;
+  std::vector<UCXXBufferRequest*> _completedRequests{};
+  ucs_status_t _status{UCS_INPROGRESS};
+#if UCXX_ENABLE_PYTHON
+  std::shared_ptr<PythonFuture> _pythonFuture;
+#endif
+
+ public:
   std::vector<UCXXBufferRequestPtr> _bufferRequests{};
   bool _isFilled{false};
 
@@ -41,6 +56,10 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
     : _endpoint(endpoint), _send(false), _tag(tag)
   {
     ucxx_trace_req("UCXXBufferRequests::UCXXBufferRequests [recv]: %p, tag: %lx", this, _tag);
+
+    auto worker   = UCXXEndpoint::getWorker(endpoint->getParent());
+    _pythonFuture = worker->getPythonFuture();
+
     callback();
   }
 
@@ -53,8 +72,13 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
     : _endpoint(endpoint), _send(true), _tag(tag)
   {
     ucxx_trace_req("UCXXBufferRequests::UCXXBufferRequests [send]: %p, tag: %lx", this, _tag);
+
     if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
       throw std::runtime_error("All input vectors should be of equal size");
+
+    auto worker   = UCXXEndpoint::getWorker(endpoint->getParent());
+    _pythonFuture = worker->getPythonFuture();
+
     send(buffer, size, isCUDA);
   }
 
@@ -90,10 +114,16 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
       headers.push_back(Header(*br->stringBuffer));
 
     for (auto& h : headers) {
+      _totalFrames += h.nframes;
       for (size_t i = 0; i < h.nframes; ++i) {
-        auto bufferRequest      = std::make_shared<UCXXBufferRequest>();
-        auto buf                = allocateBuffer(h.isCUDA[i], h.size[i]);
-        bufferRequest->request  = _endpoint->tag_recv(buf->data(), buf->getSize(), _tag);
+        auto bufferRequest     = std::make_shared<UCXXBufferRequest>();
+        auto buf               = allocateBuffer(h.isCUDA[i], h.size[i]);
+        bufferRequest->request = _endpoint->tag_recv(
+          buf->data(),
+          buf->getSize(),
+          _tag,
+          std::bind(std::mem_fn(&UCXXBufferRequests::markCompleted), this, std::placeholders::_1),
+          bufferRequest);
         bufferRequest->pyBuffer = std::move(buf);
         ucxx_trace_req("UCXXBufferRequests::recvFrames request: %p, tag: %lx, pyBuffer: %p",
                        this,
@@ -110,6 +140,23 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
                    _bufferRequests.size(),
                    _isFilled);
   };
+
+  void markCompleted(std::shared_ptr<void> request)
+  {
+    std::lock_guard<std::mutex> lock(_completedRequestsMutex);
+
+    /* TODO: Move away from std::shared_ptr<void> to avoid casting void* to
+     * UCXXBufferRequest*, or remove pointer holding entirely here since it
+     * is not currently used for anything besides counting completed transfers.
+     */
+    _completedRequests.push_back((UCXXBufferRequest*)request.get());
+
+    if (_completedRequests.size() == _totalFrames) {
+      // TODO: Actually handle errors
+      _status = UCS_OK;
+      _pythonFuture->notify(UCS_OK);
+    }
+  }
 
   void recvHeader()
   {
@@ -179,13 +226,13 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
 
   void send(std::vector<void*>& buffer, std::vector<size_t>& size, std::vector<int>& isCUDA)
   {
-    size_t totalFrames  = buffer.size();
-    size_t totalHeaders = (totalFrames + HeaderFramesSize - 1) / HeaderFramesSize;
+    _totalFrames        = buffer.size();
+    size_t totalHeaders = (_totalFrames + HeaderFramesSize - 1) / HeaderFramesSize;
 
     for (size_t i = 0; i < totalHeaders; ++i) {
-      bool hasNext = totalFrames > (i + 1) * HeaderFramesSize;
+      bool hasNext = _totalFrames > (i + 1) * HeaderFramesSize;
       size_t headerFrames =
-        hasNext ? HeaderFramesSize : HeaderFramesSize - (HeaderFramesSize * (i + 1) - totalFrames);
+        hasNext ? HeaderFramesSize : HeaderFramesSize - (HeaderFramesSize * (i + 1) - _totalFrames);
 
       size_t idx = i * HeaderFramesSize;
       Header header(hasNext, headerFrames, (bool*)&isCUDA[idx], (size_t*)&size[idx]);
@@ -198,9 +245,14 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
       _bufferRequests.push_back(bufferRequest);
     }
 
-    for (size_t i = 0; i < totalFrames; ++i) {
-      auto r                 = _endpoint->tag_send(buffer[i], size[i], _tag);
-      auto bufferRequest     = std::make_shared<UCXXBufferRequest>();
+    for (size_t i = 0; i < _totalFrames; ++i) {
+      auto bufferRequest = std::make_shared<UCXXBufferRequest>();
+      auto r             = _endpoint->tag_send(
+        buffer[i],
+        size[i],
+        _tag,
+        std::bind(std::mem_fn(&UCXXBufferRequests::markCompleted), this, std::placeholders::_1),
+        bufferRequest);
       bufferRequest->request = r;
       _bufferRequests.push_back(bufferRequest);
     }
