@@ -698,7 +698,7 @@ cdef class UCXEndpoint():
             v_is_cuda.push_back(c)
 
         with nogil:
-            tag_send_multi_b(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
+            tagMultiSendBlocking(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
 
     def tag_recv_multi(self, size_t tag):
         cdef UCXXBufferRequestsPtr ucxx_buffer_requests

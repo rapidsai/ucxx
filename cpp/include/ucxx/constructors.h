@@ -47,8 +47,15 @@ std::shared_ptr<UCXXBufferRequests> tagMultiSend(std::shared_ptr<UCXXEndpoint> e
                                                  std::vector<size_t>& size,
                                                  std::vector<int>& isCUDA,
                                                  const ucp_tag_t tag);
+void tagMultiSendBlocking(std::shared_ptr<UCXXEndpoint> endpoint,
+                          std::vector<void*>& buffer,
+                          std::vector<size_t>& size,
+                          std::vector<int>& isCUDA,
+                          ucp_tag_t tag);
 std::shared_ptr<UCXXBufferRequests> tagMultiRecv(std::shared_ptr<UCXXEndpoint> endpoint,
                                                  const ucp_tag_t tag);
+std::vector<std::unique_ptr<UCXXPyBuffer>> tagMultiRecvBlocking(
+  std::shared_ptr<UCXXEndpoint> endpoint, ucp_tag_t tag);
 
 std::shared_ptr<UCXXRequestStream> createRequestStream(std::shared_ptr<UCXXEndpoint> endpoint,
                                                        bool send,

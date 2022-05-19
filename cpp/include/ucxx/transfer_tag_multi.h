@@ -102,6 +102,42 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
     return ret;
   }
 
+  friend std::vector<std::unique_ptr<UCXXPyBuffer>> tagMultiRecvBlocking(
+    std::shared_ptr<UCXXEndpoint> endpoint, ucp_tag_t tag)
+  {
+    auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
+
+    auto requests = tagMultiRecv(endpoint, tag);
+
+    std::vector<std::shared_ptr<UCXXRequest>> requestsOnly;
+    std::vector<std::unique_ptr<UCXXPyBuffer>> recvBuffers;
+    for (auto& br : requests->_bufferRequests) {
+      requestsOnly.push_back(br->request);
+      recvBuffers.push_back(std::move(br->pyBuffer));
+    }
+
+    waitRequests(worker, requestsOnly);
+
+    return recvBuffers;
+  }
+
+  friend void tagMultiSendBlocking(std::shared_ptr<UCXXEndpoint> endpoint,
+                                   std::vector<void*>& buffer,
+                                   std::vector<size_t>& size,
+                                   std::vector<int>& isCUDA,
+                                   ucp_tag_t tag)
+  {
+    auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
+
+    auto requests = tagMultiSend(endpoint, buffer, size, isCUDA, tag);
+
+    std::vector<std::shared_ptr<UCXXRequest>> requestsOnly;
+    for (auto& br : requests->_bufferRequests)
+      requestsOnly.push_back(br->request);
+
+    waitRequests(worker, requestsOnly);
+  }
+
   void recvFrames()
   {
     if (_send) throw std::runtime_error("Send requests cannot call recvFrames()");
@@ -263,41 +299,5 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
 };
 
 typedef std::shared_ptr<UCXXBufferRequests> UCXXBufferRequestsPtr;
-
-std::vector<std::unique_ptr<UCXXPyBuffer>> tag_recv_multi_b(std::shared_ptr<UCXXEndpoint> endpoint,
-                                                            ucp_tag_t tag)
-{
-  auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
-
-  auto requests = tagMultiRecv(endpoint, tag);
-
-  std::vector<std::shared_ptr<UCXXRequest>> requestsOnly;
-  std::vector<std::unique_ptr<UCXXPyBuffer>> recvBuffers;
-  for (auto& br : requests->_bufferRequests) {
-    requestsOnly.push_back(br->request);
-    recvBuffers.push_back(std::move(br->pyBuffer));
-  }
-
-  waitRequests(worker, requestsOnly);
-
-  return recvBuffers;
-}
-
-void tag_send_multi_b(std::shared_ptr<UCXXEndpoint> endpoint,
-                      std::vector<void*>& buffer,
-                      std::vector<size_t>& size,
-                      std::vector<int>& isCUDA,
-                      ucp_tag_t tag)
-{
-  auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
-
-  auto requests = tagMultiSend(endpoint, buffer, size, isCUDA, tag);
-
-  std::vector<std::shared_ptr<UCXXRequest>> requestsOnly;
-  for (auto& br : requests->_bufferRequests)
-    requestsOnly.push_back(br->request);
-
-  waitRequests(worker, requestsOnly);
-}
 
 }  // namespace ucxx

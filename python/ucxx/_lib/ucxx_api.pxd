@@ -240,14 +240,14 @@ cdef extern from "<ucxx/transfer_tag_multi.h>" namespace "ucxx" nogil:
         ucp_tag_t tag,
     ) except +raise_py_error
 
-    void tag_send_multi_b(
+    void tagMultiSendBlocking(
         shared_ptr[UCXXEndpoint] endpoint,
         vector[void*]& buffer,
         vector[size_t]& length,
         vector[int]& isCUDA,
         ucp_tag_t tag,
     ) except +raise_py_error
-    vector[unique_ptr[UCXXPyBuffer]] tag_recv_multi_b(
+    vector[unique_ptr[UCXXPyBuffer]] tagMultiRecvBlocking(
         shared_ptr[UCXXEndpoint] endpoint,
         ucp_tag_t tag,
     ) except +raise_py_error
