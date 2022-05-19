@@ -31,7 +31,7 @@ struct UCXXBufferRequest {
 
 typedef std::shared_ptr<UCXXBufferRequest> UCXXBufferRequestPtr;
 
-class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequests> {
+class UCXXRequestTagMulti : public std::enable_shared_from_this<UCXXRequestTagMulti> {
  private:
   std::shared_ptr<UCXXEndpoint> _endpoint = nullptr;
   bool _send{false};
@@ -49,13 +49,13 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
   bool _isFilled{false};
 
  private:
-  UCXXBufferRequests() = delete;
+  UCXXRequestTagMulti() = delete;
 
   // Recv Constructor
-  UCXXBufferRequests(std::shared_ptr<UCXXEndpoint> endpoint, const ucp_tag_t tag)
+  UCXXRequestTagMulti(std::shared_ptr<UCXXEndpoint> endpoint, const ucp_tag_t tag)
     : _endpoint(endpoint), _send(false), _tag(tag)
   {
-    ucxx_trace_req("UCXXBufferRequests::UCXXBufferRequests [recv]: %p, tag: %lx", this, _tag);
+    ucxx_trace_req("UCXXRequestTagMulti::UCXXRequestTagMulti [recv]: %p, tag: %lx", this, _tag);
 
     auto worker   = UCXXEndpoint::getWorker(endpoint->getParent());
     _pythonFuture = worker->getPythonFuture();
@@ -64,14 +64,14 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
   }
 
   // Send Constructor
-  UCXXBufferRequests(std::shared_ptr<UCXXEndpoint> endpoint,
-                     std::vector<void*>& buffer,
-                     std::vector<size_t>& size,
-                     std::vector<int>& isCUDA,
-                     const ucp_tag_t tag)
+  UCXXRequestTagMulti(std::shared_ptr<UCXXEndpoint> endpoint,
+                      std::vector<void*>& buffer,
+                      std::vector<size_t>& size,
+                      std::vector<int>& isCUDA,
+                      const ucp_tag_t tag)
     : _endpoint(endpoint), _send(true), _tag(tag)
   {
-    ucxx_trace_req("UCXXBufferRequests::UCXXBufferRequests [send]: %p, tag: %lx", this, _tag);
+    ucxx_trace_req("UCXXRequestTagMulti::UCXXRequestTagMulti [send]: %p, tag: %lx", this, _tag);
 
     if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
       throw std::runtime_error("All input vectors should be of equal size");
@@ -83,22 +83,22 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
   }
 
  public:
-  friend std::shared_ptr<UCXXBufferRequests> tagMultiSend(std::shared_ptr<UCXXEndpoint> endpoint,
-                                                          std::vector<void*>& buffer,
-                                                          std::vector<size_t>& size,
-                                                          std::vector<int>& isCUDA,
-                                                          const ucp_tag_t tag)
+  friend std::shared_ptr<UCXXRequestTagMulti> tagMultiSend(std::shared_ptr<UCXXEndpoint> endpoint,
+                                                           std::vector<void*>& buffer,
+                                                           std::vector<size_t>& size,
+                                                           std::vector<int>& isCUDA,
+                                                           const ucp_tag_t tag)
   {
-    ucxx_trace_req("UCXXBufferRequests::tagMultiSend");
-    return std::shared_ptr<UCXXBufferRequests>(
-      new UCXXBufferRequests(endpoint, buffer, size, isCUDA, tag));
+    ucxx_trace_req("UCXXRequestTagMulti::tagMultiSend");
+    return std::shared_ptr<UCXXRequestTagMulti>(
+      new UCXXRequestTagMulti(endpoint, buffer, size, isCUDA, tag));
   }
 
-  friend std::shared_ptr<UCXXBufferRequests> tagMultiRecv(std::shared_ptr<UCXXEndpoint> endpoint,
-                                                          const ucp_tag_t tag)
+  friend std::shared_ptr<UCXXRequestTagMulti> tagMultiRecv(std::shared_ptr<UCXXEndpoint> endpoint,
+                                                           const ucp_tag_t tag)
   {
-    ucxx_trace_req("UCXXBufferRequests::tagMultiRecv");
-    auto ret = std::shared_ptr<UCXXBufferRequests>(new UCXXBufferRequests(endpoint, tag));
+    ucxx_trace_req("UCXXRequestTagMulti::tagMultiRecv");
+    auto ret = std::shared_ptr<UCXXRequestTagMulti>(new UCXXRequestTagMulti(endpoint, tag));
     return ret;
   }
 
@@ -144,7 +144,7 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
 
     std::vector<Header> headers;
 
-    ucxx_trace_req("UCXXBufferRequests::recvFrames request: %p, tag: %lx", this, _tag);
+    ucxx_trace_req("UCXXRequestTagMulti::recvFrames request: %p, tag: %lx", this, _tag);
 
     for (auto& br : _bufferRequests)
       headers.push_back(Header(*br->stringBuffer));
@@ -158,10 +158,10 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
           buf->data(),
           buf->getSize(),
           _tag,
-          std::bind(std::mem_fn(&UCXXBufferRequests::markCompleted), this, std::placeholders::_1),
+          std::bind(std::mem_fn(&UCXXRequestTagMulti::markCompleted), this, std::placeholders::_1),
           bufferRequest);
         bufferRequest->pyBuffer = std::move(buf);
-        ucxx_trace_req("UCXXBufferRequests::recvFrames request: %p, tag: %lx, pyBuffer: %p",
+        ucxx_trace_req("UCXXRequestTagMulti::recvFrames request: %p, tag: %lx, pyBuffer: %p",
                        this,
                        _tag,
                        bufferRequest->pyBuffer.get());
@@ -170,7 +170,7 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
     }
 
     _isFilled = true;
-    ucxx_trace_req("UCXXBufferRequests::recvFrames request: %p, tag: %lx, size: %lu, isFilled: %d",
+    ucxx_trace_req("UCXXRequestTagMulti::recvFrames request: %p, tag: %lx, size: %lu, isFilled: %d",
                    this,
                    _tag,
                    _bufferRequests.size(),
@@ -198,7 +198,7 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
   {
     if (_send) throw std::runtime_error("Send requests cannot call recvFrames()");
 
-    ucxx_trace_req("UCXXBufferRequests::recvHeader entering, request: %p, tag: %lx", this, _tag);
+    ucxx_trace_req("UCXXRequestTagMulti::recvHeader entering, request: %p, tag: %lx", this, _tag);
 
     auto bufferRequest          = std::make_shared<UCXXBufferRequest>();
     bufferRequest->stringBuffer = std::make_shared<std::string>(Header::dataSize(), 0);
@@ -206,7 +206,7 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
       bufferRequest->stringBuffer->data(),
       bufferRequest->stringBuffer->size(),
       _tag,
-      std::bind(std::mem_fn(&UCXXBufferRequests::callback), this, std::placeholders::_1),
+      std::bind(std::mem_fn(&UCXXRequestTagMulti::callback), this, std::placeholders::_1),
       nullptr);
 
     _bufferRequests.push_back(bufferRequest);
@@ -220,7 +220,7 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
       callback();
     }
 
-    ucxx_trace_req("UCXXBufferRequests::recvHeader exiting, request: %p, tag: %lx, empty: %d",
+    ucxx_trace_req("UCXXRequestTagMulti::recvHeader exiting, request: %p, tag: %lx, empty: %d",
                    this,
                    _tag,
                    _bufferRequests.empty());
@@ -232,18 +232,18 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
 
     // TODO: Remove arg
     ucxx_trace_req(
-      "UCXXBufferRequests::callback request: %p, tag: %lx, arg: %p", this, _tag, arg.get());
+      "UCXXRequestTagMulti::callback request: %p, tag: %lx, arg: %p", this, _tag, arg.get());
 
     if (_bufferRequests.empty()) {
       ucxx_trace_req(
-        "UCXXBufferRequests::callback first header, request: %p, tag: %lx", this, _tag);
+        "UCXXRequestTagMulti::callback first header, request: %p, tag: %lx", this, _tag);
       recvHeader();
     } else {
       const auto& request = _bufferRequests.back();
       auto header         = Header(*_bufferRequests.back()->stringBuffer);
 
       ucxx_trace_req(
-        "UCXXBufferRequests::callback request: %p, tag: %lx, "
+        "UCXXRequestTagMulti::callback request: %p, tag: %lx, "
         "num_requests: %lu, next: %d, request isCompleted: %d, "
         "request status: %s",
         this,
@@ -287,7 +287,7 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
         buffer[i],
         size[i],
         _tag,
-        std::bind(std::mem_fn(&UCXXBufferRequests::markCompleted), this, std::placeholders::_1),
+        std::bind(std::mem_fn(&UCXXRequestTagMulti::markCompleted), this, std::placeholders::_1),
         bufferRequest);
       bufferRequest->request = r;
       _bufferRequests.push_back(bufferRequest);
@@ -298,6 +298,6 @@ class UCXXBufferRequests : public std::enable_shared_from_this<UCXXBufferRequest
   }
 };
 
-typedef std::shared_ptr<UCXXBufferRequests> UCXXBufferRequestsPtr;
+typedef std::shared_ptr<UCXXRequestTagMulti> UCXXRequestTagMultiPtr;
 
 }  // namespace ucxx

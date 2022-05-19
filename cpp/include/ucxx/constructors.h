@@ -5,7 +5,7 @@
 namespace ucxx {
 
 class UCXXAddress;
-class UCXXBufferRequests;
+class UCXXRequestTagMulti;
 class UCXXContext;
 class UCXXEndpoint;
 class UCXXListener;
@@ -42,18 +42,18 @@ std::shared_ptr<UCXXListener> createListener(std::shared_ptr<UCXXWorker> worker,
 template <class... Args>
 std::shared_ptr<UCXXWorker> createWorker(Args&&... args);
 
-std::shared_ptr<UCXXBufferRequests> tagMultiSend(std::shared_ptr<UCXXEndpoint> endpoint,
-                                                 std::vector<void*>& buffer,
-                                                 std::vector<size_t>& size,
-                                                 std::vector<int>& isCUDA,
-                                                 const ucp_tag_t tag);
+std::shared_ptr<UCXXRequestTagMulti> tagMultiSend(std::shared_ptr<UCXXEndpoint> endpoint,
+                                                  std::vector<void*>& buffer,
+                                                  std::vector<size_t>& size,
+                                                  std::vector<int>& isCUDA,
+                                                  const ucp_tag_t tag);
 void tagMultiSendBlocking(std::shared_ptr<UCXXEndpoint> endpoint,
                           std::vector<void*>& buffer,
                           std::vector<size_t>& size,
                           std::vector<int>& isCUDA,
                           ucp_tag_t tag);
-std::shared_ptr<UCXXBufferRequests> tagMultiRecv(std::shared_ptr<UCXXEndpoint> endpoint,
-                                                 const ucp_tag_t tag);
+std::shared_ptr<UCXXRequestTagMulti> tagMultiRecv(std::shared_ptr<UCXXEndpoint> endpoint,
+                                                  const ucp_tag_t tag);
 std::vector<std::unique_ptr<UCXXPyBuffer>> tagMultiRecvBlocking(
   std::shared_ptr<UCXXEndpoint> endpoint, ucp_tag_t tag);
 

@@ -210,7 +210,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         PyObject* getPyFuture() except +raise_py_error
 
 
-cdef extern from "<ucxx/transfer_tag_multi.h>" namespace "ucxx" nogil:
+cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
 
     ctypedef struct UCXXBufferRequest:
         shared_ptr[UCXXRequest] request
@@ -219,20 +219,20 @@ cdef extern from "<ucxx/transfer_tag_multi.h>" namespace "ucxx" nogil:
 
     ctypedef shared_ptr[UCXXBufferRequest] UCXXBufferRequestPtr
 
-    ctypedef shared_ptr[UCXXBufferRequests] UCXXBufferRequestsPtr
+    ctypedef shared_ptr[UCXXRequestTagMulti] UCXXRequestTagMultiPtr
 
-    cdef cppclass UCXXBufferRequests:
+    cdef cppclass UCXXRequestTagMulti:
         vector[UCXXBufferRequestPtr] _bufferRequests
         bint _isFilled
         shared_ptr[UCXXEndpoint] _endpoint
         ucp_tag_t _tag
         bint _send
 
-    UCXXBufferRequestsPtr tagMultiRecv(
+    UCXXRequestTagMultiPtr tagMultiRecv(
         shared_ptr[UCXXEndpoint] endpoint,
         ucp_tag_t tag,
     ) except +raise_py_error
-    UCXXBufferRequestsPtr tagMultiSend(
+    UCXXRequestTagMultiPtr tagMultiSend(
         shared_ptr[UCXXEndpoint] endpoint,
         vector[void*]& buffer,
         vector[size_t]& length,

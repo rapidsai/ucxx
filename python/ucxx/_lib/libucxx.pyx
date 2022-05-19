@@ -459,18 +459,18 @@ cdef class UCXBufferRequest:
 
 cdef class UCXBufferRequests:
     cdef:
-        UCXXBufferRequestsPtr _ucxx_buffer_requests
+        UCXXRequestTagMultiPtr _ucxx_buffer_requests
         bint _is_completed
         tuple _buffer_requests
         tuple _requests
 
     def __init__(self, uintptr_t unique_ptr_buffer_requests):
-        cdef UCXXBufferRequests ucxx_buffer_requests
+        cdef UCXXRequestTagMulti ucxx_buffer_requests
         self._is_completed = False
         self._requests = tuple()
 
         self._ucxx_buffer_requests = (
-            deref(<UCXXBufferRequestsPtr *> unique_ptr_buffer_requests)
+            deref(<UCXXRequestTagMultiPtr *> unique_ptr_buffer_requests)
         )
 
     def _populate_requests(self):
@@ -667,7 +667,7 @@ cdef class UCXEndpoint():
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
-        cdef UCXXBufferRequestsPtr ucxx_buffer_requests
+        cdef UCXXRequestTagMultiPtr ucxx_buffer_requests
 
         for arr in arrays:
             if not isinstance(arr, Array):
@@ -701,7 +701,7 @@ cdef class UCXEndpoint():
             tagMultiSendBlocking(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
 
     def tag_recv_multi(self, size_t tag):
-        cdef UCXXBufferRequestsPtr ucxx_buffer_requests
+        cdef UCXXRequestTagMultiPtr ucxx_buffer_requests
 
         with nogil:
             ucxx_buffer_requests = tagMultiRecv(self._endpoint, tag)
