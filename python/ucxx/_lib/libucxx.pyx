@@ -46,7 +46,7 @@ cdef ptr_to_ndarray(void* ptr, np.npy_intp N):
 
 def _get_rmm_buffer(uintptr_t unique_ptr_recv_buffer):
     cdef unique_ptr[UCXXPyBuffer] recv_buffer = (
-        move((<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer)[0])
+        move(deref(<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer))
     )
     cdef UCXXPyRMMBufferPtr rmm_buffer = (
         dynamic_cast[UCXXPyRMMBufferPtr](recv_buffer.get())
@@ -56,7 +56,7 @@ def _get_rmm_buffer(uintptr_t unique_ptr_recv_buffer):
 
 def _get_host_buffer(uintptr_t unique_ptr_recv_buffer):
     cdef unique_ptr[UCXXPyBuffer] recv_buffer = (
-        move((<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer)[0])
+        move(deref(<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer))
     )
     cdef UCXXPyHostBufferPtr host_buffer = (
         dynamic_cast[UCXXPyHostBufferPtr](recv_buffer.get())
@@ -196,7 +196,7 @@ cdef class UCXAddress():
         shared_ptr[UCXXAddress] _address
 
     def __init__(self, uintptr_t shared_ptr_address):
-        self._address = (<shared_ptr[UCXXAddress] *> shared_ptr_address)[0]
+        self._address = deref(<shared_ptr[UCXXAddress] *> shared_ptr_address)
 
     @classmethod
     def create_from_worker(cls, UCXWorker worker):
@@ -351,7 +351,7 @@ cdef class UCXWorker():
         )
         with nogil:
             self._worker.get().setProgressThreadStartCallback(
-                func_generic_callback[0], <void*>self._progress_thread_start_cb_data
+                deref(func_generic_callback), <void*>self._progress_thread_start_cb_data
             )
         del func_generic_callback
 
@@ -385,7 +385,7 @@ cdef class UCXRequest():
         bint _is_completed
 
     def __init__(self, uintptr_t shared_ptr_request):
-        self._request = (<shared_ptr[UCXXRequest] *> shared_ptr_request)[0]
+        self._request = deref(<shared_ptr[UCXXRequest] *> shared_ptr_request)
         self._is_completed = False
 
     def is_completed(self, int64_t period_ns=0):
@@ -437,7 +437,7 @@ cdef class UCXBufferRequest:
         UCXXBufferRequestPtr _buffer_request
 
     def __init__(self, uintptr_t shared_ptr_buffer_request):
-        self._buffer_request = (<UCXXBufferRequestPtr *> shared_ptr_buffer_request)[0]
+        self._buffer_request = deref(<UCXXBufferRequestPtr *> shared_ptr_buffer_request)
 
     def get_request(self):
         return UCXRequest(<uintptr_t><void*>&self._buffer_request.get().request)
@@ -470,7 +470,7 @@ cdef class UCXBufferRequests:
         self._requests = tuple()
 
         self._ucxx_buffer_requests = (
-            (<UCXXBufferRequestsPtr *> unique_ptr_buffer_requests)[0]
+            deref(<UCXXBufferRequestsPtr *> unique_ptr_buffer_requests)
         )
 
     def _populate_requests(self):
@@ -561,7 +561,7 @@ cdef class UCXEndpoint():
         dict _close_cb_data
 
     def __init__(self, uintptr_t shared_ptr_endpoint):
-        self._endpoint = (<shared_ptr[UCXXEndpoint] *> shared_ptr_endpoint)[0]
+        self._endpoint = deref(<shared_ptr[UCXXEndpoint] *> shared_ptr_endpoint)
 
     @classmethod
     def create(
@@ -737,7 +737,7 @@ cdef class UCXEndpoint():
         )
         with nogil:
             self._endpoint.get().setCloseCallback(
-                func_close_callback[0], <void*>self._close_cb_data
+                deref(func_close_callback), <void*>self._close_cb_data
             )
         del func_close_callback
 
@@ -764,7 +764,7 @@ cdef class UCXListener():
         dict _cb_data
 
     def __init__(self, uintptr_t shared_ptr_listener, dict cb_data):
-        self._listener = (<shared_ptr[UCXXListener] *> shared_ptr_listener)[0]
+        self._listener = deref(<shared_ptr[UCXXListener] *> shared_ptr_listener)
         self._cb_data = cb_data
 
     @classmethod
