@@ -137,6 +137,7 @@ class UCXXEndpoint : public UCXXComponent {
     void* buffer,
     size_t length,
     ucp_tag_t tag,
+    const bool enablePythonFuture                               = true,
     std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
     std::shared_ptr<void> callbackData                          = nullptr);
 
@@ -144,6 +145,7 @@ class UCXXEndpoint : public UCXXComponent {
     void* buffer,
     size_t length,
     ucp_tag_t tag,
+    const bool enablePythonFuture                               = true,
     std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
     std::shared_ptr<void> callbackData                          = nullptr);
 

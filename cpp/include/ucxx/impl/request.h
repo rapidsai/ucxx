@@ -22,8 +22,12 @@ namespace ucxx {
 
 UCXXRequest::UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
                          std::shared_ptr<NotificationRequest> notificationRequest,
-                         const std::string operationName)
-  : _endpoint{endpoint}, _notificationRequest(notificationRequest), _operationName(operationName)
+                         const std::string operationName,
+                         const bool enablePythonFuture)
+  : _endpoint{endpoint},
+    _notificationRequest(notificationRequest),
+    _operationName(operationName),
+    _enablePythonFuture(enablePythonFuture)
 {
   auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
 
@@ -34,8 +38,10 @@ UCXXRequest::UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
 
   _handle = std::make_shared<ucxx_request_t>();
 #if UCXX_ENABLE_PYTHON
-  _handle->py_future = worker->getPythonFuture();
-  ucxx_trace_req("request->py_future: %p", _handle->py_future.get());
+  if (_enablePythonFuture) {
+    _handle->py_future = worker->getPythonFuture();
+    ucxx_trace_req("request->py_future: %p", _handle->py_future.get());
+  }
 #endif
 
   setParent(endpoint);
@@ -160,8 +166,10 @@ void UCXXRequest::setStatus()
   _handle->status = _requestStatus;
 
 #if UCXX_ENABLE_PYTHON
-  auto future = std::static_pointer_cast<PythonFuture>(_handle->py_future);
-  future->notify(_requestStatus);
+  if (_enablePythonFuture) {
+    auto future = std::static_pointer_cast<PythonFuture>(_handle->py_future);
+    future->notify(_requestStatus);
+  }
 #endif
 }
 

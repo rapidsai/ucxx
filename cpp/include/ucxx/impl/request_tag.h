@@ -20,11 +20,12 @@ std::shared_ptr<UCXXRequestTag> createRequestTag(
   void* buffer,
   size_t length,
   ucp_tag_t tag,
+  const bool enablePythonFuture                               = true,
   std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
   std::shared_ptr<void> callbackData                          = nullptr)
 {
-  return std::shared_ptr<UCXXRequestTag>(
-    new UCXXRequestTag(endpoint, send, buffer, length, tag, callbackFunction, callbackData));
+  return std::shared_ptr<UCXXRequestTag>(new UCXXRequestTag(
+    endpoint, send, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
 UCXXRequestTag::UCXXRequestTag(std::shared_ptr<UCXXEndpoint> endpoint,
@@ -32,11 +33,13 @@ UCXXRequestTag::UCXXRequestTag(std::shared_ptr<UCXXEndpoint> endpoint,
                                void* buffer,
                                size_t length,
                                ucp_tag_t tag,
+                               const bool enablePythonFuture,
                                std::function<void(std::shared_ptr<void>)> callbackFunction,
                                std::shared_ptr<void> callbackData)
   : UCXXRequest(endpoint,
                 std::make_shared<NotificationRequest>(send, buffer, length, tag),
-                std::string(send ? "tag_send" : "tag_recv"))
+                std::string(send ? "tag_send" : "tag_recv"),
+                enablePythonFuture)
 {
   auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
 
@@ -98,26 +101,28 @@ void UCXXRequestTag::request()
 
 void UCXXRequestTag::populateNotificationRequest()
 {
-  auto data = _notificationRequest;
+  const bool pythonFutureLog = _enablePythonFuture & UCXX_ENABLE_PYTHON;
 
   request();
+
 #if UCXX_ENABLE_PYTHON
-  ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
-                 _operationName.c_str(),
-                 _requestStatusPtr,
-                 _notificationRequest->_tag,
-                 _notificationRequest->_buffer,
-                 _notificationRequest->_length,
-                 _handle->py_future.get(),
-                 _handle->py_future->getHandle());
-#else
-  ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
-                 _operationName.c_str(),
-                 _requestStatusPtr,
-                 _notificationRequest->_tag,
-                 _notificationRequest->_buffer,
-                 _notificationRequest->_length);
+  if (pythonFutureLog)
+    ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
+                   _operationName.c_str(),
+                   _requestStatusPtr,
+                   _notificationRequest->_tag,
+                   _notificationRequest->_buffer,
+                   _notificationRequest->_length,
+                   _handle->py_future.get(),
+                   _handle->py_future->getHandle());
 #endif
+  if (!pythonFutureLog)
+    ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
+                   _operationName.c_str(),
+                   _requestStatusPtr,
+                   _notificationRequest->_tag,
+                   _notificationRequest->_buffer,
+                   _notificationRequest->_length);
   process();
 }
 

@@ -135,12 +135,13 @@ std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_send(
   void* buffer,
   size_t length,
   ucp_tag_t tag,
+  const bool enablePythonFuture,
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
-  auto request =
-    createRequestTag(endpoint, true, buffer, length, tag, callbackFunction, callbackData);
+  auto request  = createRequestTag(
+    endpoint, true, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData);
   registerInflightRequest(request);
   return request;
 }
@@ -149,12 +150,13 @@ std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_recv(
   void* buffer,
   size_t length,
   ucp_tag_t tag,
+  const bool enablePythonFuture,
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
-  auto request =
-    createRequestTag(endpoint, false, buffer, length, tag, callbackFunction, callbackData);
+  auto request  = createRequestTag(
+    endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData);
   registerInflightRequest(request);
   return request;
 }

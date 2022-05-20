@@ -27,10 +27,12 @@ class UCXXRequest : public UCXXComponent {
   std::string _operationName{"request_undefined"};
   ucs_status_ptr_t _requestStatusPtr{nullptr};
   ucs_status_t _requestStatus{UCS_INPROGRESS};
+  bool _enablePythonFuture{true};
 
   UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
               std::shared_ptr<NotificationRequest> notificationRequest,
-              const std::string operationName);
+              const std::string operationName,
+              const bool enablePythonFuture = true);
 
   void process();
 

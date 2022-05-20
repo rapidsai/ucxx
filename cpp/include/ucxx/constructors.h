@@ -67,6 +67,7 @@ std::shared_ptr<UCXXRequestTag> createRequestTag(
   void* buffer,
   size_t length,
   ucp_tag_t tag,
+  const bool enablePythonFuture,
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData);
 

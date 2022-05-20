@@ -20,6 +20,7 @@ class UCXXRequestTag : public UCXXRequest {
                  void* buffer,
                  size_t length,
                  ucp_tag_t tag,
+                 const bool enablePythonFuture                               = true,
                  std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
                  std::shared_ptr<void> callbackData                          = nullptr);
 
@@ -30,6 +31,7 @@ class UCXXRequestTag : public UCXXRequest {
     void* buffer,
     size_t length,
     ucp_tag_t tag,
+    const bool enablePythonFuture,
     std::function<void(std::shared_ptr<void>)> callbackFunction,
     std::shared_ptr<void> callbackData);
 

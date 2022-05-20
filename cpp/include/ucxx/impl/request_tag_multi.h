@@ -115,20 +115,32 @@ void UCXXRequestTagMulti::recvFrames()
 
   std::vector<Header> headers;
 
-  ucxx_trace_req("UCXXRequestTagMulti::recvFrames request: %p, tag: %lx", this, _tag);
+  ucxx_trace_req(
+    "UCXXRequestTagMulti::recvFrames request: %p, tag: %lx, _bufferRequests.size(): %lu",
+    this,
+    _tag,
+    _bufferRequests.size());
 
-  for (auto& br : _bufferRequests)
+  for (auto& br : _bufferRequests) {
+    ucxx_trace_req(
+      "UCXXRequestTagMulti::recvFrames request: %p, tag: %lx, *br->stringBuffer.size(): %lu",
+      this,
+      _tag,
+      br->stringBuffer->size());
     headers.push_back(Header(*br->stringBuffer));
+  }
 
   for (auto& h : headers) {
     _totalFrames += h.nframes;
     for (size_t i = 0; i < h.nframes; ++i) {
-      auto bufferRequest     = std::make_shared<UCXXBufferRequest>();
+      auto bufferRequest = std::make_shared<UCXXBufferRequest>();
+      _bufferRequests.push_back(bufferRequest);
       auto buf               = allocateBuffer(h.isCUDA[i], h.size[i]);
       bufferRequest->request = _endpoint->tag_recv(
         buf->data(),
         buf->getSize(),
         _tag,
+        false,
         std::bind(std::mem_fn(&UCXXRequestTagMulti::markCompleted), this, std::placeholders::_1),
         bufferRequest);
       bufferRequest->pyBuffer = std::move(buf);
@@ -136,7 +148,6 @@ void UCXXRequestTagMulti::recvFrames()
                      this,
                      _tag,
                      bufferRequest->pyBuffer.get());
-      _bufferRequests.push_back(bufferRequest);
     }
   }
 
@@ -174,28 +185,24 @@ void UCXXRequestTagMulti::markCompleted(std::shared_ptr<void> request)
 
 void UCXXRequestTagMulti::recvHeader()
 {
-  if (_send) throw std::runtime_error("Send requests cannot call recvFrames()");
+  if (_send) throw std::runtime_error("Send requests cannot call recvHeader()");
 
   ucxx_trace_req("UCXXRequestTagMulti::recvHeader entering, request: %p, tag: %lx", this, _tag);
 
-  auto bufferRequest          = std::make_shared<UCXXBufferRequest>();
+  auto bufferRequest = std::make_shared<UCXXBufferRequest>();
+  _bufferRequests.push_back(bufferRequest);
   bufferRequest->stringBuffer = std::make_shared<std::string>(Header::dataSize(), 0);
   bufferRequest->request      = _endpoint->tag_recv(
     bufferRequest->stringBuffer->data(),
     bufferRequest->stringBuffer->size(),
     _tag,
+    false,
     std::bind(std::mem_fn(&UCXXRequestTagMulti::callback), this, std::placeholders::_1),
     nullptr);
 
-  _bufferRequests.push_back(bufferRequest);
   if (bufferRequest->request->isCompleted()) {
     // TODO: Errors may not be raisable within callback
     bufferRequest->request->checkError();
-
-    // TODO: What if it didn't complete immediately but worker has
-    // progressed and completed when it reaches this point? Potential
-    // duplication needs to be resolved.
-    callback();
   }
 
   ucxx_trace_req("UCXXRequestTagMulti::recvHeader exiting, request: %p, tag: %lx, empty: %d",
@@ -206,7 +213,7 @@ void UCXXRequestTagMulti::recvHeader()
 
 void UCXXRequestTagMulti::callback(std::shared_ptr<void> arg)
 {
-  if (_send) throw std::runtime_error("Send requests cannot call recvFrames()");
+  if (_send) throw std::runtime_error("Send requests cannot call callback()");
 
   // TODO: Remove arg
   ucxx_trace_req(
@@ -216,19 +223,20 @@ void UCXXRequestTagMulti::callback(std::shared_ptr<void> arg)
     ucxx_trace_req("UCXXRequestTagMulti::callback first header, request: %p, tag: %lx", this, _tag);
     recvHeader();
   } else {
-    const auto& request = _bufferRequests.back();
-    auto header         = Header(*_bufferRequests.back()->stringBuffer);
+    const auto request = _bufferRequests.back();
+    auto header        = Header(*_bufferRequests.back()->stringBuffer);
 
-    ucxx_trace_req(
-      "UCXXRequestTagMulti::callback request: %p, tag: %lx, "
-      "num_requests: %lu, next: %d, request isCompleted: %d, "
-      "request status: %s",
-      this,
-      _tag,
-      _bufferRequests.size(),
-      header.next,
-      request->request->isCompleted(),
-      ucs_status_string(request->request->getStatus()));
+    // TODO FIXME
+    // ucxx_trace_req(
+    //   "UCXXRequestTagMulti::callback request: %p, tag: %lx, "
+    //   "num_requests: %lu, next: %d, request isCompleted: %d, "
+    //   "request status: %s",
+    //   this,
+    //   _tag,
+    //   _bufferRequests.size(),
+    //   header.next,
+    //   request->request->isCompleted(),
+    //   ucs_status_string(request->request->getStatus()));
 
     if (header.next)
       recvHeader();
@@ -252,7 +260,7 @@ void UCXXRequestTagMulti::send(std::vector<void*>& buffer,
     size_t idx = i * HeaderFramesSize;
     Header header(hasNext, headerFrames, (bool*)&isCUDA[idx], (size_t*)&size[idx]);
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
-    auto r = _endpoint->tag_send(serializedHeader->data(), serializedHeader->size(), _tag);
+    auto r = _endpoint->tag_send(serializedHeader->data(), serializedHeader->size(), _tag, false);
 
     auto bufferRequest          = std::make_shared<UCXXBufferRequest>();
     bufferRequest->request      = r;
@@ -266,6 +274,7 @@ void UCXXRequestTagMulti::send(std::vector<void*>& buffer,
       buffer[i],
       size[i],
       _tag,
+      false,
       std::bind(std::mem_fn(&UCXXRequestTagMulti::markCompleted), this, std::placeholders::_1),
       bufferRequest);
     bufferRequest->request = r;

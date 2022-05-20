@@ -65,9 +65,8 @@ void UCXXRequestStream::request()
 
 void UCXXRequestStream::populateNotificationRequest()
 {
-  auto data = _notificationRequest;
-
   request();
+
 #if UCXX_ENABLE_PYTHON
   ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                  _operationName.c_str(),
