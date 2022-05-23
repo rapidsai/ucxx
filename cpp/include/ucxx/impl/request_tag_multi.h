@@ -226,7 +226,8 @@ void UCXXRequestTagMulti::callback(std::shared_ptr<void> arg)
     const auto request = _bufferRequests.back();
     auto header        = Header(*_bufferRequests.back()->stringBuffer);
 
-    // TODO FIXME
+    // FIXME: request->request is not available when recvHeader completes immediately,
+    // the `tag_recv` operation hasn't returned yet.
     // ucxx_trace_req(
     //   "UCXXRequestTagMulti::callback request: %p, tag: %lx, "
     //   "num_requests: %lu, next: %d, request isCompleted: %d, "
@@ -258,7 +259,7 @@ void UCXXRequestTagMulti::send(std::vector<void*>& buffer,
       hasNext ? HeaderFramesSize : HeaderFramesSize - (HeaderFramesSize * (i + 1) - _totalFrames);
 
     size_t idx = i * HeaderFramesSize;
-    Header header(hasNext, headerFrames, (bool*)&isCUDA[idx], (size_t*)&size[idx]);
+    Header header(hasNext, headerFrames, (int*)&isCUDA[idx], (size_t*)&size[idx]);
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
     auto r = _endpoint->tag_send(serializedHeader->data(), serializedHeader->size(), _tag, false);
 

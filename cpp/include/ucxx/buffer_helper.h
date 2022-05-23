@@ -40,7 +40,7 @@ class Header {
     }
   }
 
-  Header(bool next, size_t nframes, bool* isCUDA, size_t* size) : next{next}, nframes{nframes}
+  Header(bool next, size_t nframes, int* isCUDA, size_t* size) : next{next}, nframes{nframes}
   {
     std::copy(isCUDA, isCUDA + nframes, this->isCUDA);
     std::copy(size, size + nframes, this->size);
