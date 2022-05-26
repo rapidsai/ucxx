@@ -91,7 +91,7 @@ def server(queue, args):
     ctx = ucx_api.UCXContext()
     worker = ucx_api.UCXWorker(ctx)
 
-    if args.progress_mode == "threaded":
+    if args.progress_mode == "thread":
         worker.start_progress_thread()
     else:
         worker.init_blocking_progress_mode()
@@ -179,7 +179,7 @@ def client(port, server_address, args):
     ctx = ucx_api.UCXContext()
     worker = ucx_api.UCXWorker(ctx)
 
-    if args.progress_mode == "threaded":
+    if args.progress_mode == "thread":
         worker.start_progress_thread()
     else:
         worker.init_blocking_progress_mode()
@@ -390,9 +390,9 @@ def parse_args():
     )
     parser.add_argument(
         "--progress-mode",
-        default="threaded",
+        default="thread",
         help="Progress for the UCP worker. Valid options are: "
-        "'threaded' (default) and 'blocking'.",
+        "'thread' (default) and 'blocking'.",
         type=str,
     )
     parser.add_argument(
@@ -400,7 +400,7 @@ def parse_args():
         default=False,
         action="store_true",
         help="Wait for transfer requests with Python's asyncio, requires"
-        "`--progress-mode=threaded`. (Default: disabled)",
+        "`--progress-mode=thread`. (Default: disabled)",
     )
     parser.add_argument(
         "--no-detailed-report",
@@ -414,10 +414,10 @@ def parse_args():
         raise RuntimeError(
             "`--cuda-profile` requires `--object_type=cupy` or `--object_type=rmm`"
         )
-    if args.progress_mode != "blocking" and args.progress_mode != "threaded":
+    if args.progress_mode != "blocking" and args.progress_mode != "thread":
         raise RuntimeError(f"Invalid `--progress-mode`: '{args.progress_mode}'")
-    if args.asyncio_wait and args.progress_mode != "threaded":
-        raise RuntimeError("`--asyncio-wait` requires `--progress-mode=threaded`")
+    if args.asyncio_wait and args.progress_mode != "thread":
+        raise RuntimeError("`--asyncio-wait` requires `--progress-mode=thread`")
     return args
 
 

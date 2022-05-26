@@ -96,7 +96,7 @@ static void printUsage()
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
   std::cerr << "  -b          use blocking progress mode (enabled)" << std::endl;
-  std::cerr << "  -t          use threaded progress mode (disabled)" << std::endl;
+  std::cerr << "  -t          use thread progress mode (disabled)" << std::endl;
   std::cerr << "  -p <port>   port number to listen at (12345)" << std::endl;
   std::cerr << "  -s <bytes>  message size (8)" << std::endl;
   std::cerr << "  -n <int>    number of iterations to run (100)" << std::endl;

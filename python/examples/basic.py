@@ -67,9 +67,9 @@ def parse_args():
     parser.add_argument(
         "-m",
         "--progress-mode",
-        default="threaded",
+        default="thread",
         help="Progress mode for the UCP worker. Valid options are: "
-        "'threaded' (default) and 'blocking'.",
+        "'thread' (default) and 'blocking'.",
         type=str,
     )
     parser.add_argument(
@@ -95,7 +95,7 @@ def parse_args():
     )
 
     args = parser.parse_args()
-    valid_progress_modes = ["blocking", "threaded"]
+    valid_progress_modes = ["blocking", "thread"]
     if not any(args.progress_mode == v for v in valid_progress_modes):
         raise ValueError(
             f"Unknown progress mode '{args.progress_mode}', "
@@ -242,7 +242,7 @@ def main():
             for r in requests:
                 r.check_error()
 
-    if args.progress_mode == "threaded":
+    if args.progress_mode == "thread":
         worker.stop_progress_thread()
 
     for recv_buf, send_buf in zip(recv_bufs, send_bufs):

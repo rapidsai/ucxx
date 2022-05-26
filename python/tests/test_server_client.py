@@ -130,7 +130,7 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
 
 @pytest.mark.parametrize("transfer_api", ["stream", "tag"])
 @pytest.mark.parametrize("msg_size", [10, 2**24])
-@pytest.mark.parametrize("progress_mode", ["blocking", "threaded"])
+@pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
 def test_server_client(transfer_api, msg_size, progress_mode):
     put_queue, get_queue = mp.Queue(), mp.Queue()
     server = mp.Process(
