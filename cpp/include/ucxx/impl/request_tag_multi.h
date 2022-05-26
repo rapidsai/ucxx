@@ -30,8 +30,10 @@ UCXXRequestTagMulti::UCXXRequestTagMulti(std::shared_ptr<UCXXEndpoint> endpoint,
 {
   ucxx_trace_req("UCXXRequestTagMulti::UCXXRequestTagMulti [recv]: %p, tag: %lx", this, _tag);
 
-  auto worker   = UCXXEndpoint::getWorker(endpoint->getParent());
+  auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
+#if UCXX_ENABLE_PYTHON
   _pythonFuture = worker->getPythonFuture();
+#endif
 
   callback();
 }
@@ -48,8 +50,10 @@ UCXXRequestTagMulti::UCXXRequestTagMulti(std::shared_ptr<UCXXEndpoint> endpoint,
   if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
     throw std::runtime_error("All input vectors should be of equal size");
 
-  auto worker   = UCXXEndpoint::getWorker(endpoint->getParent());
+  auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
+#if UCXX_ENABLE_PYTHON
   _pythonFuture = worker->getPythonFuture();
+#endif
 
   send(buffer, size, isCUDA);
 }
@@ -173,7 +177,9 @@ void UCXXRequestTagMulti::markCompleted(std::shared_ptr<void> request)
   if (_completedRequests.size() == _totalFrames) {
     // TODO: Actually handle errors
     _status = UCS_OK;
+#if UCXX_ENABLE_PYTHON
     _pythonFuture->notify(UCS_OK);
+#endif
   }
 
   ucxx_trace_req("UCXXRequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
