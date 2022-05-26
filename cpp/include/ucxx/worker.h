@@ -54,7 +54,7 @@ class UCXXWorker : public UCXXComponent {
 #endif
 
   UCXXWorker(std::shared_ptr<ucxx::UCXXContext> context,
-             const bool enableDelayedNotification = true)
+             const bool enableDelayedNotification = false)
   {
     ucp_worker_params_t worker_params;
 

@@ -251,7 +251,7 @@ cdef class UCXWorker():
         dict _progress_thread_start_cb_data
         bint _is_request_notifier_available
 
-    def __init__(self, UCXContext context, enable_delayed_notification=True):
+    def __init__(self, UCXContext context, enable_delayed_notification=False):
         cdef bint ucxx_enable_delayed_notification = enable_delayed_notification
         with nogil:
             self._worker = context._context.get().createWorker(
@@ -713,7 +713,7 @@ cdef class UCXEndpoint():
         cdef vector[int] v_is_cuda
 
         for b, s, c in zip(buffer, size, is_cuda):
-            v_buffer.push_back(<void*><uintptr_t>b)
+            v_buffer.push_back(<void*>b)
             v_size.push_back(s)
             v_is_cuda.push_back(c)
 
