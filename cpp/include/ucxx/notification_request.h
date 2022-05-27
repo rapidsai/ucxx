@@ -8,7 +8,6 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <utility>
 #include <vector>
 
 #include <ucxx/log.h>
@@ -28,10 +27,7 @@ class NotificationRequest {
 
   NotificationRequest() = delete;
 
-  NotificationRequest(const bool send, void* buffer, const size_t length, const ucp_tag_t tag = 0)
-    : _send(send), _buffer(buffer), _length(length), _tag(tag)
-  {
-  }
+  NotificationRequest(const bool send, void* buffer, const size_t length, const ucp_tag_t tag = 0);
 };
 
 class NotificationRequestCallback {
@@ -39,9 +35,9 @@ class NotificationRequestCallback {
   NotificationRequestCallbackType _callback{nullptr};
 
  public:
-  NotificationRequestCallback(NotificationRequestCallbackType callback) : _callback(callback) {}
+  NotificationRequestCallback(NotificationRequestCallbackType callback);
 
-  NotificationRequestCallbackType get() { return _callback; }
+  NotificationRequestCallbackType get();
 };
 
 typedef std::shared_ptr<NotificationRequestCallback> NotificationRequestCallbackPtrType;
@@ -60,41 +56,9 @@ class DelayedNotificationRequestCollection {
   DelayedNotificationRequestCollection& operator=(DelayedNotificationRequestCollection&& o) =
     delete;
 
-  void process()
-  {
-    if (_collection.size() > 0) {
-      ucxx_trace_req("Submitting %lu requests", _collection.size());
+  void process();
 
-      // Move _collection to a local copy in order to to hold the lock for as
-      // short as possible
-      decltype(_collection) toProcess;
-      {
-        std::lock_guard<std::mutex> lock(_mutex);
-        std::swap(_collection, toProcess);
-      }
-
-      for (auto& dnr : toProcess) {
-        auto callback = dnr->get();
-
-        ucxx_trace_req("Submitting request: %p",
-                       callback.target<void (*)(std::shared_ptr<void>)>());
-
-        if (callback) callback();
-      }
-    }
-  }
-
-  void registerRequest(NotificationRequestCallbackType callback)
-  {
-    auto r = std::make_shared<NotificationRequestCallback>(callback);
-
-    {
-      std::lock_guard<std::mutex> lock(_mutex);
-      _collection.push_back(r);
-    }
-    ucxx_trace_req("Registered submit request: %p",
-                   callback.target<void (*)(std::shared_ptr<void>)>());
-  }
+  void registerRequest(NotificationRequestCallbackType callback);
 };
 
 }  // namespace ucxx

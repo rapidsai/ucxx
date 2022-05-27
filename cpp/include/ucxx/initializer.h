@@ -5,23 +5,19 @@
  */
 #pragma once
 
-#include "log.h"
-
 namespace ucxx {
 
 class UCXXInitializer {
- public:
-  static UCXXInitializer& getInstance()
-  {
-    static UCXXInitializer instance;
-    return instance;
-  }
-
  private:
-  UCXXInitializer() { parseLogLevel(); }
+  UCXXInitializer();
 
   UCXXInitializer(const UCXXInitializer&) = delete;
   UCXXInitializer& operator=(UCXXInitializer const&) = delete;
+  UCXXInitializer(UCXXInitializer&& o)               = delete;
+  UCXXInitializer& operator=(UCXXInitializer&& o) = delete;
+
+ public:
+  static UCXXInitializer& getInstance();
 };
 
 }  // namespace ucxx

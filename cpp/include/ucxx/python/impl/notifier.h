@@ -5,10 +5,10 @@
  */
 #pragma once
 
+#if UCXX_ENABLE_PYTHON
 #include <memory>
 #include <mutex>
 
-#if UCXX_ENABLE_PYTHON
 #include <ucxx/python/python_future.h>
 #endif
 

@@ -14,12 +14,12 @@ class UCXXComponent : public std::enable_shared_from_this<UCXXComponent> {
   std::shared_ptr<UCXXComponent> _parent{nullptr};
 
  public:
-  virtual ~UCXXComponent() {}
+  virtual ~UCXXComponent();
 
   // Called from child's constructor
-  void setParent(std::shared_ptr<UCXXComponent> parent) { _parent = parent; }
+  void setParent(std::shared_ptr<UCXXComponent> parent);
 
-  std::shared_ptr<UCXXComponent> getParent() const { return _parent; }
+  std::shared_ptr<UCXXComponent> getParent() const;
 };
 
 }  // namespace ucxx

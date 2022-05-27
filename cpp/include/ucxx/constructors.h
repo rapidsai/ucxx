@@ -18,8 +18,8 @@ std::shared_ptr<UCXXAddress> createAddressFromWorker(std::shared_ptr<ucxx::UCXXW
 
 std::shared_ptr<UCXXAddress> createAddressFromString(std::string addressString);
 
-template <class... Args>
-std::shared_ptr<UCXXContext> createContext(Args&&... args);
+std::shared_ptr<UCXXContext> createContext(const UCXXConfigMap ucx_config,
+                                           const uint64_t feature_flags);
 
 std::shared_ptr<UCXXEndpoint> createEndpointFromHostname(std::shared_ptr<UCXXWorker> worker,
                                                          std::string ip_address,
@@ -39,8 +39,8 @@ std::shared_ptr<UCXXListener> createListener(std::shared_ptr<UCXXWorker> worker,
                                              ucp_listener_conn_callback_t callback,
                                              void* callback_args);
 
-template <class... Args>
-std::shared_ptr<UCXXWorker> createWorker(Args&&... args);
+std::shared_ptr<UCXXWorker> createWorker(std::shared_ptr<UCXXContext> context,
+                                         const bool enableDelayedNotification);
 
 std::shared_ptr<UCXXRequestTagMulti> tagMultiSend(std::shared_ptr<UCXXEndpoint> endpoint,
                                                   std::vector<void*>& buffer,

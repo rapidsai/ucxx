@@ -43,4 +43,6 @@ typedef enum {
 typedef std::unordered_map<UCXXRequest*, std::weak_ptr<UCXXRequest>> inflight_request_map_t;
 typedef std::shared_ptr<inflight_request_map_t> inflight_requests_t;
 
+typedef std::unordered_map<std::string, std::string> UCXXConfigMap;
+
 }  // namespace ucxx

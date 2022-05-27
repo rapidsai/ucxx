@@ -149,40 +149,9 @@ class UCXXEndpoint : public UCXXComponent {
     std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
     std::shared_ptr<void> callbackData                          = nullptr);
 
-  static std::shared_ptr<UCXXWorker> getWorker(std::shared_ptr<UCXXComponent> worker_or_listener)
-  {
-    auto worker = std::dynamic_pointer_cast<UCXXWorker>(worker_or_listener);
-    if (worker == nullptr) {
-      auto listener = std::dynamic_pointer_cast<UCXXListener>(worker_or_listener);
-      worker        = std::dynamic_pointer_cast<UCXXWorker>(listener->getParent());
-    }
-    return worker;
-  }
+  static std::shared_ptr<UCXXWorker> getWorker(std::shared_ptr<UCXXComponent> workerOrListener);
 
-  static void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
-  {
-    error_callback_data_t* data = (error_callback_data_t*)arg;
-    data->status                = status;
-    data->worker->scheduleRequestCancel(data->inflightRequests);
-    if (data->closeCallback) {
-      data->closeCallback(data->closeCallbackArg);
-      data->closeCallback    = nullptr;
-      data->closeCallbackArg = nullptr;
-    }
-
-    // Connection reset and timeout often represent just a normal remote
-    // endpoint disconnect, log only in debug mode.
-    if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
-      ucxx_debug("Error callback for endpoint %p called with status %d: %s",
-                 ep,
-                 status,
-                 ucs_status_string(status));
-    else
-      ucxx_error("Error callback for endpoint %p called with status %d: %s",
-                 ep,
-                 status,
-                 ucs_status_string(status));
-  }
+  static void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
 };
 
 }  // namespace ucxx
