@@ -37,9 +37,9 @@ class UCXXListener;
 class UCXXWorker : public UCXXComponent {
  private:
   ucp_worker_h _handle{nullptr};
-  int _epoll_fd{-1};
-  int _worker_fd{-1};
-  int _cancel_efd{-1};
+  int _epollFileDescriptor{-1};
+  int _workerFileDescriptor{-1};
+  int _wakeFileDescriptor{-1};
   std::shared_ptr<UCXXWorkerProgressThread> _progressThread{nullptr};
   inflight_requests_t _inflightRequestsToCancel{std::make_shared<inflight_request_map_t>()};
   std::mutex _inflightMutex{};
@@ -133,8 +133,8 @@ class UCXXWorker : public UCXXComponent {
 
     ucp_worker_destroy(_handle);
 
-    if (_epoll_fd >= 0) close(_epoll_fd);
-    if (_cancel_efd >= 0) close(_cancel_efd);
+    if (_epollFileDescriptor >= 0) close(_epollFileDescriptor);
+    if (_wakeFileDescriptor >= 0) close(_wakeFileDescriptor);
   }
 
   ucp_worker_h get_handle() { return _handle; }
@@ -148,30 +148,31 @@ class UCXXWorker : public UCXXComponent {
     int err;
 
     // Return if blocking progress mode was already initialized
-    if (_epoll_fd >= 0) return;
+    if (_epollFileDescriptor >= 0) return;
 
-    assert_ucs_status(ucp_worker_get_efd(_handle, &_worker_fd));
+    assert_ucs_status(ucp_worker_get_efd(_handle, &_workerFileDescriptor));
 
     arm();
 
-    _epoll_fd = epoll_create(1);
-    if (_epoll_fd == -1) throw std::ios_base::failure("epoll_create(1) returned -1");
+    _epollFileDescriptor = epoll_create(1);
+    if (_epollFileDescriptor == -1) throw std::ios_base::failure("epoll_create(1) returned -1");
 
-    _cancel_efd = eventfd(0, EFD_NONBLOCK);
-    if (_cancel_efd < 0) throw std::ios_base::failure("eventfd(0, EFD_NONBLOCK) returned -1");
+    _wakeFileDescriptor = eventfd(0, EFD_NONBLOCK);
+    if (_wakeFileDescriptor < 0)
+      throw std::ios_base::failure("eventfd(0, EFD_NONBLOCK) returned -1");
 
-    epoll_event worker_ev = {.events = EPOLLIN,
+    epoll_event workerEvent = {.events = EPOLLIN,
+                               .data   = {
+                                 .fd = _workerFileDescriptor,
+                               }};
+    epoll_event wakeEvent   = {.events = EPOLLIN,
                              .data   = {
-                               .fd = _worker_fd,
-                             }};
-    epoll_event cancel_ev = {.events = EPOLLIN,
-                             .data   = {
-                               .fd = _cancel_efd,
+                               .fd = _wakeFileDescriptor,
                              }};
 
-    err = epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _worker_fd, &worker_ev);
+    err = epoll_ctl(_epollFileDescriptor, EPOLL_CTL_ADD, _workerFileDescriptor, &workerEvent);
     if (err != 0) throw std::ios_base::failure(std::string("epoll_ctl() returned " + err));
-    err = epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _cancel_efd, &cancel_ev);
+    err = epoll_ctl(_epollFileDescriptor, EPOLL_CTL_ADD, _wakeFileDescriptor, &wakeEvent);
     if (err != 0) throw std::ios_base::failure(std::string("epoll_ctl() returned " + err));
   }
 
@@ -190,18 +191,21 @@ class UCXXWorker : public UCXXComponent {
 
     if (progress_once()) return true;
 
-    if ((_epoll_fd == -1) || !arm()) return false;
+    if ((_epollFileDescriptor == -1) || !arm()) return false;
 
     do {
-      ret = epoll_wait(_epoll_fd, &ev, 1, -1);
+      ret = epoll_wait(_epollFileDescriptor, &ev, 1, -1);
     } while ((ret == -1) && (errno == EINTR || errno == EAGAIN));
 
     return false;
   }
 
-  void cancel_progress_worker_event()
+  void wakeProgressEvent()
   {
-    int err = eventfd_write(_cancel_efd, 1);
+    if (_wakeFileDescriptor < 0)
+      throw std::ios_base::failure(std::string(
+        "attempt to wake progress event, but blocking progress mode was not initialized"));
+    int err = eventfd_write(_wakeFileDescriptor, 1);
     if (err < 0) throw std::ios_base::failure(std::string("eventfd_write() returned " + err));
   }
 
@@ -215,16 +219,23 @@ class UCXXWorker : public UCXXComponent {
 
   void progress()
   {
-    while (ucp_worker_progress(_handle) != 0)
+    while (progress_once())
       ;
   }
 
   void registerNotificationRequest(NotificationRequestCallbackType callback)
   {
-    if (_delayedNotificationRequestCollection == nullptr)
+    if (_delayedNotificationRequestCollection == nullptr) {
       callback();
-    else
+    } else {
       _delayedNotificationRequestCollection->registerRequest(callback);
+
+      /* Waking the progress event is needed here because the UCX request is
+       * not dispatched immediately. Thus we must wake the progress task so
+       * it will ensure the request is dispatched.
+       */
+      wakeProgressEvent();
+    }
   }
 
   void populatePythonFuturesPool()
@@ -327,7 +338,7 @@ class UCXXWorker : public UCXXComponent {
       return;
     }
 
-    if (_progressThread->pollingMode()) cancel_progress_worker_event();
+    if (_progressThread->pollingMode()) wakeProgressEvent();
     _progressThread = nullptr;
   }
 
