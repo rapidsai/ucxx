@@ -37,23 +37,23 @@ class Header {
   void print();
 };
 
-typedef void (*UCXXPyBufferDeleter)(void*);
+typedef void (*PyBufferDeleter)(void*);
 
-class UCXXPyBuffer {
+class PyBuffer {
  protected:
-  std::unique_ptr<void, UCXXPyBufferDeleter> _ptr{nullptr, [](void*) {}};
+  std::unique_ptr<void, PyBufferDeleter> _ptr{nullptr, [](void*) {}};
   bool _isCUDA{false};
   size_t _size{0};
   bool _isValid{false};
 
  public:
-  UCXXPyBuffer()                    = delete;
-  UCXXPyBuffer(const UCXXPyBuffer&) = delete;
-  UCXXPyBuffer& operator=(UCXXPyBuffer const&) = delete;
-  UCXXPyBuffer(UCXXPyBuffer&& o)               = delete;
-  UCXXPyBuffer& operator=(UCXXPyBuffer&& o) = delete;
+  PyBuffer()                = delete;
+  PyBuffer(const PyBuffer&) = delete;
+  PyBuffer& operator=(PyBuffer const&) = delete;
+  PyBuffer(PyBuffer&& o)               = delete;
+  PyBuffer& operator=(PyBuffer&& o) = delete;
 
-  UCXXPyBuffer(void* ptr, UCXXPyBufferDeleter deleter, const bool isCUDA, const size_t size);
+  PyBuffer(void* ptr, PyBufferDeleter deleter, const bool isCUDA, const size_t size);
 
   bool isValid();
 
@@ -64,11 +64,11 @@ class UCXXPyBuffer {
   virtual void* data() = 0;
 };
 
-class UCXXPyHostBuffer : public UCXXPyBuffer {
+class PyHostBuffer : public PyBuffer {
  public:
-  UCXXPyHostBuffer(const size_t size);
+  PyHostBuffer(const size_t size);
 
-  std::unique_ptr<void, UCXXPyBufferDeleter> get();
+  std::unique_ptr<void, PyBufferDeleter> get();
 
   void* release();
 
@@ -77,9 +77,9 @@ class UCXXPyHostBuffer : public UCXXPyBuffer {
   static void free(void* ptr);
 };
 
-class UCXXPyRMMBuffer : public UCXXPyBuffer {
+class PyRMMBuffer : public PyBuffer {
  public:
-  UCXXPyRMMBuffer(const size_t size);
+  PyRMMBuffer(const size_t size);
 
   std::unique_ptr<rmm::device_buffer> get();
 
@@ -88,9 +88,9 @@ class UCXXPyRMMBuffer : public UCXXPyBuffer {
   static void free(void* ptr);
 };
 
-std::unique_ptr<UCXXPyBuffer> allocateBuffer(const bool isCUDA, const size_t size);
+std::unique_ptr<PyBuffer> allocateBuffer(const bool isCUDA, const size_t size);
 
-typedef UCXXPyHostBuffer* UCXXPyHostBufferPtr;
-typedef UCXXPyRMMBuffer* UCXXPyRMMBufferPtr;
+typedef PyHostBuffer* PyHostBufferPtr;
+typedef PyRMMBuffer* PyRMMBufferPtr;
 
 }  // namespace ucxx

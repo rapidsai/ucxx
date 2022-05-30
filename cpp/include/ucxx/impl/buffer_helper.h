@@ -85,73 +85,69 @@ void Header::print()
   std::cout << std::endl;
 }
 
-// UCXXPyBuffer class
-UCXXPyBuffer::UCXXPyBuffer(void* ptr,
-                           UCXXPyBufferDeleter deleter,
-                           const bool isCUDA,
-                           const size_t size)
-  : _ptr{std::unique_ptr<void, UCXXPyBufferDeleter>(ptr, deleter)},
+// PyBuffer class
+PyBuffer::PyBuffer(void* ptr, PyBufferDeleter deleter, const bool isCUDA, const size_t size)
+  : _ptr{std::unique_ptr<void, PyBufferDeleter>(ptr, deleter)},
     _isCUDA{isCUDA},
     _size{size},
     _isValid{true}
 {
 }
 
-bool UCXXPyBuffer::isValid() { return _isValid; }
+bool PyBuffer::isValid() { return _isValid; }
 
-size_t UCXXPyBuffer::getSize() { return _size; }
+size_t PyBuffer::getSize() { return _size; }
 
-bool UCXXPyBuffer::isCUDA() { return _isCUDA; }
+bool PyBuffer::isCUDA() { return _isCUDA; }
 
-// UCXXPyHostBuffer class
-UCXXPyHostBuffer::UCXXPyHostBuffer(const size_t size)
-  : UCXXPyBuffer(malloc(size), UCXXPyHostBuffer::free, false, size)
+// PyHostBuffer class
+PyHostBuffer::PyHostBuffer(const size_t size)
+  : PyBuffer(malloc(size), PyHostBuffer::free, false, size)
 {
 }
 
-std::unique_ptr<void, UCXXPyBufferDeleter> UCXXPyHostBuffer::get()
+std::unique_ptr<void, PyBufferDeleter> PyHostBuffer::get()
 {
   _isValid = false;
   return std::move(_ptr);
 }
 
-void* UCXXPyHostBuffer::release()
+void* PyHostBuffer::release()
 {
   _isValid = false;
   return _ptr.release();
 }
 
-void* UCXXPyHostBuffer::data() { return _ptr.get(); }
+void* PyHostBuffer::data() { return _ptr.get(); }
 
-void UCXXPyHostBuffer::free(void* ptr) { free(ptr); }
+void PyHostBuffer::free(void* ptr) { free(ptr); }
 
-// UCXXPyRMMBuffer class
-UCXXPyRMMBuffer::UCXXPyRMMBuffer(const size_t size)
-  : UCXXPyBuffer(
-      new rmm::device_buffer(size, rmm::cuda_stream_default), UCXXPyRMMBuffer::free, true, size)
+// PyRMMBuffer class
+PyRMMBuffer::PyRMMBuffer(const size_t size)
+  : PyBuffer(new rmm::device_buffer(size, rmm::cuda_stream_default), PyRMMBuffer::free, true, size)
 {
 }
 
-std::unique_ptr<rmm::device_buffer> UCXXPyRMMBuffer::get()
+std::unique_ptr<rmm::device_buffer> PyRMMBuffer::get()
 {
   _isValid = false;
   return std::unique_ptr<rmm::device_buffer>((rmm::device_buffer*)_ptr.release());
 }
 
-void* UCXXPyRMMBuffer::data() { return ((rmm::device_buffer*)_ptr.get())->data(); }
+void* PyRMMBuffer::data() { return ((rmm::device_buffer*)_ptr.get())->data(); }
 
-void UCXXPyRMMBuffer::free(void* ptr)
+void PyRMMBuffer::free(void* ptr)
 {
   rmm::device_buffer* p = (rmm::device_buffer*)ptr;
   delete p;
 }
 
-std::unique_ptr<UCXXPyBuffer> allocateBuffer(const bool isCUDA, const size_t size)
+std::unique_ptr<PyBuffer> allocateBuffer(const bool isCUDA, const size_t size)
 {
   if (isCUDA)
-    return std::make_unique<UCXXPyRMMBuffer>(size);
+    return std::make_unique<PyRMMBuffer>(size);
   else
-    return std::make_unique<UCXXPyHostBuffer>(size);
+    return std::make_unique<PyHostBuffer>(size);
 }
 
 }  // namespace ucxx

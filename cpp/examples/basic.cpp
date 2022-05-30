@@ -16,20 +16,20 @@ static uint16_t listener_port = 12345;
 
 class ListenerContext {
  private:
-  std::shared_ptr<ucxx::UCXXWorker> _worker{nullptr};
-  std::shared_ptr<ucxx::UCXXEndpoint> _endpoint{nullptr};
-  std::shared_ptr<ucxx::UCXXListener> _listener{nullptr};
+  std::shared_ptr<ucxx::Worker> _worker{nullptr};
+  std::shared_ptr<ucxx::Endpoint> _endpoint{nullptr};
+  std::shared_ptr<ucxx::Listener> _listener{nullptr};
 
  public:
-  ListenerContext(std::shared_ptr<ucxx::UCXXWorker> worker) : _worker{worker} {}
+  ListenerContext(std::shared_ptr<ucxx::Worker> worker) : _worker{worker} {}
 
   ~ListenerContext() { releaseEndpoint(); }
 
-  void setListener(std::shared_ptr<ucxx::UCXXListener> listener) { _listener = listener; }
+  void setListener(std::shared_ptr<ucxx::Listener> listener) { _listener = listener; }
 
-  std::shared_ptr<ucxx::UCXXListener> getListener() { return _listener; }
+  std::shared_ptr<ucxx::Listener> getListener() { return _listener; }
 
-  std::shared_ptr<ucxx::UCXXEndpoint> getEndpoint() { return _endpoint; }
+  std::shared_ptr<ucxx::Endpoint> getEndpoint() { return _endpoint; }
 
   bool isAvailable() const { return _endpoint == nullptr; }
 
@@ -73,7 +73,7 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
 static void printUsage()
 {
   std::cerr << "Usage: basic [parameters]" << std::endl;
-  std::cerr << "UCXX basic client/server example" << std::endl;
+  std::cerr << " basic client/server example" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
   std::cerr << "  -b          Use blocking progress mode" << std::endl;
@@ -105,8 +105,8 @@ ucs_status_t parseCommand(int argc, char* const argv[])
   return UCS_OK;
 }
 
-void waitRequests(std::shared_ptr<ucxx::UCXXWorker> worker,
-                  std::vector<std::shared_ptr<ucxx::UCXXRequest>>& requests)
+void waitRequests(std::shared_ptr<ucxx::Worker> worker,
+                  std::vector<std::shared_ptr<ucxx::Request>>& requests)
 {
   // Wait until all messages are completed
   if (progress_mode == PROGRESS_MODE_BLOCKING) {
@@ -127,7 +127,7 @@ int main(int argc, char** argv)
   if (parseCommand(argc, argv) != UCS_OK) return -1;
 
   // Setup: create UCP context, worker, listener and client endpoint.
-  auto context      = ucxx::createContext({}, ucxx::UCXXContext::default_feature_flags);
+  auto context      = ucxx::createContext({}, ucxx::Context::default_feature_flags);
   auto worker       = context->createWorker();
   auto listener_ctx = std::make_unique<ListenerContext>(worker);
   auto listener     = worker->createListener(listener_port, listener_cb, listener_ctx.get());
@@ -146,7 +146,7 @@ int main(int argc, char** argv)
     // Else progress thread is enabled
   }
 
-  std::vector<std::shared_ptr<ucxx::UCXXRequest>> requests;
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
 
   // Allocate send buffers
   std::vector<int> sendWireupBuffer{1, 2, 3};

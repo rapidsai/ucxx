@@ -20,13 +20,13 @@ void _ucp_listener_destroy(ucp_listener_h ptr)
   if (ptr != nullptr) ucp_listener_destroy(ptr);
 }
 
-UCXXListener::UCXXListener(std::shared_ptr<UCXXWorker> worker,
-                           uint16_t port,
-                           ucp_listener_conn_callback_t callback,
-                           void* callback_args)
+Listener::Listener(std::shared_ptr<Worker> worker,
+                   uint16_t port,
+                   ucp_listener_conn_callback_t callback,
+                   void* callback_args)
 {
   if (worker == nullptr || worker->get_handle() == nullptr)
-    throw ucxx::UCXXError("Worker not initialized");
+    throw ucxx::Error("Worker not initialized");
 
   ucp_listener_params_t params;
   ucp_listener_attr_t attr;
@@ -59,27 +59,27 @@ UCXXListener::UCXXListener(std::shared_ptr<UCXXWorker> worker,
   setParent(worker);
 }
 
-UCXXListener::~UCXXListener() {}
+Listener::~Listener() {}
 
-std::shared_ptr<UCXXListener> createListener(std::shared_ptr<UCXXWorker> worker,
-                                             uint16_t port,
-                                             ucp_listener_conn_callback_t callback,
-                                             void* callback_args)
+std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
+                                         uint16_t port,
+                                         ucp_listener_conn_callback_t callback,
+                                         void* callback_args)
 {
-  return std::shared_ptr<UCXXListener>(new UCXXListener(worker, port, callback, callback_args));
+  return std::shared_ptr<Listener>(new Listener(worker, port, callback, callback_args));
 }
 
-std::shared_ptr<UCXXEndpoint> UCXXListener::createEndpointFromConnRequest(
-  ucp_conn_request_h conn_request, bool endpoint_error_handling)
+std::shared_ptr<Endpoint> Listener::createEndpointFromConnRequest(ucp_conn_request_h conn_request,
+                                                                  bool endpoint_error_handling)
 {
-  auto listener = std::dynamic_pointer_cast<UCXXListener>(shared_from_this());
+  auto listener = std::dynamic_pointer_cast<Listener>(shared_from_this());
   auto endpoint =
     ucxx::createEndpointFromConnRequest(listener, conn_request, endpoint_error_handling);
   return endpoint;
 }
 
-ucp_listener_h UCXXListener::get_handle() { return _handle.get(); }
+ucp_listener_h Listener::get_handle() { return _handle.get(); }
 
-uint16_t UCXXListener::getPort() { return _port; }
+uint16_t Listener::getPort() { return _port; }
 
 }  // namespace ucxx

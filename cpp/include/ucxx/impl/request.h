@@ -20,21 +20,21 @@
 
 namespace ucxx {
 
-UCXXRequest::UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
-                         std::shared_ptr<NotificationRequest> notificationRequest,
-                         const std::string operationName,
-                         const bool enablePythonFuture)
+Request::Request(std::shared_ptr<Endpoint> endpoint,
+                 std::shared_ptr<NotificationRequest> notificationRequest,
+                 const std::string operationName,
+                 const bool enablePythonFuture)
   : _endpoint{endpoint},
     _notificationRequest(notificationRequest),
     _operationName(operationName),
     _enablePythonFuture(enablePythonFuture)
 {
-  auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
+  auto worker = Endpoint::getWorker(endpoint->getParent());
 
   if (worker == nullptr || worker->get_handle() == nullptr)
-    throw ucxx::UCXXError("Worker not initialized");
+    throw ucxx::Error("Worker not initialized");
   if (endpoint == nullptr || endpoint->getHandle() == nullptr)
-    throw ucxx::UCXXError("Endpoint not initialized");
+    throw ucxx::Error("Endpoint not initialized");
 
   _handle = std::make_shared<ucxx_request_t>();
 #if UCXX_ENABLE_PYTHON
@@ -47,25 +47,25 @@ UCXXRequest::UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
   setParent(endpoint);
 }
 
-UCXXRequest::~UCXXRequest()
+Request::~Request()
 {
   if (_handle == nullptr) return;
 
   _endpoint->removeInflightRequest(this);
 }
 
-void UCXXRequest::cancel()
+void Request::cancel()
 {
-  auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(getParent());
-  auto worker   = std::dynamic_pointer_cast<UCXXWorker>(endpoint->getParent());
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(getParent());
+  auto worker   = std::dynamic_pointer_cast<Worker>(endpoint->getParent());
   ucp_request_cancel(worker->get_handle(), _handle->request);
 }
 
-std::shared_ptr<ucxx_request_t> UCXXRequest::getHandle() { return _handle; }
+std::shared_ptr<ucxx_request_t> Request::getHandle() { return _handle; }
 
-ucs_status_t UCXXRequest::getStatus() { return _handle->status; }
+ucs_status_t Request::getStatus() { return _handle->status; }
 
-PyObject* UCXXRequest::getPyFuture()
+PyObject* Request::getPyFuture()
 {
 #if UCXX_ENABLE_PYTHON
   return (PyObject*)_handle->py_future->getHandle();
@@ -74,7 +74,7 @@ PyObject* UCXXRequest::getPyFuture()
 #endif
 }
 
-void UCXXRequest::checkError()
+void Request::checkError()
 {
   // Marking the pointer volatile is necessary to ensure the compiler
   // won't optimize the condition out when using a separate worker
@@ -83,13 +83,13 @@ void UCXXRequest::checkError()
   switch (handle->status) {
     case UCS_OK:
     case UCS_INPROGRESS: return;
-    case UCS_ERR_CANCELED: throw UCXXCanceledError(ucs_status_string(handle->status)); break;
-    default: throw UCXXError(ucs_status_string(handle->status)); break;
+    case UCS_ERR_CANCELED: throw CanceledError(ucs_status_string(handle->status)); break;
+    default: throw Error(ucs_status_string(handle->status)); break;
   }
 }
 
 template <typename Rep, typename Period>
-bool UCXXRequest::isCompleted(std::chrono::duration<Rep, Period> period)
+bool Request::isCompleted(std::chrono::duration<Rep, Period> period)
 {
   // Marking the pointer volatile is necessary to ensure the compiler
   // won't optimize the condition out when using a separate worker
@@ -98,12 +98,12 @@ bool UCXXRequest::isCompleted(std::chrono::duration<Rep, Period> period)
   return handle->status != UCS_INPROGRESS;
 }
 
-bool UCXXRequest::isCompleted(int64_t periodNs)
+bool Request::isCompleted(int64_t periodNs)
 {
   return isCompleted(std::chrono::nanoseconds(periodNs));
 }
 
-void UCXXRequest::callback(void* request, ucs_status_t status)
+void Request::callback(void* request, ucs_status_t status)
 {
   _requestStatus = ucp_request_check_status(request);
 
@@ -128,7 +128,7 @@ void UCXXRequest::callback(void* request, ucs_status_t status)
   ucp_request_free(request);
 }
 
-void UCXXRequest::process()
+void Request::process()
 {
   // Operation completed immediately
   if (_requestStatusPtr == NULL) {
@@ -155,13 +155,13 @@ void UCXXRequest::process()
                _operationName.c_str(),
                _requestStatus,
                ucs_status_string(_requestStatus));
-    throw UCXXError(std::string("Error on ") + _operationName + std::string(" message"));
+    throw Error(std::string("Error on ") + _operationName + std::string(" message"));
   } else {
     ucxx_trace_req("%s completed immediately", _operationName.c_str());
   }
 }
 
-void UCXXRequest::setStatus()
+void Request::setStatus()
 {
   _handle->status = _requestStatus;
 

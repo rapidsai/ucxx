@@ -25,17 +25,17 @@
 
 namespace ucxx {
 
-class UCXXAddress;
-class UCXXEndpoint;
-class UCXXListener;
+class Address;
+class Endpoint;
+class Listener;
 
-class UCXXWorker : public UCXXComponent {
+class Worker : public Component {
  private:
   ucp_worker_h _handle{nullptr};
   int _epollFileDescriptor{-1};
   int _workerFileDescriptor{-1};
   int _wakeFileDescriptor{-1};
-  std::shared_ptr<UCXXWorkerProgressThread> _progressThread{nullptr};
+  std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
   inflight_requests_t _inflightRequestsToCancel{std::make_shared<inflight_request_map_t>()};
   std::mutex _inflightMutex{};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
@@ -45,24 +45,24 @@ class UCXXWorker : public UCXXComponent {
   std::mutex _pythonFuturesPoolMutex{};
 #if UCXX_ENABLE_PYTHON
   std::queue<std::shared_ptr<PythonFuture>> _pythonFuturesPool{};
-  std::shared_ptr<UCXXNotifier> _notifier{createNotifier()};
+  std::shared_ptr<Notifier> _notifier{createNotifier()};
 #endif
 
-  UCXXWorker(std::shared_ptr<UCXXContext> context, const bool enableDelayedNotification = false);
+  Worker(std::shared_ptr<Context> context, const bool enableDelayedNotification = false);
 
   void drainWorkerTagRecv();
 
  public:
-  UCXXWorker()                  = delete;
-  UCXXWorker(const UCXXWorker&) = delete;
-  UCXXWorker& operator=(UCXXWorker const&) = delete;
-  UCXXWorker(UCXXWorker&& o)               = delete;
-  UCXXWorker& operator=(UCXXWorker&& o) = delete;
+  Worker()              = delete;
+  Worker(const Worker&) = delete;
+  Worker& operator=(Worker const&) = delete;
+  Worker(Worker&& o)               = delete;
+  Worker& operator=(Worker&& o) = delete;
 
-  friend std::shared_ptr<UCXXWorker> createWorker(std::shared_ptr<UCXXContext> context,
-                                                  const bool enableDelayedNotification);
+  friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
+                                              const bool enableDelayedNotification);
 
-  ~UCXXWorker();
+  ~Worker();
 
   ucp_worker_h get_handle();
 
@@ -104,18 +104,18 @@ class UCXXWorker : public UCXXComponent {
 
   bool tagProbe(ucp_tag_t tag);
 
-  std::shared_ptr<UCXXAddress> getAddress();
+  std::shared_ptr<Address> getAddress();
 
-  std::shared_ptr<UCXXEndpoint> createEndpointFromHostname(std::string ip_address,
-                                                           uint16_t port                = 0,
-                                                           bool endpoint_error_handling = true);
+  std::shared_ptr<Endpoint> createEndpointFromHostname(std::string ip_address,
+                                                       uint16_t port                = 0,
+                                                       bool endpoint_error_handling = true);
 
-  std::shared_ptr<UCXXEndpoint> createEndpointFromWorkerAddress(
-    std::shared_ptr<UCXXAddress> address, bool endpoint_error_handling = true);
+  std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Address> address,
+                                                            bool endpoint_error_handling = true);
 
-  std::shared_ptr<UCXXListener> createListener(uint16_t port,
-                                               ucp_listener_conn_callback_t callback,
-                                               void* callback_args);
+  std::shared_ptr<Listener> createListener(uint16_t port,
+                                           ucp_listener_conn_callback_t callback,
+                                           void* callback_args);
 };
 
 }  // namespace ucxx

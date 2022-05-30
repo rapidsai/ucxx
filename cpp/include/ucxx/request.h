@@ -19,33 +19,33 @@
 
 namespace ucxx {
 
-class UCXXRequest : public UCXXComponent {
+class Request : public Component {
  protected:
   std::shared_ptr<ucxx_request_t> _handle{nullptr};
-  std::shared_ptr<UCXXEndpoint> _endpoint{nullptr};
+  std::shared_ptr<Endpoint> _endpoint{nullptr};
   std::shared_ptr<NotificationRequest> _notificationRequest{nullptr};
   std::string _operationName{"request_undefined"};
   ucs_status_ptr_t _requestStatusPtr{nullptr};
   ucs_status_t _requestStatus{UCS_INPROGRESS};
   bool _enablePythonFuture{true};
 
-  UCXXRequest(std::shared_ptr<UCXXEndpoint> endpoint,
-              std::shared_ptr<NotificationRequest> notificationRequest,
-              const std::string operationName,
-              const bool enablePythonFuture = true);
+  Request(std::shared_ptr<Endpoint> endpoint,
+          std::shared_ptr<NotificationRequest> notificationRequest,
+          const std::string operationName,
+          const bool enablePythonFuture = true);
 
   void process();
 
   void setStatus();
 
  public:
-  UCXXRequest()                   = delete;
-  UCXXRequest(const UCXXRequest&) = delete;
-  UCXXRequest& operator=(UCXXRequest const&) = delete;
-  UCXXRequest(UCXXRequest&& o)               = delete;
-  UCXXRequest& operator=(UCXXRequest&& o) = delete;
+  Request()               = delete;
+  Request(const Request&) = delete;
+  Request& operator=(Request const&) = delete;
+  Request(Request&& o)               = delete;
+  Request& operator=(Request&& o) = delete;
 
-  ~UCXXRequest();
+  ~Request();
 
   void cancel();
 

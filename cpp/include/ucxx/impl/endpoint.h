@@ -26,15 +26,15 @@ void EpParamsDeleter::operator()(ucp_ep_params_t* ptr)
     sockaddr_utils_free(&ptr->sockaddr);
 }
 
-UCXXEndpoint::UCXXEndpoint(std::shared_ptr<UCXXComponent> worker_or_listener,
-                           std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
-                           bool endpoint_error_handling)
+Endpoint::Endpoint(std::shared_ptr<Component> worker_or_listener,
+                   std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
+                   bool endpoint_error_handling)
   : _endpoint_error_handling{endpoint_error_handling}
 {
-  auto worker = UCXXEndpoint::getWorker(worker_or_listener);
+  auto worker = Endpoint::getWorker(worker_or_listener);
 
   if (worker == nullptr || worker->get_handle() == nullptr)
-    throw ucxx::UCXXError("Worker not initialized");
+    throw ucxx::Error("Worker not initialized");
 
   setParent(worker_or_listener);
 
@@ -43,13 +43,13 @@ UCXXEndpoint::UCXXEndpoint(std::shared_ptr<UCXXComponent> worker_or_listener,
 
   params->err_mode =
     (endpoint_error_handling ? UCP_ERR_HANDLING_MODE_PEER : UCP_ERR_HANDLING_MODE_NONE);
-  params->err_handler.cb  = UCXXEndpoint::errorCallback;
+  params->err_handler.cb  = Endpoint::errorCallback;
   params->err_handler.arg = _callbackData.get();
 
   assert_ucs_status(ucp_ep_create(worker->get_handle(), params.get(), &_handle));
 }
 
-UCXXEndpoint::~UCXXEndpoint()
+Endpoint::~Endpoint()
 {
   if (_handle == nullptr) return;
 
@@ -62,7 +62,7 @@ UCXXEndpoint::~UCXXEndpoint()
   }
   ucs_status_ptr_t status = ucp_ep_close_nb(_handle, close_mode);
   if (UCS_PTR_IS_PTR(status)) {
-    auto worker = UCXXEndpoint::getWorker(_parent);
+    auto worker = Endpoint::getWorker(_parent);
     while (ucp_request_check_status(status) == UCS_INPROGRESS)
       worker->progress();
     ucp_request_free(status);
@@ -71,16 +71,16 @@ UCXXEndpoint::~UCXXEndpoint()
   }
 }
 
-ucp_ep_h UCXXEndpoint::getHandle() { return _handle; }
+ucp_ep_h Endpoint::getHandle() { return _handle; }
 
-bool UCXXEndpoint::isAlive() const
+bool Endpoint::isAlive() const
 {
   if (!_endpoint_error_handling) return true;
 
   return _callbackData->status == UCS_OK;
 }
 
-void UCXXEndpoint::raiseOnError()
+void Endpoint::raiseOnError()
 {
   ucs_status_t status = _callbackData->status;
 
@@ -91,47 +91,46 @@ void UCXXEndpoint::raiseOnError()
   errorMsgStream << "Endpoint " << std::hex << _handle << " error: " << statusString;
 
   if (status == UCS_ERR_CONNECTION_RESET)
-    throw UCXXConnectionResetError(errorMsgStream.str());
+    throw ConnectionResetError(errorMsgStream.str());
   else
-    throw UCXXError(errorMsgStream.str());
+    throw Error(errorMsgStream.str());
 }
 
-void UCXXEndpoint::setCloseCallback(std::function<void(void*)> closeCallback,
-                                    void* closeCallbackArg)
+void Endpoint::setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg)
 {
   _callbackData->closeCallback    = closeCallback;
   _callbackData->closeCallbackArg = closeCallbackArg;
 }
 
-void UCXXEndpoint::registerInflightRequest(std::shared_ptr<UCXXRequest> request)
+void Endpoint::registerInflightRequest(std::shared_ptr<Request> request)
 {
-  std::weak_ptr<UCXXRequest> weak_req = request;
+  std::weak_ptr<Request> weak_req = request;
   _inflightRequests->insert({request.get(), weak_req});
 }
 
-void UCXXEndpoint::removeInflightRequest(UCXXRequest* request)
+void Endpoint::removeInflightRequest(Request* request)
 {
   auto search = _inflightRequests->find(request);
   if (search != _inflightRequests->end()) _inflightRequests->erase(search);
 }
 
-std::shared_ptr<UCXXRequest> UCXXEndpoint::stream_send(void* buffer, size_t length)
+std::shared_ptr<Request> Endpoint::stream_send(void* buffer, size_t length)
 {
-  auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   auto request  = createRequestStream(endpoint, true, buffer, length);
   registerInflightRequest(request);
   return request;
 }
 
-std::shared_ptr<UCXXRequest> UCXXEndpoint::stream_recv(void* buffer, size_t length)
+std::shared_ptr<Request> Endpoint::stream_recv(void* buffer, size_t length)
 {
-  auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   auto request  = createRequestStream(endpoint, false, buffer, length);
   registerInflightRequest(request);
   return request;
 }
 
-std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_send(
+std::shared_ptr<Request> Endpoint::tag_send(
   void* buffer,
   size_t length,
   ucp_tag_t tag,
@@ -139,14 +138,14 @@ std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_send(
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   auto request  = createRequestTag(
     endpoint, true, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData);
   registerInflightRequest(request);
   return request;
 }
 
-std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_recv(
+std::shared_ptr<Request> Endpoint::tag_recv(
   void* buffer,
   size_t length,
   ucp_tag_t tag,
@@ -154,24 +153,24 @@ std::shared_ptr<UCXXRequest> UCXXEndpoint::tag_recv(
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<UCXXEndpoint>(shared_from_this());
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   auto request  = createRequestTag(
     endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData);
   registerInflightRequest(request);
   return request;
 }
 
-std::shared_ptr<UCXXWorker> UCXXEndpoint::getWorker(std::shared_ptr<UCXXComponent> workerOrListener)
+std::shared_ptr<Worker> Endpoint::getWorker(std::shared_ptr<Component> workerOrListener)
 {
-  auto worker = std::dynamic_pointer_cast<UCXXWorker>(workerOrListener);
+  auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
   if (worker == nullptr) {
-    auto listener = std::dynamic_pointer_cast<UCXXListener>(workerOrListener);
-    worker        = std::dynamic_pointer_cast<UCXXWorker>(listener->getParent());
+    auto listener = std::dynamic_pointer_cast<Listener>(workerOrListener);
+    worker        = std::dynamic_pointer_cast<Worker>(listener->getParent());
   }
   return worker;
 }
 
-void UCXXEndpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
+void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
   error_callback_data_t* data = (error_callback_data_t*)arg;
   data->status            = status;

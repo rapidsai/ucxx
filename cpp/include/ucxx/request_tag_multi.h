@@ -23,58 +23,58 @@
 
 namespace ucxx {
 
-struct UCXXBufferRequest {
-  std::shared_ptr<UCXXRequest> request{nullptr};
+struct BufferRequest {
+  std::shared_ptr<Request> request{nullptr};
   std::shared_ptr<std::string> stringBuffer{nullptr};
-  std::unique_ptr<UCXXPyBuffer> pyBuffer{nullptr};
+  std::unique_ptr<PyBuffer> pyBuffer{nullptr};
 };
 
-typedef std::shared_ptr<UCXXBufferRequest> UCXXBufferRequestPtr;
+typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
 
-class UCXXRequestTagMulti : public std::enable_shared_from_this<UCXXRequestTagMulti> {
+class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
  private:
-  std::shared_ptr<UCXXEndpoint> _endpoint = nullptr;
+  std::shared_ptr<Endpoint> _endpoint = nullptr;
   bool _send{false};
   ucp_tag_t _tag{0};
   size_t _totalFrames{0};
   std::mutex _completedRequestsMutex;
-  std::vector<UCXXBufferRequest*> _completedRequests{};
+  std::vector<BufferRequest*> _completedRequests{};
   ucs_status_t _status{UCS_INPROGRESS};
 #if UCXX_ENABLE_PYTHON
   std::shared_ptr<PythonFuture> _pythonFuture;
 #endif
 
  public:
-  std::vector<UCXXBufferRequestPtr> _bufferRequests{};
+  std::vector<BufferRequestPtr> _bufferRequests{};
   bool _isFilled{false};
 
  private:
-  UCXXRequestTagMulti() = delete;
+  RequestTagMulti() = delete;
 
   // Recv Constructor
-  UCXXRequestTagMulti(std::shared_ptr<UCXXEndpoint> endpoint, const ucp_tag_t tag);
+  RequestTagMulti(std::shared_ptr<Endpoint> endpoint, const ucp_tag_t tag);
 
   // Send Constructor
-  UCXXRequestTagMulti(std::shared_ptr<UCXXEndpoint> endpoint,
-                      std::vector<void*>& buffer,
-                      std::vector<size_t>& size,
-                      std::vector<int>& isCUDA,
-                      const ucp_tag_t tag);
+  RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
+                  std::vector<void*>& buffer,
+                  std::vector<size_t>& size,
+                  std::vector<int>& isCUDA,
+                  const ucp_tag_t tag);
 
  public:
-  friend std::shared_ptr<UCXXRequestTagMulti> tagMultiSend(std::shared_ptr<UCXXEndpoint> endpoint,
-                                                           std::vector<void*>& buffer,
-                                                           std::vector<size_t>& size,
-                                                           std::vector<int>& isCUDA,
-                                                           const ucp_tag_t tag);
+  friend std::shared_ptr<RequestTagMulti> tagMultiSend(std::shared_ptr<Endpoint> endpoint,
+                                                       std::vector<void*>& buffer,
+                                                       std::vector<size_t>& size,
+                                                       std::vector<int>& isCUDA,
+                                                       const ucp_tag_t tag);
 
-  friend std::shared_ptr<UCXXRequestTagMulti> tagMultiRecv(std::shared_ptr<UCXXEndpoint> endpoint,
-                                                           const ucp_tag_t tag);
+  friend std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint,
+                                                       const ucp_tag_t tag);
 
-  friend std::vector<std::unique_ptr<UCXXPyBuffer>> tagMultiRecvBlocking(
-    std::shared_ptr<UCXXEndpoint> endpoint, ucp_tag_t tag);
+  friend std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(
+    std::shared_ptr<Endpoint> endpoint, ucp_tag_t tag);
 
-  friend void tagMultiSendBlocking(std::shared_ptr<UCXXEndpoint> endpoint,
+  friend void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
                                    std::vector<void*>& buffer,
                                    std::vector<size_t>& size,
                                    std::vector<int>& isCUDA,
@@ -102,6 +102,6 @@ class UCXXRequestTagMulti : public std::enable_shared_from_this<UCXXRequestTagMu
   bool isCompleted(int64_t periodNs = 0);
 };
 
-typedef std::shared_ptr<UCXXRequestTagMulti> UCXXRequestTagMultiPtr;
+typedef std::shared_ptr<RequestTagMulti> RequestTagMultiPtr;
 
 }  // namespace ucxx

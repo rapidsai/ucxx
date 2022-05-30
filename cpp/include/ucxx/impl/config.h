@@ -10,7 +10,7 @@
 
 namespace ucxx {
 
-ucp_config_t* UCXXConfig::readUCXConfig(UCXXConfigMap userOptions)
+ucp_config_t* Config::readUCXConfig(ConfigMap userOptions)
 {
   ucs_status_t status;
   std::string status_msg;
@@ -18,7 +18,7 @@ ucp_config_t* UCXXConfig::readUCXConfig(UCXXConfigMap userOptions)
   status = ucp_config_read(NULL, NULL, &_handle);
   if (status != UCS_OK) {
     status_msg = ucs_status_string(status);
-    throw ucxx::UCXXConfigError(std::string("Couldn't read the UCX options: ") + status_msg);
+    throw ucxx::ConfigError(std::string("Couldn't read the UCX options: ") + status_msg);
   }
 
   // Modify the UCX configuration options based on `config_dict`
@@ -28,10 +28,9 @@ ucp_config_t* UCXXConfig::readUCXConfig(UCXXConfigMap userOptions)
       ucp_config_release(_handle);
 
       if (status == UCS_ERR_NO_ELEM) {
-        throw ucxx::UCXXConfigError(std::string("Option ") + kv.first +
-                                    std::string("doesn't exist"));
+        throw ucxx::ConfigError(std::string("Option ") + kv.first + std::string("doesn't exist"));
       } else {
-        throw ucxx::UCXXConfigError(ucs_status_string(status));
+        throw ucxx::ConfigError(ucs_status_string(status));
       }
     }
   }
@@ -39,7 +38,7 @@ ucp_config_t* UCXXConfig::readUCXConfig(UCXXConfigMap userOptions)
   return _handle;
 }
 
-UCXXConfigMap UCXXConfig::ucxConfigToMap()
+ConfigMap Config::ucxConfigToMap()
 {
   if (_configMap.empty()) {
     FILE* text_fd = create_text_fd();
@@ -59,15 +58,15 @@ UCXXConfigMap UCXXConfig::ucxConfigToMap()
   return _configMap;
 }
 
-UCXXConfig::UCXXConfig(UCXXConfigMap userOptions) { readUCXConfig(userOptions); }
+Config::Config(ConfigMap userOptions) { readUCXConfig(userOptions); }
 
-UCXXConfig::~UCXXConfig()
+Config::~Config()
 {
   if (this->_handle != nullptr) ucp_config_release(this->_handle);
 }
 
-UCXXConfigMap UCXXConfig::get() { return ucxConfigToMap(); }
+ConfigMap Config::get() { return ucxConfigToMap(); }
 
-ucp_config_t* UCXXConfig::get_handle() { return _handle; }
+ucp_config_t* Config::get_handle() { return _handle; }
 
 }  // namespace ucxx

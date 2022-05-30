@@ -21,7 +21,7 @@ enum RequestNotifierThreadState {
 
 class PythonFuture;
 
-class UCXXNotifier {
+class Notifier {
  private:
   std::mutex _notifierThreadMutex{};
   std::vector<std::pair<std::shared_ptr<PythonFuture>, ucs_status_t>> _notifierThreadFutureStatus{};
@@ -29,30 +29,30 @@ class UCXXNotifier {
   RequestNotifierThreadState _notifierThreadFutureStatusFinished{RequestNotifierThreadNotRunning};
   std::condition_variable _notifierThreadConditionVariable{};
 
-  UCXXNotifier() = default;
+  Notifier() = default;
 
  public:
-  UCXXNotifier(const UCXXNotifier&) = delete;
-  UCXXNotifier& operator=(UCXXNotifier const&) = delete;
-  UCXXNotifier(UCXXNotifier&& o)               = delete;
-  UCXXNotifier& operator=(UCXXNotifier&& o) = delete;
+  Notifier(const Notifier&) = delete;
+  Notifier& operator=(Notifier const&) = delete;
+  Notifier(Notifier&& o)               = delete;
+  Notifier& operator=(Notifier&& o) = delete;
 
   template <class... Args>
-  friend std::shared_ptr<UCXXNotifier> createNotifier(Args&&... args)
+  friend std::shared_ptr<Notifier> createNotifier(Args&&... args)
   {
-    return std::shared_ptr<UCXXNotifier>(new UCXXNotifier(std::forward<Args>(args)...));
+    return std::shared_ptr<Notifier>(new Notifier(std::forward<Args>(args)...));
   }
 
   void schedulePythonFutureNotifyEmpty()
   {
-    ucxx_trace_req("UCXXNotifer::schedulePythonFutureNotifyEmpty(): %p", this);
+    ucxx_trace_req("Notifer::schedulePythonFutureNotifyEmpty(): %p", this);
   }
 
   void schedulePythonFutureNotify(std::shared_ptr<PythonFuture> future, ucs_status_t status);
 
   bool waitRequestNotifier()
   {
-    ucxx_trace_req("UCXXNotifier::waitRequestNotifier()");
+    ucxx_trace_req("Notifier::waitRequestNotifier()");
 
     if (_notifierThreadFutureStatusFinished == RequestNotifierThreadStopping) {
       _notifierThreadFutureStatusFinished = RequestNotifierThreadNotRunning;
@@ -65,7 +65,7 @@ class UCXXNotifier {
              _notifierThreadFutureStatusFinished == RequestNotifierThreadStopping;
     });
 
-    ucxx_trace_req("UCXXNotifier::waitRequestNotifier() unlock: %d %d",
+    ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d %d",
                    _notifierThreadFutureStatusReady,
                    _notifierThreadFutureStatusFinished);
     _notifierThreadFutureStatusReady = false;

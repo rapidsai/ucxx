@@ -16,33 +16,32 @@
 
 namespace ucxx {
 
-class UCXXWorker;
+class Worker;
 
-class UCXXContext : public UCXXComponent {
+class Context : public Component {
  private:
   ucp_context_h _handle{nullptr};
-  UCXXConfig _config{};
+  Config _config{};
   uint64_t _feature_flags{0};
   bool _cuda_support{false};
 
-  UCXXContext(const UCXXConfigMap ucx_config, const uint64_t feature_flags);
+  Context(const ConfigMap ucx_config, const uint64_t feature_flags);
 
  public:
   static constexpr uint64_t default_feature_flags =
     UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
 
-  UCXXContext()                   = delete;
-  UCXXContext(const UCXXContext&) = delete;
-  UCXXContext& operator=(UCXXContext const&) = delete;
-  UCXXContext(UCXXContext&& o)               = delete;
-  UCXXContext& operator=(UCXXContext&& o) = delete;
+  Context()               = delete;
+  Context(const Context&) = delete;
+  Context& operator=(Context const&) = delete;
+  Context(Context&& o)               = delete;
+  Context& operator=(Context&& o) = delete;
 
-  friend std::shared_ptr<UCXXContext> createContext(UCXXConfigMap ucx_config,
-                                                    const uint64_t feature_flags);
+  friend std::shared_ptr<Context> createContext(ConfigMap ucx_config, const uint64_t feature_flags);
 
-  ~UCXXContext();
+  ~Context();
 
-  UCXXConfigMap get_config();
+  ConfigMap get_config();
 
   ucp_context_h get_handle();
 
@@ -50,7 +49,7 @@ class UCXXContext : public UCXXComponent {
 
   uint64_t get_feature_flags() const;
 
-  std::shared_ptr<UCXXWorker> createWorker(const bool enableDelayedNotification = true);
+  std::shared_ptr<Worker> createWorker(const bool enableDelayedNotification = true);
 };
 
 }  // namespace ucxx

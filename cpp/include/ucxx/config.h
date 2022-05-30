@@ -9,28 +9,28 @@
 
 namespace ucxx {
 
-class UCXXConfig {
+class Config {
  private:
   ucp_config_t* _handle{nullptr};
-  UCXXConfigMap _configMap;
+  ConfigMap _configMap;
 
-  ucp_config_t* readUCXConfig(UCXXConfigMap userOptions);
+  ucp_config_t* readUCXConfig(ConfigMap userOptions);
 
-  UCXXConfigMap ucxConfigToMap();
+  ConfigMap ucxConfigToMap();
 
  public:
-  UCXXConfig() = default;
+  Config() = default;
 
-  UCXXConfig(const UCXXConfig&) = delete;
-  UCXXConfig& operator=(UCXXConfig const&) = delete;
-  UCXXConfig(UCXXConfig&& o)               = delete;
-  UCXXConfig& operator=(UCXXConfig&& o) = delete;
+  Config(const Config&) = delete;
+  Config& operator=(Config const&) = delete;
+  Config(Config&& o)               = delete;
+  Config& operator=(Config&& o) = delete;
 
-  UCXXConfig(UCXXConfigMap userOptions);
+  Config(ConfigMap userOptions);
 
-  ~UCXXConfig();
+  ~Config();
 
-  UCXXConfigMap get();
+  ConfigMap get();
 
   ucp_config_t* get_handle();
 };

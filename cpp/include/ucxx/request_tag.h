@@ -13,20 +13,20 @@
 
 namespace ucxx {
 
-class UCXXRequestTag : public UCXXRequest {
+class RequestTag : public Request {
  private:
-  UCXXRequestTag(std::shared_ptr<UCXXEndpoint> endpoint,
-                 bool send,
-                 void* buffer,
-                 size_t length,
-                 ucp_tag_t tag,
-                 const bool enablePythonFuture                               = true,
-                 std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
-                 std::shared_ptr<void> callbackData                          = nullptr);
+  RequestTag(std::shared_ptr<Endpoint> endpoint,
+             bool send,
+             void* buffer,
+             size_t length,
+             ucp_tag_t tag,
+             const bool enablePythonFuture                               = true,
+             std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
+             std::shared_ptr<void> callbackData                          = nullptr);
 
  public:
-  friend std::shared_ptr<UCXXRequestTag> createRequestTag(
-    std::shared_ptr<UCXXEndpoint> endpoint,
+  friend std::shared_ptr<RequestTag> createRequestTag(
+    std::shared_ptr<Endpoint> endpoint,
     bool send,
     void* buffer,
     size_t length,

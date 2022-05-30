@@ -32,8 +32,7 @@ static int init_ucxx_python()
   return 0;
 
 err:
-  if (!PyErr_Occurred())
-    PyErr_SetString(PyExc_RuntimeError, "could not initialize UCXX Python C-API.");
+  if (!PyErr_Occurred()) PyErr_SetString(PyExc_RuntimeError, "could not initialize  Python C-API.");
   return -1;
 }
 

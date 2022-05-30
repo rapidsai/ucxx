@@ -14,12 +14,12 @@
 
 namespace ucxx {
 
-UCXXContext::UCXXContext(const UCXXConfigMap ucx_config, const uint64_t feature_flags)
-  : _config{UCXXConfig(ucx_config)}, _feature_flags{feature_flags}
+Context::Context(const ConfigMap ucx_config, const uint64_t feature_flags)
+  : _config{Config(ucx_config)}, _feature_flags{feature_flags}
 {
   ucp_params_t ucp_params;
 
-  ucxx::UCXXInitializer::getInstance();
+  ucxx::Initializer::getInstance();
 
   // UCP
   std::memset(&ucp_params, 0, sizeof(ucp_params));
@@ -39,33 +39,32 @@ UCXXContext::UCXXContext(const UCXXConfigMap ucx_config, const uint64_t feature_
     ucxx_info("  %s: %s", kv.first.c_str(), kv.second.c_str());
 }
 
-std::shared_ptr<UCXXContext> createContext(const UCXXConfigMap ucx_config,
-                                           const uint64_t feature_flags)
+std::shared_ptr<Context> createContext(const ConfigMap ucx_config, const uint64_t feature_flags)
 {
-  return std::shared_ptr<UCXXContext>(new UCXXContext(ucx_config, feature_flags));
+  return std::shared_ptr<Context>(new Context(ucx_config, feature_flags));
 }
 
-UCXXContext::~UCXXContext()
+Context::~Context()
 {
   if (this->_handle != nullptr) ucp_cleanup(this->_handle);
 }
 
-UCXXConfigMap UCXXContext::get_config() { return this->_config.get(); }
+ConfigMap Context::get_config() { return this->_config.get(); }
 
-ucp_context_h UCXXContext::get_handle() { return this->_handle; }
+ucp_context_h Context::get_handle() { return this->_handle; }
 
-std::string UCXXContext::get_info()
+std::string Context::get_info()
 {
   FILE* text_fd = create_text_fd();
   ucp_context_print_info(this->_handle, text_fd);
   return decode_text_fd(text_fd);
 }
 
-uint64_t UCXXContext::get_feature_flags() const { return _feature_flags; }
+uint64_t Context::get_feature_flags() const { return _feature_flags; }
 
-std::shared_ptr<UCXXWorker> UCXXContext::createWorker(const bool enableDelayedNotification)
+std::shared_ptr<Worker> Context::createWorker(const bool enableDelayedNotification)
 {
-  auto context = std::dynamic_pointer_cast<UCXXContext>(shared_from_this());
+  auto context = std::dynamic_pointer_cast<Context>(shared_from_this());
   auto worker  = ucxx::createWorker(context, enableDelayedNotification);
   return worker;
 }

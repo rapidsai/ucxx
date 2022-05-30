@@ -14,8 +14,8 @@
 
 namespace ucxx {
 
-std::shared_ptr<UCXXRequestTag> createRequestTag(
-  std::shared_ptr<UCXXEndpoint> endpoint,
+std::shared_ptr<RequestTag> createRequestTag(
+  std::shared_ptr<Endpoint> endpoint,
   bool send,
   void* buffer,
   size_t length,
@@ -24,24 +24,24 @@ std::shared_ptr<UCXXRequestTag> createRequestTag(
   std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
   std::shared_ptr<void> callbackData                          = nullptr)
 {
-  return std::shared_ptr<UCXXRequestTag>(new UCXXRequestTag(
+  return std::shared_ptr<RequestTag>(new RequestTag(
     endpoint, send, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
-UCXXRequestTag::UCXXRequestTag(std::shared_ptr<UCXXEndpoint> endpoint,
-                               bool send,
-                               void* buffer,
-                               size_t length,
-                               ucp_tag_t tag,
-                               const bool enablePythonFuture,
-                               std::function<void(std::shared_ptr<void>)> callbackFunction,
-                               std::shared_ptr<void> callbackData)
-  : UCXXRequest(endpoint,
-                std::make_shared<NotificationRequest>(send, buffer, length, tag),
-                std::string(send ? "tag_send" : "tag_recv"),
-                enablePythonFuture)
+RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
+                       bool send,
+                       void* buffer,
+                       size_t length,
+                       ucp_tag_t tag,
+                       const bool enablePythonFuture,
+                       std::function<void(std::shared_ptr<void>)> callbackFunction,
+                       std::shared_ptr<void> callbackData)
+  : Request(endpoint,
+            std::make_shared<NotificationRequest>(send, buffer, length, tag),
+            std::string(send ? "tag_send" : "tag_recv"),
+            enablePythonFuture)
 {
-  auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
+  auto worker = Endpoint::getWorker(endpoint->getParent());
 
   _handle->callback      = callbackFunction;
   _handle->callback_data = callbackData;
@@ -50,30 +50,30 @@ UCXXRequestTag::UCXXRequestTag(std::shared_ptr<UCXXEndpoint> endpoint,
   // delayed to allow the worker progress thread to set its status, and more
   // importantly the Python future later on, so that we don't need the GIL here.
   worker->registerNotificationRequest(
-    std::bind(std::mem_fn(&UCXXRequest::populateNotificationRequest), this));
+    std::bind(std::mem_fn(&Request::populateNotificationRequest), this));
 }
 
-void UCXXRequestTag::tag_send_callback(void* request, ucs_status_t status, void* arg)
+void RequestTag::tag_send_callback(void* request, ucs_status_t status, void* arg)
 {
   ucxx_trace_req("tag_send_callback");
-  UCXXRequest* req = (UCXXRequest*)arg;
+  Request* req = (Request*)arg;
   return req->callback(request, status);
 }
 
-void UCXXRequestTag::tag_recv_callback(void* request,
-                                       ucs_status_t status,
-                                       const ucp_tag_recv_info_t* info,
-                                       void* arg)
+void RequestTag::tag_recv_callback(void* request,
+                                   ucs_status_t status,
+                                   const ucp_tag_recv_info_t* info,
+                                   void* arg)
 {
   ucxx_trace_req("tag_recv_callback");
-  UCXXRequest* req = (UCXXRequest*)arg;
+  Request* req = (Request*)arg;
   return req->callback(request, status);
 }
 
-void UCXXRequestTag::request()
+void RequestTag::request()
 {
   static const ucp_tag_t tag_mask = -1;
-  auto worker                     = UCXXEndpoint::getWorker(_endpoint->getParent());
+  auto worker                     = Endpoint::getWorker(_endpoint->getParent());
 
   ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                UCP_OP_ATTR_FIELD_DATATYPE |
@@ -99,7 +99,7 @@ void UCXXRequestTag::request()
   }
 }
 
-void UCXXRequestTag::populateNotificationRequest()
+void RequestTag::populateNotificationRequest()
 {
   const bool pythonFutureLog = _enablePythonFuture & UCXX_ENABLE_PYTHON;
 

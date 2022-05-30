@@ -9,17 +9,17 @@
 
 namespace ucxx {
 
-class UCXXComponent : public std::enable_shared_from_this<UCXXComponent> {
+class Component : public std::enable_shared_from_this<Component> {
  protected:
-  std::shared_ptr<UCXXComponent> _parent{nullptr};
+  std::shared_ptr<Component> _parent{nullptr};
 
  public:
-  virtual ~UCXXComponent();
+  virtual ~Component();
 
   // Called from child's constructor
-  void setParent(std::shared_ptr<UCXXComponent> parent);
+  void setParent(std::shared_ptr<Component> parent);
 
-  std::shared_ptr<UCXXComponent> getParent() const;
+  std::shared_ptr<Component> getParent() const;
 };
 
 }  // namespace ucxx

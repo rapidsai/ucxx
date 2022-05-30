@@ -10,29 +10,29 @@
 
 namespace ucxx {
 
-class UCXXError : public std::exception {
+class Error : public std::exception {
  private:
   std::string _msg{};
 
  public:
-  UCXXError(const std::string& msg) : _msg{msg} {}
+  Error(const std::string& msg) : _msg{msg} {}
 
   virtual const char* what() const noexcept override { return this->_msg.c_str(); }
 };
 
-class UCXXCanceledError : public UCXXError {
+class CanceledError : public Error {
  public:
-  UCXXCanceledError(const std::string& msg) : UCXXError(msg) {}
+  CanceledError(const std::string& msg) : Error(msg) {}
 };
 
-class UCXXConfigError : public UCXXError {
+class ConfigError : public Error {
  public:
-  UCXXConfigError(const std::string& msg) : UCXXError(msg) {}
+  ConfigError(const std::string& msg) : Error(msg) {}
 };
 
-class UCXXConnectionResetError : public UCXXError {
+class ConnectionResetError : public Error {
  public:
-  UCXXConnectionResetError(const std::string& msg) : UCXXError(msg) {}
+  ConnectionResetError(const std::string& msg) : Error(msg) {}
 };
 
 }  // namespace ucxx

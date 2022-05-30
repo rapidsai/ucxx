@@ -14,7 +14,7 @@ namespace ucxx {
 typedef std::function<void(void*)> ProgressThreadStartCallback;
 typedef void* ProgressThreadStartCallbackArg;
 
-class UCXXWorkerProgressThread {
+class WorkerProgressThread {
  private:
   std::thread _thread{};
   bool _stop{false};
@@ -30,16 +30,16 @@ class UCXXWorkerProgressThread {
     std::shared_ptr<DelayedNotificationRequestCollection> delayedNotificationRequestCollection);
 
  public:
-  UCXXWorkerProgressThread() = delete;
+  WorkerProgressThread() = delete;
 
-  UCXXWorkerProgressThread(
+  WorkerProgressThread(
     const bool pollingMode,
     std::function<bool(void)> progressFunction,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,
     std::shared_ptr<DelayedNotificationRequestCollection> delayedNotificationRequestCollection);
 
-  ~UCXXWorkerProgressThread();
+  ~WorkerProgressThread();
 
   bool pollingMode() const;
 };

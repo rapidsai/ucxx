@@ -45,21 +45,21 @@ cdef ptr_to_ndarray(void* ptr, np.npy_intp N):
 
 
 def _get_rmm_buffer(uintptr_t unique_ptr_recv_buffer):
-    cdef unique_ptr[UCXXPyBuffer] recv_buffer = (
-        move(deref(<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer))
+    cdef unique_ptr[PyBuffer] recv_buffer = (
+        move(deref(<unique_ptr[PyBuffer]*> unique_ptr_recv_buffer))
     )
-    cdef UCXXPyRMMBufferPtr rmm_buffer = (
-        dynamic_cast[UCXXPyRMMBufferPtr](recv_buffer.get())
+    cdef PyRMMBufferPtr rmm_buffer = (
+        dynamic_cast[PyRMMBufferPtr](recv_buffer.get())
     )
     return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.get()))
 
 
 def _get_host_buffer(uintptr_t unique_ptr_recv_buffer):
-    cdef unique_ptr[UCXXPyBuffer] recv_buffer = (
-        move(deref(<unique_ptr[UCXXPyBuffer]*> unique_ptr_recv_buffer))
+    cdef unique_ptr[PyBuffer] recv_buffer = (
+        move(deref(<unique_ptr[PyBuffer]*> unique_ptr_recv_buffer))
     )
-    cdef UCXXPyHostBufferPtr host_buffer = (
-        dynamic_cast[UCXXPyHostBufferPtr](recv_buffer.get())
+    cdef PyHostBufferPtr host_buffer = (
+        dynamic_cast[PyHostBufferPtr](recv_buffer.get())
     )
     return ptr_to_ndarray(host_buffer.release(), host_buffer.getSize())
 
@@ -117,7 +117,7 @@ class Feature(enum.Enum):
 #                                   Classes                                   #
 ###############################################################################
 
-def UCXXPythonEnabled():
+def PythonEnabled():
     cdef int python_enabled
     with nogil:
         python_enabled = UCXX_ENABLE_PYTHON
@@ -135,7 +135,7 @@ cdef class UCXContext():
         Tuple of UCX feature flags
     """
     cdef:
-        shared_ptr[UCXXContext] _context
+        shared_ptr[Context] _context
         dict _config
 
     def __init__(
@@ -149,7 +149,7 @@ cdef class UCXContext():
             Feature.RMA
         )
     ):
-        cdef UCXXConfigMap cpp_config_in, cpp_config_out
+        cdef ConfigMap cpp_config_in, cpp_config_out
         cdef dict context_config
 
         for k, v in config_dict.items():
@@ -181,7 +181,7 @@ cdef class UCXContext():
         return int(<uintptr_t>handle)
 
     cpdef str get_info(self):
-        cdef UCXXContext* ucxx_context
+        cdef Context* ucxx_context
         cdef string info
 
         with nogil:
@@ -193,14 +193,14 @@ cdef class UCXContext():
 
 cdef class UCXAddress():
     cdef:
-        shared_ptr[UCXXAddress] _address
+        shared_ptr[Address] _address
 
     def __init__(self, uintptr_t shared_ptr_address):
-        self._address = deref(<shared_ptr[UCXXAddress] *> shared_ptr_address)
+        self._address = deref(<shared_ptr[Address] *> shared_ptr_address)
 
     @classmethod
     def create_from_worker(cls, UCXWorker worker):
-        cdef shared_ptr[UCXXAddress] address
+        cdef shared_ptr[Address] address
 
         with nogil:
             address = worker._worker.get().getAddress()
@@ -247,7 +247,7 @@ cdef void _generic_callback(void *args) with gil:
 cdef class UCXWorker():
     """Python representation of `ucp_worker_h`"""
     cdef:
-        shared_ptr[UCXXWorker] _worker
+        shared_ptr[Worker] _worker
         dict _progress_thread_start_cb_data
         bint _is_request_notifier_available
 
@@ -257,7 +257,7 @@ cdef class UCXWorker():
             self._worker = context._context.get().createWorker(
                 ucxx_enable_delayed_notification
             )
-        self._is_request_notifier_available = UCXXPythonEnabled()
+        self._is_request_notifier_available = PythonEnabled()
 
     @property
     def handle(self):
@@ -381,11 +381,11 @@ cdef class UCXWorker():
 
 cdef class UCXRequest():
     cdef:
-        shared_ptr[UCXXRequest] _request
+        shared_ptr[Request] _request
         bint _is_completed
 
     def __init__(self, uintptr_t shared_ptr_request):
-        self._request = deref(<shared_ptr[UCXXRequest] *> shared_ptr_request)
+        self._request = deref(<shared_ptr[Request] *> shared_ptr_request)
         self._is_completed = False
 
     def is_completed(self, int64_t period_ns=0):
@@ -426,7 +426,7 @@ cdef class UCXRequest():
         return <object>future_ptr
 
     async def wait(self):
-        if UCXXPythonEnabled():
+        if PythonEnabled():
             await self.get_future()
         else:
             await self.wait_yield()
@@ -434,16 +434,16 @@ cdef class UCXRequest():
 
 cdef class UCXBufferRequest:
     cdef:
-        UCXXBufferRequestPtr _buffer_request
+        BufferRequestPtr _buffer_request
 
     def __init__(self, uintptr_t shared_ptr_buffer_request):
-        self._buffer_request = deref(<UCXXBufferRequestPtr *> shared_ptr_buffer_request)
+        self._buffer_request = deref(<BufferRequestPtr *> shared_ptr_buffer_request)
 
     def get_request(self):
         return UCXRequest(<uintptr_t><void*>&self._buffer_request.get().request)
 
     def get_py_buffer(self):
-        cdef unique_ptr[UCXXPyBuffer] buf
+        cdef unique_ptr[PyBuffer] buf
 
         with nogil:
             buf = move(self._buffer_request.get().pyBuffer)
@@ -459,22 +459,22 @@ cdef class UCXBufferRequest:
 
 cdef class UCXBufferRequests:
     cdef:
-        UCXXRequestTagMultiPtr _ucxx_request_tag_multi
+        RequestTagMultiPtr _ucxx_request_tag_multi
         bint _is_completed
         tuple _buffer_requests
         tuple _requests
 
     def __init__(self, uintptr_t unique_ptr_buffer_requests):
-        cdef UCXXRequestTagMulti ucxx_buffer_requests
+        cdef RequestTagMulti ucxx_buffer_requests
         self._is_completed = False
         self._requests = tuple()
 
         self._ucxx_request_tag_multi = (
-            deref(<UCXXRequestTagMultiPtr *> unique_ptr_buffer_requests)
+            deref(<RequestTagMultiPtr *> unique_ptr_buffer_requests)
         )
 
     def _populate_requests(self):
-        cdef vector[UCXXBufferRequestPtr] requests
+        cdef vector[BufferRequestPtr] requests
         if len(self._requests) == 0:
             requests = deref(self._ucxx_request_tag_multi)._bufferRequests
             total_requests = requests.size()
@@ -543,7 +543,7 @@ cdef class UCXBufferRequests:
         return <object>future_ptr
 
     async def wait(self):
-        if UCXXPythonEnabled():
+        if PythonEnabled():
             await self.get_future()
         else:
             await self.wait_yield()
@@ -577,11 +577,11 @@ cdef void _endpoint_close_callback(void *args) with gil:
 
 cdef class UCXEndpoint():
     cdef:
-        shared_ptr[UCXXEndpoint] _endpoint
+        shared_ptr[Endpoint] _endpoint
         dict _close_cb_data
 
     def __init__(self, uintptr_t shared_ptr_endpoint):
-        self._endpoint = deref(<shared_ptr[UCXXEndpoint] *> shared_ptr_endpoint)
+        self._endpoint = deref(<shared_ptr[Endpoint] *> shared_ptr_endpoint)
 
     @classmethod
     def create(
@@ -591,7 +591,7 @@ cdef class UCXEndpoint():
             uint16_t port,
             bint endpoint_error_handling
     ):
-        cdef shared_ptr[UCXXEndpoint] endpoint
+        cdef shared_ptr[Endpoint] endpoint
         cdef string addr = ip_address.encode("utf-8")
 
         with nogil:
@@ -608,7 +608,7 @@ cdef class UCXEndpoint():
             uintptr_t conn_request,
             bint endpoint_error_handling
     ):
-        cdef shared_ptr[UCXXEndpoint] endpoint
+        cdef shared_ptr[Endpoint] endpoint
 
         with nogil:
             endpoint = listener._listener.get().createEndpointFromConnRequest(
@@ -624,8 +624,8 @@ cdef class UCXEndpoint():
             UCXAddress address,
             bint endpoint_error_handling
     ):
-        cdef shared_ptr[UCXXAddress] ucxx_address = address._address
-        cdef shared_ptr[UCXXEndpoint] endpoint
+        cdef shared_ptr[Address] ucxx_address = address._address
+        cdef shared_ptr[Endpoint] endpoint
 
         with nogil:
             endpoint = worker._worker.get().createEndpointFromWorkerAddress(
@@ -646,7 +646,7 @@ cdef class UCXEndpoint():
     def stream_send(self, Array arr):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
-        cdef shared_ptr[UCXXRequest] req
+        cdef shared_ptr[Request] req
 
         with nogil:
             req = self._endpoint.get().stream_send(buf, nbytes)
@@ -656,7 +656,7 @@ cdef class UCXEndpoint():
     def stream_recv(self, Array arr):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
-        cdef shared_ptr[UCXXRequest] req
+        cdef shared_ptr[Request] req
 
         with nogil:
             req = self._endpoint.get().stream_recv(buf, nbytes)
@@ -666,7 +666,7 @@ cdef class UCXEndpoint():
     def tag_send(self, Array arr, size_t tag):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
-        cdef shared_ptr[UCXXRequest] req
+        cdef shared_ptr[Request] req
 
         with nogil:
             req = self._endpoint.get().tag_send(buf, nbytes, tag)
@@ -676,7 +676,7 @@ cdef class UCXEndpoint():
     def tag_recv(self, Array arr, size_t tag):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
-        cdef shared_ptr[UCXXRequest] req
+        cdef shared_ptr[Request] req
 
         with nogil:
             req = self._endpoint.get().tag_recv(buf, nbytes, tag)
@@ -687,7 +687,7 @@ cdef class UCXEndpoint():
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
-        cdef UCXXRequestTagMultiPtr ucxx_buffer_requests
+        cdef RequestTagMultiPtr ucxx_buffer_requests
 
         for arr in arrays:
             if not isinstance(arr, Array):
@@ -721,7 +721,7 @@ cdef class UCXEndpoint():
             tagMultiSendBlocking(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
 
     def tag_recv_multi(self, size_t tag):
-        cdef UCXXRequestTagMultiPtr ucxx_buffer_requests
+        cdef RequestTagMultiPtr ucxx_buffer_requests
 
         with nogil:
             ucxx_buffer_requests = tagMultiRecv(self._endpoint, tag)
@@ -780,11 +780,11 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
 
 cdef class UCXListener():
     cdef:
-        shared_ptr[UCXXListener] _listener
+        shared_ptr[Listener] _listener
         dict _cb_data
 
     def __init__(self, uintptr_t shared_ptr_listener, dict cb_data):
-        self._listener = deref(<shared_ptr[UCXXListener] *> shared_ptr_listener)
+        self._listener = deref(<shared_ptr[Listener] *> shared_ptr_listener)
         self._cb_data = cb_data
 
     @classmethod
@@ -802,7 +802,7 @@ cdef class UCXListener():
         if cb_kwargs is None:
             cb_kwargs = {}
 
-        cdef shared_ptr[UCXXListener] ucxx_listener
+        cdef shared_ptr[Listener] ucxx_listener
         cdef ucp_listener_conn_callback_t listener_cb = (
             <ucp_listener_conn_callback_t>_listener_callback
         )

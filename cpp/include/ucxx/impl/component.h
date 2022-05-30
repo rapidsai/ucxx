@@ -9,11 +9,11 @@
 
 namespace ucxx {
 
-UCXXComponent::~UCXXComponent() {}
+Component::~Component() {}
 
 // Called from child's constructor
-void UCXXComponent::setParent(std::shared_ptr<UCXXComponent> parent) { _parent = parent; }
+void Component::setParent(std::shared_ptr<Component> parent) { _parent = parent; }
 
-std::shared_ptr<UCXXComponent> UCXXComponent::getParent() const { return _parent; }
+std::shared_ptr<Component> Component::getParent() const { return _parent; }
 
 }  // namespace ucxx

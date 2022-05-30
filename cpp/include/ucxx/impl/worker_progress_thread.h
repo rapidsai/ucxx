@@ -10,7 +10,7 @@
 
 namespace ucxx {
 
-void UCXXWorkerProgressThread::progressUntilSync(
+void WorkerProgressThread::progressUntilSync(
   std::function<bool(void)> progressFunction,
   const bool& stop,
   ProgressThreadStartCallback startCallback,
@@ -27,7 +27,7 @@ void UCXXWorkerProgressThread::progressUntilSync(
   }
 }
 
-UCXXWorkerProgressThread::UCXXWorkerProgressThread(
+WorkerProgressThread::WorkerProgressThread(
   const bool pollingMode,
   std::function<bool(void)> progressFunction,
   ProgressThreadStartCallback startCallback,
@@ -35,7 +35,7 @@ UCXXWorkerProgressThread::UCXXWorkerProgressThread(
   std::shared_ptr<DelayedNotificationRequestCollection> delayedNotificationRequestCollection)
   : _pollingMode(pollingMode), _startCallback(startCallback), _startCallbackArg(startCallbackArg)
 {
-  _thread = std::thread(UCXXWorkerProgressThread::progressUntilSync,
+  _thread = std::thread(WorkerProgressThread::progressUntilSync,
                         progressFunction,
                         std::ref(_stop),
                         _startCallback,
@@ -43,7 +43,7 @@ UCXXWorkerProgressThread::UCXXWorkerProgressThread(
                         delayedNotificationRequestCollection);
 }
 
-UCXXWorkerProgressThread::~UCXXWorkerProgressThread()
+WorkerProgressThread::~WorkerProgressThread()
 {
   if (!_thread.joinable()) {
     ucxx_warn("Worker progress thread not running or already stopped");
@@ -54,6 +54,6 @@ UCXXWorkerProgressThread::~UCXXWorkerProgressThread()
   _thread.join();
 }
 
-bool UCXXWorkerProgressThread::pollingMode() const { return _pollingMode; }
+bool WorkerProgressThread::pollingMode() const { return _pollingMode; }
 
 }  // namespace ucxx

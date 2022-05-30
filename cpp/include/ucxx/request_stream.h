@@ -13,13 +13,15 @@
 
 namespace ucxx {
 
-class UCXXRequestStream : public UCXXRequest {
+class RequestStream : public Request {
  private:
-  UCXXRequestStream(std::shared_ptr<UCXXEndpoint> endpoint, bool send, void* buffer, size_t length);
+  RequestStream(std::shared_ptr<Endpoint> endpoint, bool send, void* buffer, size_t length);
 
  public:
-  friend std::shared_ptr<UCXXRequestStream> createRequestStream(
-    std::shared_ptr<UCXXEndpoint> endpoint, bool send, void* buffer, size_t length);
+  friend std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
+                                                            bool send,
+                                                            void* buffer,
+                                                            size_t length);
 
   virtual void populateNotificationRequest();
 

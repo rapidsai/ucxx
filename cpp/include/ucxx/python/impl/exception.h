@@ -17,13 +17,13 @@ void raise_py_error()
 {
   try {
     throw;
-  } catch (const UCXXCanceledError& e) {
+  } catch (const CanceledError& e) {
     PyErr_SetString(ucxx_canceled_error, e.what());
-  } catch (const UCXXConfigError& e) {
+  } catch (const ConfigError& e) {
     PyErr_SetString(ucxx_config_error, e.what());
-  } catch (const UCXXConnectionResetError& e) {
+  } catch (const ConnectionResetError& e) {
     PyErr_SetString(ucxx_connection_reset_error, e.what());
-  } catch (const UCXXError& e) {
+  } catch (const Error& e) {
     PyErr_SetString(ucxx_error, e.what());
   } catch (const std::bad_alloc& e) {
     PyErr_SetString(PyExc_MemoryError, e.what());

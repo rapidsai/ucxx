@@ -15,26 +15,25 @@
 
 namespace ucxx {
 
-class UCXXAddress : public UCXXComponent {
+class Address : public Component {
  private:
   char* _handle{nullptr};
   size_t _length{0};
 
-  UCXXAddress(ucp_address_t* address, size_t length, std::shared_ptr<ucxx::UCXXWorker> worker);
+  Address(ucp_address_t* address, size_t length, std::shared_ptr<ucxx::Worker> worker);
 
  public:
-  UCXXAddress()                   = delete;
-  UCXXAddress(const UCXXAddress&) = delete;
-  UCXXAddress& operator=(UCXXAddress const&) = delete;
-  UCXXAddress(UCXXAddress&& o)               = delete;
-  UCXXAddress& operator=(UCXXAddress&& o) = delete;
+  Address()               = delete;
+  Address(const Address&) = delete;
+  Address& operator=(Address const&) = delete;
+  Address(Address&& o)               = delete;
+  Address& operator=(Address&& o) = delete;
 
-  ~UCXXAddress();
+  ~Address();
 
-  friend std::shared_ptr<UCXXAddress> createAddressFromWorker(
-    std::shared_ptr<ucxx::UCXXWorker> worker);
+  friend std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<ucxx::Worker> worker);
 
-  friend std::shared_ptr<UCXXAddress> createAddressFromString(std::string addressString);
+  friend std::shared_ptr<Address> createAddressFromString(std::string addressString);
 
   ucp_address_t* getHandle() const;
 

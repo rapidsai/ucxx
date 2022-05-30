@@ -14,32 +14,32 @@
 
 namespace ucxx {
 
-UCXXRequestStream::UCXXRequestStream(std::shared_ptr<UCXXEndpoint> endpoint,
-                                     bool send,
-                                     void* buffer,
-                                     size_t length)
-  : UCXXRequest(endpoint,
-                std::make_shared<NotificationRequest>(send, buffer, length),
-                std::string(send ? "stream_send" : "stream_recv"))
+RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
+                             bool send,
+                             void* buffer,
+                             size_t length)
+  : Request(endpoint,
+            std::make_shared<NotificationRequest>(send, buffer, length),
+            std::string(send ? "stream_send" : "stream_recv"))
 {
-  auto worker = UCXXEndpoint::getWorker(endpoint->getParent());
+  auto worker = Endpoint::getWorker(endpoint->getParent());
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
   // importantly the Python future later on, so that we don't need the GIL here.
   worker->registerNotificationRequest(
-    std::bind(std::mem_fn(&UCXXRequest::populateNotificationRequest), this));
+    std::bind(std::mem_fn(&Request::populateNotificationRequest), this));
 }
 
-std::shared_ptr<UCXXRequestStream> createRequestStream(std::shared_ptr<UCXXEndpoint> endpoint,
-                                                       bool send,
-                                                       void* buffer,
-                                                       size_t length)
+std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
+                                                   bool send,
+                                                   void* buffer,
+                                                   size_t length)
 {
-  return std::shared_ptr<UCXXRequestStream>(new UCXXRequestStream(endpoint, send, buffer, length));
+  return std::shared_ptr<RequestStream>(new RequestStream(endpoint, send, buffer, length));
 }
 
-void UCXXRequestStream::request()
+void RequestStream::request()
 {
   ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                UCP_OP_ATTR_FIELD_DATATYPE |
@@ -63,7 +63,7 @@ void UCXXRequestStream::request()
   }
 }
 
-void UCXXRequestStream::populateNotificationRequest()
+void RequestStream::populateNotificationRequest()
 {
   request();
 
@@ -85,20 +85,20 @@ void UCXXRequestStream::populateNotificationRequest()
   process();
 }
 
-void UCXXRequestStream::stream_send_callback(void* request, ucs_status_t status, void* arg)
+void RequestStream::stream_send_callback(void* request, ucs_status_t status, void* arg)
 {
   ucxx_trace_req("stream_send_callback");
-  UCXXRequest* req = (UCXXRequest*)arg;
+  Request* req = (Request*)arg;
   return req->callback(request, status);
 }
 
-void UCXXRequestStream::stream_recv_callback(void* request,
-                                             ucs_status_t status,
-                                             size_t length,
-                                             void* arg)
+void RequestStream::stream_recv_callback(void* request,
+                                         ucs_status_t status,
+                                         size_t length,
+                                         void* arg)
 {
   ucxx_trace_req("stream_recv_callback");
-  UCXXRequest* req = (UCXXRequest*)arg;
+  Request* req = (Request*)arg;
   return req->callback(request, status);
 }
 

@@ -7,17 +7,17 @@
 
 namespace ucxx {
 
-class UCXXInitializer {
+class Initializer {
  private:
-  UCXXInitializer();
+  Initializer();
 
-  UCXXInitializer(const UCXXInitializer&) = delete;
-  UCXXInitializer& operator=(UCXXInitializer const&) = delete;
-  UCXXInitializer(UCXXInitializer&& o)               = delete;
-  UCXXInitializer& operator=(UCXXInitializer&& o) = delete;
+  Initializer(const Initializer&) = delete;
+  Initializer& operator=(Initializer const&) = delete;
+  Initializer(Initializer&& o)               = delete;
+  Initializer& operator=(Initializer&& o) = delete;
 
  public:
-  static UCXXInitializer& getInstance();
+  static Initializer& getInstance();
 };
 
 }  // namespace ucxx

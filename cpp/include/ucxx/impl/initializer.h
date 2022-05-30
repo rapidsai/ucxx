@@ -8,11 +8,11 @@
 #include <ucxx/log.h>
 
 namespace ucxx {
-UCXXInitializer::UCXXInitializer() { parseLogLevel(); }
+Initializer::Initializer() { parseLogLevel(); }
 
-UCXXInitializer& UCXXInitializer::getInstance()
+Initializer& Initializer::getInstance()
 {
-  static UCXXInitializer instance;
+  static Initializer instance;
   return instance;
 }
 

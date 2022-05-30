@@ -54,5 +54,5 @@ bool assert_ucs_status(const ucs_status_t status, const std::string& msg_context
     msg = std::string("[" + msg_context + "] " + std::string(ucs_status));
   else
     msg = ucs_status;
-  throw ucxx::UCXXError(msg);
+  throw ucxx::Error(msg);
 }

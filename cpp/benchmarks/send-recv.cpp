@@ -28,21 +28,21 @@ struct app_context_t {
 
 class ListenerContext {
  private:
-  std::shared_ptr<ucxx::UCXXWorker> _worker{nullptr};
-  std::shared_ptr<ucxx::UCXXEndpoint> _endpoint{nullptr};
-  std::shared_ptr<ucxx::UCXXListener> _listener{nullptr};
+  std::shared_ptr<ucxx::Worker> _worker{nullptr};
+  std::shared_ptr<ucxx::Endpoint> _endpoint{nullptr};
+  std::shared_ptr<ucxx::Listener> _listener{nullptr};
   std::atomic<bool> _isAvailable{true};
 
  public:
-  ListenerContext(std::shared_ptr<ucxx::UCXXWorker> worker) : _worker{worker} {}
+  ListenerContext(std::shared_ptr<ucxx::Worker> worker) : _worker{worker} {}
 
   ~ListenerContext() { releaseEndpoint(); }
 
-  void setListener(std::shared_ptr<ucxx::UCXXListener> listener) { _listener = listener; }
+  void setListener(std::shared_ptr<ucxx::Listener> listener) { _listener = listener; }
 
-  std::shared_ptr<ucxx::UCXXListener> getListener() { return _listener; }
+  std::shared_ptr<ucxx::Listener> getListener() { return _listener; }
 
-  std::shared_ptr<ucxx::UCXXEndpoint> getEndpoint() { return _endpoint; }
+  std::shared_ptr<ucxx::Endpoint> getEndpoint() { return _endpoint; }
 
   bool isAvailable() const { return _isAvailable; }
 
@@ -90,7 +90,7 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
 
 static void printUsage()
 {
-  std::cerr << "UCXX basic client/server example" << std::endl;
+  std::cerr << " basic client/server example" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Usage: basic [server-hostname] [options]" << std::endl;
   std::cerr << std::endl;
@@ -157,8 +157,8 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
 }
 
 void waitRequests(progress_mode_t progress_mode,
-                  std::shared_ptr<ucxx::UCXXWorker> worker,
-                  std::vector<std::shared_ptr<ucxx::UCXXRequest>>& requests)
+                  std::shared_ptr<ucxx::Worker> worker,
+                  std::vector<std::shared_ptr<ucxx::Request>>& requests)
 {
   // Wait until all messages are completed
   if (progress_mode == PROGRESS_MODE_BLOCKING) {
@@ -210,8 +210,8 @@ BufferMap allocateTransferBuffers(size_t message_size)
 }
 
 void doTransfer(app_context_t& app_context,
-                std::shared_ptr<ucxx::UCXXWorker> worker,
-                std::shared_ptr<ucxx::UCXXEndpoint> endpoint,
+                std::shared_ptr<ucxx::Worker> worker,
+                std::shared_ptr<ucxx::Endpoint> endpoint,
                 TagMap& tagMap,
                 BufferMap& bufferMapReuse)
 {
@@ -221,7 +221,7 @@ void doTransfer(app_context_t& app_context,
   else
     bufferMap = bufferMapReuse;
 
-  std::vector<std::shared_ptr<ucxx::UCXXRequest>> requests = {
+  std::vector<std::shared_ptr<ucxx::Request>> requests = {
     endpoint->tag_send(bufferMap[SEND].data(), app_context.message_size, tagMap[SEND]),
     endpoint->tag_recv(bufferMap[RECV].data(), app_context.message_size, tagMap[RECV])};
 
@@ -239,7 +239,7 @@ int main(int argc, char** argv)
   if (parseCommand(&app_context, argc, argv) != UCS_OK) return -1;
 
   // Setup: create UCP context, worker, listener and client endpoint.
-  auto context = ucxx::createContext({}, ucxx::UCXXContext::default_feature_flags);
+  auto context = ucxx::createContext({}, ucxx::Context::default_feature_flags);
   auto worker  = context->createWorker();
 
   bool is_server = app_context.server_addr == NULL;
@@ -249,8 +249,8 @@ int main(int argc, char** argv)
   };
 
   std::shared_ptr<ListenerContext> listener_ctx;
-  std::shared_ptr<ucxx::UCXXEndpoint> endpoint;
-  std::shared_ptr<ucxx::UCXXListener> listener;
+  std::shared_ptr<ucxx::Endpoint> endpoint;
+  std::shared_ptr<ucxx::Listener> listener;
   if (is_server) {
     listener_ctx = std::make_unique<ListenerContext>(worker);
     listener = worker->createListener(app_context.listener_port, listener_cb, listener_ctx.get());
@@ -275,7 +275,7 @@ int main(int argc, char** argv)
     endpoint =
       worker->createEndpointFromHostname(app_context.server_addr, app_context.listener_port, true);
 
-  std::vector<std::shared_ptr<ucxx::UCXXRequest>> requests;
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
 
   // Allocate wireup buffers
   BufferMap wireupBufferMap = {{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}};
