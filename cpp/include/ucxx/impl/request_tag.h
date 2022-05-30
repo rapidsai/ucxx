@@ -38,7 +38,7 @@ RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
                        std::shared_ptr<void> callbackData)
   : Request(endpoint,
             std::make_shared<NotificationRequest>(send, buffer, length, tag),
-            std::string(send ? "tag_send" : "tag_recv"),
+            std::string(send ? "tagSend" : "tagRecv"),
             enablePythonFuture)
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
@@ -53,27 +53,27 @@ RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
     std::bind(std::mem_fn(&Request::populateNotificationRequest), this));
 }
 
-void RequestTag::tag_send_callback(void* request, ucs_status_t status, void* arg)
+void RequestTag::tagSendCallback(void* request, ucs_status_t status, void* arg)
 {
-  ucxx_trace_req("tag_send_callback");
+  ucxx_trace_req("tagSendCallback");
   Request* req = (Request*)arg;
   return req->callback(request, status);
 }
 
-void RequestTag::tag_recv_callback(void* request,
-                                   ucs_status_t status,
-                                   const ucp_tag_recv_info_t* info,
-                                   void* arg)
+void RequestTag::tagRecvCallback(void* request,
+                                 ucs_status_t status,
+                                 const ucp_tag_recv_info_t* info,
+                                 void* arg)
 {
-  ucxx_trace_req("tag_recv_callback");
+  ucxx_trace_req("tagRecvCallback");
   Request* req = (Request*)arg;
   return req->callback(request, status);
 }
 
 void RequestTag::request()
 {
-  static const ucp_tag_t tag_mask = -1;
-  auto worker                     = Endpoint::getWorker(_endpoint->getParent());
+  static const ucp_tag_t tagMask = -1;
+  auto worker                    = Endpoint::getWorker(_endpoint->getParent());
 
   ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                UCP_OP_ATTR_FIELD_DATATYPE |
@@ -82,19 +82,19 @@ void RequestTag::request()
                                .user_data = this};
 
   if (_notificationRequest->_send) {
-    param.cb.send     = tag_send_callback;
+    param.cb.send     = tagSendCallback;
     _requestStatusPtr = ucp_tag_send_nbx(_endpoint->getHandle(),
                                          _notificationRequest->_buffer,
                                          _notificationRequest->_length,
                                          _notificationRequest->_tag,
                                          &param);
   } else {
-    param.cb.recv     = tag_recv_callback;
-    _requestStatusPtr = ucp_tag_recv_nbx(worker->get_handle(),
+    param.cb.recv     = tagRecvCallback;
+    _requestStatusPtr = ucp_tag_recv_nbx(worker->getHandle(),
                                          _notificationRequest->_buffer,
                                          _notificationRequest->_length,
                                          _notificationRequest->_tag,
-                                         tag_mask,
+                                         tagMask,
                                          &param);
   }
 }

@@ -32,7 +32,7 @@ class Config {
 
   ConfigMap get();
 
-  ucp_config_t* get_handle();
+  ucp_config_t* getHandle();
 };
 
 }  // namespace ucxx

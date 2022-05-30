@@ -160,7 +160,7 @@ cdef class UCXContext():
 
         with nogil:
             self._context = createContext(cpp_config_in, feature_flags_uint)
-            cpp_config_out = self._context.get().get_config()
+            cpp_config_out = self._context.get().getConfig()
 
         context_config = cpp_config_out
 
@@ -176,7 +176,7 @@ cdef class UCXContext():
         cdef ucp_context_h handle
 
         with nogil:
-            handle = self._context.get().get_handle()
+            handle = self._context.get().getHandle()
 
         return int(<uintptr_t>handle)
 
@@ -186,7 +186,7 @@ cdef class UCXContext():
 
         with nogil:
             ucxx_context = self._context.get()
-            info = ucxx_context.get_info()
+            info = ucxx_context.getInfo()
 
         return info.decode("utf-8")
 
@@ -264,7 +264,7 @@ cdef class UCXWorker():
         cdef ucp_worker_h handle
 
         with nogil:
-            handle = self._worker.get().get_handle()
+            handle = self._worker.get().getHandle()
 
         return int(<uintptr_t>handle)
 
@@ -290,7 +290,7 @@ cdef class UCXWorker():
 
     def init_blocking_progress_mode(self):
         with nogil:
-            self._worker.get().init_blocking_progress_mode()
+            self._worker.get().initBlockingProgressMode()
 
     def progress(self):
         with nogil:
@@ -300,13 +300,13 @@ cdef class UCXWorker():
         cdef bint progress_made
 
         with nogil:
-            progress_made = self._worker.get().progress_once()
+            progress_made = self._worker.get().progressOnce()
 
         return progress_made
 
     def progress_worker_event(self):
         with nogil:
-            self._worker.get().progress_worker_event()
+            self._worker.get().progressWorkerEvent()
 
     def start_progress_thread(self, bint polling_mode=True):
         with nogil:
@@ -649,7 +649,7 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
 
         with nogil:
-            req = self._endpoint.get().stream_send(buf, nbytes)
+            req = self._endpoint.get().streamSend(buf, nbytes)
 
         return UCXRequest(<uintptr_t><void*>&req)
 
@@ -659,7 +659,7 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
 
         with nogil:
-            req = self._endpoint.get().stream_recv(buf, nbytes)
+            req = self._endpoint.get().streamRecv(buf, nbytes)
 
         return UCXRequest(<uintptr_t><void*>&req)
 
@@ -669,7 +669,7 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
 
         with nogil:
-            req = self._endpoint.get().tag_send(buf, nbytes, tag)
+            req = self._endpoint.get().tagSend(buf, nbytes, tag)
 
         return UCXRequest(<uintptr_t><void*>&req)
 
@@ -679,7 +679,7 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
 
         with nogil:
-            req = self._endpoint.get().tag_recv(buf, nbytes, tag)
+            req = self._endpoint.get().tagRecv(buf, nbytes, tag)
 
         return UCXRequest(<uintptr_t><void*>&req)
 

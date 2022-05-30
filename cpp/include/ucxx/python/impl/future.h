@@ -12,16 +12,18 @@
 
 namespace ucxx {
 
-PyObject* py_ucxx_asyncio_str = NULL;
-PyObject* py_ucxx_future_str  = NULL;
-PyObject* py_future_object    = NULL;
+namespace python {
+
+PyObject* asyncio_str           = NULL;
+PyObject* future_str            = NULL;
+PyObject* asyncio_future_object = NULL;
 
 static int intern_strings(void)
 {
-  py_ucxx_asyncio_str = PyUnicode_InternFromString("asyncio");
-  if (py_ucxx_asyncio_str == NULL) { return -1; }
-  py_ucxx_future_str = PyUnicode_InternFromString("Future");
-  if (py_ucxx_future_str == NULL) { return -1; }
+  asyncio_str = PyUnicode_InternFromString("asyncio");
+  if (asyncio_str == NULL) { return -1; }
+  future_str = PyUnicode_InternFromString("Future");
+  if (future_str == NULL) { return -1; }
   return 0;
 }
 
@@ -36,11 +38,11 @@ err:
   return -1;
 }
 
-static PyObject* get_future_object()
+static PyObject* get_asyncio_future_object()
 {
   PyObject* asyncio_module = NULL;
 
-  if (py_future_object) return py_future_object;
+  if (asyncio_future_object) return asyncio_future_object;
 
   PyGILState_STATE state = PyGILState_Ensure();
 
@@ -49,20 +51,20 @@ static PyObject* get_future_object()
     goto finish;
   }
 
-  asyncio_module = PyImport_Import(py_ucxx_asyncio_str);
+  asyncio_module = PyImport_Import(asyncio_str);
   if (PyErr_Occurred()) ucxx_trace_req("Python error here");
   if (PyErr_Occurred()) PyErr_Print();
   if (asyncio_module == NULL) goto finish;
 
-  py_future_object = PyObject_GetAttr(asyncio_module, py_ucxx_future_str);
+  asyncio_future_object = PyObject_GetAttr(asyncio_module, future_str);
   if (PyErr_Occurred()) ucxx_trace_req("Python error here");
   if (PyErr_Occurred()) PyErr_Print();
   Py_DECREF(asyncio_module);
-  if (py_future_object == NULL) { goto finish; }
+  if (asyncio_future_object == NULL) { goto finish; }
 
 finish:
   PyGILState_Release(state);
-  return py_future_object;
+  return asyncio_future_object;
 }
 
 static PyObject* create_python_future()
@@ -77,13 +79,13 @@ static PyObject* create_python_future()
     goto finish;
   }
 
-  future_object = get_future_object();
+  future_object = get_asyncio_future_object();
   if (future_object == NULL) { goto finish; }
   if (!PyCallable_Check(future_object)) {
     PyErr_Format(PyExc_RuntimeError,
                  "%s.%s is not callable.",
-                 PyUnicode_AS_DATA(py_ucxx_asyncio_str),
-                 PyUnicode_AS_DATA(py_ucxx_future_str));
+                 PyUnicode_AS_DATA(asyncio_str),
+                 PyUnicode_AS_DATA(future_str));
     goto finish;
   }
 
@@ -100,12 +102,9 @@ static PyCFunction get_future_method(const char* method_name)
 {
   PyCFunction result = NULL;
 
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
   PyGILState_STATE state = PyGILState_Ensure();
 
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
-  PyObject* future_object = get_future_object();
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
+  PyObject* future_object = get_asyncio_future_object();
   if (PyErr_Occurred()) PyErr_Print();
   PyMethodDef* m = ((PyTypeObject*)future_object)->tp_methods;
 
@@ -128,10 +127,8 @@ static PyObject* future_set_result(PyObject* future, PyObject* value)
   PyObject* result = NULL;
 
   if (PyErr_Occurred()) PyErr_Print();
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
   PyGILState_STATE state = PyGILState_Ensure();
 
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
   if (PyErr_Occurred()) PyErr_Print();
   PyCFunction f = get_future_method("set_result");
   result        = f(future, value);
@@ -172,6 +169,8 @@ finish:
   PyGILState_Release(state);
   return result;
 }
+
+}  // namespace python
 
 }  // namespace ucxx
 

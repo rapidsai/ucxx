@@ -18,20 +18,20 @@ std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<ucxx::Worker> w
 
 std::shared_ptr<Address> createAddressFromString(std::string addressString);
 
-std::shared_ptr<Context> createContext(const ConfigMap ucx_config, const uint64_t feature_flags);
+std::shared_ptr<Context> createContext(const ConfigMap ucxConfig, const uint64_t featureFlags);
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
-                                                     std::string ip_address,
+                                                     std::string ipAddress,
                                                      uint16_t port,
-                                                     bool endpoint_error_handling);
+                                                     bool endpointErrorHandling);
 
 std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener> listener,
-                                                        ucp_conn_request_h conn_request,
-                                                        bool endpoint_error_handling);
+                                                        ucp_conn_request_h connRequest,
+                                                        bool endpointErrorHandling);
 
 std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker> worker,
                                                           std::shared_ptr<Address> address,
-                                                          bool endpoint_error_handling);
+                                                          bool endpointErrorHandling);
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          uint16_t port,
@@ -71,10 +71,13 @@ std::shared_ptr<RequestTag> createRequestTag(
   std::shared_ptr<void> callbackData);
 
 #if UCXX_ENABLE_PYTHON
+namespace python {
+
 class Notifier;
 
-template <class... Args>
-std::shared_ptr<Notifier> createNotifier(Args&&... args);
+std::shared_ptr<Notifier> createNotifier();
+
+}  // namespace python
 #endif
 
 }  // namespace ucxx

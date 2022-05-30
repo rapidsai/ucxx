@@ -13,18 +13,20 @@
 
 namespace ucxx {
 
+namespace python {
+
 enum RequestNotifierThreadState {
   RequestNotifierThreadNotRunning,
   RequestNotifierThreadRunning,
   RequestNotifierThreadStopping
 };
 
-class PythonFuture;
+class Future;
 
 class Notifier {
  private:
   std::mutex _notifierThreadMutex{};
-  std::vector<std::pair<std::shared_ptr<PythonFuture>, ucs_status_t>> _notifierThreadFutureStatus{};
+  std::vector<std::pair<std::shared_ptr<Future>, ucs_status_t>> _notifierThreadFutureStatus{};
   bool _notifierThreadFutureStatusReady{false};
   RequestNotifierThreadState _notifierThreadFutureStatusFinished{RequestNotifierThreadNotRunning};
   std::condition_variable _notifierThreadConditionVariable{};
@@ -37,18 +39,17 @@ class Notifier {
   Notifier(Notifier&& o)               = delete;
   Notifier& operator=(Notifier&& o) = delete;
 
-  template <class... Args>
-  friend std::shared_ptr<Notifier> createNotifier(Args&&... args)
+  friend std::shared_ptr<Notifier> createNotifier()
   {
-    return std::shared_ptr<Notifier>(new Notifier(std::forward<Args>(args)...));
+    return std::shared_ptr<Notifier>(new Notifier());
   }
 
-  void schedulePythonFutureNotifyEmpty()
+  void scheduleFutureNotifyEmpty()
   {
-    ucxx_trace_req("Notifer::schedulePythonFutureNotifyEmpty(): %p", this);
+    ucxx_trace_req("Notifer::scheduleFutureNotifyEmpty(): %p", this);
   }
 
-  void schedulePythonFutureNotify(std::shared_ptr<PythonFuture> future, ucs_status_t status);
+  void scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t status);
 
   bool waitRequestNotifier()
   {
@@ -84,6 +85,8 @@ class Notifier {
     _notifierThreadConditionVariable.notify_all();
   }
 };
+
+}  // namespace python
 
 }  // namespace ucxx
 #endif

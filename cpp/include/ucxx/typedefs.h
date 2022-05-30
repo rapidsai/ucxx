@@ -11,13 +11,18 @@
 namespace ucxx {
 
 class Request;
-class PythonFuture;
+
+namespace python {
+
+class Future;
+
+}
 
 // Non-blocking requests
 typedef struct ucxx_request {
   ucs_status_t status                                 = UCS_INPROGRESS;
   void* request                                       = nullptr;
-  std::shared_ptr<PythonFuture> py_future             = nullptr;
+  std::shared_ptr<python::Future> py_future           = nullptr;
   std::function<void(std::shared_ptr<void>)> callback = nullptr;
   std::shared_ptr<void> callback_data                 = nullptr;
 } ucxx_request_t;
@@ -40,8 +45,8 @@ typedef enum {
   _LOG_LEVEL_PRINT /* Temporary output */
 } ucxx_log_level_t;
 
-typedef std::unordered_map<Request*, std::weak_ptr<Request>> inflight_request_map_t;
-typedef std::shared_ptr<inflight_request_map_t> inflight_requests_t;
+typedef std::unordered_map<Request*, std::weak_ptr<Request>> InflightRequestMap;
+typedef std::shared_ptr<InflightRequestMap> InflightRequests;
 
 typedef std::unordered_map<std::string, std::string> ConfigMap;
 

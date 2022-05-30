@@ -10,38 +10,39 @@
 
 #include <ucxx/context.h>
 #include <ucxx/initializer.h>
-#include <ucxx/utils.h>
+#include <ucxx/utils/file_descriptor.h>
+#include <ucxx/utils/ucx.h>
 
 namespace ucxx {
 
-Context::Context(const ConfigMap ucx_config, const uint64_t feature_flags)
-  : _config{Config(ucx_config)}, _feature_flags{feature_flags}
+Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
+  : _config{Config(ucxConfig)}, _featureFlags{featureFlags}
 {
-  ucp_params_t ucp_params;
+  ucp_params_t params;
 
   ucxx::Initializer::getInstance();
 
   // UCP
-  std::memset(&ucp_params, 0, sizeof(ucp_params));
-  ucp_params.field_mask = UCP_PARAM_FIELD_FEATURES;
-  ucp_params.features   = feature_flags;
+  std::memset(&params, 0, sizeof(params));
+  params.field_mask = UCP_PARAM_FIELD_FEATURES;
+  params.features   = featureFlags;
 
-  assert_ucs_status(ucp_init(&ucp_params, this->_config.get_handle(), &this->_handle));
+  utils::assert_ucs_status(ucp_init(&params, this->_config.getHandle(), &this->_handle));
 
   // UCX supports CUDA if "cuda" is part of the TLS or TLS is "all"
-  auto config_map = this->_config.get();
-  auto tls        = config_map.find("TLS");
-  if (tls != config_map.end())
-    this->_cuda_support = tls->second == "all" || tls->second.find("cuda") != std::string::npos;
+  auto configMap = this->_config.get();
+  auto tls       = configMap.find("TLS");
+  if (tls != configMap.end())
+    this->_cudaSupport = tls->second == "all" || tls->second.find("cuda") != std::string::npos;
 
   ucxx_info("UCP initiated using config: ");
-  for (const auto& kv : config_map)
+  for (const auto& kv : configMap)
     ucxx_info("  %s: %s", kv.first.c_str(), kv.second.c_str());
 }
 
-std::shared_ptr<Context> createContext(const ConfigMap ucx_config, const uint64_t feature_flags)
+std::shared_ptr<Context> createContext(const ConfigMap ucxConfig, const uint64_t featureFlags)
 {
-  return std::shared_ptr<Context>(new Context(ucx_config, feature_flags));
+  return std::shared_ptr<Context>(new Context(ucxConfig, featureFlags));
 }
 
 Context::~Context()
@@ -49,18 +50,18 @@ Context::~Context()
   if (this->_handle != nullptr) ucp_cleanup(this->_handle);
 }
 
-ConfigMap Context::get_config() { return this->_config.get(); }
+ConfigMap Context::getConfig() { return this->_config.get(); }
 
-ucp_context_h Context::get_handle() { return this->_handle; }
+ucp_context_h Context::getHandle() { return this->_handle; }
 
-std::string Context::get_info()
+std::string Context::getInfo()
 {
-  FILE* text_fd = create_text_fd();
-  ucp_context_print_info(this->_handle, text_fd);
-  return decode_text_fd(text_fd);
+  FILE* TextFileDescriptor = utils::createTextFileDescriptor();
+  ucp_context_print_info(this->_handle, TextFileDescriptor);
+  return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 
-uint64_t Context::get_feature_flags() const { return _feature_flags; }
+uint64_t Context::getFeatureFlags() const { return _featureFlags; }
 
 std::shared_ptr<Worker> Context::createWorker(const bool enableDelayedNotification)
 {

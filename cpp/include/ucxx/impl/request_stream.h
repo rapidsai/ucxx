@@ -20,7 +20,7 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
                              size_t length)
   : Request(endpoint,
             std::make_shared<NotificationRequest>(send, buffer, length),
-            std::string(send ? "stream_send" : "stream_recv"))
+            std::string(send ? "streamSend" : "streamRecv"))
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
 
@@ -48,13 +48,13 @@ void RequestStream::request()
                                .user_data = this};
 
   if (_notificationRequest->_send) {
-    param.cb.send     = stream_send_callback;
+    param.cb.send     = streamSendCallback;
     _requestStatusPtr = ucp_stream_send_nbx(
       _endpoint->getHandle(), _notificationRequest->_buffer, _notificationRequest->_length, &param);
   } else {
     param.op_attr_mask |= UCP_OP_ATTR_FIELD_FLAGS;
     param.flags          = UCP_STREAM_RECV_FLAG_WAITALL;
-    param.cb.recv_stream = stream_recv_callback;
+    param.cb.recv_stream = streamRecvCallback;
     _requestStatusPtr    = ucp_stream_recv_nbx(_endpoint->getHandle(),
                                             _notificationRequest->_buffer,
                                             _notificationRequest->_length,
@@ -85,19 +85,16 @@ void RequestStream::populateNotificationRequest()
   process();
 }
 
-void RequestStream::stream_send_callback(void* request, ucs_status_t status, void* arg)
+void RequestStream::streamSendCallback(void* request, ucs_status_t status, void* arg)
 {
-  ucxx_trace_req("stream_send_callback");
+  ucxx_trace_req("streamSendCallback");
   Request* req = (Request*)arg;
   return req->callback(request, status);
 }
 
-void RequestStream::stream_recv_callback(void* request,
-                                         ucs_status_t status,
-                                         size_t length,
-                                         void* arg)
+void RequestStream::streamRecvCallback(void* request, ucs_status_t status, size_t length, void* arg)
 {
-  ucxx_trace_req("stream_recv_callback");
+  ucxx_trace_req("streamRecvCallback");
   Request* req = (Request*)arg;
   return req->callback(request, status);
 }

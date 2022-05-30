@@ -18,18 +18,20 @@
 
 namespace ucxx {
 
+namespace python {
+
 class Notifier;
 
-typedef void (*PythonFutureCallback)();
+typedef void (*FutureCallback)();
 
-class PythonFuture : public std::enable_shared_from_this<PythonFuture> {
+class Future : public std::enable_shared_from_this<Future> {
  private:
   PyObject* _handle{create_python_future()};
-  std::shared_ptr<ucxx::Notifier> _notifier{};
+  std::shared_ptr<Notifier> _notifier{};
   void* _worker;
 
  public:
-  PythonFuture(std::shared_ptr<ucxx::Notifier> notifier) : _notifier(notifier) {}
+  Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
 
   void notify(ucs_status_t status);
 
@@ -37,6 +39,8 @@ class PythonFuture : public std::enable_shared_from_this<PythonFuture> {
 
   PyObject* getHandle() { return _handle; }
 };
+
+}  // namespace python
 
 }  // namespace ucxx
 

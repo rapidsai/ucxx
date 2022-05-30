@@ -6,7 +6,7 @@
 #pragma once
 
 #include <ucxx/address.h>
-#include <ucxx/utils.h>
+#include <ucxx/utils/ucx.h>
 
 namespace ucxx {
 
@@ -24,17 +24,17 @@ Address::~Address()
   if (worker == nullptr) {
     delete[] _handle;
   } else {
-    ucp_worker_release_address(worker->get_handle(), (ucp_address_t*)_handle);
+    ucp_worker_release_address(worker->getHandle(), (ucp_address_t*)_handle);
   }
 }
 
 std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<ucxx::Worker> worker)
 {
-  ucp_worker_h ucp_worker = worker->get_handle();
+  ucp_worker_h ucp_worker = worker->getHandle();
   ucp_address_t* address{nullptr};
   size_t length = 0;
 
-  assert_ucs_status(ucp_worker_get_address(ucp_worker, &address, &length));
+  utils::assert_ucs_status(ucp_worker_get_address(ucp_worker, &address, &length));
   return std::shared_ptr<Address>(new Address(address, length, worker));
 }
 

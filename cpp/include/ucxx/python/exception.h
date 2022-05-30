@@ -19,9 +19,13 @@ extern PyObject* ucxx_connection_reset_error;
 
 namespace ucxx {
 
+namespace python {
+
 void raise_py_error();
 
 PyObject* get_python_exception_from_ucs_status(ucs_status_t status);
+
+}  // namespace python
 
 }  // namespace ucxx
 

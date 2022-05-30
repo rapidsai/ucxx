@@ -41,7 +41,7 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
   std::vector<BufferRequest*> _completedRequests{};
   ucs_status_t _status{UCS_INPROGRESS};
 #if UCXX_ENABLE_PYTHON
-  std::shared_ptr<PythonFuture> _pythonFuture;
+  std::shared_ptr<ucxx::python::Future> _pythonFuture;
 #endif
 
  public:

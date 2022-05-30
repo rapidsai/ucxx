@@ -13,22 +13,22 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
-#include <ucxx/utils.h>
+#include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
 
 Worker::Worker(std::shared_ptr<Context> context, const bool enableDelayedNotification)
 {
-  ucp_worker_params_t worker_params;
+  ucp_worker_params_t params;
 
-  if (context == nullptr || context->get_handle() == nullptr)
+  if (context == nullptr || context->getHandle() == nullptr)
     throw std::runtime_error("Context not initialized");
 
-  memset(&worker_params, 0, sizeof(worker_params));
-  worker_params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-  worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
-  assert_ucs_status(ucp_worker_create(context->get_handle(), &worker_params, &_handle));
+  memset(&params, 0, sizeof(params));
+  params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+  params.thread_mode = UCS_THREAD_MODE_MULTI;
+  utils::assert_ucs_status(ucp_worker_create(context->getHandle(), &params, &_handle));
 
   if (enableDelayedNotification) {
     ucxx_info("Worker %p created with delayed request notification", this);
@@ -94,9 +94,9 @@ Worker::~Worker()
   if (_wakeFileDescriptor >= 0) close(_wakeFileDescriptor);
 }
 
-ucp_worker_h Worker::get_handle() { return _handle; }
+ucp_worker_h Worker::getHandle() { return _handle; }
 
-void Worker::init_blocking_progress_mode()
+void Worker::initBlockingProgressMode()
 {
   // In blocking progress mode, we create an epoll file
   // descriptor that we can wait on later.
@@ -107,7 +107,7 @@ void Worker::init_blocking_progress_mode()
   // Return if blocking progress mode was already initialized
   if (_epollFileDescriptor >= 0) return;
 
-  assert_ucs_status(ucp_worker_get_efd(_handle, &_workerFileDescriptor));
+  utils::assert_ucs_status(ucp_worker_get_efd(_handle, &_workerFileDescriptor));
 
   arm();
 
@@ -136,16 +136,16 @@ bool Worker::arm()
 {
   ucs_status_t status = ucp_worker_arm(_handle);
   if (status == UCS_ERR_BUSY) return false;
-  assert_ucs_status(status);
+  utils::assert_ucs_status(status);
   return true;
 }
 
-bool Worker::progress_worker_event()
+bool Worker::progressWorkerEvent()
 {
   int ret;
   epoll_event ev;
 
-  if (progress_once()) return true;
+  if (progressOnce()) return true;
 
   if ((_epollFileDescriptor == -1) || !arm()) return false;
 
@@ -165,17 +165,17 @@ void Worker::wakeProgressEvent()
   if (err < 0) throw std::ios_base::failure(std::string("eventfd_write() returned " + err));
 }
 
-bool Worker::wait_progress()
+bool Worker::waitProgress()
 {
-  assert_ucs_status(ucp_worker_wait(_handle));
-  return progress_once();
+  utils::assert_ucs_status(ucp_worker_wait(_handle));
+  return progressOnce();
 }
 
-bool Worker::progress_once() { return ucp_worker_progress(_handle) != 0; }
+bool Worker::progressOnce() { return ucp_worker_progress(_handle) != 0; }
 
 void Worker::progress()
 {
-  while (progress_once())
+  while (progressOnce())
     ;
 }
 
@@ -202,14 +202,14 @@ void Worker::populatePythonFuturesPool()
   if (_pythonFuturesPool.size() < 50) {
     std::lock_guard<std::mutex> lock(_pythonFuturesPoolMutex);
     while (_pythonFuturesPool.size() < 100)
-      _pythonFuturesPool.emplace(std::make_shared<PythonFuture>(_notifier));
+      _pythonFuturesPool.emplace(std::make_shared<ucxx::python::Future>(_notifier));
   }
 #else
   std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
 #endif
 }
 
-std::shared_ptr<PythonFuture> Worker::getPythonFuture()
+std::shared_ptr<ucxx::python::Future> Worker::getPythonFuture()
 {
 #if UCXX_ENABLE_PYTHON
   if (_pythonFuturesPool.size() == 0) {
@@ -220,7 +220,7 @@ std::shared_ptr<PythonFuture> Worker::getPythonFuture()
     populatePythonFuturesPool();
   }
 
-  std::shared_ptr<PythonFuture> ret{nullptr};
+  std::shared_ptr<ucxx::python::Future> ret{nullptr};
   {
     std::lock_guard<std::mutex> lock(_pythonFuturesPoolMutex);
     ret = _pythonFuturesPool.front();
@@ -229,7 +229,7 @@ std::shared_ptr<PythonFuture> Worker::getPythonFuture()
   ucxx_trace_req("getPythonFuture: %p %p", ret.get(), ret->getHandle());
   return ret;
 #else
-  std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+  std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
   return nullptr;
 #endif
 }
@@ -239,7 +239,7 @@ bool Worker::waitRequestNotifier()
 #if UCXX_ENABLE_PYTHON
   return _notifier->waitRequestNotifier();
 #else
-  std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+  std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
   return false;
 #endif
 }
@@ -249,7 +249,7 @@ void Worker::runRequestNotifier()
 #if UCXX_ENABLE_PYTHON
   _notifier->runRequestNotifier();
 #else
-  std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+  std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
 #endif
 }
 
@@ -258,7 +258,7 @@ void Worker::stopRequestNotifierThread()
 #if UCXX_ENABLE_PYTHON
   _notifier->stopRequestNotifierThread();
 #else
-  std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+  std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
 #endif
 }
 
@@ -275,9 +275,9 @@ void Worker::startProgressThread(const bool pollingMode)
     return;
   }
 
-  if (pollingMode) init_blocking_progress_mode();
-  auto progressFunction = pollingMode ? std::bind(&Worker::progress_worker_event, this)
-                                      : std::bind(&Worker::progress_once, this);
+  if (pollingMode) initBlockingProgressMode();
+  auto progressFunction = pollingMode ? std::bind(&Worker::progressWorkerEvent, this)
+                                      : std::bind(&Worker::progressOnce, this);
 
   _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
                                                            progressFunction,
@@ -316,7 +316,7 @@ inline size_t Worker::cancelInflightRequests()
   return total;
 }
 
-void Worker::scheduleRequestCancel(inflight_requests_t inflightRequests)
+void Worker::scheduleRequestCancel(InflightRequests inflightRequests)
 {
   std::lock_guard<std::mutex> lock(_inflightMutex);
   _inflightRequestsToCancel->insert(inflightRequests->begin(), inflightRequests->end());
@@ -337,30 +337,29 @@ std::shared_ptr<Address> Worker::getAddress()
   return address;
 }
 
-std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ip_address,
+std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ipAddress,
                                                              uint16_t port,
-                                                             bool endpoint_error_handling)
+                                                             bool endpointErrorHandling)
 {
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto endpoint =
-    ucxx::createEndpointFromHostname(worker, ip_address, port, endpoint_error_handling);
+  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto endpoint = ucxx::createEndpointFromHostname(worker, ipAddress, port, endpointErrorHandling);
   return endpoint;
 }
 
 std::shared_ptr<Endpoint> Worker::createEndpointFromWorkerAddress(std::shared_ptr<Address> address,
-                                                                  bool endpoint_error_handling)
+                                                                  bool endpointErrorHandling)
 {
   auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, endpoint_error_handling);
+  auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, endpointErrorHandling);
   return endpoint;
 }
 
 std::shared_ptr<Listener> Worker::createListener(uint16_t port,
                                                  ucp_listener_conn_callback_t callback,
-                                                 void* callback_args)
+                                                 void* callbackArgs)
 {
   auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto listener = ucxx::createListener(worker, port, callback, callback_args);
+  auto listener = ucxx::createListener(worker, port, callback, callbackArgs);
   return listener;
 }
 

@@ -24,10 +24,11 @@
 #include <ucxx/impl/request_stream.h>
 #include <ucxx/impl/request_tag.h>
 #include <ucxx/impl/request_tag_multi.h>
-#include <ucxx/impl/sockaddr_utils.h>
-#include <ucxx/impl/utils.h>
 #include <ucxx/impl/worker.h>
 #include <ucxx/impl/worker_progress_thread.h>
+#include <ucxx/utils/impl/file_descriptor.h>
+#include <ucxx/utils/impl/sockaddr.h>
+#include <ucxx/utils/impl/ucx.h>
 
 #if UCXX_ENABLE_PYTHON
 #include <ucxx/python/impl/exception.h>

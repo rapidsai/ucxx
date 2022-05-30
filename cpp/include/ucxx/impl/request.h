@@ -31,7 +31,7 @@ Request::Request(std::shared_ptr<Endpoint> endpoint,
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
 
-  if (worker == nullptr || worker->get_handle() == nullptr)
+  if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
   if (endpoint == nullptr || endpoint->getHandle() == nullptr)
     throw ucxx::Error("Endpoint not initialized");
@@ -58,7 +58,7 @@ void Request::cancel()
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(getParent());
   auto worker   = std::dynamic_pointer_cast<Worker>(endpoint->getParent());
-  ucp_request_cancel(worker->get_handle(), _handle->request);
+  ucp_request_cancel(worker->getHandle(), _handle->request);
 }
 
 std::shared_ptr<ucxx_request_t> Request::getHandle() { return _handle; }
@@ -167,7 +167,7 @@ void Request::setStatus()
 
 #if UCXX_ENABLE_PYTHON
   if (_enablePythonFuture) {
-    auto future = std::static_pointer_cast<PythonFuture>(_handle->py_future);
+    auto future = std::static_pointer_cast<ucxx::python::Future>(_handle->py_future);
     future->notify(_requestStatus);
   }
 #endif

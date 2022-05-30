@@ -22,13 +22,13 @@ class Context : public Component {
  private:
   ucp_context_h _handle{nullptr};
   Config _config{};
-  uint64_t _feature_flags{0};
-  bool _cuda_support{false};
+  uint64_t _featureFlags{0};
+  bool _cudaSupport{false};
 
-  Context(const ConfigMap ucx_config, const uint64_t feature_flags);
+  Context(const ConfigMap ucx_config, const uint64_t featureFlags);
 
  public:
-  static constexpr uint64_t default_feature_flags =
+  static constexpr uint64_t default_featureFlags =
     UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
 
   Context()               = delete;
@@ -37,17 +37,17 @@ class Context : public Component {
   Context(Context&& o)               = delete;
   Context& operator=(Context&& o) = delete;
 
-  friend std::shared_ptr<Context> createContext(ConfigMap ucx_config, const uint64_t feature_flags);
+  friend std::shared_ptr<Context> createContext(ConfigMap ucx_config, const uint64_t featureFlags);
 
   ~Context();
 
-  ConfigMap get_config();
+  ConfigMap getConfig();
 
-  ucp_context_h get_handle();
+  ucp_context_h getHandle();
 
-  std::string get_info();
+  std::string getInfo();
 
-  uint64_t get_feature_flags() const;
+  uint64_t getFeatureFlags() const;
 
   std::shared_ptr<Worker> createWorker(const bool enableDelayedNotification = true);
 };

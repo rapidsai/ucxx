@@ -27,9 +27,9 @@ class RequestStream : public Request {
 
   void request();
 
-  static void stream_send_callback(void* request, ucs_status_t status, void* arg);
+  static void streamSendCallback(void* request, ucs_status_t status, void* arg);
 
-  static void stream_recv_callback(void* request, ucs_status_t status, size_t length, void* arg);
+  static void streamRecvCallback(void* request, ucs_status_t status, size_t length, void* arg);
 };
 
 }  // namespace ucxx

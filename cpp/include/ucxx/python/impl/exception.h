@@ -13,6 +13,8 @@
 
 namespace ucxx {
 
+namespace python {
+
 void raise_py_error()
 {
   try {
@@ -60,6 +62,8 @@ PyObject* get_python_exception_from_ucs_status(ucs_status_t status)
     default: return ucxx_error;
   }
 }
+
+}  // namespace python
 
 }  // namespace ucxx
 

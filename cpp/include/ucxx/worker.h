@@ -36,7 +36,7 @@ class Worker : public Component {
   int _workerFileDescriptor{-1};
   int _wakeFileDescriptor{-1};
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
-  inflight_requests_t _inflightRequestsToCancel{std::make_shared<inflight_request_map_t>()};
+  InflightRequests _inflightRequestsToCancel{std::make_shared<InflightRequestMap>()};
   std::mutex _inflightMutex{};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
   void* _progressThreadStartCallbackArg{nullptr};
@@ -44,8 +44,8 @@ class Worker : public Component {
     nullptr};
   std::mutex _pythonFuturesPoolMutex{};
 #if UCXX_ENABLE_PYTHON
-  std::queue<std::shared_ptr<PythonFuture>> _pythonFuturesPool{};
-  std::shared_ptr<Notifier> _notifier{createNotifier()};
+  std::queue<std::shared_ptr<ucxx::python::Future>> _pythonFuturesPool{};
+  std::shared_ptr<ucxx::python::Notifier> _notifier{ucxx::python::createNotifier()};
 #endif
 
   Worker(std::shared_ptr<Context> context, const bool enableDelayedNotification = false);
@@ -64,19 +64,19 @@ class Worker : public Component {
 
   ~Worker();
 
-  ucp_worker_h get_handle();
+  ucp_worker_h getHandle();
 
-  void init_blocking_progress_mode();
+  void initBlockingProgressMode();
 
   bool arm();
 
-  bool progress_worker_event();
+  bool progressWorkerEvent();
 
   void wakeProgressEvent();
 
-  bool wait_progress();
+  bool waitProgress();
 
-  bool progress_once();
+  bool progressOnce();
 
   void progress();
 
@@ -84,7 +84,7 @@ class Worker : public Component {
 
   void populatePythonFuturesPool();
 
-  std::shared_ptr<PythonFuture> getPythonFuture();
+  std::shared_ptr<ucxx::python::Future> getPythonFuture();
 
   bool waitRequestNotifier();
 
@@ -100,22 +100,22 @@ class Worker : public Component {
 
   inline size_t cancelInflightRequests();
 
-  void scheduleRequestCancel(inflight_requests_t inflightRequests);
+  void scheduleRequestCancel(InflightRequests inflightRequests);
 
   bool tagProbe(ucp_tag_t tag);
 
   std::shared_ptr<Address> getAddress();
 
-  std::shared_ptr<Endpoint> createEndpointFromHostname(std::string ip_address,
-                                                       uint16_t port                = 0,
-                                                       bool endpoint_error_handling = true);
+  std::shared_ptr<Endpoint> createEndpointFromHostname(std::string ipAddress,
+                                                       uint16_t port              = 0,
+                                                       bool endpointErrorHandling = true);
 
   std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Address> address,
-                                                            bool endpoint_error_handling = true);
+                                                            bool endpointErrorHandling = true);
 
   std::shared_ptr<Listener> createListener(uint16_t port,
                                            ucp_listener_conn_callback_t callback,
-                                           void* callback_args);
+                                           void* callbackArgs);
 };
 
 }  // namespace ucxx

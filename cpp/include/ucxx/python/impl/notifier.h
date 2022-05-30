@@ -14,11 +14,12 @@
 
 namespace ucxx {
 
-void Notifier::schedulePythonFutureNotify(std::shared_ptr<PythonFuture> future, ucs_status_t status)
+namespace python {
+
+void Notifier::scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t status)
 {
-  ucxx_trace_req("Notifier::schedulePythonFutureNotify(): future: %p, handle: %p",
-                 future.get(),
-                 future->getHandle());
+  ucxx_trace_req(
+    "Notifier::scheduleFutureNotify(): future: %p, handle: %p", future.get(), future->getHandle());
   auto p = std::make_pair(future, status);
   {
     std::lock_guard lock(_notifierThreadMutex);
@@ -26,7 +27,7 @@ void Notifier::schedulePythonFutureNotify(std::shared_ptr<PythonFuture> future, 
     _notifierThreadFutureStatusReady = true;
   }
   _notifierThreadConditionVariable.notify_one();
-  ucxx_trace_req("Notifier::schedulePythonFutureNotify() notified: future: %p, handle: %p",
+  ucxx_trace_req("Notifier::scheduleFutureNotify() notified: future: %p, handle: %p",
                  future.get(),
                  future->getHandle());
 }
@@ -55,5 +56,7 @@ void Notifier::runRequestNotifier()
                    p.first->getHandle());
   }
 }
+
+}  // namespace python
 
 }  // namespace ucxx

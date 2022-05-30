@@ -92,7 +92,7 @@ cdef extern from "rmm/device_buffer.hpp" namespace "rmm" nogil:
         pass
 
 
-cdef extern from "<ucxx/python/exception.h>" namespace "ucxx" nogil:
+cdef extern from "<ucxx/python/exception.h>" namespace "ucxx::python" nogil:
     cdef void raise_py_error()
 
 
@@ -135,17 +135,17 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Context:
         shared_ptr[Worker] createWorker(
-            bint enable_delayed_notification
+            bint enableDelayedNotification
         ) except +raise_py_error
-        ConfigMap get_config() except +raise_py_error
-        ucp_context_h get_handle()
-        string get_info() except +raise_py_error
+        ConfigMap getConfig() except +raise_py_error
+        ucp_context_h getHandle()
+        string getInfo() except +raise_py_error
 
     cdef cppclass Worker:
         Worker(
             shared_ptr[Context] context, bint enable_delayed_notification
         ) except +
-        ucp_worker_h get_handle()
+        ucp_worker_h getHandle()
         shared_ptr[Address] getAddress() except +raise_py_error
         shared_ptr[Endpoint] createEndpointFromHostname(
             string ip_address, uint16_t port, bint endpoint_error_handling
@@ -156,16 +156,16 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Listener] createListener(
             uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args
         ) except +raise_py_error
-        void init_blocking_progress_mode() except +raise_py_error
+        void initBlockingProgressMode() except +raise_py_error
         void progress()
-        bint progress_once()
-        void progress_worker_event()
+        bint progressOnce()
+        void progressWorkerEvent()
         void startProgressThread(bint pollingMode) except +raise_py_error
         void stopProgressThread() except +raise_py_error
         size_t cancelInflightRequests() except +raise_py_error
         bint tagProbe(ucp_tag_t)
         void setProgressThreadStartCallback(
-            function[void(void*)] callback, void* callback_arg
+            function[void(void*)] callback, void* callbackArg
         )
         void stopRequestNotifierThread() except +raise_py_error
         bint waitRequestNotifier() except +raise_py_error
@@ -174,16 +174,16 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Endpoint:
         ucp_ep_h getHandle()
-        shared_ptr[Request] stream_send(
+        shared_ptr[Request] streamSend(
             void* buffer, size_t length
         ) except +raise_py_error
-        shared_ptr[Request] stream_recv(
+        shared_ptr[Request] streamRecv(
             void* buffer, size_t length
         ) except +raise_py_error
-        shared_ptr[Request] tag_send(
+        shared_ptr[Request] tagSend(
             void* buffer, size_t length, ucp_tag_t tag
         ) except +raise_py_error
-        shared_ptr[Request] tag_recv(
+        shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag
         ) except +raise_py_error
         bint isAlive()

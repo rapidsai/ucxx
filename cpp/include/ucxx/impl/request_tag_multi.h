@@ -137,7 +137,7 @@ void RequestTagMulti::recvFrames()
       auto bufferRequest = std::make_shared<BufferRequest>();
       _bufferRequests.push_back(bufferRequest);
       auto buf               = allocateBuffer(h.isCUDA[i], h.size[i]);
-      bufferRequest->request = _endpoint->tag_recv(
+      bufferRequest->request = _endpoint->tagRecv(
         buf->data(),
         buf->getSize(),
         _tag,
@@ -195,7 +195,7 @@ void RequestTagMulti::recvHeader()
   auto bufferRequest = std::make_shared<BufferRequest>();
   _bufferRequests.push_back(bufferRequest);
   bufferRequest->stringBuffer = std::make_shared<std::string>(Header::dataSize(), 0);
-  bufferRequest->request      = _endpoint->tag_recv(
+  bufferRequest->request      = _endpoint->tagRecv(
     bufferRequest->stringBuffer->data(),
     bufferRequest->stringBuffer->size(),
     _tag,
@@ -229,7 +229,7 @@ void RequestTagMulti::callback(std::shared_ptr<void> arg)
     auto header        = Header(*_bufferRequests.back()->stringBuffer);
 
     // FIXME: request->request is not available when recvHeader completes immediately,
-    // the `tag_recv` operation hasn't returned yet.
+    // the `tagRecv` operation hasn't returned yet.
     // ucxx_trace_req(
     //   "RequestTagMulti::callback request: %p, tag: %lx, "
     //   "num_requests: %lu, next: %d, request isCompleted: %d, "
@@ -263,7 +263,7 @@ void RequestTagMulti::send(std::vector<void*>& buffer,
     size_t idx = i * HeaderFramesSize;
     Header header(hasNext, headerFrames, (int*)&isCUDA[idx], (size_t*)&size[idx]);
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
-    auto r = _endpoint->tag_send(serializedHeader->data(), serializedHeader->size(), _tag, false);
+    auto r = _endpoint->tagSend(serializedHeader->data(), serializedHeader->size(), _tag, false);
 
     auto bufferRequest          = std::make_shared<BufferRequest>();
     bufferRequest->request      = r;
@@ -273,7 +273,7 @@ void RequestTagMulti::send(std::vector<void*>& buffer,
 
   for (size_t i = 0; i < _totalFrames; ++i) {
     auto bufferRequest = std::make_shared<BufferRequest>();
-    auto r             = _endpoint->tag_send(
+    auto r             = _endpoint->tagSend(
       buffer[i],
       size[i],
       _tag,
@@ -285,7 +285,8 @@ void RequestTagMulti::send(std::vector<void*>& buffer,
   }
 
   _isFilled = true;
-  ucxx_trace_req("tag_send_multi request: %p, tag: %lx, isFilled: %d", this, _tag, _isFilled);
+  ucxx_trace_req(
+    "RequestTagMulti::send request: %p, tag: %lx, isFilled: %d", this, _tag, _isFilled);
 }
 
 ucs_status_t RequestTagMulti::getStatus() { return _status; }

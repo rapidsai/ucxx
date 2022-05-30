@@ -39,12 +39,12 @@ class RequestTag : public Request {
 
   void request();
 
-  static void tag_send_callback(void* request, ucs_status_t status, void* arg);
+  static void tagSendCallback(void* request, ucs_status_t status, void* arg);
 
-  static void tag_recv_callback(void* request,
-                                ucs_status_t status,
-                                const ucp_tag_recv_info_t* info,
-                                void* arg);
+  static void tagRecvCallback(void* request,
+                              ucs_status_t status,
+                              const ucp_tag_recv_info_t* info,
+                              void* arg);
 };
 
 }  // namespace ucxx

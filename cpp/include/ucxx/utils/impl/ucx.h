@@ -5,38 +5,14 @@
  */
 #pragma once
 
-#include <cstdio>
-#include <exception>
-#include <sstream>
+#include <string>
 
-#include <ucxx/utils.h>
+#include <ucxx/exception.h>
+#include <ucxx/utils/ucx.h>
 
-FILE* create_text_fd()
-{
-  FILE* text_fd = std::tmpfile();
-  if (text_fd == nullptr) throw std::ios_base::failure("tmpfile() failed");
+namespace ucxx {
 
-  return text_fd;
-}
-
-std::string decode_text_fd(FILE* text_fd)
-{
-  size_t size;
-
-  rewind(text_fd);
-  fseek(text_fd, 0, SEEK_END);
-  size = ftell(text_fd);
-  rewind(text_fd);
-
-  std::string text_str(size, '\0');
-
-  if (fread(&text_str[0], sizeof(char), size, text_fd) != size)
-    throw std::ios_base::failure("fread() failed");
-
-  fclose(text_fd);
-
-  return text_str;
-}
+namespace utils {
 
 // Helper function to process ucs return codes. Returns True if the status is UCS_OK to
 // indicate the operation completed inline, and False if UCX is still holding user
@@ -56,3 +32,7 @@ bool assert_ucs_status(const ucs_status_t status, const std::string& msg_context
     msg = ucs_status;
   throw ucxx::Error(msg);
 }
+
+}  // namespace utils
+
+}  // namespace ucxx
