@@ -39,7 +39,8 @@ std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          void* callback_args);
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedNotification);
+                                     const bool enableDelayedNotification,
+                                     const bool enablePythonFuture);
 
 std::shared_ptr<RequestTagMulti> tagMultiSend(std::shared_ptr<Endpoint> endpoint,
                                               std::vector<void*>& buffer,

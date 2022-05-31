@@ -18,8 +18,18 @@
 
 namespace ucxx {
 
-Worker::Worker(std::shared_ptr<Context> context, const bool enableDelayedNotification)
+Worker::Worker(std::shared_ptr<Context> context,
+               const bool enableDelayedNotification,
+               const bool enablePythonFuture)
+  : _enablePythonFuture(enablePythonFuture)
 {
+#if !UCXX_ENABLE_PYTHON
+  ucxx_warn(
+    "enablePythonFuture set to true, but compiled without UCXX_ENABLE_PYTHON, "
+    "Python futures will be disabled.");
+  _enablePythonFuture = false;
+#endif
+
   ucp_worker_params_t params;
 
   if (context == nullptr || context->getHandle() == nullptr)
@@ -74,16 +84,18 @@ void Worker::drainWorkerTagRecv()
 }
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedNotification)
+                                     const bool enableDelayedNotification,
+                                     const bool enablePythonFuture)
 {
-  return std::shared_ptr<Worker>(new Worker(context, enableDelayedNotification));
+  return std::shared_ptr<Worker>(
+    new Worker(context, enableDelayedNotification, enablePythonFuture));
 }
 
 Worker::~Worker()
 {
   stopProgressThread();
 #if UCXX_ENABLE_PYTHON
-  _notifier->stopRequestNotifierThread();
+  if (_enablePythonFuture) _notifier->stopRequestNotifierThread();
 #endif
 
   drainWorkerTagRecv();
@@ -95,6 +107,8 @@ Worker::~Worker()
 }
 
 ucp_worker_h Worker::getHandle() { return _handle; }
+
+bool Worker::isPythonFutureEnabled() const { return _enablePythonFuture; }
 
 void Worker::initBlockingProgressMode()
 {
@@ -197,37 +211,52 @@ void Worker::registerNotificationRequest(NotificationRequestCallbackType callbac
 void Worker::populatePythonFuturesPool()
 {
 #if UCXX_ENABLE_PYTHON
-  ucxx_trace_req("populatePythonFuturesPool: %p %p", this, shared_from_this().get());
-  // If the pool goes under half expected size, fill it up again.
-  if (_pythonFuturesPool.size() < 50) {
-    std::lock_guard<std::mutex> lock(_pythonFuturesPoolMutex);
-    while (_pythonFuturesPool.size() < 100)
-      _pythonFuturesPool.emplace(std::make_shared<ucxx::python::Future>(_notifier));
+  if (_enablePythonFuture) {
+    ucxx_trace_req("populatePythonFuturesPool: %p %p", this, shared_from_this().get());
+    // If the pool goes under half expected size, fill it up again.
+    if (_pythonFuturesPool.size() < 50) {
+      std::lock_guard<std::mutex> lock(_pythonFuturesPoolMutex);
+      while (_pythonFuturesPool.size() < 100)
+        _pythonFuturesPool.emplace(std::make_shared<ucxx::python::Future>(_notifier));
+    }
+  } else {
+    std::runtime_error(
+      "Worker's enablePythonFuture set to false, please set "
+      "enablePythonFuture=true when creating the Worker to "
+      "use this method.");
   }
 #else
-  std::runtime_error("Python support not enabled, please compiled with -DUCXX_ENABLE_PYTHON 1");
+  std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
 #endif
 }
 
 std::shared_ptr<ucxx::python::Future> Worker::getPythonFuture()
 {
 #if UCXX_ENABLE_PYTHON
-  if (_pythonFuturesPool.size() == 0) {
-    ucxx_warn(
-      "No Python Futures available during getPythonFuture(), make sure the "
-      "Notifier Thread is running and calling populatePythonFuturesPool() "
-      "periodically. Filling futures pool now, but this is inefficient.");
-    populatePythonFuturesPool();
-  }
+  if (_enablePythonFuture) {
+    if (_pythonFuturesPool.size() == 0) {
+      ucxx_warn(
+        "No Python Futures available during getPythonFuture(), make sure the "
+        "Notifier Thread is running and calling populatePythonFuturesPool() "
+        "periodically. Filling futures pool now, but this is inefficient.");
+      populatePythonFuturesPool();
+    }
 
-  std::shared_ptr<ucxx::python::Future> ret{nullptr};
-  {
-    std::lock_guard<std::mutex> lock(_pythonFuturesPoolMutex);
-    ret = _pythonFuturesPool.front();
-    _pythonFuturesPool.pop();
+    std::shared_ptr<ucxx::python::Future> ret{nullptr};
+    {
+      std::lock_guard<std::mutex> lock(_pythonFuturesPoolMutex);
+      ret = _pythonFuturesPool.front();
+      _pythonFuturesPool.pop();
+    }
+    ucxx_trace_req("getPythonFuture: %p %p", ret.get(), ret->getHandle());
+    return ret;
+  } else {
+    std::runtime_error(
+      "Worker's enablePythonFuture set to false, please set "
+      "enablePythonFuture=true when creating the Worker to "
+      "use this method.");
+    return nullptr;
   }
-  ucxx_trace_req("getPythonFuture: %p %p", ret.get(), ret->getHandle());
-  return ret;
 #else
   std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
   return nullptr;
@@ -237,7 +266,15 @@ std::shared_ptr<ucxx::python::Future> Worker::getPythonFuture()
 bool Worker::waitRequestNotifier()
 {
 #if UCXX_ENABLE_PYTHON
-  return _notifier->waitRequestNotifier();
+  if (_enablePythonFuture) {
+    return _notifier->waitRequestNotifier();
+  } else {
+    std::runtime_error(
+      "Worker's enablePythonFuture set to false, please set "
+      "enablePythonFuture=true when creating the Worker to "
+      "use this method.");
+    return false;
+  }
 #else
   std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
   return false;
@@ -247,7 +284,14 @@ bool Worker::waitRequestNotifier()
 void Worker::runRequestNotifier()
 {
 #if UCXX_ENABLE_PYTHON
-  _notifier->runRequestNotifier();
+  if (_enablePythonFuture) {
+    _notifier->runRequestNotifier();
+  } else {
+    std::runtime_error(
+      "Worker's enablePythonFuture set to false, please set "
+      "enablePythonFuture=true when creating the Worker to "
+      "use this method.");
+  }
 #else
   std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
 #endif
@@ -256,7 +300,14 @@ void Worker::runRequestNotifier()
 void Worker::stopRequestNotifierThread()
 {
 #if UCXX_ENABLE_PYTHON
-  _notifier->stopRequestNotifierThread();
+  if (_enablePythonFuture) {
+    _notifier->stopRequestNotifierThread();
+  } else {
+    std::runtime_error(
+      "Worker's enablePythonFuture set to false, please set "
+      "enablePythonFuture=true when creating the Worker to "
+      "use this method.");
+  }
 #else
   std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
 #endif

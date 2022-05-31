@@ -210,7 +210,9 @@ class ApplicationContext:
         # For now, a application context only has one worker
         self.context = ucx_api.UCXContext(config_dict)
         self.worker = ucx_api.UCXWorker(
-            self.context, enable_delayed_notification=enable_delayed_notification
+            self.context,
+            enable_delayed_notification=enable_delayed_notification,
+            enable_python_future=True,
         )
 
         # Thread sets `daemon=True` to prevent it from deadlocking at

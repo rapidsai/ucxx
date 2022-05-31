@@ -35,20 +35,23 @@ class Worker : public Component {
   int _epollFileDescriptor{-1};
   int _workerFileDescriptor{-1};
   int _wakeFileDescriptor{-1};
-  std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
   InflightRequests _inflightRequestsToCancel{std::make_shared<InflightRequestMap>()};
   std::mutex _inflightMutex{};
+  std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
   void* _progressThreadStartCallbackArg{nullptr};
   std::shared_ptr<DelayedNotificationRequestCollection> _delayedNotificationRequestCollection{
     nullptr};
-  std::mutex _pythonFuturesPoolMutex{};
+  bool _enablePythonFuture{false};
 #if UCXX_ENABLE_PYTHON
+  std::mutex _pythonFuturesPoolMutex{};
   std::queue<std::shared_ptr<ucxx::python::Future>> _pythonFuturesPool{};
   std::shared_ptr<ucxx::python::Notifier> _notifier{ucxx::python::createNotifier()};
 #endif
 
-  Worker(std::shared_ptr<Context> context, const bool enableDelayedNotification = false);
+  Worker(std::shared_ptr<Context> context,
+         const bool enableDelayedNotification = true,
+         const bool enablePythonFuture        = false);
 
   void drainWorkerTagRecv();
 
@@ -60,11 +63,14 @@ class Worker : public Component {
   Worker& operator=(Worker&& o) = delete;
 
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                              const bool enableDelayedNotification);
+                                              const bool enableDelayedNotification,
+                                              const bool enablePythonFuture);
 
   ~Worker();
 
   ucp_worker_h getHandle();
+
+  bool isPythonFutureEnabled() const;
 
   void initBlockingProgressMode();
 

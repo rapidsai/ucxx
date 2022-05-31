@@ -251,11 +251,18 @@ cdef class UCXWorker():
         dict _progress_thread_start_cb_data
         bint _is_request_notifier_available
 
-    def __init__(self, UCXContext context, enable_delayed_notification=False):
+    def __init__(
+            self,
+            UCXContext context,
+            enable_delayed_notification=False,
+            enable_python_future=False
+    ):
         cdef bint ucxx_enable_delayed_notification = enable_delayed_notification
+        cdef bint ucxx_enable_python_future = enable_python_future
         with nogil:
             self._worker = context._context.get().createWorker(
-                ucxx_enable_delayed_notification
+                ucxx_enable_delayed_notification,
+                ucxx_enable_python_future,
             )
         self._is_request_notifier_available = PythonEnabled()
 
