@@ -21,12 +21,16 @@ namespace ucxx {
 
 class Request : public Component {
  protected:
-  std::shared_ptr<ucxx_request_t> _handle{nullptr};
+  volatile ucs_status_t _status{UCS_INPROGRESS};
+  void* _request{nullptr};
+#if UCXX_ENABLE_PYTHON
+  std::shared_ptr<python::Future> _pythonFuture{nullptr};
+#endif
+  std::function<void(std::shared_ptr<void>)> _callback{nullptr};
+  std::shared_ptr<void> _callbackData{nullptr};
   std::shared_ptr<Endpoint> _endpoint{nullptr};
   std::shared_ptr<NotificationRequest> _notificationRequest{nullptr};
   std::string _operationName{"request_undefined"};
-  ucs_status_ptr_t _requestStatusPtr{nullptr};
-  ucs_status_t _requestStatus{UCS_INPROGRESS};
   bool _enablePythonFuture{true};
 
   Request(std::shared_ptr<Endpoint> endpoint,
@@ -48,8 +52,6 @@ class Request : public Component {
   ~Request();
 
   void cancel();
-
-  std::shared_ptr<ucxx_request_t> getHandle();
 
   ucs_status_t getStatus();
 

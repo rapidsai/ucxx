@@ -48,18 +48,18 @@ void RequestStream::request()
                                .user_data = this};
 
   if (_notificationRequest->_send) {
-    param.cb.send     = streamSendCallback;
-    _requestStatusPtr = ucp_stream_send_nbx(
+    param.cb.send = streamSendCallback;
+    _request      = ucp_stream_send_nbx(
       _endpoint->getHandle(), _notificationRequest->_buffer, _notificationRequest->_length, &param);
   } else {
     param.op_attr_mask |= UCP_OP_ATTR_FIELD_FLAGS;
     param.flags          = UCP_STREAM_RECV_FLAG_WAITALL;
     param.cb.recv_stream = streamRecvCallback;
-    _requestStatusPtr    = ucp_stream_recv_nbx(_endpoint->getHandle(),
-                                            _notificationRequest->_buffer,
-                                            _notificationRequest->_length,
-                                            &_notificationRequest->_length,
-                                            &param);
+    _request             = ucp_stream_recv_nbx(_endpoint->getHandle(),
+                                   _notificationRequest->_buffer,
+                                   _notificationRequest->_length,
+                                   &_notificationRequest->_length,
+                                   &param);
   }
 }
 
@@ -70,15 +70,15 @@ void RequestStream::populateNotificationRequest()
 #if UCXX_ENABLE_PYTHON
   ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                  _operationName.c_str(),
-                 _requestStatusPtr,
+                 _request,
                  _notificationRequest->_buffer,
                  _notificationRequest->_length,
-                 _handle->py_future.get(),
-                 _handle->py_future->getHandle());
+                 _pythonFuture.get(),
+                 _pythonFuture->getHandle());
 #else
   ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
                  _operationName.c_str(),
-                 _requestStatusPtr,
+                 _request,
                  _notificationRequest->_buffer,
                  _notificationRequest->_length);
 #endif

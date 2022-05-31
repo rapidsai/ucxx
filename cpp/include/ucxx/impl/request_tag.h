@@ -43,8 +43,8 @@ RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
 
-  _handle->callback      = callbackFunction;
-  _handle->callback_data = callbackData;
+  _callback     = callbackFunction;
+  _callbackData = callbackData;
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
@@ -82,20 +82,20 @@ void RequestTag::request()
                                .user_data = this};
 
   if (_notificationRequest->_send) {
-    param.cb.send     = tagSendCallback;
-    _requestStatusPtr = ucp_tag_send_nbx(_endpoint->getHandle(),
-                                         _notificationRequest->_buffer,
-                                         _notificationRequest->_length,
-                                         _notificationRequest->_tag,
-                                         &param);
+    param.cb.send = tagSendCallback;
+    _request      = ucp_tag_send_nbx(_endpoint->getHandle(),
+                                _notificationRequest->_buffer,
+                                _notificationRequest->_length,
+                                _notificationRequest->_tag,
+                                &param);
   } else {
-    param.cb.recv     = tagRecvCallback;
-    _requestStatusPtr = ucp_tag_recv_nbx(worker->getHandle(),
-                                         _notificationRequest->_buffer,
-                                         _notificationRequest->_length,
-                                         _notificationRequest->_tag,
-                                         tagMask,
-                                         &param);
+    param.cb.recv = tagRecvCallback;
+    _request      = ucp_tag_recv_nbx(worker->getHandle(),
+                                _notificationRequest->_buffer,
+                                _notificationRequest->_length,
+                                _notificationRequest->_tag,
+                                tagMask,
+                                &param);
   }
 }
 
@@ -109,17 +109,17 @@ void RequestTag::populateNotificationRequest()
   if (pythonFutureLog)
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
                    _operationName.c_str(),
-                   _requestStatusPtr,
+                   _request,
                    _notificationRequest->_tag,
                    _notificationRequest->_buffer,
                    _notificationRequest->_length,
-                   _handle->py_future.get(),
-                   _handle->py_future->getHandle());
+                   _pythonFuture.get(),
+                   _pythonFuture->getHandle());
 #endif
   if (!pythonFutureLog)
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
                    _operationName.c_str(),
-                   _requestStatusPtr,
+                   _request,
                    _notificationRequest->_tag,
                    _notificationRequest->_buffer,
                    _notificationRequest->_length);

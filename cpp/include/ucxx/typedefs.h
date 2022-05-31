@@ -18,15 +18,6 @@ class Future;
 
 }
 
-// Non-blocking requests
-typedef struct ucxx_request {
-  ucs_status_t status                                 = UCS_INPROGRESS;
-  void* request                                       = nullptr;
-  std::shared_ptr<python::Future> py_future           = nullptr;
-  std::function<void(std::shared_ptr<void>)> callback = nullptr;
-  std::shared_ptr<void> callback_data                 = nullptr;
-} ucxx_request_t;
-
 // Logging levels
 typedef enum {
   _LOG_LEVEL_FATAL,       /* Immediate termination */
