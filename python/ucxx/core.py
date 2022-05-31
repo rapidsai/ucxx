@@ -192,7 +192,11 @@ class ApplicationContext:
     """
 
     def __init__(
-        self, config_dict={}, progress_mode=None, enable_delayed_notification=None
+        self,
+        config_dict={},
+        progress_mode=None,
+        enable_delayed_notification=None,
+        enable_python_future=None,
     ):
         self.progress_tasks = []
         loop = asyncio.get_event_loop()
@@ -206,13 +210,20 @@ class ApplicationContext:
                 )
             else:
                 enable_delayed_notification = True
+        if enable_python_future is None:
+            if "UCXPY_ENABLE_PYTHON_FUTURE" in os.environ:
+                enable_python_future = (
+                    False if os.environ["UCXPY_ENABLE_PYTHON_FUTURE"] == "0" else True
+                )
+            else:
+                enable_python_future = True
 
         # For now, a application context only has one worker
         self.context = ucx_api.UCXContext(config_dict)
         self.worker = ucx_api.UCXWorker(
             self.context,
             enable_delayed_notification=enable_delayed_notification,
-            enable_python_future=True,
+            enable_python_future=enable_python_future,
         )
 
         # Thread sets `daemon=True` to prevent it from deadlocking at
@@ -221,7 +232,7 @@ class ApplicationContext:
         # proper shutdown, which may require the wait operation to contain a
         # timeout or finding a way to execute `worker.stop_request_notifier_thread()`
         # during `_shutdown()` from `threading.py`.
-        if self.worker.is_request_notifier_available():
+        if self.worker.is_python_future_enabled():
             logger.debug("UCXX_ENABLE_PYTHON available, enabling notifier thread")
             self.notifierThread = threading.Thread(
                 target=_notifierThread,
@@ -430,19 +441,14 @@ class ApplicationContext:
             `asyncio.get_event_loop()` is used.
         """
         loop = event_loop if event_loop is not None else asyncio.get_event_loop()
-        # print(f"continuous_ucx_progress: {loop}")
         if loop in self.progress_tasks:
-            # print(f"continuous_ucx_progress2: {loop}")
             return  # Progress has already been guaranteed for the current event loop
 
-        # if self.blocking_progress_mode:
-        #     task = BlockingMode(self.worker, loop, self.epoll_fd)
-        # else:
-        #     task = NonBlockingMode(self.worker, loop)
         if self.progress_mode == "thread":
             task = ThreadMode(self.worker, loop)
         elif self.progress_mode == "non-blocking":
             task = NonBlockingMode(self.worker, loop)
+
         self.progress_tasks.append(task)
 
     def get_ucp_worker(self):

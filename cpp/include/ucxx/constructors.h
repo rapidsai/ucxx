@@ -14,6 +14,7 @@ class RequestStream;
 class RequestTag;
 class Worker;
 
+// Components
 std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<ucxx::Worker> worker);
 
 std::shared_ptr<Address> createAddressFromString(std::string addressString);
@@ -42,25 +43,12 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableDelayedNotification,
                                      const bool enablePythonFuture);
 
-std::shared_ptr<RequestTagMulti> tagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                              std::vector<void*>& buffer,
-                                              std::vector<size_t>& size,
-                                              std::vector<int>& isCUDA,
-                                              const ucp_tag_t tag);
-void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
-                          std::vector<void*>& buffer,
-                          std::vector<size_t>& size,
-                          std::vector<int>& isCUDA,
-                          ucp_tag_t tag);
-std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint,
-                                              const ucp_tag_t tag);
-std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
-                                                            ucp_tag_t tag);
-
+// Transfers
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
                                                    bool send,
                                                    void* buffer,
                                                    size_t length);
+
 std::shared_ptr<RequestTag> createRequestTag(
   std::shared_ptr<Endpoint> endpoint,
   bool send,
@@ -70,6 +58,28 @@ std::shared_ptr<RequestTag> createRequestTag(
   const bool enablePythonFuture,
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData);
+
+std::shared_ptr<RequestTagMulti> tagMultiSend(std::shared_ptr<Endpoint> endpoint,
+                                              std::vector<void*>& buffer,
+                                              std::vector<size_t>& size,
+                                              std::vector<int>& isCUDA,
+                                              const ucp_tag_t tag,
+                                              const bool enablePythonFuture);
+
+void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
+                          std::vector<void*>& buffer,
+                          std::vector<size_t>& size,
+                          std::vector<int>& isCUDA,
+                          const ucp_tag_t tag,
+                          const bool enablePythonFuture);
+
+std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint,
+                                              const ucp_tag_t tag,
+                                              const bool enablePythonFuture);
+
+std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
+                                                            ucp_tag_t tag,
+                                                            const bool enablePythonFuture);
 
 #if UCXX_ENABLE_PYTHON
 namespace python {

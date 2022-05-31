@@ -234,6 +234,7 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
     RequestTagMultiPtr tagMultiRecv(
         shared_ptr[Endpoint] endpoint,
         ucp_tag_t tag,
+        bint enable_python_future,
     ) except +raise_py_error
     RequestTagMultiPtr tagMultiSend(
         shared_ptr[Endpoint] endpoint,
@@ -241,6 +242,7 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         vector[size_t]& length,
         vector[int]& isCUDA,
         ucp_tag_t tag,
+        bint enable_python_future,
     ) except +raise_py_error
 
     void tagMultiSendBlocking(
@@ -249,8 +251,10 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         vector[size_t]& length,
         vector[int]& isCUDA,
         ucp_tag_t tag,
+        bint enable_python_future,
     ) except +raise_py_error
     vector[unique_ptr[PyBuffer]] tagMultiRecvBlocking(
         shared_ptr[Endpoint] endpoint,
         ucp_tag_t tag,
+        bint enable_python_future,
     ) except +raise_py_error

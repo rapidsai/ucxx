@@ -24,14 +24,16 @@
 
 namespace ucxx {
 
-RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint, const ucp_tag_t tag)
+RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
+                                 const ucp_tag_t tag,
+                                 const bool enablePythonFuture)
   : _endpoint(endpoint), _send(false), _tag(tag)
 {
   ucxx_trace_req("RequestTagMulti::RequestTagMulti [recv]: %p, tag: %lx", this, _tag);
 
   auto worker = Endpoint::getWorker(endpoint->getParent());
 #if UCXX_ENABLE_PYTHON
-  _pythonFuture = worker->getPythonFuture();
+  if (enablePythonFuture) _pythonFuture = worker->getPythonFuture();
 #endif
 
   callback();
@@ -41,7 +43,8 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
                                  std::vector<void*>& buffer,
                                  std::vector<size_t>& size,
                                  std::vector<int>& isCUDA,
-                                 const ucp_tag_t tag)
+                                 const ucp_tag_t tag,
+                                 const bool enablePythonFuture)
   : _endpoint(endpoint), _send(true), _tag(tag)
 {
   ucxx_trace_req("RequestTagMulti::RequestTagMulti [send]: %p, tag: %lx", this, _tag);
@@ -51,7 +54,7 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
 
   auto worker = Endpoint::getWorker(endpoint->getParent());
 #if UCXX_ENABLE_PYTHON
-  _pythonFuture = worker->getPythonFuture();
+  if (enablePythonFuture) _pythonFuture = worker->getPythonFuture();
 #endif
 
   send(buffer, size, isCUDA);
@@ -61,26 +64,31 @@ std::shared_ptr<RequestTagMulti> tagMultiSend(std::shared_ptr<Endpoint> endpoint
                                               std::vector<void*>& buffer,
                                               std::vector<size_t>& size,
                                               std::vector<int>& isCUDA,
-                                              const ucp_tag_t tag)
+                                              const ucp_tag_t tag,
+                                              const bool enablePythonFuture)
 {
   ucxx_trace_req("RequestTagMulti::tagMultiSend");
-  return std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, buffer, size, isCUDA, tag));
+  return std::shared_ptr<RequestTagMulti>(
+    new RequestTagMulti(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
 }
 
 std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint,
-                                              const ucp_tag_t tag)
+                                              const ucp_tag_t tag,
+                                              const bool enablePythonFuture)
 {
   ucxx_trace_req("RequestTagMulti::tagMultiRecv");
-  auto ret = std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, tag));
+  auto ret =
+    std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, tag, enablePythonFuture));
   return ret;
 }
 
 std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
-                                                            ucp_tag_t tag)
+                                                            const ucp_tag_t tag,
+                                                            const bool enablePythonFuture)
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
 
-  auto requests = tagMultiRecv(endpoint, tag);
+  auto requests = tagMultiRecv(endpoint, tag, enablePythonFuture);
 
   std::vector<std::shared_ptr<Request>> requestsOnly;
   std::vector<std::unique_ptr<PyBuffer>> recvBuffers;
@@ -98,11 +106,12 @@ void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
                           std::vector<void*>& buffer,
                           std::vector<size_t>& size,
                           std::vector<int>& isCUDA,
-                          ucp_tag_t tag)
+                          const ucp_tag_t tag,
+                          const bool enablePythonFuture)
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
 
-  auto requests = tagMultiSend(endpoint, buffer, size, isCUDA, tag);
+  auto requests = tagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture);
 
   std::vector<std::shared_ptr<Request>> requestsOnly;
   for (auto& br : requests->_bufferRequests)
@@ -175,7 +184,7 @@ void RequestTagMulti::markCompleted(std::shared_ptr<void> request)
     // TODO: Actually handle errors
     _status = UCS_OK;
 #if UCXX_ENABLE_PYTHON
-    _pythonFuture->notify(UCS_OK);
+    if (_pythonFuture) _pythonFuture->notify(UCS_OK);
 #endif
   }
 
@@ -294,10 +303,11 @@ ucs_status_t RequestTagMulti::getStatus() { return _status; }
 PyObject* RequestTagMulti::getPyFuture()
 {
 #if UCXX_ENABLE_PYTHON
-  return (PyObject*)_pythonFuture->getHandle();
-#else
-  return NULL;
+  if (_pythonFuture)
+    return (PyObject*)_pythonFuture->getHandle();
+  else
 #endif
+    return NULL;
 }
 
 void RequestTagMulti::checkError()

@@ -249,13 +249,13 @@ cdef class UCXWorker():
     cdef:
         shared_ptr[Worker] _worker
         dict _progress_thread_start_cb_data
-        bint _is_request_notifier_available
+        bint _enable_python_future
 
     def __init__(
             self,
             UCXContext context,
             enable_delayed_notification=False,
-            enable_python_future=False
+            enable_python_future=False,
     ):
         cdef bint ucxx_enable_delayed_notification = enable_delayed_notification
         cdef bint ucxx_enable_python_future = enable_python_future
@@ -264,7 +264,7 @@ cdef class UCXWorker():
                 ucxx_enable_delayed_notification,
                 ucxx_enable_python_future,
             )
-        self._is_request_notifier_available = PythonEnabled()
+        self._enable_python_future = PythonEnabled() and enable_python_future
 
     @property
     def handle(self):
@@ -382,17 +382,19 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().populatePythonFuturesPool()
 
-    def is_request_notifier_available(self):
-        return self._is_request_notifier_available
+    def is_python_future_enabled(self):
+        return self._enable_python_future
 
 
 cdef class UCXRequest():
     cdef:
         shared_ptr[Request] _request
+        bint _enable_python_future
         bint _is_completed
 
-    def __init__(self, uintptr_t shared_ptr_request):
+    def __init__(self, uintptr_t shared_ptr_request, bint enable_python_future):
         self._request = deref(<shared_ptr[Request] *> shared_ptr_request)
+        self._enable_python_future = enable_python_future
         self._is_completed = False
 
     def is_completed(self, int64_t period_ns=0):
@@ -433,7 +435,7 @@ cdef class UCXRequest():
         return <object>future_ptr
 
     async def wait(self):
-        if PythonEnabled():
+        if self._enable_python_future:
             await self.get_future()
         else:
             await self.wait_yield()
@@ -442,12 +444,17 @@ cdef class UCXRequest():
 cdef class UCXBufferRequest:
     cdef:
         BufferRequestPtr _buffer_request
+        bint _enable_python_future
 
-    def __init__(self, uintptr_t shared_ptr_buffer_request):
+    def __init__(self, uintptr_t shared_ptr_buffer_request, bint enable_python_future):
         self._buffer_request = deref(<BufferRequestPtr *> shared_ptr_buffer_request)
+        self._enable_python_future = enable_python_future
 
     def get_request(self):
-        return UCXRequest(<uintptr_t><void*>&self._buffer_request.get().request)
+        return UCXRequest(
+            <uintptr_t><void*>&self._buffer_request.get().request,
+            self._enable_python_future,
+        )
 
     def get_py_buffer(self):
         cdef unique_ptr[PyBuffer] buf
@@ -467,12 +474,14 @@ cdef class UCXBufferRequest:
 cdef class UCXBufferRequests:
     cdef:
         RequestTagMultiPtr _ucxx_request_tag_multi
+        bint _enable_python_future
         bint _is_completed
         tuple _buffer_requests
         tuple _requests
 
-    def __init__(self, uintptr_t unique_ptr_buffer_requests):
+    def __init__(self, uintptr_t unique_ptr_buffer_requests, bint enable_python_future):
         cdef RequestTagMulti ucxx_buffer_requests
+        self._enable_python_future = enable_python_future
         self._is_completed = False
         self._requests = tuple()
 
@@ -487,7 +496,8 @@ cdef class UCXBufferRequests:
             total_requests = requests.size()
             self._buffer_requests = tuple([
                 UCXBufferRequest(
-                    <uintptr_t><void*>&(requests[i])
+                    <uintptr_t><void*>&(requests[i]),
+                    self._enable_python_future
                 )
                 for i in range(total_requests)
             ])
@@ -550,7 +560,7 @@ cdef class UCXBufferRequests:
         return <object>future_ptr
 
     async def wait(self):
-        if PythonEnabled():
+        if self._enable_python_future:
             await self.get_future()
         else:
             await self.wait_yield()
@@ -585,10 +595,12 @@ cdef void _endpoint_close_callback(void *args) with gil:
 cdef class UCXEndpoint():
     cdef:
         shared_ptr[Endpoint] _endpoint
+        bint _enable_python_future
         dict _close_cb_data
 
-    def __init__(self, uintptr_t shared_ptr_endpoint):
+    def __init__(self, uintptr_t shared_ptr_endpoint, bint enable_python_future):
         self._endpoint = deref(<shared_ptr[Endpoint] *> shared_ptr_endpoint)
+        self._enable_python_future = enable_python_future
 
     @classmethod
     def create(
@@ -606,7 +618,7 @@ cdef class UCXEndpoint():
                 addr, port, endpoint_error_handling
             )
 
-        return cls(<uintptr_t><void*>&endpoint)
+        return cls(<uintptr_t><void*>&endpoint, worker.is_python_future_enabled())
 
     @classmethod
     def create_from_conn_request(
@@ -622,7 +634,7 @@ cdef class UCXEndpoint():
                 <ucp_conn_request_h>conn_request, endpoint_error_handling
             )
 
-        return cls(<uintptr_t><void*>&endpoint)
+        return cls(<uintptr_t><void*>&endpoint, listener.is_python_future_enabled())
 
     @classmethod
     def create_from_worker_address(
@@ -639,7 +651,7 @@ cdef class UCXEndpoint():
                 ucxx_address, endpoint_error_handling
             )
 
-        return cls(<uintptr_t><void*>&endpoint)
+        return cls(<uintptr_t><void*>&endpoint, worker.is_python_future_enabled())
 
     @property
     def handle(self):
@@ -658,7 +670,7 @@ cdef class UCXEndpoint():
         with nogil:
             req = self._endpoint.get().streamSend(buf, nbytes)
 
-        return UCXRequest(<uintptr_t><void*>&req)
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
     def stream_recv(self, Array arr):
         cdef void* buf = <void*>arr.ptr
@@ -668,7 +680,7 @@ cdef class UCXEndpoint():
         with nogil:
             req = self._endpoint.get().streamRecv(buf, nbytes)
 
-        return UCXRequest(<uintptr_t><void*>&req)
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
     def tag_send(self, Array arr, size_t tag):
         cdef void* buf = <void*>arr.ptr
@@ -678,7 +690,7 @@ cdef class UCXEndpoint():
         with nogil:
             req = self._endpoint.get().tagSend(buf, nbytes, tag)
 
-        return UCXRequest(<uintptr_t><void*>&req)
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
     def tag_recv(self, Array arr, size_t tag):
         cdef void* buf = <void*>arr.ptr
@@ -688,7 +700,7 @@ cdef class UCXEndpoint():
         with nogil:
             req = self._endpoint.get().tagRecv(buf, nbytes, tag)
 
-        return UCXRequest(<uintptr_t><void*>&req)
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
     def tag_send_multi(self, tuple arrays, size_t tag):
         cdef vector[void*] v_buffer
@@ -709,10 +721,17 @@ cdef class UCXEndpoint():
 
         with nogil:
             ucxx_buffer_requests = tagMultiSend(
-                self._endpoint, v_buffer, v_size, v_is_cuda, tag
+                self._endpoint,
+                v_buffer,
+                v_size,
+                v_is_cuda,
+                tag,
+                self._enable_python_future,
             )
 
-        return UCXBufferRequests(<uintptr_t><void*>&ucxx_buffer_requests)
+        return UCXBufferRequests(
+            <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
+        )
 
     def tag_send_multi_b(self, tuple buffer, tuple size, tuple is_cuda, size_t tag):
         cdef vector[void*] v_buffer
@@ -725,15 +744,26 @@ cdef class UCXEndpoint():
             v_is_cuda.push_back(c)
 
         with nogil:
-            tagMultiSendBlocking(self._endpoint, v_buffer, v_size, v_is_cuda, tag)
+            tagMultiSendBlocking(
+                self._endpoint,
+                v_buffer,
+                v_size,
+                v_is_cuda,
+                tag,
+                self._enable_python_future,
+            )
 
     def tag_recv_multi(self, size_t tag):
         cdef RequestTagMultiPtr ucxx_buffer_requests
 
         with nogil:
-            ucxx_buffer_requests = tagMultiRecv(self._endpoint, tag)
+            ucxx_buffer_requests = tagMultiRecv(
+                self._endpoint, tag, self._enable_python_future
+            )
 
-        return UCXBufferRequests(<uintptr_t><void*>&ucxx_buffer_requests)
+        return UCXBufferRequests(
+            <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
+        )
 
     def is_alive(self):
         cdef bint is_alive
@@ -788,11 +818,18 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
 cdef class UCXListener():
     cdef:
         shared_ptr[Listener] _listener
+        bint _enable_python_future
         dict _cb_data
 
-    def __init__(self, uintptr_t shared_ptr_listener, dict cb_data):
+    def __init__(
+            self,
+            uintptr_t shared_ptr_listener,
+            dict cb_data,
+            bint enable_python_future,
+    ):
         self._listener = deref(<shared_ptr[Listener] *> shared_ptr_listener)
         self._cb_data = cb_data
+        self._enable_python_future = enable_python_future
 
     @classmethod
     def create(
@@ -824,7 +861,11 @@ cdef class UCXListener():
                 port, listener_cb, <void*>cb_data
             )
 
-        listener = cls(<uintptr_t><void*>&ucxx_listener, cb_data)
+        listener = cls(
+            <uintptr_t><void*>&ucxx_listener,
+            cb_data,
+            worker.is_python_future_enabled(),
+        )
         if deliver_endpoint is True:
             cb_data["listener"] = listener
         return listener
@@ -846,6 +887,9 @@ cdef class UCXListener():
         return UCXEndpoint.create_from_conn_request(
             self, conn_request, endpoint_error_handling,
         )
+
+    def is_python_future_enabled(self):
+        return self._enable_python_future
 
 
 def get_ucx_version():
