@@ -55,6 +55,8 @@ class Worker : public Component {
 
   void drainWorkerTagRecv();
 
+  void stopProgressThreadNoWarn();
+
  public:
   Worker()              = delete;
   Worker(const Worker&) = delete;

@@ -93,7 +93,7 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
 Worker::~Worker()
 {
-  stopProgressThread();
+  stopProgressThreadNoWarn();
 #if UCXX_ENABLE_PYTHON
   if (_enablePythonFuture) _notifier->stopRequestNotifierThread();
 #endif
@@ -337,15 +337,18 @@ void Worker::startProgressThread(const bool pollingMode)
                                                            _delayedNotificationRequestCollection);
 }
 
+void Worker::stopProgressThreadNoWarn()
+{
+  if (_progressThread && _progressThread->pollingMode()) wakeProgressEvent();
+  _progressThread = nullptr;
+}
+
 void Worker::stopProgressThread()
 {
-  if (!_progressThread) {
+  if (!_progressThread)
     ucxx_warn("Worker progress thread not running or already stopped");
-    return;
-  }
-
-  if (_progressThread->pollingMode()) wakeProgressEvent();
-  _progressThread = nullptr;
+  else
+    stopProgressThreadNoWarn();
 }
 
 inline size_t Worker::cancelInflightRequests()
