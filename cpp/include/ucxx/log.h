@@ -15,12 +15,12 @@
 namespace ucxx {
 
 // Macros
-#ifndef _MAX_LOG_LEVEL
-#define _MAX_LOG_LEVEL _LOG_LEVEL_LAST
+#ifndef UCXX_MAX_LOG_LEVEL
+#define UCXX_MAX_LOG_LEVEL UCXX_LOG_LEVEL_LAST
 #endif
 
 #define ucxx_log_component_is_enabled(_level, _comp_log_config) \
-  ucs_unlikely(((_level) <= _MAX_LOG_LEVEL) &&                  \
+  ucs_unlikely(((_level) <= UCXX_MAX_LOG_LEVEL) &&              \
                ((_level) <=                                     \
                 (ucxx_log_level_t)(((ucs_log_component_config_t*)(_comp_log_config))->log_level)))
 
@@ -44,39 +44,39 @@ namespace ucxx {
     ucxx_log_component(_level, &ucxx_log_component, _fmt, ##__VA_ARGS__); \
   } while (0)
 
-#define ucxx_error(_fmt, ...)       ucxx_log(_LOG_LEVEL_ERROR, _fmt, ##__VA_ARGS__)
-#define ucxx_warn(_fmt, ...)        ucxx_log(_LOG_LEVEL_WARN, _fmt, ##__VA_ARGS__)
-#define ucxx_diag(_fmt, ...)        ucxx_log(_LOG_LEVEL_DIAG, _fmt, ##__VA_ARGS__)
-#define ucxx_info(_fmt, ...)        ucxx_log(_LOG_LEVEL_INFO, _fmt, ##__VA_ARGS__)
-#define ucxx_debug(_fmt, ...)       ucxx_log(_LOG_LEVEL_DEBUG, _fmt, ##__VA_ARGS__)
-#define ucxx_trace(_fmt, ...)       ucxx_log(_LOG_LEVEL_TRACE, _fmt, ##__VA_ARGS__)
-#define ucxx_trace_req(_fmt, ...)   ucxx_log(_LOG_LEVEL_TRACE_REQ, _fmt, ##__VA_ARGS__)
-#define ucxx_trace_data(_fmt, ...)  ucxx_log(_LOG_LEVEL_TRACE_DATA, _fmt, ##__VA_ARGS__)
-#define ucxx_trace_async(_fmt, ...) ucxx_log(_LOG_LEVEL_TRACE_ASYNC, _fmt, ##__VA_ARGS__)
+#define ucxx_error(_fmt, ...)       ucxx_log(UCXX_LOG_LEVEL_ERROR, _fmt, ##__VA_ARGS__)
+#define ucxx_warn(_fmt, ...)        ucxx_log(UCXX_LOG_LEVEL_WARN, _fmt, ##__VA_ARGS__)
+#define ucxx_diag(_fmt, ...)        ucxx_log(UCXX_LOG_LEVEL_DIAG, _fmt, ##__VA_ARGS__)
+#define ucxx_info(_fmt, ...)        ucxx_log(UCXX_LOG_LEVEL_INFO, _fmt, ##__VA_ARGS__)
+#define ucxx_debug(_fmt, ...)       ucxx_log(UCXX_LOG_LEVEL_DEBUG, _fmt, ##__VA_ARGS__)
+#define ucxx_trace(_fmt, ...)       ucxx_log(UCXX_LOG_LEVEL_TRACE, _fmt, ##__VA_ARGS__)
+#define ucxx_trace_req(_fmt, ...)   ucxx_log(UCXX_LOG_LEVEL_TRACE_REQ, _fmt, ##__VA_ARGS__)
+#define ucxx_trace_data(_fmt, ...)  ucxx_log(UCXX_LOG_LEVEL_TRACE_DATA, _fmt, ##__VA_ARGS__)
+#define ucxx_trace_async(_fmt, ...) ucxx_log(UCXX_LOG_LEVEL_TRACE_ASYNC, _fmt, ##__VA_ARGS__)
 #define ucxx_trace_func(_fmt, ...) \
-  ucxx_log(_LOG_LEVEL_TRACE_FUNC, "%s(" _fmt ")", __FUNCTION__, ##__VA_ARGS__)
-#define ucxx_trace_poll(_fmt, ...) ucxx_log(_LOG_LEVEL_TRACE_POLL, _fmt, ##__VA_ARGS__)
+  ucxx_log(UCXX_LOG_LEVEL_TRACE_FUNC, "%s(" _fmt ")", __FUNCTION__, ##__VA_ARGS__)
+#define ucxx_trace_poll(_fmt, ...) ucxx_log(UCXX_LOG_LEVEL_TRACE_POLL, _fmt, ##__VA_ARGS__)
 
 // Constants
 const std::unordered_map<std::string, ucxx_log_level_t> logLevelNames = {
-  {"FATAL", _LOG_LEVEL_FATAL},
-  {"ERROR", _LOG_LEVEL_ERROR},
-  {"WARN", _LOG_LEVEL_WARN},
-  {"DIAG", _LOG_LEVEL_DIAG},
-  {"INFO", _LOG_LEVEL_INFO},
-  {"DEBUG", _LOG_LEVEL_DEBUG},
-  {"TRACE", _LOG_LEVEL_TRACE},
-  {"TRACE_REQ", _LOG_LEVEL_TRACE_REQ},
-  {"TRACE_DATA", _LOG_LEVEL_TRACE_DATA},
-  {"TRACE_ASYNC", _LOG_LEVEL_TRACE_ASYNC},
-  {"TRACE_FUNC", _LOG_LEVEL_TRACE_FUNC},
-  {"TRACE_POLL", _LOG_LEVEL_TRACE_POLL},
-  {"PRINT", _LOG_LEVEL_PRINT}};
+  {"FATAL", UCXX_LOG_LEVEL_FATAL},
+  {"ERROR", UCXX_LOG_LEVEL_ERROR},
+  {"WARN", UCXX_LOG_LEVEL_WARN},
+  {"DIAG", UCXX_LOG_LEVEL_DIAG},
+  {"INFO", UCXX_LOG_LEVEL_INFO},
+  {"DEBUG", UCXX_LOG_LEVEL_DEBUG},
+  {"TRACE", UCXX_LOG_LEVEL_TRACE},
+  {"TRACE_REQ", UCXX_LOG_LEVEL_TRACE_REQ},
+  {"TRACE_DATA", UCXX_LOG_LEVEL_TRACE_DATA},
+  {"TRACE_ASYNC", UCXX_LOG_LEVEL_TRACE_ASYNC},
+  {"TRACE_FUNC", UCXX_LOG_LEVEL_TRACE_FUNC},
+  {"TRACE_POLL", UCXX_LOG_LEVEL_TRACE_POLL},
+  {"PRINT", UCXX_LOG_LEVEL_PRINT}};
 
 const std::string logLevelNameDefault{"WARN"};
 const ucs_log_level_t logLevelDefault = (ucs_log_level_t)logLevelNames.at(logLevelNameDefault);
 
-ucs_log_component_config_t ucxx_log_component = {logLevelDefault, "", "*"};
+ucs_log_component_config_t ucxx_log_component = {logLevelDefault, "UCXX", "*"};
 
 // Functions
 void parseLogLevel();
