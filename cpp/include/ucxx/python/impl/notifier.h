@@ -34,17 +34,10 @@ void Notifier::scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t
 
 void Notifier::runRequestNotifier()
 {
-  ucxx_trace_req("Notifier::runRequestNotifier()");
   decltype(_notifierThreadFutureStatus) notifierThreadFutureStatus;
   {
     std::unique_lock lock(_notifierThreadMutex);
-    ucxx_trace_req("Notifier::runRequestNotifier()1: %lu, %lu",
-                   _notifierThreadFutureStatus.size(),
-                   notifierThreadFutureStatus.size());
     std::swap(_notifierThreadFutureStatus, notifierThreadFutureStatus);
-    ucxx_trace_req("Notifier::runRequestNotifier()2: %lu, %lu",
-                   _notifierThreadFutureStatus.size(),
-                   notifierThreadFutureStatus.size());
   }
 
   ucxx_trace_req("Notifier::runRequestNotifier() notifying %lu", notifierThreadFutureStatus.size());

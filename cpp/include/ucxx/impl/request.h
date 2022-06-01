@@ -101,14 +101,14 @@ bool Request::isCompleted(int64_t periodNs)
 
 void Request::callback(void* request, ucs_status_t status)
 {
-  _status = ucp_request_check_status(request);
+  ucs_status_t s = ucp_request_check_status(request);
+  _status        = s;
 
-  ucxx_trace_req("_calback called for \"%s\" with status %d (%s)",
+  ucxx_trace_req("Request::callback called for \"%s\" with status %d (%s)",
                  _operationName.c_str(),
-                 _status,
-                 ucs_status_string(_status));
+                 s,
+                 ucs_status_string(s));
 
-  _status = ucp_request_check_status(_request);
   setStatus();
 
   ucxx_trace_req("_callback: %p", _callback.target<void (*)(void)>());
@@ -133,16 +133,16 @@ void Request::process()
     }
   }
 
+  ucs_status_t status = _status.load();
+  ucxx_trace_req("status: %d (%s)", status, ucs_status_string(status));
   setStatus();
 
   ucxx_trace_req("callback: %p", _callback.target<void (*)(void)>());
   if (_callback) _callback(_callbackData);
 
-  if (_status != UCS_OK) {
-    ucxx_error("error on %s with status %d (%s)",
-               _operationName.c_str(),
-               _status,
-               ucs_status_string(_status));
+  if (status != UCS_OK) {
+    ucxx_error(
+      "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
     throw Error(std::string("Error on ") + _operationName + std::string(" message"));
   } else {
     ucxx_trace_req("%s completed immediately", _operationName.c_str());

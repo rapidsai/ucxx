@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <chrono>
 
 #include <ucp/api/ucp.h>
@@ -21,7 +22,7 @@ namespace ucxx {
 
 class Request : public Component {
  protected:
-  volatile ucs_status_t _status{UCS_INPROGRESS};
+  std::atomic<ucs_status_t> _status{UCS_INPROGRESS};
   void* _request{nullptr};
 #if UCXX_ENABLE_PYTHON
   std::shared_ptr<python::Future> _pythonFuture{nullptr};
