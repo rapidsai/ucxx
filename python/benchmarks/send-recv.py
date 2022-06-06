@@ -32,6 +32,12 @@ from ucxx._lib.arr import Array
 mp = mp.get_context("spawn")
 
 
+def _create_cuda_context(device):
+    import numba.cuda
+
+    numba.cuda.current_context(device)
+
+
 def _transfer_wireup(ep, server):
     import numpy as np
 
@@ -89,9 +95,14 @@ def server(queue, args):
         xp.cuda.set_allocator(rmm.rmm_cupy_allocator)
 
     ctx = ucx_api.UCXContext()
-    worker = ucx_api.UCXWorker(ctx)
+    worker = ucx_api.UCXWorker(
+        ctx, enable_delayed_notification=args.delayed_notification
+    )
 
     if args.progress_mode == "thread":
+        worker.set_progress_thread_start_callback(
+            _create_cuda_context, cb_args=(args.server_dev,)
+        )
         worker.start_progress_thread()
     else:
         worker.init_blocking_progress_mode()
@@ -126,7 +137,7 @@ def server(queue, args):
         if args.reuse_alloc:
             recv_msg = Array(xp.zeros(args.n_bytes, dtype="u1"))
 
-        for i in range(args.n_iter):
+        for i in range(args.n_iter + args.n_warmup_iter):
             if not args.reuse_alloc:
                 recv_msg = Array(xp.zeros(args.n_bytes, dtype="u1"))
 
@@ -177,9 +188,14 @@ def client(port, server_address, args):
     send_msg = Array(xp.arange(args.n_bytes, dtype="u1"))
 
     ctx = ucx_api.UCXContext()
-    worker = ucx_api.UCXWorker(ctx)
+    worker = ucx_api.UCXWorker(
+        ctx, enable_delayed_notification=args.delayed_notification
+    )
 
     if args.progress_mode == "thread":
+        worker.set_progress_thread_start_callback(
+            _create_cuda_context, cb_args=(args.client_dev,)
+        )
         worker.start_progress_thread()
     else:
         worker.init_blocking_progress_mode()
@@ -204,7 +220,7 @@ def client(port, server_address, args):
         if args.cuda_profile:
             xp.cuda.profiler.start()
 
-        for i in range(args.n_iter):
+        for i in range(args.n_iter + args.n_warmup_iter):
             start = clock()
 
             if not args.reuse_alloc:
@@ -225,7 +241,8 @@ def client(port, server_address, args):
                     r.check_error()
 
             stop = clock()
-            times.append(stop - start)
+            if i >= args.n_warmup_iter:
+                times.append(stop - start)
 
         if args.cuda_profile:
             xp.cuda.profiler.stop()
@@ -291,6 +308,12 @@ def parse_args():
         default=10,
         type=int,
         help="Number of send / recv iterations (default 10).",
+    )
+    parser.add_argument(
+        "--n-warmup-iter",
+        default=10,
+        type=int,
+        help="Number of send / recv warmup iterations (default 10).",
     )
     parser.add_argument(
         "-b",
@@ -401,6 +424,12 @@ def parse_args():
         action="store_true",
         help="Wait for transfer requests with Python's asyncio, requires"
         "`--progress-mode=thread`. (Default: disabled)",
+    )
+    parser.add_argument(
+        "--delayed-notification",
+        default=False,
+        action="store_true",
+        help="Enable delayed notification. (Default: disabled)",
     )
     parser.add_argument(
         "--no-detailed-report",
