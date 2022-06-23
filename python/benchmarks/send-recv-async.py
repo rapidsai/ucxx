@@ -30,22 +30,12 @@ import ucxx as ucp
 mp = mp.get_context("spawn")
 
 
-def register_am_allocators(args):
-    if not args.enable_am:
-        return
+def print_separator(separator="-", length=80):
+    print(separator * length)
 
-    import numpy as np
 
-    ucp.register_am_allocator(lambda n: np.empty(n, dtype=np.uint8), "host")
-
-    if args.object_type == "cupy":
-        import cupy as cp
-
-        ucp.register_am_allocator(lambda n: cp.empty(n, dtype=cp.uint8), "cuda")
-    elif args.object_type == "rmm":
-        import rmm
-
-        ucp.register_am_allocator(lambda n: rmm.DeviceBuffer(size=n), "cuda")
+def print_key_value(key, value, key_length=25):
+    print(f"{key: <{key_length}} | {value}")
 
 
 def server(queue, args):
@@ -71,8 +61,6 @@ def server(queue, args):
         xp.cuda.set_allocator(rmm.rmm_cupy_allocator)
 
     ucp.init()
-
-    register_am_allocators(args)
 
     async def run():
         async def server_handler(ep):
@@ -131,8 +119,6 @@ def client(queue, port, server_address, args):
 
     ucp.init()
 
-    register_am_allocators(args)
-
     async def run():
         ep = await ucp.create_endpoint(server_address, port)
 
@@ -183,18 +169,25 @@ def client(queue, port, server_address, args):
 
     times = queue.get()
     assert len(times) == args.n_iter
+    bw_avg = format_bytes(2 * args.n_iter * args.n_bytes / sum(times))
+    bw_med = format_bytes(2 * args.n_bytes / np.median(times))
+    lat_avg = int(sum(times) * 1e9 / (2 * args.n_iter))
+    lat_med = int(np.median(times) * 1e9 / 2)
+
     print("Roundtrip benchmark")
-    print("--------------------------")
-    print(f"n_iter          | {args.n_iter}")
-    print(f"n_bytes         | {format_bytes(args.n_bytes)}")
-    print(f"object          | {args.object_type}")
-    print(f"reuse alloc     | {args.reuse_alloc}")
-    print(f"transfer API    | {'AM' if args.enable_am else 'TAG'}")
-    # print(f"UCX_TLS         | {ucp.get_config()['TLS']}")
-    # print(f"UCX_NET_DEVICES | {ucp.get_config()['NET_DEVICES']}")
-    print("==========================")
+    print_separator(separator="=")
+    print_key_value(key="Iterations", value=f"{args.n_iter}")
+    print_key_value(key="Bytes", value=f"{format_bytes(args.n_bytes)}")
+    print_key_value(key="Object type", value=f"{args.object_type}")
+    print_key_value(key="Reuse allocation", value=f"{args.reuse_alloc}")
+    print_key_value(
+        key="Progress mode", value=f"{os.environ.get('UCXPY_PROGRESS_MODE')}"
+    )
+    # print_key_value(key="UCX_TLS", value=f"{ctx.get_config()['TLS']}")
+    # print_key_value(key="UCX_NET_DEVICES", value=f"{ctx.get_config()['NET_DEVICES']}")
+    print_separator(separator="=")
     if args.object_type == "numpy":
-        print("Device(s)       | CPU-only")
+        print_key_value(key="Device(s)", value="CPU-only")
         s_aff = (
             args.server_cpu_affinity
             if args.server_cpu_affinity >= 0
@@ -205,21 +198,23 @@ def client(queue, port, server_address, args):
             if args.client_cpu_affinity >= 0
             else "affinity not set"
         )
-        print(f"Server CPU      | {s_aff}")
-        print(f"Client CPU      | {c_aff}")
+        print_key_value(key="Server CPU", value=f"{s_aff}")
+        print_key_value(key="Client CPU", value=f"{c_aff}")
     else:
-        print(f"Device(s)       | {args.server_dev}, {args.client_dev}")
-    avg = format_bytes(2 * args.n_iter * args.n_buffers * args.n_bytes / sum(times))
-    med = format_bytes(2 * args.n_buffers * args.n_bytes / np.median(times))
-    print(f"Average         | {avg}/s")
-    print(f"Median          | {med}/s")
-    print("--------------------------")
-    print("Iterations")
-    print("--------------------------")
-    for i, t in enumerate(times):
-        ts = format_bytes(2 * args.n_bytes / t)
-        ts = (" " * (9 - len(ts))) + ts
-        print("%03d         |%s/s" % (i, ts))
+        print_key_value(key="Device(s)", value=f"{args.server_dev}, {args.client_dev}")
+    print_separator(separator="=")
+    print_key_value("Bandwidth (average)", value=f"{bw_avg}/s")
+    print_key_value("Bandwidth (median)", value=f"{bw_med}/s")
+    print_key_value("Latency (average)", value=f"{lat_avg} ns")
+    print_key_value("Latency (median)", value=f"{lat_med} ns")
+    if not args.no_detailed_report:
+        print_separator(separator="=")
+        print_key_value(key="Iterations", value="Bandwidth, Latency")
+        print_separator(separator="-")
+        for i, t in enumerate(times):
+            ts = format_bytes(2 * args.n_bytes / t)
+            lat = int(t * 1e9 / 2)
+            print_key_value(key=i, value=f"{ts}/s, {lat}ns")
 
 
 def parse_args():
@@ -344,10 +339,10 @@ def parse_args():
         type=int,
     )
     parser.add_argument(
-        "--enable-am",
+        "--no-detailed-report",
         default=False,
         action="store_true",
-        help="Use Active Message API instead of TAG for transfers",
+        help="Disable detailed report per iteration.",
     )
 
     args = parser.parse_args()
