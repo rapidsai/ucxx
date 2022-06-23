@@ -67,7 +67,7 @@ def server(queue, args):
             if args.reuse_alloc and args.n_buffers == 1:
                 reuse_msg = xp.zeros(args.n_bytes, dtype="u1")
 
-            for i in range(args.n_iter):
+            for i in range(args.n_iter + args.n_warmup_iter):
                 if args.n_buffers == 1:
                     msg = (
                         reuse_msg
@@ -134,7 +134,7 @@ def client(queue, port, server_address, args):
         if args.cuda_profile:
             xp.cuda.profiler.start()
         times = []
-        for i in range(args.n_iter):
+        for i in range(args.n_iter + args.n_warmup_iter):
             start = clock()
             if args.n_buffers == 1:
                 if args.reuse_alloc:
@@ -156,7 +156,8 @@ def client(queue, port, server_address, args):
                 await ep.send_multi(msg_send)
                 msg_recv = await ep.recv_multi()
             stop = clock()
-            times.append(stop - start)
+            if i >= args.n_warmup_iter:
+                times.append(stop - start)
         if args.cuda_profile:
             xp.cuda.profiler.stop()
         queue.put(times)
@@ -242,6 +243,12 @@ def parse_args():
         default=10,
         type=int,
         help="Number of send / recv iterations (default 10).",
+    )
+    parser.add_argument(
+        "--n-warmup-iter",
+        default=10,
+        type=int,
+        help="Number of send / recv warmup iterations (default 10).",
     )
     parser.add_argument(
         "-b",
