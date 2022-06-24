@@ -39,7 +39,7 @@ void DelayedNotificationRequestCollection::process()
     decltype(_collection) toProcess;
     {
       std::lock_guard<std::mutex> lock(_mutex);
-      std::swap(_collection, toProcess);
+      toProcess = std::move(_collection);
     }
 
     for (auto& dnr : toProcess) {

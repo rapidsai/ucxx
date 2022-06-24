@@ -37,7 +37,7 @@ void Notifier::runRequestNotifier()
   decltype(_notifierThreadFutureStatus) notifierThreadFutureStatus;
   {
     std::unique_lock lock(_notifierThreadMutex);
-    std::swap(_notifierThreadFutureStatus, notifierThreadFutureStatus);
+    notifierThreadFutureStatus = std::move(_notifierThreadFutureStatus);
   }
 
   ucxx_trace_req("Notifier::runRequestNotifier() notifying %lu", notifierThreadFutureStatus.size());
