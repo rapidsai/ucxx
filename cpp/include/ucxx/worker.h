@@ -86,7 +86,7 @@ class Worker : public Component {
 
   bool progressOnce();
 
-  void progress();
+  bool progress();
 
   void registerNotificationRequest(NotificationRequestCallbackType callback);
 

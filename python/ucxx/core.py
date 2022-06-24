@@ -254,12 +254,13 @@ class ApplicationContext:
             self.progress_mode = "thread"
 
         valid_progress_modes = ["non-blocking", "thread"]
+        valid_progress_modes = ["non-blocking", "thread", "thread-non-blocking"]
         if not isinstance(self.progress_mode, str) or not any(
             self.progress_mode == m for m in valid_progress_modes
         ):
             raise ValueError(
                 f"Unknown progress mode {self.progress_mode}, "
-                "valid modes are: 'blocking', 'non-blocking' or 'thread'"
+                "valid modes are: 'blocking', 'non-blocking', 'thread' or 'thread-non-blocking'"
             )
 
         weakref.finalize(self, self.progress_tasks.clear)
@@ -445,7 +446,9 @@ class ApplicationContext:
             return  # Progress has already been guaranteed for the current event loop
 
         if self.progress_mode == "thread":
-            task = ThreadMode(self.worker, loop)
+            task = ThreadMode(self.worker, loop, non_blocking_mode=False)
+        elif self.progress_mode == "thread-non-blocking":
+            task = ThreadMode(self.worker, loop, non_blocking_mode=True)
         elif self.progress_mode == "non-blocking":
             task = NonBlockingMode(self.worker, loop)
 

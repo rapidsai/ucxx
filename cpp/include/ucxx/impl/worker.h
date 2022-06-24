@@ -187,10 +187,11 @@ bool Worker::waitProgress()
 
 bool Worker::progressOnce() { return ucp_worker_progress(_handle) != 0; }
 
-void Worker::progress()
+bool Worker::progress()
 {
   while (progressOnce())
     ;
+  return true;
 }
 
 void Worker::registerNotificationRequest(NotificationRequestCallbackType callback)
@@ -328,7 +329,7 @@ void Worker::startProgressThread(const bool pollingMode)
 
   if (pollingMode) initBlockingProgressMode();
   auto progressFunction = pollingMode ? std::bind(&Worker::progressWorkerEvent, this)
-                                      : std::bind(&Worker::progressOnce, this);
+                                      : std::bind(&Worker::progress, this);
 
   _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
                                                            progressFunction,
