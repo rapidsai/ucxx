@@ -109,12 +109,12 @@ void Request::callback(void* request, ucs_status_t status)
                  s,
                  ucs_status_string(s));
 
-  setStatus();
-
   ucxx_trace_req("_callback: %p", _callback.target<void (*)(void)>());
   if (_callback) _callback(_callbackData);
 
   ucp_request_free(request);
+
+  setStatus();
 }
 
 void Request::process()
@@ -135,7 +135,6 @@ void Request::process()
 
   ucs_status_t status = _status.load();
   ucxx_trace_req("status: %d (%s)", status, ucs_status_string(status));
-  setStatus();
 
   ucxx_trace_req("callback: %p", _callback.target<void (*)(void)>());
   if (_callback) _callback(_callbackData);
@@ -147,6 +146,8 @@ void Request::process()
   } else {
     ucxx_trace_req("%s completed immediately", _operationName.c_str());
   }
+
+  setStatus();
 }
 
 void Request::setStatus()
