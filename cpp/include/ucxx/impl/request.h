@@ -142,7 +142,6 @@ void Request::process()
   if (status != UCS_OK) {
     ucxx_error(
       "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
-    throw Error(std::string("Error on ") + _operationName + std::string(" message"));
   } else {
     ucxx_trace_req("%s completed immediately", _operationName.c_str());
   }
