@@ -2,6 +2,10 @@
 #define UCXX_ENABLE_PYTHON 0
 #endif
 
+#ifndef UCXX_ENABLE_RMM
+#define UCXX_ENABLE_RMM 0
+#endif
+
 #include <ucxx/address.h>
 #include <ucxx/context.h>
 #include <ucxx/endpoint.h>

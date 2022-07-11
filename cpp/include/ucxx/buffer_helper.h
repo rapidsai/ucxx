@@ -7,7 +7,9 @@
 
 #include <memory>
 
+#if UCXX_ENABLE_RMM
 #include <rmm/device_buffer.hpp>
+#endif
 
 namespace ucxx {
 
@@ -77,6 +79,7 @@ class PyHostBuffer : public PyBuffer {
   static void free(void* ptr);
 };
 
+#if UCXX_ENABLE_RMM
 class PyRMMBuffer : public PyBuffer {
  public:
   PyRMMBuffer(const size_t size);
@@ -87,10 +90,13 @@ class PyRMMBuffer : public PyBuffer {
 
   static void free(void* ptr);
 };
+#endif
 
 std::unique_ptr<PyBuffer> allocateBuffer(const bool isCUDA, const size_t size);
 
 typedef PyHostBuffer* PyHostBufferPtr;
+#if UCXX_ENABLE_RMM
 typedef PyRMMBuffer* PyRMMBufferPtr;
+#endif
 
 }  // namespace ucxx
