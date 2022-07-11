@@ -66,7 +66,7 @@ python python/benchmarks/send-recv-async.py \
 
 # Non-blocking progress without delayed notification NumPy transfer,
 # 100 iterations of single buffer with 1 MiB
-UCXPY_ENABLE_DELAYED_NOTIFICATION=0 UCXPY_PROGRESS_MODE=non-blocking \
+UCXPY_ENABLE_DELAYED_SUBMISSION=0 UCXPY_PROGRESS_MODE=non-blocking \
     python python/benchmarks/send-recv-async.py \
     -o numpy \
     --n-iter 100 \

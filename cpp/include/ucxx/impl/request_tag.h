@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include <ucxx/notification_request.h>
+#include <ucxx/delayed_submission.h>
 #include <ucxx/request_tag.h>
 
 #if UCXX_ENABLE_PYTHON
@@ -37,7 +37,7 @@ RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
                        std::function<void(std::shared_ptr<void>)> callbackFunction,
                        std::shared_ptr<void> callbackData)
   : Request(endpoint,
-            std::make_shared<NotificationRequest>(send, buffer, length, tag),
+            std::make_shared<DelayedSubmission>(send, buffer, length, tag),
             std::string(send ? "tagSend" : "tagRecv"),
             enablePythonFuture)
 {
@@ -49,8 +49,8 @@ RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
   // importantly the Python future later on, so that we don't need the GIL here.
-  worker->registerNotificationRequest(
-    std::bind(std::mem_fn(&Request::populateNotificationRequest), this));
+  worker->registerDelayedSubmission(
+    std::bind(std::mem_fn(&Request::populateDelayedSubmission), this));
 }
 
 void RequestTag::tagSendCallback(void* request, ucs_status_t status, void* arg)
@@ -81,25 +81,25 @@ void RequestTag::request()
                                .datatype  = ucp_dt_make_contig(1),
                                .user_data = this};
 
-  if (_notificationRequest->_send) {
+  if (_delayedSubmission->_send) {
     param.cb.send = tagSendCallback;
     _request      = ucp_tag_send_nbx(_endpoint->getHandle(),
-                                _notificationRequest->_buffer,
-                                _notificationRequest->_length,
-                                _notificationRequest->_tag,
+                                _delayedSubmission->_buffer,
+                                _delayedSubmission->_length,
+                                _delayedSubmission->_tag,
                                 &param);
   } else {
     param.cb.recv = tagRecvCallback;
     _request      = ucp_tag_recv_nbx(worker->getHandle(),
-                                _notificationRequest->_buffer,
-                                _notificationRequest->_length,
-                                _notificationRequest->_tag,
+                                _delayedSubmission->_buffer,
+                                _delayedSubmission->_length,
+                                _delayedSubmission->_tag,
                                 tagMask,
                                 &param);
   }
 }
 
-void RequestTag::populateNotificationRequest()
+void RequestTag::populateDelayedSubmission()
 {
   const bool pythonFutureLog = _enablePythonFuture & UCXX_ENABLE_PYTHON;
 
@@ -110,9 +110,9 @@ void RequestTag::populateNotificationRequest()
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
                    _operationName.c_str(),
                    _request,
-                   _notificationRequest->_tag,
-                   _notificationRequest->_buffer,
-                   _notificationRequest->_length,
+                   _delayedSubmission->_tag,
+                   _delayedSubmission->_buffer,
+                   _delayedSubmission->_length,
                    _pythonFuture.get(),
                    _pythonFuture->getHandle());
 #endif
@@ -120,9 +120,9 @@ void RequestTag::populateNotificationRequest()
     ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
                    _operationName.c_str(),
                    _request,
-                   _notificationRequest->_tag,
-                   _notificationRequest->_buffer,
-                   _notificationRequest->_length);
+                   _delayedSubmission->_tag,
+                   _delayedSubmission->_buffer,
+                   _delayedSubmission->_length);
   process();
 }
 

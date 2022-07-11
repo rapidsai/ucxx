@@ -15,7 +15,7 @@
 #include <ucxx/component.h>
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
-#include <ucxx/notification_request.h>
+#include <ucxx/delayed_submission.h>
 #include <ucxx/worker_progress_thread.h>
 
 #if UCXX_ENABLE_PYTHON
@@ -40,8 +40,7 @@ class Worker : public Component {
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
   void* _progressThreadStartCallbackArg{nullptr};
-  std::shared_ptr<DelayedNotificationRequestCollection> _delayedNotificationRequestCollection{
-    nullptr};
+  std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{nullptr};
   bool _enablePythonFuture{false};
 #if UCXX_ENABLE_PYTHON
   std::mutex _pythonFuturesPoolMutex{};
@@ -50,8 +49,8 @@ class Worker : public Component {
 #endif
 
   Worker(std::shared_ptr<Context> context,
-         const bool enableDelayedNotification = true,
-         const bool enablePythonFuture        = false);
+         const bool enableDelayedSubmission = true,
+         const bool enablePythonFuture      = false);
 
   void drainWorkerTagRecv();
 
@@ -65,7 +64,7 @@ class Worker : public Component {
   Worker& operator=(Worker&& o) = delete;
 
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                              const bool enableDelayedNotification,
+                                              const bool enableDelayedSubmission,
                                               const bool enablePythonFuture);
 
   ~Worker();
@@ -88,7 +87,7 @@ class Worker : public Component {
 
   bool progress();
 
-  void registerNotificationRequest(NotificationRequestCallbackType callback);
+  void registerDelayedSubmission(DelayedSubmissionCallbackType callback);
 
   void populatePythonFuturesPool();
 

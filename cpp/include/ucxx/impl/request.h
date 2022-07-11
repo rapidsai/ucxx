@@ -21,11 +21,11 @@
 namespace ucxx {
 
 Request::Request(std::shared_ptr<Endpoint> endpoint,
-                 std::shared_ptr<NotificationRequest> notificationRequest,
+                 std::shared_ptr<DelayedSubmission> delayedSubmission,
                  const std::string operationName,
                  const bool enablePythonFuture)
   : _endpoint{endpoint},
-    _notificationRequest(notificationRequest),
+    _delayedSubmission(delayedSubmission),
     _operationName(operationName),
     _enablePythonFuture(enablePythonFuture)
 {

@@ -15,13 +15,12 @@ void WorkerProgressThread::progressUntilSync(
   const bool& stop,
   ProgressThreadStartCallback startCallback,
   ProgressThreadStartCallbackArg startCallbackArg,
-  std::shared_ptr<DelayedNotificationRequestCollection> delayedNotificationRequestCollection)
+  std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection)
 {
   if (startCallback) startCallback(startCallbackArg);
 
   while (!stop) {
-    if (delayedNotificationRequestCollection != nullptr)
-      delayedNotificationRequestCollection->process();
+    if (delayedSubmissionCollection != nullptr) delayedSubmissionCollection->process();
 
     progressFunction();
   }
@@ -32,7 +31,7 @@ WorkerProgressThread::WorkerProgressThread(
   std::function<bool(void)> progressFunction,
   ProgressThreadStartCallback startCallback,
   ProgressThreadStartCallbackArg startCallbackArg,
-  std::shared_ptr<DelayedNotificationRequestCollection> delayedNotificationRequestCollection)
+  std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection)
   : _pollingMode(pollingMode), _startCallback(startCallback), _startCallbackArg(startCallbackArg)
 {
   _thread = std::thread(WorkerProgressThread::progressUntilSync,
@@ -40,7 +39,7 @@ WorkerProgressThread::WorkerProgressThread(
                         std::ref(_stop),
                         _startCallback,
                         _startCallbackArg,
-                        delayedNotificationRequestCollection);
+                        delayedSubmissionCollection);
 }
 
 WorkerProgressThread::~WorkerProgressThread()

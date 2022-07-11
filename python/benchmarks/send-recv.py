@@ -103,9 +103,7 @@ def server(queue, args):
         xp.cuda.set_allocator(rmm.rmm_cupy_allocator)
 
     ctx = ucx_api.UCXContext()
-    worker = ucx_api.UCXWorker(
-        ctx, enable_delayed_notification=args.delayed_notification
-    )
+    worker = ucx_api.UCXWorker(ctx, enable_delayed_submission=args.delayed_submission)
 
     if args.progress_mode == "thread":
         worker.set_progress_thread_start_callback(
@@ -196,9 +194,7 @@ def client(port, server_address, args):
     send_msg = Array(xp.arange(args.n_bytes, dtype="u1"))
 
     ctx = ucx_api.UCXContext()
-    worker = ucx_api.UCXWorker(
-        ctx, enable_delayed_notification=args.delayed_notification
-    )
+    worker = ucx_api.UCXWorker(ctx, enable_delayed_submission=args.delayed_submission)
 
     if args.progress_mode == "thread":
         worker.set_progress_thread_start_callback(
@@ -440,10 +436,10 @@ def parse_args():
         "`--progress-mode=thread`. (Default: disabled)",
     )
     parser.add_argument(
-        "--delayed-notification",
+        "--delayed-submission",
         default=False,
         action="store_true",
-        help="Enable delayed notification. (Default: disabled)",
+        help="Enable delayed submission. (Default: disabled)",
     )
     parser.add_argument(
         "--no-detailed-report",

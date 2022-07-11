@@ -27,17 +27,16 @@ class WorkerProgressThread {
     const bool& stop,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,
-    std::shared_ptr<DelayedNotificationRequestCollection> delayedNotificationRequestCollection);
+    std::shared_ptr<DelayedSubmissionCollection> delayeSubmissionCollection);
 
  public:
   WorkerProgressThread() = delete;
 
-  WorkerProgressThread(
-    const bool pollingMode,
-    std::function<bool(void)> progressFunction,
-    ProgressThreadStartCallback startCallback,
-    ProgressThreadStartCallbackArg startCallbackArg,
-    std::shared_ptr<DelayedNotificationRequestCollection> delayedNotificationRequestCollection);
+  WorkerProgressThread(const bool pollingMode,
+                       std::function<bool(void)> progressFunction,
+                       ProgressThreadStartCallback startCallback,
+                       ProgressThreadStartCallbackArg startCallbackArg,
+                       std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection);
 
   ~WorkerProgressThread();
 

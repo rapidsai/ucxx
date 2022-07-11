@@ -7,7 +7,7 @@
 
 #include <ucp/api/ucp.h>
 
-#include <ucxx/notification_request.h>
+#include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
 #include <ucxx/typedefs.h>
 
@@ -35,7 +35,7 @@ class RequestTag : public Request {
     std::function<void(std::shared_ptr<void>)> callbackFunction,
     std::shared_ptr<void> callbackData);
 
-  virtual void populateNotificationRequest();
+  virtual void populateDelayedSubmission();
 
   void request();
 

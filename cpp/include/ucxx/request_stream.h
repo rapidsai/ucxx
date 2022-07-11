@@ -7,7 +7,7 @@
 
 #include <ucp/api/ucp.h>
 
-#include <ucxx/notification_request.h>
+#include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
 #include <ucxx/typedefs.h>
 
@@ -23,7 +23,7 @@ class RequestStream : public Request {
                                                             void* buffer,
                                                             size_t length);
 
-  virtual void populateNotificationRequest();
+  virtual void populateDelayedSubmission();
 
   void request();
 

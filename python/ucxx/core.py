@@ -195,21 +195,21 @@ class ApplicationContext:
         self,
         config_dict={},
         progress_mode=None,
-        enable_delayed_notification=None,
+        enable_delayed_submission=None,
         enable_python_future=None,
     ):
         self.progress_tasks = []
         loop = asyncio.get_event_loop()
 
-        if enable_delayed_notification is None:
-            if "UCXPY_ENABLE_DELAYED_NOTIFICATION" in os.environ:
-                enable_delayed_notification = (
+        if enable_delayed_submission is None:
+            if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
+                enable_delayed_submission = (
                     False
-                    if os.environ["UCXPY_ENABLE_DELAYED_NOTIFICATION"] == "0"
+                    if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0"
                     else True
                 )
             else:
-                enable_delayed_notification = True
+                enable_delayed_submission = True
         if enable_python_future is None:
             if "UCXPY_ENABLE_PYTHON_FUTURE" in os.environ:
                 enable_python_future = (
@@ -222,7 +222,7 @@ class ApplicationContext:
         self.context = ucx_api.UCXContext(config_dict)
         self.worker = ucx_api.UCXWorker(
             self.context,
-            enable_delayed_notification=enable_delayed_notification,
+            enable_delayed_submission=enable_delayed_submission,
             enable_python_future=enable_python_future,
         )
 

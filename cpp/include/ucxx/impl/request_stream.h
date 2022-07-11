@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include <ucxx/notification_request.h>
+#include <ucxx/delayed_submission.h>
 #include <ucxx/request_stream.h>
 
 #if UCXX_ENABLE_PYTHON
@@ -19,7 +19,7 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
                              void* buffer,
                              size_t length)
   : Request(endpoint,
-            std::make_shared<NotificationRequest>(send, buffer, length),
+            std::make_shared<DelayedSubmission>(send, buffer, length),
             std::string(send ? "streamSend" : "streamRecv"))
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
@@ -27,8 +27,8 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
   // importantly the Python future later on, so that we don't need the GIL here.
-  worker->registerNotificationRequest(
-    std::bind(std::mem_fn(&Request::populateNotificationRequest), this));
+  worker->registerDelayedSubmission(
+    std::bind(std::mem_fn(&Request::populateDelayedSubmission), this));
 }
 
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
@@ -47,23 +47,23 @@ void RequestStream::request()
                                .datatype  = ucp_dt_make_contig(1),
                                .user_data = this};
 
-  if (_notificationRequest->_send) {
+  if (_delayedSubmission->_send) {
     param.cb.send = streamSendCallback;
     _request      = ucp_stream_send_nbx(
-      _endpoint->getHandle(), _notificationRequest->_buffer, _notificationRequest->_length, &param);
+      _endpoint->getHandle(), _delayedSubmission->_buffer, _delayedSubmission->_length, &param);
   } else {
     param.op_attr_mask |= UCP_OP_ATTR_FIELD_FLAGS;
     param.flags          = UCP_STREAM_RECV_FLAG_WAITALL;
     param.cb.recv_stream = streamRecvCallback;
     _request             = ucp_stream_recv_nbx(_endpoint->getHandle(),
-                                   _notificationRequest->_buffer,
-                                   _notificationRequest->_length,
-                                   &_notificationRequest->_length,
+                                   _delayedSubmission->_buffer,
+                                   _delayedSubmission->_length,
+                                   &_delayedSubmission->_length,
                                    &param);
   }
 }
 
-void RequestStream::populateNotificationRequest()
+void RequestStream::populateDelayedSubmission()
 {
   request();
 
@@ -71,16 +71,16 @@ void RequestStream::populateNotificationRequest()
   ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                  _operationName.c_str(),
                  _request,
-                 _notificationRequest->_buffer,
-                 _notificationRequest->_length,
+                 _delayedSubmission->_buffer,
+                 _delayedSubmission->_length,
                  _pythonFuture.get(),
                  _pythonFuture->getHandle());
 #else
   ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
                  _operationName.c_str(),
                  _request,
-                 _notificationRequest->_buffer,
-                 _notificationRequest->_length);
+                 _delayedSubmission->_buffer,
+                 _delayedSubmission->_length);
 #endif
   process();
 }

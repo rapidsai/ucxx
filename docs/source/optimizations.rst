@@ -15,9 +15,9 @@ The UCX requests also require the UCX spinlock to be acquired. If there is a wor
 Enable/Disable
 ~~~~~~~~~~~~~~
 
-- C++: can be disabled via ``UCXXWorker`` constructor passing ``enableDelayedNotification=false`` (default: ``true``);
-- Python sync: can be disabled via ``UCXWorker`` constructor passing ``enable_delayed_notification=False`` (default: ``True``);
-- Python async: can be disabled via environment variable ``UCXPY_ENABLE_DELAYED_NOTIFICATION=0`` (default: ``1``);
+- C++: can be disabled via ``UCXXWorker`` constructor passing ``enableDelayedSubmission=false`` (default: ``true``);
+- Python sync: can be disabled via ``UCXWorker`` constructor passing ``enable_delayed_submission=False`` (default: ``True``);
+- Python async: can be disabled via environment variable ``UCXPY_ENABLE_DELAYED_SUBMISSION=0`` (default: ``1``);
 
 Notifier Thread
 ---------------

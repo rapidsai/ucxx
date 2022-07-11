@@ -30,12 +30,12 @@ class Request : public Component {
   std::function<void(std::shared_ptr<void>)> _callback{nullptr};
   std::shared_ptr<void> _callbackData{nullptr};
   std::shared_ptr<Endpoint> _endpoint{nullptr};
-  std::shared_ptr<NotificationRequest> _notificationRequest{nullptr};
+  std::shared_ptr<DelayedSubmission> _delayedSubmission{nullptr};
   std::string _operationName{"request_undefined"};
   bool _enablePythonFuture{true};
 
   Request(std::shared_ptr<Endpoint> endpoint,
-          std::shared_ptr<NotificationRequest> notificationRequest,
+          std::shared_ptr<DelayedSubmission> delayedSubmission,
           const std::string operationName,
           const bool enablePythonFuture = true);
 
@@ -67,7 +67,7 @@ class Request : public Component {
 
   void callback(void* request, ucs_status_t status);
 
-  virtual void populateNotificationRequest() = 0;
+  virtual void populateDelayedSubmission() = 0;
 };
 
 }  // namespace ucxx

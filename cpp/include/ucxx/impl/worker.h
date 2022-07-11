@@ -19,7 +19,7 @@
 namespace ucxx {
 
 Worker::Worker(std::shared_ptr<Context> context,
-               const bool enableDelayedNotification,
+               const bool enableDelayedSubmission,
                const bool enablePythonFuture)
   : _enablePythonFuture(enablePythonFuture)
 {
@@ -40,10 +40,9 @@ Worker::Worker(std::shared_ptr<Context> context,
   params.thread_mode = UCS_THREAD_MODE_MULTI;
   utils::assert_ucs_status(ucp_worker_create(context->getHandle(), &params, &_handle));
 
-  if (enableDelayedNotification) {
+  if (enableDelayedSubmission) {
     ucxx_info("Worker %p created with delayed request notification", this);
-    _delayedNotificationRequestCollection =
-      std::make_shared<DelayedNotificationRequestCollection>();
+    _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
   } else {
     ucxx_info("Worker %p created with immediate request notification", this);
   }
@@ -84,11 +83,10 @@ void Worker::drainWorkerTagRecv()
 }
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedNotification,
+                                     const bool enableDelayedSubmission,
                                      const bool enablePythonFuture)
 {
-  return std::shared_ptr<Worker>(
-    new Worker(context, enableDelayedNotification, enablePythonFuture));
+  return std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enablePythonFuture));
 }
 
 Worker::~Worker()
@@ -194,12 +192,12 @@ bool Worker::progress()
   return true;
 }
 
-void Worker::registerNotificationRequest(NotificationRequestCallbackType callback)
+void Worker::registerDelayedSubmission(DelayedSubmissionCallbackType callback)
 {
-  if (_delayedNotificationRequestCollection == nullptr) {
+  if (_delayedSubmissionCollection == nullptr) {
     callback();
   } else {
-    _delayedNotificationRequestCollection->registerRequest(callback);
+    _delayedSubmissionCollection->registerRequest(callback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must wake the progress task so
@@ -335,7 +333,7 @@ void Worker::startProgressThread(const bool pollingMode)
                                                            progressFunction,
                                                            _progressThreadStartCallback,
                                                            _progressThreadStartCallbackArg,
-                                                           _delayedNotificationRequestCollection);
+                                                           _delayedSubmissionCollection);
 }
 
 void Worker::stopProgressThreadNoWarn()

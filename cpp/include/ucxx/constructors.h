@@ -40,7 +40,7 @@ std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          void* callback_args);
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedNotification,
+                                     const bool enableDelayedSubmission,
                                      const bool enablePythonFuture);
 
 // Transfers

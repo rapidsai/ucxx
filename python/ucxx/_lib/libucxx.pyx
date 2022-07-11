@@ -254,14 +254,14 @@ cdef class UCXWorker():
     def __init__(
             self,
             UCXContext context,
-            enable_delayed_notification=False,
+            enable_delayed_submission=False,
             enable_python_future=False,
     ):
-        cdef bint ucxx_enable_delayed_notification = enable_delayed_notification
+        cdef bint ucxx_enable_delayed_submission = enable_delayed_submission
         cdef bint ucxx_enable_python_future = enable_python_future
         with nogil:
             self._worker = context._context.get().createWorker(
-                ucxx_enable_delayed_notification,
+                ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
         self._enable_python_future = PythonEnabled() and enable_python_future

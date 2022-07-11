@@ -135,7 +135,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Context:
         shared_ptr[Worker] createWorker(
-            bint enableDelayedNotification,
+            bint enableDelayedSubmission,
             bint enablePythonFuture
         ) except +raise_py_error
         ConfigMap getConfig() except +raise_py_error
