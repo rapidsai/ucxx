@@ -28,7 +28,7 @@ class Context : public Component {
   Context(const ConfigMap ucx_config, const uint64_t featureFlags);
 
  public:
-  static constexpr uint64_t default_featureFlags =
+  static constexpr uint64_t defaultFeatureFlags =
     UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
 
   Context()               = delete;
@@ -37,7 +37,7 @@ class Context : public Component {
   Context(Context&& o)               = delete;
   Context& operator=(Context&& o) = delete;
 
-  friend std::shared_ptr<Context> createContext(ConfigMap ucx_config, const uint64_t featureFlags);
+  friend std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
 
   ~Context();
 

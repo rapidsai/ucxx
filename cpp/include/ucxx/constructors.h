@@ -1,6 +1,17 @@
+/**
+ * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ *
+ * See file LICENSE for terms.
+ */
+#pragma once
+
 #include <memory>
 
 #include <ucxx/typedefs.h>
+
+#if UCXX_ENABLE_PYTHON
+#include <ucxx/buffer_helper.h>
+#endif
 
 namespace ucxx {
 
@@ -74,6 +85,7 @@ void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
                           const ucp_tag_t tag,
                           const bool enablePythonFuture);
 
+#if UCXX_ENABLE_PYTHON
 std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint,
                                               const ucp_tag_t tag,
                                               const bool enablePythonFuture);
@@ -82,7 +94,6 @@ std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(std::shared_ptr<Endp
                                                             ucp_tag_t tag,
                                                             const bool enablePythonFuture);
 
-#if UCXX_ENABLE_PYTHON
 namespace python {
 
 class Notifier;

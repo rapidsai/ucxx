@@ -20,6 +20,8 @@
 
 #if UCXX_ENABLE_PYTHON
 #include <ucxx/python/python_future.h>
+#else
+typedef void PyObject;
 #endif
 
 namespace ucxx {
@@ -205,7 +207,7 @@ void RequestTagMulti::recvHeader()
   _bufferRequests.push_back(bufferRequest);
   bufferRequest->stringBuffer = std::make_shared<std::string>(Header::dataSize(), 0);
   bufferRequest->request      = _endpoint->tagRecv(
-    bufferRequest->stringBuffer->data(),
+    &bufferRequest->stringBuffer->front(),
     bufferRequest->stringBuffer->size(),
     _tag,
     false,
@@ -272,7 +274,7 @@ void RequestTagMulti::send(std::vector<void*>& buffer,
     size_t idx = i * HeaderFramesSize;
     Header header(hasNext, headerFrames, (int*)&isCUDA[idx], (size_t*)&size[idx]);
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
-    auto r = _endpoint->tagSend(serializedHeader->data(), serializedHeader->size(), _tag, false);
+    auto r = _endpoint->tagSend(&serializedHeader->front(), serializedHeader->size(), _tag, false);
 
     auto bufferRequest          = std::make_shared<BufferRequest>();
     bufferRequest->request      = r;
@@ -307,7 +309,7 @@ PyObject* RequestTagMulti::getPyFuture()
     return (PyObject*)_pythonFuture->getHandle();
   else
 #endif
-    return NULL;
+    return nullptr;
 }
 
 void RequestTagMulti::checkError()

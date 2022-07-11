@@ -76,7 +76,7 @@ const std::unordered_map<std::string, ucxx_log_level_t> logLevelNames = {
 const std::string logLevelNameDefault{"WARN"};
 const ucs_log_level_t logLevelDefault = (ucs_log_level_t)logLevelNames.at(logLevelNameDefault);
 
-ucs_log_component_config_t ucxx_log_component = {logLevelDefault, "UCXX", "*"};
+ucs_log_component_config_t ucxx_log_component = {logLevelDefault, "UCXX"};
 
 // Functions
 void parseLogLevel();

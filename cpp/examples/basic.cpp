@@ -5,7 +5,7 @@
 #include <vector>
 
 #include <ucxx/api.h>
-#include <ucxx/sockaddr_utils.h>
+#include <ucxx/utils/sockaddr.h>
 
 enum progress_mode_t {
   PROGRESS_MODE_BLOCKING,
@@ -53,8 +53,8 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
   ListenerContext* listener_ctx = (ListenerContext*)arg;
 
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
-  assert_ucs_status(ucp_conn_request_query(conn_request, &attr));
-  sockaddr_utils_get_ip_port_str(&attr.client_address, ip_str, port_str, MAX_STRING_LEN);
+  ucxx::utils::assert_ucs_status(ucp_conn_request_query(conn_request, &attr));
+  ucxx::utils::sockaddr_get_ip_port_str(&attr.client_address, ip_str, port_str, MAX_STRING_LEN);
   std::cout << "Server received a connection request from client at address " << ip_str << ":"
             << port_str << std::endl;
 
@@ -66,7 +66,8 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
     std::cout << "Rejecting a connection request from " << ip_str << ":" << port_str << "."
               << std::endl
               << "Only one client at a time is supported." << std::endl;
-    assert_ucs_status(ucp_listener_reject(listener_ctx->getListener()->get_handle(), conn_request));
+    ucxx::utils::assert_ucs_status(
+      ucp_listener_reject(listener_ctx->getListener()->getHandle(), conn_request));
   }
 }
 
@@ -112,7 +113,7 @@ void waitRequests(std::shared_ptr<ucxx::Worker> worker,
   if (progress_mode == PROGRESS_MODE_BLOCKING) {
     for (auto& r : requests) {
       do {
-        worker->progress_worker_event();
+        worker->progressWorkerEvent();
       } while (!r->isCompleted());
       r->checkError();
     }
@@ -127,7 +128,7 @@ int main(int argc, char** argv)
   if (parseCommand(argc, argv) != UCS_OK) return -1;
 
   // Setup: create UCP context, worker, listener and client endpoint.
-  auto context      = ucxx::createContext({}, ucxx::Context::default_feature_flags);
+  auto context      = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
   auto worker       = context->createWorker();
   auto listener_ctx = std::make_unique<ListenerContext>(worker);
   auto listener     = worker->createListener(listener_port, listener_cb, listener_ctx.get());
@@ -136,13 +137,13 @@ int main(int argc, char** argv)
 
   // Initialize worker progress
   if (progress_mode == PROGRESS_MODE_BLOCKING)
-    worker->init_blocking_progress_mode();
+    worker->initBlockingProgressMode();
   else
     worker->startProgressThread();
 
   // Block until client connects
   while (listener_ctx->isAvailable()) {
-    if (progress_mode == PROGRESS_MODE_BLOCKING) worker->progress_worker_event();
+    if (progress_mode == PROGRESS_MODE_BLOCKING) worker->progressWorkerEvent();
     // Else progress thread is enabled
   }
 
@@ -160,29 +161,29 @@ int main(int argc, char** argv)
     recvBuffers.push_back(std::vector<int>(v.size(), 0));
 
   // Schedule small wireup messages to let UCX identify capabilities between endpoints
-  requests.push_back(listener_ctx->getEndpoint()->tag_send(
+  requests.push_back(listener_ctx->getEndpoint()->tagSend(
     sendWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
   requests.push_back(
-    endpoint->tag_recv(recvWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
-  waitRequests(worker, requests);
+    endpoint->tagRecv(recvWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
+  ::waitRequests(worker, requests);
   requests.clear();
 
   // Schedule send and recv messages on different tags and different ordering
-  requests.push_back(listener_ctx->getEndpoint()->tag_send(
+  requests.push_back(listener_ctx->getEndpoint()->tagSend(
     sendBuffers[0].data(), sendBuffers[0].size() * sizeof(int), 0));
-  requests.push_back(listener_ctx->getEndpoint()->tag_recv(
+  requests.push_back(listener_ctx->getEndpoint()->tagRecv(
     recvBuffers[1].data(), recvBuffers[1].size() * sizeof(int), 1));
-  requests.push_back(listener_ctx->getEndpoint()->tag_send(
+  requests.push_back(listener_ctx->getEndpoint()->tagSend(
     sendBuffers[2].data(), sendBuffers[2].size() * sizeof(int), 2));
   requests.push_back(
-    endpoint->tag_recv(recvBuffers[2].data(), recvBuffers[2].size() * sizeof(int), 2));
+    endpoint->tagRecv(recvBuffers[2].data(), recvBuffers[2].size() * sizeof(int), 2));
   requests.push_back(
-    endpoint->tag_send(sendBuffers[1].data(), sendBuffers[1].size() * sizeof(int), 1));
+    endpoint->tagSend(sendBuffers[1].data(), sendBuffers[1].size() * sizeof(int), 1));
   requests.push_back(
-    endpoint->tag_recv(recvBuffers[0].data(), recvBuffers[0].size() * sizeof(int), 0));
+    endpoint->tagRecv(recvBuffers[0].data(), recvBuffers[0].size() * sizeof(int), 0));
 
   // Wait for requests to be set, i.e., transfers complete
-  waitRequests(worker, requests);
+  ::waitRequests(worker, requests);
 
   // Verify results
   for (size_t i = 0; i < sendWireupBuffer.size(); ++i)

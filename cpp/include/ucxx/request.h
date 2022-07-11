@@ -16,6 +16,8 @@
 
 #if UCXX_ENABLE_PYTHON
 #include <Python.h>
+#else
+typedef void PyObject;
 #endif
 
 namespace ucxx {

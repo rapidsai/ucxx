@@ -16,7 +16,7 @@
 namespace ucxx {
 
 Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
-  : _config{Config(ucxConfig)}, _featureFlags{featureFlags}
+  : _config{ucxConfig}, _featureFlags{featureFlags}
 {
   ucp_params_t params;
 

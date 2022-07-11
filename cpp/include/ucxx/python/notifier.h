@@ -6,6 +6,7 @@
 #pragma once
 
 #if UCXX_ENABLE_PYTHON
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 
@@ -60,7 +61,7 @@ class Notifier {
       return true;
     }
 
-    std::unique_lock lock(_notifierThreadMutex);
+    std::unique_lock<std::mutex> lock(_notifierThreadMutex);
     _notifierThreadConditionVariable.wait(lock, [this] {
       return _notifierThreadFutureStatusReady ||
              _notifierThreadFutureStatusFinished == RequestNotifierThreadStopping;
@@ -79,7 +80,7 @@ class Notifier {
   void stopRequestNotifierThread()
   {
     {
-      std::lock_guard lock(_notifierThreadMutex);
+      std::lock_guard<std::mutex> lock(_notifierThreadMutex);
       _notifierThreadFutureStatusFinished = RequestNotifierThreadStopping;
     }
     _notifierThreadConditionVariable.notify_all();

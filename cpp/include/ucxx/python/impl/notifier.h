@@ -22,7 +22,7 @@ void Notifier::scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t
     "Notifier::scheduleFutureNotify(): future: %p, handle: %p", future.get(), future->getHandle());
   auto p = std::make_pair(future, status);
   {
-    std::lock_guard lock(_notifierThreadMutex);
+    std::lock_guard<std::mutex> lock(_notifierThreadMutex);
     _notifierThreadFutureStatus.push_back(p);
     _notifierThreadFutureStatusReady = true;
   }
@@ -36,7 +36,7 @@ void Notifier::runRequestNotifier()
 {
   decltype(_notifierThreadFutureStatus) notifierThreadFutureStatus;
   {
-    std::unique_lock lock(_notifierThreadMutex);
+    std::unique_lock<std::mutex> lock(_notifierThreadMutex);
     notifierThreadFutureStatus = std::move(_notifierThreadFutureStatus);
   }
 
