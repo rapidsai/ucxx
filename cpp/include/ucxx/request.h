@@ -37,7 +37,7 @@ class Request : public Component {
   Request(std::shared_ptr<Endpoint> endpoint,
           std::shared_ptr<DelayedSubmission> delayedSubmission,
           const std::string operationName,
-          const bool enablePythonFuture = true);
+          const bool enablePythonFuture = false);
 
   void process();
 

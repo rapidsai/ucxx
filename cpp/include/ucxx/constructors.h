@@ -47,7 +47,8 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
                                                    bool send,
                                                    void* buffer,
-                                                   size_t length);
+                                                   size_t length,
+                                                   const bool enablePythonFuture);
 
 std::shared_ptr<RequestTag> createRequestTag(
   std::shared_ptr<Endpoint> endpoint,

@@ -17,10 +17,12 @@ namespace ucxx {
 RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
                              bool send,
                              void* buffer,
-                             size_t length)
+                             size_t length,
+                             const bool enablePythonFuture)
   : Request(endpoint,
             std::make_shared<DelayedSubmission>(send, buffer, length),
-            std::string(send ? "streamSend" : "streamRecv"))
+            std::string(send ? "streamSend" : "streamRecv"),
+            enablePythonFuture)
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
 
@@ -34,9 +36,11 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
                                                    bool send,
                                                    void* buffer,
-                                                   size_t length)
+                                                   size_t length,
+                                                   const bool enablePythonFuture = false)
 {
-  return std::shared_ptr<RequestStream>(new RequestStream(endpoint, send, buffer, length));
+  return std::shared_ptr<RequestStream>(
+    new RequestStream(endpoint, send, buffer, length, enablePythonFuture));
 }
 
 void RequestStream::request()

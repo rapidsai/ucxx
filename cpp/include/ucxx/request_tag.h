@@ -20,7 +20,7 @@ class RequestTag : public Request {
              void* buffer,
              size_t length,
              ucp_tag_t tag,
-             const bool enablePythonFuture                               = true,
+             const bool enablePythonFuture                               = false,
              std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
              std::shared_ptr<void> callbackData                          = nullptr);
 

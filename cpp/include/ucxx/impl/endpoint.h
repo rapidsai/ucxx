@@ -114,18 +114,22 @@ void Endpoint::removeInflightRequest(Request* request)
   if (search != _inflightRequests->end()) _inflightRequests->erase(search);
 }
 
-std::shared_ptr<Request> Endpoint::streamSend(void* buffer, size_t length)
+std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
+                                              size_t length,
+                                              const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  auto request  = createRequestStream(endpoint, true, buffer, length);
+  auto request  = createRequestStream(endpoint, true, buffer, length, enablePythonFuture);
   registerInflightRequest(request);
   return request;
 }
 
-std::shared_ptr<Request> Endpoint::streamRecv(void* buffer, size_t length)
+std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
+                                              size_t length,
+                                              const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  auto request  = createRequestStream(endpoint, false, buffer, length);
+  auto request  = createRequestStream(endpoint, false, buffer, length, enablePythonFuture);
   registerInflightRequest(request);
   return request;
 }

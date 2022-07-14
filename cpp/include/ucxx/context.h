@@ -49,7 +49,7 @@ class Context : public Component {
 
   uint64_t getFeatureFlags() const;
 
-  std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = true,
+  std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
                                        const bool enablePythonFuture      = false);
 };
 

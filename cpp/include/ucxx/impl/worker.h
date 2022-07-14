@@ -24,10 +24,12 @@ Worker::Worker(std::shared_ptr<Context> context,
   : _enablePythonFuture(enablePythonFuture)
 {
 #if !UCXX_ENABLE_PYTHON
-  ucxx_warn(
-    "enablePythonFuture set to true, but compiled without UCXX_ENABLE_PYTHON, "
-    "Python futures will be disabled.");
-  _enablePythonFuture = false;
+  if (_enablePythonFuture) {
+    ucxx_warn(
+      "enablePythonFuture set to true, but compiled without UCXX_ENABLE_PYTHON, "
+      "Python futures will be disabled.");
+    _enablePythonFuture = false;
+  }
 #endif
 
   ucp_worker_params_t params;
@@ -40,12 +42,13 @@ Worker::Worker(std::shared_ptr<Context> context,
   params.thread_mode = UCS_THREAD_MODE_MULTI;
   utils::assert_ucs_status(ucp_worker_create(context->getHandle(), &params, &_handle));
 
-  if (enableDelayedSubmission) {
-    ucxx_info("Worker %p created with delayed request notification", this);
+  if (enableDelayedSubmission)
     _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
-  } else {
-    ucxx_info("Worker %p created with immediate request notification", this);
-  }
+
+  ucxx_debug("Worker %p created, enableDelayedSubmission: %d, enablePythonFuture: %d",
+             this,
+             enableDelayedSubmission,
+             _enablePythonFuture);
 
   setParent(std::dynamic_pointer_cast<Component>(context));
 }

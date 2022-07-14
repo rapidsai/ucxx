@@ -15,13 +15,18 @@ namespace ucxx {
 
 class RequestStream : public Request {
  private:
-  RequestStream(std::shared_ptr<Endpoint> endpoint, bool send, void* buffer, size_t length);
+  RequestStream(std::shared_ptr<Endpoint> endpoint,
+                bool send,
+                void* buffer,
+                size_t length,
+                const bool enablePythonFuture = false);
 
  public:
   friend std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
                                                             bool send,
                                                             void* buffer,
-                                                            size_t length);
+                                                            size_t length,
+                                                            const bool enablePythonFuture);
 
   virtual void populateDelayedSubmission();
 

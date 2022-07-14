@@ -49,7 +49,7 @@ class Worker : public Component {
 #endif
 
   Worker(std::shared_ptr<Context> context,
-         const bool enableDelayedSubmission = true,
+         const bool enableDelayedSubmission = false,
          const bool enablePythonFuture      = false);
 
   void drainWorkerTagRecv();

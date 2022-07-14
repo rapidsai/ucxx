@@ -125,15 +125,15 @@ class Endpoint : public Component {
 
   void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
 
-  std::shared_ptr<Request> streamSend(void* buffer, size_t length);
+  std::shared_ptr<Request> streamSend(void* buffer, size_t length, const bool enablePythonFuture);
 
-  std::shared_ptr<Request> streamRecv(void* buffer, size_t length);
+  std::shared_ptr<Request> streamRecv(void* buffer, size_t length, const bool enablePythonFuture);
 
   std::shared_ptr<Request> tagSend(
     void* buffer,
     size_t length,
     ucp_tag_t tag,
-    const bool enablePythonFuture                               = true,
+    const bool enablePythonFuture                               = false,
     std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
     std::shared_ptr<void> callbackData                          = nullptr);
 
@@ -141,7 +141,7 @@ class Endpoint : public Component {
     void* buffer,
     size_t length,
     ucp_tag_t tag,
-    const bool enablePythonFuture                               = true,
+    const bool enablePythonFuture                               = false,
     std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
     std::shared_ptr<void> callbackData                          = nullptr);
 

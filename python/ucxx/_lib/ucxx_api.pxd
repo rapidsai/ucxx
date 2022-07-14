@@ -173,16 +173,16 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass Endpoint:
         ucp_ep_h getHandle()
         shared_ptr[Request] streamSend(
-            void* buffer, size_t length
+            void* buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] streamRecv(
-            void* buffer, size_t length
+            void* buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagSend(
-            void* buffer, size_t length, ucp_tag_t tag
+            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagRecv(
-            void* buffer, size_t length, ucp_tag_t tag
+            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
         bint isAlive()
         void raiseOnError() except +raise_py_error

@@ -668,7 +668,11 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
 
         with nogil:
-            req = self._endpoint.get().streamSend(buf, nbytes)
+            req = self._endpoint.get().streamSend(
+                buf,
+                nbytes,
+                self._enable_python_future
+            )
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -678,7 +682,11 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
 
         with nogil:
-            req = self._endpoint.get().streamRecv(buf, nbytes)
+            req = self._endpoint.get().streamRecv(
+                buf,
+                nbytes,
+                self._enable_python_future
+            )
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -688,7 +696,12 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
 
         with nogil:
-            req = self._endpoint.get().tagSend(buf, nbytes, tag)
+            req = self._endpoint.get().tagSend(
+                buf,
+                nbytes,
+                tag,
+                self._enable_python_future
+            )
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -698,7 +711,12 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
 
         with nogil:
-            req = self._endpoint.get().tagRecv(buf, nbytes, tag)
+            req = self._endpoint.get().tagRecv(
+                buf,
+                nbytes,
+                tag,
+                self._enable_python_future
+            )
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
