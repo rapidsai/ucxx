@@ -163,11 +163,7 @@ bool Worker::progressWorkerEvent()
 
 void Worker::signal() { utils::assert_ucs_status(ucp_worker_signal(_handle)); }
 
-bool Worker::waitProgress()
-{
-  utils::assert_ucs_status(ucp_worker_wait(_handle));
-  return progressOnce();
-}
+void Worker::waitProgress() { utils::assert_ucs_status(ucp_worker_wait(_handle)); }
 
 bool Worker::progressOnce() { return ucp_worker_progress(_handle) != 0; }
 

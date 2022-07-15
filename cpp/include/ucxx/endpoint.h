@@ -66,7 +66,8 @@ class Endpoint : public Component {
     auto params = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
 
     struct hostent* hostname = gethostbyname(ipAddress.c_str());
-    if (hostname == nullptr) throw ucxx::Error(std::string("Invalid IP address or hostname"));
+    if (hostname == nullptr)
+      throw std::invalid_argument(std::string("Invalid IP address or hostname"));
 
     params->field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_SOCK_ADDR |
                          UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
