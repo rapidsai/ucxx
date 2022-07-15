@@ -100,7 +100,7 @@ class Worker : public Component {
 
   void setProgressThreadStartCallback(std::function<void(void*)> callback, void* callbackArg);
 
-  void startProgressThread(const bool pollingMode = true);
+  void startProgressThread(const bool pollingMode = false);
 
   void stopProgressThread();
 

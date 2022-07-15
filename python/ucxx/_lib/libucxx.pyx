@@ -315,7 +315,7 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().progressWorkerEvent()
 
-    def start_progress_thread(self, bint polling_mode=True):
+    def start_progress_thread(self, bint polling_mode=False):
         with nogil:
             self._worker.get().startProgressThread(polling_mode)
 

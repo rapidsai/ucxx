@@ -21,7 +21,7 @@ from ._lib.libucxx import (
     UCXConnectionResetError,
     UCXError,
 )
-from .continuous_ucx_progress import NonBlockingMode, ThreadMode
+from .continuous_ucx_progress import PollingMode, ThreadMode
 from .utils import hash64bits
 
 logger = logging.getLogger("ucx")
@@ -253,14 +253,14 @@ class ApplicationContext:
         else:
             self.progress_mode = "thread"
 
-        valid_progress_modes = ["non-blocking", "thread"]
-        valid_progress_modes = ["non-blocking", "thread", "thread-non-blocking"]
+        valid_progress_modes = ["polling", "thread"]
+        valid_progress_modes = ["polling", "thread", "thread-polling"]
         if not isinstance(self.progress_mode, str) or not any(
             self.progress_mode == m for m in valid_progress_modes
         ):
             raise ValueError(
                 f"Unknown progress mode {self.progress_mode}, "
-                "valid modes are: 'blocking', 'non-blocking', 'thread' or 'thread-non-blocking'"
+                "valid modes are: 'blocking', 'polling', 'thread' or 'thread-polling'"
             )
 
         weakref.finalize(self, self.progress_tasks.clear)
@@ -446,11 +446,11 @@ class ApplicationContext:
             return  # Progress has already been guaranteed for the current event loop
 
         if self.progress_mode == "thread":
-            task = ThreadMode(self.worker, loop, non_blocking_mode=False)
-        elif self.progress_mode == "thread-non-blocking":
-            task = ThreadMode(self.worker, loop, non_blocking_mode=True)
-        elif self.progress_mode == "non-blocking":
-            task = NonBlockingMode(self.worker, loop)
+            task = ThreadMode(self.worker, loop, polling_mode=False)
+        elif self.progress_mode == "thread-polling":
+            task = ThreadMode(self.worker, loop, polling_mode=True)
+        elif self.progress_mode == "polling":
+            task = PollingMode(self.worker, loop)
 
         self.progress_tasks.append(task)
 
@@ -858,7 +858,7 @@ def init(options={}, env_takes_precedence=False, progress_mode=None):
     progress_mode: string, optional
         If None, thread UCX progress mode is used unless the environment variable
         `UCXPY_PROGRESS_MODE` is defined. Otherwise the options are 'blocking',
-        'non_blocking', 'thread'.
+        'polling', 'thread'.
     """
     global _ctx
     if _ctx is not None:

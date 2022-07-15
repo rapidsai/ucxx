@@ -42,16 +42,16 @@ def _create_context():
 
 
 class ThreadMode(ProgressTask):
-    def __init__(self, worker, event_loop, non_blocking_mode=False):
+    def __init__(self, worker, event_loop, polling_mode=False):
         super().__init__(worker, event_loop)
         worker.set_progress_thread_start_callback(_create_context)
-        worker.start_progress_thread(polling_mode=not non_blocking_mode)
+        worker.start_progress_thread(polling_mode=polling_mode)
 
     def __del__(self):
         self.worker.stop_progress_thread()
 
 
-class NonBlockingMode(ProgressTask):
+class PollingMode(ProgressTask):
     def __init__(self, worker, event_loop):
         super().__init__(worker, event_loop)
         self.asyncio_task = event_loop.create_task(self._progress_task())

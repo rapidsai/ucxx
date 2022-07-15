@@ -311,9 +311,9 @@ void Worker::startProgressThread(const bool pollingMode)
     return;
   }
 
-  if (pollingMode) initBlockingProgressMode();
-  auto progressFunction = pollingMode ? std::bind(&Worker::progressWorkerEvent, this)
-                                      : std::bind(&Worker::progress, this);
+  if (!pollingMode) initBlockingProgressMode();
+  auto progressFunction = pollingMode ? std::bind(&Worker::progress, this)
+                                      : std::bind(&Worker::progressWorkerEvent, this);
 
   _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
                                                            progressFunction,
@@ -324,7 +324,7 @@ void Worker::startProgressThread(const bool pollingMode)
 
 void Worker::stopProgressThreadNoWarn()
 {
-  if (_progressThread && _progressThread->pollingMode()) signal();
+  if (_progressThread && !_progressThread->pollingMode()) signal();
   _progressThread = nullptr;
 }
 
