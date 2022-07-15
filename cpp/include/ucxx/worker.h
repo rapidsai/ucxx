@@ -34,7 +34,6 @@ class Worker : public Component {
   ucp_worker_h _handle{nullptr};
   int _epollFileDescriptor{-1};
   int _workerFileDescriptor{-1};
-  int _wakeFileDescriptor{-1};
   InflightRequests _inflightRequestsToCancel{std::make_shared<InflightRequestMap>()};
   std::mutex _inflightMutex{};
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
@@ -79,7 +78,7 @@ class Worker : public Component {
 
   bool progressWorkerEvent();
 
-  void wakeProgressEvent();
+  void signal();
 
   bool waitProgress();
 

@@ -104,7 +104,6 @@ Worker::~Worker()
   ucp_worker_destroy(_handle);
 
   if (_epollFileDescriptor >= 0) close(_epollFileDescriptor);
-  if (_wakeFileDescriptor >= 0) close(_wakeFileDescriptor);
 }
 
 ucp_worker_h Worker::getHandle() { return _handle; }
@@ -129,21 +128,12 @@ void Worker::initBlockingProgressMode()
   _epollFileDescriptor = epoll_create(1);
   if (_epollFileDescriptor == -1) throw std::ios_base::failure("epoll_create(1) returned -1");
 
-  _wakeFileDescriptor = eventfd(0, EFD_NONBLOCK);
-  if (_wakeFileDescriptor < 0) throw std::ios_base::failure("eventfd(0, EFD_NONBLOCK) returned -1");
-
   epoll_event workerEvent = {.events = EPOLLIN,
                              .data   = {
                                .fd = _workerFileDescriptor,
                              }};
-  epoll_event wakeEvent   = {.events = EPOLLIN,
-                           .data   = {
-                             .fd = _wakeFileDescriptor,
-                           }};
 
   err = epoll_ctl(_epollFileDescriptor, EPOLL_CTL_ADD, _workerFileDescriptor, &workerEvent);
-  if (err != 0) throw std::ios_base::failure(std::string("epoll_ctl() returned " + err));
-  err = epoll_ctl(_epollFileDescriptor, EPOLL_CTL_ADD, _wakeFileDescriptor, &wakeEvent);
   if (err != 0) throw std::ios_base::failure(std::string("epoll_ctl() returned " + err));
 }
 
@@ -171,14 +161,7 @@ bool Worker::progressWorkerEvent()
   return false;
 }
 
-void Worker::wakeProgressEvent()
-{
-  if (_wakeFileDescriptor < 0)
-    throw std::ios_base::failure(std::string(
-      "attempt to wake progress event, but blocking progress mode was not initialized"));
-  int err = eventfd_write(_wakeFileDescriptor, 1);
-  if (err < 0) throw std::ios_base::failure(std::string("eventfd_write() returned " + err));
-}
+void Worker::signal() { utils::assert_ucs_status(ucp_worker_signal(_handle)); }
 
 bool Worker::waitProgress()
 {
@@ -203,10 +186,10 @@ void Worker::registerDelayedSubmission(DelayedSubmissionCallbackType callback)
     _delayedSubmissionCollection->registerRequest(callback);
 
     /* Waking the progress event is needed here because the UCX request is
-     * not dispatched immediately. Thus we must wake the progress task so
+     * not dispatched immediately. Thus we must signal the progress task so
      * it will ensure the request is dispatched.
      */
-    wakeProgressEvent();
+    signal();
   }
 }
 
@@ -341,7 +324,7 @@ void Worker::startProgressThread(const bool pollingMode)
 
 void Worker::stopProgressThreadNoWarn()
 {
-  if (_progressThread && _progressThread->pollingMode()) wakeProgressEvent();
+  if (_progressThread && _progressThread->pollingMode()) signal();
   _progressThread = nullptr;
 }
 
