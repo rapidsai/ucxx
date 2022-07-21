@@ -46,6 +46,8 @@ class Endpoint : public Component {
            std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
            bool endpointErrorHandling);
 
+  void registerInflightRequest(std::shared_ptr<Request> request);
+
  public:
   Endpoint()                = delete;
   Endpoint(const Endpoint&) = delete;
@@ -118,8 +120,6 @@ class Endpoint : public Component {
   bool isAlive() const;
 
   void raiseOnError();
-
-  void registerInflightRequest(std::shared_ptr<Request> request);
 
   void removeInflightRequest(Request* request);
 
