@@ -50,7 +50,7 @@ Header::Header(std::string serializedHeader) { deserialize(serializedHeader); }
 
 size_t Header::dataSize() { return sizeof(next) + sizeof(nframes) + sizeof(isCUDA) + sizeof(size); }
 
-std::string Header::serialize()
+const std::string Header::serialize() const
 {
   std::stringstream ss;
 
@@ -85,6 +85,29 @@ void Header::print()
   std::copy(size, size + HeaderFramesSize, std::ostream_iterator<size_t>(std::cout, " "));
   std::cout << "}";
   std::cout << std::endl;
+}
+
+std::vector<Header> Header::buildHeaders(std::vector<size_t>& size, std::vector<int>& isCUDA)
+{
+  const size_t totalFrames = size.size();
+
+  if (isCUDA.size() != totalFrames)
+    throw std::length_error("size and isCUDA must have the same length");
+
+  const size_t totalHeaders = (totalFrames + HeaderFramesSize - 1) / HeaderFramesSize;
+
+  std::vector<Header> headers(totalHeaders);
+
+  for (size_t i = 0; i < totalHeaders; ++i) {
+    bool hasNext = totalFrames > (i + 1) * HeaderFramesSize;
+    size_t headerFrames =
+      hasNext ? HeaderFramesSize : HeaderFramesSize - (HeaderFramesSize * (i + 1) - totalFrames);
+
+    size_t idx = i * HeaderFramesSize;
+    headers[i] = Header(hasNext, headerFrames, (int*)&isCUDA[idx], (size_t*)&size[idx]);
+  }
+
+  return headers;
 }
 
 // PyBuffer class

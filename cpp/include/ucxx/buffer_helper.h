@@ -32,11 +32,13 @@ class Header {
 
   static size_t dataSize();
 
-  std::string serialize();
+  const std::string serialize() const;
 
   void deserialize(const std::string& serializedHeader);
 
   void print();
+
+  static std::vector<Header> buildHeaders(std::vector<size_t>& size, std::vector<int>& isCUDA);
 };
 
 typedef void (*PyBufferDeleter)(void*);

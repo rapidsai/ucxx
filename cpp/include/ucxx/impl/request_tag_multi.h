@@ -263,16 +263,14 @@ void RequestTagMulti::send(std::vector<void*>& buffer,
                            std::vector<size_t>& size,
                            std::vector<int>& isCUDA)
 {
-  _totalFrames        = buffer.size();
-  size_t totalHeaders = (_totalFrames + HeaderFramesSize - 1) / HeaderFramesSize;
+  _totalFrames = buffer.size();
 
-  for (size_t i = 0; i < totalHeaders; ++i) {
-    bool hasNext = _totalFrames > (i + 1) * HeaderFramesSize;
-    size_t headerFrames =
-      hasNext ? HeaderFramesSize : HeaderFramesSize - (HeaderFramesSize * (i + 1) - _totalFrames);
+  if ((size.size() != _totalFrames) || (isCUDA.size() != _totalFrames))
+    throw std::length_error("buffer, size and isCUDA must have the same length");
 
-    size_t idx = i * HeaderFramesSize;
-    Header header(hasNext, headerFrames, (int*)&isCUDA[idx], (size_t*)&size[idx]);
+  auto headers = Header::buildHeaders(size, isCUDA);
+
+  for (const auto& header : headers) {
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
     auto r = _endpoint->tagSend(&serializedHeader->front(), serializedHeader->size(), _tag, false);
 
