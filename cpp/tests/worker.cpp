@@ -24,23 +24,25 @@ class WorkerProgressTest : public WorkerTest,
                            public ::testing::WithParamInterface<std::pair<bool, ProgressMode>> {
  protected:
   std::function<void()> _progressWorker;
+  bool _enableDelayedSubmission;
+  ProgressMode _progressMode;
 
   void SetUp()
   {
-    auto param                   = GetParam();
-    auto enableDelayedSubmission = param.first;
-    auto progressMode            = param.second;
+    auto param               = GetParam();
+    _enableDelayedSubmission = param.first;
+    _progressMode            = param.second;
 
-    _worker = _context->createWorker(enableDelayedSubmission);
+    _worker = _context->createWorker(_enableDelayedSubmission);
 
-    if (progressMode == ProgressMode::Blocking)
+    if (_progressMode == ProgressMode::Blocking)
       _worker->initBlockingProgressMode();
-    else if (progressMode == ProgressMode::ThreadPolling)
+    else if (_progressMode == ProgressMode::ThreadPolling)
       _worker->startProgressThread(true);
-    else if (progressMode == ProgressMode::ThreadBlocking)
+    else if (_progressMode == ProgressMode::ThreadBlocking)
       _worker->startProgressThread(false);
 
-    _progressWorker = getProgressFunction(_worker, progressMode);
+    _progressWorker = getProgressFunction(_worker, _progressMode);
   }
 };
 
@@ -63,6 +65,21 @@ TEST_F(WorkerTest, TagProbe)
   // TODO: absorb warnings
 }
 
+TEST_P(WorkerProgressTest, ProgressStream)
+{
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  std::vector<int> send{123};
+  std::vector<int> recv(1);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(ep->streamSend(send.data(), send.size() * sizeof(int), 0));
+  requests.push_back(ep->streamRecv(recv.data(), recv.size() * sizeof(int), 0));
+  waitRequests(_worker, requests, _progressWorker);
+
+  ASSERT_EQ(recv[0], send[0]);
+}
+
 TEST_P(WorkerProgressTest, ProgressTag)
 {
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
@@ -78,19 +95,47 @@ TEST_P(WorkerProgressTest, ProgressTag)
   ASSERT_EQ(recv[0], send[0]);
 }
 
-TEST_P(WorkerProgressTest, ProgressStream)
+TEST_P(WorkerProgressTest, ProgressTagMulti)
 {
+  if (_progressMode == ProgressMode::Wait) {
+    // UCP worker progressing in wait mode can't be interrupted
+    GTEST_SKIP();
+  }
+
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
 
   std::vector<int> send{123};
-  std::vector<int> recv(1);
 
-  std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->streamSend(send.data(), send.size() * sizeof(int), 0));
-  requests.push_back(ep->streamRecv(recv.data(), recv.size() * sizeof(int), 0));
-  waitRequests(_worker, requests, _progressWorker);
+  const size_t numMulti = 8;
 
-  ASSERT_EQ(recv[0], send[0]);
+  std::vector<void*> multiBuffer(numMulti, send.data());
+  std::vector<size_t> multiSize(numMulti, send.size() * sizeof(int));
+  std::vector<int> multiIsCUDA(numMulti, false);
+
+  std::vector<std::shared_ptr<ucxx::RequestTagMulti>> requests;
+  requests.push_back(ucxx::tagMultiSend(ep, multiBuffer, multiSize, multiIsCUDA, 0, false));
+  requests.push_back(ucxx::tagMultiRecv(ep, 0, false));
+  waitRequestsTagMulti(_worker, requests, _progressWorker);
+
+  for (const auto& br : requests[1]->_bufferRequests) {
+    // br->buffer == nullptr are headers
+    if (br->buffer) {
+      ASSERT_EQ(br->buffer->getType(), ucxx::BufferType::Host);
+      ASSERT_EQ(br->buffer->getSize(), send.size() * sizeof(int));
+
+      std::vector<int> recvAbstract((int*)br->buffer->data(),
+                                    (int*)br->buffer->data() + send.size());
+      ASSERT_EQ(recvAbstract[0], send[0]);
+
+      const auto& recvConcretePtr = dynamic_cast<ucxx::HostBuffer*>(br->buffer);
+      ASSERT_EQ(recvConcretePtr->getType(), ucxx::BufferType::Host);
+      ASSERT_EQ(recvConcretePtr->getSize(), send.size() * sizeof(int));
+
+      std::vector<int> recvConcrete((int*)recvConcretePtr->data(),
+                                    (int*)recvConcretePtr->data() + send.size());
+      ASSERT_EQ(recvConcrete[0], send[0]);
+    }
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(ProgressModes,
