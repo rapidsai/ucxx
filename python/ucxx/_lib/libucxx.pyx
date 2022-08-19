@@ -49,7 +49,7 @@ def _get_rmm_buffer(uintptr_t unique_ptr_recv_buffer):
         move(deref(<unique_ptr[PyBuffer]*> unique_ptr_recv_buffer))
     )
     cdef PyRMMBufferPtr rmm_buffer = (
-        dynamic_cast[PyRMMBufferPtr](recv_buffer.get())
+        dynamic_cast[PyRMMBufferPtr](recv_buffer.release())
     )
     return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.get()))
 
@@ -59,7 +59,7 @@ def _get_host_buffer(uintptr_t unique_ptr_recv_buffer):
         move(deref(<unique_ptr[PyBuffer]*> unique_ptr_recv_buffer))
     )
     cdef PyHostBufferPtr host_buffer = (
-        dynamic_cast[PyHostBufferPtr](recv_buffer.get())
+        dynamic_cast[PyHostBufferPtr](recv_buffer.release())
     )
     return ptr_to_ndarray(host_buffer.release(), host_buffer.getSize())
 
