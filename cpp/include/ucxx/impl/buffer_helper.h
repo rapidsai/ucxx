@@ -145,7 +145,7 @@ void* PyHostBuffer::release()
 
 void* PyHostBuffer::data() { return _ptr.get(); }
 
-void PyHostBuffer::free(void* ptr) { free(ptr); }
+void PyHostBuffer::free(void* ptr) { ::free(ptr); }
 
 #if UCXX_ENABLE_RMM
 // PyRMMBuffer class
