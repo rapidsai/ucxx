@@ -15,76 +15,85 @@
 
 namespace ucxx {
 
-// PyBuffer class
-PyBuffer::PyBuffer(void* ptr, PyBufferDeleter deleter, const bool isCUDA, const size_t size)
-  : _ptr{std::unique_ptr<void, PyBufferDeleter>(ptr, deleter)},
-    _isCUDA{isCUDA},
-    _size{size},
-    _isValid{true}
+Buffer::Buffer(const BufferType bufferType, const size_t size)
+  : _bufferType{bufferType}, _size{size}
 {
 }
 
-bool PyBuffer::isValid() { return _isValid; }
+Buffer::~Buffer() {}
 
-size_t PyBuffer::getSize() { return _size; }
+BufferType Buffer::getType() const noexcept { return _bufferType; }
 
-bool PyBuffer::isCUDA() { return _isCUDA; }
+size_t Buffer::getSize() const noexcept { return _size; }
 
-// PyHostBuffer class
-PyHostBuffer::PyHostBuffer(const size_t size)
-  : PyBuffer(malloc(size), PyHostBuffer::free, false, size)
+HostBuffer::HostBuffer(const size_t size) : Buffer(BufferType::Host, size), _buffer{malloc(size)}
 {
+  ucxx_trace_data("HostBuffer(%lu), _buffer: %p", size, _buffer);
 }
 
-std::unique_ptr<void, PyBufferDeleter> PyHostBuffer::get()
+HostBuffer::~HostBuffer()
 {
-  _isValid = false;
-  return std::move(_ptr);
+  if (_buffer) free(_buffer);
 }
 
-void* PyHostBuffer::release()
+void* HostBuffer::release()
 {
-  _isValid = false;
-  return _ptr.release();
+  ucxx_trace_data("HostBuffer::release(), _buffer: %p", _buffer);
+  if (!_buffer) throw std::runtime_error("Invalid object or already released");
+
+  _bufferType = ucxx::BufferType::Invalid;
+  _size       = 0;
+
+  return std::exchange(_buffer, nullptr);
 }
 
-void* PyHostBuffer::data() { return _ptr.get(); }
+void* HostBuffer::data()
+{
+  ucxx_trace_data("HostBuffer::data(), _buffer: %p", _buffer);
+  if (!_buffer) throw std::runtime_error("Invalid object or already released");
 
-void PyHostBuffer::free(void* ptr) { ::free(ptr); }
+  return _buffer;
+}
 
 #if UCXX_ENABLE_RMM
-// PyRMMBuffer class
-PyRMMBuffer::PyRMMBuffer(const size_t size)
-  : PyBuffer(new rmm::device_buffer(size, rmm::cuda_stream_default), PyRMMBuffer::free, true, size)
+RMMBuffer::RMMBuffer(const size_t size)
+  : Buffer(BufferType::RMM, size),
+    _buffer{std::make_unique<rmm::device_buffer>(size, rmm::cuda_stream_default)}
 {
+  ucxx_trace_data("RMMBuffer(%lu), _buffer: %p", size, _buffer.get());
 }
 
-std::unique_ptr<rmm::device_buffer> PyRMMBuffer::get()
+std::unique_ptr<rmm::device_buffer> RMMBuffer::release()
 {
-  _isValid = false;
-  return std::unique_ptr<rmm::device_buffer>((rmm::device_buffer*)_ptr.release());
+  ucxx_trace_data("RMMBuffer::release(), _buffer: %p", _buffer.get());
+  if (!_buffer) throw std::runtime_error("Invalid object or already released");
+
+  _bufferType = ucxx::BufferType::Invalid;
+  _size       = 0;
+
+  return std::move(_buffer);
 }
 
-void* PyRMMBuffer::data() { return ((rmm::device_buffer*)_ptr.get())->data(); }
-
-void PyRMMBuffer::free(void* ptr)
+void* RMMBuffer::data()
 {
-  rmm::device_buffer* p = (rmm::device_buffer*)ptr;
-  delete p;
+  ucxx_trace_data("RMMBuffer::data(), _buffer: %p", _buffer.get());
+  if (!_buffer) throw std::runtime_error("Invalid object or already released");
+
+  return _buffer->data();
 }
 #endif
 
-std::unique_ptr<PyBuffer> allocateBuffer(const bool isCUDA, const size_t size)
+Buffer* allocateBuffer(const BufferType bufferType, const size_t size)
 {
 #if UCXX_ENABLE_RMM
-  if (isCUDA)
-    return std::make_unique<PyRMMBuffer>(size);
+  if (bufferType == BufferType::RMM)
+    return new RMMBuffer(size);
   else
 #else
-  if (isCUDA)
+  if (bufferType == BufferType::RMM)
     throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
 #endif
-    return std::make_unique<PyHostBuffer>(size);
+    return new HostBuffer(size);
 }
 
 }  // namespace ucxx

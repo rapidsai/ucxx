@@ -26,7 +26,7 @@ namespace ucxx {
 struct BufferRequest {
   std::shared_ptr<Request> request{nullptr};
   std::shared_ptr<std::string> stringBuffer{nullptr};
-  std::unique_ptr<PyBuffer> pyBuffer{nullptr};
+  Buffer* buffer{nullptr};
 };
 
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
@@ -76,8 +76,8 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
                                                        const ucp_tag_t tag,
                                                        const bool enablePythonFuture);
 
-  friend std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(
-    std::shared_ptr<Endpoint> endpoint, ucp_tag_t tag);
+  friend std::vector<Buffer*> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
+                                                   ucp_tag_t tag);
 
   friend void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
                                    std::vector<void*>& buffer,

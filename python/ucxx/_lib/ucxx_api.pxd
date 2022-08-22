@@ -97,29 +97,27 @@ cdef extern from "<ucxx/python/exception.h>" namespace "ucxx::python" nogil:
 
 
 cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
-    ctypedef void (*PyBufferDeleter)(void*)
+    # TODO: use `cdef enum class` after moving to Cython 3.x
+    ctypedef enum BufferType:
+        Host "ucxx::BufferType::Host"
+        RMM "ucxx::BufferType::RMM"
+        Invalid "ucxx::BufferType::Invalid"
 
-    cdef cppclass PyBuffer:
-        bint isValid()
+    cdef cppclass Buffer:
+        BufferType getType()
         size_t getSize()
-        bint isCUDA()
 
-    cdef cppclass PyHostBuffer:
-        bint isValid()
+    cdef cppclass HostBuffer:
+        BufferType getType()
         size_t getSize()
-        bint isCUDA()
-        unique_ptr[void, PyBufferDeleter] get() except +raise_py_error
         void* release() except +raise_py_error
+        void* data() except +raise_py_error
 
-    ctypedef PyHostBuffer* PyHostBufferPtr
-
-    cdef cppclass PyRMMBuffer:
-        bint isValid()
+    cdef cppclass RMMBuffer:
+        BufferType getType()
         size_t getSize()
-        bint isCUDA()
-        unique_ptr[device_buffer] get() except +raise_py_error
-
-    ctypedef PyRMMBuffer* PyRMMBufferPtr
+        unique_ptr[device_buffer] release() except +raise_py_error
+        void* data() except +raise_py_error
 
 
 cdef extern from "<ucxx/api.h>" nogil:
@@ -213,7 +211,7 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
     ctypedef struct BufferRequest:
         shared_ptr[Request] request
         shared_ptr[string] stringBuffer
-        unique_ptr[PyBuffer] pyBuffer
+        Buffer* buffer
 
     ctypedef shared_ptr[BufferRequest] BufferRequestPtr
 
@@ -253,7 +251,7 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         ucp_tag_t tag,
         bint enable_python_future,
     ) except +raise_py_error
-    vector[unique_ptr[PyBuffer]] tagMultiRecvBlocking(
+    vector[Buffer*] tagMultiRecvBlocking(
         shared_ptr[Endpoint] endpoint,
         ucp_tag_t tag,
         bint enable_python_future,

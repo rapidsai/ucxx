@@ -90,9 +90,9 @@ std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint
                                               const ucp_tag_t tag,
                                               const bool enablePythonFuture);
 
-std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
-                                                            ucp_tag_t tag,
-                                                            const bool enablePythonFuture);
+std::vector<Buffer*> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
+                                          ucp_tag_t tag,
+                                          const bool enablePythonFuture);
 
 namespace python {
 

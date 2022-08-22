@@ -6,6 +6,9 @@
 #pragma once
 
 #include <memory>
+#include <utility>
+
+#include <ucxx/log.h>
 
 #if UCXX_ENABLE_RMM
 #include <rmm/device_buffer.hpp>
@@ -13,64 +16,75 @@
 
 namespace ucxx {
 
-typedef void (*PyBufferDeleter)(void*);
+enum class BufferType {
+  Host = 0,
+  RMM,
+  Invalid,
+};
 
-class PyBuffer {
+class Buffer {
  protected:
-  std::unique_ptr<void, PyBufferDeleter> _ptr{nullptr, [](void*) {}};
-  bool _isCUDA{false};
-  size_t _size{0};
-  bool _isValid{false};
+  BufferType _bufferType{BufferType::Invalid};
+  size_t _size;
+
+  Buffer(const BufferType bufferType, const size_t size);
 
  public:
-  PyBuffer()                = delete;
-  PyBuffer(const PyBuffer&) = delete;
-  PyBuffer& operator=(PyBuffer const&) = delete;
-  PyBuffer(PyBuffer&& o)               = delete;
-  PyBuffer& operator=(PyBuffer&& o) = delete;
+  Buffer()              = delete;
+  Buffer(const Buffer&) = delete;
+  Buffer& operator=(Buffer const&) = delete;
+  Buffer(Buffer&& o)               = delete;
+  Buffer& operator=(Buffer&& o) = delete;
 
-  PyBuffer(void* ptr, PyBufferDeleter deleter, const bool isCUDA, const size_t size);
+  virtual ~Buffer();
 
-  bool isValid();
+  BufferType getType() const noexcept;
 
-  size_t getSize();
-
-  bool isCUDA();
+  size_t getSize() const noexcept;
 
   virtual void* data() = 0;
 };
 
-class PyHostBuffer : public PyBuffer {
- public:
-  PyHostBuffer(const size_t size);
+class HostBuffer : public Buffer {
+ private:
+  void* _buffer;
 
-  std::unique_ptr<void, PyBufferDeleter> get();
+ public:
+  HostBuffer()                  = delete;
+  HostBuffer(const HostBuffer&) = delete;
+  HostBuffer& operator=(HostBuffer const&) = delete;
+  HostBuffer(HostBuffer&& o)               = delete;
+  HostBuffer& operator=(HostBuffer&& o) = delete;
+
+  HostBuffer(const size_t size);
+
+  ~HostBuffer();
 
   void* release();
 
-  void* data();
-
-  static void free(void* ptr);
+  virtual void* data();
 };
 
 #if UCXX_ENABLE_RMM
-class PyRMMBuffer : public PyBuffer {
+class RMMBuffer : public Buffer {
+ private:
+  std::unique_ptr<rmm::device_buffer> _buffer;
+
  public:
-  PyRMMBuffer(const size_t size);
+  RMMBuffer()                 = delete;
+  RMMBuffer(const RMMBuffer&) = delete;
+  RMMBuffer& operator=(RMMBuffer const&) = delete;
+  RMMBuffer(RMMBuffer&& o)               = delete;
+  RMMBuffer& operator=(RMMBuffer&& o) = delete;
 
-  std::unique_ptr<rmm::device_buffer> get();
+  RMMBuffer(const size_t size);
 
-  void* data();
+  std::unique_ptr<rmm::device_buffer> release();
 
-  static void free(void* ptr);
+  virtual void* data();
 };
 #endif
 
-std::unique_ptr<PyBuffer> allocateBuffer(const bool isCUDA, const size_t size);
-
-typedef PyHostBuffer* PyHostBufferPtr;
-#if UCXX_ENABLE_RMM
-typedef PyRMMBuffer* PyRMMBufferPtr;
-#endif
+Buffer* allocateBuffer(BufferType bufferType, const size_t size);
 
 }  // namespace ucxx

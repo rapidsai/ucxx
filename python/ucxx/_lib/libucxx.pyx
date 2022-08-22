@@ -44,24 +44,15 @@ cdef ptr_to_ndarray(void* ptr, np.npy_intp N):
     return arr
 
 
-def _get_rmm_buffer(uintptr_t unique_ptr_recv_buffer):
-    cdef unique_ptr[PyBuffer] recv_buffer = (
-        move(deref(<unique_ptr[PyBuffer]*> unique_ptr_recv_buffer))
-    )
-    cdef PyRMMBufferPtr rmm_buffer = (
-        dynamic_cast[PyRMMBufferPtr](recv_buffer.release())
-    )
-    return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.get()))
+def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
+    cdef RMMBuffer* rmm_buffer = <RMMBuffer*>recv_buffer_ptr
+    return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.release()))
 
 
-def _get_host_buffer(uintptr_t unique_ptr_recv_buffer):
-    cdef unique_ptr[PyBuffer] recv_buffer = (
-        move(deref(<unique_ptr[PyBuffer]*> unique_ptr_recv_buffer))
-    )
-    cdef PyHostBufferPtr host_buffer = (
-        dynamic_cast[PyHostBufferPtr](recv_buffer.release())
-    )
-    return ptr_to_ndarray(host_buffer.release(), host_buffer.getSize())
+def _get_host_buffer(uintptr_t recv_buffer_ptr):
+    cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
+    cdef size_t size = host_buffer.getSize()
+    return ptr_to_ndarray(host_buffer.release(), size)
 
 
 ###############################################################################
@@ -457,18 +448,18 @@ cdef class UCXBufferRequest:
         )
 
     def get_py_buffer(self):
-        cdef unique_ptr[PyBuffer] buf
+        cdef Buffer* buf
 
         with nogil:
-            buf = move(self._buffer_request.get().pyBuffer)
+            buf = self._buffer_request.get().buffer
 
-        # If pyBuffer == NULL, it holds a header
-        if buf.get() == NULL:
+        # If buf == NULL, it holds a header
+        if buf == NULL:
             return None
-        elif buf.get().isCUDA():
-            return _get_rmm_buffer(<uintptr_t><void*>&buf)
+        elif buf.getType() == BufferType.RMM:
+            return _get_rmm_buffer(<uintptr_t><void*>buf)
         else:
-            return _get_host_buffer(<uintptr_t><void*>&buf)
+            return _get_host_buffer(<uintptr_t><void*>buf)
 
 
 cdef class UCXBufferRequests:

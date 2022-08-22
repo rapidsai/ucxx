@@ -84,19 +84,19 @@ std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint
   return ret;
 }
 
-std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
-                                                            const ucp_tag_t tag,
-                                                            const bool enablePythonFuture)
+std::vector<Buffer*> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
+                                          const ucp_tag_t tag,
+                                          const bool enablePythonFuture)
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
 
   auto requests = tagMultiRecv(endpoint, tag, enablePythonFuture);
 
   std::vector<std::shared_ptr<Request>> requestsOnly;
-  std::vector<std::unique_ptr<PyBuffer>> recvBuffers;
+  std::vector<Buffer*> recvBuffers;
   for (auto& br : requests->_bufferRequests) {
     requestsOnly.push_back(br->request);
-    recvBuffers.push_back(std::move(br->pyBuffer));
+    recvBuffers.push_back(br->buffer);
   }
 
   waitRequests(worker, requestsOnly);
@@ -147,7 +147,8 @@ void RequestTagMulti::recvFrames()
     for (size_t i = 0; i < h.nframes; ++i) {
       auto bufferRequest = std::make_shared<BufferRequest>();
       _bufferRequests.push_back(bufferRequest);
-      auto buf               = allocateBuffer(h.isCUDA[i], h.size[i]);
+      const auto bufferType  = h.isCUDA[i] ? ucxx::BufferType::RMM : ucxx::BufferType::Host;
+      auto buf               = allocateBuffer(bufferType, h.size[i]);
       bufferRequest->request = _endpoint->tagRecv(
         buf->data(),
         buf->getSize(),
@@ -155,11 +156,11 @@ void RequestTagMulti::recvFrames()
         false,
         std::bind(std::mem_fn(&RequestTagMulti::markCompleted), this, std::placeholders::_1),
         bufferRequest);
-      bufferRequest->pyBuffer = std::move(buf);
-      ucxx_trace_req("RequestTagMulti::recvFrames request: %p, tag: %lx, pyBuffer: %p",
+      bufferRequest->buffer = buf;
+      ucxx_trace_req("RequestTagMulti::recvFrames request: %p, tag: %lx, buffer: %p",
                      this,
                      _tag,
-                     bufferRequest->pyBuffer.get());
+                     bufferRequest->buffer);
     }
   }
 
