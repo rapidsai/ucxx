@@ -22,12 +22,13 @@
 #include <ucxx/worker.h>
 
 #include <ucxx/impl/address.h>
-#include <ucxx/impl/buffer_helper.h>
+#include <ucxx/impl/buffer.h>
 #include <ucxx/impl/component.h>
 #include <ucxx/impl/config.h>
 #include <ucxx/impl/context.h>
 #include <ucxx/impl/delayed_submission.h>
 #include <ucxx/impl/endpoint.h>
+#include <ucxx/impl/header.h>
 #include <ucxx/impl/initializer.h>
 #include <ucxx/impl/listener.h>
 #include <ucxx/impl/log.h>

@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <sstream>
+
 #include <ucp/api/ucp.h>
 
 #include <ucxx/component.h>

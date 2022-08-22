@@ -10,7 +10,7 @@
 #include <ucxx/typedefs.h>
 
 #if UCXX_ENABLE_PYTHON
-#include <ucxx/buffer_helper.h>
+#include <ucxx/buffer.h>
 #endif
 
 namespace ucxx {

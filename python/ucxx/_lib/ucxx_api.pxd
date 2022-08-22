@@ -96,7 +96,7 @@ cdef extern from "<ucxx/python/exception.h>" namespace "ucxx::python" nogil:
     cdef void raise_py_error()
 
 
-cdef extern from "<ucxx/buffer_helper.h>" namespace "ucxx" nogil:
+cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
     ctypedef void (*PyBufferDeleter)(void*)
 
     cdef cppclass PyBuffer:

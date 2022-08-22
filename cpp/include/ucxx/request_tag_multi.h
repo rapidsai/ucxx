@@ -14,7 +14,7 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/request.h>
 
-#include <ucxx/buffer_helper.h>
+#include <ucxx/buffer.h>
 #include <ucxx/request_helper.h>
 
 #if UCXX_ENABLE_PYTHON

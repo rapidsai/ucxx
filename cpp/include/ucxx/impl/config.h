@@ -5,6 +5,9 @@
  */
 #pragma once
 
+#include <sstream>
+#include <string>
+
 #include <ucxx/config.h>
 #include <ucxx/utils/file_descriptor.h>
 
