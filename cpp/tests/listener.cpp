@@ -132,7 +132,7 @@ TEST_P(ListenerPortTest, Port)
     ASSERT_EQ(listener->getPort(), 12345);
 }
 
-INSTANTIATE_TEST_SUITE_P(PortAssignment, ListenerPortTest, testing::Values(0, 12345));
+INSTANTIATE_TEST_SUITE_P(PortAssignment, ListenerPortTest, ::testing::Values(0, 12345));
 
 TEST_F(ListenerTest, EndpointSendRecv)
 {

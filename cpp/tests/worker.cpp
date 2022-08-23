@@ -11,6 +11,9 @@
 
 namespace {
 
+using ::testing::Combine;
+using ::testing::Values;
+
 class WorkerTest : public ::testing::Test {
  protected:
   std::shared_ptr<ucxx::Context> _context{
@@ -21,7 +24,7 @@ class WorkerTest : public ::testing::Test {
 };
 
 class WorkerProgressTest : public WorkerTest,
-                           public ::testing::WithParamInterface<std::pair<bool, ProgressMode>> {
+                           public ::testing::WithParamInterface<std::tuple<bool, ProgressMode>> {
  protected:
   std::function<void()> _progressWorker;
   bool _enableDelayedSubmission;
@@ -29,9 +32,7 @@ class WorkerProgressTest : public WorkerTest,
 
   void SetUp()
   {
-    auto param               = GetParam();
-    _enableDelayedSubmission = param.first;
-    _progressMode            = param.second;
+    std::tie(_enableDelayedSubmission, _progressMode) = GetParam();
 
     _worker = _context->createWorker(_enableDelayedSubmission);
 
@@ -140,16 +141,17 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
 
 INSTANTIATE_TEST_SUITE_P(ProgressModes,
                          WorkerProgressTest,
-                         testing::Values(std::make_pair(false, ProgressMode::Polling),
-                                         std::make_pair(false, ProgressMode::Blocking),
-                                         std::make_pair(false, ProgressMode::Wait),
-                                         std::make_pair(false, ProgressMode::ThreadPolling),
-                                         std::make_pair(false, ProgressMode::ThreadBlocking)));
+                         Combine(Values(false),
+                                 Values(ProgressMode::Polling,
+                                        ProgressMode::Blocking,
+                                        ProgressMode::Wait,
+                                        ProgressMode::ThreadPolling,
+                                        ProgressMode::ThreadBlocking)));
 
-INSTANTIATE_TEST_SUITE_P(DelayedSubmission,
-                         WorkerProgressTest,
-                         testing::Values(std::make_pair(true, ProgressMode::ThreadPolling),
-                                         std::make_pair(true, ProgressMode::ThreadBlocking)));
+INSTANTIATE_TEST_SUITE_P(
+  DelayedSubmission,
+  WorkerProgressTest,
+  Combine(Values(true), Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking)));
 
 }  // namespace
 

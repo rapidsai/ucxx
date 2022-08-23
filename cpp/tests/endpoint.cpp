@@ -25,35 +25,6 @@ class EndpointTest : public ::testing::Test {
   }
 };
 
-// class WorkerProgressTest
-//   : public WorkerTest,
-//     public ::testing::WithParamInterface<std::pair<bool, WorkerProgressType>> {
-//  protected:
-//   std::function<void()> _progressWorker;
-//
-//   void SetUp()
-//   {
-//     auto param                   = GetParam();
-//     auto enableDelayedSubmission = param.first;
-//     auto progressType            = param.second;
-//
-//     _worker = _context->createWorker(enableDelayedSubmission);
-//
-//     if (progressType == WorkerProgressType::Polling) {
-//       _progressWorker = std::bind(std::mem_fn(&ucxx::Worker::progress), _worker);
-//     } else if (progressType == WorkerProgressType::Blocking) {
-//       _progressWorker = std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), _worker);
-//       _worker->initBlockingProgressMode();
-//     } else if (progressType == WorkerProgressType::Wait) {
-//       _progressWorker = std::bind(std::mem_fn(&ucxx::Worker::waitProgress), _worker);
-//     } else if (progressType == WorkerProgressType::ThreadPolling) {
-//       _worker->startProgressThread(true);
-//     } else if (progressType == WorkerProgressType::ThreadBlocking) {
-//       _worker->startProgressThread(false);
-//     }
-//   }
-// };
-
 TEST_F(EndpointTest, HandleIsValid)
 {
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
