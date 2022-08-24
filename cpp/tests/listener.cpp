@@ -7,25 +7,9 @@
 
 #include <ucxx/api.h>
 
-namespace {
+#include "utils.h"
 
-void waitRequests(std::shared_ptr<ucxx::Worker> worker,
-                  std::vector<std::shared_ptr<ucxx::Request>>& requests)
-{
-  // Wait until all messages are completed
-  // if (progress_mode == PROGRESS_MODE_BLOCKING) {
-  if (true) {
-    for (auto& r : requests) {
-      do {
-        worker->progressWorkerEvent();
-      } while (!r->isCompleted());
-      r->checkError();
-    }
-  } else {
-    for (auto& r : requests)
-      r->checkError();
-  }
-}
+namespace {
 
 struct ListenerContainer {
   ucs_status_t status{UCS_OK};
@@ -138,13 +122,14 @@ TEST_F(ListenerTest, EndpointSendRecv)
 {
   auto listenerContainer = createListenerContainer();
   auto listener          = createListener(listenerContainer);
-  _worker->progress();
+  auto progress          = getProgressFunction(_worker, ProgressMode::Polling);
+
+  progress();
 
   auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
   while (listenerContainer.endpoint == nullptr)
-    _worker->progress();
+    progress();
 
-  // std::vector<decltype(ep->tagSend)> requests;
   std::vector<std::shared_ptr<ucxx::Request>> requests;
 
   std::vector<int> client_buf{123};
@@ -152,14 +137,14 @@ TEST_F(ListenerTest, EndpointSendRecv)
   requests.push_back(ep->tagSend(client_buf.data(), client_buf.size() * sizeof(int), 0));
   requests.push_back(
     listenerContainer.endpoint->tagRecv(&server_buf.front(), server_buf.size() * sizeof(int), 0));
-  ::waitRequests(_worker, requests);
+  ::waitRequests(_worker, requests, progress);
 
   ASSERT_EQ(server_buf[0], client_buf[0]);
 
   requests.push_back(
     listenerContainer.endpoint->tagSend(&server_buf.front(), server_buf.size() * sizeof(int), 1));
   requests.push_back(ep->tagRecv(client_buf.data(), client_buf.size() * sizeof(int), 1));
-  ::waitRequests(_worker, requests);
+  ::waitRequests(_worker, requests, progress);
   ASSERT_EQ(client_buf[0], server_buf[0]);
 
   std::vector<int> buf{0};
@@ -225,9 +210,3 @@ TEST_F(ListenerTest, CloseCallback)
 }
 
 }  // namespace
-
-int main(int argc, char** argv)
-{
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

@@ -18,12 +18,6 @@ using ::testing::Combine;
 using ::testing::ContainerEq;
 using ::testing::Values;
 
-void createCudaContextCallback(void* callbackArg)
-{
-  // Force CUDA context creation
-  cudaFree(0);
-}
-
 class RequestTest
   : public ::testing::TestWithParam<std::tuple<ucxx::BufferType, bool, ProgressMode, size_t>> {
  protected:
@@ -64,7 +58,7 @@ class RequestTest
       _worker->initBlockingProgressMode();
     else if (_progressMode == ProgressMode::ThreadPolling ||
              _progressMode == ProgressMode::ThreadBlocking) {
-      _worker->setProgressThreadStartCallback(createCudaContextCallback, nullptr);
+      _worker->setProgressThreadStartCallback(::createCudaContextCallback, nullptr);
 
       if (_progressMode == ProgressMode::ThreadPolling) _worker->startProgressThread(true);
       if (_progressMode == ProgressMode::ThreadBlocking) _worker->startProgressThread(false);
@@ -255,9 +249,3 @@ INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
 #endif
 
 }  // namespace
-
-int main(int argc, char** argv)
-{
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

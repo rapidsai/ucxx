@@ -171,9 +171,3 @@ INSTANTIATE_TEST_SUITE_P(SingleFrame,
                          testing::Values(0, 1, 5, 10, 100, 101, 200, 201));
 
 }  // namespace
-
-int main(int argc, char** argv)
-{
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
