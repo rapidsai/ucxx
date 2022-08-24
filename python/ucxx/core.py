@@ -2,6 +2,7 @@
 # Copyright (c) 2020       UT-Battelle, LLC. All rights reserved.
 # See file LICENSE for terms.
 
+import array
 import asyncio
 import gc
 import logging
@@ -654,6 +655,29 @@ class Endpoint:
             if self._ep is None:
                 raise e
 
+    async def send_obj(self, obj, tag=None):
+        """Send `obj` to connected peer that calls `recv_obj()`.
+
+        The transfer includes an extra message containing the size of `obj`,
+        which increases the overhead slightly.
+
+        Parameters
+        ----------
+        obj: exposing the buffer protocol or array/cuda interface
+            The object to send.
+        tag: hashable, optional
+            Set a tag that the receiver must match.
+
+        Example
+        -------
+        >>> await ep.send_obj(pickle.dumps([1,2,3]))
+        """
+        if not isinstance(obj, Array):
+            obj = Array(obj)
+        nbytes = Array(array.array("Q", [obj.nbytes]))
+        await self.send(nbytes, tag=tag)
+        await self.send(obj, tag=tag)
+
     # @ucx_api.nvtx_annotate("UCXPY_RECV", color="red", domain="ucxpy")
     async def recv(self, buffer, tag=None, force_tag=False):
         """Receive from connected peer into `buffer`.
@@ -764,6 +788,37 @@ class Endpoint:
             and self._finished_recv_count >= self._close_after_n_recv
         ):
             self.abort()
+        return ret
+
+    async def recv_obj(self, tag=None, allocator=bytearray):
+        """Receive from connected peer that calls `send_obj()`.
+
+        As opposed to `recv()`, this function returns the received object.
+        Data is received into a buffer allocated by `allocator`.
+
+        The transfer includes an extra message containing the size of `obj`,
+        which increses the overhead slightly.
+
+        Parameters
+        ----------
+        tag: hashable, optional
+            Set a tag that must match the received message. Notice, currently
+            UCX-Py doesn't support a "any tag" thus `tag=None` only matches a
+            send that also sets `tag=None`.
+        allocator: callabale, optional
+            Function to allocate the received object. The function should
+            take the number of bytes to allocate as input and return a new
+            buffer of that size as output.
+
+        Example
+        -------
+        >>> await pickle.loads(ep.recv_obj())
+        """
+        nbytes = array.array("Q", [0])
+        await self.recv(nbytes, tag=tag)
+        nbytes = nbytes[0]
+        ret = allocator(nbytes)
+        await self.recv(ret, tag=tag)
         return ret
 
     def get_ucp_worker(self):
