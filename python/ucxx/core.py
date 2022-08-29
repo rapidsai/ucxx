@@ -12,6 +12,7 @@ import threading
 import weakref
 from functools import partial
 from os import close as close_fd
+from queue import Queue
 
 from ._lib import libucxx as ucx_api
 from ._lib.arr import Array
@@ -161,30 +162,34 @@ async def _notifier_coroutine(worker):
     return False
 
 
-def _notifierThread(event_loop, worker):
+def _notifierThread(event_loop, worker, q):
     logger.debug("Starting Notifier Thread")
     asyncio.set_event_loop(event_loop)
+    shutdown = False
 
-    if True:
-        while True:
-            worker.populate_python_futures_pool()
-            finished = worker.wait_request_notifier()
-            if finished:
-                return
+    while True:
+        worker.populate_python_futures_pool()
+        state = worker.wait_request_notifier(period_ns=int(1e9))  # 1 second timeout
 
-            # Notify all enqueued waiting futures
-            task = asyncio.run_coroutine_threadsafe(
-                _run_request_notifier(worker), event_loop
-            )
-            task.result()
-    else:
-        while True:
-            print("Starting _notifier_coroutine")
-            task = asyncio.run_coroutine_threadsafe(
-                _notifier_coroutine(worker), event_loop
-            )
-            if task.result() is True:
-                return
+        if not q.empty():
+            q_val = q.get()
+            if q_val == "shutdown":
+                shutdown = True
+            else:
+                logger.warn(
+                    f"_notifierThread got unknown message from IPC queue: {q_val}"
+                )
+
+        if state == ucx_api.PythonRequestNotifierWaitState.Shutdown or shutdown is True:
+            return
+        elif state == ucx_api.PythonRequestNotifierWaitState.Timeout:
+            continue
+
+        # Notify all enqueued waiting futures
+        task = asyncio.run_coroutine_threadsafe(
+            _run_request_notifier(worker), event_loop
+        )
+        task.result()
 
 
 class ApplicationContext:
@@ -201,6 +206,8 @@ class ApplicationContext:
     ):
         self.progress_tasks = []
         loop = asyncio.get_event_loop()
+        self.notifier_thread_q = None
+        self.notifier_thread = None
 
         if enable_delayed_submission is None:
             if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
@@ -227,21 +234,15 @@ class ApplicationContext:
             enable_python_future=enable_python_future,
         )
 
-        # Thread sets `daemon=True` to prevent it from deadlocking at
-        # `worker.wait_request_notifier()` at shutdown.
-        # TODO: Long-term we should find a better way to signal the thread for
-        # proper shutdown, which may require the wait operation to contain a
-        # timeout or finding a way to execute `worker.stop_request_notifier_thread()`
-        # during `_shutdown()` from `threading.py`.
         if self.worker.is_python_future_enabled():
             logger.debug("UCXX_ENABLE_PYTHON available, enabling notifier thread")
-            self.notifierThread = threading.Thread(
+            self.notifier_thread_q = Queue()
+            self.notifier_thread = threading.Thread(
                 target=_notifierThread,
-                args=(loop, self.worker),
+                args=(loop, self.worker, self.notifier_thread_q),
                 name="UCX-Py Async Notifier Thread",
-                daemon=True,
             )
-            self.notifierThread.start()
+            self.notifier_thread.start()
         else:
             logger.debug(
                 "UCXX not compiled with UCXX_ENABLE_PYTHON, disabling notifier thread"
@@ -270,6 +271,21 @@ class ApplicationContext:
         # receive messages directly on a worker after a remote endpoint
         # connected with `create_endpoint_from_worker_address`.
         self.continuous_ucx_progress()
+
+    def stop_notifier_thread(self):
+        """
+        Stop Python future notifier thread
+
+        Stop the notifier thread if context is running with Python future
+        notification enabled via `UCXPY_ENABLE_PYTHON_FUTURE=1` or
+        `ucp.init(..., enable_python_future=True)`.
+        """
+        if self.notifier_thread_q and self.notifier_thread:
+            self.notifier_thread_q.put("shutdown")
+            self.notifier_thread.join()
+            logger.debug("Notifier thread stopped")
+        else:
+            logger.debug("Notifier thread not running")
 
     def create_listener(
         self,
@@ -950,6 +966,13 @@ def reset():
             raise UCXError(msg)
 
 
+def stop_notifier_thread():
+    global _ctx
+    if _ctx is None:
+        logger.debug("UCX is not initialized.")
+    _ctx.stop_notifier_thread()
+
+
 def get_ucx_version():
     """Return the version of the underlying UCX installation
 
@@ -1011,3 +1034,4 @@ create_listener.__doc__ = ApplicationContext.create_listener.__doc__
 create_endpoint.__doc__ = ApplicationContext.create_endpoint.__doc__
 continuous_ucx_progress.__doc__ = ApplicationContext.continuous_ucx_progress.__doc__
 get_ucp_worker.__doc__ = ApplicationContext.get_ucp_worker.__doc__
+stop_notifier_thread.__doc__ = ApplicationContext.stop_notifier_thread.__doc__
