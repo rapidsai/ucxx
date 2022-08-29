@@ -54,20 +54,20 @@ bool Notifier::waitRequestNotifier()
 {
   ucxx_trace_req("Notifier::waitRequestNotifier()");
 
-  if (_notifierThreadFutureStatusFinished == RequestNotifierThreadStopping) {
-    _notifierThreadFutureStatusFinished = RequestNotifierThreadNotRunning;
+  if (_notifierThreadFutureStatusFinished == RequestNotifierThreadState::Stopping) {
+    _notifierThreadFutureStatusFinished = RequestNotifierThreadState::NotRunning;
     return true;
   }
 
   std::unique_lock<std::mutex> lock(_notifierThreadMutex);
   _notifierThreadConditionVariable.wait(lock, [this] {
     return _notifierThreadFutureStatusReady ||
-           _notifierThreadFutureStatusFinished == RequestNotifierThreadStopping;
+           _notifierThreadFutureStatusFinished == RequestNotifierThreadState::Stopping;
   });
 
   ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d %d",
                  _notifierThreadFutureStatusReady,
-                 _notifierThreadFutureStatusFinished);
+                 (int)_notifierThreadFutureStatusFinished);
   _notifierThreadFutureStatusReady = false;
 
   return false;
@@ -77,7 +77,7 @@ void Notifier::stopRequestNotifierThread()
 {
   {
     std::lock_guard<std::mutex> lock(_notifierThreadMutex);
-    _notifierThreadFutureStatusFinished = RequestNotifierThreadStopping;
+    _notifierThreadFutureStatusFinished = RequestNotifierThreadState::Stopping;
   }
   _notifierThreadConditionVariable.notify_all();
 }

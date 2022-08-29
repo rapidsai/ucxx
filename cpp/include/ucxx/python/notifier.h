@@ -16,11 +16,7 @@ namespace ucxx {
 
 namespace python {
 
-enum RequestNotifierThreadState {
-  RequestNotifierThreadNotRunning,
-  RequestNotifierThreadRunning,
-  RequestNotifierThreadStopping
-};
+enum class RequestNotifierThreadState { NotRunning = 0, Running, Stopping };
 
 class Future;
 
@@ -29,7 +25,8 @@ class Notifier {
   std::mutex _notifierThreadMutex{};
   std::vector<std::pair<std::shared_ptr<Future>, ucs_status_t>> _notifierThreadFutureStatus{};
   bool _notifierThreadFutureStatusReady{false};
-  RequestNotifierThreadState _notifierThreadFutureStatusFinished{RequestNotifierThreadNotRunning};
+  RequestNotifierThreadState _notifierThreadFutureStatusFinished{
+    RequestNotifierThreadState::NotRunning};
   std::condition_variable _notifierThreadConditionVariable{};
 
   Notifier() = default;
