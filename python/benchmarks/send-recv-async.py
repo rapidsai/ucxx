@@ -170,8 +170,8 @@ def client(queue, port, server_address, args):
 
     times = queue.get()
     assert len(times) == args.n_iter
-    bw_avg = format_bytes(2 * args.n_iter * args.n_bytes / sum(times))
-    bw_med = format_bytes(2 * args.n_bytes / np.median(times))
+    bw_avg = format_bytes(2 * args.n_iter * args.n_bytes * args.n_buffers / sum(times))
+    bw_med = format_bytes(2 * args.n_bytes * args.n_buffers / np.median(times))
     lat_avg = int(sum(times) * 1e9 / (2 * args.n_iter))
     lat_med = int(np.median(times) * 1e9 / 2)
 
@@ -213,7 +213,7 @@ def client(queue, port, server_address, args):
         print_key_value(key="Iterations", value="Bandwidth, Latency")
         print_separator(separator="-")
         for i, t in enumerate(times):
-            ts = format_bytes(2 * args.n_bytes / t)
+            ts = format_bytes(2 * args.n_bytes * args.n_buffers / t)
             lat = int(t * 1e9 / 2)
             print_key_value(key=i, value=f"{ts}/s, {lat}ns")
 
