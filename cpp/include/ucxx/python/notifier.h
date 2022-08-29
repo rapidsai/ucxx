@@ -45,46 +45,13 @@ class Notifier {
     return std::shared_ptr<Notifier>(new Notifier());
   }
 
-  void scheduleFutureNotifyEmpty()
-  {
-    ucxx_trace_req("Notifer::scheduleFutureNotifyEmpty(): %p", this);
-  }
-
   void scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t status);
 
-  bool waitRequestNotifier()
-  {
-    ucxx_trace_req("Notifier::waitRequestNotifier()");
-
-    if (_notifierThreadFutureStatusFinished == RequestNotifierThreadStopping) {
-      _notifierThreadFutureStatusFinished = RequestNotifierThreadNotRunning;
-      return true;
-    }
-
-    std::unique_lock<std::mutex> lock(_notifierThreadMutex);
-    _notifierThreadConditionVariable.wait(lock, [this] {
-      return _notifierThreadFutureStatusReady ||
-             _notifierThreadFutureStatusFinished == RequestNotifierThreadStopping;
-    });
-
-    ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d %d",
-                   _notifierThreadFutureStatusReady,
-                   _notifierThreadFutureStatusFinished);
-    _notifierThreadFutureStatusReady = false;
-
-    return false;
-  }
+  bool waitRequestNotifier();
 
   void runRequestNotifier();
 
-  void stopRequestNotifierThread()
-  {
-    {
-      std::lock_guard<std::mutex> lock(_notifierThreadMutex);
-      _notifierThreadFutureStatusFinished = RequestNotifierThreadStopping;
-    }
-    _notifierThreadConditionVariable.notify_all();
-  }
+  void stopRequestNotifierThread();
 };
 
 }  // namespace python
