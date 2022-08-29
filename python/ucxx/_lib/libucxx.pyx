@@ -104,6 +104,12 @@ class Feature(enum.Enum):
     AM = UCP_FEATURE_AM
 
 
+class PythonRequestNotifierWaitState(enum.Enum):
+    Ready = UcxxPythonRequestNotifierWaitStateReady
+    Timeout = UcxxPythonRequestNotifierWaitStateTimeout
+    Shutdown = UcxxPythonRequestNotifierWaitStateShutdown
+
+
 ###############################################################################
 #                                   Classes                                   #
 ###############################################################################
@@ -357,13 +363,14 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().stopRequestNotifierThread()
 
-    def wait_request_notifier(self):
-        cdef bint stop
+    def wait_request_notifier(self, period_ns=0):
+        cdef RequestNotifierWaitState state
+        cdef uint64_t p = period_ns
 
         with nogil:
-            stop = self._worker.get().waitRequestNotifier()
+            state = self._worker.get().waitRequestNotifier(p)
 
-        return stop
+        return PythonRequestNotifierWaitState(state)
 
     def run_request_notifier(self):
         with nogil:

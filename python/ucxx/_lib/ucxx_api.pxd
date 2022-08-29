@@ -120,6 +120,14 @@ cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
         void* data() except +raise_py_error
 
 
+cdef extern from "<ucxx/python/typedefs.h>" namespace "ucxx::python" nogil:
+    # TODO: use `cdef enum class` after moving to Cython 3.x
+    ctypedef enum RequestNotifierWaitState:
+        UcxxPythonRequestNotifierWaitStateReady "ucxx::python::RequestNotifierWaitState::Ready"  # noqa: E501
+        UcxxPythonRequestNotifierWaitStateTimeout "ucxx::python::RequestNotifierWaitState::Timeout"  # noqa: E501
+        UcxxPythonRequestNotifierWaitStateShutdown "ucxx::python::RequestNotifierWaitState::Shutdown"  # noqa: E501
+
+
 cdef extern from "<ucxx/api.h>" nogil:
     int UCXX_ENABLE_PYTHON
 
@@ -164,7 +172,9 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             function[void(void*)] callback, void* callbackArg
         )
         void stopRequestNotifierThread() except +raise_py_error
-        bint waitRequestNotifier() except +raise_py_error
+        RequestNotifierWaitState waitRequestNotifier(
+            uint64_t periodNs
+        ) except +raise_py_error
         void runRequestNotifier() except +raise_py_error
         void populatePythonFuturesPool() except +raise_py_error
 

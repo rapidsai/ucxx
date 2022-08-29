@@ -18,6 +18,8 @@
 #include <ucxx/delayed_submission.h>
 #include <ucxx/worker_progress_thread.h>
 
+#include <ucxx/python/typedefs.h>
+
 #if UCXX_ENABLE_PYTHON
 #include <ucxx/python/notifier.h>
 #include <ucxx/python/python_future.h>
@@ -92,7 +94,7 @@ class Worker : public Component {
 
   std::shared_ptr<ucxx::python::Future> getPythonFuture();
 
-  bool waitRequestNotifier();
+  python::RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
 
   void runRequestNotifier();
 

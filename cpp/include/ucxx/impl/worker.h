@@ -248,21 +248,20 @@ std::shared_ptr<ucxx::python::Future> Worker::getPythonFuture()
 #endif
 }
 
-bool Worker::waitRequestNotifier()
+python::RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
 {
 #if UCXX_ENABLE_PYTHON
   if (_enablePythonFuture) {
-    return _notifier->waitRequestNotifier();
+    return _notifier->waitRequestNotifier(periodNs);
   } else {
-    std::runtime_error(
+    throw std::runtime_error(
       "Worker's enablePythonFuture set to false, please set "
       "enablePythonFuture=true when creating the Worker to "
       "use this method.");
-    return false;
   }
 #else
-  std::runtime_error("Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
-  return false;
+  throw std::runtime_error(
+    "Python support not enabled, please compile with -DUCXX_ENABLE_PYTHON 1");
 #endif
 }
 

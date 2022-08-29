@@ -50,14 +50,9 @@ void Notifier::runRequestNotifier()
   }
 }
 
-bool Notifier::waitRequestNotifier()
+RequestNotifierWaitState Notifier::waitRequestNotifierWithoutTimeout()
 {
-  ucxx_trace_req("Notifier::waitRequestNotifier()");
-
-  if (_notifierThreadFutureStatusFinished == RequestNotifierThreadState::Stopping) {
-    _notifierThreadFutureStatusFinished = RequestNotifierThreadState::NotRunning;
-    return true;
-  }
+  ucxx_trace_req("Notifier::waitRequestNotifierWithoutTimeout()");
 
   std::unique_lock<std::mutex> lock(_notifierThreadMutex);
   _notifierThreadConditionVariable.wait(lock, [this] {
@@ -65,12 +60,54 @@ bool Notifier::waitRequestNotifier()
            _notifierThreadFutureStatusFinished == RequestNotifierThreadState::Stopping;
   });
 
-  ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d %d",
-                 _notifierThreadFutureStatusReady,
-                 (int)_notifierThreadFutureStatusFinished);
+  auto state = _notifierThreadFutureStatusReady ? RequestNotifierWaitState::Ready
+                                                : RequestNotifierWaitState::Shutdown;
+
+  ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d", (int)state);
   _notifierThreadFutureStatusReady = false;
 
-  return false;
+  return state;
+}
+
+template <typename Rep, typename Period>
+RequestNotifierWaitState Notifier::waitRequestNotifierWithTimeout(
+  std::chrono::duration<Rep, Period> period)
+{
+  ucxx_trace_req("Notifier::waitRequestNotifierWithTimeout()");
+
+  std::unique_lock<std::mutex> lock(_notifierThreadMutex);
+  bool condition = _notifierThreadConditionVariable.wait_for(lock, period, [this] {
+    return _notifierThreadFutureStatusReady ||
+           _notifierThreadFutureStatusFinished == RequestNotifierThreadState::Stopping;
+  });
+
+  auto state = (condition ? (_notifierThreadFutureStatusReady ? RequestNotifierWaitState::Ready
+                                                              : RequestNotifierWaitState::Shutdown)
+                          : RequestNotifierWaitState::Timeout);
+
+  ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d", (int)state);
+  if (state == RequestNotifierWaitState::Ready) _notifierThreadFutureStatusReady = false;
+
+  return state;
+}
+
+template <typename Rep, typename Period>
+RequestNotifierWaitState Notifier::waitRequestNotifier(std::chrono::duration<Rep, Period> period)
+{
+  ucxx_trace_req("Notifier::waitRequestNotifier()");
+
+  if (_notifierThreadFutureStatusFinished == RequestNotifierThreadState::Stopping) {
+    _notifierThreadFutureStatusFinished = RequestNotifierThreadState::Running;
+    return RequestNotifierWaitState::Shutdown;
+  }
+
+  return (period > std::chrono::nanoseconds(0)) ? waitRequestNotifierWithTimeout(period)
+                                                : waitRequestNotifierWithoutTimeout();
+}
+
+RequestNotifierWaitState Notifier::waitRequestNotifier(uint64_t periodNs)
+{
+  return waitRequestNotifier(std::chrono::nanoseconds(periodNs));
 }
 
 void Notifier::stopRequestNotifierThread()

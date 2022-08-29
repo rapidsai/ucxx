@@ -12,6 +12,8 @@
 
 #include <ucxx/log.h>
 
+#include <ucxx/python/typedefs.h>
+
 namespace ucxx {
 
 namespace python {
@@ -31,6 +33,12 @@ class Notifier {
 
   Notifier() = default;
 
+  RequestNotifierWaitState waitRequestNotifierWithoutTimeout();
+
+  template <typename Rep, typename Period>
+  RequestNotifierWaitState waitRequestNotifierWithTimeout(
+    std::chrono::duration<Rep, Period> period);
+
  public:
   Notifier(const Notifier&) = delete;
   Notifier& operator=(Notifier const&) = delete;
@@ -44,7 +52,10 @@ class Notifier {
 
   void scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t status);
 
-  bool waitRequestNotifier();
+  template <typename Rep, typename Period>
+  RequestNotifierWaitState waitRequestNotifier(std::chrono::duration<Rep, Period> period);
+
+  RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
 
   void runRequestNotifier();
 
