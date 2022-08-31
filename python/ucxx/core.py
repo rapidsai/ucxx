@@ -603,15 +603,19 @@ class Endpoint:
             tag = self._tags["msg_send"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_send"], hash(tag))
-        nbytes = buffer.nbytes
-        log = "[Send #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
-            self._send_count,
-            hex(self.uid),
-            hex(tag),
-            nbytes,
-            type(buffer.obj),
-        )
-        logger.debug(log)
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            nbytes = buffer.nbytes
+            log = "[Send #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
+                self._send_count,
+                hex(self.uid),
+                hex(tag),
+                nbytes,
+                type(buffer.obj),
+            )
+            logger.debug(log)
+
         self._send_count += 1
 
         try:
@@ -652,15 +656,18 @@ class Endpoint:
             tag = self._tags["msg_send"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_send"], hash(tag))
-        # nbytes = buffer.nbytes
-        log = "[Send Multi #%03d] ep: %s, tag: %s, nbytes: %s, type: %s" % (
-            self._send_count,
-            hex(self.uid),
-            hex(tag),
-            tuple([b.nbytes for b in buffers]),  # nbytes,
-            tuple([type(b.obj) for b in buffers]),
-        )
-        logger.debug(log)
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            log = "[Send Multi #%03d] ep: %s, tag: %s, nbytes: %s, type: %s" % (
+                self._send_count,
+                hex(self.uid),
+                hex(tag),
+                tuple([b.nbytes for b in buffers]),  # nbytes,
+                tuple([type(b.obj) for b in buffers]),
+            )
+            logger.debug(log)
+
         self._send_count += 1
 
         try:
@@ -726,15 +733,19 @@ class Endpoint:
 
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
-        nbytes = buffer.nbytes
-        log = "[Recv #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
-            self._recv_count,
-            hex(self.uid),
-            hex(tag),
-            nbytes,
-            type(buffer.obj),
-        )
-        logger.debug(log)
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            nbytes = buffer.nbytes
+            log = "[Recv #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
+                self._recv_count,
+                hex(self.uid),
+                hex(tag),
+                nbytes,
+                type(buffer.obj),
+            )
+            logger.debug(log)
+
         self._recv_count += 1
 
         req = self._ep.tag_recv(buffer, tag)
@@ -774,22 +785,15 @@ class Endpoint:
             if self.closed():
                 raise UCXCloseError("Endpoint closed")
 
-        # if not isinstance(buffer, Array):
-        #     buffer = Array(buffer)
-        # nbytes = buffer.nbytes
-        # log = "[Recv #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
-        #     self._recv_count,
-        #     hex(self.uid),
-        #     hex(tag),
-        #     nbytes,
-        #     type(buffer.obj),
-        # )
-        log = "[Recv Multi #%03d] ep: %s, tag: %s" % (
-            self._recv_count,
-            hex(self.uid),
-            hex(tag),
-        )
-        logger.debug(log)
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            log = "[Recv Multi #%03d] ep: %s, tag: %s" % (
+                self._recv_count,
+                hex(self.uid),
+                hex(tag),
+            )
+            logger.debug(log)
+
         self._recv_count += 1
 
         buffer_requests = self._ep.tag_recv_multi(tag)
