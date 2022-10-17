@@ -105,6 +105,7 @@ static PyCFunction get_future_method(const char* method_name)
   PyGILState_STATE state = PyGILState_Ensure();
 
   PyObject* future_object = get_asyncio_future_object();
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
   if (PyErr_Occurred()) PyErr_Print();
   PyMethodDef* m = ((PyTypeObject*)future_object)->tp_methods;
 
@@ -126,12 +127,12 @@ static PyObject* future_set_result(PyObject* future, PyObject* value)
 {
   PyObject* result = NULL;
 
-  if (PyErr_Occurred()) PyErr_Print();
   PyGILState_STATE state = PyGILState_Ensure();
 
-  if (PyErr_Occurred()) PyErr_Print();
   PyCFunction f = get_future_method("set_result");
   result        = f(future, value);
+  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
+  if (PyErr_Occurred()) PyErr_Print();
 
   PyGILState_Release(state);
 
