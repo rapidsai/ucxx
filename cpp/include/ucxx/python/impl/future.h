@@ -84,8 +84,8 @@ static PyObject* create_python_future()
   if (!PyCallable_Check(future_object)) {
     PyErr_Format(PyExc_RuntimeError,
                  "%s.%s is not callable.",
-                 PyUnicode_AS_DATA(asyncio_str),
-                 PyUnicode_AS_DATA(future_str));
+                 PyUnicode_1BYTE_DATA(asyncio_str),
+                 PyUnicode_1BYTE_DATA(future_str));
     goto finish;
   }
 
