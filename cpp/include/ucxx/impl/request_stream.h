@@ -69,22 +69,26 @@ void RequestStream::request()
 
 void RequestStream::populateDelayedSubmission()
 {
+  const bool pythonFutureLog = _enablePythonFuture & UCXX_ENABLE_PYTHON;
+
   request();
 
 #if UCXX_ENABLE_PYTHON
-  ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
-                 _operationName.c_str(),
-                 _request,
-                 _delayedSubmission->_buffer,
-                 _delayedSubmission->_length,
-                 _pythonFuture.get(),
-                 _pythonFuture->getHandle());
+  if (pythonFutureLog)
+    ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
+                   _operationName.c_str(),
+                   _request,
+                   _delayedSubmission->_buffer,
+                   _delayedSubmission->_length,
+                   _pythonFuture.get(),
+                   _pythonFuture->getHandle());
 #else
-  ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
-                 _operationName.c_str(),
-                 _request,
-                 _delayedSubmission->_buffer,
-                 _delayedSubmission->_length);
+  if (!pythonFutureLog)
+    ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
+                   _operationName.c_str(),
+                   _request,
+                   _delayedSubmission->_buffer,
+                   _delayedSubmission->_length);
 #endif
   process();
 }
