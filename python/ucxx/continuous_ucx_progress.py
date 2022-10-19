@@ -25,6 +25,9 @@ class ProgressTask(object):
 
     def __del__(self):
         if self.asyncio_task is not None:
+            # FIXME: This does not work, the cancellation must be awaited.
+            # Running with polling mode will always cause
+            # `Task was destroyed but it is pending!` errors at ucp.reset().
             self.asyncio_task.cancel()
 
     # Hash and equality is based on the event loop

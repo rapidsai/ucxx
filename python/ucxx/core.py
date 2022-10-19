@@ -174,9 +174,10 @@ def _notifierThread(event_loop, worker, q):
         if not q.empty():
             q_val = q.get()
             if q_val == "shutdown":
+                logger.warning("_notifierThread shutting down")
                 shutdown = True
             else:
-                logger.warn(
+                logger.warning(
                     f"_notifierThread got unknown message from IPC queue: {q_val}"
                 )
 
@@ -209,22 +210,14 @@ class ApplicationContext:
         self.notifier_thread_q = None
         self.notifier_thread = None
 
-        if enable_delayed_submission is None:
-            if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
-                enable_delayed_submission = (
-                    False
-                    if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0"
-                    else True
-                )
-            else:
-                enable_delayed_submission = True
-        if enable_python_future is None:
-            if "UCXPY_ENABLE_PYTHON_FUTURE" in os.environ:
-                enable_python_future = (
-                    False if os.environ["UCXPY_ENABLE_PYTHON_FUTURE"] == "0" else True
-                )
-            else:
-                enable_python_future = True
+        self.progress_mode = ApplicationContext._check_progress_mode(progress_mode)
+
+        enable_delayed_submission = ApplicationContext._check_enable_delayed_submission(
+            enable_delayed_submission
+        )
+        enable_python_future = ApplicationContext._check_enable_python_future(
+            enable_python_future, self.progress_mode
+        )
 
         # For now, a application context only has one worker
         self.context = ucx_api.UCXContext(config_dict)
@@ -234,6 +227,67 @@ class ApplicationContext:
             enable_python_future=enable_python_future,
         )
 
+        self.start_notifier_thread()
+
+        weakref.finalize(self, self.progress_tasks.clear)
+
+        # Ensure progress even before Endpoints get created, for example to
+        # receive messages directly on a worker after a remote endpoint
+        # connected with `create_endpoint_from_worker_address`.
+        self.continuous_ucx_progress()
+
+    @staticmethod
+    def _check_progress_mode(progress_mode):
+        if progress_mode is None:
+            if "UCXPY_PROGRESS_MODE" in os.environ:
+                progress_mode = os.environ["UCXPY_PROGRESS_MODE"]
+            else:
+                progress_mode = "thread"
+
+        valid_progress_modes = ["polling", "thread", "thread-polling"]
+        if not isinstance(progress_mode, str) or not any(
+            progress_mode == m for m in valid_progress_modes
+        ):
+            raise ValueError(
+                f"Unknown progress mode {progress_mode}, "
+                "valid modes are: 'blocking', 'polling', 'thread' or 'thread-polling'"
+            )
+
+        return progress_mode
+
+    @staticmethod
+    def _check_enable_delayed_submission(enable_delayed_submission):
+        if enable_delayed_submission is None:
+            if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
+                enable_delayed_submission = (
+                    False
+                    if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0"
+                    else True
+                )
+            else:
+                enable_delayed_submission = True
+
+    @staticmethod
+    def _check_enable_python_future(enable_python_future, progress_mode):
+        if enable_python_future is None:
+            if "UCXPY_ENABLE_PYTHON_FUTURE" in os.environ:
+                explicit_enable_python_future = (
+                    os.environ["UCXPY_ENABLE_PYTHON_FUTURE"] != "0"
+                )
+            else:
+                explicit_enable_python_future = False
+        else:
+            explicit_enable_python_future = enable_python_future
+
+        if not progress_mode.startswith("thread") and explicit_enable_python_future:
+            logger.warning(
+                f"Notifier thread requested, but {progress_mode} does not "
+                "support it, using Python wait_yield()."
+            )
+            enable_python_future = False
+        return explicit_enable_python_future
+
+    def start_notifier_thread(self):
         if self.worker.is_python_future_enabled():
             logger.debug("UCXX_ENABLE_PYTHON available, enabling notifier thread")
             self.notifier_thread_q = Queue()
@@ -247,30 +301,6 @@ class ApplicationContext:
             logger.debug(
                 "UCXX not compiled with UCXX_ENABLE_PYTHON, disabling notifier thread"
             )
-
-        if progress_mode is not None:
-            self.progress_mode = progress_mode
-        elif "UCXPY_PROGRESS_MODE" in os.environ:
-            self.progress_mode = os.environ["UCXPY_PROGRESS_MODE"]
-        else:
-            self.progress_mode = "thread"
-
-        valid_progress_modes = ["polling", "thread"]
-        valid_progress_modes = ["polling", "thread", "thread-polling"]
-        if not isinstance(self.progress_mode, str) or not any(
-            self.progress_mode == m for m in valid_progress_modes
-        ):
-            raise ValueError(
-                f"Unknown progress mode {self.progress_mode}, "
-                "valid modes are: 'blocking', 'polling', 'thread' or 'thread-polling'"
-            )
-
-        weakref.finalize(self, self.progress_tasks.clear)
-
-        # Ensure progress even before Endpoints get created, for example to
-        # receive messages directly on a worker after a remote endpoint
-        # connected with `create_endpoint_from_worker_address`.
-        self.continuous_ucx_progress()
 
     def stop_notifier_thread(self):
         """
@@ -954,6 +984,7 @@ def reset():
 
     The library is initiated at next API call.
     """
+    stop_notifier_thread()
     global _ctx
     if _ctx is not None:
         weakref_ctx = weakref.ref(_ctx)
@@ -972,9 +1003,10 @@ def reset():
 
 def stop_notifier_thread():
     global _ctx
-    if _ctx is None:
+    if _ctx:
+        _ctx.stop_notifier_thread()
+    else:
         logger.debug("UCX is not initialized.")
-    _ctx.stop_notifier_thread()
 
 
 def get_ucx_version():
