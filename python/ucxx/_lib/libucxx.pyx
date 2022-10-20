@@ -14,10 +14,9 @@ from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport nullptr
-from libcpp.cast cimport dynamic_cast
 from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
-from libcpp.memory cimport shared_ptr, unique_ptr
+from libcpp.memory cimport dynamic_pointer_cast, shared_ptr, unique_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
@@ -593,12 +592,19 @@ cdef void _endpoint_close_callback(void *args) with gil:
 cdef class UCXEndpoint():
     cdef:
         shared_ptr[Endpoint] _endpoint
+        uint64_t _context_feature_flags
         bint _enable_python_future
         dict _close_cb_data
 
-    def __init__(self, uintptr_t shared_ptr_endpoint, bint enable_python_future):
+    def __init__(
+            self,
+            uintptr_t shared_ptr_endpoint,
+            bint enable_python_future,
+            uint64_t context_feature_flags
+    ):
         self._endpoint = deref(<shared_ptr[Endpoint] *> shared_ptr_endpoint)
         self._enable_python_future = enable_python_future
+        self._context_feature_flags = context_feature_flags
 
     @classmethod
     def create(
@@ -608,15 +614,25 @@ cdef class UCXEndpoint():
             uint16_t port,
             bint endpoint_error_handling
     ):
+        cdef shared_ptr[Context] context
         cdef shared_ptr[Endpoint] endpoint
         cdef string addr = ip_address.encode("utf-8")
+        cdef uint64_t context_feature_flags
 
         with nogil:
             endpoint = worker._worker.get().createEndpointFromHostname(
                 addr, port, endpoint_error_handling
             )
+            context = dynamic_pointer_cast[Context, Component](
+                worker._worker.get().getParent()
+            )
+            context_feature_flags = context.get().getFeatureFlags()
 
-        return cls(<uintptr_t><void*>&endpoint, worker.is_python_future_enabled())
+        return cls(
+            <uintptr_t><void*>&endpoint,
+            worker.is_python_future_enabled(),
+            context_feature_flags
+        )
 
     @classmethod
     def create_from_conn_request(
@@ -625,14 +641,26 @@ cdef class UCXEndpoint():
             uintptr_t conn_request,
             bint endpoint_error_handling
     ):
+        cdef shared_ptr[Context] context
+        cdef shared_ptr[Worker] worker
         cdef shared_ptr[Endpoint] endpoint
+        cdef uint64_t context_feature_flags
 
         with nogil:
             endpoint = listener._listener.get().createEndpointFromConnRequest(
                 <ucp_conn_request_h>conn_request, endpoint_error_handling
             )
+            worker = dynamic_pointer_cast[Worker, Component](
+                listener._listener.get().getParent()
+            )
+            context = dynamic_pointer_cast[Context, Component](worker.get().getParent())
+            context_feature_flags = context.get().getFeatureFlags()
 
-        return cls(<uintptr_t><void*>&endpoint, listener.is_python_future_enabled())
+        return cls(
+            <uintptr_t><void*>&endpoint,
+            listener.is_python_future_enabled(),
+            context_feature_flags
+        )
 
     @classmethod
     def create_from_worker_address(
@@ -641,15 +669,25 @@ cdef class UCXEndpoint():
             UCXAddress address,
             bint endpoint_error_handling
     ):
-        cdef shared_ptr[Address] ucxx_address = address._address
+        cdef shared_ptr[Context] context
         cdef shared_ptr[Endpoint] endpoint
+        cdef shared_ptr[Address] ucxx_address = address._address
+        cdef uint64_t context_feature_flags
 
         with nogil:
             endpoint = worker._worker.get().createEndpointFromWorkerAddress(
                 ucxx_address, endpoint_error_handling
             )
+            context = dynamic_pointer_cast[Context, Component](
+                worker._worker.get().getParent()
+            )
+            context_feature_flags = context.get().getFeatureFlags()
 
-        return cls(<uintptr_t><void*>&endpoint, worker.is_python_future_enabled())
+        return cls(
+            <uintptr_t><void*>&endpoint,
+            worker.is_python_future_enabled(),
+            context_feature_flags
+        )
 
     @property
     def handle(self):
@@ -665,6 +703,9 @@ cdef class UCXEndpoint():
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
 
+        if not self._context_feature_flags & Feature.STREAM.value:
+            raise ValueError("UCXContext must be created with `Feature.STREAM`")
+
         with nogil:
             req = self._endpoint.get().streamSend(
                 buf,
@@ -678,6 +719,9 @@ cdef class UCXEndpoint():
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.STREAM.value:
+            raise ValueError("UCXContext must be created with `Feature.STREAM`")
 
         with nogil:
             req = self._endpoint.get().streamRecv(
@@ -693,6 +737,9 @@ cdef class UCXEndpoint():
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
 
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
+
         with nogil:
             req = self._endpoint.get().tagSend(
                 buf,
@@ -707,6 +754,9 @@ cdef class UCXEndpoint():
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
 
         with nogil:
             req = self._endpoint.get().tagRecv(

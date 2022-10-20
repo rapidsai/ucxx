@@ -139,7 +139,10 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ConfigMap ucx_config, uint64_t feature_flags
     ) except +raise_py_error
 
-    cdef cppclass Context:
+    cdef cppclass Component:
+        shared_ptr[Component] getParent()
+
+    cdef cppclass Context(Component):
         shared_ptr[Worker] createWorker(
             bint enableDelayedSubmission,
             bint enablePythonFuture
@@ -148,7 +151,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ucp_context_h getHandle()
         string getInfo() except +raise_py_error
 
-    cdef cppclass Worker:
+    cdef cppclass Worker(Component):
         ucp_worker_h getHandle()
         shared_ptr[Address] getAddress() except +raise_py_error
         shared_ptr[Endpoint] createEndpointFromHostname(
@@ -178,7 +181,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void runRequestNotifier() except +raise_py_error
         void populatePythonFuturesPool() except +raise_py_error
 
-    cdef cppclass Endpoint:
+    cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
         shared_ptr[Request] streamSend(
             void* buffer, size_t length, bint enable_python_future
@@ -198,18 +201,18 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             function[void(void*)] close_callback, void* close_callback_arg
         )
 
-    cdef cppclass Listener:
+    cdef cppclass Listener(Component):
         shared_ptr[Endpoint] createEndpointFromConnRequest(
             ucp_conn_request_h conn_request, bint endpoint_error_handling
         ) except +raise_py_error
         uint16_t getPort()
 
-    cdef cppclass Address:
+    cdef cppclass Address(Component):
         ucp_address_t* getHandle()
         size_t getLength()
         string getString()
 
-    cdef cppclass Request:
+    cdef cppclass Request(Component):
         cpp_bool isCompleted(int64_t period_ns)
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
