@@ -94,7 +94,7 @@ def test_close_callback(server_close_callback):
         args=(port, server_close_callback),
     )
     client.start()
-    client.join(timeout=120)
-    server.join(timeout=120)
+    client.join(timeout=10)
+    server.join(timeout=10)
     assert client.exitcode == 0
     assert server.exitcode == 0
