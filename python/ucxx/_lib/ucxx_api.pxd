@@ -207,6 +207,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             ucp_conn_request_h conn_request, bint endpoint_error_handling
         ) except +raise_py_error
         uint16_t getPort()
+        string getIp()
 
     cdef cppclass Address(Component):
         ucp_address_t* getHandle()

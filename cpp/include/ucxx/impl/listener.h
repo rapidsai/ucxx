@@ -81,4 +81,6 @@ ucp_listener_h Listener::getHandle() { return _handle.get(); }
 
 uint16_t Listener::getPort() { return _port; }
 
+std::string Listener::getIp() { return _ip; }
+
 }  // namespace ucxx

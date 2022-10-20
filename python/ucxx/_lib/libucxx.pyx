@@ -949,6 +949,15 @@ cdef class UCXListener():
 
         return port
 
+    @property
+    def ip(self):
+        cdef string ip
+
+        with nogil:
+            ip = self._listener.get().getIp()
+
+        return ip.decode("utf-8")
+
     def create_endpoint_from_conn_request(
             self,
             uintptr_t conn_request,
