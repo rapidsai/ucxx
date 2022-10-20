@@ -150,6 +150,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ConfigMap getConfig() except +raise_py_error
         ucp_context_h getHandle()
         string getInfo() except +raise_py_error
+        uint64_t getFeatureFlags()
 
     cdef cppclass Worker(Component):
         ucp_worker_h getHandle()

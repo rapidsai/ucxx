@@ -168,6 +168,10 @@ cdef class UCXContext():
         return self._config
 
     @property
+    def feature_flags(self):
+        return int(self._context.get().getFeatureFlags())
+
+    @property
     def handle(self):
         cdef ucp_context_h handle
 
