@@ -139,6 +139,9 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ConfigMap ucx_config, uint64_t feature_flags
     ) except +raise_py_error
 
+    shared_ptr[Address] createAddressFromWorker(shared_ptr[Worker] worker)
+    shared_ptr[Address] createAddressFromString(string address_string)
+
     cdef cppclass Component:
         shared_ptr[Component] getParent()
 

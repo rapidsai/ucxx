@@ -10,6 +10,7 @@ import enum
 import functools
 import logging
 
+from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
@@ -194,9 +195,17 @@ cdef class UCXContext():
 cdef class UCXAddress():
     cdef:
         shared_ptr[Address] _address
+        size_t _length
+        ucp_address_t *_handle
+        string _string
 
     def __init__(self, uintptr_t shared_ptr_address):
         self._address = deref(<shared_ptr[Address] *> shared_ptr_address)
+
+        with nogil:
+            self._handle = self._address.get().getHandle()
+            self._length = self._address.get().getLength()
+            self._string = self._address.get().getString()
 
     @classmethod
     def create_from_worker(cls, UCXWorker worker):
@@ -207,6 +216,27 @@ cdef class UCXAddress():
 
         return cls(<uintptr_t><void*>&address)
 
+    @classmethod
+    def create_from_string(cls, address_str):
+        cdef shared_ptr[Address] address
+        cdef string cpp_address_str = address_str
+
+        with nogil:
+            address = createAddressFromString(cpp_address_str)
+
+        return cls(<uintptr_t><void*>&address)
+
+    @classmethod
+    def create_from_buffer(cls, buffer):
+        cdef string address_str
+
+        buf = Array(buffer)
+        assert buf.c_contiguous
+
+        address_str = string(<char*>buf.ptr, <size_t>buf.nbytes)
+
+        return UCXAddress.create_from_string(address_str)
+
     # For old UCX-Py API compatibility
     @classmethod
     def from_worker(cls, UCXWorker worker):
@@ -214,21 +244,47 @@ cdef class UCXAddress():
 
     @property
     def address(self):
-        cdef ucp_address_t* address
-
-        with nogil:
-            address = self._address.get().getHandle()
-
-        return int(<uintptr_t>address)
+        return int(<uintptr_t>self._handle)
 
     @property
     def length(self):
-        cdef size_t getLength
+        return int(self._length)
 
-        with nogil:
-            length = self._address.get().getLength()
+    @property
+    def string(self):
+        return bytes(self._string)
 
-        return int(length)
+    def __getbuffer__(self, Py_buffer *buffer, int flags):
+        cdef Address* address_ptr = self._address.get()
+
+        if bool(flags & PyBUF_WRITABLE):
+            raise BufferError("Requested writable view on readonly data")
+        buffer.buf = self._handle
+        buffer.len = self._length
+        buffer.obj = self
+        buffer.readonly = True
+        buffer.itemsize = 1
+        if bool(flags & PyBUF_FORMAT):
+            buffer.format = b"B"
+        else:
+            buffer.format = NULL
+        buffer.ndim = 1
+        if bool(flags & PyBUF_ND):
+            buffer.shape = &buffer.len
+        else:
+            buffer.shape = NULL
+        buffer.strides = NULL
+        buffer.suboffsets = NULL
+        buffer.internal = NULL
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        pass
+
+    def __reduce__(self):
+        return (UCXAddress.create_from_buffer, (self.string,))
+
+    def __hash__(self):
+        return hash(bytes(self.string))
 
 
 cdef void _generic_callback(void *args) with gil:
