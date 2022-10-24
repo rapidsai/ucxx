@@ -17,8 +17,14 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport nullptr
 from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
-from libcpp.memory cimport dynamic_pointer_cast, shared_ptr, unique_ptr
+from libcpp.memory cimport (
+    dynamic_pointer_cast,
+    make_unique,
+    shared_ptr,
+    unique_ptr,
+)
 from libcpp.string cimport string
+from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
@@ -119,6 +125,26 @@ def PythonEnabled():
     with nogil:
         python_enabled = UCXX_ENABLE_PYTHON
     return bool(python_enabled)
+
+
+cdef class UCXConfig():
+    cdef:
+        unique_ptr[Config] _config
+        bint _enable_python_future
+        dict _cb_data
+
+    def __init__(self, ConfigMap user_options=ConfigMap()):
+        # TODO: Replace unique_ptr by stack object. Rule-of-five is not allowed
+        # by Config, and Cython seems not to handle constructors without moving
+        # in `__init__`.
+        self._config = move(make_unique[Config](user_options))
+
+    def get(self):
+        cdef ConfigMap config_map = self._config.get().get()
+        return {
+            item.first.decode("utf-8"): item.second.decode("utf-8")
+            for item in config_map
+        }
 
 
 cdef class UCXContext():
@@ -1025,6 +1051,14 @@ cdef class UCXListener():
 
     def is_python_future_enabled(self):
         return self._enable_python_future
+
+
+def get_current_options():
+    """
+    Returns the current UCX options
+    if UCX were to be initialized now.
+    """
+    return UCXConfig().get()
 
 
 def get_ucx_version():

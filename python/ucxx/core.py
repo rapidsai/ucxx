@@ -507,6 +507,16 @@ class ApplicationContext:
         """
         return self.worker.handle
 
+    def get_config(self):
+        """Returns all UCX configuration options as a dict.
+
+        Returns
+        -------
+        dict
+            The current UCX configuration options
+        """
+        return self.context.get_config()
+
 
 class Listener:
     """A handle to the listening service started by `create_listener()`
@@ -1029,6 +1039,25 @@ def progress():
     the call-back function given to create_listener.
     """
     return _get_ctx().worker.progress()
+
+
+def get_config():
+    """Returns all UCX configuration options as a dict.
+
+    If UCX is uninitialized, the options returned are the
+    options used if UCX were to be initialized now.
+    Notice, this function doesn't initialize UCX.
+
+    Returns
+    -------
+    dict
+        The current UCX configuration options
+    """
+
+    if _ctx is None:
+        return ucx_api.get_current_options()
+    else:
+        return _get_ctx().get_config()
 
 
 def create_listener(callback_func, port=None, endpoint_error_handling=True):

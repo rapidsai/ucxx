@@ -34,6 +34,9 @@ cdef extern from "numpy/arrayobject.h" nogil:
 
 cdef extern from "ucp/api/ucp.h" nogil:
     # Typedefs
+    ctypedef struct ucp_config_t:
+        pass
+
     ctypedef struct ucp_context:
         pass
 
@@ -141,6 +144,12 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     shared_ptr[Address] createAddressFromWorker(shared_ptr[Worker] worker)
     shared_ptr[Address] createAddressFromString(string address_string)
+
+    cdef cppclass Config:
+        Config()
+        Config(ConfigMap user_options) except +raise_py_error
+        ConfigMap get() except +raise_py_error
+        ucp_config_t* getHandle()
 
     cdef cppclass Component:
         shared_ptr[Component] getParent()
