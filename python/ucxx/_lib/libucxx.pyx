@@ -191,6 +191,10 @@ cdef class UCXContext():
             k.decode("utf-8"): v.decode("utf-8") for k, v in context_config.items()
         }
 
+        logger.info("UCP initiated using config: ")
+        for k, v in self._config.items():
+            logger.info(f"  {k}, {v}")
+
     cpdef dict get_config(self):
         return self._config
 
