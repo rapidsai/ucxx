@@ -522,6 +522,9 @@ class ApplicationContext:
         """Return low-level UCX info about this endpoint as a string"""
         return self.context.info
 
+    def get_worker_address(self):
+        return self.worker.get_address()
+
 
 class Listener:
     """A handle to the listening service started by `create_listener()`
@@ -1124,6 +1127,14 @@ def continuous_ucx_progress(event_loop=None):
 
 def get_ucp_worker():
     return _get_ctx().get_ucp_worker()
+
+
+def get_worker_address():
+    return _get_ctx().get_worker_address()
+
+
+def get_ucx_address_from_buffer(buffer):
+    return ucx_api.UCXAddress.create_from_buffer(buffer)
 
 
 # Setting the __doc__
