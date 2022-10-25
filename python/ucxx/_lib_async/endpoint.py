@@ -1,0 +1,420 @@
+# Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020       UT-Battelle, LLC. All rights reserved.
+# See file LICENSE for terms.
+
+import array
+import asyncio
+import logging
+
+import ucxx._lib.libucxx as ucx_api
+from ucxx._lib.arr import Array
+from ucxx._lib.libucxx import UCXCanceled, UCXCloseError, UCXError
+
+from .utils import hash64bits
+
+logger = logging.getLogger("ucx")
+
+
+class Endpoint:
+    """An endpoint represents a connection to a peer
+
+    Please use `create_listener()` and `create_endpoint()`
+    to create an Endpoint.
+    """
+
+    def __init__(self, endpoint, ctx, tags=None):
+        from .application_context import ApplicationContext
+
+        if not isinstance(endpoint, ucx_api.UCXEndpoint):
+            raise ValueError("endpoint must be an instance of UCXEndpoint")
+        if not isinstance(ctx, ApplicationContext):
+            raise ValueError("ctx must be an instance of ApplicationContext")
+
+        self._ep = endpoint
+        self._ctx = ctx
+        self._send_count = 0  # Number of calls to self.send()
+        self._recv_count = 0  # Number of calls to self.recv()
+        self._finished_recv_count = 0  # Number of returned (finished) self.recv() calls
+        self._shutting_down_peer = False  # Told peer to shutdown
+        self._close_after_n_recv = None
+        self._tags = tags
+
+    @property
+    def uid(self):
+        """The unique ID of the underlying UCX endpoint"""
+        return self._ep.handle
+
+    def closed(self):
+        """Is this endpoint closed?"""
+        return self._ep is None or not self._ep.is_alive()
+
+    def abort(self):
+        """Close the communication immediately and abruptly.
+        Useful in destructors or generators' ``finally`` blocks.
+
+        Notice, this functions doesn't signal the connected peer to close.
+        To do that, use `Endpoint.close()`
+        """
+        if self._ep is not None:
+            logger.debug("Endpoint.abort(): %s" % hex(self.uid))
+        self._ep = None
+        self._ctx = None
+
+    async def close(self):
+        """Close the endpoint cleanly.
+        This will attempt to flush outgoing buffers before actually
+        closing the underlying UCX endpoint.
+        """
+        if self.closed():
+            self.abort()
+            return
+        try:
+            # Making sure we only tell peer to shutdown once
+            if self._shutting_down_peer:
+                return
+            self._shutting_down_peer = True
+
+        finally:
+            if not self.closed():
+                # Give all current outstanding send() calls a chance to return
+                self._ctx.worker.progress()
+                await asyncio.sleep(0)
+                self.abort()
+
+    # @ucx_api.nvtx_annotate("UCXPY_SEND", color="green", domain="ucxpy")
+    async def send(self, buffer, tag=None, force_tag=False):
+        """Send `buffer` to connected peer.
+
+        Parameters
+        ----------
+        buffer: exposing the buffer protocol or array/cuda interface
+            The buffer to send. Raise ValueError if buffer is smaller
+            than nbytes.
+        tag: hashable, optional
+        tag: hashable, optional
+            Set a tag that the receiver must match. Currently the tag
+            is hashed together with the internal Endpoint tag that is
+            agreed with the remote end at connection time. To enforce
+            using the user tag, make sure to specify `force_tag=True`.
+        force_tag: bool
+            If true, force using `tag` as is, otherwise the value
+            specified with `tag` (if any) will be hashed with the
+            internal Endpoint tag.
+        """
+        self._ep.raise_on_error()
+        if self.closed():
+            raise UCXCloseError("Endpoint closed")
+        if not isinstance(buffer, Array):
+            buffer = Array(buffer)
+        if tag is None:
+            tag = self._tags["msg_send"]
+        elif not force_tag:
+            tag = hash64bits(self._tags["msg_send"], hash(tag))
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            nbytes = buffer.nbytes
+            log = "[Send #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
+                self._send_count,
+                hex(self.uid),
+                hex(tag),
+                nbytes,
+                type(buffer.obj),
+            )
+            logger.debug(log)
+
+        self._send_count += 1
+
+        try:
+            request = self._ep.tag_send(buffer, tag)
+            return await request.wait()
+        except UCXCanceled as e:
+            # If self._ep has already been closed and destroyed, we reraise the
+            # UCXCanceled exception.
+            if self._ep is None:
+                raise e
+
+    async def send_multi(self, buffers, tag=None, force_tag=False):
+        """Send `buffer` to connected peer.
+
+        Parameters
+        ----------
+        buffer: exposing the buffer protocol or array/cuda interface
+            The buffer to send. Raise ValueError if buffer is smaller
+            than nbytes.
+        tag: hashable, optional
+        tag: hashable, optional
+            Set a tag that the receiver must match. Currently the tag
+            is hashed together with the internal Endpoint tag that is
+            agreed with the remote end at connection time. To enforce
+            using the user tag, make sure to specify `force_tag=True`.
+        force_tag: bool
+            If true, force using `tag` as is, otherwise the value
+            specified with `tag` (if any) will be hashed with the
+            internal Endpoint tag.
+        """
+        self._ep.raise_on_error()
+        if self.closed():
+            raise UCXCloseError("Endpoint closed")
+        if not (isinstance(buffers, list) or isinstance(buffers, tuple)):
+            raise ValueError("The `buffers` argument must be a `list` or `tuple`")
+        buffers = tuple([Array(b) if not isinstance(b, Array) else b for b in buffers])
+        if tag is None:
+            tag = self._tags["msg_send"]
+        elif not force_tag:
+            tag = hash64bits(self._tags["msg_send"], hash(tag))
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            log = "[Send Multi #%03d] ep: %s, tag: %s, nbytes: %s, type: %s" % (
+                self._send_count,
+                hex(self.uid),
+                hex(tag),
+                tuple([b.nbytes for b in buffers]),  # nbytes,
+                tuple([type(b.obj) for b in buffers]),
+            )
+            logger.debug(log)
+
+        self._send_count += 1
+
+        try:
+            return await self._ep.tag_send_multi(buffers, tag).wait()
+        except UCXCanceled as e:
+            # If self._ep has already been closed and destroyed, we reraise the
+            # UCXCanceled exception.
+            if self._ep is None:
+                raise e
+
+    async def send_obj(self, obj, tag=None):
+        """Send `obj` to connected peer that calls `recv_obj()`.
+
+        The transfer includes an extra message containing the size of `obj`,
+        which increases the overhead slightly.
+
+        Parameters
+        ----------
+        obj: exposing the buffer protocol or array/cuda interface
+            The object to send.
+        tag: hashable, optional
+            Set a tag that the receiver must match.
+
+        Example
+        -------
+        >>> await ep.send_obj(pickle.dumps([1,2,3]))
+        """
+        if not isinstance(obj, Array):
+            obj = Array(obj)
+        nbytes = Array(array.array("Q", [obj.nbytes]))
+        await self.send(nbytes, tag=tag)
+        await self.send(obj, tag=tag)
+
+    # @ucx_api.nvtx_annotate("UCXPY_RECV", color="red", domain="ucxpy")
+    async def recv(self, buffer, tag=None, force_tag=False):
+        """Receive from connected peer into `buffer`.
+
+        Parameters
+        ----------
+        buffer: exposing the buffer protocol or array/cuda interface
+            The buffer to receive into. Raise ValueError if buffer
+            is smaller than nbytes or read-only.
+        tag: hashable, optional
+            Set a tag that must match the received message. Currently
+            the tag is hashed together with the internal Endpoint tag
+            that is agreed with the remote end at connection time.
+            To enforce using the user tag, make sure to specify
+            `force_tag=True`.
+        force_tag: bool
+            If true, force using `tag` as is, otherwise the value
+            specified with `tag` (if any) will be hashed with the
+            internal Endpoint tag.
+        """
+        if tag is None:
+            tag = self._tags["msg_recv"]
+        elif not force_tag:
+            tag = hash64bits(self._tags["msg_recv"], hash(tag))
+
+        if not self._ctx.worker.tag_probe(tag):
+            self._ep.raise_on_error()
+            if self.closed():
+                raise UCXCloseError("Endpoint closed")
+
+        if not isinstance(buffer, Array):
+            buffer = Array(buffer)
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            nbytes = buffer.nbytes
+            log = "[Recv #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
+                self._recv_count,
+                hex(self.uid),
+                hex(tag),
+                nbytes,
+                type(buffer.obj),
+            )
+            logger.debug(log)
+
+        self._recv_count += 1
+
+        req = self._ep.tag_recv(buffer, tag)
+        ret = await req.wait()
+
+        self._finished_recv_count += 1
+        if (
+            self._close_after_n_recv is not None
+            and self._finished_recv_count >= self._close_after_n_recv
+        ):
+            self.abort()
+        return ret
+
+    async def recv_multi(self, tag=None, force_tag=False):
+        """Receive from connected peer into `buffer`.
+
+        Parameters
+        ----------
+        tag: hashable, optional
+            Set a tag that must match the received message. Currently
+            the tag is hashed together with the internal Endpoint tag
+            that is agreed with the remote end at connection time.
+            To enforce using the user tag, make sure to specify
+            `force_tag=True`.
+        force_tag: bool
+            If true, force using `tag` as is, otherwise the value
+            specified with `tag` (if any) will be hashed with the
+            internal Endpoint tag.
+        """
+        if tag is None:
+            tag = self._tags["msg_recv"]
+        elif not force_tag:
+            tag = hash64bits(self._tags["msg_recv"], hash(tag))
+
+        if not self._ctx.worker.tag_probe(tag):
+            self._ep.raise_on_error()
+            if self.closed():
+                raise UCXCloseError("Endpoint closed")
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            log = "[Recv Multi #%03d] ep: %s, tag: %s" % (
+                self._recv_count,
+                hex(self.uid),
+                hex(tag),
+            )
+            logger.debug(log)
+
+        self._recv_count += 1
+
+        buffer_requests = self._ep.tag_recv_multi(tag)
+        await buffer_requests.wait()
+        for r in buffer_requests.get_requests():
+            r.check_error()
+        ret = buffer_requests.get_py_buffers()
+
+        self._finished_recv_count += 1
+        if (
+            self._close_after_n_recv is not None
+            and self._finished_recv_count >= self._close_after_n_recv
+        ):
+            self.abort()
+        return ret
+
+    async def recv_obj(self, tag=None, allocator=bytearray):
+        """Receive from connected peer that calls `send_obj()`.
+
+        As opposed to `recv()`, this function returns the received object.
+        Data is received into a buffer allocated by `allocator`.
+
+        The transfer includes an extra message containing the size of `obj`,
+        which increses the overhead slightly.
+
+        Parameters
+        ----------
+        tag: hashable, optional
+            Set a tag that must match the received message. Notice, currently
+            UCX-Py doesn't support a "any tag" thus `tag=None` only matches a
+            send that also sets `tag=None`.
+        allocator: callabale, optional
+            Function to allocate the received object. The function should
+            take the number of bytes to allocate as input and return a new
+            buffer of that size as output.
+
+        Example
+        -------
+        >>> await pickle.loads(ep.recv_obj())
+        """
+        nbytes = array.array("Q", [0])
+        await self.recv(nbytes, tag=tag)
+        nbytes = nbytes[0]
+        ret = allocator(nbytes)
+        await self.recv(ret, tag=tag)
+        return ret
+
+    def get_ucp_worker(self):
+        """Returns the underlying UCP worker handle (ucp_worker_h)
+        as a Python integer.
+        """
+        return self._ctx.worker.handle
+
+    def get_ucp_endpoint(self):
+        """Returns the underlying UCP endpoint handle (ucp_ep_h)
+        as a Python integer.
+        """
+        return self._ep.handle
+
+    def close_after_n_recv(self, n, count_from_ep_creation=False):
+        """Close the endpoint after `n` received messages.
+
+        Parameters
+        ----------
+        n: int
+            Number of messages to received before closing the endpoint.
+        count_from_ep_creation: bool, optional
+            Whether to count `n` from this function call (default) or
+            from the creation of the endpoint.
+        """
+        if not count_from_ep_creation:
+            n += self._finished_recv_count  # Make `n` absolute
+        if self._close_after_n_recv is not None:
+            raise UCXError(
+                "close_after_n_recv has already been set to: %d (abs)"
+                % self._close_after_n_recv
+            )
+        if n == self._finished_recv_count:
+            self.abort()
+        elif n > self._finished_recv_count:
+            self._close_after_n_recv = n
+        else:
+            raise UCXError(
+                "`n` cannot be less than current recv_count: %d (abs) < %d (abs)"
+                % (n, self._finished_recv_count)
+            )
+
+    def set_close_callback(self, callback_func, cb_args=None, cb_kwargs=None):
+        """Register a user callback function to be called on Endpoint's closing.
+
+        Allows the user to register a callback function to be called when the
+        Endpoint's error callback is called, or during its finalizer if the error
+        callback is never called.
+
+        Once the callback is called, it's not possible to send any more messages.
+        However, receiving messages may still be possible, as UCP may still have
+        incoming messages in transit.
+
+        Parameters
+        ----------
+        callback_func: callable
+            The callback function to be called when the Endpoint's error callback
+            is called, otherwise called on its finalizer.
+        cb_args: tuple or None
+            The arguments to be passed to the callback function as a `tuple`, or
+            `None` (default).
+        cb_kwargs: dict or None
+            The keyword arguments to be passed to the callback function as a
+            `dict`, or `None` (default).
+
+        Example
+        >>> ep.set_close_callback(lambda: print("Executing close callback"))
+        """
+        self._ep.set_close_callback(callback_func, cb_args, cb_kwargs)
+
+    def is_alive(self):
+        return self._ep.is_alive()
