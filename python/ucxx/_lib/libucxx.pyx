@@ -211,7 +211,8 @@ cdef class UCXContext():
 
         return int(<uintptr_t>handle)
 
-    cpdef str get_info(self):
+    @property
+    def info(self):
         cdef Context* ucxx_context
         cdef string info
 

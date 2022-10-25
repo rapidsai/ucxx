@@ -7,6 +7,7 @@ import asyncio
 import gc
 import logging
 import os
+import re
 import struct
 import threading
 import weakref
@@ -516,6 +517,10 @@ class ApplicationContext:
             The current UCX configuration options
         """
         return self.context.get_config()
+
+    def ucp_context_info(self):
+        """Return low-level UCX info about this endpoint as a string"""
+        return self.context.info
 
 
 class Listener:
@@ -1094,6 +1099,23 @@ async def create_endpoint_from_worker_address(
         address,
         endpoint_error_handling=endpoint_error_handling,
     )
+
+
+def get_ucp_context_info():
+    """Gets information on the current UCX context, obtained from
+    `ucp_context_print_info`.
+    """
+    return _get_ctx().ucp_context_info()
+
+
+def get_active_transports():
+    """Returns a list of all transports that are available and are currently
+    active in UCX, meaning UCX **may** use them depending on the type of
+    transfers and how it is configured but is not required to do so.
+    """
+    info = get_ucp_context_info()
+    resources = re.findall("^#.*resource.*md.*dev.*flags.*$", info, re.MULTILINE)
+    return set([r.split()[-1].split("/")[0] for r in resources])
 
 
 def continuous_ucx_progress(event_loop=None):
