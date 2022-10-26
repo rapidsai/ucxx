@@ -348,5 +348,9 @@ class ApplicationContext:
         """Return low-level UCX info about this endpoint as a string"""
         return self.context.info
 
+    def ucp_worker_info(self):
+        """Return low-level UCX info about this endpoint as a string"""
+        return self.worker.info
+
     def get_worker_address(self):
         return self.worker.get_address()

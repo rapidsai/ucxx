@@ -166,6 +166,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Worker(Component):
         ucp_worker_h getHandle()
+        string getInfo() except +raise_py_error
         shared_ptr[Address] getAddress() except +raise_py_error
         shared_ptr[Endpoint] createEndpointFromHostname(
             string ip_address, uint16_t port, bint endpoint_error_handling

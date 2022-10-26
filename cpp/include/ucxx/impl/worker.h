@@ -108,6 +108,13 @@ Worker::~Worker()
 
 ucp_worker_h Worker::getHandle() { return _handle; }
 
+std::string Worker::getInfo()
+{
+  FILE* TextFileDescriptor = utils::createTextFileDescriptor();
+  ucp_worker_print_info(this->_handle, TextFileDescriptor);
+  return utils::decodeTextFileDescriptor(TextFileDescriptor);
+}
+
 bool Worker::isPythonFutureEnabled() const { return _enablePythonFuture; }
 
 void Worker::initBlockingProgressMode()

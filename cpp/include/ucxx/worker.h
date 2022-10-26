@@ -72,6 +72,8 @@ class Worker : public Component {
 
   ucp_worker_h getHandle();
 
+  std::string getInfo();
+
   bool isPythonFutureEnabled() const;
 
   void initBlockingProgressMode();

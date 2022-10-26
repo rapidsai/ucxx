@@ -367,6 +367,17 @@ cdef class UCXWorker():
 
         return int(<uintptr_t>handle)
 
+    @property
+    def info(self):
+        cdef Worker* ucxx_worker
+        cdef string info
+
+        with nogil:
+            ucxx_worker = self._worker.get()
+            info = ucxx_worker.getInfo()
+
+        return info.decode("utf-8")
+
     def get_address(self):
         return UCXAddress.create_from_worker(self)
 

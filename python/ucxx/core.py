@@ -177,6 +177,13 @@ def get_ucp_context_info():
     return _get_ctx().ucp_context_info()
 
 
+def get_ucp_worker_info():
+    """Gets information on the current UCX worker, obtained from
+    `ucp_worker_print_info`.
+    """
+    return _get_ctx().ucp_worker_info()
+
+
 def get_active_transports():
     """Returns a list of all transports that are available and are currently
     active in UCX, meaning UCX **may** use them depending on the type of
