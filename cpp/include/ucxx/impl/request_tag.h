@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <cstdio>
+
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_tag.h>
 
@@ -39,7 +41,8 @@ RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
   : Request(endpoint,
             std::make_shared<DelayedSubmission>(send, buffer, length, tag),
             std::string(send ? "tagSend" : "tagRecv"),
-            enablePythonFuture)
+            enablePythonFuture),
+    _length(length)
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
 
@@ -51,6 +54,22 @@ RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
   // importantly the Python future later on, so that we don't need the GIL here.
   worker->registerDelayedSubmission(
     std::bind(std::mem_fn(&Request::populateDelayedSubmission), this));
+}
+
+void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* info)
+{
+  ucs_status_t s =
+    info->length == _length ? ucp_request_check_status(request) : UCS_ERR_MESSAGE_TRUNCATED;
+  _status = s;
+
+  if (s == UCS_ERR_MESSAGE_TRUNCATED) {
+    const char* fmt = "length mismatch: %llu (got) != %llu (expected)";
+    size_t len      = std::snprintf(nullptr, 0, fmt, info->length, _length);
+    _status_msg     = std::string(len + 1, '\0');  // +1 for null terminator
+    std::snprintf(_status_msg.data(), _status_msg.size(), fmt, info->length, _length);
+  }
+
+  Request::callback(request, status);
 }
 
 void RequestTag::tagSendCallback(void* request, ucs_status_t status, void* arg)
@@ -66,8 +85,8 @@ void RequestTag::tagRecvCallback(void* request,
                                  void* arg)
 {
   ucxx_trace_req("tagRecvCallback");
-  Request* req = (Request*)arg;
-  return req->callback(request, status);
+  RequestTag* req = (RequestTag*)arg;
+  return req->callback(request, status, info);
 }
 
 void RequestTag::request()

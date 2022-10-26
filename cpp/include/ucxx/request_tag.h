@@ -15,6 +15,8 @@ namespace ucxx {
 
 class RequestTag : public Request {
  private:
+  size_t _length{0};
+
   RequestTag(std::shared_ptr<Endpoint> endpoint,
              bool send,
              void* buffer,
@@ -45,6 +47,8 @@ class RequestTag : public Request {
                               ucs_status_t status,
                               const ucp_tag_recv_info_t* info,
                               void* arg);
+
+  void callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* info);
 };
 
 }  // namespace ucxx

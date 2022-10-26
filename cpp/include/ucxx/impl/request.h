@@ -102,8 +102,15 @@ bool Request::isCompleted(int64_t periodNs)
 
 void Request::callback(void* request, ucs_status_t status)
 {
-  ucs_status_t s = ucp_request_check_status(request);
-  _status        = s;
+  ucs_status_t s;
+
+  if (_status == UCS_INPROGRESS) {
+    s       = ucp_request_check_status(request);
+    _status = s;
+  } else {
+    // Derived class has already set the status, e.g., a truncated message.
+    s = _status;
+  }
 
   ucxx_trace_req("Request::callback called for \"%s\" with status %d (%s)",
                  _operationName.c_str(),

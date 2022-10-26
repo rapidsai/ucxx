@@ -22,7 +22,8 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
   : Request(endpoint,
             std::make_shared<DelayedSubmission>(send, buffer, length),
             std::string(send ? "streamSend" : "streamRecv"),
-            enablePythonFuture)
+            enablePythonFuture),
+    _length(length)
 {
   auto worker = Endpoint::getWorker(endpoint->getParent());
 
@@ -93,6 +94,22 @@ void RequestStream::populateDelayedSubmission()
   process();
 }
 
+void RequestStream::callback(void* request, ucs_status_t status, size_t length)
+{
+  ucs_status_t s =
+    length == _length ? ucp_request_check_status(request) : UCS_ERR_MESSAGE_TRUNCATED;
+  _status = s;
+
+  if (s == UCS_ERR_MESSAGE_TRUNCATED) {
+    const char* fmt = "length mismatch: %llu (got) != %llu (expected)";
+    size_t len      = std::snprintf(nullptr, 0, fmt, length, _length);
+    _status_msg     = std::string(len + 1, '\0');  // +1 for null terminator
+    std::snprintf(_status_msg.data(), _status_msg.size(), fmt, length, _length);
+  }
+
+  Request::callback(request, status);
+}
+
 void RequestStream::streamSendCallback(void* request, ucs_status_t status, void* arg)
 {
   ucxx_trace_req("streamSendCallback");
@@ -103,8 +120,8 @@ void RequestStream::streamSendCallback(void* request, ucs_status_t status, void*
 void RequestStream::streamRecvCallback(void* request, ucs_status_t status, size_t length, void* arg)
 {
   ucxx_trace_req("streamRecvCallback");
-  Request* req = (Request*)arg;
-  return req->callback(request, status);
+  RequestStream* req = (RequestStream*)arg;
+  return req->callback(request, status, length);
 }
 
 }  // namespace ucxx

@@ -25,6 +25,7 @@ namespace ucxx {
 class Request : public Component {
  protected:
   std::atomic<ucs_status_t> _status{UCS_INPROGRESS};
+  std::string _status_msg{};
   void* _request{nullptr};
 #if UCXX_ENABLE_PYTHON
   std::shared_ptr<python::Future> _pythonFuture{nullptr};
