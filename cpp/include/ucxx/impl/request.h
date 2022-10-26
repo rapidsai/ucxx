@@ -81,6 +81,7 @@ void Request::checkError()
     case UCS_OK:
     case UCS_INPROGRESS: return;
     case UCS_ERR_CANCELED: throw CanceledError(ucs_status_string(_status)); break;
+    case UCS_ERR_MESSAGE_TRUNCATED: throw MessageTruncatedError(_status_msg); break;
     default: throw Error(ucs_status_string(_status)); break;
   }
 }

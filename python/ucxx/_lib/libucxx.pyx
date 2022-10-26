@@ -90,10 +90,15 @@ class UCXConnectionResetError(UCXBaseException):
     pass
 
 
+class UCXMsgTruncated(UCXBaseException):
+    pass
+
+
 cdef public PyObject* ucxx_error = <PyObject*>UCXError
 cdef public PyObject* ucxx_canceled_error = <PyObject*>UCXCanceled
 cdef public PyObject* ucxx_config_error = <PyObject*>UCXConfigError
 cdef public PyObject* ucxx_connection_reset_error = <PyObject*>UCXConnectionResetError
+cdef public PyObject* ucxx_message_truncated_error = <PyObject*>UCXMsgTruncated
 
 
 ###############################################################################
