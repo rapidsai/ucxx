@@ -58,16 +58,17 @@ RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
 
 void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* info)
 {
-  ucs_status_t s =
-    info->length == _length ? ucp_request_check_status(request) : UCS_ERR_MESSAGE_TRUNCATED;
-  _status = s;
+  ucs_status_t s = ucp_request_check_status(request);
 
-  if (s == UCS_ERR_MESSAGE_TRUNCATED) {
+  if (s != UCS_ERR_CANCELED && info->length != _length) {
+    s               = UCS_ERR_MESSAGE_TRUNCATED;
     const char* fmt = "length mismatch: %llu (got) != %llu (expected)";
     size_t len      = std::snprintf(nullptr, 0, fmt, info->length, _length);
     _status_msg     = std::string(len + 1, '\0');  // +1 for null terminator
     std::snprintf(_status_msg.data(), _status_msg.size(), fmt, info->length, _length);
   }
+
+  _status = s;
 
   Request::callback(request, status);
 }
