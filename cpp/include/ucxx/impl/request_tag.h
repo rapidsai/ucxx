@@ -75,7 +75,7 @@ void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv
 
 void RequestTag::tagSendCallback(void* request, ucs_status_t status, void* arg)
 {
-  ucxx_trace_req("tagSendCallback");
+  ucxx_trace_req("req: %p, tagSendCallback", request);
   Request* req = (Request*)arg;
   return req->callback(request, status);
 }
@@ -85,7 +85,7 @@ void RequestTag::tagRecvCallback(void* request,
                                  const ucp_tag_recv_info_t* info,
                                  void* arg)
 {
-  ucxx_trace_req("tagRecvCallback");
+  ucxx_trace_req("req: %p, tagRecvCallback", request);
   RequestTag* req = (RequestTag*)arg;
   return req->callback(request, status, info);
 }
@@ -127,9 +127,9 @@ void RequestTag::populateDelayedSubmission()
 
 #if UCXX_ENABLE_PYTHON
   if (pythonFutureLog)
-    ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
-                   _operationName.c_str(),
+    ucxx_trace_req("req: %p, %s, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
                    _request,
+                   _operationName.c_str(),
                    _delayedSubmission->_tag,
                    _delayedSubmission->_buffer,
                    _delayedSubmission->_length,
@@ -137,9 +137,9 @@ void RequestTag::populateDelayedSubmission()
                    _pythonFuture->getHandle());
 #endif
   if (!pythonFutureLog)
-    ucxx_trace_req("%s request: %p, tag: %lx, buffer: %p, size: %lu",
-                   _operationName.c_str(),
+    ucxx_trace_req("req: %p, %s, tag: %lx, buffer: %p, size: %lu",
                    _request,
+                   _operationName.c_str(),
                    _delayedSubmission->_tag,
                    _delayedSubmission->_buffer,
                    _delayedSubmission->_length);

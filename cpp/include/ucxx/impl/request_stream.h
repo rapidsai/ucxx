@@ -76,18 +76,18 @@ void RequestStream::populateDelayedSubmission()
 
 #if UCXX_ENABLE_PYTHON
   if (pythonFutureLog)
-    ucxx_trace_req("%s request: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
-                   _operationName.c_str(),
+    ucxx_trace_req("req: %p, %s, buffer: %p, size: %lu, future: %p, future handle: %p",
                    _request,
+                   _operationName.c_str(),
                    _delayedSubmission->_buffer,
                    _delayedSubmission->_length,
                    _pythonFuture.get(),
                    _pythonFuture->getHandle());
 #else
   if (!pythonFutureLog)
-    ucxx_trace_req("%s request: %p, buffer: %p, size: %lu",
-                   _operationName.c_str(),
+    ucxx_trace_req("req: %p, %s, buffer: %p, size: %lu",
                    _request,
+                   _operationName.c_str(),
                    _delayedSubmission->_buffer,
                    _delayedSubmission->_length);
 #endif
@@ -112,14 +112,14 @@ void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 
 void RequestStream::streamSendCallback(void* request, ucs_status_t status, void* arg)
 {
-  ucxx_trace_req("streamSendCallback");
+  ucxx_trace_req("req: %p, streamSendCallback", request);
   Request* req = (Request*)arg;
   return req->callback(request, status);
 }
 
 void RequestStream::streamRecvCallback(void* request, ucs_status_t status, size_t length, void* arg)
 {
-  ucxx_trace_req("streamRecvCallback");
+  ucxx_trace_req("req: %p, streamRecvCallback", request);
   RequestStream* req = (RequestStream*)arg;
   return req->callback(request, status, length);
 }

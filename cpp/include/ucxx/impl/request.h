@@ -40,7 +40,7 @@ Request::Request(std::shared_ptr<Endpoint> endpoint,
   _enablePythonFuture &= worker->isPythonFutureEnabled();
   if (_enablePythonFuture) {
     _pythonFuture = worker->getPythonFuture();
-    ucxx_trace_req("request->py_future: %p", _pythonFuture.get());
+    ucxx_trace_req("req: %p, _pythonFuture: %p", _request, _pythonFuture.get());
   }
 #endif
 
@@ -117,12 +117,13 @@ void Request::callback(void* request, ucs_status_t status)
     s = _status;
   }
 
-  ucxx_trace_req("Request::callback called for \"%s\" with status %d (%s)",
+  ucxx_trace_req("req: %p, callback called \"%s\" with status %d (%s)",
+                 request,
                  _operationName.c_str(),
                  s,
                  ucs_status_string(s));
 
-  ucxx_trace_req("_callback: %p", _callback.target<void (*)(void)>());
+  ucxx_trace_req("req: %p, _callback: %p", request, _callback.target<void (*)(void)>());
   if (_callback) _callback(_callbackData);
 
   ucp_request_free(request);
@@ -147,16 +148,16 @@ void Request::process()
   }
 
   ucs_status_t status = _status.load();
-  ucxx_trace_req("status: %d (%s)", status, ucs_status_string(status));
+  ucxx_trace_req("req: %p, status: %d (%s)", _request, status, ucs_status_string(status));
 
-  ucxx_trace_req("callback: %p", _callback.target<void (*)(void)>());
+  ucxx_trace_req("req: %p, callback: %p", _request, _callback.target<void (*)(void)>());
   if (_callback) _callback(_callbackData);
 
   if (status != UCS_OK) {
     ucxx_error(
       "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
   } else {
-    ucxx_trace_req("%s completed immediately", _operationName.c_str());
+    ucxx_trace_req("req: %p, %s completed immediately", _request, _operationName.c_str());
   }
 
   setStatus();
