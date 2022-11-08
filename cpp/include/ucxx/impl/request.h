@@ -47,12 +47,7 @@ Request::Request(std::shared_ptr<Endpoint> endpoint,
   setParent(endpoint);
 }
 
-Request::~Request()
-{
-  if (_request == nullptr) return;
-
-  _endpoint->removeInflightRequest(this);
-}
+Request::~Request() { _endpoint->removeInflightRequest(this); }
 
 void Request::cancel()
 {
