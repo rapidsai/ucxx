@@ -39,6 +39,9 @@ class Endpoint:
         self._close_after_n_recv = None
         self._tags = tags
 
+    def __del__(self):
+        self.abort()
+
     @property
     def uid(self):
         """The unique ID of the underlying UCX endpoint"""
@@ -57,6 +60,7 @@ class Endpoint:
         """
         if self._ep is not None:
             logger.debug("Endpoint.abort(): %s" % hex(self.uid))
+            self._ep.close()
         self._ep = None
         self._ctx = None
 

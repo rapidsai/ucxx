@@ -123,6 +123,8 @@ class Endpoint : public Component {
 
   void removeInflightRequest(Request* request);
 
+  void cancelInflightRequests();
+
   void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
 
   std::shared_ptr<Request> streamSend(void* buffer, size_t length, const bool enablePythonFuture);
@@ -148,6 +150,8 @@ class Endpoint : public Component {
   static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener);
 
   static void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
+
+  void close();
 };
 
 }  // namespace ucxx

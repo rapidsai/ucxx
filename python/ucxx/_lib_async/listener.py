@@ -100,6 +100,9 @@ async def _listener_handler_coroutine(conn_request, ctx, func, endpoint_error_ha
     else:
         func(ep)
 
+    # Ensure `ep` is destroyed and `__del__` is called
+    del ep
+
 
 def _listener_handler(
     conn_request, event_loop, callback_func, ctx, endpoint_error_handling

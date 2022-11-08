@@ -805,6 +805,10 @@ cdef class UCXEndpoint():
 
         return int(<uintptr_t>handle)
 
+    def close(self):
+        with nogil:
+            self._endpoint.get().close()
+
     def stream_send(self, Array arr):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes

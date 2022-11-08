@@ -197,6 +197,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
+        void close()
         shared_ptr[Request] streamSend(
             void* buffer, size_t length, bint enable_python_future
         ) except +raise_py_error

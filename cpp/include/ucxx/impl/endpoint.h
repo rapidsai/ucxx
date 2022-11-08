@@ -51,9 +51,13 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   utils::assert_ucs_status(ucp_ep_create(worker->getHandle(), params.get(), &_handle));
 }
 
-Endpoint::~Endpoint()
+Endpoint::~Endpoint() { close(); }
+
+void Endpoint::close()
 {
   if (_handle == nullptr) return;
+
+  cancelInflightRequests();
 
   // Close the endpoint
   unsigned closeMode = UCP_EP_CLOSE_MODE_FORCE;
@@ -71,6 +75,15 @@ Endpoint::~Endpoint()
   } else if (UCS_PTR_STATUS(status) != UCS_OK) {
     ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
   }
+
+  if (_callbackData->closeCallback) {
+    ucxx_debug("Calling user callback for endpoint %p", _handle);
+    _callbackData->closeCallback(_callbackData->closeCallbackArg);
+    _callbackData->closeCallback    = nullptr;
+    _callbackData->closeCallbackArg = nullptr;
+  }
+
+  _handle = nullptr;
 }
 
 ucp_ep_h Endpoint::getHandle() { return _handle; }
@@ -114,6 +127,14 @@ void Endpoint::removeInflightRequest(Request* request)
 {
   auto search = _inflightRequests->find(request);
   if (search != _inflightRequests->end()) _inflightRequests->erase(search);
+}
+
+void Endpoint::cancelInflightRequests()
+{
+  for (auto& req : *_inflightRequests) {
+    req.first->cancel();
+  }
+  _inflightRequests->clear();
 }
 
 std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
@@ -182,6 +203,7 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   data->status            = status;
   data->worker->scheduleRequestCancel(data->inflightRequests);
   if (data->closeCallback) {
+    ucxx_debug("Calling user callback for endpoint %p", ep);
     data->closeCallback(data->closeCallbackArg);
     data->closeCallback    = nullptr;
     data->closeCallbackArg = nullptr;
