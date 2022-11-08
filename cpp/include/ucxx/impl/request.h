@@ -56,8 +56,13 @@ Request::~Request()
 
 void Request::cancel()
 {
+  if (_request == nullptr) {
+    ucxx_trace_req("req: %p already completed or cancelled", _request);
+    return;
+  }
+  ucxx_trace_req("req: %p, cancelling", _request);
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(getParent());
-  auto worker   = std::dynamic_pointer_cast<Worker>(endpoint->getParent());
+  auto worker   = endpoint->getWorker(endpoint->getParent());
   ucp_request_cancel(worker->getHandle(), _request);
 }
 
