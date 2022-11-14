@@ -157,6 +157,8 @@ bool Worker::progressWorkerEvent()
   int ret;
   epoll_event ev;
 
+  cancelInflightRequests();
+
   if (progressOnce()) return true;
 
   if ((_epollFileDescriptor == -1) || !arm()) return false;
@@ -172,11 +174,16 @@ void Worker::signal() { utils::assert_ucs_status(ucp_worker_signal(_handle)); }
 
 bool Worker::waitProgress()
 {
+  cancelInflightRequests();
   utils::assert_ucs_status(ucp_worker_wait(_handle));
   return progressOnce();
 }
 
-bool Worker::progressOnce() { return ucp_worker_progress(_handle) != 0; }
+bool Worker::progressOnce()
+{
+  cancelInflightRequests();
+  return ucp_worker_progress(_handle) != 0;
+}
 
 bool Worker::progress()
 {
@@ -347,6 +354,8 @@ inline size_t Worker::cancelInflightRequests()
   // Fast path when no requests have been scheduled for cancelation
   if (_inflightRequestsToCancel->size() == 0) return 0;
 
+  ucxx_debug("Canceling %lu requests", _inflightRequestsToCancel->size());
+
   size_t total = 0;
   std::lock_guard<std::mutex> lock(_inflightMutex);
 
@@ -364,6 +373,7 @@ inline size_t Worker::cancelInflightRequests()
 void Worker::scheduleRequestCancel(InflightRequests inflightRequests)
 {
   std::lock_guard<std::mutex> lock(_inflightMutex);
+  ucxx_debug("Scheduling cancelation of %lu requests", inflightRequests->size());
   _inflightRequestsToCancel->insert(inflightRequests->begin(), inflightRequests->end());
 }
 
