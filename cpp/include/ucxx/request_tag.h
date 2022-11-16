@@ -17,7 +17,7 @@ class RequestTag : public Request {
  private:
   size_t _length{0};
 
-  RequestTag(std::shared_ptr<Endpoint> endpoint,
+  RequestTag(std::shared_ptr<Component> endpointOrWorker,
              bool send,
              void* buffer,
              size_t length,
@@ -28,7 +28,7 @@ class RequestTag : public Request {
 
  public:
   friend std::shared_ptr<RequestTag> createRequestTag(
-    std::shared_ptr<Endpoint> endpoint,
+    std::shared_ptr<Component> endpointOrWorker,
     bool send,
     void* buffer,
     size_t length,

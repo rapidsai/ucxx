@@ -16,6 +16,7 @@
 #include <ucxx/address.h>
 #include <ucxx/context.h>
 #include <ucxx/endpoint.h>
+#include <ucxx/inflight_requests.h>
 #include <ucxx/listener.h>
 #include <ucxx/python/typedefs.h>
 #include <ucxx/request.h>
@@ -30,6 +31,7 @@
 #include <ucxx/impl/delayed_submission.h>
 #include <ucxx/impl/endpoint.h>
 #include <ucxx/impl/header.h>
+#include <ucxx/impl/inflight_requests.h>
 #include <ucxx/impl/initializer.h>
 #include <ucxx/impl/listener.h>
 #include <ucxx/impl/log.h>

@@ -119,23 +119,12 @@ void Endpoint::setCloseCallback(std::function<void(void*)> closeCallback, void* 
 
 void Endpoint::registerInflightRequest(std::shared_ptr<Request> request)
 {
-  std::weak_ptr<Request> weakReq = request;
-  _inflightRequests->insert({request.get(), weakReq});
+  _inflightRequests->insert(request);
 }
 
-void Endpoint::removeInflightRequest(Request* request)
-{
-  auto search = _inflightRequests->find(request);
-  if (search != _inflightRequests->end()) _inflightRequests->erase(search);
-}
+void Endpoint::removeInflightRequest(Request* request) { _inflightRequests->remove(request); }
 
-void Endpoint::cancelInflightRequests()
-{
-  for (auto& req : *_inflightRequests) {
-    req.first->cancel();
-  }
-  _inflightRequests->clear();
-}
+void Endpoint::cancelInflightRequests() { _inflightRequests->cancelAll(); }
 
 std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
                                               size_t length,

@@ -32,12 +32,13 @@ class Request : public Component {
 #endif
   std::function<void(std::shared_ptr<void>)> _callback{nullptr};
   std::shared_ptr<void> _callbackData{nullptr};
+  std::shared_ptr<Worker> _worker{nullptr};
   std::shared_ptr<Endpoint> _endpoint{nullptr};
   std::shared_ptr<DelayedSubmission> _delayedSubmission{nullptr};
   std::string _operationName{"request_undefined"};
   bool _enablePythonFuture{true};
 
-  Request(std::shared_ptr<Endpoint> endpoint,
+  Request(std::shared_ptr<Component> endpointOrWorker,
           std::shared_ptr<DelayedSubmission> delayedSubmission,
           const std::string operationName,
           const bool enablePythonFuture = false);

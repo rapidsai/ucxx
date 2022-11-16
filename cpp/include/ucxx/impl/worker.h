@@ -351,30 +351,15 @@ void Worker::stopProgressThread()
 
 inline size_t Worker::cancelInflightRequests()
 {
-  // Fast path when no requests have been scheduled for cancelation
-  if (_inflightRequestsToCancel->size() == 0) return 0;
-
-  ucxx_debug("Canceling %lu requests", _inflightRequestsToCancel->size());
-
-  size_t total = 0;
-  std::lock_guard<std::mutex> lock(_inflightMutex);
-
-  for (auto& r : *_inflightRequestsToCancel) {
-    if (auto request = r.second.lock()) {
-      request->cancel();
-      ++total;
-    }
-  }
-
-  _inflightRequestsToCancel->clear();
-  return total;
+  auto inflightRequestsToCancel =
+    std::exchange(_inflightRequestsToCancel, std::make_shared<InflightRequests>());
+  return inflightRequestsToCancel->cancelAll();
 }
 
-void Worker::scheduleRequestCancel(InflightRequests inflightRequests)
+void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests)
 {
-  std::lock_guard<std::mutex> lock(_inflightMutex);
   ucxx_debug("Scheduling cancelation of %lu requests", inflightRequests->size());
-  _inflightRequestsToCancel->insert(inflightRequests->begin(), inflightRequests->end());
+  _inflightRequestsToCancel->merge(inflightRequests->release());
 }
 
 bool Worker::tagProbe(ucp_tag_t tag)

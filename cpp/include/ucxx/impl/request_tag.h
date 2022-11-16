@@ -17,7 +17,7 @@
 namespace ucxx {
 
 std::shared_ptr<RequestTag> createRequestTag(
-  std::shared_ptr<Endpoint> endpoint,
+  std::shared_ptr<Component> endpointOrWorker,
   bool send,
   void* buffer,
   size_t length,
@@ -26,11 +26,17 @@ std::shared_ptr<RequestTag> createRequestTag(
   std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
   std::shared_ptr<void> callbackData                          = nullptr)
 {
-  return std::shared_ptr<RequestTag>(new RequestTag(
-    endpoint, send, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
+  return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
+                                                    send,
+                                                    buffer,
+                                                    length,
+                                                    tag,
+                                                    enablePythonFuture,
+                                                    callbackFunction,
+                                                    callbackData));
 }
 
-RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
+RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                        bool send,
                        void* buffer,
                        size_t length,
@@ -38,21 +44,21 @@ RequestTag::RequestTag(std::shared_ptr<Endpoint> endpoint,
                        const bool enablePythonFuture,
                        std::function<void(std::shared_ptr<void>)> callbackFunction,
                        std::shared_ptr<void> callbackData)
-  : Request(endpoint,
+  : Request(endpointOrWorker,
             std::make_shared<DelayedSubmission>(send, buffer, length, tag),
             std::string(send ? "tagSend" : "tagRecv"),
             enablePythonFuture),
     _length(length)
 {
-  auto worker = Endpoint::getWorker(endpoint->getParent());
-
+  if (send && _endpoint == nullptr)
+    throw ucxx::Error("An endpoint is required to send tag messages");
   _callback     = callbackFunction;
   _callbackData = callbackData;
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
   // importantly the Python future later on, so that we don't need the GIL here.
-  worker->registerDelayedSubmission(
+  _worker->registerDelayedSubmission(
     std::bind(std::mem_fn(&Request::populateDelayedSubmission), this));
 }
 
@@ -93,7 +99,6 @@ void RequestTag::tagRecvCallback(void* request,
 void RequestTag::request()
 {
   static const ucp_tag_t tagMask = -1;
-  auto worker                    = Endpoint::getWorker(_endpoint->getParent());
 
   ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                UCP_OP_ATTR_FIELD_DATATYPE |
@@ -110,7 +115,7 @@ void RequestTag::request()
                                 &param);
   } else {
     param.cb.recv = tagRecvCallback;
-    _request      = ucp_tag_recv_nbx(worker->getHandle(),
+    _request      = ucp_tag_recv_nbx(_worker->getHandle(),
                                 _delayedSubmission->_buffer,
                                 _delayedSubmission->_length,
                                 _delayedSubmission->_tag,

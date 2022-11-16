@@ -62,7 +62,7 @@ std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> end
                                                    const bool enablePythonFuture);
 
 std::shared_ptr<RequestTag> createRequestTag(
-  std::shared_ptr<Endpoint> endpoint,
+  std::shared_ptr<Component> endpointOrWorker,
   bool send,
   void* buffer,
   size_t length,

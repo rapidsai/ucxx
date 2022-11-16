@@ -16,6 +16,7 @@
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/delayed_submission.h>
+#include <ucxx/inflight_requests.h>
 #include <ucxx/worker_progress_thread.h>
 
 #include <ucxx/python/typedefs.h>
@@ -36,8 +37,7 @@ class Worker : public Component {
   ucp_worker_h _handle{nullptr};
   int _epollFileDescriptor{-1};
   int _workerFileDescriptor{-1};
-  InflightRequests _inflightRequestsToCancel{std::make_shared<InflightRequestMap>()};
-  std::mutex _inflightMutex{};
+  std::shared_ptr<InflightRequests> _inflightRequestsToCancel{std::make_shared<InflightRequests>()};
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
   void* _progressThreadStartCallbackArg{nullptr};
@@ -110,7 +110,7 @@ class Worker : public Component {
 
   inline size_t cancelInflightRequests();
 
-  void scheduleRequestCancel(InflightRequests inflightRequests);
+  void scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests);
 
   bool tagProbe(ucp_tag_t tag);
 

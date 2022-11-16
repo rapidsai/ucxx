@@ -20,31 +20,35 @@
 
 namespace ucxx {
 
-Request::Request(std::shared_ptr<Endpoint> endpoint,
+Request::Request(std::shared_ptr<Component> endpointOrWorker,
                  std::shared_ptr<DelayedSubmission> delayedSubmission,
                  const std::string operationName,
                  const bool enablePythonFuture)
-  : _endpoint{endpoint},
-    _delayedSubmission(delayedSubmission),
+  : _delayedSubmission(delayedSubmission),
     _operationName(operationName),
     _enablePythonFuture(enablePythonFuture)
 {
-  auto worker = Endpoint::getWorker(endpoint->getParent());
+  _endpoint = std::dynamic_pointer_cast<Endpoint>(endpointOrWorker);
+  _worker   = _endpoint ? Endpoint::getWorker(_endpoint->getParent())
+                        : std::dynamic_pointer_cast<Worker>(endpointOrWorker);
 
-  if (worker == nullptr || worker->getHandle() == nullptr)
+  if (_worker == nullptr || _worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
-  if (endpoint == nullptr || endpoint->getHandle() == nullptr)
+  if (_endpoint != nullptr && _endpoint->getHandle() == nullptr)
     throw ucxx::Error("Endpoint not initialized");
 
 #if UCXX_ENABLE_PYTHON
-  _enablePythonFuture &= worker->isPythonFutureEnabled();
+  _enablePythonFuture &= _worker->isPythonFutureEnabled();
   if (_enablePythonFuture) {
-    _pythonFuture = worker->getPythonFuture();
+    _pythonFuture = _worker->getPythonFuture();
     ucxx_trace_req("req: %p, _pythonFuture: %p", _request, _pythonFuture.get());
   }
 #endif
 
-  setParent(endpoint);
+  if (_endpoint)
+    setParent(_endpoint);
+  else
+    setParent(_worker);
 }
 
 Request::~Request() { _endpoint->removeInflightRequest(this); }
@@ -56,9 +60,7 @@ void Request::cancel()
     return;
   }
   ucxx_trace_req("req: %p, cancelling", _request);
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(getParent());
-  auto worker   = endpoint->getWorker(endpoint->getParent());
-  ucp_request_cancel(worker->getHandle(), _request);
+  ucp_request_cancel(_worker->getHandle(), _request);
 }
 
 ucs_status_t Request::getStatus() { return _status; }

@@ -15,6 +15,7 @@
 #include <ucxx/address.h>
 #include <ucxx/component.h>
 #include <ucxx/exception.h>
+#include <ucxx/inflight_requests.h>
 #include <ucxx/listener.h>
 #include <ucxx/request.h>
 #include <ucxx/typedefs.h>
@@ -29,7 +30,7 @@ struct EpParamsDeleter {
 
 struct ErrorCallbackData {
   ucs_status_t status;
-  InflightRequests inflightRequests;
+  std::shared_ptr<InflightRequests> inflightRequests;
   std::function<void(void*)> closeCallback;
   void* closeCallbackArg;
   std::shared_ptr<Worker> worker;
@@ -40,7 +41,7 @@ class Endpoint : public Component {
   ucp_ep_h _handle{nullptr};
   bool _endpointErrorHandling{true};
   std::unique_ptr<ErrorCallbackData> _callbackData{nullptr};
-  InflightRequests _inflightRequests{std::make_shared<InflightRequestMap>()};
+  std::shared_ptr<InflightRequests> _inflightRequests{std::make_shared<InflightRequests>()};
 
   Endpoint(std::shared_ptr<Component> workerOrListener,
            std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,

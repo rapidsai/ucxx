@@ -30,9 +30,6 @@ typedef enum {
   UCXX_LOG_LEVEL_PRINT /* Temporary output */
 } ucxx_log_level_t;
 
-typedef std::map<Request*, std::weak_ptr<Request>> InflightRequestMap;
-typedef std::shared_ptr<InflightRequestMap> InflightRequests;
-
 typedef std::unordered_map<std::string, std::string> ConfigMap;
 
 }  // namespace ucxx
