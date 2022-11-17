@@ -342,6 +342,7 @@ cdef class UCXWorker():
         shared_ptr[Worker] _worker
         dict _progress_thread_start_cb_data
         bint _enable_python_future
+        uint64_t _context_feature_flags
 
     def __init__(
             self,
@@ -356,7 +357,9 @@ cdef class UCXWorker():
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
+
         self._enable_python_future = PythonEnabled() and enable_python_future
+        self._context_feature_flags = <uint64_t>(context.feature_flags)
 
     @property
     def handle(self):
@@ -488,6 +491,24 @@ cdef class UCXWorker():
 
     def is_python_future_enabled(self):
         return self._enable_python_future
+
+    def tag_recv(self, Array arr, size_t tag):
+        cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
+
+        with nogil:
+            req = self._worker.get().tagRecv(
+                buf,
+                nbytes,
+                tag,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
 
 cdef class UCXRequest():

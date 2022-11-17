@@ -37,6 +37,7 @@ class Worker : public Component {
   ucp_worker_h _handle{nullptr};
   int _epollFileDescriptor{-1};
   int _workerFileDescriptor{-1};
+  std::shared_ptr<InflightRequests> _inflightRequests{std::make_shared<InflightRequests>()};
   std::shared_ptr<InflightRequests> _inflightRequestsToCancel{std::make_shared<InflightRequests>()};
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
@@ -56,6 +57,8 @@ class Worker : public Component {
   void drainWorkerTagRecv();
 
   void stopProgressThreadNoWarn();
+
+  void registerInflightRequest(std::shared_ptr<Request> request);
 
  public:
   Worker()              = delete;
@@ -112,7 +115,17 @@ class Worker : public Component {
 
   void scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests);
 
+  void removeInflightRequest(Request* request);
+
   bool tagProbe(ucp_tag_t tag);
+
+  std::shared_ptr<Request> tagRecv(
+    void* buffer,
+    size_t length,
+    ucp_tag_t tag,
+    const bool enablePythonFuture                               = false,
+    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
+    std::shared_ptr<void> callbackData                          = nullptr);
 
   std::shared_ptr<Address> getAddress();
 

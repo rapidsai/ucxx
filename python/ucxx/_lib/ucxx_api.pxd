@@ -194,6 +194,9 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         void runRequestNotifier() except +raise_py_error
         void populatePythonFuturesPool() except +raise_py_error
+        shared_ptr[Request] tagRecv(
+            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
+        ) except +raise_py_error
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()

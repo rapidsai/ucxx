@@ -94,6 +94,8 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
 Worker::~Worker()
 {
+  _inflightRequests->cancelAll();
+
   stopProgressThreadNoWarn();
 #if UCXX_ENABLE_PYTHON
   if (_enablePythonFuture) _notifier->stopRequestNotifierThread();
@@ -362,12 +364,34 @@ void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightReq
   _inflightRequestsToCancel->merge(inflightRequests->release());
 }
 
+void Worker::registerInflightRequest(std::shared_ptr<Request> request)
+{
+  _inflightRequests->insert(request);
+}
+
+void Worker::removeInflightRequest(Request* request) { _inflightRequests->remove(request); }
+
 bool Worker::tagProbe(ucp_tag_t tag)
 {
   ucp_tag_recv_info_t info;
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);
 
   return tag_message != NULL;
+}
+
+std::shared_ptr<Request> Worker::tagRecv(
+  void* buffer,
+  size_t length,
+  ucp_tag_t tag,
+  const bool enablePythonFuture,
+  std::function<void(std::shared_ptr<void>)> callbackFunction,
+  std::shared_ptr<void> callbackData)
+{
+  auto worker  = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto request = createRequestTag(
+    worker, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData);
+  registerInflightRequest(request);
+  return request;
 }
 
 std::shared_ptr<Address> Worker::getAddress()

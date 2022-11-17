@@ -210,6 +210,10 @@ def get_ucx_address_from_buffer(buffer):
     return ucx_api.UCXAddress.create_from_buffer(buffer)
 
 
+async def recv(buffer, tag):
+    return await _get_ctx().recv(buffer, tag=tag)
+
+
 # Setting the __doc__
 create_listener.__doc__ = ApplicationContext.create_listener.__doc__
 create_endpoint.__doc__ = ApplicationContext.create_endpoint.__doc__

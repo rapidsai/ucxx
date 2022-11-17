@@ -51,7 +51,13 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
     setParent(_worker);
 }
 
-Request::~Request() { _endpoint->removeInflightRequest(this); }
+Request::~Request()
+{
+  if (_endpoint)
+    _endpoint->removeInflightRequest(this);
+  else
+    _worker->removeInflightRequest(this);
+}
 
 void Request::cancel()
 {

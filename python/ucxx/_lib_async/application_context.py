@@ -10,6 +10,7 @@ import weakref
 from queue import Queue
 
 import ucxx._lib.libucxx as ucx_api
+from ucxx._lib.arr import Array
 
 from .continuous_ucx_progress import PollingMode, ThreadMode
 from .endpoint import Endpoint
@@ -354,3 +355,29 @@ class ApplicationContext:
 
     def get_worker_address(self):
         return self.worker.get_address()
+
+    # @ucx_api.nvtx_annotate("UCXPY_WORKER_RECV", color="red", domain="ucxpy")
+    async def recv(self, buffer, tag):
+        """Receive directly on worker without a local Endpoint into `buffer`.
+
+        Parameters
+        ----------
+        buffer: exposing the buffer protocol or array/cuda interface
+            The buffer to receive into. Raise ValueError if buffer
+            is smaller than nbytes or read-only.
+        tag: hashable, optional
+            Set a tag that must match the received message.
+        """
+        if not isinstance(buffer, Array):
+            buffer = Array(buffer)
+        nbytes = buffer.nbytes
+        log = "[Worker Recv] worker: %s, tag: %s, nbytes: %d, type: %s" % (
+            hex(self.worker.handle),
+            hex(tag),
+            nbytes,
+            type(buffer.obj),
+        )
+        logger.debug(log)
+
+        req = self.worker.tag_recv(buffer, tag)
+        return await req.wait()
