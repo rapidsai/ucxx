@@ -3,13 +3,12 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <cstring>
 #include <iostream>
 
 #include <ucxx/context.h>
 #include <ucxx/initializer.h>
+#include <ucxx/log.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
 

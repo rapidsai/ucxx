@@ -3,8 +3,6 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <string>
 
 #include <ucxx/exception.h>

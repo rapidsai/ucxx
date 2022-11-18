@@ -3,8 +3,7 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
+#include <ucxx/initializer.h>
 #include <ucxx/log.h>
 
 namespace ucxx {

@@ -3,7 +3,7 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
+#include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_stream.h>
@@ -70,11 +70,11 @@ void RequestStream::request()
 
 void RequestStream::populateDelayedSubmission()
 {
-  const bool pythonFutureLog = _enablePythonFuture & UCXX_ENABLE_PYTHON;
-
   request();
 
 #if UCXX_ENABLE_PYTHON
+  const bool pythonFutureLog = _enablePythonFuture;
+
   if (pythonFutureLog)
     ucxx_trace_req("req: %p, %s, buffer: %p, size: %lu, future: %p, future handle: %p",
                    _request,
@@ -84,13 +84,15 @@ void RequestStream::populateDelayedSubmission()
                    _pythonFuture.get(),
                    _pythonFuture->getHandle());
 #else
+  const bool pythonFutureLog = false;
+#endif
+
   if (!pythonFutureLog)
     ucxx_trace_req("req: %p, %s, buffer: %p, size: %lu",
                    _request,
                    _operationName.c_str(),
                    _delayedSubmission->_buffer,
                    _delayedSubmission->_length);
-#endif
   process();
 }
 

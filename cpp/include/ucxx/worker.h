@@ -32,6 +32,12 @@ class Address;
 class Endpoint;
 class Listener;
 
+namespace python {
+
+class Future;
+
+}  // namespace python
+
 class Worker : public Component {
  private:
   ucp_worker_h _handle{nullptr};

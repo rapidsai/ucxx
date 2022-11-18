@@ -3,9 +3,9 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <ucxx/inflight_requests.h>
+#include <ucxx/log.h>
+#include <ucxx/request.h>
 
 namespace ucxx {
 

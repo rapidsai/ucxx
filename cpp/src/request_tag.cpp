@@ -3,9 +3,9 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <cstdio>
+
+#include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_tag.h>
@@ -126,11 +126,11 @@ void RequestTag::request()
 
 void RequestTag::populateDelayedSubmission()
 {
-  const bool pythonFutureLog = _enablePythonFuture & UCXX_ENABLE_PYTHON;
-
   request();
 
 #if UCXX_ENABLE_PYTHON
+  const bool pythonFutureLog = _enablePythonFuture;
+
   if (pythonFutureLog)
     ucxx_trace_req("req: %p, %s, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
                    _request,
@@ -140,7 +140,10 @@ void RequestTag::populateDelayedSubmission()
                    _delayedSubmission->_length,
                    _pythonFuture.get(),
                    _pythonFuture->getHandle());
+#else
+  const bool pythonFutureLog = false;
 #endif
+
   if (!pythonFutureLog)
     ucxx_trace_req("req: %p, %s, tag: %lx, buffer: %p, size: %lu",
                    _request,
@@ -148,6 +151,7 @@ void RequestTag::populateDelayedSubmission()
                    _delayedSubmission->_tag,
                    _delayedSubmission->_buffer,
                    _delayedSubmission->_length);
+
   process();
 }
 

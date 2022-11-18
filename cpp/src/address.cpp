@@ -3,8 +3,6 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <ucxx/address.h>
 #include <ucxx/utils/ucx.h>
 

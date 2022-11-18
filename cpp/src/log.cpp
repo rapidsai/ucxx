@@ -3,8 +3,6 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <algorithm>
 #include <cstdlib>
 
@@ -12,6 +10,8 @@
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
+
+ucs_log_component_config_t ucxx_log_component_config = {logLevelDefault, "UCXX"};
 
 // Functions
 void parseLogLevel()
@@ -27,7 +27,7 @@ void parseLogLevel()
 
     auto level = logLevelNames.find(logLevelName);
     if (level != logLevelNames.end())
-      ucxx_log_component.log_level = (ucs_log_level_t)level->second;
+      ucxx_log_component_config.log_level = (ucs_log_level_t)level->second;
     else
       ucxx_warn("UCXX_LOG_LEVEL %s unknown, defaulting to UCXX_LOG_LEVEL=%s",
                 logLevelName.c_str(),

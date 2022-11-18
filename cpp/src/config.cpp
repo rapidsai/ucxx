@@ -3,12 +3,11 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <sstream>
 #include <string>
 
 #include <ucxx/config.h>
+#include <ucxx/exception.h>
 #include <ucxx/utils/file_descriptor.h>
 
 namespace ucxx {

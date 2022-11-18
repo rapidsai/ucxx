@@ -3,11 +3,11 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <memory>
 #include <mutex>
 #include <utility>
+
+#include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
 #include <ucxx/log.h>

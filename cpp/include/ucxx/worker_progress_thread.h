@@ -9,6 +9,8 @@
 #include <mutex>
 #include <thread>
 
+#include <ucxx/delayed_submission.h>
+
 namespace ucxx {
 
 typedef std::function<void(void*)> ProgressThreadStartCallback;

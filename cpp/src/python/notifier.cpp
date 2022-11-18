@@ -3,14 +3,12 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #if UCXX_ENABLE_PYTHON
 #include <memory>
 #include <mutex>
 
+#include <ucxx/python/notifier.h>
 #include <ucxx/python/python_future.h>
-#endif
 
 namespace ucxx {
 
@@ -122,3 +120,4 @@ void Notifier::stopRequestNotifierThread()
 }  // namespace python
 
 }  // namespace ucxx
+#endif

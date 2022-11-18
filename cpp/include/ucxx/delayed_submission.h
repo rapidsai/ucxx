@@ -10,6 +10,8 @@
 #include <mutex>
 #include <vector>
 
+#include <ucp/api/ucp.h>
+
 #include <ucxx/log.h>
 
 namespace ucxx {

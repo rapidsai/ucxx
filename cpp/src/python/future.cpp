@@ -3,8 +3,6 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #if UCXX_ENABLE_PYTHON
 #include <ucxx/log.h>
 

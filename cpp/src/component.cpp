@@ -3,9 +3,9 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <memory>
+
+#include <ucxx/component.h>
 
 namespace ucxx {
 

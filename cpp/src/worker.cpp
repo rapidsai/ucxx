@@ -3,9 +3,8 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <functional>
+#include <ios>
 #include <mutex>
 #include <queue>
 
@@ -13,6 +12,9 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
+#include <ucxx/python/future.h>
+#include <ucxx/request_tag.h>
+#include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
 

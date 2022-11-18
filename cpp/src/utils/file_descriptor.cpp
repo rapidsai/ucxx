@@ -3,10 +3,9 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <cstdio>
 #include <exception>
+#include <ios>
 
 #include <ucxx/utils/file_descriptor.h>
 

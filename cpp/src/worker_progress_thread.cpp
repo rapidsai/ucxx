@@ -3,8 +3,6 @@
  *
  * See file LICENSE for terms.
  */
-#pragma once
-
 #include <ucxx/log.h>
 #include <ucxx/worker_progress_thread.h>
 
