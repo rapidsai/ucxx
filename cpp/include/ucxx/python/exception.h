@@ -15,6 +15,7 @@ extern PyObject* ucxx_error;
 extern PyObject* ucxx_canceled_error;
 extern PyObject* ucxx_config_error;
 extern PyObject* ucxx_connection_reset_error;
+extern PyObject* ucxx_message_truncated_error;
 }
 
 namespace ucxx {

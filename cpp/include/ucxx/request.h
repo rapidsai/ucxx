@@ -25,18 +25,20 @@ namespace ucxx {
 class Request : public Component {
  protected:
   std::atomic<ucs_status_t> _status{UCS_INPROGRESS};
+  std::string _status_msg{};
   void* _request{nullptr};
 #if UCXX_ENABLE_PYTHON
   std::shared_ptr<python::Future> _pythonFuture{nullptr};
 #endif
   std::function<void(std::shared_ptr<void>)> _callback{nullptr};
   std::shared_ptr<void> _callbackData{nullptr};
+  std::shared_ptr<Worker> _worker{nullptr};
   std::shared_ptr<Endpoint> _endpoint{nullptr};
   std::shared_ptr<DelayedSubmission> _delayedSubmission{nullptr};
   std::string _operationName{"request_undefined"};
   bool _enablePythonFuture{true};
 
-  Request(std::shared_ptr<Endpoint> endpoint,
+  Request(std::shared_ptr<Component> endpointOrWorker,
           std::shared_ptr<DelayedSubmission> delayedSubmission,
           const std::string operationName,
           const bool enablePythonFuture = false);

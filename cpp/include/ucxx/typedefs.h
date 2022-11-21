@@ -12,12 +12,6 @@ namespace ucxx {
 
 class Request;
 
-namespace python {
-
-class Future;
-
-}
-
 // Logging levels
 typedef enum {
   UCXX_LOG_LEVEL_FATAL,       /* Immediate termination */
@@ -35,9 +29,6 @@ typedef enum {
   UCXX_LOG_LEVEL_LAST,
   UCXX_LOG_LEVEL_PRINT /* Temporary output */
 } ucxx_log_level_t;
-
-typedef std::unordered_map<Request*, std::weak_ptr<Request>> InflightRequestMap;
-typedef std::shared_ptr<InflightRequestMap> InflightRequests;
 
 typedef std::unordered_map<std::string, std::string> ConfigMap;
 

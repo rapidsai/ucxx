@@ -10,7 +10,7 @@
 #include <ucxx/typedefs.h>
 
 #if UCXX_ENABLE_PYTHON
-#include <ucxx/buffer_helper.h>
+#include <ucxx/buffer.h>
 #endif
 
 namespace ucxx {
@@ -62,7 +62,7 @@ std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> end
                                                    const bool enablePythonFuture);
 
 std::shared_ptr<RequestTag> createRequestTag(
-  std::shared_ptr<Endpoint> endpoint,
+  std::shared_ptr<Component> endpointOrWorker,
   bool send,
   void* buffer,
   size_t length,
@@ -71,29 +71,18 @@ std::shared_ptr<RequestTag> createRequestTag(
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData);
 
-std::shared_ptr<RequestTagMulti> tagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                              std::vector<void*>& buffer,
-                                              std::vector<size_t>& size,
-                                              std::vector<int>& isCUDA,
-                                              const ucp_tag_t tag,
-                                              const bool enablePythonFuture);
+std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
+                                                           std::vector<void*>& buffer,
+                                                           std::vector<size_t>& size,
+                                                           std::vector<int>& isCUDA,
+                                                           const ucp_tag_t tag,
+                                                           const bool enablePythonFuture);
 
-void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
-                          std::vector<void*>& buffer,
-                          std::vector<size_t>& size,
-                          std::vector<int>& isCUDA,
-                          const ucp_tag_t tag,
-                          const bool enablePythonFuture);
+std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
+                                                           const ucp_tag_t tag,
+                                                           const bool enablePythonFuture);
 
 #if UCXX_ENABLE_PYTHON
-std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint,
-                                              const ucp_tag_t tag,
-                                              const bool enablePythonFuture);
-
-std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
-                                                            ucp_tag_t tag,
-                                                            const bool enablePythonFuture);
-
 namespace python {
 
 class Notifier;

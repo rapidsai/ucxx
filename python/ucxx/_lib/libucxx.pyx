@@ -10,15 +10,21 @@ import enum
 import functools
 import logging
 
+from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport nullptr
-from libcpp.cast cimport dynamic_cast
 from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
-from libcpp.memory cimport shared_ptr, unique_ptr
+from libcpp.memory cimport (
+    dynamic_pointer_cast,
+    make_unique,
+    shared_ptr,
+    unique_ptr,
+)
 from libcpp.string cimport string
+from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
@@ -44,24 +50,15 @@ cdef ptr_to_ndarray(void* ptr, np.npy_intp N):
     return arr
 
 
-def _get_rmm_buffer(uintptr_t unique_ptr_recv_buffer):
-    cdef unique_ptr[PyBuffer] recv_buffer = (
-        move(deref(<unique_ptr[PyBuffer]*> unique_ptr_recv_buffer))
-    )
-    cdef PyRMMBufferPtr rmm_buffer = (
-        dynamic_cast[PyRMMBufferPtr](recv_buffer.get())
-    )
-    return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.get()))
+def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
+    cdef RMMBuffer* rmm_buffer = <RMMBuffer*>recv_buffer_ptr
+    return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.release()))
 
 
-def _get_host_buffer(uintptr_t unique_ptr_recv_buffer):
-    cdef unique_ptr[PyBuffer] recv_buffer = (
-        move(deref(<unique_ptr[PyBuffer]*> unique_ptr_recv_buffer))
-    )
-    cdef PyHostBufferPtr host_buffer = (
-        dynamic_cast[PyHostBufferPtr](recv_buffer.get())
-    )
-    return ptr_to_ndarray(host_buffer.release(), host_buffer.getSize())
+def _get_host_buffer(uintptr_t recv_buffer_ptr):
+    cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
+    cdef size_t size = host_buffer.getSize()
+    return ptr_to_ndarray(host_buffer.release(), size)
 
 
 ###############################################################################
@@ -93,10 +90,15 @@ class UCXConnectionResetError(UCXBaseException):
     pass
 
 
+class UCXMsgTruncated(UCXBaseException):
+    pass
+
+
 cdef public PyObject* ucxx_error = <PyObject*>UCXError
 cdef public PyObject* ucxx_canceled_error = <PyObject*>UCXCanceled
 cdef public PyObject* ucxx_config_error = <PyObject*>UCXConfigError
 cdef public PyObject* ucxx_connection_reset_error = <PyObject*>UCXConnectionResetError
+cdef public PyObject* ucxx_message_truncated_error = <PyObject*>UCXMsgTruncated
 
 
 ###############################################################################
@@ -113,6 +115,12 @@ class Feature(enum.Enum):
     AM = UCP_FEATURE_AM
 
 
+class PythonRequestNotifierWaitState(enum.Enum):
+    Ready = UcxxPythonRequestNotifierWaitStateReady
+    Timeout = UcxxPythonRequestNotifierWaitStateTimeout
+    Shutdown = UcxxPythonRequestNotifierWaitStateShutdown
+
+
 ###############################################################################
 #                                   Classes                                   #
 ###############################################################################
@@ -122,6 +130,26 @@ def PythonEnabled():
     with nogil:
         python_enabled = UCXX_ENABLE_PYTHON
     return bool(python_enabled)
+
+
+cdef class UCXConfig():
+    cdef:
+        unique_ptr[Config] _config
+        bint _enable_python_future
+        dict _cb_data
+
+    def __init__(self, ConfigMap user_options=ConfigMap()):
+        # TODO: Replace unique_ptr by stack object. Rule-of-five is not allowed
+        # by Config, and Cython seems not to handle constructors without moving
+        # in `__init__`.
+        self._config = move(make_unique[Config](user_options))
+
+    def get(self):
+        cdef ConfigMap config_map = self._config.get().get()
+        return {
+            item.first.decode("utf-8"): item.second.decode("utf-8")
+            for item in config_map
+        }
 
 
 cdef class UCXContext():
@@ -168,8 +196,16 @@ cdef class UCXContext():
             k.decode("utf-8"): v.decode("utf-8") for k, v in context_config.items()
         }
 
+        logger.info("UCP initiated using config: ")
+        for k, v in self._config.items():
+            logger.info(f"  {k}, {v}")
+
     cpdef dict get_config(self):
         return self._config
+
+    @property
+    def feature_flags(self):
+        return int(self._context.get().getFeatureFlags())
 
     @property
     def handle(self):
@@ -180,7 +216,8 @@ cdef class UCXContext():
 
         return int(<uintptr_t>handle)
 
-    cpdef str get_info(self):
+    @property
+    def info(self):
         cdef Context* ucxx_context
         cdef string info
 
@@ -194,9 +231,17 @@ cdef class UCXContext():
 cdef class UCXAddress():
     cdef:
         shared_ptr[Address] _address
+        size_t _length
+        ucp_address_t *_handle
+        string _string
 
     def __init__(self, uintptr_t shared_ptr_address):
         self._address = deref(<shared_ptr[Address] *> shared_ptr_address)
+
+        with nogil:
+            self._handle = self._address.get().getHandle()
+            self._length = self._address.get().getLength()
+            self._string = self._address.get().getString()
 
     @classmethod
     def create_from_worker(cls, UCXWorker worker):
@@ -207,6 +252,27 @@ cdef class UCXAddress():
 
         return cls(<uintptr_t><void*>&address)
 
+    @classmethod
+    def create_from_string(cls, address_str):
+        cdef shared_ptr[Address] address
+        cdef string cpp_address_str = address_str
+
+        with nogil:
+            address = createAddressFromString(cpp_address_str)
+
+        return cls(<uintptr_t><void*>&address)
+
+    @classmethod
+    def create_from_buffer(cls, buffer):
+        cdef string address_str
+
+        buf = Array(buffer)
+        assert buf.c_contiguous
+
+        address_str = string(<char*>buf.ptr, <size_t>buf.nbytes)
+
+        return UCXAddress.create_from_string(address_str)
+
     # For old UCX-Py API compatibility
     @classmethod
     def from_worker(cls, UCXWorker worker):
@@ -214,21 +280,47 @@ cdef class UCXAddress():
 
     @property
     def address(self):
-        cdef ucp_address_t* address
-
-        with nogil:
-            address = self._address.get().getHandle()
-
-        return int(<uintptr_t>address)
+        return int(<uintptr_t>self._handle)
 
     @property
     def length(self):
-        cdef size_t getLength
+        return int(self._length)
 
-        with nogil:
-            length = self._address.get().getLength()
+    @property
+    def string(self):
+        return bytes(self._string)
 
-        return int(length)
+    def __getbuffer__(self, Py_buffer *buffer, int flags):
+        cdef Address* address_ptr = self._address.get()
+
+        if bool(flags & PyBUF_WRITABLE):
+            raise BufferError("Requested writable view on readonly data")
+        buffer.buf = self._handle
+        buffer.len = self._length
+        buffer.obj = self
+        buffer.readonly = True
+        buffer.itemsize = 1
+        if bool(flags & PyBUF_FORMAT):
+            buffer.format = b"B"
+        else:
+            buffer.format = NULL
+        buffer.ndim = 1
+        if bool(flags & PyBUF_ND):
+            buffer.shape = &buffer.len
+        else:
+            buffer.shape = NULL
+        buffer.strides = NULL
+        buffer.suboffsets = NULL
+        buffer.internal = NULL
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        pass
+
+    def __reduce__(self):
+        return (UCXAddress.create_from_buffer, (self.string,))
+
+    def __hash__(self):
+        return hash(bytes(self.string))
 
 
 cdef void _generic_callback(void *args) with gil:
@@ -250,6 +342,7 @@ cdef class UCXWorker():
         shared_ptr[Worker] _worker
         dict _progress_thread_start_cb_data
         bint _enable_python_future
+        uint64_t _context_feature_flags
 
     def __init__(
             self,
@@ -264,7 +357,9 @@ cdef class UCXWorker():
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
+
         self._enable_python_future = PythonEnabled() and enable_python_future
+        self._context_feature_flags = <uint64_t>(context.feature_flags)
 
     @property
     def handle(self):
@@ -274,6 +369,17 @@ cdef class UCXWorker():
             handle = self._worker.get().getHandle()
 
         return int(<uintptr_t>handle)
+
+    @property
+    def info(self):
+        cdef Worker* ucxx_worker
+        cdef string info
+
+        with nogil:
+            ucxx_worker = self._worker.get()
+            info = ucxx_worker.getInfo()
+
+        return info.decode("utf-8")
 
     def get_address(self):
         return UCXAddress.create_from_worker(self)
@@ -366,13 +472,14 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().stopRequestNotifierThread()
 
-    def wait_request_notifier(self):
-        cdef bint stop
+    def wait_request_notifier(self, period_ns=0):
+        cdef RequestNotifierWaitState state
+        cdef uint64_t p = period_ns
 
         with nogil:
-            stop = self._worker.get().waitRequestNotifier()
+            state = self._worker.get().waitRequestNotifier(p)
 
-        return stop
+        return PythonRequestNotifierWaitState(state)
 
     def run_request_notifier(self):
         with nogil:
@@ -384,6 +491,24 @@ cdef class UCXWorker():
 
     def is_python_future_enabled(self):
         return self._enable_python_future
+
+    def tag_recv(self, Array arr, size_t tag):
+        cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
+
+        with nogil:
+            req = self._worker.get().tagRecv(
+                buf,
+                nbytes,
+                tag,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
 
 cdef class UCXRequest():
@@ -457,18 +582,18 @@ cdef class UCXBufferRequest:
         )
 
     def get_py_buffer(self):
-        cdef unique_ptr[PyBuffer] buf
+        cdef Buffer* buf
 
         with nogil:
-            buf = move(self._buffer_request.get().pyBuffer)
+            buf = self._buffer_request.get().buffer
 
-        # If pyBuffer == NULL, it holds a header
-        if buf.get() == NULL:
+        # If buf == NULL, it holds a header
+        if buf == NULL:
             return None
-        elif buf.get().isCUDA():
-            return _get_rmm_buffer(<uintptr_t><void*>&buf)
+        elif buf.getType() == BufferType.RMM:
+            return _get_rmm_buffer(<uintptr_t><void*>buf)
         else:
-            return _get_host_buffer(<uintptr_t><void*>&buf)
+            return _get_host_buffer(<uintptr_t><void*>buf)
 
 
 cdef class UCXBufferRequests:
@@ -595,12 +720,19 @@ cdef void _endpoint_close_callback(void *args) with gil:
 cdef class UCXEndpoint():
     cdef:
         shared_ptr[Endpoint] _endpoint
+        uint64_t _context_feature_flags
         bint _enable_python_future
         dict _close_cb_data
 
-    def __init__(self, uintptr_t shared_ptr_endpoint, bint enable_python_future):
+    def __init__(
+            self,
+            uintptr_t shared_ptr_endpoint,
+            bint enable_python_future,
+            uint64_t context_feature_flags
+    ):
         self._endpoint = deref(<shared_ptr[Endpoint] *> shared_ptr_endpoint)
         self._enable_python_future = enable_python_future
+        self._context_feature_flags = context_feature_flags
 
     @classmethod
     def create(
@@ -610,15 +742,25 @@ cdef class UCXEndpoint():
             uint16_t port,
             bint endpoint_error_handling
     ):
+        cdef shared_ptr[Context] context
         cdef shared_ptr[Endpoint] endpoint
         cdef string addr = ip_address.encode("utf-8")
+        cdef uint64_t context_feature_flags
 
         with nogil:
             endpoint = worker._worker.get().createEndpointFromHostname(
                 addr, port, endpoint_error_handling
             )
+            context = dynamic_pointer_cast[Context, Component](
+                worker._worker.get().getParent()
+            )
+            context_feature_flags = context.get().getFeatureFlags()
 
-        return cls(<uintptr_t><void*>&endpoint, worker.is_python_future_enabled())
+        return cls(
+            <uintptr_t><void*>&endpoint,
+            worker.is_python_future_enabled(),
+            context_feature_flags
+        )
 
     @classmethod
     def create_from_conn_request(
@@ -627,14 +769,26 @@ cdef class UCXEndpoint():
             uintptr_t conn_request,
             bint endpoint_error_handling
     ):
+        cdef shared_ptr[Context] context
+        cdef shared_ptr[Worker] worker
         cdef shared_ptr[Endpoint] endpoint
+        cdef uint64_t context_feature_flags
 
         with nogil:
             endpoint = listener._listener.get().createEndpointFromConnRequest(
                 <ucp_conn_request_h>conn_request, endpoint_error_handling
             )
+            worker = dynamic_pointer_cast[Worker, Component](
+                listener._listener.get().getParent()
+            )
+            context = dynamic_pointer_cast[Context, Component](worker.get().getParent())
+            context_feature_flags = context.get().getFeatureFlags()
 
-        return cls(<uintptr_t><void*>&endpoint, listener.is_python_future_enabled())
+        return cls(
+            <uintptr_t><void*>&endpoint,
+            listener.is_python_future_enabled(),
+            context_feature_flags
+        )
 
     @classmethod
     def create_from_worker_address(
@@ -643,15 +797,25 @@ cdef class UCXEndpoint():
             UCXAddress address,
             bint endpoint_error_handling
     ):
-        cdef shared_ptr[Address] ucxx_address = address._address
+        cdef shared_ptr[Context] context
         cdef shared_ptr[Endpoint] endpoint
+        cdef shared_ptr[Address] ucxx_address = address._address
+        cdef uint64_t context_feature_flags
 
         with nogil:
             endpoint = worker._worker.get().createEndpointFromWorkerAddress(
                 ucxx_address, endpoint_error_handling
             )
+            context = dynamic_pointer_cast[Context, Component](
+                worker._worker.get().getParent()
+            )
+            context_feature_flags = context.get().getFeatureFlags()
 
-        return cls(<uintptr_t><void*>&endpoint, worker.is_python_future_enabled())
+        return cls(
+            <uintptr_t><void*>&endpoint,
+            worker.is_python_future_enabled(),
+            context_feature_flags
+        )
 
     @property
     def handle(self):
@@ -662,10 +826,17 @@ cdef class UCXEndpoint():
 
         return int(<uintptr_t>handle)
 
+    def close(self):
+        with nogil:
+            self._endpoint.get().close()
+
     def stream_send(self, Array arr):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.STREAM.value:
+            raise ValueError("UCXContext must be created with `Feature.STREAM`")
 
         with nogil:
             req = self._endpoint.get().streamSend(
@@ -681,6 +852,9 @@ cdef class UCXEndpoint():
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
 
+        if not self._context_feature_flags & Feature.STREAM.value:
+            raise ValueError("UCXContext must be created with `Feature.STREAM`")
+
         with nogil:
             req = self._endpoint.get().streamRecv(
                 buf,
@@ -694,6 +868,9 @@ cdef class UCXEndpoint():
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
 
         with nogil:
             req = self._endpoint.get().tagSend(
@@ -709,6 +886,9 @@ cdef class UCXEndpoint():
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
 
         with nogil:
             req = self._endpoint.get().tagRecv(
@@ -738,8 +918,7 @@ cdef class UCXEndpoint():
             v_is_cuda.push_back(arr.cuda)
 
         with nogil:
-            ucxx_buffer_requests = tagMultiSend(
-                self._endpoint,
+            ucxx_buffer_requests = self._endpoint.get().tagMultiSend(
                 v_buffer,
                 v_size,
                 v_is_cuda,
@@ -751,32 +930,12 @@ cdef class UCXEndpoint():
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
         )
 
-    def tag_send_multi_b(self, tuple buffer, tuple size, tuple is_cuda, size_t tag):
-        cdef vector[void*] v_buffer
-        cdef vector[size_t] v_size
-        cdef vector[int] v_is_cuda
-
-        for b, s, c in zip(buffer, size, is_cuda):
-            v_buffer.push_back(<void*>b)
-            v_size.push_back(s)
-            v_is_cuda.push_back(c)
-
-        with nogil:
-            tagMultiSendBlocking(
-                self._endpoint,
-                v_buffer,
-                v_size,
-                v_is_cuda,
-                tag,
-                self._enable_python_future,
-            )
-
     def tag_recv_multi(self, size_t tag):
         cdef RequestTagMultiPtr ucxx_buffer_requests
 
         with nogil:
-            ucxx_buffer_requests = tagMultiRecv(
-                self._endpoint, tag, self._enable_python_future
+            ucxx_buffer_requests = self._endpoint.get().tagMultiRecv(
+                tag, self._enable_python_future
             )
 
         return UCXBufferRequests(
@@ -897,6 +1056,15 @@ cdef class UCXListener():
 
         return port
 
+    @property
+    def ip(self):
+        cdef string ip
+
+        with nogil:
+            ip = self._listener.get().getIp()
+
+        return ip.decode("utf-8")
+
     def create_endpoint_from_conn_request(
             self,
             uintptr_t conn_request,
@@ -908,6 +1076,14 @@ cdef class UCXListener():
 
     def is_python_future_enabled(self):
         return self._enable_python_future
+
+
+def get_current_options():
+    """
+    Returns the current UCX options
+    if UCX were to be initialized now.
+    """
+    return UCXConfig().get()
 
 
 def get_ucx_version():

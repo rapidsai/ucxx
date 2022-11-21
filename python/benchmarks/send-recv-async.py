@@ -39,8 +39,8 @@ def print_key_value(key, value, key_length=25):
 
 
 def server(queue, args):
-    if args.server_cpu_affinity >= 0:
-        os.sched_setaffinity(0, [args.server_cpu_affinity])
+    if len(args.server_cpu_affinity) > 0:
+        os.sched_setaffinity(0, args.server_cpu_affinity)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.server_dev)
 
@@ -94,8 +94,8 @@ def server(queue, args):
 
 
 def client(queue, port, server_address, args):
-    if args.client_cpu_affinity >= 0:
-        os.sched_setaffinity(0, [args.client_cpu_affinity])
+    if len(args.client_cpu_affinity) > 0:
+        os.sched_setaffinity(0, args.client_cpu_affinity)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.client_dev)
 
@@ -170,8 +170,8 @@ def client(queue, port, server_address, args):
 
     times = queue.get()
     assert len(times) == args.n_iter
-    bw_avg = format_bytes(2 * args.n_iter * args.n_bytes / sum(times))
-    bw_med = format_bytes(2 * args.n_bytes / np.median(times))
+    bw_avg = format_bytes(2 * args.n_iter * args.n_bytes * args.n_buffers / sum(times))
+    bw_med = format_bytes(2 * args.n_bytes * args.n_buffers / np.median(times))
     lat_avg = int(sum(times) * 1e9 / (2 * args.n_iter))
     lat_med = int(np.median(times) * 1e9 / 2)
 
@@ -191,12 +191,12 @@ def client(queue, port, server_address, args):
         print_key_value(key="Device(s)", value="CPU-only")
         s_aff = (
             args.server_cpu_affinity
-            if args.server_cpu_affinity >= 0
+            if len(args.server_cpu_affinity) > 0
             else "affinity not set"
         )
         c_aff = (
             args.client_cpu_affinity
-            if args.client_cpu_affinity >= 0
+            if len(args.client_cpu_affinity) > 0
             else "affinity not set"
         )
         print_key_value(key="Server CPU", value=f"{s_aff}")
@@ -213,9 +213,19 @@ def client(queue, port, server_address, args):
         print_key_value(key="Iterations", value="Bandwidth, Latency")
         print_separator(separator="-")
         for i, t in enumerate(times):
-            ts = format_bytes(2 * args.n_bytes / t)
+            ts = format_bytes(2 * args.n_bytes * args.n_buffers / t)
             lat = int(t * 1e9 / 2)
             print_key_value(key=i, value=f"{ts}/s, {lat}ns")
+
+
+def _parse_cpu_affinity(affinity_str):
+    assert isinstance(affinity_str, str)
+    if len(affinity_str) == 0:
+        return tuple()
+    try:
+        return (int(affinity_str),)
+    except ValueError:
+        return tuple(int(i) for i in affinity_str.split(","))
 
 
 def parse_args():
@@ -254,17 +264,17 @@ def parse_args():
         "-b",
         "--server-cpu-affinity",
         metavar="N",
-        default=-1,
-        type=int,
-        help="CPU affinity for server process (default -1: not set).",
+        default=str(),
+        type=str,
+        help="CPU affinity for server process (default '': not set).",
     )
     parser.add_argument(
         "-c",
         "--client-cpu-affinity",
         metavar="N",
-        default=-1,
-        type=int,
-        help="CPU affinity for client process (default -1: not set).",
+        default=str(),
+        type=str,
+        help="CPU affinity for client process (default '': not set).",
     )
     parser.add_argument(
         "-o",
@@ -357,6 +367,8 @@ def parse_args():
         raise RuntimeError(
             "`--cuda-profile` requires `--object_type=cupy` or `--object_type=rmm`"
         )
+    args.server_cpu_affinity = _parse_cpu_affinity(args.server_cpu_affinity)
+    args.client_cpu_affinity = _parse_cpu_affinity(args.client_cpu_affinity)
     return args
 
 

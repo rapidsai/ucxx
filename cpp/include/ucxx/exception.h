@@ -35,4 +35,9 @@ class ConnectionResetError : public Error {
   ConnectionResetError(const std::string& msg) : Error(msg) {}
 };
 
+class MessageTruncatedError : public Error {
+ public:
+  MessageTruncatedError(const std::string& msg) : Error(msg) {}
+};
+
 }  // namespace ucxx

@@ -12,15 +12,13 @@
 
 #include <ucxx/log.h>
 
+#include <ucxx/python/typedefs.h>
+
 namespace ucxx {
 
 namespace python {
 
-enum RequestNotifierThreadState {
-  RequestNotifierThreadNotRunning,
-  RequestNotifierThreadRunning,
-  RequestNotifierThreadStopping
-};
+enum class RequestNotifierThreadState { NotRunning = 0, Running, Stopping };
 
 class Future;
 
@@ -29,10 +27,17 @@ class Notifier {
   std::mutex _notifierThreadMutex{};
   std::vector<std::pair<std::shared_ptr<Future>, ucs_status_t>> _notifierThreadFutureStatus{};
   bool _notifierThreadFutureStatusReady{false};
-  RequestNotifierThreadState _notifierThreadFutureStatusFinished{RequestNotifierThreadNotRunning};
+  RequestNotifierThreadState _notifierThreadFutureStatusFinished{
+    RequestNotifierThreadState::NotRunning};
   std::condition_variable _notifierThreadConditionVariable{};
 
   Notifier() = default;
+
+  RequestNotifierWaitState waitRequestNotifierWithoutTimeout();
+
+  template <typename Rep, typename Period>
+  RequestNotifierWaitState waitRequestNotifierWithTimeout(
+    std::chrono::duration<Rep, Period> period);
 
  public:
   Notifier(const Notifier&) = delete;
@@ -45,46 +50,16 @@ class Notifier {
     return std::shared_ptr<Notifier>(new Notifier());
   }
 
-  void scheduleFutureNotifyEmpty()
-  {
-    ucxx_trace_req("Notifer::scheduleFutureNotifyEmpty(): %p", this);
-  }
-
   void scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t status);
 
-  bool waitRequestNotifier()
-  {
-    ucxx_trace_req("Notifier::waitRequestNotifier()");
+  template <typename Rep, typename Period>
+  RequestNotifierWaitState waitRequestNotifier(std::chrono::duration<Rep, Period> period);
 
-    if (_notifierThreadFutureStatusFinished == RequestNotifierThreadStopping) {
-      _notifierThreadFutureStatusFinished = RequestNotifierThreadNotRunning;
-      return true;
-    }
-
-    std::unique_lock<std::mutex> lock(_notifierThreadMutex);
-    _notifierThreadConditionVariable.wait(lock, [this] {
-      return _notifierThreadFutureStatusReady ||
-             _notifierThreadFutureStatusFinished == RequestNotifierThreadStopping;
-    });
-
-    ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d %d",
-                   _notifierThreadFutureStatusReady,
-                   _notifierThreadFutureStatusFinished);
-    _notifierThreadFutureStatusReady = false;
-
-    return false;
-  }
+  RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
 
   void runRequestNotifier();
 
-  void stopRequestNotifierThread()
-  {
-    {
-      std::lock_guard<std::mutex> lock(_notifierThreadMutex);
-      _notifierThreadFutureStatusFinished = RequestNotifierThreadStopping;
-    }
-    _notifierThreadConditionVariable.notify_all();
-  }
+  void stopRequestNotifierThread();
 };
 
 }  // namespace python

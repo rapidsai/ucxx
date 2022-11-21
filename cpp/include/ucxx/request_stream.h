@@ -15,6 +15,8 @@ namespace ucxx {
 
 class RequestStream : public Request {
  private:
+  size_t _length{0};
+
   RequestStream(std::shared_ptr<Endpoint> endpoint,
                 bool send,
                 void* buffer,
@@ -31,6 +33,8 @@ class RequestStream : public Request {
   virtual void populateDelayedSubmission();
 
   void request();
+
+  void callback(void* request, ucs_status_t status, size_t length);
 
   static void streamSendCallback(void* request, ucs_status_t status, void* arg);
 

@@ -16,7 +16,10 @@
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/delayed_submission.h>
+#include <ucxx/inflight_requests.h>
 #include <ucxx/worker_progress_thread.h>
+
+#include <ucxx/python/typedefs.h>
 
 #if UCXX_ENABLE_PYTHON
 #include <ucxx/python/notifier.h>
@@ -29,13 +32,19 @@ class Address;
 class Endpoint;
 class Listener;
 
+namespace python {
+
+class Future;
+
+}  // namespace python
+
 class Worker : public Component {
  private:
   ucp_worker_h _handle{nullptr};
   int _epollFileDescriptor{-1};
   int _workerFileDescriptor{-1};
-  InflightRequests _inflightRequestsToCancel{std::make_shared<InflightRequestMap>()};
-  std::mutex _inflightMutex{};
+  std::shared_ptr<InflightRequests> _inflightRequests{std::make_shared<InflightRequests>()};
+  std::shared_ptr<InflightRequests> _inflightRequestsToCancel{std::make_shared<InflightRequests>()};
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
   void* _progressThreadStartCallbackArg{nullptr};
@@ -83,6 +92,8 @@ class Worker : public Component {
    * raising warnings.
    */
   void stopProgressThreadNoWarn();
+
+  void registerInflightRequest(std::shared_ptr<Request> request);
 
  public:
   Worker()              = delete;
@@ -141,6 +152,8 @@ class Worker : public Component {
    * @returns The underlying `ucp_worker_h` handle.
    */
   ucp_worker_h getHandle();
+
+  std::string getInfo();
 
   /**
    * @brief Initialize blocking progress mode.
@@ -260,8 +273,10 @@ class Worker : public Component {
    * @endcode
    *
    * @throws ucxx::Error if an error occurred while attempting to arm the worker.
+   *
+   * @returns `true` if any communication was progressed, `false` otherwise.
    */
-  void waitProgress();
+  bool waitProgress();
 
   /**
    * @brief Progress the worker only once.
@@ -350,18 +365,21 @@ class Worker : public Component {
   std::shared_ptr<ucxx::python::Future> getPythonFuture();
 
   /**
-   * @brief Block until some communication is completed.
+   * @brief Block until a request event.
    *
-   * Blocks until some communication is completed and Python future is ready to be notified.
-   * This method is intended to be used from Python, where a notifier thread will block
-   * until some communication is completed.
+   * Blocks until some communication is completed and Python future is ready to be notified,
+   * shutdown was initiated or a timeout occurred (only if `periodNs > 0`). This method is
+   * intended for use from Python, where a notifier thread will block until one of the
+   * aforementioned events occur.
    *
    * @throws std::runtime_error if UCXX was compiled without `-DUCXX_ENABLE_PYTHON=1` or if
    *                            `ucxx::Worker` was created with `enablePythonFuture=false`.
    *
-   * @returns `true` if the worker is being terminated, `false` otherwise.
+   * @returns `RequestNotifierWaitState::Ready` if some communication completed,
+   *          `RequestNotifierWaitStats::Timeout` if a timeout occurred, or
+   *          `RequestNotifierWaitStats::Shutdown` if shutdown has initiated.
    */
-  bool waitRequestNotifier();
+  python::RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
 
   /**
    * @brief Notify Python futures of each completed communication request.
@@ -426,7 +444,9 @@ class Worker : public Component {
 
   inline size_t cancelInflightRequests();
 
-  void scheduleRequestCancel(InflightRequests inflightRequests);
+  void scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests);
+
+  void removeInflightRequest(Request* request);
 
   /**
    * @brief Check for uncatched tag messages.
@@ -448,6 +468,14 @@ class Worker : public Component {
    * @returns `true` if any uncatched messages were received, `false` otherwise.
    */
   bool tagProbe(ucp_tag_t tag);
+
+  std::shared_ptr<Request> tagRecv(
+    void* buffer,
+    size_t length,
+    ucp_tag_t tag,
+    const bool enablePythonFuture                               = false,
+    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
+    std::shared_ptr<void> callbackData                          = nullptr);
 
   /**
    * @brief Get the address of the UCX worker object.

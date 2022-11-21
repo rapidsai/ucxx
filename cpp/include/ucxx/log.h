@@ -14,6 +14,8 @@
 
 namespace ucxx {
 
+extern ucs_log_component_config_t ucxx_log_component_config;
+
 // Macros
 #ifndef UCXX_MAX_LOG_LEVEL
 #define UCXX_MAX_LOG_LEVEL UCXX_LOG_LEVEL_LAST
@@ -24,7 +26,8 @@ namespace ucxx {
                ((_level) <=                                     \
                 (ucxx_log_level_t)(((ucs_log_component_config_t*)(_comp_log_config))->log_level)))
 
-#define ucxx_log_is_enabled(_level) ucxx_log_component_is_enabled(_level, &ucxx_log_component)
+#define ucxx_log_is_enabled(_level) \
+  ucxx_log_component_is_enabled(_level, &ucxx_log_component_config)
 
 #define ucxx_log_component(_level, _comp_log_config, _fmt, ...)    \
   do {                                                             \
@@ -39,9 +42,9 @@ namespace ucxx {
     }                                                              \
   } while (0)
 
-#define ucxx_log(_level, _fmt, ...)                                       \
-  do {                                                                    \
-    ucxx_log_component(_level, &ucxx_log_component, _fmt, ##__VA_ARGS__); \
+#define ucxx_log(_level, _fmt, ...)                                              \
+  do {                                                                           \
+    ucxx_log_component(_level, &ucxx_log_component_config, _fmt, ##__VA_ARGS__); \
   } while (0)
 
 #define ucxx_error(_fmt, ...)       ucxx_log(UCXX_LOG_LEVEL_ERROR, _fmt, ##__VA_ARGS__)
@@ -75,8 +78,6 @@ const std::unordered_map<std::string, ucxx_log_level_t> logLevelNames = {
 
 const std::string logLevelNameDefault{"WARN"};
 const ucs_log_level_t logLevelDefault = (ucs_log_level_t)logLevelNames.at(logLevelNameDefault);
-
-ucs_log_component_config_t ucxx_log_component = {logLevelDefault, "UCXX"};
 
 // Functions
 void parseLogLevel();

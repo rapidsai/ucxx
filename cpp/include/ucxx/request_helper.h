@@ -12,19 +12,8 @@
 
 namespace ucxx {
 
-void waitSingleRequest(std::shared_ptr<Worker> worker, std::shared_ptr<Request> request)
-{
-  while (!request->isCompleted())
-    worker->progress();
-  // while (!request->isCompleted());
+void waitSingleRequest(std::shared_ptr<Worker> worker, std::shared_ptr<Request> request);
 
-  request->checkError();
-}
-
-void waitRequests(std::shared_ptr<Worker> worker, std::vector<std::shared_ptr<Request>> requests)
-{
-  for (auto& r : requests)
-    waitSingleRequest(worker, r);
-}
+void waitRequests(std::shared_ptr<Worker> worker, std::vector<std::shared_ptr<Request>> requests);
 
 }  // namespace ucxx

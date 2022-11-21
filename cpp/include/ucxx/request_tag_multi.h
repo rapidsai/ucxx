@@ -14,7 +14,7 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/request.h>
 
-#include <ucxx/buffer_helper.h>
+#include <ucxx/buffer.h>
 #include <ucxx/request_helper.h>
 
 #if UCXX_ENABLE_PYTHON
@@ -26,7 +26,7 @@ namespace ucxx {
 struct BufferRequest {
   std::shared_ptr<Request> request{nullptr};
   std::shared_ptr<std::string> stringBuffer{nullptr};
-  std::unique_ptr<PyBuffer> pyBuffer{nullptr};
+  Buffer* buffer{nullptr};
 };
 
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
@@ -65,19 +65,19 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
                   const bool enablePythonFuture);
 
  public:
-  friend std::shared_ptr<RequestTagMulti> tagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                                       std::vector<void*>& buffer,
-                                                       std::vector<size_t>& size,
-                                                       std::vector<int>& isCUDA,
-                                                       const ucp_tag_t tag,
-                                                       const bool enablePythonFuture);
+  friend std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(
+    std::shared_ptr<Endpoint> endpoint,
+    std::vector<void*>& buffer,
+    std::vector<size_t>& size,
+    std::vector<int>& isCUDA,
+    const ucp_tag_t tag,
+    const bool enablePythonFuture);
 
-  friend std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint,
-                                                       const ucp_tag_t tag,
-                                                       const bool enablePythonFuture);
+  friend std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(
+    std::shared_ptr<Endpoint> endpoint, const ucp_tag_t tag, const bool enablePythonFuture);
 
-  friend std::vector<std::unique_ptr<PyBuffer>> tagMultiRecvBlocking(
-    std::shared_ptr<Endpoint> endpoint, ucp_tag_t tag);
+  friend std::vector<Buffer*> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
+                                                   ucp_tag_t tag);
 
   friend void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
                                    std::vector<void*>& buffer,

@@ -152,7 +152,6 @@ class Context : public Component {
    *                               futures upon transfer request completion.
    * @return Shared pointer to the `ucxx::Worker` object.
    */
-  std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = true,
   std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
                                        const bool enablePythonFuture      = false);
 };

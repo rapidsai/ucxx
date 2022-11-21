@@ -15,7 +15,7 @@ if "UCX_MEMTYPE_CACHE" not in os.environ:
     logger.debug("Setting env UCX_MEMTYPE_CACHE=n, which is required by UCX")
     os.environ["UCX_MEMTYPE_CACHE"] = "n"
 
-from . import testing  # noqa
+from . import exceptions, testing  # noqa
 from ._lib import libucxx  # type: ignore
 from ._version import get_versions
 from .core import *  # noqa

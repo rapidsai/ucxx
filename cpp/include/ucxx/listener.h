@@ -48,6 +48,8 @@ class Listener : public Component {
   ucp_listener_h getHandle();
 
   uint16_t getPort();
+
+  std::string getIp();
 };
 
 }  // namespace ucxx

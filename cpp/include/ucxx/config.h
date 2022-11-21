@@ -7,6 +7,8 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/typedefs.h>
+
 namespace ucxx {
 
 class Config {

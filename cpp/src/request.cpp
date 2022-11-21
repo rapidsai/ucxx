@@ -1,0 +1,177 @@
+/**
+ * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ *
+ * See file LICENSE for terms.
+ */
+#include <chrono>
+#include <memory>
+
+#include <ucp/api/ucp.h>
+
+#include <ucxx/component.h>
+#include <ucxx/endpoint.h>
+#include <ucxx/typedefs.h>
+
+#if UCXX_ENABLE_PYTHON
+#include <Python.h>
+#endif
+
+namespace ucxx {
+
+Request::Request(std::shared_ptr<Component> endpointOrWorker,
+                 std::shared_ptr<DelayedSubmission> delayedSubmission,
+                 const std::string operationName,
+                 const bool enablePythonFuture)
+  : _delayedSubmission(delayedSubmission),
+    _operationName(operationName),
+    _enablePythonFuture(enablePythonFuture)
+{
+  _endpoint = std::dynamic_pointer_cast<Endpoint>(endpointOrWorker);
+  _worker   = _endpoint ? Endpoint::getWorker(_endpoint->getParent())
+                        : std::dynamic_pointer_cast<Worker>(endpointOrWorker);
+
+  if (_worker == nullptr || _worker->getHandle() == nullptr)
+    throw ucxx::Error("Worker not initialized");
+  if (_endpoint != nullptr && _endpoint->getHandle() == nullptr)
+    throw ucxx::Error("Endpoint not initialized");
+
+#if UCXX_ENABLE_PYTHON
+  _enablePythonFuture &= _worker->isPythonFutureEnabled();
+  if (_enablePythonFuture) {
+    _pythonFuture = _worker->getPythonFuture();
+    ucxx_trace_req("req: %p, _pythonFuture: %p", _request, _pythonFuture.get());
+  }
+#endif
+
+  if (_endpoint)
+    setParent(_endpoint);
+  else
+    setParent(_worker);
+}
+
+Request::~Request()
+{
+  if (_endpoint)
+    _endpoint->removeInflightRequest(this);
+  else
+    _worker->removeInflightRequest(this);
+}
+
+void Request::cancel()
+{
+  if (_request == nullptr) {
+    ucxx_trace_req("req: %p already completed or cancelled", _request);
+    return;
+  }
+  ucxx_trace_req("req: %p, cancelling", _request);
+  ucp_request_cancel(_worker->getHandle(), _request);
+}
+
+ucs_status_t Request::getStatus() { return _status; }
+
+PyObject* Request::getPyFuture()
+{
+#if UCXX_ENABLE_PYTHON
+  return (PyObject*)_pythonFuture->getHandle();
+#else
+  return NULL;
+#endif
+}
+
+void Request::checkError()
+{
+  // Marking the pointer volatile is necessary to ensure the compiler
+  // won't optimize the condition out when using a separate worker
+  // progress thread
+  switch (_status) {
+    case UCS_OK:
+    case UCS_INPROGRESS: return;
+    case UCS_ERR_CANCELED: throw CanceledError(ucs_status_string(_status)); break;
+    case UCS_ERR_MESSAGE_TRUNCATED: throw MessageTruncatedError(_status_msg); break;
+    default: throw Error(ucs_status_string(_status)); break;
+  }
+}
+
+template <typename Rep, typename Period>
+bool Request::isCompleted(std::chrono::duration<Rep, Period> period)
+{
+  // Marking the pointer volatile is necessary to ensure the compiler
+  // won't optimize the condition out when using a separate worker
+  // progress thread
+  return _status != UCS_INPROGRESS;
+}
+
+bool Request::isCompleted(int64_t periodNs)
+{
+  return isCompleted(std::chrono::nanoseconds(periodNs));
+}
+
+void Request::callback(void* request, ucs_status_t status)
+{
+  ucs_status_t s;
+
+  if (_status == UCS_INPROGRESS) {
+    s       = ucp_request_check_status(request);
+    _status = s;
+  } else {
+    // Derived class has already set the status, e.g., a truncated message.
+    s = _status;
+  }
+
+  ucxx_trace_req("req: %p, callback called \"%s\" with status %d (%s)",
+                 request,
+                 _operationName.c_str(),
+                 s,
+                 ucs_status_string(s));
+
+  ucxx_trace_req("req: %p, _callback: %p", request, _callback.target<void (*)(void)>());
+  if (_callback) _callback(_callbackData);
+
+  ucp_request_free(request);
+
+  setStatus();
+}
+
+void Request::process()
+{
+  // Operation completed immediately
+  if (_request == NULL) {
+    _status = UCS_OK;
+  } else {
+    if (UCS_PTR_IS_ERR(_request)) {
+      _status = UCS_PTR_STATUS(_request);
+    } else if (UCS_PTR_IS_PTR(_request)) {
+      // Completion will be handled by callback
+      return;
+    } else {
+      _status = UCS_OK;
+    }
+  }
+
+  ucs_status_t status = _status.load();
+  ucxx_trace_req("req: %p, status: %d (%s)", _request, status, ucs_status_string(status));
+
+  ucxx_trace_req("req: %p, callback: %p", _request, _callback.target<void (*)(void)>());
+  if (_callback) _callback(_callbackData);
+
+  if (status != UCS_OK) {
+    ucxx_error(
+      "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
+  } else {
+    ucxx_trace_req("req: %p, %s completed immediately", _request, _operationName.c_str());
+  }
+
+  setStatus();
+}
+
+void Request::setStatus()
+{
+#if UCXX_ENABLE_PYTHON
+  if (_enablePythonFuture) {
+    auto future = std::static_pointer_cast<ucxx::python::Future>(_pythonFuture);
+    future->notify(_status);
+  }
+#endif
+}
+
+}  // namespace ucxx

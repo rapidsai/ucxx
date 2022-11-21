@@ -34,6 +34,9 @@ cdef extern from "numpy/arrayobject.h" nogil:
 
 cdef extern from "ucp/api/ucp.h" nogil:
     # Typedefs
+    ctypedef struct ucp_config_t:
+        pass
+
     ctypedef struct ucp_context:
         pass
 
@@ -96,30 +99,36 @@ cdef extern from "<ucxx/python/exception.h>" namespace "ucxx::python" nogil:
     cdef void raise_py_error()
 
 
-cdef extern from "<ucxx/buffer_helper.h>" namespace "ucxx" nogil:
-    ctypedef void (*PyBufferDeleter)(void*)
+cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
+    # TODO: use `cdef enum class` after moving to Cython 3.x
+    ctypedef enum BufferType:
+        Host "ucxx::BufferType::Host"
+        RMM "ucxx::BufferType::RMM"
+        Invalid "ucxx::BufferType::Invalid"
 
-    cdef cppclass PyBuffer:
-        bint isValid()
+    cdef cppclass Buffer:
+        BufferType getType()
         size_t getSize()
-        bint isCUDA()
 
-    cdef cppclass PyHostBuffer:
-        bint isValid()
+    cdef cppclass HostBuffer:
+        BufferType getType()
         size_t getSize()
-        bint isCUDA()
-        unique_ptr[void, PyBufferDeleter] get() except +raise_py_error
         void* release() except +raise_py_error
+        void* data() except +raise_py_error
 
-    ctypedef PyHostBuffer* PyHostBufferPtr
-
-    cdef cppclass PyRMMBuffer:
-        bint isValid()
+    cdef cppclass RMMBuffer:
+        BufferType getType()
         size_t getSize()
-        bint isCUDA()
-        unique_ptr[device_buffer] get() except +raise_py_error
+        unique_ptr[device_buffer] release() except +raise_py_error
+        void* data() except +raise_py_error
 
-    ctypedef PyRMMBuffer* PyRMMBufferPtr
+
+cdef extern from "<ucxx/python/typedefs.h>" namespace "ucxx::python" nogil:
+    # TODO: use `cdef enum class` after moving to Cython 3.x
+    ctypedef enum RequestNotifierWaitState:
+        UcxxPythonRequestNotifierWaitStateReady "ucxx::python::RequestNotifierWaitState::Ready"  # noqa: E501
+        UcxxPythonRequestNotifierWaitStateTimeout "ucxx::python::RequestNotifierWaitState::Timeout"  # noqa: E501
+        UcxxPythonRequestNotifierWaitStateShutdown "ucxx::python::RequestNotifierWaitState::Shutdown"  # noqa: E501
 
 
 cdef extern from "<ucxx/api.h>" nogil:
@@ -133,7 +142,19 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ConfigMap ucx_config, uint64_t feature_flags
     ) except +raise_py_error
 
-    cdef cppclass Context:
+    shared_ptr[Address] createAddressFromWorker(shared_ptr[Worker] worker)
+    shared_ptr[Address] createAddressFromString(string address_string)
+
+    cdef cppclass Config:
+        Config()
+        Config(ConfigMap user_options) except +raise_py_error
+        ConfigMap get() except +raise_py_error
+        ucp_config_t* getHandle()
+
+    cdef cppclass Component:
+        shared_ptr[Component] getParent()
+
+    cdef cppclass Context(Component):
         shared_ptr[Worker] createWorker(
             bint enableDelayedSubmission,
             bint enablePythonFuture
@@ -141,9 +162,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ConfigMap getConfig() except +raise_py_error
         ucp_context_h getHandle()
         string getInfo() except +raise_py_error
+        uint64_t getFeatureFlags()
 
-    cdef cppclass Worker:
+    cdef cppclass Worker(Component):
         ucp_worker_h getHandle()
+        string getInfo() except +raise_py_error
         shared_ptr[Address] getAddress() except +raise_py_error
         shared_ptr[Endpoint] createEndpointFromHostname(
             string ip_address, uint16_t port, bint endpoint_error_handling
@@ -166,12 +189,18 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             function[void(void*)] callback, void* callbackArg
         )
         void stopRequestNotifierThread() except +raise_py_error
-        bint waitRequestNotifier() except +raise_py_error
+        RequestNotifierWaitState waitRequestNotifier(
+            uint64_t periodNs
+        ) except +raise_py_error
         void runRequestNotifier() except +raise_py_error
         void populatePythonFuturesPool() except +raise_py_error
+        shared_ptr[Request] tagRecv(
+            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
+        ) except +raise_py_error
 
-    cdef cppclass Endpoint:
+    cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
+        void close()
         shared_ptr[Request] streamSend(
             void* buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
@@ -184,24 +213,35 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
+        shared_ptr[RequestTagMulti] tagMultiSend(
+            vector[void*]& buffer,
+            vector[size_t]& length,
+            vector[int]& isCUDA,
+            ucp_tag_t tag,
+            bint enable_python_future
+        ) except +raise_py_error
+        shared_ptr[RequestTagMulti] tagMultiRecv(
+            ucp_tag_t tag, bint enable_python_future
+        ) except +raise_py_error
         bint isAlive()
         void raiseOnError() except +raise_py_error
         void setCloseCallback(
             function[void(void*)] close_callback, void* close_callback_arg
         )
 
-    cdef cppclass Listener:
+    cdef cppclass Listener(Component):
         shared_ptr[Endpoint] createEndpointFromConnRequest(
             ucp_conn_request_h conn_request, bint endpoint_error_handling
         ) except +raise_py_error
         uint16_t getPort()
+        string getIp()
 
-    cdef cppclass Address:
+    cdef cppclass Address(Component):
         ucp_address_t* getHandle()
         size_t getLength()
         string getString()
 
-    cdef cppclass Request:
+    cdef cppclass Request(Component):
         cpp_bool isCompleted(int64_t period_ns)
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
@@ -213,7 +253,7 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
     ctypedef struct BufferRequest:
         shared_ptr[Request] request
         shared_ptr[string] stringBuffer
-        unique_ptr[PyBuffer] pyBuffer
+        Buffer* buffer
 
     ctypedef shared_ptr[BufferRequest] BufferRequestPtr
 
@@ -230,31 +270,3 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
         PyObject* getPyFuture() except +raise_py_error
-
-    RequestTagMultiPtr tagMultiRecv(
-        shared_ptr[Endpoint] endpoint,
-        ucp_tag_t tag,
-        bint enable_python_future,
-    ) except +raise_py_error
-    RequestTagMultiPtr tagMultiSend(
-        shared_ptr[Endpoint] endpoint,
-        vector[void*]& buffer,
-        vector[size_t]& length,
-        vector[int]& isCUDA,
-        ucp_tag_t tag,
-        bint enable_python_future,
-    ) except +raise_py_error
-
-    void tagMultiSendBlocking(
-        shared_ptr[Endpoint] endpoint,
-        vector[void*]& buffer,
-        vector[size_t]& length,
-        vector[int]& isCUDA,
-        ucp_tag_t tag,
-        bint enable_python_future,
-    ) except +raise_py_error
-    vector[unique_ptr[PyBuffer]] tagMultiRecvBlocking(
-        shared_ptr[Endpoint] endpoint,
-        ucp_tag_t tag,
-        bint enable_python_future,
-    ) except +raise_py_error
