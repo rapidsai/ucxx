@@ -142,7 +142,6 @@ add_library(
   src/endpoint.cpp
   src/header.cpp
   src/inflight_requests.cpp
-  src/initializer.cpp
   src/listener.cpp
   src/log.cpp
   src/request.cpp
