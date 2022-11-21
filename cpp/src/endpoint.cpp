@@ -229,6 +229,23 @@ std::shared_ptr<Request> Endpoint::tagRecv(
   return request;
 }
 
+std::shared_ptr<RequestTagMulti> Endpoint::tagMultiSend(std::vector<void*>& buffer,
+                                                        std::vector<size_t>& size,
+                                                        std::vector<int>& isCUDA,
+                                                        const ucp_tag_t tag,
+                                                        const bool enablePythonFuture)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture);
+}
+
+std::shared_ptr<RequestTagMulti> Endpoint::tagMultiRecv(const ucp_tag_t tag,
+                                                        const bool enablePythonFuture)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return createRequestTagMultiRecv(endpoint, tag, enablePythonFuture);
+}
+
 std::shared_ptr<Worker> Endpoint::getWorker(std::shared_ptr<Component> workerOrListener)
 {
   auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);

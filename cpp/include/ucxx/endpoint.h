@@ -103,6 +103,14 @@ class Endpoint : public Component {
     std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
     std::shared_ptr<void> callbackData                          = nullptr);
 
+  std::shared_ptr<RequestTagMulti> tagMultiSend(std::vector<void*>& buffer,
+                                                std::vector<size_t>& size,
+                                                std::vector<int>& isCUDA,
+                                                const ucp_tag_t tag,
+                                                const bool enablePythonFuture);
+
+  std::shared_ptr<RequestTagMulti> tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture);
+
   static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener);
 
   static void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);

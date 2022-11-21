@@ -213,6 +213,16 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
+        shared_ptr[RequestTagMulti] tagMultiSend(
+            vector[void*]& buffer,
+            vector[size_t]& length,
+            vector[int]& isCUDA,
+            ucp_tag_t tag,
+            bint enable_python_future
+        ) except +raise_py_error
+        shared_ptr[RequestTagMulti] tagMultiRecv(
+            ucp_tag_t tag, bint enable_python_future
+        ) except +raise_py_error
         bint isAlive()
         void raiseOnError() except +raise_py_error
         void setCloseCallback(
@@ -260,31 +270,3 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
         PyObject* getPyFuture() except +raise_py_error
-
-    RequestTagMultiPtr tagMultiRecv(
-        shared_ptr[Endpoint] endpoint,
-        ucp_tag_t tag,
-        bint enable_python_future,
-    ) except +raise_py_error
-    RequestTagMultiPtr tagMultiSend(
-        shared_ptr[Endpoint] endpoint,
-        vector[void*]& buffer,
-        vector[size_t]& length,
-        vector[int]& isCUDA,
-        ucp_tag_t tag,
-        bint enable_python_future,
-    ) except +raise_py_error
-
-    void tagMultiSendBlocking(
-        shared_ptr[Endpoint] endpoint,
-        vector[void*]& buffer,
-        vector[size_t]& length,
-        vector[int]& isCUDA,
-        ucp_tag_t tag,
-        bint enable_python_future,
-    ) except +raise_py_error
-    vector[Buffer*] tagMultiRecvBlocking(
-        shared_ptr[Endpoint] endpoint,
-        ucp_tag_t tag,
-        bint enable_python_future,
-    ) except +raise_py_error

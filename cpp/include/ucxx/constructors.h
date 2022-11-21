@@ -71,29 +71,18 @@ std::shared_ptr<RequestTag> createRequestTag(
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData);
 
-std::shared_ptr<RequestTagMulti> tagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                              std::vector<void*>& buffer,
-                                              std::vector<size_t>& size,
-                                              std::vector<int>& isCUDA,
-                                              const ucp_tag_t tag,
-                                              const bool enablePythonFuture);
+std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
+                                                           std::vector<void*>& buffer,
+                                                           std::vector<size_t>& size,
+                                                           std::vector<int>& isCUDA,
+                                                           const ucp_tag_t tag,
+                                                           const bool enablePythonFuture);
 
-void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
-                          std::vector<void*>& buffer,
-                          std::vector<size_t>& size,
-                          std::vector<int>& isCUDA,
-                          const ucp_tag_t tag,
-                          const bool enablePythonFuture);
+std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
+                                                           const ucp_tag_t tag,
+                                                           const bool enablePythonFuture);
 
 #if UCXX_ENABLE_PYTHON
-std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint,
-                                              const ucp_tag_t tag,
-                                              const bool enablePythonFuture);
-
-std::vector<Buffer*> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
-                                          ucp_tag_t tag,
-                                          const bool enablePythonFuture);
-
 namespace python {
 
 class Notifier;

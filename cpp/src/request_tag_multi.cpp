@@ -60,64 +60,26 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
   send(buffer, size, isCUDA);
 }
 
-std::shared_ptr<RequestTagMulti> tagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                              std::vector<void*>& buffer,
-                                              std::vector<size_t>& size,
-                                              std::vector<int>& isCUDA,
-                                              const ucp_tag_t tag,
-                                              const bool enablePythonFuture)
+std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
+                                                           std::vector<void*>& buffer,
+                                                           std::vector<size_t>& size,
+                                                           std::vector<int>& isCUDA,
+                                                           const ucp_tag_t tag,
+                                                           const bool enablePythonFuture)
 {
   ucxx_trace_req("RequestTagMulti::tagMultiSend");
   return std::shared_ptr<RequestTagMulti>(
     new RequestTagMulti(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
 }
 
-std::shared_ptr<RequestTagMulti> tagMultiRecv(std::shared_ptr<Endpoint> endpoint,
-                                              const ucp_tag_t tag,
-                                              const bool enablePythonFuture)
+std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
+                                                           const ucp_tag_t tag,
+                                                           const bool enablePythonFuture)
 {
   ucxx_trace_req("RequestTagMulti::tagMultiRecv");
   auto ret =
     std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, tag, enablePythonFuture));
   return ret;
-}
-
-std::vector<Buffer*> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
-                                          const ucp_tag_t tag,
-                                          const bool enablePythonFuture)
-{
-  auto worker = Endpoint::getWorker(endpoint->getParent());
-
-  auto requests = tagMultiRecv(endpoint, tag, enablePythonFuture);
-
-  std::vector<std::shared_ptr<Request>> requestsOnly;
-  std::vector<Buffer*> recvBuffers;
-  for (auto& br : requests->_bufferRequests) {
-    requestsOnly.push_back(br->request);
-    recvBuffers.push_back(br->buffer);
-  }
-
-  waitRequests(worker, requestsOnly);
-
-  return recvBuffers;
-}
-
-void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
-                          std::vector<void*>& buffer,
-                          std::vector<size_t>& size,
-                          std::vector<int>& isCUDA,
-                          const ucp_tag_t tag,
-                          const bool enablePythonFuture)
-{
-  auto worker = Endpoint::getWorker(endpoint->getParent());
-
-  auto requests = tagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture);
-
-  std::vector<std::shared_ptr<Request>> requestsOnly;
-  for (auto& br : requests->_bufferRequests)
-    requestsOnly.push_back(br->request);
-
-  waitRequests(worker, requestsOnly);
 }
 
 void RequestTagMulti::recvFrames()

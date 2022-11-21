@@ -918,8 +918,7 @@ cdef class UCXEndpoint():
             v_is_cuda.push_back(arr.cuda)
 
         with nogil:
-            ucxx_buffer_requests = tagMultiSend(
-                self._endpoint,
+            ucxx_buffer_requests = self._endpoint.get().tagMultiSend(
                 v_buffer,
                 v_size,
                 v_is_cuda,
@@ -931,32 +930,12 @@ cdef class UCXEndpoint():
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
         )
 
-    def tag_send_multi_b(self, tuple buffer, tuple size, tuple is_cuda, size_t tag):
-        cdef vector[void*] v_buffer
-        cdef vector[size_t] v_size
-        cdef vector[int] v_is_cuda
-
-        for b, s, c in zip(buffer, size, is_cuda):
-            v_buffer.push_back(<void*>b)
-            v_size.push_back(s)
-            v_is_cuda.push_back(c)
-
-        with nogil:
-            tagMultiSendBlocking(
-                self._endpoint,
-                v_buffer,
-                v_size,
-                v_is_cuda,
-                tag,
-                self._enable_python_future,
-            )
-
     def tag_recv_multi(self, size_t tag):
         cdef RequestTagMultiPtr ucxx_buffer_requests
 
         with nogil:
-            ucxx_buffer_requests = tagMultiRecv(
-                self._endpoint, tag, self._enable_python_future
+            ucxx_buffer_requests = self._endpoint.get().tagMultiRecv(
+                tag, self._enable_python_future
             )
 
         return UCXBufferRequests(
