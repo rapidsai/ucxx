@@ -43,7 +43,6 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 # ##################################################################################################
 # * build options ---------------------------------------------------------------------------------
 
-# option(USE_NVTX "Build with NVTX support" ON)
 option(BUILD_TESTS "Configure CMake to build tests" ON)
 option(BUILD_BENCHMARKS "Configure CMake to build (google & nvbench) benchmarks" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
@@ -129,26 +128,6 @@ include(cmake/thirdparty/get_rmm.cmake)
 # find or install GoogleTest
 include(cmake/thirdparty/get_gtest.cmake)
 
-# # Workaround until https://github.com/rapidsai/rapids-cmake/issues/176 is resolved
-# if(NOT BUILD_SHARED_LIBS)
-#   include("${rapids-cmake-dir}/export/find_package_file.cmake")
-#   list(APPEND METADATA_KINDS BUILD INSTALL)
-#   list(APPEND dependencies KvikIO ZLIB nvcomp)
-#   if(TARGET cufile::cuFile_interface)
-#     list(APPEND dependencies cuFile)
-#   endif()
-# 
-#   foreach(METADATA_KIND IN LISTS METADATA_KINDS)
-#     foreach(dep IN LISTS dependencies)
-#       rapids_export_package(${METADATA_KIND} ${dep} cudf-exports)
-#     endforeach()
-#   endforeach()
-# 
-#   if(TARGET conda_env)
-#     install(TARGETS conda_env EXPORT cudf-exports)
-#   endif()
-# endif()
-
 # ##################################################################################################
 # * library targets -------------------------------------------------------------------------------
 
@@ -216,7 +195,7 @@ target_compile_definitions(
               "$<BUILD_INTERFACE:$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_DEFINITIONS}>>"
 )
 
-# Disable NVTX if necessary
+# Enable Python if necessary
 if(UCXX_ENABLE_PYTHON)
   target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_PYTHON)
 endif()
@@ -227,8 +206,6 @@ target_compile_definitions(ucxx PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_L
 # Specify the target module library dependencies
 target_link_libraries(
   ucxx
-  # PUBLIC ${ARROW_LIBRARIES} libcudacxx::libcudacxx cudf::Thrust rmm::rmm
-  # PRIVATE cuco::cuco ZLIB::ZLIB nvcomp::nvcomp kvikio::kvikio
   PUBLIC rmm::rmm ucx::ucp
           $<TARGET_NAME_IF_EXISTS:cuFile_interface>
 )
@@ -250,58 +227,11 @@ else()
   target_link_libraries(ucxx PUBLIC CUDA::cudart)
 endif()
 
-# add_library(cudf::cudf ALIAS cudf)
+add_library(ucxx::ucxx ALIAS ucxx)
 
 # ##################################################################################################
 # * tests and benchmarks --------------------------------------------------------------------------
 # ##################################################################################################
-
-# # ##################################################################################################
-# # * build ucxxtestutil ----------------------------------------------------------------------------
-# 
-# add_library(
-#   ucxxtestutil STATIC
-#   tests/buffer.cpp
-#   tests/config.cpp
-#   tests/context.cpp
-#   tests/endpoint.cpp
-#   tests/header.cpp
-#   tests/test_ucxx.cpp
-#   tests/listener.cpp
-#   tests/request.cpp
-#   tests/worker.cpp
-# )
-# 
-# set_target_properties(
-#   ucxxtestutil
-#   PROPERTIES BUILD_RPATH "\$ORIGIN"
-#              INSTALL_RPATH "\$ORIGIN"
-#              # set target compile options
-#              CXX_STANDARD 17
-#              CXX_STANDARD_REQUIRED ON
-#              CUDA_STANDARD 17
-#              CUDA_STANDARD_REQUIRED ON
-#              POSITION_INDEPENDENT_CODE ON
-#              INTERFACE_POSITION_INDEPENDENT_CODE ON
-# )
-# 
-# target_compile_options(
-#   ucxxtestutil PUBLIC "$<BUILD_INTERFACE:$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>>"
-#                       "$<BUILD_INTERFACE:$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_FLAGS}>>"
-# )
-# 
-# target_link_libraries(
-#   ucxxtestutil
-#   PUBLIC GTest::gmock GTest::gtest ucxx
-#   PRIVATE $<TARGET_NAME_IF_EXISTS:conda_env>
-# )
-# 
-# target_include_directories(
-#   ucxxtestutil PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}>"
-#                       "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
-# )
-# 
-# add_library(ucxx::ucxxtestutil ALIAS ucxxtestutil)
 
 # ##################################################################################################
 # * add tests -------------------------------------------------------------------------------------
@@ -309,12 +239,6 @@ endif()
 if(UCXX_BUILD_TESTS)
   # include CTest module -- automatically calls enable_testing()
   include(CTest)
-
-  # # ctest cuda memcheck
-  # find_program(CUDA_SANITIZER compute-sanitizer)
-  # set(MEMORYCHECK_COMMAND ${CUDA_SANITIZER})
-  # set(MEMORYCHECK_TYPE CudaSanitizer)
-  # set(CUDA_SANITIZER_COMMAND_OPTIONS "--tool memcheck")
 
   # Always print verbose output when tests fail if run using `make test`.
   list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
@@ -346,8 +270,6 @@ include(GNUInstallDirs)
 
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ucxx)
 
-# install target for cudf_base and the proxy libcudf.so
-# TODO: install target for cudf_base and the proxy libucxx.so
 install(
   TARGETS ucxx
   DESTINATION ${lib_dir}
@@ -358,26 +280,6 @@ install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx
                   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-# install(
-#   TARGETS ucxxtestutil
-#   DESTINATION ${lib_dir}
-#   EXPORT ucxx-testing-exports
-# )
-# 
-# install(
-#   EXPORT ucxx-testing-exports
-#   FILE ucxx-testing-targets.cmake
-#   NAMESPACE ucxx::
-#   DESTINATION "${lib_dir}/cmake/ucxx"
-# )
-# 
-# include("${rapids-cmake-dir}/export/write_dependencies.cmake")
-# rapids_export_write_dependencies(
-#   INSTALL ucxx-testing-exports
-#   "${PROJECT_BINARY_DIR}/rapids-cmake/ucxx/export/ucxx-testing-dependencies.cmake"
-# )
-
-# TODO
 set(doc_string
     [=[
 Provide targets for the ucxx library.
@@ -390,34 +292,12 @@ management of objects and thread-safety.
 Imported Targets
 ^^^^^^^^^^^^^^^^
 
-If cudf is found, this module defines the following IMPORTED GLOBAL
+If ucxx is found, this module defines the following IMPORTED GLOBAL
 targets:
 
- cudf::cudf             - The main cudf library.
-
-This module offers an optional testing component which defines the
-following IMPORTED GLOBAL  targets:
-
- cudf::cudftestutil     - The main cudf testing library
+ ucxx::ucxx             - The main ucxx library.
     ]=]
 )
-
-string(
-  APPEND
-  install_code_string
-  [=[
-if(testing IN_LIST cudf_FIND_COMPONENTS)
-  enable_language(CUDA)
-  if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/cudf-testing-dependencies.cmake")
-    include("${CMAKE_CURRENT_LIST_DIR}/cudf-testing-dependencies.cmake")
-  endif()
-  if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/cudf-testing-targets.cmake")
-    include("${CMAKE_CURRENT_LIST_DIR}/cudf-testing-targets.cmake")
-  endif()
-endif()
-]=]
-)
-string(APPEND install_code_string "${common_code_string}")
 
 rapids_export(
   INSTALL ucxx
@@ -425,40 +305,17 @@ rapids_export(
   GLOBAL_TARGETS ucxx
   NAMESPACE ucxx::
   DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK install_code_string
 )
 
 # ##################################################################################################
 # * build export -------------------------------------------------------------------------------
-set(build_code_string
-    [=[
-if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/ucxx-testing-dependencies.cmake")
-  include("${CMAKE_CURRENT_LIST_DIR}/ucxx-testing-dependencies.cmake")
-endif()
-if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/ucxx-testing-targets.cmake")
-  include("${CMAKE_CURRENT_LIST_DIR}/ucxx-testing-targets.cmake")
-endif()
-]=]
-)
-string(APPEND build_code_string "${common_code_string}")
-
 rapids_export(
   BUILD ucxx
   EXPORT_SET ucxx-exports
   GLOBAL_TARGETS ucxx
   NAMESPACE ucxx::
   DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK build_code_string
 )
-
-# export(
-#   EXPORT ucxx-testing-exports
-#   FILE ${UCXX_BINARY_DIR}/ucxx-testing-targets.cmake
-#   NAMESPACE ucxx::
-# )
-# rapids_export_write_dependencies(
-#   BUILD ucxx-testing-exports "${UCXX_BINARY_DIR}/ucxx-testing-dependencies.cmake"
-# )
 
 # ##################################################################################################
 # * make documentation ----------------------------------------------------------------------------
