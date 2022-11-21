@@ -353,7 +353,7 @@ void Worker::stopProgressThread()
     stopProgressThreadNoWarn();
 }
 
-inline size_t Worker::cancelInflightRequests()
+size_t Worker::cancelInflightRequests()
 {
   auto inflightRequestsToCancel =
     std::exchange(_inflightRequestsToCancel, std::make_shared<InflightRequests>());

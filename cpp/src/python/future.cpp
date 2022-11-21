@@ -65,7 +65,7 @@ finish:
   return asyncio_future_object;
 }
 
-static PyObject* create_python_future()
+PyObject* create_python_future()
 {
   PyObject* future_object = NULL;
   PyObject* result        = NULL;
@@ -121,7 +121,7 @@ static PyCFunction get_future_method(const char* method_name)
   return result;
 }
 
-static PyObject* future_set_result(PyObject* future, PyObject* value)
+PyObject* future_set_result(PyObject* future, PyObject* value)
 {
   PyObject* result = NULL;
 
@@ -137,7 +137,7 @@ static PyObject* future_set_result(PyObject* future, PyObject* value)
   return result;
 }
 
-static PyObject* future_set_exception(PyObject* future, PyObject* exception, const char* message)
+PyObject* future_set_exception(PyObject* future, PyObject* exception, const char* message)
 {
   PyObject* result           = NULL;
   PyObject* message_object   = NULL;

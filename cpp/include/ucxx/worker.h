@@ -117,7 +117,7 @@ class Worker : public Component {
 
   void stopProgressThread();
 
-  inline size_t cancelInflightRequests();
+  size_t cancelInflightRequests();
 
   void scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests);
 

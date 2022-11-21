@@ -4,7 +4,8 @@
  * See file LICENSE for terms.
  */
 #if UCXX_ENABLE_PYTHON
-#include <exception>
+#include <ios>
+#include <stdexcept>
 
 #include <ucxx/exception.h>
 #include <ucxx/python/exception.h>
