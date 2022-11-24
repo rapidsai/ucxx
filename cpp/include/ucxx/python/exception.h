@@ -10,17 +10,19 @@
 
 #include <ucp/api/ucp.h>
 
-extern "C" {
-extern PyObject* ucxx_error;
-extern PyObject* ucxx_canceled_error;
-extern PyObject* ucxx_config_error;
-extern PyObject* ucxx_connection_reset_error;
-extern PyObject* ucxx_message_truncated_error;
-}
-
 namespace ucxx {
 
 namespace python {
+
+extern PyObject* UCXXBaseException;
+extern PyObject* UCXXError;
+extern PyObject* UCXXCanceledError;
+extern PyObject* UCXXCloseError;
+extern PyObject* UCXXConfigError;
+extern PyObject* UCXXConnectionResetError;
+extern PyObject* UCXXMessageTruncatedError;
+
+void create_exceptions();
 
 void raise_py_error();
 

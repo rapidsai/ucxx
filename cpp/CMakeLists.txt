@@ -206,7 +206,6 @@ target_compile_definitions(ucxx PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_L
 target_link_libraries(
   ucxx
   PUBLIC rmm::rmm ucx::ucp
-          $<TARGET_NAME_IF_EXISTS:cuFile_interface>
 )
 
 # Add Conda library, and include paths if specified

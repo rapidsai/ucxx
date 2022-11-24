@@ -96,6 +96,15 @@ cdef extern from "rmm/device_buffer.hpp" namespace "rmm" nogil:
 
 
 cdef extern from "<ucxx/python/exception.h>" namespace "ucxx::python" nogil:
+    cdef PyObject* UCXXBaseException
+    cdef PyObject* UCXXError
+    cdef PyObject* UCXXCanceledError
+    cdef PyObject* UCXXCloseError
+    cdef PyObject* UCXXConfigError
+    cdef PyObject* UCXXConnectionResetError
+    cdef PyObject* UCXXMessageTruncatedError
+
+    cdef void create_exceptions()
     cdef void raise_py_error()
 
 

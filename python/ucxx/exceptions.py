@@ -4,9 +4,11 @@
 from ._lib.libucxx import (  # noqa
     UCXBaseException,
     UCXCanceled,
+    UCXCanceledError,
     UCXCloseError,
     UCXConfigError,
     UCXConnectionResetError,
     UCXError,
+    UCXMessageTruncatedError,
     UCXMsgTruncated,
 )
