@@ -7,7 +7,6 @@
 #include <iostream>
 
 #include <ucxx/context.h>
-#include <ucxx/initializer.h>
 #include <ucxx/log.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
@@ -19,7 +18,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
 {
   ucp_params_t params;
 
-  ucxx::Initializer::getInstance();
+  parseLogLevel();
 
   // UCP
   std::memset(&params, 0, sizeof(params));

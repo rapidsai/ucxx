@@ -15,12 +15,11 @@
 
 #include <ucxx/log.h>
 #include <ucxx/python/future.h>
+#include <ucxx/python/notifier.h>
 
 namespace ucxx {
 
 namespace python {
-
-class Notifier;
 
 typedef void (*FutureCallback)();
 

@@ -9,6 +9,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/log.h>
+#include <ucxx/python/exception.h>
 #include <ucxx/python/python_future.h>
 
 namespace ucxx {

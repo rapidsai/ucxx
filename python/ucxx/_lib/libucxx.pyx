@@ -65,40 +65,42 @@ def _get_host_buffer(uintptr_t recv_buffer_ptr):
 #                               Exceptions                                    #
 ###############################################################################
 
-
-class UCXBaseException(Exception):
-    pass
-
-
-class UCXError(UCXBaseException):
-    pass
-
-
-class UCXCanceled(UCXBaseException):
-    pass
+UCXBaseException = None
+UCXError = None
+UCXCanceled = None
+UCXCanceledError = None
+UCXCloseError = None
+UCXConfigError = None
+UCXConnectionResetError = None
+UCXMsgTruncated = None
+UCXMessageTruncatedError = None
 
 
-class UCXCloseError(UCXBaseException):
-    pass
+def _create_exceptions():
+    global UCXBaseException
+    global UCXError
+    global UCXCanceled
+    global UCXCanceledError
+    global UCXCloseError
+    global UCXConfigError
+    global UCXConnectionResetError
+    global UCXMsgTruncated
+    global UCXMessageTruncatedError
 
+    create_exceptions()
 
-class UCXConfigError(UCXBaseException):
-    pass
+    UCXBaseException = <object>UCXXBaseException
+    UCXError = <object>UCXXError
+    UCXCanceledError = <object>UCXXCanceledError
+    UCXCloseError = <object>UCXXCloseError
+    UCXConfigError = <object>UCXXConfigError
+    UCXConnectionResetError = <object>UCXXConnectionResetError
+    UCXMessageTruncatedError = <object>UCXXMessageTruncatedError
 
-
-class UCXConnectionResetError(UCXBaseException):
-    pass
-
-
-class UCXMsgTruncated(UCXBaseException):
-    pass
-
-
-cdef public PyObject* ucxx_error = <PyObject*>UCXError
-cdef public PyObject* ucxx_canceled_error = <PyObject*>UCXCanceled
-cdef public PyObject* ucxx_config_error = <PyObject*>UCXConfigError
-cdef public PyObject* ucxx_connection_reset_error = <PyObject*>UCXConnectionResetError
-cdef public PyObject* ucxx_message_truncated_error = <PyObject*>UCXMsgTruncated
+    # Define legacy names
+    # TODO: Deprecate and remove
+    UCXCanceled = UCXCanceledError
+    UCXMsgTruncated = UCXMessageTruncatedError
 
 
 ###############################################################################
