@@ -128,9 +128,136 @@ include(cmake/thirdparty/get_rmm.cmake)
 # find or install GoogleTest
 include(cmake/thirdparty/get_gtest.cmake)
 
+if(UCXX_ENABLE_PYTHON)
+  find_package(Python3 REQUIRED COMPONENTS Development)
+  set(UCXX_PYTHON_LIB Python3::Python)
+endif()
+
 # ##################################################################################################
 # * library targets -------------------------------------------------------------------------------
 
+# Separate library for common functionality, e.g., logging.
+add_library(
+  ucxx_common
+  src/log.cpp
+)
+
+set_target_properties(
+  ucxx_common
+  PROPERTIES BUILD_RPATH "\$ORIGIN"
+             INSTALL_RPATH "\$ORIGIN"
+             # set target compile options
+             CXX_STANDARD 17
+             CXX_STANDARD_REQUIRED ON
+             POSITION_INDEPENDENT_CODE ON
+             INTERFACE_POSITION_INDEPENDENT_CODE ON
+)
+
+target_compile_options(
+  ucxx_common PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
+)
+
+# Specify include paths for the current target and dependents
+target_include_directories(
+  ucxx_common
+  PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
+         "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
+  PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
+  INTERFACE "$<INSTALL_INTERFACE:include>"
+)
+
+target_compile_definitions(
+  ucxx_common PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
+)
+
+# Specify the target module library dependencies
+target_link_libraries(
+  ucxx_common
+  PUBLIC ucx::ucs
+)
+
+# Add Conda library, and include paths if specified
+if(TARGET conda_env)
+  target_link_libraries(ucxx_common PRIVATE conda_env)
+endif()
+
+add_library(ucxx::common ALIAS ucxx_common)
+
+# Build Python if requested
+if(UCXX_ENABLE_PYTHON)
+  add_library(
+    ucxx_python
+    src/python/exception.cpp
+    src/python/future.cpp
+    src/python/python_future.cpp
+    src/python/notifier.cpp
+  )
+
+  set_target_properties(
+    ucxx_python
+    PROPERTIES BUILD_RPATH "\$ORIGIN"
+               INSTALL_RPATH "\$ORIGIN"
+               # set target compile options
+               CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED ON
+               # For std:: support of __int128_t. Can be removed once using cuda::std
+               # CXX_EXTENSIONS ON
+               CUDA_STANDARD 17
+               CUDA_STANDARD_REQUIRED ON
+               POSITION_INDEPENDENT_CODE ON
+               INTERFACE_POSITION_INDEPENDENT_CODE ON
+  )
+
+  target_compile_options(
+    ucxx_python PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
+                        "$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_FLAGS}>"
+  )
+
+  # Specify include paths for the current target and dependents
+  target_include_directories(
+    ucxx_python
+    PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
+           "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
+    PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
+    INTERFACE "$<INSTALL_INTERFACE:include>"
+  )
+
+  target_compile_definitions(
+    ucxx_python PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
+                       "$<BUILD_INTERFACE:$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_DEFINITIONS}>>"
+  )
+
+  target_compile_definitions(ucxx_python PUBLIC UCXX_ENABLE_PYTHON)
+  # Define spdlog level
+  target_compile_definitions(ucxx_python PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
+
+  # Specify the target module library dependencies
+  target_link_libraries(
+    ucxx_python
+    PUBLIC rmm::rmm ucx::ucp ucxx::common ${UCXX_PYTHON_LIB}
+  )
+
+  # Add Conda library, and include paths if specified
+  if(TARGET conda_env)
+    target_link_libraries(ucxx_python PRIVATE conda_env)
+  endif()
+
+  if(CUDA_STATIC_RUNTIME)
+    # Tell CMake what CUDA language runtime to use
+    set_target_properties(ucxx_python PROPERTIES CUDA_RUNTIME_LIBRARY Static)
+    # Make sure to export to consumers what runtime we used
+    target_link_libraries(ucxx_python PUBLIC CUDA::cudart_static)
+  else()
+    # Tell CMake what CUDA language runtime to use
+    set_target_properties(ucxx_python PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+    # Make sure to export to consumers what runtime we used
+    target_link_libraries(ucxx_python PUBLIC CUDA::cudart)
+  endif()
+
+  add_library(ucxx::python ALIAS ucxx_python)
+endif()
+
+# Build main library
 add_library(
   ucxx
   src/address.cpp
@@ -151,10 +278,6 @@ add_library(
   src/request_tag_multi.cpp
   src/worker.cpp
   src/worker_progress_thread.cpp
-  src/python/exception.cpp
-  src/python/future.cpp
-  src/python/python_future.cpp
-  src/python/notifier.cpp
   src/utils/file_descriptor.cpp
   src/utils/sockaddr.cpp
   src/utils/ucx.cpp
@@ -199,13 +322,18 @@ if(UCXX_ENABLE_PYTHON)
   target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_PYTHON)
 endif()
 
+# Enable RMM if necessary
+if(UCXX_ENABLE_RMM)
+    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
+endif()
+
 # Define spdlog level
 target_compile_definitions(ucxx PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
 
 # Specify the target module library dependencies
 target_link_libraries(
   ucxx
-  PUBLIC rmm::rmm ucx::ucp
+  PUBLIC rmm::rmm ucx::ucp ucxx::common ucxx::python
 )
 
 # Add Conda library, and include paths if specified
@@ -269,7 +397,7 @@ include(GNUInstallDirs)
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ucxx)
 
 install(
-  TARGETS ucxx
+  TARGETS ucxx ucxx_common ucxx_python
   DESTINATION ${lib_dir}
   EXPORT ucxx-exports
 )
@@ -298,7 +426,7 @@ targets:
 )
 
 rapids_export(
-  INSTALL ucxx
+  INSTALL ucxx ucxx_common ucxx_python
   EXPORT_SET ucxx-exports
   GLOBAL_TARGETS ucxx
   NAMESPACE ucxx::

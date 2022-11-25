@@ -24,7 +24,7 @@ include_dirs = [
     "/usr/local/cuda/include",
 ]
 library_dirs = [get_config_var("LIBDIR"), "/usr/local/cuda/lib64"]
-libraries = ["ucp", "uct", "ucm", "ucs", "cudart", "cuda"]
+libraries = ["ucxx", "ucxx_python", "cudart", "cuda"]
 cpp_extra_compile_args = [
     "-std=c++17",
     "-Werror",
@@ -34,12 +34,6 @@ cpp_extra_compile_args = [
 ]
 c_extra_compile_args = ["-Werror", "-g"]
 depends = []
-
-# Add ucxx headers from the source tree (if available)
-ucxx_include_dir = os.path.abspath(f"{setup_dir}/../cpp/include")
-if os.path.isdir(ucxx_include_dir):
-    include_dirs = include_dirs + [ucxx_include_dir]
-    depends.extend(glob.glob(f"{ucxx_include_dir}/ucxx/*"))
 
 
 def get_ucp_version():
