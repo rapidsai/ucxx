@@ -40,20 +40,28 @@ class Future;
 
 class Worker : public Component {
  private:
-  ucp_worker_h _handle{nullptr};
-  int _epollFileDescriptor{-1};
-  int _workerFileDescriptor{-1};
-  std::shared_ptr<InflightRequests> _inflightRequests{std::make_shared<InflightRequests>()};
-  std::shared_ptr<InflightRequests> _inflightRequestsToCancel{std::make_shared<InflightRequests>()};
-  std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
-  std::function<void(void*)> _progressThreadStartCallback{nullptr};
-  void* _progressThreadStartCallbackArg{nullptr};
-  std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{nullptr};
-  bool _enablePythonFuture{false};
+  ucp_worker_h _handle{nullptr};  ///< The UCP worker handle
+  int _epollFileDescriptor{-1};   ///< The epoll file descriptor
+  int _workerFileDescriptor{-1};  ///< The worker file descriptor
+  std::shared_ptr<InflightRequests> _inflightRequests{
+    std::make_shared<InflightRequests>()};  ///< The inflight requests
+  std::shared_ptr<InflightRequests> _inflightRequestsToCancel{
+    std::make_shared<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
+  std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};  ///< The progress thread object
+  std::function<void(void*)> _progressThreadStartCallback{
+    nullptr};  ///< The callback function to execute at progress thread start
+  void* _progressThreadStartCallbackArg{
+    nullptr};  ///< The argument to be passed to the progress thread start callback
+  std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
+    nullptr};  ///< Collection of enqueued delayed submissions
+  bool _enablePythonFuture{
+    false};  ///< Boolean identifying whether the worker was created with Python future capability
 #if UCXX_ENABLE_PYTHON
-  std::mutex _pythonFuturesPoolMutex{};
-  std::queue<std::shared_ptr<ucxx::python::Future>> _pythonFuturesPool{};
-  std::shared_ptr<ucxx::python::Notifier> _notifier{ucxx::python::createNotifier()};
+  std::mutex _pythonFuturesPoolMutex{};  ///< Mutex to access the Python futures pool
+  std::queue<std::shared_ptr<ucxx::python::Future>>
+    _pythonFuturesPool{};  ///< Python futures pool to prevent running out of fresh futures
+  std::shared_ptr<ucxx::python::Notifier> _notifier{
+    ucxx::python::createNotifier()};  ///< Python notifier object
 #endif
 
   /**
@@ -93,6 +101,14 @@ class Worker : public Component {
    */
   void stopProgressThreadNoWarn();
 
+  /**
+   * @brief Register an inflight request.
+   *
+   * Called each time a new transfer request is made by the `Worker`, such that it may
+   * be canceled when necessary.
+   *
+   * @param[in] request the request to register.
+   */
   void registerInflightRequest(std::shared_ptr<Request> request);
 
  public:
@@ -153,6 +169,14 @@ class Worker : public Component {
    */
   ucp_worker_h getHandle();
 
+  /**
+   * @brief Get information about the underlying `ucp_worker_h` object.
+   *
+   * Convenience wrapper for `ucp_worker_print_info()` to get information about the
+   * underlying UCP worker handle and return it as a string.
+   *
+   * @returns String containing information about the UCP worker.
+   */
   std::string getInfo();
 
   /**
@@ -442,10 +466,41 @@ class Worker : public Component {
    */
   void stopProgressThread();
 
+  /**
+   * @brief Cancel inflight requests.
+   *
+   * Cancel inflight requests, returning the total number of requests that were canceled.
+   * This is usually executed during the progress loop.
+   *
+   * @returns Number of requests that were canceled.
+   */
   size_t cancelInflightRequests();
 
+  /**
+   * @brief Schedule cancelation of inflight requests.
+   *
+   * Schedule inflight request to be canceled when `cancelInflightRequests()` is executed
+   * the next time, usually during the progress loop. This is usually called from a
+   * `ucxx::Endpoint`, for example when the error callback was called, signaling that
+   * inflight requests for that endpoint will not be completed successfully and should be
+   * canceled.
+   *
+   * @param[in] inflight requests object that implements the `cancelAll()` method.
+   */
   void scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests);
 
+  /**
+   * @brief Remove reference to request from internal container.
+   *
+   * Remove the reference to a specific request from the internal container. This should
+   * be called when a request has completed and the `ucxx::Worker` does not need to keep
+   * track of it anymore. The raw pointer to a `ucxx::Request` is passed here as opposed
+   * to the usual `std::shared_ptr<ucxx::Request>` used elsewhere, this is because the
+   * raw pointer address is used as key to the requests reference, and this is called
+   * from the object's destructor.
+   *
+   * @param[in] request raw pointer to the request
+   */
   void removeInflightRequest(Request* request);
 
   /**
@@ -469,6 +524,30 @@ class Worker : public Component {
    */
   bool tagProbe(ucp_tag_t tag);
 
+  /**
+   * @brief Enqueue a tag receive operation.
+   *
+   * Enqueue a tag receive operation, returning a `std::shared<ucxx::Request>` that can
+   * be later awaited and checked for errors. This is a non-blocking operation, and the
+   * status of the transfer must be verified from the resulting request object before the
+   * data can be consumed.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX to be compiled with
+   * `UCXX_ENABLE_PYTHON=1`.
+   *
+   * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
+   *                                data will be stored.
+   * @param[in] length              the size in bytes of the tag message to be received.
+   * @param[in] tag                 the tag to match.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
   std::shared_ptr<Request> tagRecv(
     void* buffer,
     size_t length,
@@ -486,7 +565,7 @@ class Worker : public Component {
    *
    * @throws ucxx::Error if an error occurred while attempting to get the worker address.
    *
-   * @returns the address of the local worker.
+   * @returns The address of the local worker.
    */
   std::shared_ptr<Address> getAddress();
 
@@ -512,7 +591,7 @@ class Worker : public Component {
    * @param[in] endpointErrorHandling enable endpoint error handling if `true`,
    *                                  disable otherwise.
    *
-   * @returns the `shared_ptr<ucxx::Endpoint>` object
+   * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
   std::shared_ptr<Endpoint> createEndpointFromHostname(std::string ipAddress,
                                                        uint16_t port,
@@ -544,7 +623,7 @@ class Worker : public Component {
    * @param[in] endpointErrorHandling enable endpoint error handling if `true`,
    *                                  disable otherwise.
    *
-   * @returns the `shared_ptr<ucxx::Endpoint>` object
+   * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
   std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Address> address,
                                                             bool endpointErrorHandling = true);
@@ -564,7 +643,7 @@ class Worker : public Component {
    * @param[in] callback to handle each incoming connection.
    * @param[in] callback_args pointer to argument to pass to the callback.
    *
-   * @returns the `shared_ptr<ucxx::Listener>` object
+   * @returns The `shared_ptr<ucxx::Listener>` object
    */
   std::shared_ptr<Listener> createListener(uint16_t port,
                                            ucp_listener_conn_callback_t callback,
