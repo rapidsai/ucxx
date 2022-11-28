@@ -121,7 +121,7 @@ class Worker : public Component {
 
   void scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests);
 
-  void removeInflightRequest(Request* request);
+  void removeInflightRequest(const Request* const request);
 
   bool tagProbe(ucp_tag_t tag);
 
