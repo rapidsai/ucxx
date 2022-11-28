@@ -175,7 +175,10 @@ void Endpoint::registerInflightRequest(std::shared_ptr<Request> request)
   _inflightRequests->insert(request);
 }
 
-void Endpoint::removeInflightRequest(Request* request) { _inflightRequests->remove(request); }
+void Endpoint::removeInflightRequest(const Request* const request)
+{
+  _inflightRequests->remove(request);
+}
 
 void Endpoint::cancelInflightRequests() { _inflightRequests->cancelAll(); }
 

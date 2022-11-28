@@ -371,7 +371,10 @@ void Worker::registerInflightRequest(std::shared_ptr<Request> request)
   _inflightRequests->insert(request);
 }
 
-void Worker::removeInflightRequest(Request* request) { _inflightRequests->remove(request); }
+void Worker::removeInflightRequest(const Request* const request)
+{
+  _inflightRequests->remove(request);
+}
 
 bool Worker::tagProbe(ucp_tag_t tag)
 {

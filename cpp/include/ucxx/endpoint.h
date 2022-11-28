@@ -77,7 +77,7 @@ class Endpoint : public Component {
 
   void raiseOnError();
 
-  void removeInflightRequest(Request* request);
+  void removeInflightRequest(const Request* const request);
 
   void cancelInflightRequests();
 

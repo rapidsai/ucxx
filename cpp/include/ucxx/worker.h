@@ -501,7 +501,7 @@ class Worker : public Component {
    *
    * @param[in] request raw pointer to the request
    */
-  void removeInflightRequest(Request* request);
+  void removeInflightRequest(const Request* const request);
 
   /**
    * @brief Check for uncatched tag messages.

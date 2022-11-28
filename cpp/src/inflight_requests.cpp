@@ -29,7 +29,7 @@ void InflightRequests::merge(InflightRequestsMapPtr inflightRequestsMap)
   _inflightRequests->merge(*inflightRequestsMap);
 }
 
-void InflightRequests::remove(Request* request)
+void InflightRequests::remove(const Request* const request)
 {
   std::lock_guard<std::mutex> lock(_mutex);
 
