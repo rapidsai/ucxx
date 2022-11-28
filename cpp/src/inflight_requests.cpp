@@ -11,12 +11,7 @@ namespace ucxx {
 
 InflightRequests::~InflightRequests() { cancelAll(); }
 
-size_t InflightRequests::size()
-{
-  if (_inflightRequests == nullptr) return 0;
-
-  return _inflightRequests->size();
-}
+size_t InflightRequests::size() { return _inflightRequests->size(); }
 
 void InflightRequests::insert(std::shared_ptr<Request> request)
 {
