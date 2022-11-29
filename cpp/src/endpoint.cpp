@@ -180,7 +180,7 @@ void Endpoint::removeInflightRequest(const Request* const request)
   _inflightRequests->remove(request);
 }
 
-void Endpoint::cancelInflightRequests() { _inflightRequests->cancelAll(); }
+size_t Endpoint::cancelInflightRequests() { return _inflightRequests->cancelAll(); }
 
 std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
                                               size_t length,
