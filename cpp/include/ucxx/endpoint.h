@@ -79,7 +79,7 @@ class Endpoint : public Component {
 
   void removeInflightRequest(const Request* const request);
 
-  void cancelInflightRequests();
+  size_t cancelInflightRequests();
 
   void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
 
