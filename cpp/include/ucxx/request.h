@@ -45,7 +45,7 @@ class Request : public Component {
 
   void process();
 
-  void setStatus();
+  void setStatus(ucs_status_t status);
 
  public:
   Request()               = delete;
@@ -54,7 +54,7 @@ class Request : public Component {
   Request(Request&& o)               = delete;
   Request& operator=(Request&& o) = delete;
 
-  ~Request();
+  virtual ~Request();
 
   void cancel();
 
@@ -64,10 +64,7 @@ class Request : public Component {
 
   void checkError();
 
-  template <typename Rep, typename Period>
-  bool isCompleted(std::chrono::duration<Rep, Period> period);
-
-  bool isCompleted(int64_t periodNs = 0);
+  bool isCompleted();
 
   void callback(void* request, ucs_status_t status);
 
