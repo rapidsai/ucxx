@@ -16,9 +16,9 @@
 
 namespace ucxx {
 
-class DelayedSubmission;
-
 typedef std::function<void()> DelayedSubmissionCallbackType;
+
+typedef std::shared_ptr<DelayedSubmissionCallbackType> DelayedSubmissionCallbackPtrType;
 
 class DelayedSubmission {
  public:
@@ -31,18 +31,6 @@ class DelayedSubmission {
 
   DelayedSubmission(const bool send, void* buffer, const size_t length, const ucp_tag_t tag = 0);
 };
-
-class DelayedSubmissionCallback {
- private:
-  DelayedSubmissionCallbackType _callback{nullptr};
-
- public:
-  DelayedSubmissionCallback(DelayedSubmissionCallbackType callback);
-
-  DelayedSubmissionCallbackType get();
-};
-
-typedef std::shared_ptr<DelayedSubmissionCallback> DelayedSubmissionCallbackPtrType;
 
 class DelayedSubmissionCollection {
  private:
