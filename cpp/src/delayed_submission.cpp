@@ -22,13 +22,6 @@ DelayedSubmission::DelayedSubmission(const bool send,
 {
 }
 
-DelayedSubmissionCallback::DelayedSubmissionCallback(DelayedSubmissionCallbackType callback)
-  : _callback(callback)
-{
-}
-
-DelayedSubmissionCallbackType DelayedSubmissionCallback::get() { return _callback; }
-
 void DelayedSubmissionCollection::process()
 {
   if (_collection.size() > 0) {
@@ -42,8 +35,8 @@ void DelayedSubmissionCollection::process()
       toProcess = std::move(_collection);
     }
 
-    for (auto& dnr : toProcess) {
-      auto callback = dnr->get();
+    for (auto& callbackPtr : toProcess) {
+      auto& callback = *callbackPtr;
 
       ucxx_trace_req("Submitting request: %p", callback.target<void (*)(std::shared_ptr<void>)>());
 
@@ -54,7 +47,7 @@ void DelayedSubmissionCollection::process()
 
 void DelayedSubmissionCollection::registerRequest(DelayedSubmissionCallbackType callback)
 {
-  auto r = std::make_shared<DelayedSubmissionCallback>(callback);
+  auto r = std::make_shared<DelayedSubmissionCallbackType>(callback);
 
   {
     std::lock_guard<std::mutex> lock(_mutex);
