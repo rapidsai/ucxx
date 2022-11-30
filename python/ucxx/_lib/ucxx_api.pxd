@@ -251,7 +251,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         string getString()
 
     cdef cppclass Request(Component):
-        cpp_bool isCompleted(int64_t period_ns)
+        cpp_bool isCompleted()
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
         PyObject* getPyFuture() except +raise_py_error
@@ -275,7 +275,7 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         ucp_tag_t _tag
         bint _send
 
-        cpp_bool isCompleted(int64_t period_ns)
+        cpp_bool isCompleted()
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
         PyObject* getPyFuture() except +raise_py_error

@@ -524,14 +524,14 @@ cdef class UCXRequest():
         self._enable_python_future = enable_python_future
         self._is_completed = False
 
-    def is_completed(self, int64_t period_ns=0):
+    def is_completed(self):
         cdef bint is_completed
 
         if self._is_completed is True:
             return True
 
         with nogil:
-            is_completed = self._request.get().isCompleted(period_ns)
+            is_completed = self._request.get().isCompleted()
 
         return is_completed
 
@@ -547,9 +547,9 @@ cdef class UCXRequest():
         with nogil:
             self._request.get().checkError()
 
-    async def wait_yield(self, period_ns=0):
+    async def wait_yield(self):
         while True:
-            if self.is_completed(period_ns=period_ns):
+            if self.is_completed():
                 return self.check_error()
             await asyncio.sleep(0)
 
@@ -631,7 +631,7 @@ cdef class UCXBufferRequests:
 
             self._requests = tuple([br.get_request() for br in self._buffer_requests])
 
-    def is_completed_all(self, int64_t period_ns=0):
+    def is_completed_all(self):
         if self._is_completed is False:
             if self._ucxx_request_tag_multi.get()._isFilled is False:
                 return False
@@ -639,22 +639,22 @@ cdef class UCXBufferRequests:
             self._populate_requests()
 
             self._is_completed = all(
-                [r.is_completed(period_ns=period_ns) for r in self._requests]
+                [r.is_completed() for r in self._requests]
             )
 
         return self._is_completed
 
-    def is_completed(self, int64_t period_ns=0):
+    def is_completed(self):
         cdef bint is_completed
 
         if self._is_completed is False:
             with nogil:
-                is_completed = self._ucxx_request_tag_multi.get().isCompleted(period_ns)
+                is_completed = self._ucxx_request_tag_multi.get().isCompleted()
             self._is_completed = is_completed
 
         return self._is_completed
 
-    async def wait_yield(self, period_ns=0):
+    async def wait_yield(self):
         while True:
             if self.is_completed():
                 for r in self._requests:

@@ -281,15 +281,6 @@ void RequestTagMulti::checkError()
   }
 }
 
-template <typename Rep, typename Period>
-bool RequestTagMulti::isCompleted(std::chrono::duration<Rep, Period> period)
-{
-  return _status != UCS_INPROGRESS;
-}
-
-bool RequestTagMulti::isCompleted(int64_t periodNs)
-{
-  return isCompleted(std::chrono::nanoseconds(periodNs));
-}
+bool RequestTagMulti::isCompleted() { return _status != UCS_INPROGRESS; }
 
 }  // namespace ucxx

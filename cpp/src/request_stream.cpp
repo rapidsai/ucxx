@@ -98,11 +98,10 @@ void RequestStream::populateDelayedSubmission()
 
 void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 {
-  ucs_status_t s =
-    length == _length ? ucp_request_check_status(request) : UCS_ERR_MESSAGE_TRUNCATED;
-  _status = s;
+  status  = length == _length ? status : UCS_ERR_MESSAGE_TRUNCATED;
+  _status = status;
 
-  if (s == UCS_ERR_MESSAGE_TRUNCATED) {
+  if (status == UCS_ERR_MESSAGE_TRUNCATED) {
     const char* fmt = "length mismatch: %llu (got) != %llu (expected)";
     size_t len      = std::snprintf(nullptr, 0, fmt, length, _length);
     _status_msg     = std::string(len + 1, '\0');  // +1 for null terminator

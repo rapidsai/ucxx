@@ -74,81 +74,54 @@ PyObject* Request::getPyFuture()
 #if UCXX_ENABLE_PYTHON
   return (PyObject*)_pythonFuture->getHandle();
 #else
-  return NULL;
+  return nullptr;
 #endif
 }
 
 void Request::checkError()
 {
-  // Marking the pointer volatile is necessary to ensure the compiler
-  // won't optimize the condition out when using a separate worker
-  // progress thread
-  switch (_status) {
+  // Only load the atomic variable once
+  auto status = _status.load();
+
+  switch (status) {
     case UCS_OK:
     case UCS_INPROGRESS: return;
-    case UCS_ERR_CANCELED: throw CanceledError(ucs_status_string(_status)); break;
+    case UCS_ERR_CANCELED: throw CanceledError(ucs_status_string(status)); break;
     case UCS_ERR_MESSAGE_TRUNCATED: throw MessageTruncatedError(_status_msg); break;
-    default: throw Error(ucs_status_string(_status)); break;
+    default: throw Error(ucs_status_string(status)); break;
   }
 }
 
-template <typename Rep, typename Period>
-bool Request::isCompleted(std::chrono::duration<Rep, Period> period)
-{
-  // Marking the pointer volatile is necessary to ensure the compiler
-  // won't optimize the condition out when using a separate worker
-  // progress thread
-  return _status != UCS_INPROGRESS;
-}
-
-bool Request::isCompleted(int64_t periodNs)
-{
-  return isCompleted(std::chrono::nanoseconds(periodNs));
-}
+bool Request::isCompleted() { return _status != UCS_INPROGRESS; }
 
 void Request::callback(void* request, ucs_status_t status)
 {
-  ucs_status_t s;
-
-  if (_status == UCS_INPROGRESS) {
-    s       = ucp_request_check_status(request);
-    _status = s;
-  } else {
-    // Derived class has already set the status, e.g., a truncated message.
-    s = _status;
-  }
-
-  ucxx_trace_req("req: %p, callback called \"%s\" with status %d (%s)",
-                 request,
-                 _operationName.c_str(),
-                 s,
-                 ucs_status_string(s));
+  setStatus(status);
 
   ucxx_trace_req("req: %p, _callback: %p", request, _callback.target<void (*)(void)>());
   if (_callback) _callback(_callbackData);
 
   ucp_request_free(request);
-
-  setStatus();
 }
 
 void Request::process()
 {
+  ucs_status_t status = _status.load();
+
   // Operation completed immediately
-  if (_request == NULL) {
-    _status = UCS_OK;
+  if (_request == nullptr) {
+    status = UCS_OK;
   } else {
     if (UCS_PTR_IS_ERR(_request)) {
-      _status = UCS_PTR_STATUS(_request);
+      status = UCS_PTR_STATUS(_request);
     } else if (UCS_PTR_IS_PTR(_request)) {
       // Completion will be handled by callback
       return;
     } else {
-      _status = UCS_OK;
+      status = UCS_OK;
     }
   }
 
-  ucs_status_t status = _status.load();
   ucxx_trace_req("req: %p, status: %d (%s)", _request, status, ucs_status_string(status));
 
   ucxx_trace_req("req: %p, callback: %p", _request, _callback.target<void (*)(void)>());
@@ -161,15 +134,29 @@ void Request::process()
     ucxx_trace_req("req: %p, %s completed immediately", _request, _operationName.c_str());
   }
 
-  setStatus();
+  setStatus(status);
 }
 
-void Request::setStatus()
+void Request::setStatus(ucs_status_t status)
 {
+  if (_status == UCS_INPROGRESS) {
+    // If the status is not `UCS_INPROGRESS`, the derived class has already set the
+    // status, a truncated message for example.
+    _status.store(status);
+  }
+
+  ucs_status_t s = _status;
+
+  ucxx_trace_req("req: %p, callback called \"%s\" with status %d (%s)",
+                 _request,
+                 _operationName.c_str(),
+                 s,
+                 ucs_status_string(s));
+
 #if UCXX_ENABLE_PYTHON
   if (_enablePythonFuture) {
     auto future = std::static_pointer_cast<ucxx::python::Future>(_pythonFuture);
-    future->notify(_status);
+    future->notify(status);
   }
 #endif
 }
