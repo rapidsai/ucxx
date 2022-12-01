@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -13,15 +14,16 @@ namespace ucxx {
 const size_t HeaderFramesSize = 100;
 
 class Header {
+ private:
+  void deserialize(const std::string& serializedHeader);
+
  public:
   bool next;
   size_t nframes;
-  bool isCUDA[HeaderFramesSize];
-  size_t size[HeaderFramesSize];
+  std::array<int, HeaderFramesSize> isCUDA;
+  std::array<size_t, HeaderFramesSize> size;
 
-  Header();
-
-  Header(bool next, size_t nframes, bool isCUDA, size_t size);
+  Header() = delete;
 
   Header(bool next, size_t nframes, int* isCUDA, size_t* size);
 
@@ -30,10 +32,6 @@ class Header {
   static size_t dataSize();
 
   const std::string serialize() const;
-
-  void deserialize(const std::string& serializedHeader);
-
-  void print();
 
   static std::vector<Header> buildHeaders(std::vector<size_t>& size, std::vector<int>& isCUDA);
 };

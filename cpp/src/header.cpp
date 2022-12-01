@@ -12,31 +12,13 @@
 
 namespace ucxx {
 
-// Header class
-
-Header::Header() : next{false}, nframes{0}
-{
-  std::fill(isCUDA, isCUDA + HeaderFramesSize, false);
-  std::fill(size, size + HeaderFramesSize, 0);
-}
-
-Header::Header(bool next, size_t nframes, bool isCUDA, size_t size) : next{next}, nframes{nframes}
-{
-  std::fill(this->isCUDA, this->isCUDA + nframes, isCUDA);
-  std::fill(this->size, this->size + nframes, size);
-  if (nframes < HeaderFramesSize) {
-    std::fill(this->isCUDA + nframes, this->isCUDA + HeaderFramesSize, false);
-    std::fill(this->size + nframes, this->size + HeaderFramesSize, 0);
-  }
-}
-
 Header::Header(bool next, size_t nframes, int* isCUDA, size_t* size) : next{next}, nframes{nframes}
 {
-  std::copy(isCUDA, isCUDA + nframes, this->isCUDA);
-  std::copy(size, size + nframes, this->size);
+  std::copy(isCUDA, isCUDA + nframes, this->isCUDA.begin());
+  std::copy(size, size + nframes, this->size.begin());
   if (nframes < HeaderFramesSize) {
-    std::fill(this->isCUDA + nframes, this->isCUDA + HeaderFramesSize, false);
-    std::fill(this->size + nframes, this->size + HeaderFramesSize, 0);
+    std::fill(this->isCUDA.begin() + nframes, this->isCUDA.begin() + HeaderFramesSize, false);
+    std::fill(this->size.begin() + nframes, this->size.begin() + HeaderFramesSize, 0);
   }
 }
 
@@ -70,17 +52,6 @@ void Header::deserialize(const std::string& serializedHeader)
     ss.read((char*)&size[i], sizeof(size[i]));
 }
 
-void Header::print()
-{
-  std::cout << next << " " << nframes;
-  std::cout << " { ";
-  std::copy(isCUDA, isCUDA + HeaderFramesSize, std::ostream_iterator<bool>(std::cout, " "));
-  std::cout << "} { ";
-  std::copy(size, size + HeaderFramesSize, std::ostream_iterator<size_t>(std::cout, " "));
-  std::cout << "}";
-  std::cout << std::endl;
-}
-
 std::vector<Header> Header::buildHeaders(std::vector<size_t>& size, std::vector<int>& isCUDA)
 {
   const size_t totalFrames = size.size();
@@ -90,7 +61,7 @@ std::vector<Header> Header::buildHeaders(std::vector<size_t>& size, std::vector<
 
   const size_t totalHeaders = (totalFrames + HeaderFramesSize - 1) / HeaderFramesSize;
 
-  std::vector<Header> headers(totalHeaders);
+  std::vector<Header> headers;
 
   for (size_t i = 0; i < totalHeaders; ++i) {
     bool hasNext = totalFrames > (i + 1) * HeaderFramesSize;
@@ -98,7 +69,7 @@ std::vector<Header> Header::buildHeaders(std::vector<size_t>& size, std::vector<
       hasNext ? HeaderFramesSize : HeaderFramesSize - (HeaderFramesSize * (i + 1) - totalFrames);
 
     size_t idx = i * HeaderFramesSize;
-    headers[i] = Header(hasNext, headerFrames, (int*)&isCUDA[idx], (size_t*)&size[idx]);
+    headers.push_back(Header(hasNext, headerFrames, (int*)&isCUDA[idx], (size_t*)&size[idx]));
   }
 
   return headers;
