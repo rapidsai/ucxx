@@ -64,6 +64,12 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
                   const ucp_tag_t tag,
                   const bool enablePythonFuture);
 
+  void recvFrames();
+
+  void recvHeader();
+
+  void send(std::vector<void*>& buffer, std::vector<size_t>& size, std::vector<int>& isCUDA);
+
  public:
   friend std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(
     std::shared_ptr<Endpoint> endpoint,
@@ -76,24 +82,9 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
   friend std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(
     std::shared_ptr<Endpoint> endpoint, const ucp_tag_t tag, const bool enablePythonFuture);
 
-  friend std::vector<Buffer*> tagMultiRecvBlocking(std::shared_ptr<Endpoint> endpoint,
-                                                   ucp_tag_t tag);
-
-  friend void tagMultiSendBlocking(std::shared_ptr<Endpoint> endpoint,
-                                   std::vector<void*>& buffer,
-                                   std::vector<size_t>& size,
-                                   std::vector<int>& isCUDA,
-                                   ucp_tag_t tag);
-
-  void recvFrames();
-
   void markCompleted(std::shared_ptr<void> request);
 
-  void recvHeader();
-
-  void callback(std::shared_ptr<void> arg = nullptr);
-
-  void send(std::vector<void*>& buffer, std::vector<size_t>& size, std::vector<int>& isCUDA);
+  void callback();
 
   ucs_status_t getStatus();
 

@@ -167,13 +167,13 @@ void RequestTagMulti::recvHeader()
   auto bufferRequest = std::make_shared<BufferRequest>();
   _bufferRequests.push_back(bufferRequest);
   bufferRequest->stringBuffer = std::make_shared<std::string>(Header::dataSize(), 0);
-  bufferRequest->request      = _endpoint->tagRecv(
-    &bufferRequest->stringBuffer->front(),
-    bufferRequest->stringBuffer->size(),
-    _tag,
-    false,
-    std::bind(std::mem_fn(&RequestTagMulti::callback), this, std::placeholders::_1),
-    nullptr);
+  bufferRequest->request =
+    _endpoint->tagRecv(&bufferRequest->stringBuffer->front(),
+                       bufferRequest->stringBuffer->size(),
+                       _tag,
+                       false,
+                       std::bind(std::mem_fn(&RequestTagMulti::callback), this),
+                       nullptr);
 
   if (bufferRequest->request->isCompleted()) {
     // TODO: Errors may not be raisable within callback
@@ -186,12 +186,12 @@ void RequestTagMulti::recvHeader()
                  _bufferRequests.empty());
 }
 
-void RequestTagMulti::callback(std::shared_ptr<void> arg)
+void RequestTagMulti::callback()
 {
   if (_send) throw std::runtime_error("Send requests cannot call callback()");
 
   // TODO: Remove arg
-  ucxx_trace_req("RequestTagMulti::callback request: %p, tag: %lx, arg: %p", this, _tag, arg.get());
+  ucxx_trace_req("RequestTagMulti::callback request: %p, tag: %lx", this, _tag);
 
   if (_bufferRequests.empty()) {
     ucxx_trace_req("RequestTagMulti::callback first header, request: %p, tag: %lx", this, _tag);
