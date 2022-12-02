@@ -11,66 +11,23 @@
 
 #include <ucxx/api.h>
 
-using ::testing::AllOf;
 using ::testing::ContainerEq;
-using ::testing::Each;
-using ::testing::Eq;
 
 namespace {
 
 TEST(HeaderTest, DataSize)
 {
-  const ucxx::Header header;
+  const bool next         = false;
+  const size_t framesSize = 1;
+  std::vector<int> isCUDA{0};
+  std::vector<size_t> size{1};
+
+  const ucxx::Header header(next, framesSize, isCUDA.data(), size.data());
 
   const size_t ExpectedDataSize =
     sizeof(header.next) + sizeof(header.nframes) + (sizeof(header.isCUDA) + sizeof(header.size));
 
   ASSERT_EQ(header.dataSize(), ExpectedDataSize);
-}
-
-TEST(HeaderTest, DefaultConstructor)
-{
-  const ucxx::Header header;
-
-  ASSERT_FALSE(header.next);
-  ASSERT_EQ(header.nframes, 0u);
-  ASSERT_THAT(header.isCUDA, Each(AllOf(Eq(false))));
-  ASSERT_THAT(header.size, Each(AllOf(Eq(0u))));
-
-  auto serialized   = header.serialize();
-  auto deserialized = ucxx::Header(serialized);
-
-  ASSERT_EQ(deserialized.dataSize(), header.dataSize());
-  ASSERT_EQ(deserialized.next, header.next);
-  ASSERT_EQ(deserialized.nframes, header.nframes);
-  ASSERT_THAT(deserialized.isCUDA, ContainerEq(header.isCUDA));
-  ASSERT_THAT(deserialized.size, ContainerEq(header.size));
-}
-
-TEST(HeaderTest, ValueConstructor)
-{
-  const bool next         = false;
-  const size_t framesSize = 5;
-  const bool isCUDA       = true;
-  const size_t size       = 3;
-  const ucxx::Header header(next, framesSize, isCUDA, size);
-
-  std::vector<bool> headerIsCUDA(header.isCUDA, header.isCUDA + framesSize);
-  std::vector<size_t> headerSize(header.size, header.size + framesSize);
-
-  ASSERT_EQ(header.next, next);
-  ASSERT_EQ(header.nframes, framesSize);
-  ASSERT_THAT(headerIsCUDA, Each(AllOf(Eq(isCUDA))));
-  ASSERT_THAT(headerSize, Each(AllOf(Eq(size))));
-
-  auto serialized   = header.serialize();
-  auto deserialized = ucxx::Header(serialized);
-
-  ASSERT_EQ(deserialized.dataSize(), header.dataSize());
-  ASSERT_EQ(deserialized.next, header.next);
-  ASSERT_EQ(deserialized.nframes, header.nframes);
-  ASSERT_THAT(deserialized.isCUDA, ContainerEq(header.isCUDA));
-  ASSERT_THAT(deserialized.size, ContainerEq(header.size));
 }
 
 TEST(HeaderTest, PointerConstructor)
@@ -82,8 +39,8 @@ TEST(HeaderTest, PointerConstructor)
 
   const ucxx::Header header(next, framesSize, isCUDA.data(), size.data());
 
-  std::vector<int> headerIsCUDA(header.isCUDA, header.isCUDA + framesSize);
-  std::vector<size_t> headerSize(header.size, header.size + framesSize);
+  std::vector<int> headerIsCUDA(header.isCUDA.begin(), header.isCUDA.begin() + framesSize);
+  std::vector<size_t> headerSize(header.size.begin(), header.size.begin() + framesSize);
 
   ASSERT_EQ(header.next, next);
   ASSERT_EQ(header.nframes, framesSize);
@@ -151,17 +108,18 @@ TEST_P(FromPointerGenerator, PointerConstructor)
     // Assert isCUDA
     std::vector<int> expectedIsCUDA(std::cbegin(_isCUDA) + firstIdx,
                                     std::cbegin(_isCUDA) + lastIdx);
-    std::vector<int> headerIsCUDA(header.isCUDA, header.isCUDA + expectedNumFrames);
+    std::vector<int> headerIsCUDA(header.isCUDA.begin(), header.isCUDA.begin() + expectedNumFrames);
     ASSERT_THAT(headerIsCUDA, ContainerEq(expectedIsCUDA));
-    std::vector<int> deserializedIsCUDA(deserialized.isCUDA,
-                                        deserialized.isCUDA + expectedNumFrames);
+    std::vector<int> deserializedIsCUDA(deserialized.isCUDA.begin(),
+                                        deserialized.isCUDA.begin() + expectedNumFrames);
     ASSERT_THAT(deserializedIsCUDA, ContainerEq(headerIsCUDA));
 
     // Assert size
     std::vector<size_t> expectedSize(std::cbegin(_size) + firstIdx, std::cbegin(_size) + lastIdx);
-    std::vector<size_t> headerSize(header.size, header.size + expectedNumFrames);
+    std::vector<size_t> headerSize(header.size.begin(), header.size.begin() + expectedNumFrames);
     ASSERT_THAT(headerSize, ContainerEq(expectedSize));
-    std::vector<size_t> deserializedSize(deserialized.size, deserialized.size + expectedNumFrames);
+    std::vector<size_t> deserializedSize(deserialized.size.begin(),
+                                         deserialized.size.begin() + expectedNumFrames);
     ASSERT_THAT(deserializedSize, ContainerEq(headerSize));
   }
 }
