@@ -16,6 +16,8 @@ namespace ucxx {
 
 namespace python {
 
+Future::Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
+
 void Future::set(ucs_status_t status)
 {
   ucxx_trace_req(
@@ -38,6 +40,8 @@ void Future::notify(ucs_status_t status)
                  _notifier.get());
   _notifier->scheduleFutureNotify(shared_from_this(), status);
 }
+
+PyObject* Future::getHandle() { return _handle; }
 
 }  // namespace python
 
