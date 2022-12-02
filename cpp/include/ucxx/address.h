@@ -17,10 +17,10 @@ namespace ucxx {
 
 class Address : public Component {
  private:
-  char* _handle{nullptr};
+  ucp_address_t* _handle{nullptr};
   size_t _length{0};
 
-  Address(ucp_address_t* address, size_t length, std::shared_ptr<ucxx::Worker> worker);
+  Address(std::shared_ptr<Worker> worker, ucp_address_t* address, size_t length);
 
  public:
   Address()               = delete;
@@ -31,7 +31,7 @@ class Address : public Component {
 
   ~Address();
 
-  friend std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<ucxx::Worker> worker);
+  friend std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
 
   friend std::shared_ptr<Address> createAddressFromString(std::string addressString);
 
