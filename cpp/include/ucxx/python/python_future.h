@@ -21,22 +21,25 @@ namespace ucxx {
 
 namespace python {
 
-typedef void (*FutureCallback)();
-
 class Future : public std::enable_shared_from_this<Future> {
  private:
   PyObject* _handle{create_python_future()};
   std::shared_ptr<Notifier> _notifier{};
-  void* _worker;
 
  public:
-  Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
+  Future()              = delete;
+  Future(const Future&) = delete;
+  Future& operator=(Future const&) = delete;
+  Future(Future&& o)               = delete;
+  Future& operator=(Future&& o) = delete;
+
+  Future(std::shared_ptr<Notifier> notifier);
 
   void notify(ucs_status_t status);
 
   void set(ucs_status_t status);
 
-  PyObject* getHandle() { return _handle; }
+  PyObject* getHandle();
 };
 
 }  // namespace python
