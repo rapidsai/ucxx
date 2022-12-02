@@ -21,8 +21,7 @@ class Config {
   ConfigMap ucxConfigToMap();
 
  public:
-  Config() = default;
-
+  Config()              = delete;
   Config(const Config&) = delete;
   Config& operator=(Config const&) = delete;
   Config(Config&& o)               = delete;

@@ -21,7 +21,7 @@ class Worker;
 class Context : public Component {
  private:
   ucp_context_h _handle{nullptr};
-  Config _config{};
+  Config _config{{}};
   uint64_t _featureFlags{0};
   bool _cudaSupport{false};
 
