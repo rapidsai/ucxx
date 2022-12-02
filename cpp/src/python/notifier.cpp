@@ -14,6 +14,8 @@ namespace ucxx {
 
 namespace python {
 
+std::shared_ptr<Notifier> createNotifier() { return std::shared_ptr<Notifier>(new Notifier()); }
+
 void Notifier::scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t status)
 {
   ucxx_trace_req(
