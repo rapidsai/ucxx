@@ -21,7 +21,7 @@ class Worker;
 class Context : public Component {
  private:
   ucp_context_h _handle{nullptr};  ///< The UCP context handle
-  Config _config{};                ///< UCP context configuration variables
+  Config _config{{}};              ///< UCP context configuration variables
   uint64_t _featureFlags{0};       ///< Feature flags used to construct UCP context
   bool _cudaSupport{false};        ///< Whether CUDA support is enabled
 
