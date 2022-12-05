@@ -265,7 +265,7 @@ PyObject* RequestTagMulti::getPyFuture()
 {
 #if UCXX_ENABLE_PYTHON
   if (_pythonFuture)
-    return (PyObject*)_pythonFuture->getHandle();
+    return (PyObject*)_pythonFuture->release();
   else
 #endif
     return nullptr;

@@ -72,7 +72,7 @@ ucs_status_t Request::getStatus() { return _status; }
 PyObject* Request::getPyFuture()
 {
 #if UCXX_ENABLE_PYTHON
-  return (PyObject*)_pythonFuture->getHandle();
+  return (PyObject*)_pythonFuture->release();
 #else
   return nullptr;
 #endif
