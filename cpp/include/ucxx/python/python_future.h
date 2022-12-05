@@ -35,11 +35,15 @@ class Future : public std::enable_shared_from_this<Future> {
 
   Future(std::shared_ptr<Notifier> notifier);
 
+  ~Future();
+
   void notify(ucs_status_t status);
 
   void set(ucs_status_t status);
 
   PyObject* getHandle();
+
+  PyObject* release();
 };
 
 }  // namespace python

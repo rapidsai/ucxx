@@ -18,8 +18,12 @@ namespace python {
 
 Future::Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
 
+Future::~Future() { Py_XDECREF(_handle); }
+
 void Future::set(ucs_status_t status)
 {
+  if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
+
   ucxx_trace_req(
     "Future::set() this: %p, _handle: %p, status: %s", this, _handle, ucs_status_string(status));
   if (status == UCS_OK)
@@ -31,6 +35,8 @@ void Future::set(ucs_status_t status)
 
 void Future::notify(ucs_status_t status)
 {
+  if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
+
   auto s = shared_from_this();
 
   ucxx_trace_req("Future::notify() this: %p, shared.get(): %p, handle: %p, notifier: %p",
@@ -41,7 +47,19 @@ void Future::notify(ucs_status_t status)
   _notifier->scheduleFutureNotify(shared_from_this(), status);
 }
 
-PyObject* Future::getHandle() { return _handle; }
+PyObject* Future::getHandle()
+{
+  if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
+
+  return _handle;
+}
+
+PyObject* Future::release()
+{
+  if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
+
+  return std::exchange(_handle, nullptr);
+}
 
 }  // namespace python
 
