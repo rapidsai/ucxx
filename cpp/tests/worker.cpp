@@ -61,9 +61,12 @@ TEST_F(WorkerTest, TagProbe)
   requests.push_back(ep->tagSend(buf.data(), buf.size() * sizeof(int), 0));
   waitRequests(_worker, requests, progressWorker);
 
-  ASSERT_TRUE(_worker->tagProbe(0));
+  // Attempt to progress worker 10 times (arbitrarily defined).
+  // TODO: Maybe a timeout would fit best.
+  for (size_t i = 0; i < 10 && !_worker->tagProbe(0); ++i)
+    progressWorker();
 
-  // TODO: absorb warnings
+  ASSERT_TRUE(_worker->tagProbe(0));
 }
 
 TEST_P(WorkerProgressTest, ProgressStream)
