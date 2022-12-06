@@ -55,36 +55,43 @@ Worker::Worker(std::shared_ptr<Context> context,
   setParent(std::dynamic_pointer_cast<Component>(context));
 }
 
+static void _drainCallback(void* request,
+                           ucs_status_t status,
+                           const ucp_tag_recv_info_t* info,
+                           void* arg)
+{
+  *(ucs_status_t*)request = status;
+}
+
 void Worker::drainWorkerTagRecv()
 {
-  // TODO: Uncomment, requires specialized TransferTag
-  // auto context = std::dynamic_pointer_cast<Context>(_parent);
-  // if (!(context->get_feature_flags() & UCP_FEATURE_TAG)) return;
+  auto context = std::dynamic_pointer_cast<Context>(_parent);
+  if (!(context->getFeatureFlags() & UCP_FEATURE_TAG)) return;
 
-  // ucp_tag_message_h message;
-  // ucp_tag_recv_info_t info;
+  ucp_tag_message_h message;
+  ucp_tag_recv_info_t info;
 
-  // while ((message = ucp_tag_probe_nb(_handle, 0, 0, 1, &info)) != NULL) {
-  //   ucxx_debug("Draining tag receive messages, worker: %p, tag: 0x%lx, length: %lu",
-  //              _handle,
-  //              info.sender_tag,
-  //              info.length);
+  while ((message = ucp_tag_probe_nb(_handle, 0, 0, 1, &info)) != NULL) {
+    ucxx_debug("Draining tag receive messages, worker: %p, tag: 0x%lx, length: %lu",
+               _handle,
+               info.sender_tag,
+               info.length);
 
-  //   std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
-  //   ucp_request_param_t param               = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-  //                                                UCP_OP_ATTR_FIELD_DATATYPE |
-  //                                                UCP_OP_ATTR_FIELD_USER_DATA,
-  //                                .datatype  = ucp_dt_make_contig(1),
-  //                                .user_data = request.get()};
+    std::vector<char> buf(info.length);
 
-  //   std::unique_ptr<char> buf = std::make_unique<char>(info.length);
-  //   ucs_status_ptr_t status =
-  //     ucp_tag_msg_recv_nbx(_handle, buf.get(), info.length, message, &param);
-  //   request_wait(_handle, status, request.get(), "drain_tag_recv");
+    ucp_request_param_t param = {
+      .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_DATATYPE,
+      .cb           = {.recv = _drainCallback},
+      .datatype     = ucp_dt_make_contig(1)};
 
-  //   while (request->status == UCS_INPROGRESS)
-  //     progress();
-  // }
+    ucs_status_ptr_t status =
+      ucp_tag_msg_recv_nbx(_handle, buf.data(), info.length, message, &param);
+
+    if (status != nullptr) {
+      while (UCS_PTR_STATUS(status) == UCS_INPROGRESS)
+        progress();
+    }
+  }
 }
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
