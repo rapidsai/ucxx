@@ -16,11 +16,40 @@ namespace python {
 
 extern PyObject* UCXXBaseException;
 extern PyObject* UCXXError;
+
+extern PyObject* UCXXNoMessageError;
+extern PyObject* UCXXNoResourceError;
+extern PyObject* UCXXIOError;
+extern PyObject* UCXXNoMemoryError;
+extern PyObject* UCXXInvalidParamError;
+extern PyObject* UCXXUnreachableError;
+extern PyObject* UCXXInvalidAddrError;
+extern PyObject* UCXXNotImplementedError;
+extern PyObject* UCXXMessageTruncatedError;
+extern PyObject* UCXXNoProgressError;
+extern PyObject* UCXXBufferTooSmallError;
+extern PyObject* UCXXNoElemError;
+extern PyObject* UCXXSomeConnectsFailedError;
+extern PyObject* UCXXNoDeviceError;
+extern PyObject* UCXXBusyError;
 extern PyObject* UCXXCanceledError;
+extern PyObject* UCXXShmemSegmentError;
+extern PyObject* UCXXAlreadyExistsError;
+extern PyObject* UCXXOutOfRangeError;
+extern PyObject* UCXXTimedOutError;
+extern PyObject* UCXXExceedsLimitError;
+extern PyObject* UCXXUnsupportedError;
+extern PyObject* UCXXRejectedError;
+extern PyObject* UCXXNotConnectedError;
+extern PyObject* UCXXConnectionResetError;
+extern PyObject* UCXXFirstLinkFailureError;
+extern PyObject* UCXXLastLinkFailureError;
+extern PyObject* UCXXFirstEndpointFailureError;
+extern PyObject* UCXXEndpointTimeoutError;
+extern PyObject* UCXXLastEndpointFailureError;
+
 extern PyObject* UCXXCloseError;
 extern PyObject* UCXXConfigError;
-extern PyObject* UCXXConnectionResetError;
-extern PyObject* UCXXMessageTruncatedError;
 
 void create_exceptions();
 

@@ -16,11 +16,40 @@ namespace python {
 
 PyObject* UCXXBaseException;
 PyObject* UCXXError;
+
+PyObject* UCXXNoMessageError;
+PyObject* UCXXNoResourceError;
+PyObject* UCXXIOError;
+PyObject* UCXXNoMemoryError;
+PyObject* UCXXInvalidParamError;
+PyObject* UCXXUnreachableError;
+PyObject* UCXXInvalidAddrError;
+PyObject* UCXXNotImplementedError;
+PyObject* UCXXMessageTruncatedError;
+PyObject* UCXXNoProgressError;
+PyObject* UCXXBufferTooSmallError;
+PyObject* UCXXNoElemError;
+PyObject* UCXXSomeConnectsFailedError;
+PyObject* UCXXNoDeviceError;
+PyObject* UCXXBusyError;
 PyObject* UCXXCanceledError;
+PyObject* UCXXShmemSegmentError;
+PyObject* UCXXAlreadyExistsError;
+PyObject* UCXXOutOfRangeError;
+PyObject* UCXXTimedOutError;
+PyObject* UCXXExceedsLimitError;
+PyObject* UCXXUnsupportedError;
+PyObject* UCXXRejectedError;
+PyObject* UCXXNotConnectedError;
+PyObject* UCXXConnectionResetError;
+PyObject* UCXXFirstLinkFailureError;
+PyObject* UCXXLastLinkFailureError;
+PyObject* UCXXFirstEndpointFailureError;
+PyObject* UCXXEndpointTimeoutError;
+PyObject* UCXXLastEndpointFailureError;
+
 PyObject* UCXXCloseError;
 PyObject* UCXXConfigError;
-PyObject* UCXXConnectionResetError;
-PyObject* UCXXMessageTruncatedError;
 
 static PyObject* new_exception(PyObject** exception, const char* name, PyObject* base)
 {
@@ -38,11 +67,40 @@ void create_exceptions()
 {
   new_exception(&UCXXBaseException, "UCXXBaseException", NULL);
   new_exception(&UCXXError, "UCXXError", UCXXBaseException);
+
+  new_exception(&UCXXNoMessageError, "UCXXNoMessageError", UCXXBaseException);
+  new_exception(&UCXXNoResourceError, "UCXXNoResourceError", UCXXBaseException);
+  new_exception(&UCXXIOError, "UCXXIOError", UCXXBaseException);
+  new_exception(&UCXXNoMemoryError, "UCXXNoMemoryError", UCXXBaseException);
+  new_exception(&UCXXInvalidParamError, "UCXXInvalidParamError", UCXXBaseException);
+  new_exception(&UCXXUnreachableError, "UCXXUnreachableError", UCXXBaseException);
+  new_exception(&UCXXInvalidAddrError, "UCXXInvalidAddrError", UCXXBaseException);
+  new_exception(&UCXXNotImplementedError, "UCXXNotImplementedError", UCXXBaseException);
+  new_exception(&UCXXMessageTruncatedError, "UCXXMessageTruncatedError", UCXXBaseException);
+  new_exception(&UCXXNoProgressError, "UCXXNoProgressError", UCXXBaseException);
+  new_exception(&UCXXBufferTooSmallError, "UCXXBufferTooSmallError", UCXXBaseException);
+  new_exception(&UCXXNoElemError, "UCXXNoElemError", UCXXBaseException);
+  new_exception(&UCXXSomeConnectsFailedError, "UCXXSomeConnectsFailedError", UCXXBaseException);
+  new_exception(&UCXXNoDeviceError, "UCXXNoDeviceError", UCXXBaseException);
+  new_exception(&UCXXBusyError, "UCXXBusyError", UCXXBaseException);
   new_exception(&UCXXCanceledError, "UCXXCanceledError", UCXXBaseException);
+  new_exception(&UCXXShmemSegmentError, "UCXXShmemSegmentError", UCXXBaseException);
+  new_exception(&UCXXAlreadyExistsError, "UCXXAlreadyExistsError", UCXXBaseException);
+  new_exception(&UCXXOutOfRangeError, "UCXXOutOfRangeError", UCXXBaseException);
+  new_exception(&UCXXTimedOutError, "UCXXTimedOutError", UCXXBaseException);
+  new_exception(&UCXXExceedsLimitError, "UCXXExceedsLimitError", UCXXBaseException);
+  new_exception(&UCXXUnsupportedError, "UCXXUnsupportedError", UCXXBaseException);
+  new_exception(&UCXXRejectedError, "UCXXRejectedError", UCXXBaseException);
+  new_exception(&UCXXNotConnectedError, "UCXXNotConnectedError", UCXXBaseException);
+  new_exception(&UCXXConnectionResetError, "UCXXConnectionResetError", UCXXBaseException);
+  new_exception(&UCXXFirstLinkFailureError, "UCXXFirstLinkFailureError", UCXXBaseException);
+  new_exception(&UCXXLastLinkFailureError, "UCXXLastLinkFailureError", UCXXBaseException);
+  new_exception(&UCXXFirstEndpointFailureError, "UCXXFirstEndpointFailureError", UCXXBaseException);
+  new_exception(&UCXXEndpointTimeoutError, "UCXXEndpointTimeoutError", UCXXBaseException);
+  new_exception(&UCXXLastEndpointFailureError, "UCXXLastEndpointFailureError", UCXXBaseException);
+
   new_exception(&UCXXConfigError, "UCXXConfigError", UCXXBaseException);
   new_exception(&UCXXCloseError, "UCXXCloseError", UCXXBaseException);
-  new_exception(&UCXXConnectionResetError, "UCXXConnectionResetError", UCXXBaseException);
-  new_exception(&UCXXMessageTruncatedError, "UCXXMessageTruncatedError", UCXXBaseException);
 }
 
 void raise_py_error()
