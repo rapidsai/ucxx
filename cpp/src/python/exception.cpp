@@ -107,14 +107,70 @@ void raise_py_error()
 {
   try {
     throw;
-  } catch (const CanceledError& e) {
-    PyErr_SetString(UCXXCanceledError, e.what());
-  } catch (const ConfigError& e) {
-    PyErr_SetString(UCXXConfigError, e.what());
-  } catch (const ConnectionResetError& e) {
-    PyErr_SetString(UCXXConnectionResetError, e.what());
+  } catch (const NoMessageError& e) {
+    PyErr_SetString(UCXXNoMessageError, e.what());
+  } catch (const NoResourceError& e) {
+    PyErr_SetString(UCXXNoResourceError, e.what());
+  } catch (const IOError& e) {
+    PyErr_SetString(UCXXIOError, e.what());
+  } catch (const NoMemoryError& e) {
+    PyErr_SetString(UCXXNoMemoryError, e.what());
+  } catch (const InvalidParamError& e) {
+    PyErr_SetString(UCXXInvalidParamError, e.what());
+  } catch (const UnreachableError& e) {
+    PyErr_SetString(UCXXUnreachableError, e.what());
+  } catch (const InvalidAddrError& e) {
+    PyErr_SetString(UCXXInvalidAddrError, e.what());
+  } catch (const NotImplementedError& e) {
+    PyErr_SetString(UCXXNotImplementedError, e.what());
   } catch (const MessageTruncatedError& e) {
     PyErr_SetString(UCXXMessageTruncatedError, e.what());
+  } catch (const NoProgressError& e) {
+    PyErr_SetString(UCXXNoProgressError, e.what());
+  } catch (const BufferTooSmallError& e) {
+    PyErr_SetString(UCXXBufferTooSmallError, e.what());
+  } catch (const NoElemError& e) {
+    PyErr_SetString(UCXXNoElemError, e.what());
+  } catch (const SomeConnectsFailedError& e) {
+    PyErr_SetString(UCXXSomeConnectsFailedError, e.what());
+  } catch (const NoDeviceError& e) {
+    PyErr_SetString(UCXXNoDeviceError, e.what());
+  } catch (const BusyError& e) {
+    PyErr_SetString(UCXXBusyError, e.what());
+  } catch (const CanceledError& e) {
+    PyErr_SetString(UCXXCanceledError, e.what());
+  } catch (const ShmemSegmentError& e) {
+    PyErr_SetString(UCXXShmemSegmentError, e.what());
+  } catch (const AlreadyExistsError& e) {
+    PyErr_SetString(UCXXAlreadyExistsError, e.what());
+  } catch (const OutOfRangeError& e) {
+    PyErr_SetString(UCXXOutOfRangeError, e.what());
+  } catch (const TimedOutError& e) {
+    PyErr_SetString(UCXXTimedOutError, e.what());
+  } catch (const ExceedsLimitError& e) {
+    PyErr_SetString(UCXXExceedsLimitError, e.what());
+  } catch (const UnsupportedError& e) {
+    PyErr_SetString(UCXXUnsupportedError, e.what());
+  } catch (const RejectedError& e) {
+    PyErr_SetString(UCXXRejectedError, e.what());
+  } catch (const NotConnectedError& e) {
+    PyErr_SetString(UCXXNotConnectedError, e.what());
+  } catch (const ConnectionResetError& e) {
+    PyErr_SetString(UCXXConnectionResetError, e.what());
+  } catch (const FirstLinkFailureError& e) {
+    PyErr_SetString(UCXXFirstLinkFailureError, e.what());
+  } catch (const LastLinkFailureError& e) {
+    PyErr_SetString(UCXXLastLinkFailureError, e.what());
+  } catch (const FirstEndpointFailureError& e) {
+    PyErr_SetString(UCXXFirstEndpointFailureError, e.what());
+  } catch (const EndpointTimeoutError& e) {
+    PyErr_SetString(UCXXEndpointTimeoutError, e.what());
+  } catch (const LastEndpointFailureError& e) {
+    PyErr_SetString(UCXXLastEndpointFailureError, e.what());
+  } catch (const CloseError& e) {
+    PyErr_SetString(UCXXCloseError, e.what());
+  } catch (const ConfigError& e) {
+    PyErr_SetString(UCXXConfigError, e.what());
   } catch (const Error& e) {
     PyErr_SetString(UCXXError, e.what());
   } catch (const std::bad_alloc& e) {

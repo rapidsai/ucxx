@@ -102,6 +102,10 @@ UCXLastEndpointFailureError = None
 UCXCloseError = None
 UCXConfigError = None
 
+# Legacy names
+UCXCanceled = None
+UCXMsgTruncated = None
+
 
 def _create_exceptions():
     global UCXBaseException
@@ -140,6 +144,10 @@ def _create_exceptions():
 
     global UCXCloseError
     global UCXConfigError
+
+    # Legacy names
+    global UCXCanceled
+    global UCXMsgTruncated
 
     create_exceptions()
 
