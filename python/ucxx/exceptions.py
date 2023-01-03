@@ -3,7 +3,6 @@
 
 from ._lib.libucxx import (  # noqa
     UCXAlreadyExistsError,
-    UCXBaseException,
     UCXBufferTooSmallError,
     UCXBusyError,
     UCXCanceled,

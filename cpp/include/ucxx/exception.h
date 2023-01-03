@@ -20,11 +20,6 @@ class Error : public std::exception {
   virtual const char* what() const noexcept override { return this->_msg.c_str(); }
 };
 
-class ConfigError : public Error {
- public:
-  ConfigError(const std::string& msg) : Error(msg) {}
-};
-
 /**
  * UCS_ERR_NO_MESSAGE
  */

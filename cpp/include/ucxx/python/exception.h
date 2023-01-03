@@ -14,7 +14,6 @@ namespace ucxx {
 
 namespace python {
 
-extern PyObject* UCXXBaseException;
 extern PyObject* UCXXError;
 
 extern PyObject* UCXXNoMessageError;

@@ -65,7 +65,6 @@ def _get_host_buffer(uintptr_t recv_buffer_ptr):
 #                               Exceptions                                    #
 ###############################################################################
 
-UCXBaseException = None
 UCXError = None
 
 UCXNoMessageError = None
@@ -108,7 +107,6 @@ UCXMsgTruncated = None
 
 
 def _create_exceptions():
-    global UCXBaseException
     global UCXError
 
     global UCXNoMessageError
@@ -151,7 +149,6 @@ def _create_exceptions():
 
     create_exceptions()
 
-    UCXBaseException = <object>UCXXBaseException
     UCXError = <object>UCXXError
 
     UCXNoMessageError = <object>UCXXNoMessageError
