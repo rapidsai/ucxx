@@ -46,7 +46,7 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.cb  = Endpoint::errorCallback;
   params->err_handler.arg = _callbackData.get();
 
-  utils::assert_ucs_status(ucp_ep_create(worker->getHandle(), params.get(), &_handle));
+  utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params.get(), &_handle));
 }
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,

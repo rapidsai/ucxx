@@ -42,11 +42,11 @@ Listener::Listener(std::shared_ptr<Worker> worker,
                                                                         ucxx::utils::sockaddr_free);
 
   ucp_listener_h handle = nullptr;
-  utils::assert_ucs_status(ucp_listener_create(worker->getHandle(), &params, &handle));
+  utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &handle));
   _handle = std::unique_ptr<ucp_listener, void (*)(ucp_listener_h)>(handle, ucpListenerDestructor);
 
   attr.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR;
-  utils::assert_ucs_status(ucp_listener_query(_handle.get(), &attr));
+  utils::ucsErrorThrow(ucp_listener_query(_handle.get(), &attr));
 
   size_t MAX_STR_LEN = 50;
   char ipString[MAX_STR_LEN];

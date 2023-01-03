@@ -42,7 +42,7 @@ Worker::Worker(std::shared_ptr<Context> context,
   memset(&params, 0, sizeof(params));
   params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
   params.thread_mode = UCS_THREAD_MODE_MULTI;
-  utils::assert_ucs_status(ucp_worker_create(context->getHandle(), &params, &_handle));
+  utils::ucsErrorThrow(ucp_worker_create(context->getHandle(), &params, &_handle));
 
   if (enableDelayedSubmission)
     _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
@@ -139,7 +139,7 @@ void Worker::initBlockingProgressMode()
   // Return if blocking progress mode was already initialized
   if (_epollFileDescriptor >= 0) return;
 
-  utils::assert_ucs_status(ucp_worker_get_efd(_handle, &_workerFileDescriptor));
+  utils::ucsErrorThrow(ucp_worker_get_efd(_handle, &_workerFileDescriptor));
 
   arm();
 
@@ -159,7 +159,7 @@ bool Worker::arm()
 {
   ucs_status_t status = ucp_worker_arm(_handle);
   if (status == UCS_ERR_BUSY) return false;
-  utils::assert_ucs_status(status);
+  utils::ucsErrorThrow(status);
   return true;
 }
 
@@ -181,12 +181,12 @@ bool Worker::progressWorkerEvent()
   return false;
 }
 
-void Worker::signal() { utils::assert_ucs_status(ucp_worker_signal(_handle)); }
+void Worker::signal() { utils::ucsErrorThrow(ucp_worker_signal(_handle)); }
 
 bool Worker::waitProgress()
 {
   cancelInflightRequests();
-  utils::assert_ucs_status(ucp_worker_wait(_handle));
+  utils::ucsErrorThrow(ucp_worker_wait(_handle));
   return progressOnce();
 }
 

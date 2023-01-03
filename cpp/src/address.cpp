@@ -32,7 +32,7 @@ std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
   ucp_address_t* address{nullptr};
   size_t length = 0;
 
-  utils::assert_ucs_status(ucp_worker_get_address(ucp_worker, &address, &length));
+  utils::ucsErrorThrow(ucp_worker_get_address(ucp_worker, &address, &length));
   return std::shared_ptr<Address>(new Address(worker, address, length));
 }
 
