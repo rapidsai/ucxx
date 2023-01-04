@@ -3,6 +3,7 @@ import os
 from queue import Empty as QueueIsEmpty
 
 import pytest
+from utils import terminate_process
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
@@ -144,7 +145,7 @@ def test_server_client(transfer_api, msg_size, progress_mode):
     )
     client.start()
     client.join(timeout=60)
-    assert client.exitcode == 0
+    terminate_process(client)
     put_queue.put("Finished")
     server.join(timeout=10)
-    assert server.exitcode == 0
+    terminate_process(server)
