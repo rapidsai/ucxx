@@ -1,6 +1,7 @@
 import multiprocessing as mp
 
 import pytest
+from utils import terminate_process
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
@@ -82,5 +83,5 @@ def test_message_probe():
     client.start()
     client.join(timeout=10)
     server.join(timeout=10)
-    assert client.exitcode == 0
-    assert server.exitcode == 0
+    terminate_process(client)
+    terminate_process(server)
