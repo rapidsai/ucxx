@@ -33,8 +33,6 @@ def _test_from_worker_address_error_server(q1, q2, error_type):
 
             ucp.reset()
 
-            q1.put("disconnected")
-
     get_event_loop().run_until_complete(run())
 
 
@@ -83,8 +81,9 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
             if re.match("timeout.*send", error_type):
                 q2.put("ready")
 
-                remote_disconnected = q1.get()
-                assert remote_disconnected == "disconnected"
+                # Wait for remote endpoint to disconnect
+                while ep._ep.is_alive():
+                    ucp.progress()
 
                 with pytest.raises(ucp.exceptions.UCXError, match="Endpoint timeout"):
                     if error_type == "timeout_am_send":
@@ -105,8 +104,8 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
 
                     q2.put("ready")
 
-                    remote_disconnected = q1.get()
-                    assert remote_disconnected == "disconnected"
+                    while ep._ep.is_alive():
+                        ucp.progress()
 
                     await task
 
