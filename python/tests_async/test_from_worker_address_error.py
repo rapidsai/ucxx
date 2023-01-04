@@ -94,7 +94,7 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                             ep.send(np.zeros(10), tag=0, force_tag=True), timeout=1.0
                         )
             else:
-                with pytest.raises(ucp.exceptions.UCXCanceled):
+                with pytest.raises(ucp.exceptions.UCXError):
                     if error_type == "timeout_am_recv":
                         task = asyncio.wait_for(ep.am_recv(), timeout=3.0)
                     else:

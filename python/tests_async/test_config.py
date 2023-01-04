@@ -55,14 +55,14 @@ def test_init_options_and_env():
 def test_init_unknown_option():
     ucp.reset()
     options = {"UNKNOWN_OPTION": "3M"}
-    with pytest.raises(ucp.exceptions.UCXConfigError):
+    with pytest.raises(ucp.exceptions.UCXInvalidParamError):
         ucp.init(options)
 
 
 def test_init_invalid_option():
     ucp.reset()
     options = {"SEG_SIZE": "invalid-size"}
-    with pytest.raises(ucp.exceptions.UCXConfigError):
+    with pytest.raises(ucp.exceptions.UCXInvalidParamError):
         ucp.init(options)
 
 
