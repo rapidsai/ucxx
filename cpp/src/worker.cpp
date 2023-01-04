@@ -103,7 +103,10 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
 Worker::~Worker()
 {
-  _inflightRequests->cancelAll();
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    _inflightRequests->cancelAll();
+  }
 
   stopProgressThreadNoWarn();
 #if UCXX_ENABLE_PYTHON
@@ -362,25 +365,37 @@ void Worker::stopProgressThread()
 
 size_t Worker::cancelInflightRequests()
 {
-  auto inflightRequestsToCancel =
-    std::exchange(_inflightRequestsToCancel, std::make_shared<InflightRequests>());
+  auto inflightRequestsToCancel = std::make_shared<InflightRequests>();
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
+  }
   return inflightRequestsToCancel->cancelAll();
 }
 
 void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests)
 {
-  ucxx_debug("Scheduling cancelation of %lu requests", inflightRequests->size());
-  _inflightRequestsToCancel->merge(inflightRequests->release());
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    ucxx_debug("Scheduling cancelation of %lu requests", inflightRequests->size());
+    _inflightRequestsToCancel->merge(inflightRequests->release());
+  }
 }
 
 void Worker::registerInflightRequest(std::shared_ptr<Request> request)
 {
-  _inflightRequests->insert(request);
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    _inflightRequests->insert(request);
+  }
 }
 
 void Worker::removeInflightRequest(const Request* const request)
 {
-  _inflightRequests->remove(request);
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    _inflightRequests->remove(request);
+  }
 }
 
 bool Worker::tagProbe(ucp_tag_t tag)

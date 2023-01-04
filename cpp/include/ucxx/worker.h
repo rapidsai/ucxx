@@ -43,7 +43,9 @@ class Worker : public Component {
   ucp_worker_h _handle{nullptr};
   int _epollFileDescriptor{-1};
   int _workerFileDescriptor{-1};
+  std::mutex _inflightRequestsMutex{};
   std::shared_ptr<InflightRequests> _inflightRequests{std::make_shared<InflightRequests>()};
+  std::mutex _inflightRequestsToCancelMutex{};
   std::shared_ptr<InflightRequests> _inflightRequestsToCancel{std::make_shared<InflightRequests>()};
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};
   std::function<void(void*)> _progressThreadStartCallback{nullptr};
