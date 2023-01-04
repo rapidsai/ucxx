@@ -158,10 +158,7 @@ void Endpoint::raiseOnError()
   std::stringstream errorMsgStream;
   errorMsgStream << "Endpoint " << std::hex << _handle << " error: " << statusString;
 
-  if (status == UCS_ERR_CONNECTION_RESET)
-    throw ConnectionResetError(errorMsgStream.str());
-  else
-    throw Error(errorMsgStream.str());
+  utils::ucsErrorThrow(status, errorMsgStream.str());
 }
 
 void Endpoint::setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg)

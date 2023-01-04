@@ -14,6 +14,7 @@
 #include <ucxx/request.h>
 #include <ucxx/request_helper.h>
 #include <ucxx/request_tag_multi.h>
+#include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
 
 #if UCXX_ENABLE_PYTHON
@@ -271,15 +272,7 @@ PyObject* RequestTagMulti::getPyFuture()
     return nullptr;
 }
 
-void RequestTagMulti::checkError()
-{
-  switch (_status) {
-    case UCS_OK:
-    case UCS_INPROGRESS: return;
-    case UCS_ERR_CANCELED: throw CanceledError(ucs_status_string(_status)); break;
-    default: throw Error(ucs_status_string(_status)); break;
-  }
-}
+void RequestTagMulti::checkError() { utils::ucsErrorThrow(_status); }
 
 bool RequestTagMulti::isCompleted() { return _status != UCS_INPROGRESS; }
 
