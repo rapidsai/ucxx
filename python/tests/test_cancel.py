@@ -55,18 +55,14 @@ def _client_cancel(queue):
     msg = Array(bytearray(1))
     request = ep.tag_recv(msg, tag=0)
 
-    canceled = worker.cancel_inflight_requests()
-    while canceled == 0:
+    while not request.is_completed():
         worker.progress()
-        canceled = worker.cancel_inflight_requests()
 
     with pytest.raises(ucx_api.UCXCanceled):
         request.check_error()
 
     while ep.is_alive():
         worker.progress()
-
-    assert canceled == 1
 
 
 def test_message_probe():
