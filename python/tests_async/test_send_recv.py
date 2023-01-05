@@ -30,7 +30,6 @@ def make_echo_server(create_empty_data):
         msg = create_empty_data(msg_size[0])
         await ep.recv(msg)
         await ep.send(msg)
-        await ep.close()
 
     return echo_server
 
@@ -48,7 +47,6 @@ async def test_send_recv_bytes(size):
     resp = bytearray(size)
     await client.recv(resp)
     assert resp == msg
-    await client.close()
 
 
 @pytest.mark.asyncio
@@ -113,7 +111,6 @@ async def test_send_recv_numba(size, dtype):
 async def test_send_recv_error():
     async def say_hey_server(ep):
         await ep.send(bytearray(b"Hey"))
-        await ep.close()
 
     listener = ucp.create_listener(say_hey_server)
     client = await ucp.create_endpoint(ucp.get_address(), listener.port)
@@ -131,7 +128,6 @@ async def test_send_recv_obj():
     async def echo_obj_server(ep):
         obj = await ep.recv_obj()
         await ep.send_obj(obj)
-        await ep.close()
 
     listener = ucp.create_listener(echo_obj_server)
     client = await ucp.create_endpoint(ucp.get_address(), listener.port)
@@ -149,7 +145,6 @@ async def test_send_recv_obj_numpy():
     async def echo_obj_server(ep):
         obj = await ep.recv_obj(allocator=allocator)
         await ep.send_obj(obj)
-        await ep.close()
 
     listener = ucp.create_listener(echo_obj_server)
     client = await ucp.create_endpoint(ucp.get_address(), listener.port)

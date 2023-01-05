@@ -25,7 +25,6 @@ async def hello(ep):
 async def server_node(ep):
     await hello(ep)
     # assert isinstance(ep.ucx_info(), str)
-    await ep.close()
 
 
 async def client_node(port):
