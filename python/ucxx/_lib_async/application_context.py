@@ -15,7 +15,7 @@ from ucxx._lib.arr import Array
 from .continuous_ucx_progress import PollingMode, ThreadMode
 from .endpoint import Endpoint
 from .exchange_peer_info import exchange_peer_info
-from .listener import Listener, _listener_handler
+from .listener import ActiveClients, Listener, _listener_handler
 from .notifier_thread import _notifierThread
 from .utils import hash64bits
 
@@ -37,6 +37,8 @@ class ApplicationContext:
         self.progress_tasks = []
         self.notifier_thread_q = None
         self.notifier_thread = None
+        self._listener_active_clients = ActiveClients()
+        self._next_listener_id = 0
 
         self.progress_mode = ApplicationContext._check_progress_mode(progress_mode)
 
@@ -186,14 +188,25 @@ class ApplicationContext:
         loop = asyncio.get_event_loop()
 
         logger.info("create_listener() - Start listening on port %d" % port)
+        listener_id = self._next_listener_id
+        self._next_listener_id += 1
         ret = Listener(
             ucx_api.UCXListener.create(
                 worker=self.worker,
                 port=port,
                 cb_func=_listener_handler,
-                cb_args=(loop, callback_func, self, endpoint_error_handling),
+                cb_args=(
+                    loop,
+                    callback_func,
+                    self,
+                    endpoint_error_handling,
+                    listener_id,
+                    self._listener_active_clients,
+                ),
                 deliver_endpoint=True,
-            )
+            ),
+            listener_id,
+            self._listener_active_clients,
         )
         return ret
 
