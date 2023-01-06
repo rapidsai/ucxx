@@ -6,7 +6,7 @@ import pytest
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
-from ucxx.testing import wait_requests
+from ucxx.testing import terminate_process, wait_requests
 
 mp = mp.get_context("spawn")
 
@@ -144,7 +144,7 @@ def test_server_client(transfer_api, msg_size, progress_mode):
     )
     client.start()
     client.join(timeout=60)
-    assert client.exitcode == 0
+    terminate_process(client)
     put_queue.put("Finished")
     server.join(timeout=10)
-    assert server.exitcode == 0
+    terminate_process(server)

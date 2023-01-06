@@ -40,11 +40,14 @@ class Future;
 
 class Worker : public Component {
  private:
-  ucp_worker_h _handle{nullptr};  ///< The UCP worker handle
-  int _epollFileDescriptor{-1};   ///< The epoll file descriptor
-  int _workerFileDescriptor{-1};  ///< The worker file descriptor
+  ucp_worker_h _handle{nullptr};        ///< The UCP worker handle
+  int _epollFileDescriptor{-1};         ///< The epoll file descriptor
+  int _workerFileDescriptor{-1};        ///< The worker file descriptor
+  std::mutex _inflightRequestsMutex{};  ///< Mutex to access the inflight requests pool
   std::shared_ptr<InflightRequests> _inflightRequests{
     std::make_shared<InflightRequests>()};  ///< The inflight requests
+  std::mutex
+    _inflightRequestsToCancelMutex{};  ///< Mutex to access the inflight requests to cancel pool
   std::shared_ptr<InflightRequests> _inflightRequestsToCancel{
     std::make_shared<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};  ///< The progress thread object

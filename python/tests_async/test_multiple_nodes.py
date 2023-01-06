@@ -25,7 +25,6 @@ async def hello(ep):
 async def server_node(ep):
     await hello(ep)
     # assert isinstance(ep.ucx_info(), str)
-    await ep.close()
 
 
 async def client_node(port):
@@ -51,4 +50,4 @@ async def test_many_servers_many_clients(num_servers, num_clients):
         clients = []
         for __ in range(i, min(i + somaxconn, num_clients * num_servers)):
             clients.append(client_node(listeners[__ % num_servers].port))
-        await asyncio.gather(*clients, loop=asyncio.get_event_loop())
+        await asyncio.gather(*clients)

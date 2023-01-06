@@ -28,6 +28,8 @@ async def test_message_probe(transfer_api):
             await ep.recv(received)
         assert received == msg
 
+        listener.close()
+
     async def client_node(port):
         ep = await ucp.create_endpoint(
             ucp.get_address(),
@@ -43,7 +45,5 @@ async def test_message_probe(transfer_api):
     )
     await client_node(listener.port)
 
-    # del listener
-
-    # import gc
-    # gc.collect()
+    while not listener.closed():
+        await asyncio.sleep(0.01)

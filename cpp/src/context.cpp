@@ -25,7 +25,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
   params.field_mask = UCP_PARAM_FIELD_FEATURES;
   params.features   = featureFlags;
 
-  utils::assert_ucs_status(ucp_init(&params, this->_config.getHandle(), &this->_handle));
+  utils::ucsErrorThrow(ucp_init(&params, this->_config.getHandle(), &this->_handle));
 
   // UCX supports CUDA if "cuda" is part of the TLS or TLS is "all"
   auto configMap = this->_config.get();

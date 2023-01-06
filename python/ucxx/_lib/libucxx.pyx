@@ -65,37 +65,125 @@ def _get_host_buffer(uintptr_t recv_buffer_ptr):
 #                               Exceptions                                    #
 ###############################################################################
 
-UCXBaseException = None
 UCXError = None
-UCXCanceled = None
+
+UCXNoMessageError = None
+UCXNoResourceError = None
+UCXIOError = None
+UCXNoMemoryError = None
+UCXInvalidParamError = None
+UCXUnreachableError = None
+UCXInvalidAddrError = None
+UCXNotImplementedError = None
+UCXMessageTruncatedError = None
+UCXNoProgressError = None
+UCXBufferTooSmallError = None
+UCXNoElemError = None
+UCXSomeConnectsFailedError = None
+UCXNoDeviceError = None
+UCXBusyError = None
 UCXCanceledError = None
+UCXShmemSegmentError = None
+UCXAlreadyExistsError = None
+UCXOutOfRangeError = None
+UCXTimedOutError = None
+UCXExceedsLimitError = None
+UCXUnsupportedError = None
+UCXRejectedError = None
+UCXNotConnectedError = None
+UCXConnectionResetError = None
+UCXFirstLinkFailureError = None
+UCXLastLinkFailureError = None
+UCXFirstEndpointFailureError = None
+UCXEndpointTimeoutError = None
+UCXLastEndpointFailureError = None
+
 UCXCloseError = None
 UCXConfigError = None
-UCXConnectionResetError = None
+
+# Legacy names
+UCXCanceled = None
 UCXMsgTruncated = None
-UCXMessageTruncatedError = None
 
 
 def _create_exceptions():
-    global UCXBaseException
     global UCXError
-    global UCXCanceled
+
+    global UCXNoMessageError
+    global UCXNoResourceError
+    global UCXIOError
+    global UCXNoMemoryError
+    global UCXInvalidParamError
+    global UCXUnreachableError
+    global UCXInvalidAddrError
+    global UCXNotImplementedError
+    global UCXMessageTruncatedError
+    global UCXNoProgressError
+    global UCXBufferTooSmallError
+    global UCXNoElemError
+    global UCXSomeConnectsFailedError
+    global UCXNoDeviceError
+    global UCXBusyError
     global UCXCanceledError
+    global UCXShmemSegmentError
+    global UCXAlreadyExistsError
+    global UCXOutOfRangeError
+    global UCXTimedOutError
+    global UCXExceedsLimitError
+    global UCXUnsupportedError
+    global UCXRejectedError
+    global UCXNotConnectedError
+    global UCXConnectionResetError
+    global UCXFirstLinkFailureError
+    global UCXLastLinkFailureError
+    global UCXFirstEndpointFailureError
+    global UCXEndpointTimeoutError
+    global UCXLastEndpointFailureError
+
     global UCXCloseError
     global UCXConfigError
-    global UCXConnectionResetError
+
+    # Legacy names
+    global UCXCanceled
     global UCXMsgTruncated
-    global UCXMessageTruncatedError
 
     create_exceptions()
 
-    UCXBaseException = <object>UCXXBaseException
     UCXError = <object>UCXXError
+
+    UCXNoMessageError = <object>UCXXNoMessageError
+    UCXNoResourceError = <object>UCXXNoResourceError
+    UCXIOError = <object>UCXXIOError
+    UCXNoMemoryError = <object>UCXXNoMemoryError
+    UCXInvalidParamError = <object>UCXXInvalidParamError
+    UCXUnreachableError = <object>UCXXUnreachableError
+    UCXInvalidAddrError = <object>UCXXInvalidAddrError
+    UCXNotImplementedError = <object>UCXXNotImplementedError
+    UCXMessageTruncatedError = <object>UCXXMessageTruncatedError
+    UCXNoProgressError = <object>UCXXNoProgressError
+    UCXBufferTooSmallError = <object>UCXXBufferTooSmallError
+    UCXNoElemError = <object>UCXXNoElemError
+    UCXSomeConnectsFailedError = <object>UCXXSomeConnectsFailedError
+    UCXNoDeviceError = <object>UCXXNoDeviceError
+    UCXBusyError = <object>UCXXBusyError
     UCXCanceledError = <object>UCXXCanceledError
+    UCXShmemSegmentError = <object>UCXXShmemSegmentError
+    UCXAlreadyExistsError = <object>UCXXAlreadyExistsError
+    UCXOutOfRangeError = <object>UCXXOutOfRangeError
+    UCXTimedOutError = <object>UCXXTimedOutError
+    UCXExceedsLimitError = <object>UCXXExceedsLimitError
+    UCXUnsupportedError = <object>UCXXUnsupportedError
+    UCXRejectedError = <object>UCXXRejectedError
+    UCXNotConnectedError = <object>UCXXNotConnectedError
+    UCXConnectionResetError = <object>UCXXConnectionResetError
+    UCXFirstLinkFailureError = <object>UCXXFirstLinkFailureError
+    UCXLastLinkFailureError = <object>UCXXLastLinkFailureError
+    UCXFirstEndpointFailureError = <object>UCXXFirstEndpointFailureError
+    UCXEndpointTimeoutError = <object>UCXXEndpointTimeoutError
+    UCXLastEndpointFailureError = <object>UCXXLastEndpointFailureError
+
     UCXCloseError = <object>UCXXCloseError
     UCXConfigError = <object>UCXXConfigError
-    UCXConnectionResetError = <object>UCXXConnectionResetError
-    UCXMessageTruncatedError = <object>UCXXMessageTruncatedError
 
     # Define legacy names
     # TODO: Deprecate and remove

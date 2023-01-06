@@ -9,19 +9,16 @@
 #include <ucxx/config.h>
 #include <ucxx/exception.h>
 #include <ucxx/utils/file_descriptor.h>
+#include <ucxx/utils/ucx.h>
 
 namespace ucxx {
 
 ucp_config_t* Config::readUCXConfig(ConfigMap userOptions)
 {
   ucs_status_t status;
-  std::string statusMsg;
 
   status = ucp_config_read(NULL, NULL, &_handle);
-  if (status != UCS_OK) {
-    statusMsg = ucs_status_string(status);
-    throw ucxx::ConfigError(std::string("Couldn't read the UCX options: ") + statusMsg);
-  }
+  utils::ucsErrorThrow(status);
 
   // Modify the UCX configuration options based on `userOptions`
   for (const auto& kv : userOptions) {
@@ -29,11 +26,11 @@ ucp_config_t* Config::readUCXConfig(ConfigMap userOptions)
     if (status != UCS_OK) {
       ucp_config_release(_handle);
 
-      if (status == UCS_ERR_NO_ELEM) {
-        throw ucxx::ConfigError(std::string("Option ") + kv.first + std::string("doesn't exist"));
-      } else {
-        throw ucxx::ConfigError(ucs_status_string(status));
-      }
+      if (status == UCS_ERR_NO_ELEM)
+        utils::ucsErrorThrow(status,
+                             std::string("Option ") + kv.first + std::string("doesn't exist"));
+      else
+        utils::ucsErrorThrow(status);
     }
   }
 

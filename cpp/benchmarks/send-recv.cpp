@@ -71,7 +71,7 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
   ListenerContext* listener_ctx = (ListenerContext*)arg;
 
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
-  assert_ucs_status(ucp_conn_request_query(conn_request, &attr));
+  ucsErrorThrow(ucp_conn_request_query(conn_request, &attr));
   sockaddr_utils_get_ip_port_str(&attr.client_address, ip_str, port_str, MAX_STRING_LEN);
   std::cout << "Server received a connection request from client at address " << ip_str << ":"
             << port_str << std::endl;
@@ -84,7 +84,7 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
     std::cout << "Rejecting a connection request from " << ip_str << ":" << port_str << "."
               << std::endl
               << "Only one client at a time is supported." << std::endl;
-    assert_ucs_status(ucp_listener_reject(listener_ctx->getListener()->get_handle(), conn_request));
+    ucsErrorThrow(ucp_listener_reject(listener_ctx->getListener()->get_handle(), conn_request));
   }
 }
 

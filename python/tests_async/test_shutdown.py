@@ -1,8 +1,10 @@
 import asyncio
+import logging
 import sys
 
 import numpy as np
 import pytest
+from utils import captured_logger, wait_listener_client_handlers
 
 import ucxx as ucp
 
@@ -31,7 +33,7 @@ async def test_server_shutdown(message_type):
         pytest.skip("AM not implemented yet")
 
     async def server_node(ep):
-        with pytest.raises(ucp.exceptions.UCXCanceled):
+        with pytest.raises(ucp.exceptions.UCXCanceledError):
             await asyncio.gather(_shutdown_recv(ep, message_type), ep.close())
 
     async def client_node(port):
@@ -39,13 +41,14 @@ async def test_server_shutdown(message_type):
             ucp.get_address(),
             port,
         )
-        with pytest.raises(ucp.exceptions.UCXCanceled):
+        with pytest.raises(ucp.exceptions.UCXCanceledError):
             await _shutdown_recv(ep, message_type)
 
     listener = ucp.create_listener(
         server_node,
     )
     await client_node(listener.port)
+    await wait_listener_client_handlers(listener)
 
 
 @pytest.mark.skipif(
@@ -63,17 +66,18 @@ async def test_client_shutdown(message_type):
             ucp.get_address(),
             port,
         )
-        with pytest.raises(ucp.exceptions.UCXCanceled):
+        with pytest.raises(ucp.exceptions.UCXCanceledError):
             await asyncio.gather(_shutdown_recv(ep, message_type), ep.close())
 
     async def server_node(ep):
-        with pytest.raises(ucp.exceptions.UCXCanceled):
+        with pytest.raises(ucp.exceptions.UCXCanceledError):
             await _shutdown_recv(ep, message_type)
 
     listener = ucp.create_listener(
         server_node,
     )
     await client_node(listener.port)
+    await wait_listener_client_handlers(listener)
 
 
 @pytest.mark.asyncio
@@ -102,6 +106,7 @@ async def test_listener_close(message_type):
         server_node,
     )
     await client_node(listener)
+    await wait_listener_client_handlers(listener)
 
 
 @pytest.mark.asyncio
@@ -123,8 +128,15 @@ async def test_listener_del(message_type):
         listener.port,
     )
     await _shutdown_recv(ep, message_type)
+
     assert listener.closed() is False
-    del listener
+    root = logging.getLogger("ucx")
+    with captured_logger(root, level=logging.WARN) as log:
+        # Deleting the listener without waiting for all client handlers to complete
+        # should be avoided in user code.
+        del listener
+    assert log.getvalue().startswith("Listener object is being destroyed")
+
     await _shutdown_recv(ep, message_type)
 
 
@@ -195,3 +207,4 @@ async def test_close_after_n_recv(message_type):
         server_node,
     )
     await client_node(listener.port)
+    await wait_listener_client_handlers(listener)

@@ -11,6 +11,7 @@
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/typedefs.h>
+#include <ucxx/utils/ucx.h>
 
 #if UCXX_ENABLE_PYTHON
 #include <Python.h>
@@ -83,13 +84,7 @@ void Request::checkError()
   // Only load the atomic variable once
   auto status = _status.load();
 
-  switch (status) {
-    case UCS_OK:
-    case UCS_INPROGRESS: return;
-    case UCS_ERR_CANCELED: throw CanceledError(ucs_status_string(status)); break;
-    case UCS_ERR_MESSAGE_TRUNCATED: throw MessageTruncatedError(_status_msg); break;
-    default: throw Error(ucs_status_string(status)); break;
-  }
+  utils::ucsErrorThrow(status, status == UCS_ERR_MESSAGE_TRUNCATED ? _status_msg : std::string());
 }
 
 bool Request::isCompleted() { return _status != UCS_INPROGRESS; }

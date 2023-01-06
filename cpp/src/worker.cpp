@@ -42,7 +42,7 @@ Worker::Worker(std::shared_ptr<Context> context,
   memset(&params, 0, sizeof(params));
   params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
   params.thread_mode = UCS_THREAD_MODE_MULTI;
-  utils::assert_ucs_status(ucp_worker_create(context->getHandle(), &params, &_handle));
+  utils::ucsErrorThrow(ucp_worker_create(context->getHandle(), &params, &_handle));
 
   if (enableDelayedSubmission)
     _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
@@ -55,36 +55,43 @@ Worker::Worker(std::shared_ptr<Context> context,
   setParent(std::dynamic_pointer_cast<Component>(context));
 }
 
+static void _drainCallback(void* request,
+                           ucs_status_t status,
+                           const ucp_tag_recv_info_t* info,
+                           void* arg)
+{
+  *(ucs_status_t*)request = status;
+}
+
 void Worker::drainWorkerTagRecv()
 {
-  // TODO: Uncomment, requires specialized TransferTag
-  // auto context = std::dynamic_pointer_cast<Context>(_parent);
-  // if (!(context->get_feature_flags() & UCP_FEATURE_TAG)) return;
+  auto context = std::dynamic_pointer_cast<Context>(_parent);
+  if (!(context->getFeatureFlags() & UCP_FEATURE_TAG)) return;
 
-  // ucp_tag_message_h message;
-  // ucp_tag_recv_info_t info;
+  ucp_tag_message_h message;
+  ucp_tag_recv_info_t info;
 
-  // while ((message = ucp_tag_probe_nb(_handle, 0, 0, 1, &info)) != NULL) {
-  //   ucxx_debug("Draining tag receive messages, worker: %p, tag: 0x%lx, length: %lu",
-  //              _handle,
-  //              info.sender_tag,
-  //              info.length);
+  while ((message = ucp_tag_probe_nb(_handle, 0, 0, 1, &info)) != NULL) {
+    ucxx_debug("Draining tag receive messages, worker: %p, tag: 0x%lx, length: %lu",
+               _handle,
+               info.sender_tag,
+               info.length);
 
-  //   std::shared_ptr<ucxx_request_t> request = std::make_shared<ucxx_request_t>();
-  //   ucp_request_param_t param               = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-  //                                                UCP_OP_ATTR_FIELD_DATATYPE |
-  //                                                UCP_OP_ATTR_FIELD_USER_DATA,
-  //                                .datatype  = ucp_dt_make_contig(1),
-  //                                .user_data = request.get()};
+    std::vector<char> buf(info.length);
 
-  //   std::unique_ptr<char> buf = std::make_unique<char>(info.length);
-  //   ucs_status_ptr_t status =
-  //     ucp_tag_msg_recv_nbx(_handle, buf.get(), info.length, message, &param);
-  //   request_wait(_handle, status, request.get(), "drain_tag_recv");
+    ucp_request_param_t param = {
+      .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_DATATYPE,
+      .cb           = {.recv = _drainCallback},
+      .datatype     = ucp_dt_make_contig(1)};
 
-  //   while (request->status == UCS_INPROGRESS)
-  //     progress();
-  // }
+    ucs_status_ptr_t status =
+      ucp_tag_msg_recv_nbx(_handle, buf.data(), info.length, message, &param);
+
+    if (status != nullptr) {
+      while (UCS_PTR_STATUS(status) == UCS_INPROGRESS)
+        progress();
+    }
+  }
 }
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
@@ -96,7 +103,10 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
 Worker::~Worker()
 {
-  _inflightRequests->cancelAll();
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    _inflightRequests->cancelAll();
+  }
 
   stopProgressThreadNoWarn();
 #if UCXX_ENABLE_PYTHON
@@ -132,7 +142,7 @@ void Worker::initBlockingProgressMode()
   // Return if blocking progress mode was already initialized
   if (_epollFileDescriptor >= 0) return;
 
-  utils::assert_ucs_status(ucp_worker_get_efd(_handle, &_workerFileDescriptor));
+  utils::ucsErrorThrow(ucp_worker_get_efd(_handle, &_workerFileDescriptor));
 
   arm();
 
@@ -152,7 +162,7 @@ bool Worker::arm()
 {
   ucs_status_t status = ucp_worker_arm(_handle);
   if (status == UCS_ERR_BUSY) return false;
-  utils::assert_ucs_status(status);
+  utils::ucsErrorThrow(status);
   return true;
 }
 
@@ -174,12 +184,12 @@ bool Worker::progressWorkerEvent()
   return false;
 }
 
-void Worker::signal() { utils::assert_ucs_status(ucp_worker_signal(_handle)); }
+void Worker::signal() { utils::ucsErrorThrow(ucp_worker_signal(_handle)); }
 
 bool Worker::waitProgress()
 {
   cancelInflightRequests();
-  utils::assert_ucs_status(ucp_worker_wait(_handle));
+  utils::ucsErrorThrow(ucp_worker_wait(_handle));
   return progressOnce();
 }
 
@@ -355,25 +365,37 @@ void Worker::stopProgressThread()
 
 size_t Worker::cancelInflightRequests()
 {
-  auto inflightRequestsToCancel =
-    std::exchange(_inflightRequestsToCancel, std::make_shared<InflightRequests>());
+  auto inflightRequestsToCancel = std::make_shared<InflightRequests>();
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
+  }
   return inflightRequestsToCancel->cancelAll();
 }
 
 void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests)
 {
-  ucxx_debug("Scheduling cancelation of %lu requests", inflightRequests->size());
-  _inflightRequestsToCancel->merge(inflightRequests->release());
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    ucxx_debug("Scheduling cancelation of %lu requests", inflightRequests->size());
+    _inflightRequestsToCancel->merge(inflightRequests->release());
+  }
 }
 
 void Worker::registerInflightRequest(std::shared_ptr<Request> request)
 {
-  _inflightRequests->insert(request);
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    _inflightRequests->insert(request);
+  }
 }
 
 void Worker::removeInflightRequest(const Request* const request)
 {
-  _inflightRequests->remove(request);
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    _inflightRequests->remove(request);
+  }
 }
 
 bool Worker::tagProbe(ucp_tag_t tag)

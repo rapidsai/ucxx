@@ -46,7 +46,7 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.cb  = Endpoint::errorCallback;
   params->err_handler.arg = _callbackData.get();
 
-  utils::assert_ucs_status(ucp_ep_create(worker->getHandle(), params.get(), &_handle));
+  utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params.get(), &_handle));
 }
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
@@ -158,10 +158,7 @@ void Endpoint::raiseOnError()
   std::stringstream errorMsgStream;
   errorMsgStream << "Endpoint " << std::hex << _handle << " error: " << statusString;
 
-  if (status == UCS_ERR_CONNECTION_RESET)
-    throw ConnectionResetError(errorMsgStream.str());
-  else
-    throw Error(errorMsgStream.str());
+  utils::ucsErrorThrow(status, errorMsgStream.str());
 }
 
 void Endpoint::setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg)

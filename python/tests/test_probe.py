@@ -2,7 +2,7 @@ import multiprocessing as mp
 
 from ucxx._lib import libucxx as ucx_api
 from ucxx._lib.arr import Array
-from ucxx.testing import wait_requests
+from ucxx.testing import terminate_process, wait_requests
 
 mp = mp.get_context("spawn")
 
@@ -86,5 +86,5 @@ def test_message_probe():
     client.start()
     client.join(timeout=10)
     server.join(timeout=10)
-    assert client.exitcode == 0
-    assert server.exitcode == 0
+    terminate_process(client)
+    terminate_process(server)

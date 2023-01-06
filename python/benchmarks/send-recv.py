@@ -28,6 +28,7 @@ from dask.utils import format_bytes, parse_bytes
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
+from ucxx._lib_async.utils import get_event_loop
 
 mp = mp.get_context("spawn")
 
@@ -161,7 +162,7 @@ def server(queue, args):
                 for r in requests:
                     r.check_error()
 
-    loop = asyncio.get_event_loop()
+    loop = get_event_loop()
     loop.run_until_complete(_transfer())
 
 
@@ -251,7 +252,7 @@ def client(port, server_address, args):
         if args.cuda_profile:
             xp.cuda.profiler.stop()
 
-    loop = asyncio.get_event_loop()
+    loop = get_event_loop()
     loop.run_until_complete(_transfer())
 
     assert len(times) == args.n_iter

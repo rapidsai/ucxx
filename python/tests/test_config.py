@@ -4,7 +4,7 @@ import pytest
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
-from ucxx._lib.libucxx import UCXConfigError
+from ucxx._lib.libucxx import UCXInvalidParamError
 
 
 def test_get_config():
@@ -46,13 +46,13 @@ def test_init_options():
 )
 def test_init_unknown_option():
     options = {"UNKNOWN_OPTION": "3M"}
-    with pytest.raises(UCXConfigError):
+    with pytest.raises(UCXInvalidParamError):
         ucx_api.UCXContext(options)
 
 
 def test_init_invalid_option():
     options = {"SEG_SIZE": "invalid-size"}
-    with pytest.raises(UCXConfigError):
+    with pytest.raises(UCXInvalidParamError):
         ucx_api.UCXContext(options)
 
 

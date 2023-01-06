@@ -15,9 +15,9 @@ from ucxx._lib.arr import Array
 from .continuous_ucx_progress import PollingMode, ThreadMode
 from .endpoint import Endpoint
 from .exchange_peer_info import exchange_peer_info
-from .listener import Listener, _listener_handler
+from .listener import ActiveClients, Listener, _listener_handler
 from .notifier_thread import _notifierThread
-from .utils import hash64bits
+from .utils import get_event_loop, hash64bits
 
 logger = logging.getLogger("ucx")
 
@@ -37,6 +37,8 @@ class ApplicationContext:
         self.progress_tasks = []
         self.notifier_thread_q = None
         self.notifier_thread = None
+        self._listener_active_clients = ActiveClients()
+        self._next_listener_id = 0
 
         self.progress_mode = ApplicationContext._check_progress_mode(progress_mode)
 
@@ -118,6 +120,7 @@ class ApplicationContext:
     def start_notifier_thread(self):
         if self.worker.is_python_future_enabled():
             logger.debug("UCXX_ENABLE_PYTHON available, enabling notifier thread")
+            loop = get_event_loop()
             self.notifier_thread_q = Queue()
             self.notifier_thread = threading.Thread(
                 target=_notifierThread,
@@ -183,17 +186,28 @@ class ApplicationContext:
         if port is None:
             port = 0
 
-        loop = asyncio.get_event_loop()
+        loop = get_event_loop()
 
         logger.info("create_listener() - Start listening on port %d" % port)
+        listener_id = self._next_listener_id
+        self._next_listener_id += 1
         ret = Listener(
             ucx_api.UCXListener.create(
                 worker=self.worker,
                 port=port,
                 cb_func=_listener_handler,
-                cb_args=(loop, callback_func, self, endpoint_error_handling),
+                cb_args=(
+                    loop,
+                    callback_func,
+                    self,
+                    endpoint_error_handling,
+                    listener_id,
+                    self._listener_active_clients,
+                ),
                 deliver_endpoint=True,
-            )
+            ),
+            listener_id,
+            self._listener_active_clients,
         )
         return ret
 
@@ -314,9 +328,10 @@ class ApplicationContext:
         ----------
         event_loop: asyncio.event_loop, optional
             The event loop to evoke UCX progress. If None,
-            `asyncio.get_event_loop()` is used.
+            `asyncio.get_event_loop()` (`asyncio.new_event_loop()` in
+            Python 3.10+) is used.
         """
-        loop = event_loop if event_loop is not None else asyncio.get_event_loop()
+        loop = event_loop if event_loop is not None else get_event_loop()
         if loop in self.progress_tasks:
             return  # Progress has already been guaranteed for the current event loop
 

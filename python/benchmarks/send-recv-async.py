@@ -26,6 +26,7 @@ from time import perf_counter as clock
 from dask.utils import format_bytes, parse_bytes
 
 import ucxx as ucp
+from ucxx._lib_async.utils import get_event_loop
 
 mp = mp.get_context("spawn")
 
@@ -89,7 +90,7 @@ def server(queue, args):
         while not lf.closed():
             await asyncio.sleep(0.5)
 
-    loop = asyncio.get_event_loop()
+    loop = get_event_loop()
     loop.run_until_complete(run())
 
 
@@ -162,7 +163,7 @@ def client(queue, port, server_address, args):
             xp.cuda.profiler.stop()
         queue.put(times)
 
-    loop = asyncio.get_event_loop()
+    loop = get_event_loop()
     try:
         loop.run_until_complete(run())
     except Exception as e:

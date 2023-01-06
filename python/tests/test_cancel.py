@@ -4,6 +4,7 @@ import pytest
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
+from ucxx.testing import terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -54,18 +55,14 @@ def _client_cancel(queue):
     msg = Array(bytearray(1))
     request = ep.tag_recv(msg, tag=0)
 
-    canceled = worker.cancel_inflight_requests()
-    while canceled == 0:
+    while not request.is_completed():
         worker.progress()
-        canceled = worker.cancel_inflight_requests()
 
     with pytest.raises(ucx_api.UCXCanceled):
         request.check_error()
 
     while ep.is_alive():
         worker.progress()
-
-    assert canceled == 1
 
 
 def test_message_probe():
@@ -82,5 +79,5 @@ def test_message_probe():
     client.start()
     client.join(timeout=10)
     server.join(timeout=10)
-    assert client.exitcode == 0
-    assert server.exitcode == 0
+    terminate_process(client)
+    terminate_process(server)

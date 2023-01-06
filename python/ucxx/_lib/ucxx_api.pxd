@@ -96,13 +96,41 @@ cdef extern from "rmm/device_buffer.hpp" namespace "rmm" nogil:
 
 
 cdef extern from "<ucxx/python/exception.h>" namespace "ucxx::python" nogil:
-    cdef PyObject* UCXXBaseException
     cdef PyObject* UCXXError
+
+    cdef PyObject* UCXXNoMessageError
+    cdef PyObject* UCXXNoResourceError
+    cdef PyObject* UCXXIOError
+    cdef PyObject* UCXXNoMemoryError
+    cdef PyObject* UCXXInvalidParamError
+    cdef PyObject* UCXXUnreachableError
+    cdef PyObject* UCXXInvalidAddrError
+    cdef PyObject* UCXXNotImplementedError
+    cdef PyObject* UCXXMessageTruncatedError
+    cdef PyObject* UCXXNoProgressError
+    cdef PyObject* UCXXBufferTooSmallError
+    cdef PyObject* UCXXNoElemError
+    cdef PyObject* UCXXSomeConnectsFailedError
+    cdef PyObject* UCXXNoDeviceError
+    cdef PyObject* UCXXBusyError
     cdef PyObject* UCXXCanceledError
+    cdef PyObject* UCXXShmemSegmentError
+    cdef PyObject* UCXXAlreadyExistsError
+    cdef PyObject* UCXXOutOfRangeError
+    cdef PyObject* UCXXTimedOutError
+    cdef PyObject* UCXXExceedsLimitError
+    cdef PyObject* UCXXUnsupportedError
+    cdef PyObject* UCXXRejectedError
+    cdef PyObject* UCXXNotConnectedError
+    cdef PyObject* UCXXConnectionResetError
+    cdef PyObject* UCXXFirstLinkFailureError
+    cdef PyObject* UCXXLastLinkFailureError
+    cdef PyObject* UCXXFirstEndpointFailureError
+    cdef PyObject* UCXXEndpointTimeoutError
+    cdef PyObject* UCXXLastEndpointFailureError
+
     cdef PyObject* UCXXCloseError
     cdef PyObject* UCXXConfigError
-    cdef PyObject* UCXXConnectionResetError
-    cdef PyObject* UCXXMessageTruncatedError
 
     cdef void create_exceptions()
     cdef void raise_py_error()

@@ -40,7 +40,7 @@ async def test_cancel(transfer_api):
         pytest.skip("AM not implemented yet")
 
     async def server_node(ep):
-        await ep.close()
+        pass
 
     async def client_node(port):
         ep = await ucp.create_endpoint(ucp.get_address(), port)
@@ -57,7 +57,6 @@ async def test_cancel(transfer_api):
             ):
                 msg = bytearray(1)
                 await ep.recv(msg)
-        await ep.close()
 
     listener = ucp.create_listener(server_node)
     await client_node(listener.port)
