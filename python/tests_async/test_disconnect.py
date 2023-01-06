@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 import ucxx as ucp
-from ucp.utils import get_event_loop
+from ucxx._lib_async.utils import get_event_loop
 
 mp = mp.get_context("spawn")
 

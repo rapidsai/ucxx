@@ -6,6 +6,8 @@ import queue
 import sys
 from functools import partial
 
+from ucxx._lib_async.utils import get_event_loop
+
 logger = logging.getLogger("ucx.asyncssh")
 logger.setLevel(logging.getLevelName(os.getenv("UCXPY_ASYNCSSH_LOG_LEVEL", "WARNING")))
 
@@ -161,7 +163,7 @@ try:
         Same as `_run_ssh_cluster()` but running on event loop until completed.
         """
         try:
-            asyncio.get_event_loop().run_until_complete(
+            get_event_loop().run_until_complete(
                 _run_ssh_cluster(
                     args,
                     server_host,

@@ -5,6 +5,7 @@ import numpy as np
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
+from ucxx._lib_async.utils import get_event_loop
 
 
 def _create_cuda_context():
@@ -203,10 +204,10 @@ def main():
         requests = [send_buffer_requests, recv_buffer_requests]
 
         if args.asyncio_wait_future:
-            loop = asyncio.get_event_loop()
+            loop = get_event_loop()
             loop.run_until_complete(_wait_requests_async_future(loop, worker, requests))
         elif args.asyncio_wait_yield:
-            loop = asyncio.get_event_loop()
+            loop = get_event_loop()
             loop.run_until_complete(_wait_requests_async_yield(loop, worker, requests))
         else:
             _wait_requests(worker, args.progress_mode, requests)
@@ -230,10 +231,10 @@ def main():
         ]
 
         if args.asyncio_wait_future:
-            loop = asyncio.get_event_loop()
+            loop = get_event_loop()
             loop.run_until_complete(_wait_requests_async_future(loop, worker, requests))
         elif args.asyncio_wait_yield:
-            loop = asyncio.get_event_loop()
+            loop = get_event_loop()
             loop.run_until_complete(_wait_requests_async_yield(loop, worker, requests))
         else:
             _wait_requests(worker, args.progress_mode, requests)
