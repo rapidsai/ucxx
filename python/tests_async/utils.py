@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import os
@@ -151,3 +152,10 @@ async def am_recv(ep):
 
     msg = await from_frames(frames)
     return frames, msg
+
+
+async def wait_listener_client_handlers(listener):
+    pass
+    while listener.active_clients > 0:
+        await asyncio.sleep(0)
+        ucp.progress()
