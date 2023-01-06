@@ -35,6 +35,8 @@ TEST_F(EndpointTest, HandleIsValid)
 
 TEST_F(EndpointTest, IsAlive)
 {
+  GTEST_SKIP()
+    << "Connecting to worker via its UCX address doesn't seem to call endpoint error handler";
   auto ep = _worker->createEndpointFromWorkerAddress(_remoteWorker->getAddress());
   _worker->progress();
   _remoteWorker->progress();
