@@ -53,7 +53,7 @@ TEST_P(BufferAllocator, TestType)
 
     ASSERT_EQ(buffer->getType(), ucxx::BufferType::Invalid);
 #else
-    GTEST_SKIP();
+    GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
   }
 
@@ -82,7 +82,7 @@ TEST_P(BufferAllocator, TestSize)
 
     ASSERT_EQ(buffer->getSize(), 0u);
 #else
-    GTEST_SKIP();
+    GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
   }
 
@@ -113,7 +113,7 @@ TEST_P(BufferAllocator, TestData)
 
     ASSERT_NE(releasedBuffer, nullptr);
 #else
-    GTEST_SKIP();
+    GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
   }
 
@@ -138,7 +138,7 @@ TEST_P(BufferAllocator, TestThrowAfterRelease)
     EXPECT_THROW(buffer->data(), std::runtime_error);
     EXPECT_THROW(buffer->release(), std::runtime_error);
 #else
-    GTEST_SKIP();
+    GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
   }
   EXPECT_THROW(_buffer->data(), std::runtime_error);

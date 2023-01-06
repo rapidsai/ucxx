@@ -45,7 +45,7 @@ class RequestTest
   {
     if (_bufferType == ucxx::BufferType::RMM) {
 #if !UCXX_ENABLE_RMM
-      GTEST_SKIP();
+      GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
     }
 
@@ -166,8 +166,7 @@ TEST_P(RequestTest, ProgressTag)
 TEST_P(RequestTest, ProgressTagMulti)
 {
   if (_progressMode == ProgressMode::Wait) {
-    // UCP worker progressing in wait mode can't be interrupted
-    GTEST_SKIP();
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
   const size_t numMulti         = 8;

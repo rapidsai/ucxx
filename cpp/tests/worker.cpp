@@ -102,8 +102,7 @@ TEST_P(WorkerProgressTest, ProgressTag)
 TEST_P(WorkerProgressTest, ProgressTagMulti)
 {
   if (_progressMode == ProgressMode::Wait) {
-    // UCP worker progressing in wait mode can't be interrupted
-    GTEST_SKIP();
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
