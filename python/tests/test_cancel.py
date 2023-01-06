@@ -1,10 +1,10 @@
 import multiprocessing as mp
 
 import pytest
-from utils import terminate_process
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
+from ucxx.testing import terminate_process
 
 mp = mp.get_context("spawn")
 

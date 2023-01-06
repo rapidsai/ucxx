@@ -3,10 +3,8 @@ import re
 from multiprocessing.queues import Empty
 
 import pytest
-from utils import terminate_process
 
-# mp = mp.get_context("spawn")
-# mp = mp.get_context("forkserver")
+from ucxx.testing import terminate_process
 
 
 def _test_process(queue):
