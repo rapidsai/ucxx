@@ -1,7 +1,10 @@
 *.*~
 *.so
+.cache
 _build
 build
+cpp/compile_commands.json
+python/record.txt
 python/ucxx/_lib/*.a
 python/ucxx/_lib/*.o
 python/ucxx/_lib/*.c
