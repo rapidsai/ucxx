@@ -4,6 +4,7 @@
 
 import asyncio
 import logging
+from concurrent.futures import TimeoutError
 
 import ucxx._lib.libucxx as ucx_api
 
@@ -38,7 +39,7 @@ def _notifierThread(event_loop, worker, q):
         if not q.empty():
             q_val = q.get()
             if q_val == "shutdown":
-                logger.warning("_notifierThread shutting down")
+                logger.debug("_notifierThread shutting down")
                 shutdown = True
             else:
                 logger.warning(
@@ -54,4 +55,7 @@ def _notifierThread(event_loop, worker, q):
         task = asyncio.run_coroutine_threadsafe(
             _run_request_notifier(worker), event_loop
         )
-        task.result()
+        try:
+            task.result(0.01)
+        except TimeoutError:
+            logger.debug("Notifier Thread Result Timeout")
