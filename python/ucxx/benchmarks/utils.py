@@ -82,6 +82,8 @@ def _server_process(
     for rank in range(n_workers):
         q.put(ret[rank])
 
+    ucp.stop_notifier_thread()
+
 
 def _run_cluster_server(
     server_file,
@@ -216,6 +218,8 @@ def _worker_process(
     loop = asyncio.new_event_loop()
     ret = loop.run_until_complete(run())
     queue.put(ret)
+
+    ucp.stop_notifier_thread()
 
 
 def _run_cluster_workers(

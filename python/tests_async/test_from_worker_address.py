@@ -36,6 +36,8 @@ def _test_from_worker_address_server(queue):
 
     get_event_loop().run_until_complete(run())
 
+    ucp.stop_notifier_thread()
+
 
 def _test_from_worker_address_client(queue):
     async def run():
@@ -58,6 +60,8 @@ def _test_from_worker_address_client(queue):
         np.testing.assert_array_equal(recv_msg, np.arange(10, dtype=np.int64))
 
     get_event_loop().run_until_complete(run())
+
+    ucp.stop_notifier_thread()
 
 
 def test_from_worker_address():
@@ -185,6 +189,8 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue):
 
     get_event_loop().run_until_complete(run())
 
+    ucp.stop_notifier_thread()
+
 
 def _test_from_worker_address_client_fixedsize(queue):
     async def run():
@@ -213,6 +219,8 @@ def _test_from_worker_address_client_fixedsize(queue):
         await ep.send(send_msg, tag=send_tag, force_tag=True)
 
     get_event_loop().run_until_complete(run())
+
+    ucp.stop_notifier_thread()
 
 
 @pytest.mark.parametrize("num_nodes", [1, 2, 4, 8])

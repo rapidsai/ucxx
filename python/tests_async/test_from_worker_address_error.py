@@ -33,7 +33,11 @@ def _test_from_worker_address_error_server(q1, q2, error_type):
 
             ucp.reset()
 
+            # q1.put("disconnected")
+
     get_event_loop().run_until_complete(run())
+
+    ucp.stop_notifier_thread()
 
 
 def _test_from_worker_address_error_client(q1, q2, error_type):
@@ -110,6 +114,8 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                     await task
 
     get_event_loop().run_until_complete(run())
+
+    ucp.stop_notifier_thread()
 
 
 @pytest.mark.parametrize(

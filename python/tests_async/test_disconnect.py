@@ -64,6 +64,8 @@ def _test_shutdown_unexpected_closed_peer_server(
         assert ep_is_alive
         assert log.find("""UCXError('<[Send shutdown]""") != -1
 
+    ucp.stop_notifier_thread()
+
 
 def _test_shutdown_unexpected_closed_peer_client(
     client_queue, server_queue, endpoint_error_handling
@@ -79,6 +81,8 @@ def _test_shutdown_unexpected_closed_peer_client(
         await ep.recv(msg)
 
     get_event_loop().run_until_complete(run())
+
+    ucp.stop_notifier_thread()
 
 
 @pytest.mark.parametrize("endpoint_error_handling", [True, False])
