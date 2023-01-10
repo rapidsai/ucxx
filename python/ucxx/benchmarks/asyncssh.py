@@ -6,8 +6,6 @@ import queue
 import sys
 from functools import partial
 
-from ucxx._lib_async.utils import get_event_loop
-
 logger = logging.getLogger("ucx.asyncssh")
 logger.setLevel(logging.getLevelName(os.getenv("UCXPY_ASYNCSSH_LOG_LEVEL", "WARNING")))
 
@@ -60,12 +58,12 @@ try:
 
         The results are printed to stdout.
 
-        At the moment, only `ucp.benchmarks.cudf_merge` is supported.
+        At the moment, only `ucxx.benchmarks.cudf_merge` is supported.
 
         Parameters
         ----------
         args: Namespace
-            The arguments that were passed to `ucp.benchmarks.cudf_merge`.
+            The arguments that were passed to `ucxx.benchmarks.cudf_merge`.
         server_host: str
             String containing hostname or IP address of node where the server
             will run.
@@ -163,7 +161,7 @@ try:
         Same as `_run_ssh_cluster()` but running on event loop until completed.
         """
         try:
-            get_event_loop().run_until_complete(
+            asyncio.get_event_loop().run_until_complete(
                 _run_ssh_cluster(
                     args,
                     server_host,

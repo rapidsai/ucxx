@@ -139,12 +139,12 @@ class ApplicationContext:
 
         Stop the notifier thread if context is running with Python future
         notification enabled via `UCXPY_ENABLE_PYTHON_FUTURE=1` or
-        `ucp.init(..., enable_python_future=True)`.
+        `ucxx.init(..., enable_python_future=True)`.
 
         .. warning:: When the notifier thread is enabled it may be necessary to
                      explicitly call this method before shutting down the process or
                      or application, otherwise it may block indefinitely waiting for
-                     the thread to terminate. Executing `ucp.reset()` will also run
+                     the thread to terminate. Executing `ucxx.reset()` will also run
                      this method, so it's not necessary to have both.
         """
         if self.notifier_thread_q and self.notifier_thread:

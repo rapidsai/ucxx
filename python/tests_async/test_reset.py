@@ -1,11 +1,11 @@
 import pytest
 from utils import wait_listener_client_handlers
 
-import ucxx as ucp
+import ucxx
 
 
 class ResetAfterN:
-    """Calls ucp.reset() after n calls"""
+    """Calls ucxx.reset() after n calls"""
 
     def __init__(self, n):
         self.n = n
@@ -14,7 +14,7 @@ class ResetAfterN:
     def __call__(self):
         self.count += 1
         if self.count == self.n:
-            ucp.reset()
+            ucxx.reset()
 
 
 @pytest.mark.asyncio
@@ -25,8 +25,8 @@ async def test_reset():
         ep.abort()
         reset()
 
-    lt = ucp.create_listener(server)
-    ep = await ucp.create_endpoint(ucp.get_address(), lt.port)
+    lt = ucxx.create_listener(server)
+    ep = await ucxx.create_endpoint(ucxx.get_address(), lt.port)
     await wait_listener_client_handlers(lt)
     del lt
     del ep
@@ -41,18 +41,18 @@ async def test_lt_still_in_scope_error():
         ep.abort()
         reset()
 
-    lt = ucp.create_listener(server)
-    ep = await ucp.create_endpoint(ucp.get_address(), lt.port)
+    lt = ucxx.create_listener(server)
+    ep = await ucxx.create_endpoint(ucxx.get_address(), lt.port)
     del ep
     with pytest.raises(
-        ucp.exceptions.UCXError,
+        ucxx.exceptions.UCXError,
         match="Trying to reset UCX but not all Endpoints and/or Listeners are closed()",
     ):
-        ucp.reset()
+        ucxx.reset()
 
     await wait_listener_client_handlers(lt)
     lt.close()
-    ucp.reset()
+    ucxx.reset()
 
 
 @pytest.mark.asyncio
@@ -63,14 +63,14 @@ async def test_ep_still_in_scope_error():
         ep.abort()
         reset()
 
-    lt = ucp.create_listener(server)
-    ep = await ucp.create_endpoint(ucp.get_address(), lt.port)
+    lt = ucxx.create_listener(server)
+    ep = await ucxx.create_endpoint(ucxx.get_address(), lt.port)
     await wait_listener_client_handlers(lt)
     del lt
     with pytest.raises(
-        ucp.exceptions.UCXError,
+        ucxx.exceptions.UCXError,
         match="Trying to reset UCX but not all Endpoints and/or Listeners are closed()",
     ):
-        ucp.reset()
+        ucxx.reset()
     ep.abort()
-    ucp.reset()
+    ucxx.reset()

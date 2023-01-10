@@ -7,7 +7,7 @@ from queue import Empty
 import numpy as np
 import pytest
 
-import ucxx as ucp
+import ucxx
 from ucxx._lib_async.utils import get_event_loop
 
 mp = mp.get_context("spawn")
@@ -46,7 +46,7 @@ def _test_shutdown_unexpected_closed_peer_server(
             finally:
                 listener.close()
 
-        listener = ucp.create_listener(
+        listener = ucxx.create_listener(
             server_node, endpoint_error_handling=endpoint_error_handling
         )
         client_queue.put(listener.port)
@@ -64,7 +64,7 @@ def _test_shutdown_unexpected_closed_peer_server(
         assert ep_is_alive
         assert log.find("""UCXError('<[Send shutdown]""") != -1
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 def _test_shutdown_unexpected_closed_peer_client(
@@ -72,8 +72,8 @@ def _test_shutdown_unexpected_closed_peer_client(
 ):
     async def run():
         server_port = client_queue.get()
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             server_port,
             endpoint_error_handling=endpoint_error_handling,
         )
@@ -82,7 +82,7 @@ def _test_shutdown_unexpected_closed_peer_client(
 
     get_event_loop().run_until_complete(run())
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 @pytest.mark.parametrize("endpoint_error_handling", [True, False])
@@ -98,7 +98,7 @@ def test_shutdown_unexpected_closed_peer(caplog, endpoint_error_handling):
         [
             t.startswith(i)
             for i in ("rc", "dc", "ud")
-            for t in ucp.get_active_transports()
+            for t in ucxx.get_active_transports()
         ]
     ):
         pytest.skip(

@@ -16,20 +16,20 @@ from time import monotonic as clock
 import cupy
 import numpy as np
 
-import ucxx as ucp
-from ucp._libs.utils import (
-    format_bytes,
-    format_time,
-    print_multi,
-    print_separator,
-)
-from ucp.utils import hmean
+import ucxx
 from ucxx.benchmarks.asyncssh import run_ssh_cluster
 from ucxx.benchmarks.utils import (
     _run_cluster_server,
     _run_cluster_workers,
     run_cluster_server,
     run_cluster_workers,
+)
+from ucxx.utils import (
+    format_bytes,
+    format_time,
+    hmean,
+    print_multi,
+    print_separator,
 )
 
 # Must be set _before_ importing RAPIDS libraries (cuDF, RMM)
@@ -197,7 +197,7 @@ def _get_server_command(args, num_workers):
             f"--num-workers {num_workers}",
         ]
     )
-    return f"{sys.executable} -m ucp.benchmarks.cudf_merge {cmd_args}"
+    return f"{sys.executable} -m ucxx.benchmarks.cudf_merge {cmd_args}"
 
 
 def _get_worker_command_without_address(
@@ -225,7 +225,7 @@ def _get_worker_command_without_address(
         cmd_list.append("--collect-garbage")
     cmd_args = " ".join(cmd_list)
 
-    return f"{sys.executable} -m ucp.benchmarks.cudf_merge {cmd_args}"
+    return f"{sys.executable} -m ucxx.benchmarks.cudf_merge {cmd_args}"
 
 
 def _get_worker_command(
@@ -342,9 +342,9 @@ def parse_args():
         "-l",
         "--listen-address",
         metavar="ip",
-        default=ucp.get_address(),
+        default=ucxx.utils.get_address(),
         type=str,
-        help="Server listen address (default `ucp.get_address()`).",
+        help="Server listen address (default `ucxx.utils.get_address()`).",
     )
     parser.add_argument("-c", "--chunk-size", type=int, default=4, metavar="N")
     parser.add_argument(

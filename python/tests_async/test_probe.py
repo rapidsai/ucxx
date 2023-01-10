@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-import ucxx as ucp
+import ucxx as ucxx
 
 
 @pytest.mark.asyncio
@@ -31,8 +31,8 @@ async def test_message_probe(transfer_api):
         listener.close()
 
     async def client_node(port):
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             port,
         )
         if transfer_api == "am":
@@ -40,7 +40,7 @@ async def test_message_probe(transfer_api):
         else:
             await ep.send(msg)
 
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         server_node,
     )
     await client_node(listener.port)

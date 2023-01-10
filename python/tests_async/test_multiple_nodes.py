@@ -3,7 +3,7 @@ import asyncio
 import numpy as np
 import pytest
 
-import ucxx as ucp
+import ucxx
 
 
 def get_somaxconn():
@@ -28,7 +28,7 @@ async def server_node(ep):
 
 
 async def client_node(port):
-    ep = await ucp.create_endpoint(ucp.get_address(), port)
+    ep = await ucxx.create_endpoint(ucxx.get_address(), port)
     await hello(ep)
     # assert isinstance(ep.ucx_info(), str)
 
@@ -42,7 +42,7 @@ async def test_many_servers_many_clients(num_servers, num_clients):
     listeners = []
 
     for _ in range(num_servers):
-        listeners.append(ucp.create_listener(server_node))
+        listeners.append(ucxx.create_listener(server_node))
 
     # We ensure no more than `somaxconn` connections are submitted
     # at once. Doing otherwise can block and hang indefinitely.

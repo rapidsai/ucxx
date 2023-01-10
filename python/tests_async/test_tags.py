@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-import ucxx as ucp
+import ucxx as ucxx
 
 
 @pytest.mark.asyncio
@@ -16,8 +16,8 @@ async def test_tag_match():
         f2 = ep.send(msg2, tag="msg2")
         await asyncio.gather(f1, f2)
 
-    lf = ucp.create_listener(server_node)
-    ep = await ucp.create_endpoint(ucp.get_address(), lf.port)
+    lf = ucxx.create_listener(server_node)
+    ep = await ucxx.create_endpoint(ucxx.get_address(), lf.port)
     m1, m2 = (bytearray(len(msg1)), bytearray(len(msg2)))
     # May be dropped in favor of `asyncio.create_task` only
     # once Python 3.6 is dropped.

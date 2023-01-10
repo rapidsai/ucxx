@@ -8,7 +8,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-import ucxx as ucp
+import ucxx
 from ucxx._lib_async.utils import get_event_loop
 
 mp = mp.get_context("spawn")
@@ -16,12 +16,12 @@ mp = mp.get_context("spawn")
 
 def _test_from_worker_address_error_server(q1, q2, error_type):
     async def run():
-        address = bytearray(ucp.get_worker_address())
+        address = bytearray(ucxx.get_worker_address())
 
         if error_type == "unreachable":
             # Shutdown worker, then send its address to client process via
             # multiprocessing.Queue
-            ucp.reset()
+            ucxx.reset()
             q1.put(address)
         else:
             # Send worker address to client process via # multiprocessing.Queue,
@@ -31,23 +31,23 @@ def _test_from_worker_address_error_server(q1, q2, error_type):
             ep_ready = q2.get()
             assert ep_ready == "ready"
 
-            ucp.reset()
+            ucxx.reset()
 
             # q1.put("disconnected")
 
     get_event_loop().run_until_complete(run())
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 def _test_from_worker_address_error_client(q1, q2, error_type):
     async def run():
         # Receive worker address from server via multiprocessing.Queue
-        remote_address = ucp.get_ucx_address_from_buffer(q1.get())
+        remote_address = ucxx.get_ucx_address_from_buffer(q1.get())
 
         if error_type == "unreachable":
             with pytest.raises(
-                ucp.exceptions.UCXError,
+                ucxx.exceptions.UCXError,
                 match="Destination is unreachable|Endpoint timeout",
             ):
                 # Here, two cases may happen:
@@ -55,12 +55,12 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                 #    "Destination is unreachable"
                 # 2. With rc/ud creating endpoint will succeed, but raise
                 #    "Endpoint timeout" after UCX_UD_TIMEOUT seconds have passed.
-                #    We need to keep progressing UCP until timeout is raised.
-                ep = await ucp.create_endpoint_from_worker_address(remote_address)
+                #    We need to keep progressing ucxx until timeout is raised.
+                ep = await ucxx.create_endpoint_from_worker_address(remote_address)
 
                 start = time.monotonic()
                 while not ep._ep.raise_on_error():
-                    ucp.progress()
+                    ucxx.progress()
 
                     # Prevent hanging
                     if time.monotonic() - start >= 1.0:
@@ -80,16 +80,16 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
             #      shutdown;
             #    - wait for it to shutdown and confirm
             #    - wait for recv message.
-            ep = await ucp.create_endpoint_from_worker_address(remote_address)
+            ep = await ucxx.create_endpoint_from_worker_address(remote_address)
 
             if re.match("timeout.*send", error_type):
                 q2.put("ready")
 
                 # Wait for remote endpoint to disconnect
                 while ep._ep.is_alive():
-                    ucp.progress()
+                    ucxx.progress()
 
-                with pytest.raises(ucp.exceptions.UCXError, match="Endpoint timeout"):
+                with pytest.raises(ucxx.exceptions.UCXError, match="Endpoint timeout"):
                     if error_type == "timeout_am_send":
                         await asyncio.wait_for(ep.am_send(np.zeros(10)), timeout=1.0)
                     else:
@@ -97,7 +97,7 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                             ep.send(np.zeros(10), tag=0, force_tag=True), timeout=1.0
                         )
             else:
-                with pytest.raises(ucp.exceptions.UCXError):
+                with pytest.raises(ucxx.exceptions.UCXError):
                     if error_type == "timeout_am_recv":
                         task = asyncio.wait_for(ep.am_recv(), timeout=3.0)
                     else:
@@ -109,13 +109,13 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                     q2.put("ready")
 
                     while ep._ep.is_alive():
-                        ucp.progress()
+                        ucxx.progress()
 
                     await task
 
     get_event_loop().run_until_complete(run())
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 @pytest.mark.parametrize(
@@ -161,7 +161,7 @@ def test_from_worker_address_error(error_type):
 
     assert not server.exitcode
 
-    if ucp.get_ucx_version() < (1, 12, 0) and client.exitcode == 1:
+    if ucxx.get_ucx_version() < (1, 12, 0) and client.exitcode == 1:
         if all(t in error_type for t in ["timeout", "send"]):
             pytest.xfail(
                 "Requires https://github.com/openucx/ucx/pull/7527 with rc/ud."

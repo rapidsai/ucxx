@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-import ucxx as ucp
+import ucxx
 
 
 def pytest_addoption(parser):
@@ -36,7 +36,7 @@ def handle_exception(loop, context):
 def event_loop(scope="session"):
     loop = asyncio.new_event_loop()
     loop.set_exception_handler(handle_exception)
-    ucp.reset()
+    ucxx.reset()
     yield loop
-    ucp.reset()
+    ucxx.reset()
     loop.run_until_complete(asyncio.sleep(0))

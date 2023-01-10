@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from utils import am_recv, am_send, get_cuda_devices, get_num_gpus, recv, send
 
-import ucxx as ucp
+import ucxx as ucxx
 from ucxx._lib_async.utils import get_event_loop
 
 cupy = pytest.importorskip("cupy")
@@ -19,14 +19,14 @@ ITERATIONS = 30
 
 
 async def get_ep(name, port):
-    addr = ucp.get_address()
-    ep = await ucp.create_endpoint(addr, port)
+    addr = ucxx.get_address()
+    ep = await ucxx.create_endpoint(addr, port)
     return ep
 
 
 def register_am_allocators():
-    ucp.register_am_allocator(lambda n: np.empty(n, dtype=np.uint8), "host")
-    ucp.register_am_allocator(lambda n: rmm.DeviceBuffer(size=n), "cuda")
+    ucxx.register_am_allocator(lambda n: np.empty(n, dtype=np.uint8), "host")
+    ucxx.register_am_allocator(lambda n: rmm.DeviceBuffer(size=n), "cuda")
 
 
 def client(port, func, comm_api):
@@ -37,7 +37,7 @@ def client(port, func, comm_api):
     # send receipt
     from distributed.utils import nbytes
 
-    ucp.init()
+    ucxx.init()
 
     if comm_api == "am":
         register_am_allocators()
@@ -95,7 +95,7 @@ def server(port, func, comm_api):
     from distributed.comm.utils import to_frames
     from distributed.protocol import to_serialize
 
-    ucp.init()
+    ucxx.init()
 
     if comm_api == "am":
         register_am_allocators()
@@ -139,11 +139,11 @@ def server(port, func, comm_api):
             await ep.close()
             lf.close()
 
-        lf = ucp.create_listener(write, port=listener_port)
+        lf = ucxx.create_listener(write, port=listener_port)
         try:
             while not lf.closed():
                 await asyncio.sleep(0.1)
-        # except ucp.UCXCloseError:
+        # except ucxx.UCXCloseError:
         #     pass
         except Exception as e:
             print(f"Exception: {e=}")

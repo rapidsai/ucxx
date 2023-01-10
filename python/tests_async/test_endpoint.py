@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-import ucxx as ucp
+import ucxx
 
 
 @pytest.mark.asyncio
@@ -18,14 +18,14 @@ async def test_close_callback(server_close_callback):
             ep.set_close_callback(_close_callback)
 
     async def client_node(port):
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             port,
         )
         if server_close_callback is False:
             ep.set_close_callback(_close_callback)
 
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         server_node,
     )
     await client_node(listener.port)
@@ -43,20 +43,20 @@ async def test_cancel(transfer_api):
         pass
 
     async def client_node(port):
-        ep = await ucp.create_endpoint(ucp.get_address(), port)
+        ep = await ucxx.create_endpoint(ucxx.get_address(), port)
         if transfer_api == "am":
             with pytest.raises(
-                ucp.exceptions.UCXCanceled,
+                ucxx.exceptions.UCXCanceledError,
                 # TODO: Add back custom UCXCanceled messages?
             ):
                 await ep.am_recv()
         else:
             with pytest.raises(
-                ucp.exceptions.UCXCanceled,
+                ucxx.exceptions.UCXCanceledError,
                 # TODO: Add back custom UCXCanceled messages?
             ):
                 msg = bytearray(1)
                 await ep.recv(msg)
 
-    listener = ucp.create_listener(server_node)
+    listener = ucxx.create_listener(server_node)
     await client_node(listener.port)

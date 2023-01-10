@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from utils import captured_logger, wait_listener_client_handlers
 
-import ucxx as ucp
+import ucxx as ucxx
 
 
 async def _shutdown_send(ep, message_type):
@@ -33,18 +33,18 @@ async def test_server_shutdown(message_type):
         pytest.skip("AM not implemented yet")
 
     async def server_node(ep):
-        with pytest.raises(ucp.exceptions.UCXCanceledError):
+        with pytest.raises(ucxx.exceptions.UCXCanceledError):
             await asyncio.gather(_shutdown_recv(ep, message_type), ep.close())
 
     async def client_node(port):
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             port,
         )
-        with pytest.raises(ucp.exceptions.UCXCanceledError):
+        with pytest.raises(ucxx.exceptions.UCXCanceledError):
             await _shutdown_recv(ep, message_type)
 
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         server_node,
     )
     await client_node(listener.port)
@@ -62,18 +62,18 @@ async def test_client_shutdown(message_type):
         pytest.skip("AM not implemented yet")
 
     async def client_node(port):
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             port,
         )
-        with pytest.raises(ucp.exceptions.UCXCanceledError):
+        with pytest.raises(ucxx.exceptions.UCXCanceledError):
             await asyncio.gather(_shutdown_recv(ep, message_type), ep.close())
 
     async def server_node(ep):
-        with pytest.raises(ucp.exceptions.UCXCanceledError):
+        with pytest.raises(ucxx.exceptions.UCXCanceledError):
             await _shutdown_recv(ep, message_type)
 
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         server_node,
     )
     await client_node(listener.port)
@@ -88,8 +88,8 @@ async def test_listener_close(message_type):
         pytest.skip("AM not implemented yet")
 
     async def client_node(listener):
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             listener.port,
         )
         await _shutdown_recv(ep, message_type)
@@ -102,7 +102,7 @@ async def test_listener_close(message_type):
         await _shutdown_send(ep, message_type)
         await _shutdown_send(ep, message_type)
 
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         server_node,
     )
     await client_node(listener)
@@ -120,11 +120,11 @@ async def test_listener_del(message_type):
         await _shutdown_send(ep, message_type)
         await _shutdown_send(ep, message_type)
 
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         server_node,
     )
-    ep = await ucp.create_endpoint(
-        ucp.get_address(),
+    ep = await ucxx.create_endpoint(
+        ucxx.get_address(),
         listener.port,
     )
     await _shutdown_recv(ep, message_type)
@@ -152,8 +152,8 @@ async def test_close_after_n_recv(message_type):
             await _shutdown_send(ep, message_type)
 
     async def client_node(port):
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             port,
         )
         ep.close_after_n_recv(10)
@@ -161,8 +161,8 @@ async def test_close_after_n_recv(message_type):
             await _shutdown_recv(ep, message_type)
         assert ep.closed()
 
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             port,
         )
         for _ in range(5):
@@ -172,8 +172,8 @@ async def test_close_after_n_recv(message_type):
             await _shutdown_recv(ep, message_type)
         assert ep.closed()
 
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             port,
         )
         for _ in range(5):
@@ -183,27 +183,27 @@ async def test_close_after_n_recv(message_type):
             await _shutdown_recv(ep, message_type)
         assert ep.closed()
 
-        ep = await ucp.create_endpoint(
-            ucp.get_address(),
+        ep = await ucxx.create_endpoint(
+            ucxx.get_address(),
             port,
         )
         for _ in range(10):
             await _shutdown_recv(ep, message_type)
 
         with pytest.raises(
-            ucp.exceptions.UCXError,
+            ucxx.exceptions.UCXError,
             match="`n` cannot be less than current recv_count",
         ):
             ep.close_after_n_recv(5, count_from_ep_creation=True)
 
         ep.close_after_n_recv(1)
         with pytest.raises(
-            ucp.exceptions.UCXError,
+            ucxx.exceptions.UCXError,
             match="close_after_n_recv has already been set to",
         ):
             ep.close_after_n_recv(1)
 
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         server_node,
     )
     await client_node(listener.port)

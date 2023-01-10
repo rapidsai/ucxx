@@ -6,7 +6,7 @@ import struct
 import numpy as np
 import pytest
 
-import ucxx as ucp
+import ucxx
 from ucxx._lib_async.utils import get_event_loop, hash64bits
 
 mp = mp.get_context("spawn")
@@ -15,20 +15,20 @@ mp = mp.get_context("spawn")
 def _test_from_worker_address_server(queue):
     async def run():
         # Send worker address to client process via multiprocessing.Queue
-        address = ucp.get_worker_address()
+        address = ucxx.get_worker_address()
         queue.put(address)
 
         # Receive address size
         address_size = np.empty(1, dtype=np.int64)
-        await ucp.recv(address_size, tag=0)
+        await ucxx.recv(address_size, tag=0)
 
         # Receive address buffer on tag 0 and create UCXAddress from it
         remote_address = bytearray(address_size[0])
-        await ucp.recv(remote_address, tag=0)
-        remote_address = ucp.get_ucx_address_from_buffer(remote_address)
+        await ucxx.recv(remote_address, tag=0)
+        remote_address = ucxx.get_ucx_address_from_buffer(remote_address)
 
         # Create endpoint to remote worker using the received address
-        ep = await ucp.create_endpoint_from_worker_address(remote_address)
+        ep = await ucxx.create_endpoint_from_worker_address(remote_address)
 
         # Send data to client's endpoint
         send_msg = np.arange(10, dtype=np.int64)
@@ -36,18 +36,18 @@ def _test_from_worker_address_server(queue):
 
     get_event_loop().run_until_complete(run())
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 def _test_from_worker_address_client(queue):
     async def run():
         # Read local worker address
-        address = ucp.get_worker_address()
+        address = ucxx.get_worker_address()
 
         # Receive worker address from server via multiprocessing.Queue, create
         # endpoint to server
         remote_address = queue.get()
-        ep = await ucp.create_endpoint_from_worker_address(remote_address)
+        ep = await ucxx.create_endpoint_from_worker_address(remote_address)
 
         # Send local address to server on tag 0
         await ep.send(np.array(address.length, np.int64), tag=0, force_tag=True)
@@ -61,7 +61,7 @@ def _test_from_worker_address_client(queue):
 
     get_event_loop().run_until_complete(run())
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 def test_from_worker_address():
@@ -152,10 +152,10 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue):
         async def _handle_client(packed_remote_address):
             # Unpack the fixed-size address+tag buffer
             unpacked = _unpack_address_and_tag(packed_remote_address)
-            remote_address = ucp.get_ucx_address_from_buffer(unpacked["address"])
+            remote_address = ucxx.get_ucx_address_from_buffer(unpacked["address"])
 
             # Create endpoint to remote worker using the received address
-            ep = await ucp.create_endpoint_from_worker_address(remote_address)
+            ep = await ucxx.create_endpoint_from_worker_address(remote_address)
 
             # Send data to client's endpoint
             send_msg = np.arange(10, dtype=np.int64)
@@ -169,7 +169,7 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue):
 
         # Send worker address to client processes via multiprocessing.Queue,
         # one entry for each client.
-        address = ucp.get_worker_address()
+        address = ucxx.get_worker_address()
         for i in range(num_nodes):
             queue.put(address)
 
@@ -179,7 +179,7 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue):
         for i in range(num_nodes):
             # Receive fixed-size address+tag buffer on tag 0
             packed_remote_address = bytearray(address_info["frame_size"])
-            await ucp.recv(packed_remote_address, tag=0)
+            await ucxx.recv(packed_remote_address, tag=0)
 
             # Create an async task for client
             server_tasks.append(_handle_client(packed_remote_address))
@@ -189,13 +189,13 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue):
 
     get_event_loop().run_until_complete(run())
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 def _test_from_worker_address_client_fixedsize(queue):
     async def run():
         # Read local worker address
-        address = ucp.get_worker_address()
+        address = ucxx.get_worker_address()
         recv_tag = hash64bits(os.urandom(16))
         send_tag = hash64bits(os.urandom(16))
         packed_address = _pack_address_and_tag(address, recv_tag, send_tag)
@@ -203,7 +203,7 @@ def _test_from_worker_address_client_fixedsize(queue):
         # Receive worker address from server via multiprocessing.Queue, create
         # endpoint to server
         remote_address = queue.get()
-        ep = await ucp.create_endpoint_from_worker_address(remote_address)
+        ep = await ucxx.create_endpoint_from_worker_address(remote_address)
 
         # Send local address to server on tag 0
         await ep.send(packed_address, tag=0, force_tag=True)
@@ -220,7 +220,7 @@ def _test_from_worker_address_client_fixedsize(queue):
 
     get_event_loop().run_until_complete(run())
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 @pytest.mark.parametrize("num_nodes", [1, 2, 4, 8])

@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 import pytest
 
-import ucxx as ucp
+import ucxx
 
 cudf = pytest.importorskip("cudf")
 distributed = pytest.importorskip("distributed")
@@ -66,7 +66,10 @@ async def test_send_recv_cudf(event_loop, g):
                 await self.ep.recv(is_cudas)
                 sizes = np.empty(nframes[0], dtype=np.uint64)
                 await self.ep.recv(sizes)
-            except (ucp.exceptions.UCXCanceled, ucp.exceptions.UCXCloseError) as e:
+            except (
+                ucxx.exceptions.UCXCanceledError,
+                ucxx.exceptions.UCXCloseError,
+            ) as e:
                 msg = "SOMETHING TERRIBLE HAS HAPPENED IN THE TEST"
                 raise e(msg)
             else:
@@ -96,12 +99,12 @@ async def test_send_recv_cudf(event_loop, g):
                 ucx = UCX(ep)
                 self.comm = ucx
 
-            self.ucp_server = ucp.create_listener(serve_forever)
+            self.ucxx_server = ucxx.create_listener(serve_forever)
 
     uu = UCXListener()
     uu.start()
-    uu.address = ucp.get_address()
-    uu.client = await ucp.create_endpoint(uu.address, uu.ucp_server.port)
+    uu.address = ucxx.get_address()
+    uu.client = await ucxx.create_endpoint(uu.address, uu.ucxx_server.port)
     ucx = UCX(uu.client)
     await asyncio.sleep(0.2)
     msg = g(cudf)
@@ -119,5 +122,5 @@ async def test_send_recv_cudf(event_loop, g):
 
     assert uu.client.closed()
     assert uu.comm.ep.closed()
-    del uu.ucp_server
-    ucp.reset()
+    del uu.ucxx_server
+    ucxx.reset()

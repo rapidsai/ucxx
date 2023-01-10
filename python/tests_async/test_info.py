@@ -1,22 +1,22 @@
 import pytest
 
-import ucxx as ucp
+import ucxx as ucxx
 
 
 @pytest.fixture(autouse=True)
 def reset():
-    ucp.reset()
+    ucxx.reset()
     yield
-    ucp.reset()
+    ucxx.reset()
 
 
 def test_context_info():
-    info = ucp.get_ucp_context_info()
+    info = ucxx.get_ucp_context_info()
     assert isinstance(info, str)
 
 
 def test_worker_info():
-    info = ucp.get_ucp_worker_info()
+    info = ucxx.get_ucp_worker_info()
     assert isinstance(info, str)
 
 
@@ -28,11 +28,11 @@ def test_check_transport(transports):
     transports_list = transports.split(",")
     inactive_transports = list(set(["posix", "tcp"]) - set(transports_list))
 
-    ucp.reset()
+    ucxx.reset()
     options = {"TLS": transports, "NET_DEVICES": "all"}
-    ucp.init(options)
+    ucxx.init(options)
 
-    active_transports = ucp.get_active_transports()
+    active_transports = ucxx.get_active_transports()
     for t in transports_list:
         assert any([at.startswith(t) for at in active_transports])
     for it in inactive_transports:

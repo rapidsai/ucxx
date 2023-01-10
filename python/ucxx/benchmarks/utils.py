@@ -12,9 +12,9 @@ from types import ModuleType
 
 import numpy as np
 
-import ucxx as ucp
+import ucxx
 import ucxx._lib.libucxx as ucx_api
-from ucp._libs.ucx_api import get_address
+from ucxx.utils import get_address
 
 logger = logging.getLogger("ucx")
 
@@ -87,7 +87,7 @@ def _server_process(
     ucx_options_list,
 ):
     if ucx_options_list is not None:
-        ucp.init(ucx_options_list)
+        ucxx.init(ucx_options_list)
     import sys
 
     async def run():
@@ -109,7 +109,7 @@ def _server_process(
             with lock:
                 results[worker_rank] = worker_results
 
-        lf = ucp.create_listener(server_handler)
+        lf = ucxx.create_listener(server_handler)
 
         if server_file is None:
             fp = open(sys.stdout.fileno(), mode="w", closefd=False)
@@ -128,7 +128,7 @@ def _server_process(
     for rank in range(n_workers):
         q.put(ret[rank])
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 def _run_cluster_server(
@@ -220,7 +220,7 @@ def _worker_process(
         _ensure_cuda_device(args.devs, rank % num_node_workers)
 
     if ucx_options_list is not None:
-        ucp.init(ucx_options_list[rank])
+        ucxx.init(ucx_options_list[rank])
 
     async def run():
         eps = {}
@@ -231,10 +231,10 @@ def _worker_process(
             assert peer_rank[0] not in eps
             eps[peer_rank[0]] = ep
 
-        lf = ucp.create_listener(server_handler)
+        lf = ucxx.create_listener(server_handler)
 
         logger.debug(f"Sending message info to {server_info=}, {rank=}")
-        server_ep = await ucp.create_endpoint(
+        server_ep = await ucxx.create_endpoint(
             server_info["address"], server_info["port"]
         )
         await send_pickled_msg(server_ep, (rank, get_address(), lf.port))
@@ -246,7 +246,7 @@ def _worker_process(
         logger.debug(f"Creating endpoints to network {rank=}")
         for i in range(rank + 1, n_workers):
             remote_worker_ip, remote_worker_port = workers_info[i]
-            eps[i] = await ucp.create_endpoint(remote_worker_ip, remote_worker_port)
+            eps[i] = await ucxx.create_endpoint(remote_worker_ip, remote_worker_port)
             await eps[i].send(np.array([rank], dtype=np.uint64))
 
         while len(eps) != n_workers - 1:
@@ -265,7 +265,7 @@ def _worker_process(
     ret = loop.run_until_complete(run())
     queue.put(ret)
 
-    ucp.stop_notifier_thread()
+    ucxx.stop_notifier_thread()
 
 
 def _run_cluster_workers(
@@ -319,7 +319,7 @@ def _run_cluster_workers(
     ensure_cuda_device: bool
         If `True`, sets the `CUDA_VISIBLE_DEVICES` environment variable to match
         the proper CUDA device based on the worker's rank and create the CUDA
-        context on the corresponding device before calling `import ucp` for the
+        context on the corresponding device before calling `import ucxx` for the
         first time on the newly-spawned worker process, otherwise continues
         without modifying `CUDA_VISIBLE_DEVICES` and creating a CUDA context.
         Please note that having this set to `False` may cause all workers to use

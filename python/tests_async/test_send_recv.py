@@ -4,7 +4,7 @@ import functools
 import pytest
 from utils import wait_listener_client_handlers
 
-import ucxx as ucp
+import ucxx
 
 np = pytest.importorskip("numpy")
 
@@ -42,8 +42,8 @@ async def test_send_recv_bytes(size):
     msg = bytearray(b"m" * size)
     msg_size = np.array([len(msg)], dtype=np.uint64)
 
-    listener = ucp.create_listener(make_echo_server(lambda n: bytearray(n)))
-    client = await ucp.create_endpoint(ucp.get_address(), listener.port)
+    listener = ucxx.create_listener(make_echo_server(lambda n: bytearray(n)))
+    client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
     await client.send(msg_size)
     await client.send(msg)
     resp = bytearray(size)
@@ -60,10 +60,10 @@ async def test_send_recv_numpy(size, dtype):
     msg = np.arange(size, dtype=dtype)
     msg_size = np.array([msg.nbytes], dtype=np.uint64)
 
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         make_echo_server(lambda n: np.empty(n, dtype=np.uint8))
     )
-    client = await ucp.create_endpoint(ucp.get_address(), listener.port)
+    client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
     await client.send(msg_size)
     await client.send(msg)
     resp = np.empty_like(msg)
@@ -81,10 +81,10 @@ async def test_send_recv_cupy(size, dtype):
     msg = cupy.arange(size, dtype=dtype)
     msg_size = np.array([msg.nbytes], dtype=np.uint64)
 
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         make_echo_server(lambda n: cupy.empty((n,), dtype=np.uint8))
     )
-    client = await ucp.create_endpoint(ucp.get_address(), listener.port)
+    client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
     await client.send(msg_size)
     await client.send(msg)
     resp = cupy.empty_like(msg)
@@ -102,10 +102,10 @@ async def test_send_recv_numba(size, dtype):
     ary = np.arange(size, dtype=dtype)
     msg = cuda.to_device(ary)
     msg_size = np.array([msg.nbytes], dtype=np.uint64)
-    listener = ucp.create_listener(
+    listener = ucxx.create_listener(
         make_echo_server(lambda n: cuda.device_array((n,), dtype=np.uint8))
     )
-    client = await ucp.create_endpoint(ucp.get_address(), listener.port)
+    client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
     await client.send(msg_size)
     await client.send(msg)
     resp = cuda.device_array_like(msg)
@@ -119,12 +119,12 @@ async def test_send_recv_error():
     async def say_hey_server(ep):
         await ep.send(bytearray(b"Hey"))
 
-    listener = ucp.create_listener(say_hey_server)
-    client = await ucp.create_endpoint(ucp.get_address(), listener.port)
+    listener = ucxx.create_listener(say_hey_server)
+    client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
 
     msg = bytearray(100)
     with pytest.raises(
-        ucp.exceptions.UCXMsgTruncated,
+        ucxx.exceptions.UCXMsgTruncated,
         match=r"length mismatch: 3 \(got\) != 100 \(expected\)",
     ):
         await client.recv(msg)
@@ -137,8 +137,8 @@ async def test_send_recv_obj():
         obj = await ep.recv_obj()
         await ep.send_obj(obj)
 
-    listener = ucp.create_listener(echo_obj_server)
-    client = await ucp.create_endpoint(ucp.get_address(), listener.port)
+    listener = ucxx.create_listener(echo_obj_server)
+    client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
 
     msg = bytearray(b"hello")
     await client.send_obj(msg)
@@ -155,8 +155,8 @@ async def test_send_recv_obj_numpy():
         obj = await ep.recv_obj(allocator=allocator)
         await ep.send_obj(obj)
 
-    listener = ucp.create_listener(echo_obj_server)
-    client = await ucp.create_endpoint(ucp.get_address(), listener.port)
+    listener = ucxx.create_listener(echo_obj_server)
+    client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
 
     msg = bytearray(b"hello")
     await client.send_obj(msg)

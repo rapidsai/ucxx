@@ -7,7 +7,7 @@ from contextlib import contextmanager
 import numpy as np
 import pytest
 
-import ucxx as ucp
+import ucxx
 
 normal_env = {
     "UCX_RNDV_SCHEME": "put_zcopy",
@@ -101,7 +101,7 @@ async def recv(ep):
         await ep.recv(is_cudas)
         sizes = np.empty(nframes[0], dtype=np.uint64)
         await ep.recv(sizes)
-    except (ucp.exceptions.UCXCanceled, ucp.exceptions.UCXCloseError) as e:
+    except (ucxx.exceptions.UCXCanceledError, ucxx.exceptions.UCXCloseError) as e:
         msg = "SOMETHING TERRIBLE HAS HAPPENED IN THE TEST"
         raise e(msg)
 
@@ -140,7 +140,7 @@ async def am_recv(ep):
     try:
         # Recv meta data
         nframes = (await ep.am_recv()).view(np.uint64)
-    except (ucp.exceptions.UCXCanceled, ucp.exceptions.UCXCloseError) as e:
+    except (ucxx.exceptions.UCXCanceledError, ucxx.exceptions.UCXCloseError) as e:
         msg = "SOMETHING TERRIBLE HAS HAPPENED IN THE TEST"
         raise e(msg)
 
@@ -158,4 +158,4 @@ async def wait_listener_client_handlers(listener):
     pass
     while listener.active_clients > 0:
         await asyncio.sleep(0)
-        ucp.progress()
+        ucxx.progress()
