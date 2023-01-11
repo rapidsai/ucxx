@@ -35,6 +35,7 @@ async def test_server_shutdown(message_type):
     async def server_node(ep):
         with pytest.raises(ucxx.exceptions.UCXCanceledError):
             await asyncio.gather(_shutdown_recv(ep, message_type), ep.close())
+        await ep.close()
 
     async def client_node(port):
         ep = await ucxx.create_endpoint(
@@ -43,12 +44,14 @@ async def test_server_shutdown(message_type):
         )
         with pytest.raises(ucxx.exceptions.UCXCanceledError):
             await _shutdown_recv(ep, message_type)
+        await ep.close()
 
     listener = ucxx.create_listener(
         server_node,
     )
     await client_node(listener.port)
     await wait_listener_client_handlers(listener)
+    listener.close()
 
 
 @pytest.mark.skipif(
@@ -68,16 +71,19 @@ async def test_client_shutdown(message_type):
         )
         with pytest.raises(ucxx.exceptions.UCXCanceledError):
             await asyncio.gather(_shutdown_recv(ep, message_type), ep.close())
+        await ep.close()
 
     async def server_node(ep):
         with pytest.raises(ucxx.exceptions.UCXCanceledError):
             await _shutdown_recv(ep, message_type)
+        await ep.close()
 
     listener = ucxx.create_listener(
         server_node,
     )
     await client_node(listener.port)
     await wait_listener_client_handlers(listener)
+    listener.close()
 
 
 @pytest.mark.asyncio
