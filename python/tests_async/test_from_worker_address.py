@@ -33,10 +33,14 @@ def _test_from_worker_address_server(queue):
         # Send data to client's endpoint
         send_msg = np.arange(10, dtype=np.int64)
         await ep.send(send_msg, tag=1, force_tag=True)
+        await ep.close()
 
-    get_event_loop().run_until_complete(run())
+    loop = get_event_loop()
+    loop.run_until_complete(run())
 
     ucxx.stop_notifier_thread()
+
+    loop.close()
 
 
 def _test_from_worker_address_client(queue):
@@ -56,12 +60,16 @@ def _test_from_worker_address_client(queue):
         # Receive message from server
         recv_msg = np.empty(10, dtype=np.int64)
         await ep.recv(recv_msg, tag=1, force_tag=True)
+        await ep.close()
 
         np.testing.assert_array_equal(recv_msg, np.arange(10, dtype=np.int64))
 
-    get_event_loop().run_until_complete(run())
+    loop = get_event_loop()
+    loop.run_until_complete(run())
 
     ucxx.stop_notifier_thread()
+
+    loop.close()
 
 
 def test_from_worker_address():
@@ -187,9 +195,12 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue):
         # Await handling each client request
         await asyncio.gather(*server_tasks)
 
-    get_event_loop().run_until_complete(run())
+    loop = get_event_loop()
+    loop.run_until_complete(run())
 
     ucxx.stop_notifier_thread()
+
+    loop.close()
 
 
 def _test_from_worker_address_client_fixedsize(queue):
@@ -218,9 +229,12 @@ def _test_from_worker_address_client_fixedsize(queue):
         send_msg = np.arange(20, dtype=np.int64)
         await ep.send(send_msg, tag=send_tag, force_tag=True)
 
-    get_event_loop().run_until_complete(run())
+    loop = get_event_loop()
+    loop.run_until_complete(run())
 
     ucxx.stop_notifier_thread()
+
+    loop.close()
 
 
 @pytest.mark.parametrize("num_nodes", [1, 2, 4, 8])
