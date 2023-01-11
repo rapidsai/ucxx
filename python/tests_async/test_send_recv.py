@@ -118,17 +118,22 @@ async def test_send_recv_numba(size, dtype):
 async def test_send_recv_error():
     async def say_hey_server(ep):
         await ep.send(bytearray(b"Hey"))
+        await ep.close()
 
     listener = ucxx.create_listener(say_hey_server)
     client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
 
     msg = bytearray(100)
+    # TODO: remove "Message truncated" match when Python futures accept custom
+    # exception messages.
     with pytest.raises(
         ucxx.exceptions.UCXMessageTruncatedError,
-        match=r"length mismatch: 3 \(got\) != 100 \(expected\)",
+        match=r"length mismatch: 3 \(got\) != 100 \(expected\)|Message truncated",
     ):
         await client.recv(msg)
     await wait_listener_client_handlers(listener)
+    await client.close()
+    listener.close()
 
 
 @pytest.mark.asyncio
