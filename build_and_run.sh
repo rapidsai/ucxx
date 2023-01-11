@@ -98,7 +98,8 @@ run_benchmark() {
   ASYNCIO_WAIT=$3
   ENABLE_DELAYED_SUBMISSION=$4
   ENABLE_PYTHON_FUTURE=$5
-  SLOW=$6
+  N_BUFFERS=$6
+  SLOW=$7
 
   if [ $ASYNCIO_WAIT -ne 0 ]; then
     ASYNCIO_WAIT="--asyncio-wait"
@@ -106,13 +107,13 @@ run_benchmark() {
     ASYNCIO_WAIT=""
   fi
 
-  CMD_LINE="UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -d 0 -e 1 -n 8MiB --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}"
+  CMD_LINE="UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -d 0 -e 1 -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}"
 
   echo -e "\e[1mRunning: ${CMD_LINE}\e[0m"
   if [ $SLOW -ne 0 ]; then
     echo -e "\e[31;1mSLOW BENCHMARK: it may seem like a deadlock but will eventually complete.\e[0m"
   fi
-  UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -d 0 -e 1 -n 8MiB --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}
+  UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -d 0 -e 1 -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}
 }
 
 if [[ $RUN_CPP_TESTS != 0 ]]; then
@@ -148,17 +149,25 @@ if [[ $RUN_PY_BENCH != 0 ]]; then
   run_benchmark   ucxx-core thread          1             0                         0                    0
 fi
 if [[ $RUN_PY_ASYNC_BENCH != 0 ]]; then
-  # run_benchmark BACKEND     PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SLOW
-  run_benchmark   ucxx-async  polling         0             0                         0                    0
-  run_benchmark   ucxx-async  polling         0             0                         1                    0
-  run_benchmark   ucxx-async  polling         0             1                         0                    0
-  run_benchmark   ucxx-async  polling         0             1                         1                    0
-  run_benchmark   ucxx-async  thread-polling  0             0                         0                    0
-  run_benchmark   ucxx-async  thread-polling  0             0                         1                    0
-  run_benchmark   ucxx-async  thread-polling  0             1                         0                    0
-  run_benchmark   ucxx-async  thread-polling  0             1                         1                    0
-  run_benchmark   ucxx-async  thread          0             0                         0                    1
-  run_benchmark   ucxx-async  thread          0             0                         1                    1
-  run_benchmark   ucxx-async  thread          0             1                         0                    1
-  run_benchmark   ucxx-async  thread          0             1                         1                    0
+  for nbuf in 1 8; do
+    # run_benchmark BACKEND     PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
+    run_benchmark   ucxx-async  polling         0             0                         0                    ${nbuf}  0
+    run_benchmark   ucxx-async  polling         0             0                         1                    ${nbuf}  0
+    run_benchmark   ucxx-async  polling         0             1                         0                    ${nbuf}  0
+    run_benchmark   ucxx-async  polling         0             1                         1                    ${nbuf}  0
+    run_benchmark   ucxx-async  thread-polling  0             0                         0                    ${nbuf}  0
+    run_benchmark   ucxx-async  thread-polling  0             0                         1                    ${nbuf}  0
+    run_benchmark   ucxx-async  thread-polling  0             1                         0                    ${nbuf}  0
+    run_benchmark   ucxx-async  thread-polling  0             1                         1                    ${nbuf}  0
+    if [ ${nbuf} -eq 1 ]; then
+      run_benchmark   ucxx-async  thread          0             0                         0                    ${nbuf}  1
+      run_benchmark   ucxx-async  thread          0             0                         1                    ${nbuf}  1
+      run_benchmark   ucxx-async  thread          0             1                         0                    ${nbuf}  1
+    else
+      run_benchmark   ucxx-async  thread          0             0                         0                    ${nbuf}  0
+      run_benchmark   ucxx-async  thread          0             0                         1                    ${nbuf}  0
+      run_benchmark   ucxx-async  thread          0             1                         0                    ${nbuf}  0
+    fi
+    run_benchmark   ucxx-async  thread          0             1                         1                    ${nbuf}  0
+  done
 fi
