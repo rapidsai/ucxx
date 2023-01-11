@@ -4,11 +4,34 @@ UCXX is an object-oriented C++ interface for UCX, with native support for Python
 
 ## Building
 
+### Convenience Script
+
+For convenience, we provide the `./build.sh` script. By default, it will build and install both C++ and Python libraries. For a detailed description on available options please check `./build.sh --help`.
+
+Building C++ and Python libraries manually is also possible, see instructions on building [C++](#c) and [Python](#python).
+
+Additionally, there is a `./build_and_run.sh` script that will call `./build.sh` to build everything as well as running C++ and Python tests and a few benchmarks. Similarly, details on existing options can be queried with `./build_and_run.sh`.
+
+### C++
+
+To build and install C++ library to `${CONDA_PREFIX}`, with both Python and RMM support, as well as building all tests run:
+
+```
+mkdir cpp/build
+cd cpp/build
+cmake .. -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} \
+      -DBUILD_TESTS=ON \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DUCXX_ENABLE_PYTHON=ON \
+      -DUCXX_ENABLE_RMM=ON
+make -j install
+```
+
 ### Python
 
 ```
 cd python
-python setup.py build_ext install
+python setup.py install
 ```
 
 ## Running benchmarks
