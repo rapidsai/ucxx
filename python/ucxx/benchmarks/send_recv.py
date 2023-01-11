@@ -83,8 +83,8 @@ def client(queue, port, server_address, args):
     times = queue.get()
 
     assert len(times) == args.n_iter
-    bw_avg = format_bytes(2 * args.n_iter * args.n_bytes / sum(times))
-    bw_med = format_bytes(2 * args.n_bytes / np.median(times))
+    bw_avg = format_bytes(2 * args.n_iter * args.n_bytes * args.n_buffers / sum(times))
+    bw_med = format_bytes(2 * args.n_bytes * args.n_buffers / np.median(times))
     lat_avg = int(sum(times) * 1e9 / (2 * args.n_iter))
     lat_med = int(np.median(times) * 1e9 / 2)
 
@@ -92,6 +92,7 @@ def client(queue, port, server_address, args):
     print_separator(separator="=")
     print_key_value(key="Iterations", value=f"{args.n_iter}")
     print_key_value(key="Bytes", value=f"{format_bytes(args.n_bytes)}")
+    print_key_value(key="Number of buffers", value=f"{args.n_buffers}")
     print_key_value(key="Object type", value=f"{args.object_type}")
     print_key_value(key="Reuse allocation", value=f"{args.reuse_alloc}")
     client.print_backend_specific_config()
@@ -122,7 +123,7 @@ def client(queue, port, server_address, args):
         print_key_value(key="Iterations", value="Bandwidth, Latency")
         print_separator(separator="-")
         for i, t in enumerate(times):
-            ts = format_bytes(2 * args.n_bytes / t)
+            ts = format_bytes(2 * args.n_bytes * args.n_buffers / t)
             lat = int(t * 1e9 / 2)
             print_key_value(key=i, value=f"{ts}/s, {lat}ns")
 
@@ -147,6 +148,15 @@ def parse_args():
             type=int,
             help="Message size in bytes. Default '10_000_000'.",
         )
+    parser.add_argument(
+        "-x",
+        "--n-buffers",
+        default="1",
+        type=int,
+        help="Number of buffers to transfer using the multi-buffer transfer API. "
+        "All buffers will be of same size specified by --n-bytes and same type "
+        "specified by --object_type. (default: 1, i.e., single-buffer transfer)",
+    )
     parser.add_argument(
         "--n-iter",
         metavar="N",
@@ -339,6 +349,11 @@ def parse_args():
     if args.asyncio_wait and not args.progress_mode.startswith("thread"):
         raise RuntimeError(
             "`--asyncio-wait` requires `--progress-mode=thread` or `--progress-mode=thread-polling`"
+        )
+
+    if args.n_buffers > 1 and args.backend != "ucxx-async":
+        raise RuntimeError(
+            "Multi-buffer transfer only support for `--backend=ucxx-async`."
         )
 
     if args.backend != "ucxx-core" and args.delay_progress:
