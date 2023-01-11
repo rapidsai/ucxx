@@ -44,19 +44,20 @@ async def test_cancel(transfer_api):
 
     async def client_node(port):
         ep = await ucxx.create_endpoint(ucxx.get_address(), port)
-        if transfer_api == "am":
-            with pytest.raises(
-                ucxx.exceptions.UCXCanceledError,
-                # TODO: Add back custom UCXCanceled messages?
-            ):
+        try:
+            if transfer_api == "am":
                 await ep.am_recv()
-        else:
-            with pytest.raises(
-                ucxx.exceptions.UCXCanceledError,
-                # TODO: Add back custom UCXCanceled messages?
-            ):
+            else:
                 msg = bytearray(1)
                 await ep.recv(msg)
+        except Exception as e:
+            await ep.close()
+            raise e
 
     listener = ucxx.create_listener(server_node)
-    await client_node(listener.port)
+    with pytest.raises(
+        ucxx.exceptions.UCXCanceledError,
+        # TODO: Add back custom UCXCanceledError messages?
+    ):
+        await client_node(listener.port)
+    listener.close()
