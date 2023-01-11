@@ -124,7 +124,7 @@ async def test_send_recv_error():
 
     msg = bytearray(100)
     with pytest.raises(
-        ucxx.exceptions.UCXMsgTruncated,
+        ucxx.exceptions.UCXMessageTruncatedError,
         match=r"length mismatch: 3 \(got\) != 100 \(expected\)",
     ):
         await client.recv(msg)

@@ -58,7 +58,7 @@ def _client_cancel(queue):
     while not request.is_completed():
         worker.progress()
 
-    with pytest.raises(ucx_api.UCXCanceled):
+    with pytest.raises(ucx_api.UCXCanceledError):
         request.check_error()
 
     while ep.is_alive():
