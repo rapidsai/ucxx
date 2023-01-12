@@ -138,14 +138,13 @@ if hasArg --incl_cache_stats; then
     BUILD_REPORT_INCL_CACHE_STATS=ON
 fi
 
-if hasArg libucxx_python || hasArg ucxx; then
+if buildAll || hasArg libucxx_python || hasArg ucxx; then
   if ! hasArg libucxx; then
     ARGS="libucxx $ARGS"
   fi
     UCXX_ENABLE_PYTHON=ON
     UCXX_ENABLE_RMM=ON
 fi
-
 
 # If clean given, run it prior to any other steps
 if hasArg clean; then
