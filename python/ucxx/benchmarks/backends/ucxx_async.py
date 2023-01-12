@@ -149,11 +149,11 @@ class UCXPyAsyncClient(BaseClient):
             else:
                 if self.args.n_buffers == 1:
                     if self.args.reuse_alloc:
-                        msg_send = Array(xp.arange(self.args.n_bytes, dtype="u1"))
-                        msg_recv = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
-                    else:
                         msg_send = reuse_msg_send
                         msg_recv = reuse_msg_recv
+                    else:
+                        msg_send = Array(xp.arange(self.args.n_bytes, dtype="u1"))
+                        msg_recv = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
                     await ep.send(msg_send)
                     await ep.recv(msg_recv)
                 else:
