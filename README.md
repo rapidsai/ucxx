@@ -38,7 +38,18 @@ python setup.py install
 
 ### C++
 
-TBD
+Currently there is only one C++ benchmark with few options. It can be found under `cpp/build/benchmarks/ucxx_perftest` and for a full list of options `--help` argument can be used.
+
+The benchmark is composed of two processes: a server and a client. The server must not specify an IP address or hostname and will bind to all available interfaces, whereas the client must specify the IP address or hostname where the server can be reached.
+
+Below is an example of running a server first, followed by the client connecting to the server on the `localhost` (`127.0.0.1`). Both processes specify a list of parameters, which are the message size in bytes (`-s 8388608`), that allocations should be reused (`-r`), the number of iterations to perform (`-n 10`) and the progress mode (`-m polling`).
+
+```
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -s 800000000 -r -n 10 -m polling &
+$ ./benchmarks/ucxx_perftest -s 800000000 -r -n 10 -m polling 127.0.0.1
+```
+
+It is recommended to use `UCX_TCP_CM_REUSEADDR=y` when binding to interfaces with TCP support to prevent waiting for the process' `TIME_WAIT` state to complete, which often takes 60 seconds after the server has terminated.
 
 ### Python
 
@@ -49,16 +60,18 @@ Benchmarks are available for both the Python "core" (synchronous) API and the "h
 ```python
 # Thread progress without delayed notification NumPy transfer, 100 iterations
 # of single buffer with 100 bytes
-python python/benchmarks/send-recv.py \
-    -o numpy \
+python -m ucxx.benchmarks.send_recv \
+    --backend ucxx-core \
+    --object_type numpy \
     --n-iter 100 \
     --n-bytes 100
 
 # Blocking progress without delayed notification RMM transfer between GPUs 0
 # and 3, 100 iterations of 2 buffers (using multi-buffer interface) each with
 # 1 MiB
-python python/benchmarks/send-recv.py \
-    -o rmm \
+python -m ucxx.benchmarks.send_recv \
+    --backend ucxx-core \
+    --object_type rmm \
     --server-dev 0 \
     --client-dev 3 \
     --n-iter 100 \
@@ -71,29 +84,33 @@ python python/benchmarks/send-recv.py \
 ```python
 # NumPy transfer, 100 iterations of 8 buffers (using multi-buffer interface)
 # each with 100 bytes
-python python/benchmarks/send-recv-async.py \
-    -o numpy \
+python -m ucxx.benchmarks.send_recv \
+    --backend ucxx-async \
+    --object_type numpy \
     --n-iter 100 \
     --n-bytes 100 \
-    -x 8
+    --n-buffers 8
 
 # RMM transfer between GPUs 0 and 3, 100 iterations of 2 buffers (using
 # multi-buffer interface) each with 1 MiB
-python python/benchmarks/send-recv-async.py \
-    -o rmm \
+python -m ucxx.benchmarks.send_recv \
+    --backend ucxx-async \
+    --object_type rmm \
     --server-dev 0 \
     --client-dev 3 \
     --n-iter 100 \
     --n-bytes 1MiB \
-    -x 2
+    --n-buffers 2
 
-# Non-blocking progress without delayed notification NumPy transfer,
+# Polling progress mode without delayed notification NumPy transfer,
 # 100 iterations of single buffer with 1 MiB
-UCXPY_ENABLE_DELAYED_SUBMISSION=0 UCXPY_PROGRESS_MODE=non-blocking \
-    python python/benchmarks/send-recv-async.py \
-    -o numpy \
+UCXPY_ENABLE_DELAYED_SUBMISSION=0 \
+    python -m ucxx.benchmarks.send_recv \
+    --backend ucxx-async \
+    --object_type numpy \
     --n-iter 100 \
-    --n-bytes 1MiB
+    --n-bytes 1MiB \
+    --progress-mode polling
 ```
 
 ## Logging
