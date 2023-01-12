@@ -17,13 +17,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libucxx libucxx_python ucxx tests -v -g -n -l --show_depr_warn -h --build_metrics --incl_cache_stats"
-HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [tests] [-v] [-g] [-n] [-h] [--cmake-args=\\\"<args>\\\"]
+VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests -v -g -n -l --show_depr_warn -h --build_metrics --incl_cache_stats"
+HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [-v] [-g] [-n] [-h] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
    libucxx                       - build the UCXX C++ module
    libucxx_python                - build the UCXX C++ Python support module
    ucxx                          - build the ucxx Python package
+   benchmarks                    - build benchmarks
    tests                         - build tests
    -v                            - verbose build mode
    -g                            - build for debug
@@ -117,6 +118,9 @@ if hasArg -n; then
     INSTALL_TARGET=""
     LIBUCXX_BUILD_DIR=${LIB_BUILD_DIR}
 fi
+if hasArg benchmarks; then
+    BUILD_BENCHMARKS=ON
+fi
 if hasArg tests; then
     BUILD_TESTS=ON
 fi
@@ -176,6 +180,7 @@ if buildAll || hasArg libucxx; then
     pwd
     cmake -S $REPODIR/cpp -B ${LIB_BUILD_DIR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DBUILD_BENCHMARKS=${BUILD_BENCHMARKS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
