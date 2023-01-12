@@ -9,7 +9,13 @@
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
-enum progress_mode_t { PROGRESS_MODE_BLOCKING, PROGRESS_MODE_THREADED };
+enum class ProgressMode {
+  Polling,
+  Blocking,
+  Wait,
+  ThreadPolling,
+  ThreadBlocking,
+};
 
 enum transfer_type_t { SEND, RECV };
 
@@ -17,14 +23,14 @@ typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
 typedef std::unordered_map<transfer_type_t, ucp_tag_t> TagMap;
 
 struct app_context_t {
-  progress_mode_t progress_mode = PROGRESS_MODE_BLOCKING;
-  const char* server_addr       = NULL;
-  uint16_t listener_port        = 12345;
-  size_t message_size           = 8;
-  size_t n_iter                 = 100;
-  size_t warmup_iter            = 3;
-  bool reuse_alloc              = false;
-  bool verify_results           = false;
+  ProgressMode progress_mode = ProgressMode::Blocking;
+  const char* server_addr    = NULL;
+  uint16_t listener_port     = 12345;
+  size_t message_size        = 8;
+  size_t n_iter              = 100;
+  size_t warmup_iter         = 3;
+  bool reuse_alloc           = false;
+  bool verify_results        = false;
 };
 
 class ListenerContext {
@@ -97,7 +103,10 @@ static void printUsage()
   std::cerr << "Usage: basic [server-hostname] [options]" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
-  std::cerr << "  -b          use blocking progress mode (enabled)" << std::endl;
+  std::cerr << "  -m          progress mode to use, valid values are: 'polling', 'blocking',"
+            << std::endl;
+  std::cerr << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
+            << std::endl;
   std::cerr << "  -t          use thread progress mode (disabled)" << std::endl;
   std::cerr << "  -p <port>   port number to listen at (12345)" << std::endl;
   std::cerr << "  -s <bytes>  message size (8)" << std::endl;
@@ -113,10 +122,25 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "btp:s:w:n:rv")) != -1) {
+  while ((c = getopt(argc, argv, "m:p:s:w:n:rv")) != -1) {
     switch (c) {
-      case 'b': app_context->progress_mode = PROGRESS_MODE_BLOCKING; break;
-      case 't': app_context->progress_mode = PROGRESS_MODE_THREADED; break;
+      case 'm':
+        if (strcmp(optarg, "blocking") == 0) {
+          app_context->progress_mode = ProgressMode::Blocking;
+          break;
+        } else if (strcmp(optarg, "polling") == 0) {
+          app_context->progress_mode = ProgressMode::Polling;
+          break;
+        } else if (strcmp(optarg, "thread-blocking") == 0) {
+          app_context->progress_mode = ProgressMode::ThreadBlocking;
+          break;
+        } else if (strcmp(optarg, "thread-polling") == 0) {
+          app_context->progress_mode = ProgressMode::ThreadPolling;
+          break;
+        } else {
+          std::cerr << "Invalid progress mode: " << optarg << std::endl;
+          return UCS_ERR_INVALID_PARAM;
+        }
       case 'p':
         app_context->listener_port = atoi(optarg);
         if (app_context->listener_port <= 0) {
@@ -158,24 +182,29 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
   return UCS_OK;
 }
 
-void waitRequests(progress_mode_t progress_mode,
+std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
+                                          ProgressMode progressMode)
+{
+  if (progressMode == ProgressMode::Polling)
+    return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
+  else if (progressMode == ProgressMode::Blocking)
+    return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
+  else if (progressMode == ProgressMode::Wait)
+    return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
+  else
+    return []() {};
+}
+
+void waitRequests(ProgressMode progressMode,
                   std::shared_ptr<ucxx::Worker> worker,
                   std::vector<std::shared_ptr<ucxx::Request>>& requests)
 {
+  auto progress = getProgressFunction(worker, progressMode);
   // Wait until all messages are completed
-  if (progress_mode == PROGRESS_MODE_BLOCKING) {
-    for (auto& r : requests) {
-      do {
-        worker->progressWorkerEvent();
-      } while (!r->isCompleted());
-      r->checkError();
-    }
-  } else {
-    for (auto& r : requests) {
-      while (!r->isCompleted())
-        ;
-      r->checkError();
-    }
+  for (auto& r : requests) {
+    while (!r->isCompleted())
+      progress();
+    r->checkError();
   }
 }
 
@@ -211,28 +240,30 @@ BufferMap allocateTransferBuffers(size_t message_size)
                    {RECV, std::vector<char>(message_size)}};
 }
 
-void doTransfer(app_context_t& app_context,
+auto doTransfer(app_context_t& app_context,
                 std::shared_ptr<ucxx::Worker> worker,
                 std::shared_ptr<ucxx::Endpoint> endpoint,
                 TagMap& tagMap,
                 BufferMap& bufferMapReuse)
 {
-  BufferMap bufferMap;
-  if (!app_context.reuse_alloc)
-    bufferMap = allocateTransferBuffers(app_context.message_size);
-  else
-    bufferMap = bufferMapReuse;
+  BufferMap localBufferMap;
+  if (!app_context.reuse_alloc) localBufferMap = allocateTransferBuffers(app_context.message_size);
+  BufferMap& bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
 
+  auto start                                           = std::chrono::high_resolution_clock::now();
   std::vector<std::shared_ptr<ucxx::Request>> requests = {
     endpoint->tagSend(bufferMap[SEND].data(), app_context.message_size, tagMap[SEND]),
     endpoint->tagRecv(bufferMap[RECV].data(), app_context.message_size, tagMap[RECV])};
 
   // Wait for requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);
+  auto stop = std::chrono::high_resolution_clock::now();
 
   if (app_context.verify_results)
     for (size_t j = 0; j < bufferMap[SEND].size(); ++j)
       assert(bufferMap[RECV][j] == bufferMap[RECV][j]);
+
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 }
 
 int main(int argc, char** argv)
@@ -260,16 +291,18 @@ int main(int argc, char** argv)
   }
 
   // Initialize worker progress
-  if (app_context.progress_mode == PROGRESS_MODE_BLOCKING)
+  if (app_context.progress_mode == ProgressMode::Blocking)
     worker->initBlockingProgressMode();
-  else
-    worker->startProgressThread();
+  else if (app_context.progress_mode == ProgressMode::ThreadBlocking)
+    worker->startProgressThread(false);
+  else if (app_context.progress_mode == ProgressMode::ThreadPolling)
+    worker->startProgressThread(true);
+
+  auto progress = getProgressFunction(worker, app_context.progress_mode);
 
   // Block until client connects
-  while (is_server && listener_ctx->isAvailable()) {
-    if (app_context.progress_mode == PROGRESS_MODE_BLOCKING) worker->progressWorkerEvent();
-    // Else progress thread is enabled
-  }
+  while (is_server && listener_ctx->isAvailable())
+    progress();
 
   if (is_server)
     endpoint = listener_ctx->getEndpoint();
@@ -306,28 +339,27 @@ int main(int argc, char** argv)
   // Schedule send and recv messages on different tags and different ordering
   size_t total_duration_ns = 0;
   for (size_t n = 0; n < app_context.n_iter; ++n) {
-    auto start = std::chrono::high_resolution_clock::now();
-
-    doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
-
-    auto stop        = std::chrono::high_resolution_clock::now();
-    auto duration_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+    auto duration_ns = doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
     total_duration_ns += duration_ns;
     auto elapsed   = parseTime(duration_ns);
     auto bandwidth = parseBandwidth(app_context.message_size * 2, duration_ns);
 
-    std::cout << "Elapsed, bandwidth: " << elapsed << ", " << bandwidth << std::endl;
+    if (!is_server)
+      std::cout << "Elapsed, bandwidth: " << elapsed << ", " << bandwidth << std::endl;
   }
 
   auto total_elapsed = parseTime(total_duration_ns);
   auto total_bandwidth =
     parseBandwidth(app_context.n_iter * app_context.message_size * 2, total_duration_ns);
 
-  std::cout << "Total elapsed, bandwidth: " << total_elapsed << ", " << total_bandwidth
-            << std::endl;
+  if (!is_server)
+    std::cout << "Total elapsed, bandwidth: " << total_elapsed << ", " << total_bandwidth
+              << std::endl;
 
   // Stop progress thread
-  if (app_context.progress_mode == PROGRESS_MODE_THREADED) worker->stopProgressThread();
+  if (app_context.progress_mode == ProgressMode::ThreadBlocking ||
+      app_context.progress_mode == ProgressMode::ThreadPolling)
+    worker->stopProgressThread();
 
   return 0;
 }
