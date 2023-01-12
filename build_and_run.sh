@@ -140,13 +140,13 @@ if [[ $RUN_PY_ASYNC_TESTS != 0 ]]; then
 fi
 
 if [[ $RUN_PY_BENCH != 0 ]]; then
-  # run_benchmark BACKEND   PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SLOW
-  run_benchmark   ucxx-core blocking        0             0                         0                    0
-  run_benchmark   ucxx-core polling         0             0                         0                    0
-  run_benchmark   ucxx-core thread-polling  0             0                         0                    0
-  run_benchmark   ucxx-core thread-polling  1             0                         0                    0
-  run_benchmark   ucxx-core thread          0             0                         0                    0
-  run_benchmark   ucxx-core thread          1             0                         0                    0
+  # run_benchmark BACKEND   PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
+  run_benchmark   ucxx-core blocking        0             0                         0                    1        0
+  run_benchmark   ucxx-core polling         0             0                         0                    1        0
+  run_benchmark   ucxx-core thread-polling  0             0                         0                    1        0
+  run_benchmark   ucxx-core thread-polling  1             0                         0                    1        0
+  run_benchmark   ucxx-core thread          0             0                         0                    1        0
+  run_benchmark   ucxx-core thread          1             0                         0                    1        0
 fi
 if [[ $RUN_PY_ASYNC_BENCH != 0 ]]; then
   for nbuf in 1 8; do
