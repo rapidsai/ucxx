@@ -17,7 +17,7 @@ function(find_and_configure_rmm)
   include(${rapids-cmake-dir}/cpm/rmm.cmake)
 
   # Find or install RMM
-  rapids_cpm_rmm(BUILD_EXPORT_SET cudf-exports INSTALL_EXPORT_SET cudf-exports)
+  rapids_cpm_rmm(BUILD_EXPORT_SET ucxx-exports INSTALL_EXPORT_SET ucxx-exports)
 
 endfunction()
 

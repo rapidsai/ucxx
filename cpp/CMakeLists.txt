@@ -464,7 +464,7 @@ add_custom_target(
 # ##################################################################################################
 # * make gdb helper scripts ------------------------------------------------------------------------
 
-# # build pretty-printer load script
-# if(Thrust_SOURCE_DIR AND rmm_SOURCE_DIR)
-#   configure_file(scripts/load-pretty-printers.in load-pretty-printers @ONLY)
-# endif()
+# build pretty-printer load script
+if(Thrust_SOURCE_DIR AND rmm_SOURCE_DIR)
+  configure_file(scripts/load-pretty-printers.in load-pretty-printers @ONLY)
+endif()

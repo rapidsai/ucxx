@@ -142,11 +142,6 @@ if hasArg libucxx_python || hasArg ucxx; then
     UCXX_ENABLE_RMM=ON
 fi
 
-# Append `-DFIND_UCXX_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
-if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_UCXX_CPP"* ]]; then
-    EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_UCXX_CPP=ON"
-fi
-
 
 # If clean given, run it prior to any other steps
 if hasArg clean; then

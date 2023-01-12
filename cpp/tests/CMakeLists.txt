@@ -31,19 +31,12 @@ function(ConfigureTest CMAKE_TEST_NAME)
                CUDA_STANDARD_REQUIRED ON
   )
 
-  # target_link_libraries(
-  #   cudftestutil
-  #   PUBLIC GTest::gmock GTest::gtest Threads::Threads cudf
-  #   PRIVATE $<TARGET_NAME_IF_EXISTS:conda_env>
-  # )
-
   target_include_directories(
       ${CMAKE_TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}>"
                                 "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
   )
 
   target_link_libraries(
-    # ${CMAKE_TEST_NAME} PRIVATE ucxxtestutil GTest::gmock_main GTest::gtest_main
     ${CMAKE_TEST_NAME} PRIVATE ucxx GTest::gmock_main GTest::gtest_main
                                $<TARGET_NAME_IF_EXISTS:conda_env>
   )
