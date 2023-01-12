@@ -6,7 +6,8 @@
 #include <vector>
 
 #include <ucxx/api.h>
-#include <ucxx/sockaddr_utils.h>
+#include <ucxx/utils/sockaddr.h>
+#include <ucxx/utils/ucx.h>
 
 enum progress_mode_t { PROGRESS_MODE_BLOCKING, PROGRESS_MODE_THREADED };
 
@@ -71,8 +72,8 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
   ListenerContext* listener_ctx = (ListenerContext*)arg;
 
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
-  ucsErrorThrow(ucp_conn_request_query(conn_request, &attr));
-  sockaddr_utils_get_ip_port_str(&attr.client_address, ip_str, port_str, MAX_STRING_LEN);
+  ucxx::utils::ucsErrorThrow(ucp_conn_request_query(conn_request, &attr));
+  ucxx::utils::sockaddr_get_ip_port_str(&attr.client_address, ip_str, port_str, MAX_STRING_LEN);
   std::cout << "Server received a connection request from client at address " << ip_str << ":"
             << port_str << std::endl;
 
@@ -84,7 +85,8 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
     std::cout << "Rejecting a connection request from " << ip_str << ":" << port_str << "."
               << std::endl
               << "Only one client at a time is supported." << std::endl;
-    ucsErrorThrow(ucp_listener_reject(listener_ctx->getListener()->get_handle(), conn_request));
+    ucxx::utils::ucsErrorThrow(
+      ucp_listener_reject(listener_ctx->getListener()->getHandle(), conn_request));
   }
 }
 
@@ -164,7 +166,7 @@ void waitRequests(progress_mode_t progress_mode,
   if (progress_mode == PROGRESS_MODE_BLOCKING) {
     for (auto& r : requests) {
       do {
-        worker->progress_worker_event();
+        worker->progressWorkerEvent();
       } while (!r->isCompleted());
       r->checkError();
     }
@@ -222,8 +224,8 @@ void doTransfer(app_context_t& app_context,
     bufferMap = bufferMapReuse;
 
   std::vector<std::shared_ptr<ucxx::Request>> requests = {
-    endpoint->tag_send(bufferMap[SEND].data(), app_context.message_size, tagMap[SEND]),
-    endpoint->tag_recv(bufferMap[RECV].data(), app_context.message_size, tagMap[RECV])};
+    endpoint->tagSend(bufferMap[SEND].data(), app_context.message_size, tagMap[SEND]),
+    endpoint->tagRecv(bufferMap[RECV].data(), app_context.message_size, tagMap[RECV])};
 
   // Wait for requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);
@@ -239,7 +241,7 @@ int main(int argc, char** argv)
   if (parseCommand(&app_context, argc, argv) != UCS_OK) return -1;
 
   // Setup: create UCP context, worker, listener and client endpoint.
-  auto context = ucxx::createContext({}, ucxx::Context::default_feature_flags);
+  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
   auto worker  = context->createWorker();
 
   bool is_server = app_context.server_addr == NULL;
@@ -259,13 +261,13 @@ int main(int argc, char** argv)
 
   // Initialize worker progress
   if (app_context.progress_mode == PROGRESS_MODE_BLOCKING)
-    worker->init_blocking_progress_mode();
+    worker->initBlockingProgressMode();
   else
     worker->startProgressThread();
 
   // Block until client connects
   while (is_server && listener_ctx->isAvailable()) {
-    if (app_context.progress_mode == PROGRESS_MODE_BLOCKING) worker->progress_worker_event();
+    if (app_context.progress_mode == PROGRESS_MODE_BLOCKING) worker->progressWorkerEvent();
     // Else progress thread is enabled
   }
 
@@ -281,9 +283,9 @@ int main(int argc, char** argv)
   BufferMap wireupBufferMap = {{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}};
 
   // Schedule small wireup messages to let UCX identify capabilities between endpoints
-  requests.push_back(endpoint->tag_send(
+  requests.push_back(endpoint->tagSend(
     wireupBufferMap[SEND].data(), wireupBufferMap[SEND].size() * sizeof(int), tagMap[SEND]));
-  requests.push_back(endpoint->tag_recv(
+  requests.push_back(endpoint->tagRecv(
     wireupBufferMap[RECV].data(), wireupBufferMap[RECV].size() * sizeof(int), tagMap[RECV]));
 
   // Wait for wireup requests and clear requests
