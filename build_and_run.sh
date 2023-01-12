@@ -6,8 +6,9 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDARGS="cpp_tests py_tests py_async_tests py_bench py_async_bench"
-HELP="$0 [cpp_tests] [py_tests] [py_async_tests] [py_bench] [py_async_bench]
+HELP="$0 [cpp_tests] [cpp_bench] [py_tests] [py_async_tests] [py_bench] [py_async_bench]
    cpp_tests                     - run all C++ tests
+   cpp_bench                     - run C++ benchmarks
    py_tests                      - run all Python core tests
    py_async_tests                - run all Python async tests
    py_bench                      - run Python core benchmarks
@@ -63,6 +64,9 @@ fi
 if runAll || hasArg cpp_tests; then
     RUN_CPP_TESTS=1
 fi
+if runAll || hasArg cpp_bench; then
+    RUN_CPP_BENCH=1
+fi
 if runAll || hasArg py_tests; then
     RUN_PY_TESTS=1
 fi
@@ -75,6 +79,17 @@ fi
 if runAll || hasArg py_async_bench; then
     RUN_PY_ASYNC_BENCH=1
 fi
+
+run_cpp_benchmark() {
+  PROGRESS_MODE=$1
+
+  CMD_LINE_SERVER="UCX_TCP_CM_REUSEADDR=y ./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE}"
+  CMD_LINE_CLIENT="./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1"
+
+  echo -e "\e[1mRunning: \n  - ${CMD_LINE_SERVER}\n  - ${CMD_LINE_CLIENT}\e[0m"
+  UCX_TCP_CM_REUSEADDR=y ./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} &
+  ./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1
+}
 
 run_tests_async() {
   PROGRESS_MODE=$1
@@ -92,7 +107,7 @@ run_tests_async() {
   fi
 }
 
-run_benchmark() {
+run_py_benchmark() {
   BACKEND=$1
   PROGRESS_MODE=$2
   ASYNCIO_WAIT=$3
@@ -119,6 +134,13 @@ run_benchmark() {
 if [[ $RUN_CPP_TESTS != 0 ]]; then
   ./cpp/build/gtests/UCXX_TEST
 fi
+if [[ $RUN_CPP_BENCH != 0 ]]; then
+  # run_cpp_benchmark PROGRESS_MODE
+  run_cpp_benchmark   polling
+  run_cpp_benchmark   blocking
+  run_cpp_benchmark   thread-polling
+  run_cpp_benchmark   thread-blocking
+fi
 if [[ $RUN_PY_TESTS != 0 ]]; then
   echo -e "\e[1mRunning: pytest-vs python/ucxx/_lib/tests/\e[0m"
   pytest -vs python/ucxx/_lib/tests/
@@ -140,34 +162,34 @@ if [[ $RUN_PY_ASYNC_TESTS != 0 ]]; then
 fi
 
 if [[ $RUN_PY_BENCH != 0 ]]; then
-  # run_benchmark BACKEND   PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
-  run_benchmark   ucxx-core blocking        0             0                         0                    1        0
-  run_benchmark   ucxx-core polling         0             0                         0                    1        0
-  run_benchmark   ucxx-core thread-polling  0             0                         0                    1        0
-  run_benchmark   ucxx-core thread-polling  1             0                         0                    1        0
-  run_benchmark   ucxx-core thread          0             0                         0                    1        0
-  run_benchmark   ucxx-core thread          1             0                         0                    1        0
+  # run_py_benchmark  BACKEND   PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
+  run_py_benchmark    ucxx-core blocking        0             0                         0                    1        0
+  run_py_benchmark    ucxx-core polling         0             0                         0                    1        0
+  run_py_benchmark    ucxx-core thread-polling  0             0                         0                    1        0
+  run_py_benchmark    ucxx-core thread-polling  1             0                         0                    1        0
+  run_py_benchmark    ucxx-core thread          0             0                         0                    1        0
+  run_py_benchmark    ucxx-core thread          1             0                         0                    1        0
 fi
 if [[ $RUN_PY_ASYNC_BENCH != 0 ]]; then
   for nbuf in 1 8; do
-    # run_benchmark BACKEND     PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
-    run_benchmark   ucxx-async  polling         0             0                         0                    ${nbuf}  0
-    run_benchmark   ucxx-async  polling         0             0                         1                    ${nbuf}  0
-    run_benchmark   ucxx-async  polling         0             1                         0                    ${nbuf}  0
-    run_benchmark   ucxx-async  polling         0             1                         1                    ${nbuf}  0
-    run_benchmark   ucxx-async  thread-polling  0             0                         0                    ${nbuf}  0
-    run_benchmark   ucxx-async  thread-polling  0             0                         1                    ${nbuf}  0
-    run_benchmark   ucxx-async  thread-polling  0             1                         0                    ${nbuf}  0
-    run_benchmark   ucxx-async  thread-polling  0             1                         1                    ${nbuf}  0
+    # run_py_benchmark  BACKEND     PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
+    run_py_benchmark    ucxx-async  polling         0             0                         0                    ${nbuf}  0
+    run_py_benchmark    ucxx-async  polling         0             0                         1                    ${nbuf}  0
+    run_py_benchmark    ucxx-async  polling         0             1                         0                    ${nbuf}  0
+    run_py_benchmark    ucxx-async  polling         0             1                         1                    ${nbuf}  0
+    run_py_benchmark    ucxx-async  thread-polling  0             0                         0                    ${nbuf}  0
+    run_py_benchmark    ucxx-async  thread-polling  0             0                         1                    ${nbuf}  0
+    run_py_benchmark    ucxx-async  thread-polling  0             1                         0                    ${nbuf}  0
+    run_py_benchmark    ucxx-async  thread-polling  0             1                         1                    ${nbuf}  0
     if [ ${nbuf} -eq 1 ]; then
-      run_benchmark   ucxx-async  thread          0             0                         0                    ${nbuf}  1
-      run_benchmark   ucxx-async  thread          0             0                         1                    ${nbuf}  1
-      run_benchmark   ucxx-async  thread          0             1                         0                    ${nbuf}  1
+      run_py_benchmark    ucxx-async  thread          0             0                         0                    ${nbuf}  1
+      run_py_benchmark    ucxx-async  thread          0             0                         1                    ${nbuf}  1
+      run_py_benchmark    ucxx-async  thread          0             1                         0                    ${nbuf}  1
     else
-      run_benchmark   ucxx-async  thread          0             0                         0                    ${nbuf}  0
-      run_benchmark   ucxx-async  thread          0             0                         1                    ${nbuf}  0
-      run_benchmark   ucxx-async  thread          0             1                         0                    ${nbuf}  0
+      run_py_benchmark    ucxx-async  thread          0             0                         0                    ${nbuf}  0
+      run_py_benchmark    ucxx-async  thread          0             0                         1                    ${nbuf}  0
+      run_py_benchmark    ucxx-async  thread          0             1                         0                    ${nbuf}  0
     fi
-    run_benchmark   ucxx-async  thread          0             1                         1                    ${nbuf}  0
+    run_py_benchmark    ucxx-async  thread          0             1                         1                    ${nbuf}  0
   done
 fi
