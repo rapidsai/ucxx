@@ -34,13 +34,13 @@ def _transfer_wireup(ep, server):
     if server:
         message = Array(message)
         return [
-            ep.tag_recv(message, tag=0),
+            ep.tag_recv(message, tag=1),
             ep.tag_send(message, tag=0),
         ]
     else:
         message = Array(np.zeros_like(message))
         return [
-            ep.tag_send(message, tag=0),
+            ep.tag_send(message, tag=1),
             ep.tag_recv(message, tag=0),
         ]
 
@@ -172,7 +172,7 @@ class UCXPyCoreServer(BaseServer):
                     recv_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
 
                 requests = [
-                    ep.tag_recv(recv_msg, tag=0),
+                    ep.tag_recv(recv_msg, tag=1),
                     ep.tag_send(recv_msg, tag=0),
                 ]
 
@@ -259,7 +259,7 @@ class UCXPyCoreClient(BaseClient):
                     recv_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
 
                 requests = [
-                    ep.tag_send(send_msg, tag=0),
+                    ep.tag_send(send_msg, tag=1),
                     ep.tag_recv(recv_msg, tag=0),
                 ]
 
