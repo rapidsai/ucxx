@@ -1,0 +1,30 @@
+channels:
+  - rapidsai-nightly
+  - conda-forge
+  - nvidia
+dependencies:
+# Base
+  - python=3.9
+  - cudatoolkit=11.8
+  - pip
+# RAPIDS
+  - cudf=23.02
+  - dask-cudf=23.02
+  - dask-cuda=23.02
+  - ucx-proc=*=gpu
+  - ucx=1.13.1
+# UCX Build
+  - libtool
+  - automake
+  - autoconf
+# UCX-Py Build
+  - cython
+  - pkg-config
+# UCXX/RAPIDS testing
+  - cmake
+  - gmock
+  - gtest
+  - pytest-asyncio
+# Dask main
+  - dask/label/dev::dask
+  - dask/label/dev::distributed
