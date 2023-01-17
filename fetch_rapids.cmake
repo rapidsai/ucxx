@@ -11,9 +11,9 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 # =============================================================================
-if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/CUDF_RAPIDS.cmake)
-  file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.12/RAPIDS.cmake
-       ${CMAKE_CURRENT_BINARY_DIR}/CUDF_RAPIDS.cmake
+if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/UCXX_RAPIDS.cmake)
+  file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.02/RAPIDS.cmake
+       ${CMAKE_CURRENT_BINARY_DIR}/UCXX_RAPIDS.cmake
   )
 endif()
-include(${CMAKE_CURRENT_BINARY_DIR}/CUDF_RAPIDS.cmake)
+include(${CMAKE_CURRENT_BINARY_DIR}/UCXX_RAPIDS.cmake)
