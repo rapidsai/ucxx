@@ -30,8 +30,13 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
   // UCX supports CUDA if "cuda" is part of the TLS or TLS is "all"
   auto configMap = this->_config.get();
   auto tls       = configMap.find("TLS");
-  if (tls != configMap.end())
-    this->_cudaSupport = tls->second == "all" || tls->second.find("cuda") != std::string::npos;
+  if (tls != configMap.end()) {
+    if (!tls->second.empty() and tls->second[0] == '^') {
+      this->_cudaSupport = tls->second.find("cuda") == std::string::npos;
+    } else {
+      this->_cudaSupport = tls->second == "all" || tls->second.find("cuda") != std::string::npos;
+    }
+  }
 
   ucxx_info("UCP initiated using config: ");
   for (const auto& kv : configMap)
