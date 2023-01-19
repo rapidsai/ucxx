@@ -16,12 +16,11 @@ namespace ucxx {
 Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
   : _config{ucxConfig}, _featureFlags{featureFlags}
 {
-  ucp_params_t params;
+  ucp_params_t params{};
 
   parseLogLevel();
 
   // UCP
-  std::memset(&params, 0, sizeof(params));
   params.field_mask = UCP_PARAM_FIELD_FEATURES;
   params.features   = featureFlags;
 

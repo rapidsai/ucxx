@@ -74,7 +74,7 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
   static size_t MAX_STRING_LEN = 50;
   char ip_str[MAX_STRING_LEN];
   char port_str[MAX_STRING_LEN];
-  ucp_conn_request_attr_t attr;
+  ucp_conn_request_attr_t attr{};
   ListenerContext* listener_ctx = (ListenerContext*)arg;
 
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
