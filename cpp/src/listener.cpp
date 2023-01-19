@@ -5,7 +5,7 @@
  */
 #include <memory>
 #include <string>
-
+#include <netinet/in.h>
 #include <ucp/api/ucp.h>
 
 #include <ucxx/exception.h>
@@ -48,10 +48,9 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   attr.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR;
   utils::ucsErrorThrow(ucp_listener_query(_handle.get(), &attr));
 
-  size_t MAX_STR_LEN = 50;
-  char ipString[MAX_STR_LEN];
-  char portString[MAX_STR_LEN];
-  ucxx::utils::sockaddr_get_ip_port_str(&attr.sockaddr, ipString, portString, MAX_STR_LEN);
+  char ipString[INET6_ADDRSTRLEN];
+  char portString[INET6_ADDRSTRLEN];
+  ucxx::utils::sockaddr_get_ip_port_str(&attr.sockaddr, ipString, portString, INET6_ADDRSTRLEN);
 
   _ip   = std::string(ipString);
   _port = (uint16_t)atoi(portString);

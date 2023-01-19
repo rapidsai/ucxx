@@ -46,15 +46,14 @@ class ListenerContext {
 
 static void listener_cb(ucp_conn_request_h conn_request, void* arg)
 {
-  static size_t MAX_STRING_LEN = 50;
-  char ip_str[MAX_STRING_LEN];
-  char port_str[MAX_STRING_LEN];
+  char ip_str[INET6_ADDRSTRLEN];
+  char port_str[INET6_ADDRSTRLEN];
   ucp_conn_request_attr_t attr{};
   ListenerContext* listener_ctx = (ListenerContext*)arg;
 
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
   ucxx::utils::ucsErrorThrow(ucp_conn_request_query(conn_request, &attr));
-  ucxx::utils::sockaddr_get_ip_port_str(&attr.client_address, ip_str, port_str, MAX_STRING_LEN);
+  ucxx::utils::sockaddr_get_ip_port_str(&attr.client_address, ip_str, port_str, INET6_ADDRSTRLEN);
   std::cout << "Server received a connection request from client at address " << ip_str << ":"
             << port_str << std::endl;
 
