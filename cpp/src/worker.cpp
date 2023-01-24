@@ -34,12 +34,11 @@ Worker::Worker(std::shared_ptr<Context> context,
   }
 #endif
 
-  ucp_worker_params_t params;
+  ucp_worker_params_t params{};
 
   if (context == nullptr || context->getHandle() == nullptr)
     throw std::runtime_error("Context not initialized");
 
-  memset(&params, 0, sizeof(params));
   params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
   params.thread_mode = UCS_THREAD_MODE_MULTI;
   utils::ucsErrorThrow(ucp_worker_create(context->getHandle(), &params, &_handle));

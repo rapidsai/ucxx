@@ -23,7 +23,7 @@ struct ListenerContainer {
 static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
 {
   ListenerContainer* listenerContainer = (ListenerContainer*)arg;
-  ucp_conn_request_attr_t attr;
+  ucp_conn_request_attr_t attr{};
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
 
   listenerContainer->status = ucp_conn_request_query(connRequest, &attr);
