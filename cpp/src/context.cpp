@@ -26,14 +26,33 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
 
   utils::ucsErrorThrow(ucp_init(&params, this->_config.getHandle(), &this->_handle));
 
-  // UCX supports CUDA if "cuda" is part of the TLS or TLS is "all"
+  // UCX supports CUDA if TLS is "all", or one of {"cuda",
+  // "cuda_copy", "cuda_ipc"} is in the active transports.
+  // If the transport list is negated ("^" at start), then it is to be
+  // interpreted as all \ given
   auto configMap = this->_config.get();
   auto tls       = configMap.find("TLS");
   if (tls != configMap.end()) {
-    if (!tls->second.empty() and tls->second[0] == '^') {
-      this->_cudaSupport = tls->second.find("cuda") == std::string::npos;
+    auto tls_value = tls->second;
+    if (!tls_value.empty() and tls_value[0] == '^') {
+      this->_cudaSupport  = true;
+      std::size_t current = 1;  // Skip the ^
+      do {
+        // UCX_TLS lists disabled transports, if this contains either
+        // "cuda" or "cuda_copy", then there is no cuda support (just
+        // disabling "cuda_ipc" is fine)
+        auto next  = tls_value.find_first_of(',', current);
+        auto field = tls_value.substr(next, next - current);
+        current    = next + 1;
+        if (field == "cuda" || field == "cuda_copy") {
+          this->_cudaSupport = false;
+          break;
+        }
+      } while (current != std::string::npos + 1);
     } else {
-      this->_cudaSupport = tls->second == "all" || tls->second.find("cuda") != std::string::npos;
+      // UCX_TLS lists enabled transports, all, or anything with cuda
+      // enables cuda support
+      this->_cudaSupport = tls_value == "all" || tls_value.find("cuda") != std::string::npos;
     }
   }
 
