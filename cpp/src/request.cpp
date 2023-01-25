@@ -62,10 +62,18 @@ void Request::cancel()
 {
   if (_request == nullptr) {
     ucxx_trace_req("req: %p already completed or cancelled", _request);
-    return;
+  } else if (_status == UCS_INPROGRESS) {
+    // Errored requests cannot be canceled
+    if (UCS_PTR_IS_ERR(_request)) {
+      ucs_status_t status = UCS_PTR_STATUS(_request);
+      ucxx_trace_req("req: requested was not processed, contains error: %d (%s)",
+                     status,
+                     ucs_status_string(status));
+    } else {
+      ucxx_trace_req("req: %p, cancelling", _request);
+      ucp_request_cancel(_worker->getHandle(), _request);
+    }
   }
-  ucxx_trace_req("req: %p, cancelling", _request);
-  ucp_request_cancel(_worker->getHandle(), _request);
 }
 
 ucs_status_t Request::getStatus() { return _status; }
