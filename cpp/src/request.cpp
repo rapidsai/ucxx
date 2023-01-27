@@ -50,13 +50,7 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
     setParent(_worker);
 }
 
-Request::~Request()
-{
-  if (_endpoint)
-    _endpoint->removeInflightRequest(this);
-  else
-    _worker->removeInflightRequest(this);
-}
+Request::~Request() {}
 
 void Request::cancel()
 {
@@ -142,6 +136,11 @@ void Request::process()
 
 void Request::setStatus(ucs_status_t status)
 {
+  if (_endpoint)
+    _endpoint->removeInflightRequest(this);
+  else
+    _worker->removeInflightRequest(this);
+
   if (_status == UCS_INPROGRESS) {
     // If the status is not `UCS_INPROGRESS`, the derived class has already set the
     // status, a truncated message for example.
