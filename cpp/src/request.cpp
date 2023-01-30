@@ -54,10 +54,7 @@ Request::~Request() {}
 
 void Request::cancel()
 {
-  if (_request == nullptr) {
-    ucxx_trace_req("req: %p already completed or cancelled", _request);
-  } else if (_status == UCS_INPROGRESS) {
-    // Errored requests cannot be canceled
+  if (_status == UCS_INPROGRESS) {
     if (UCS_PTR_IS_ERR(_request)) {
       ucs_status_t status = UCS_PTR_STATUS(_request);
       ucxx_trace_req("req: requested was not processed, contains error: %d (%s)",
@@ -67,6 +64,8 @@ void Request::cancel()
       ucxx_trace_req("req: %p, cancelling", _request);
       ucp_request_cancel(_worker->getHandle(), _request);
     }
+  } else {
+    ucxx_trace_req("req: %p already completed or cancelled", _request);
   }
 }
 
@@ -136,10 +135,8 @@ void Request::process()
 
 void Request::setStatus(ucs_status_t status)
 {
-  if (_endpoint)
-    _endpoint->removeInflightRequest(this);
-  else
-    _worker->removeInflightRequest(this);
+  if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
+  _worker->removeInflightRequest(this);
 
   if (_status == UCS_INPROGRESS) {
     // If the status is not `UCS_INPROGRESS`, the derived class has already set the
