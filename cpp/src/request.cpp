@@ -105,17 +105,13 @@ void Request::process()
   ucs_status_t status = _status.load();
 
   // Operation completed immediately
-  if (_request == nullptr) {
-    status = UCS_OK;
+  if (UCS_PTR_IS_ERR(_request)) {
+    status = UCS_PTR_STATUS(_request);
+  } else if (UCS_PTR_IS_PTR(_request)) {
+    // Completion will be handled by callback
+    return;
   } else {
-    if (UCS_PTR_IS_ERR(_request)) {
-      status = UCS_PTR_STATUS(_request);
-    } else if (UCS_PTR_IS_PTR(_request)) {
-      // Completion will be handled by callback
-      return;
-    } else {
-      status = UCS_OK;
-    }
+    status = UCS_OK;
   }
 
   ucxx_trace_req("req: %p, status: %d (%s)", _request, status, ucs_status_string(status));
