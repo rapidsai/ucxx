@@ -29,10 +29,31 @@ void InflightRequests::merge(InflightRequestsMapPtr inflightRequestsMap)
 
 void InflightRequests::remove(const Request* const request)
 {
-  std::lock_guard<std::mutex> lock(_mutex);
+  do {
+    int result = std::try_lock(_cancelMutex, _mutex);
 
-  auto search = _inflightRequests->find(request);
-  if (search != _inflightRequests->end()) _inflightRequests->erase(search);
+    /**
+     * `result` can be have one of three values:
+     * -1 (both arguments were locked): Remove request.
+     *  0 (failed to lock argument 0):  Failed acquiring `_cancelMutex`, cancel in
+     *                                  progress, nothing to do. The method was called
+     *                                  during execution of `cancelAll()` and the
+     *                                  `Request*` callback was invoked.
+     *  1 (failed to lock argument 1):  Only `_cancelMutex` was acquired, another
+     *                                  operation in progress, nothing to do.
+     */
+    if (result == 1) {
+      _cancelMutex.unlock();
+    } else {
+      if (result == -1) {
+        auto search = _inflightRequests->find(request);
+        if (search != _inflightRequests->end()) _inflightRequests->erase(search);
+        _cancelMutex.unlock();
+      }
+      _mutex.unlock();
+      return;
+    }
+  } while (true);
 }
 
 size_t InflightRequests::cancelAll()
@@ -43,7 +64,7 @@ size_t InflightRequests::cancelAll()
 
   ucxx_debug("Canceling %lu requests", _inflightRequests->size());
 
-  std::lock_guard<std::mutex> lock(_mutex);
+  std::scoped_lock lock{_cancelMutex, _mutex};
 
   size_t total = _inflightRequests->size();
 
@@ -52,6 +73,9 @@ size_t InflightRequests::cancelAll()
     if (request != nullptr) { request->cancel(); }
   }
   _inflightRequests->clear();
+
+  _cancelMutex.unlock();
+  _mutex.unlock();
 
   return total;
 }
