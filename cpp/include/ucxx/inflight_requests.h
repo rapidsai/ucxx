@@ -13,7 +13,7 @@ namespace ucxx {
 
 class Request;
 
-typedef std::map<const Request* const, std::weak_ptr<Request>> InflightRequestsMap;
+typedef std::map<const Request* const, std::shared_ptr<Request>> InflightRequestsMap;
 typedef std::unique_ptr<InflightRequestsMap> InflightRequestsMapPtr;
 
 class InflightRequests {

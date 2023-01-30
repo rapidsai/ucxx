@@ -15,11 +15,9 @@ size_t InflightRequests::size() { return _inflightRequests->size(); }
 
 void InflightRequests::insert(std::shared_ptr<Request> request)
 {
-  std::weak_ptr<Request> weakReq = request;
-
   std::lock_guard<std::mutex> lock(_mutex);
 
-  _inflightRequests->insert({request.get(), weakReq});
+  _inflightRequests->insert({request.get(), request});
 }
 
 void InflightRequests::merge(InflightRequestsMapPtr inflightRequestsMap)
@@ -50,7 +48,8 @@ size_t InflightRequests::cancelAll()
   size_t total = _inflightRequests->size();
 
   for (auto& r : *_inflightRequests) {
-    if (auto request = r.second.lock()) { request->cancel(); }
+    auto request = r.second;
+    if (request != nullptr) { request->cancel(); }
   }
   _inflightRequests->clear();
 
