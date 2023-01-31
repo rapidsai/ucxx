@@ -79,8 +79,8 @@ void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv
 
 void RequestTag::tagSendCallback(void* request, ucs_status_t status, void* arg)
 {
-  ucxx_trace_req("req: %p, tagSendCallback", request);
   Request* req = (Request*)arg;
+  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "tagSend", "tagSendCallback");
   return req->callback(request, status);
 }
 
@@ -89,8 +89,8 @@ void RequestTag::tagRecvCallback(void* request,
                                  const ucp_tag_recv_info_t* info,
                                  void* arg)
 {
-  ucxx_trace_req("req: %p, tagRecvCallback", request);
   RequestTag* req = (RequestTag*)arg;
+  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "tagRecv", "tagRecvCallback");
   return req->callback(request, status, info);
 }
 
@@ -130,25 +130,28 @@ void RequestTag::populateDelayedSubmission()
   const bool pythonFutureLog = _enablePythonFuture;
 
   if (pythonFutureLog)
-    ucxx_trace_req("req: %p, %s, tag: %lx, buffer: %p, size: %lu, future: %p, future handle: %p",
-                   _request,
-                   _operationName.c_str(),
-                   _delayedSubmission->_tag,
-                   _delayedSubmission->_buffer,
-                   _delayedSubmission->_length,
-                   _pythonFuture.get(),
-                   _pythonFuture->getHandle());
+    ucxx_trace_req_f(
+      _ownerString.c_str(),
+      _request,
+      _operationName.c_str(),
+      "tag 0x%lx, buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
+      _delayedSubmission->_tag,
+      _delayedSubmission->_buffer,
+      _delayedSubmission->_length,
+      _pythonFuture.get(),
+      _pythonFuture->getHandle());
 #else
   const bool pythonFutureLog = false;
 #endif
 
   if (!pythonFutureLog)
-    ucxx_trace_req("req: %p, %s, tag: %lx, buffer: %p, size: %lu",
-                   _request,
-                   _operationName.c_str(),
-                   _delayedSubmission->_tag,
-                   _delayedSubmission->_buffer,
-                   _delayedSubmission->_length);
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "tag 0x%lx, buffer %p, size %lu, populateDelayedSubmission",
+                     _delayedSubmission->_tag,
+                     _delayedSubmission->_buffer,
+                     _delayedSubmission->_length);
 
   process();
 }

@@ -20,6 +20,9 @@
 typedef void PyObject;
 #endif
 
+#define ucxx_trace_req_f(_owner, _req, _name, _message, ...) \
+  ucxx_trace_req("%s, req %p, op %s: " _message, (_owner), (_req), (_name), ##__VA_ARGS__)
+
 namespace ucxx {
 
 class Request : public Component {
@@ -37,6 +40,8 @@ class Request : public Component {
     nullptr};  ///< Worker that generated request (if not from endpoint)
   std::shared_ptr<Endpoint> _endpoint{
     nullptr};  ///< Endpoint that generated request (if not from worker)
+  std::string _ownerString{
+    "undetermined owner"};  ///< String to print owner (endpoint or worker) when logging
   std::shared_ptr<DelayedSubmission> _delayedSubmission{
     nullptr};  ///< The submission object that will dispatch the request
   std::string _operationName{
@@ -182,6 +187,18 @@ class Request : public Component {
    * See `ucxx::DelayedSubmission::DelayedSubmission()` for more details.
    */
   virtual void populateDelayedSubmission() = 0;
+
+  /**
+   * @brief Get formatted string with owner type and handle address.
+   *
+   * Get a formatted string with owner type (worker or endpoint) and its respective handle
+   * address. This is meant to get logging information for a request's callback, which is
+   * not a member attribute of `ucxx::Request` or derived class, but a static method
+   * or external function instead.
+   *
+   * @returns the formatted string containing the owner type and its handle.
+   */
+  const std::string& getOwnerString() const;
 };
 
 }  // namespace ucxx
