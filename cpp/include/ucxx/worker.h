@@ -114,6 +114,15 @@ class Worker : public Component {
    */
   void registerInflightRequest(std::shared_ptr<Request> request);
 
+  /**
+   * @brief Progress the worker until all communication events are completed.
+   *
+   * Iteratively calls `progressOnce()` until all communication events are completed.
+   *
+   * @returns whether any communication events have been progressed.
+   */
+  bool progressPending();
+
  public:
   Worker()              = delete;
   Worker(const Worker&) = delete;
@@ -227,9 +236,10 @@ class Worker : public Component {
   /**
    * @brief Progress worker event while in blocking progress mode.
    *
-   * Blocks until a new worker event is happened and the worker notifies the file descriptor
-   * associated to it. Requires blocking progress mode to be initialized with
-   * `initBlockingProgressMode()` before the first call to this method.
+   * Blocks until a new worker event has happened and the worker notifies the file descriptor
+   * associated with it. Requires blocking progress mode to be initialized with
+   * `initBlockingProgressMode()` before the first call to this method. Additionally ensure
+   * inflight messages pending for cancelation are canceled.
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`
@@ -286,7 +296,8 @@ class Worker : public Component {
   /**
    * @brief Block until an event has happened, then progresses.
    *
-   * Blocks until an event has happened as part of UCX's wake-up mechanism.
+   * Blocks until an event has happened as part of UCX's wake-up mechanism and progress
+   * the worker. Additionally ensure inflight messages pending for cancelation are canceled.
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`
@@ -325,15 +336,16 @@ class Worker : public Component {
    * @brief Progress the worker until all communication events are completed.
    *
    * Iteratively calls `progressOnce()` until all communication events are completed.
+   * Additionally ensure inflight messages pending for cancelation are canceled.
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`
    * worker->progress();
    *
-   * // All events have been progressed.
+   * // All events have been progressed and inflight pending for cancelation were canceled.
    * @endcode
    *
-   * @returns `true`
+   * @returns whether any communication events have been progressed.
    */
   bool progress();
 
