@@ -169,7 +169,7 @@ void Endpoint::setCloseCallback(std::function<void(void*)> closeCallback, void* 
 
 void Endpoint::registerInflightRequest(std::shared_ptr<Request> request)
 {
-  _inflightRequests->insert(request);
+  if (!request->isCompleted()) _inflightRequests->insert(request);
 }
 
 void Endpoint::removeInflightRequest(const Request* const request)
