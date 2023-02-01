@@ -114,7 +114,7 @@ class ApplicationContext:
                 f"Notifier thread requested, but {progress_mode} does not "
                 "support it, using Python wait_yield()."
             )
-            enable_python_future = False
+            explicit_enable_python_future = False
         return explicit_enable_python_future
 
     def start_notifier_thread(self):
