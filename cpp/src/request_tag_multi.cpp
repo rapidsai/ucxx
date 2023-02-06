@@ -195,24 +195,35 @@ void RequestTagMulti::callback()
   ucxx_trace_req("RequestTagMulti::callback request: %p, tag: %lx", this, _tag);
 
   if (_bufferRequests.empty()) {
-    ucxx_trace_req("RequestTagMulti::callback first header, request: %p, tag: %lx", this, _tag);
     recvHeader();
   } else {
     const auto request = _bufferRequests.back();
-    auto header        = Header(*_bufferRequests.back()->stringBuffer);
 
-    // FIXME: request->request is not available when recvHeader completes immediately,
-    // the `tagRecv` operation hasn't returned yet.
-    // ucxx_trace_req(
-    //   "RequestTagMulti::callback request: %p, tag: %lx, "
-    //   "num_requests: %lu, next: %d, request isCompleted: %d, "
-    //   "request status: %s",
-    //   this,
-    //   _tag,
-    //   _bufferRequests.size(),
-    //   header.next,
-    //   request->request->isCompleted(),
-    //   ucs_status_string(request->request->getStatus()));
+    // nullptr/NULL and UCS_OK have the same meaning, request completed immediately.
+    const ucs_status_t status =
+      request->request == nullptr ? UCS_OK : request->request->getStatus();
+
+    if (status == UCS_OK) {
+      ucxx_trace_req(
+        "RequestTagMulti::callback header received, multi request: %p, tag: %lx", this, _tag);
+    } else {
+      ucxx_trace_req(
+        "RequestTagMulti::callback failed receiving header with status %d (%s), multi request: %p, "
+        "tag: %lx",
+        status,
+        ucs_status_string(status),
+        this,
+        _tag);
+
+      _status = status;
+#if UCXX_ENABLE_PYTHON
+      if (_pythonFuture) _pythonFuture->notify(status);
+#endif
+
+      return;
+    }
+
+    auto header = Header(*_bufferRequests.back()->stringBuffer);
 
     if (header.next)
       recvHeader();
