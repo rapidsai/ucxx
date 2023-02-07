@@ -110,7 +110,8 @@ void Endpoint::close()
 {
   if (_handle == nullptr) return;
 
-  ucxx_debug("Endpoint %p canceled %lu requests", _handle, cancelInflightRequests());
+  size_t canceled = cancelInflightRequests();
+  ucxx_debug("Endpoint %p canceled %lu requests", _handle, canceled);
 
   // Close the endpoint
   unsigned closeMode = UCP_EP_CLOSE_MODE_FORCE;

@@ -102,10 +102,8 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
 Worker::~Worker()
 {
-  {
-    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
-    _inflightRequests->cancelAll();
-  }
+  size_t canceled = cancelInflightRequests();
+  ucxx_debug("Worker %p canceled %lu requests", _handle, canceled);
 
   stopProgressThreadNoWarn();
 #if UCXX_ENABLE_PYTHON
