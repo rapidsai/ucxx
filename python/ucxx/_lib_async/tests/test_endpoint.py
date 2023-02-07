@@ -35,7 +35,7 @@ async def test_close_callback(server_close_callback):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("transfer_api", ["am", "tag"])
+@pytest.mark.parametrize("transfer_api", ["am", "tag", "tag_multi"])
 async def test_cancel(transfer_api):
     if transfer_api == "am":
         pytest.skip("AM not implemented yet")
@@ -60,10 +60,14 @@ async def test_cancel(transfer_api):
                 _, pending = await asyncio.wait(
                     [asyncio.create_task(ep.am_recv())], timeout=0.001
                 )
-            else:
+            elif transfer_api == "tag":
                 msg = bytearray(1)
                 _, pending = await asyncio.wait(
                     [asyncio.create_task(ep.recv(msg))], timeout=0.001
+                )
+            else:
+                _, pending = await asyncio.wait(
+                    [asyncio.create_task(ep.recv_multi())], timeout=0.001
                 )
 
             q.put("close")
