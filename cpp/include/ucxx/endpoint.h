@@ -75,11 +75,14 @@ class Endpoint : public Component {
    * @brief Register an inflight request.
    *
    * Called each time a new transfer request is made by the `Endpoint`, such that it may
-   * be canceled when necessary.
+   * be canceled when necessary. Also schedule requests to be canceled immediately after
+   * registration if the endpoint error handler has been called with an error.
    *
    * @param[in] request the request to register.
+   *
+   * @return the request that was registered (i.e., the `request` argument itself).
    */
-  void registerInflightRequest(std::shared_ptr<Request> request);
+  std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
  public:
   Endpoint()                = delete;

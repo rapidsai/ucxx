@@ -110,7 +110,7 @@ void Endpoint::close()
 {
   if (_handle == nullptr) return;
 
-  cancelInflightRequests();
+  ucxx_debug("Endpoint %p canceled %lu requests", _handle, cancelInflightRequests());
 
   // Close the endpoint
   unsigned closeMode = UCP_EP_CLOSE_MODE_FORCE;
@@ -167,9 +167,19 @@ void Endpoint::setCloseCallback(std::function<void(void*)> closeCallback, void* 
   _callbackData->closeCallbackArg = closeCallbackArg;
 }
 
-void Endpoint::registerInflightRequest(std::shared_ptr<Request> request)
+std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Request> request)
 {
   if (!request->isCompleted()) _inflightRequests->insert(request);
+
+  /**
+   * If the endpoint errored while the request was being submitted, the error
+   * handler may have been called already and we need to register new requests
+   * for cancelation.
+   */
+  if (_callbackData->status != UCS_OK)
+    _callbackData->worker->scheduleRequestCancel(_inflightRequests);
+
+  return request;
 }
 
 void Endpoint::removeInflightRequest(const Request* const request)
@@ -184,9 +194,8 @@ std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
                                               const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  auto request  = createRequestStream(endpoint, true, buffer, length, enablePythonFuture);
-  registerInflightRequest(request);
-  return request;
+  return registerInflightRequest(
+    createRequestStream(endpoint, true, buffer, length, enablePythonFuture));
 }
 
 std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
@@ -194,9 +203,8 @@ std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
                                               const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  auto request  = createRequestStream(endpoint, false, buffer, length, enablePythonFuture);
-  registerInflightRequest(request);
-  return request;
+  return registerInflightRequest(
+    createRequestStream(endpoint, false, buffer, length, enablePythonFuture));
 }
 
 std::shared_ptr<Request> Endpoint::tagSend(
@@ -208,10 +216,8 @@ std::shared_ptr<Request> Endpoint::tagSend(
   std::shared_ptr<void> callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  auto request  = createRequestTag(
-    endpoint, true, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData);
-  registerInflightRequest(request);
-  return request;
+  return registerInflightRequest(createRequestTag(
+    endpoint, true, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::tagRecv(
@@ -223,10 +229,8 @@ std::shared_ptr<Request> Endpoint::tagRecv(
   std::shared_ptr<void> callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  auto request  = createRequestTag(
-    endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData);
-  registerInflightRequest(request);
-  return request;
+  return registerInflightRequest(createRequestTag(
+    endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<RequestTagMulti> Endpoint::tagMultiSend(std::vector<void*>& buffer,
