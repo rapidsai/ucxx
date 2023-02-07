@@ -182,7 +182,9 @@ class Endpoint:
         self._send_count += 1
 
         try:
-            return await self._ep.tag_send_multi(buffers, tag).wait()
+            buffer_requests = self._ep.tag_send_multi(buffers, tag)
+            await buffer_requests.wait()
+            buffer_requests.check_error()
         except UCXCanceled as e:
             # If self._ep has already been closed and destroyed, we reraise the
             # UCXCanceled exception.
@@ -309,9 +311,10 @@ class Endpoint:
 
         buffer_requests = self._ep.tag_recv_multi(tag)
         await buffer_requests.wait()
+        buffer_requests.check_error()
         for r in buffer_requests.get_requests():
             r.check_error()
-        ret = buffer_requests.get_py_buffers()
+        buffers = buffer_requests.get_py_buffers()
 
         self._finished_recv_count += 1
         if (
@@ -319,7 +322,7 @@ class Endpoint:
             and self._finished_recv_count >= self._close_after_n_recv
         ):
             self.abort()
-        return ret
+        return buffers
 
     async def recv_obj(self, tag=None, allocator=bytearray):
         """Receive from connected peer that calls `send_obj()`.
