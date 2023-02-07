@@ -1,4 +1,5 @@
 import asyncio
+from queue import Empty, Queue
 
 import pytest
 
@@ -39,17 +40,38 @@ async def test_cancel(transfer_api):
     if transfer_api == "am":
         pytest.skip("AM not implemented yet")
 
+    q = Queue()
+
     async def server_node(ep):
-        pass
+        while True:
+            try:
+                # Make sure the listener doesn't return before the client schedules
+                # the message to receive. If this is not done, UCXConnectionResetError
+                # may be raised instead of UCXCanceledError.
+                q.get(timeout=0.01)
+                return
+            except Empty:
+                await asyncio.sleep(0)
 
     async def client_node(port):
         ep = await ucxx.create_endpoint(ucxx.get_address(), port)
         try:
             if transfer_api == "am":
-                await ep.am_recv()
+                _, pending = await asyncio.wait(
+                    [asyncio.create_task(ep.am_recv())], timeout=0.001
+                )
             else:
                 msg = bytearray(1)
-                await ep.recv(msg)
+                _, pending = await asyncio.wait(
+                    [asyncio.create_task(ep.recv(msg))], timeout=0.001
+                )
+
+            q.put("close")
+            await asyncio.wait(pending)
+            assert len(pending) == 1
+            result = list(pending)[0].result()
+            assert isinstance(result, Exception)
+            raise result
         except Exception as e:
             await ep.close()
             raise e
