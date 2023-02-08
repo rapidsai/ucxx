@@ -61,6 +61,25 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
   send(buffer, size, isCUDA);
 }
 
+RequestTagMulti::~RequestTagMulti()
+{
+  for (auto& br : _bufferRequests) {
+    const auto& ptr = br->request.get();
+    if (ptr != nullptr)
+      ucxx_trace("RequestTagMulti destroying BufferRequest: %p", br->request.get());
+
+    /**
+     * FIXME: The `BufferRequest`s destructor should be doing this, but it seems a
+     * reference to the object is lingering and thus it never gets destroyed. This
+     * causes a chain effect that prevents `Worker` and `Context` from being destroyed
+     * as well. It seems the default destructor fails only for frames, headers seem
+     * to be destroyed as expected.
+     */
+    br->request = nullptr;
+  }
+  ucxx_trace("RequestTagMulti destroyed: %p", this);
+}
+
 std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
                                                            std::vector<void*>& buffer,
                                                            std::vector<size_t>& size,
