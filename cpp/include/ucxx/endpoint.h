@@ -39,6 +39,8 @@ struct ErrorCallbackData {
 class Endpoint : public Component {
  private:
   ucp_ep_h _handle{nullptr};          ///< Handle to the UCP endpoint
+  ucp_ep_h _originalHandle{nullptr};  ///< Handle to the UCP endpoint, after it was previously
+                                      ///< closed, used for logging purposes only
   bool _endpointErrorHandling{true};  ///< Whether the endpoint enables error handling
   std::unique_ptr<ErrorCallbackData> _callbackData{
     nullptr};  ///< Data struct to pass to endpoint error handling callback

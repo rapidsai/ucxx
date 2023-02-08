@@ -56,9 +56,11 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
   }
 
   _ownerString = ss.str();
+
+  ucxx_trace("Request created: %p, %s", this, _operationName.c_str());
 }
 
-Request::~Request() {}
+Request::~Request() { ucxx_trace("Request destroyed: %p, %s", this, _operationName.c_str()); }
 
 void Request::cancel()
 {
@@ -114,6 +116,7 @@ void Request::callback(void* request, ucs_status_t status)
   if (_callback) _callback(_callbackData);
 
   ucp_request_free(request);
+  ucxx_trace("Request completed: %p, handle: %p", this, request);
 }
 
 void Request::process()
@@ -129,6 +132,7 @@ void Request::process()
                      _request,
                      _operationName.c_str(),
                      "completion will be handled by callback");
+    ucxx_trace("Request submitted: %p, handle: %p", this, _request);
     return;
   } else {
     status = UCS_OK;

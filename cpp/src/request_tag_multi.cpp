@@ -37,6 +37,7 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
   if (enablePythonFuture) _pythonFuture = worker->getPythonFuture();
 #endif
 
+  ucxx_debug("RequestTagMulti created: %p", this);
   callback();
 }
 
@@ -58,6 +59,7 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
   if (enablePythonFuture) _pythonFuture = worker->getPythonFuture();
 #endif
 
+  ucxx_trace("RequestTagMulti created: %p", this);
   send(buffer, size, isCUDA);
 }
 

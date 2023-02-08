@@ -25,6 +25,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
   params.features   = featureFlags;
 
   utils::ucsErrorThrow(ucp_init(&params, this->_config.getHandle(), &this->_handle));
+  ucxx_trace("Context created: %p", this->_handle);
 
   // UCX supports CUDA if TLS is "all", or one of {"cuda",
   // "cuda_copy", "cuda_ipc"} is in the active transports.
@@ -69,6 +70,7 @@ std::shared_ptr<Context> createContext(const ConfigMap ucxConfig, const uint64_t
 Context::~Context()
 {
   if (this->_handle != nullptr) ucp_cleanup(this->_handle);
+  ucxx_trace("Context destroyed: %p", this->_handle);
 }
 
 ConfigMap Context::getConfig() { return this->_config.get(); }

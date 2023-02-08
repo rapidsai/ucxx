@@ -46,7 +46,7 @@ Worker::Worker(std::shared_ptr<Context> context,
   if (enableDelayedSubmission)
     _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
 
-  ucxx_debug("Worker %p created, enableDelayedSubmission: %d, enablePythonFuture: %d",
+  ucxx_trace("Worker created: %p, enableDelayedSubmission: %d, enablePythonFuture: %d",
              this,
              enableDelayedSubmission,
              _enablePythonFuture);
@@ -113,6 +113,7 @@ Worker::~Worker()
   drainWorkerTagRecv();
 
   ucp_worker_destroy(_handle);
+  ucxx_trace("Worker destroyed: %p", _handle);
 
   if (_epollFileDescriptor >= 0) close(_epollFileDescriptor);
 }
