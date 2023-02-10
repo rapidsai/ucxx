@@ -35,9 +35,12 @@ def _test_from_worker_address_error_server(q1, q2, error_type):
 
             # q1.put("disconnected")
 
-    get_event_loop().run_until_complete(run())
+    loop = get_event_loop()
+    loop.run_until_complete(run())
 
     ucxx.stop_notifier_thread()
+
+    loop.close()
 
 
 def _test_from_worker_address_error_client(q1, q2, error_type):
@@ -57,14 +60,6 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                 #    "Endpoint timeout" after UCX_UD_TIMEOUT seconds have passed.
                 #    We need to keep progressing ucxx until timeout is raised.
                 ep = await ucxx.create_endpoint_from_worker_address(remote_address)
-
-                start = time.monotonic()
-                while not ep._ep.raise_on_error():
-                    ucxx.progress()
-
-                    # Prevent hanging
-                    if time.monotonic() - start >= 1.0:
-                        return
         else:
             # Create endpoint to remote worker, and:
             #
@@ -113,9 +108,12 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
 
                     await task
 
-    get_event_loop().run_until_complete(run())
+    loop = get_event_loop()
+    loop.run_until_complete(run())
 
     ucxx.stop_notifier_thread()
+
+    loop.close()
 
 
 @pytest.mark.parametrize(
