@@ -13,25 +13,17 @@
 
 #include <ucp/api/ucp.h>
 
-#include <ucxx/log.h>
+#include <ucxx/future.h>
+#include <ucxx/notifier.h>
 #include <ucxx/python/future.h>
-#include <ucxx/python/notifier.h>
 
 namespace ucxx {
 
 namespace python {
 
-class Future : public std::enable_shared_from_this<Future> {
+class Future : public ::ucxx::Future {
  private:
   PyObject* _handle{create_python_future()};  ///< The handle to the Python future
-  std::shared_ptr<Notifier> _notifier{};      ///< The notifier thread
-
- public:
-  Future()              = delete;
-  Future(const Future&) = delete;
-  Future& operator=(Future const&) = delete;
-  Future(Future&& o)               = delete;
-  Future& operator=(Future&& o) = delete;
 
   /**
    * @brief Construct a future that may be notified from a notifier thread.
@@ -44,9 +36,24 @@ class Future : public std::enable_shared_from_this<Future> {
    *
    * @param[in] notifier  notifier object running on a separate thread.
    */
-  Future(std::shared_ptr<Notifier> notifier);
+  Future(std::shared_ptr<::ucxx::Notifier> notifier);
 
-  ~Future();
+ public:
+  Future()              = delete;
+  Future(const Future&) = delete;
+  Future& operator=(Future const&) = delete;
+  Future(Future&& o)               = delete;
+  Future& operator=(Future&& o) = delete;
+
+  friend std::shared_ptr<::ucxx::Future> createPythonFuture(
+    std::shared_ptr<::ucxx::Notifier> notifier);
+
+  /**
+   * @brief Virtual destructor.
+   *
+   * Virtual destructor with empty implementation.
+   */
+  virtual ~Future();
 
   /**
    * @brief Inform the notifier thread that the future has completed.
@@ -61,10 +68,9 @@ class Future : public std::enable_shared_from_this<Future> {
   void notify(ucs_status_t status);
 
   /**
-   * @brief Inform the notifier thread that the future has completed.
+   * @brief Set the future completion status.
    *
-   * Inform the notifier thread that the future has completed so it can notify the event
-   * loop of that occurrence.
+   * Set the future status as completed, either with a successful completion or error.
    *
    * @throws std::runtime_error if the object is invalid or has been already released.
    *
@@ -86,7 +92,7 @@ class Future : public std::enable_shared_from_this<Future> {
    *
    * @returns The underlying `PyObject*` handle.
    */
-  PyObject* getHandle();
+  void* getHandle();
 
   /**
    * @brief Get the underlying `PyObject*` handle and release ownership.
@@ -99,7 +105,7 @@ class Future : public std::enable_shared_from_this<Future> {
    *
    * @returns The underlying `PyObject*` handle.
    */
-  PyObject* release();
+  void* release();
 };
 
 }  // namespace python
