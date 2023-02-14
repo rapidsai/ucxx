@@ -11,15 +11,11 @@
 
 #include <ucp/api/ucp.h>
 
-#include <ucxx/endpoint.h>
-#include <ucxx/request.h>
-
 #include <ucxx/buffer.h>
+#include <ucxx/endpoint.h>
+#include <ucxx/future.h>
+#include <ucxx/request.h>
 #include <ucxx/request_helper.h>
-
-#if UCXX_ENABLE_PYTHON
-#include <ucxx/python/python_future.h>
-#endif
 
 namespace ucxx {
 
@@ -40,10 +36,7 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
   std::mutex _completedRequestsMutex;  ///< Mutex to control access to completed requests container
   std::vector<BufferRequest*> _completedRequests{};  ///< Requests that already completed
   ucs_status_t _status{UCS_INPROGRESS};              ///< Status of the multi-buffer request
-#if UCXX_ENABLE_PYTHON
-  std::shared_ptr<ucxx::python::Future>
-    _pythonFuture;  ///< Python future to be notified when transfer of all frames complete
-#endif
+  std::shared_ptr<Future> _future;  ///< Future to be notified when transfer of all frames complete
 
  public:
   std::vector<BufferRequestPtr> _bufferRequests{};  ///< Container of all requests posted
@@ -252,14 +245,14 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
   ucs_status_t getStatus();
 
   /**
-   * @brief Return the Python future used to check on state.
+   * @brief Return the future used to check on state.
    *
    * If the object is built with Python future support, return the future that can be
    * awaited from Python, returns `nullptr` otherwise.
    *
-   * @returns the Python future object.
+   * @returns the Python future object or `nullptr`.
    */
-  PyObject* getPyFuture();
+  void* getFuture();
 
   /**
    * @brief Check whether the request completed with an error.

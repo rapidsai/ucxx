@@ -12,13 +12,8 @@
 
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
+#include <ucxx/future.h>
 #include <ucxx/typedefs.h>
-
-#if UCXX_ENABLE_PYTHON
-#include <Python.h>
-#else
-typedef void PyObject;
-#endif
 
 #define ucxx_trace_req_f(_owner, _req, _name, _message, ...) \
   ucxx_trace_req("%s, req %p, op %s: " _message, (_owner), (_req), (_name), ##__VA_ARGS__)
@@ -30,10 +25,7 @@ class Request : public Component {
   std::atomic<ucs_status_t> _status{UCS_INPROGRESS};  ///< Requests status
   std::string _status_msg{};                          ///< Human-readable status message
   void* _request{nullptr};                            ///< Pointer to UCP request
-#if UCXX_ENABLE_PYTHON
-  std::shared_ptr<python::Future> _pythonFuture{
-    nullptr};  ///< Python future to notify upon completion
-#endif
+  std::shared_ptr<Future> _future{nullptr};           ///< Future to notify upon completion
   std::function<void(std::shared_ptr<void>)> _callback{nullptr};  ///< Completion callback
   std::shared_ptr<void> _callbackData{nullptr};                   ///< Completion callback data
   std::shared_ptr<Worker> _worker{
@@ -128,14 +120,14 @@ class Request : public Component {
   ucs_status_t getStatus();
 
   /**
-   * @brief Return the Python future used to check on state.
+   * @brief Return the future used to check on state.
    *
-   * If the object is built with Python future support, return the future that can be
+   * If the object is has enabled Python future support, return the future that can be
    * awaited from Python, returns `nullptr` otherwise.
    *
-   * @returns the Python future object.
+   * @returns the Python future object or `nullptr`.
    */
-  PyObject* getPyFuture();
+  void* getFuture();
 
   /**
    * @brief Check whether the request completed with an error.

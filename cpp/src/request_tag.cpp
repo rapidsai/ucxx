@@ -10,10 +10,6 @@
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_tag.h>
 
-#if UCXX_ENABLE_PYTHON
-#include <ucxx/python/python_future.h>
-#endif
-
 namespace ucxx {
 
 std::shared_ptr<RequestTag> createRequestTag(
@@ -126,10 +122,7 @@ void RequestTag::populateDelayedSubmission()
 {
   request();
 
-#if UCXX_ENABLE_PYTHON
-  const bool pythonFutureLog = _enablePythonFuture;
-
-  if (pythonFutureLog)
+  if (_enablePythonFuture)
     ucxx_trace_req_f(
       _ownerString.c_str(),
       _request,
@@ -138,13 +131,9 @@ void RequestTag::populateDelayedSubmission()
       _delayedSubmission->_tag,
       _delayedSubmission->_buffer,
       _delayedSubmission->_length,
-      _pythonFuture.get(),
-      _pythonFuture->getHandle());
-#else
-  const bool pythonFutureLog = false;
-#endif
-
-  if (!pythonFutureLog)
+      _future.get(),
+      _future->getHandle());
+  else
     ucxx_trace_req_f(_ownerString.c_str(),
                      _request,
                      _operationName.c_str(),

@@ -244,8 +244,7 @@ class Endpoint : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
+   * ensure the transfer has completed. Requires UCXX Python support.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the tag message to be sent.
@@ -266,8 +265,7 @@ class Endpoint : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
+   * ensure the transfer has completed. Requires UCXX Python support.
    *
    * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
    *                                data will be stored.
@@ -290,8 +288,7 @@ class Endpoint : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
+   * ensure the transfer has completed. Requires UCXX Python support.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the tag message to be sent.
@@ -321,8 +318,7 @@ class Endpoint : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
+   * ensure the transfer has completed. Requires UCXX Python support.
    *
    * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
    *                                data will be stored.
@@ -360,8 +356,7 @@ class Endpoint : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
+   * ensure the transfer has completed. Requires UCXX Python support.
    *
    * @throws  std::runtime_error  if sizes of `buffer`, `size` and `isCUDA` do not match.
    *
@@ -398,8 +393,7 @@ class Endpoint : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
+   * ensure the transfer has completed. Requires UCXX Python support.
    *
    * @param[in] tag                 the tag to match.
    * @param[in] enablePythonFuture  whether a python future should be created and

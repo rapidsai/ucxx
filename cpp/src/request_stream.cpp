@@ -8,10 +8,6 @@
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_stream.h>
 
-#if UCXX_ENABLE_PYTHON
-#include <ucxx/python/python_future.h>
-#endif
-
 namespace ucxx {
 
 RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
@@ -72,23 +68,16 @@ void RequestStream::populateDelayedSubmission()
 {
   request();
 
-#if UCXX_ENABLE_PYTHON
-  const bool pythonFutureLog = _enablePythonFuture;
-
-  if (pythonFutureLog)
+  if (_enablePythonFuture)
     ucxx_trace_req_f(_ownerString.c_str(),
                      _request,
                      _operationName.c_str(),
                      "buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
                      _delayedSubmission->_buffer,
                      _delayedSubmission->_length,
-                     _pythonFuture.get(),
-                     _pythonFuture->getHandle());
-#else
-  const bool pythonFutureLog = false;
-#endif
-
-  if (!pythonFutureLog)
+                     _future.get(),
+                     _future->getHandle());
+  else
     ucxx_trace_req_f(_ownerString.c_str(),
                      _request,
                      _operationName.c_str(),
