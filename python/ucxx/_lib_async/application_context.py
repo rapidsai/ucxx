@@ -2,7 +2,6 @@
 # Copyright (c) 2020       UT-Battelle, LLC. All rights reserved.
 # See file LICENSE for terms.
 
-import asyncio
 import logging
 import os
 import threading

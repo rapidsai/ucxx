@@ -13,7 +13,6 @@ from types import ModuleType
 import numpy as np
 
 import ucxx
-import ucxx._lib.libucxx as ucx_api
 from ucxx.utils import get_address
 
 logger = logging.getLogger("ucx")

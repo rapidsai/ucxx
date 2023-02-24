@@ -3,7 +3,6 @@
 
 from argparse import Namespace
 from queue import Queue
-from threading import Lock
 from time import monotonic, sleep
 
 import ucxx

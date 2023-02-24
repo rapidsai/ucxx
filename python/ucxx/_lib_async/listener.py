@@ -117,7 +117,9 @@ class Listener:
 async def _listener_handler_coroutine(
     conn_request, ctx, func, endpoint_error_handling, id, active_clients
 ):
-    # def _listener_handler_coroutine(conn_request, ctx, func, endpoint_error_handling, id, active_clients):
+    # def _listener_handler_coroutine(
+    #     conn_request, ctx, func, endpoint_error_handling, id, active_clients
+    # ):
     # We create the Endpoint in five steps:
     #  1) Create endpoint from conn_request
     #  2) Generate unique IDs to use as tags
