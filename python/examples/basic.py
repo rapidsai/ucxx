@@ -117,13 +117,14 @@ def main():
         import cupy as xp
 
         import rmm
+        from rmm.allocators.cupy import rmm_cupy_allocator
 
         rmm.reinitialize(
             pool_allocator=True,
             managed_memory=False,
         )
         xp.cuda.runtime.setDevice(0)
-        xp.cuda.set_allocator(rmm.rmm_cupy_allocator)
+        xp.cuda.set_allocator(rmm_cupy_allocator)
     else:
         import numpy as xp
 
