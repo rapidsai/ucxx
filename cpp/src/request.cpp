@@ -78,12 +78,13 @@ void Request::cancel()
       ucp_request_cancel(_worker->getHandle(), _request);
     }
   } else {
+    auto status = _status.load();
     ucxx_trace_req_f(_ownerString.c_str(),
                      _request,
                      _operationName.c_str(),
                      "already completed with status: %d (%s)",
                      status,
-                     ucs_status_string(_status));
+                     ucs_status_string(status));
   }
 }
 
