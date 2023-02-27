@@ -72,8 +72,8 @@ async def test_cancel(transfer_api):
 
             q.put("close")
             await asyncio.wait(pending)
-            assert len(pending) == 1
-            result = list(pending)[0].result()
+            (pending,) = pending
+            result = pending.result()
             assert isinstance(result, Exception)
             raise result
         except Exception as e:
