@@ -64,9 +64,6 @@ size_t InflightRequests::cancelAll()
   }
   _inflightRequests->clear();
 
-  _cancelMutex.unlock();
-  _mutex.unlock();
-
   return total;
 }
 
