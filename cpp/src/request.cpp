@@ -72,8 +72,12 @@ void Request::cancel()
       ucp_request_cancel(_worker->getHandle(), _request);
     }
   } else {
-    ucxx_trace_req_f(
-      _ownerString.c_str(), _request, _operationName.c_str(), "already completed or canceled");
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "already completed with status: %d (%s)",
+                     status,
+                     ucs_status_string(_status));
   }
 }
 
@@ -110,8 +114,8 @@ void Request::process()
 {
   ucs_status_t status = _status.load();
 
-  // Operation completed immediately
   if (UCS_PTR_IS_ERR(_request)) {
+    // Operation errored immediately
     status = UCS_PTR_STATUS(_request);
   } else if (UCS_PTR_IS_PTR(_request)) {
     // Completion will be handled by callback
@@ -122,6 +126,7 @@ void Request::process()
     ucxx_trace("Request submitted: %p, handle: %p", this, _request);
     return;
   } else {
+    // Operation completed immediately
     status = UCS_OK;
   }
 

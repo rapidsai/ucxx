@@ -197,7 +197,7 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
     std::shared_ptr<Endpoint> endpoint, const ucp_tag_t tag, const bool enablePythonFuture);
 
   /**
-   * @brief `ucxx::RequestTagMultic` destructor.
+   * @brief `ucxx::RequestTagMulti` destructor.
    *
    * Free internal resources.
    */

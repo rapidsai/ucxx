@@ -33,23 +33,13 @@ void InflightRequests::remove(const Request* const request)
     int result = std::try_lock(_cancelMutex, _mutex);
 
     /**
-     * `result` can be have one of three values:
-     * -1 (both arguments were locked): Remove request.
-     *  0 (failed to lock argument 0):  Failed acquiring `_cancelMutex`, cancel in
-     *                                  progress, nothing to do. The method was called
-     *                                  during execution of `cancelAll()` and the
-     *                                  `Request*` callback was invoked.
-     *  1 (failed to lock argument 1):  Only `_cancelMutex` was acquired, another
-     *                                  operation in progress, nothing to do.
+     * If `result == -1` both locks have been acquired and it's safe to remove the
+     * inflight request, otherwise retry.
      */
-    if (result == 1) {
+    if (result == -1) {
+      auto search = _inflightRequests->find(request);
+      if (search != _inflightRequests->end()) _inflightRequests->erase(search);
       _cancelMutex.unlock();
-    } else {
-      if (result == -1) {
-        auto search = _inflightRequests->find(request);
-        if (search != _inflightRequests->end()) _inflightRequests->erase(search);
-        _cancelMutex.unlock();
-      }
       _mutex.unlock();
       return;
     }
@@ -73,9 +63,6 @@ size_t InflightRequests::cancelAll()
     if (request != nullptr) { request->cancel(); }
   }
   _inflightRequests->clear();
-
-  _cancelMutex.unlock();
-  _mutex.unlock();
 
   return total;
 }
