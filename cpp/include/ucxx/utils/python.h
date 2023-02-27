@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
  *
  * See file LICENSE for terms.
  */
@@ -17,23 +17,10 @@ namespace utils {
 /*
  * @brief Check whether Python support is available.
  *
- * Check that binary were built with Python support and `libucxx_python.so` is in the
+ * Check that binary was built with Python support and `libucxx_python.so` is in the
  * library path. The check is done by attempting to `dlopen` the library, returning whether
  * both conditions are met.
  *
- * @code{.cpp}
- * // worker is `std::shared_ptr<ucxx::Worker>`
- *
- * // Block until UCX's wakes up for an incoming event, then fully progresses the
- * // worker
- * worker->initBlockingProgressMode();
- * worker->progressWorkerEvent();
- *
- * // All events have been progressed.
- * @endcode
- *
- * @throws std::ios_base::failure if creating any of the file descriptors or setting their
- *                                statuses.
  * @returns whether Python support is available.
  */
 bool isPythonAvailable();
@@ -52,11 +39,11 @@ std::shared_ptr<::ucxx::Future> createPythonFuture(std::shared_ptr<::ucxx::Notif
 /*
  * @brief Create a Python notifier if Python support is available.
  *
- * Create a Python future by loading the `ucxx::python::createPythonNotifier` symbol at
+ * Create a Python notifier by loading the `ucxx::python::createPythonNotifier` symbol at
  * runtime if `isPythonAvailable()` returns `true` and the symbol is found, otherwise
  * returns a `nullptr`.
  *
- * @returns the Python future or `nullptr`.
+ * @returns the Python notifier or `nullptr`.
  */
 std::shared_ptr<::ucxx::Notifier> createPythonNotifier();
 

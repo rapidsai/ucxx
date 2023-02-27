@@ -122,7 +122,7 @@ class Request : public Component {
   /**
    * @brief Return the future used to check on state.
    *
-   * If the object is has enabled Python future support, return the future that can be
+   * If the object has enabled Python future support, return the future that can be
    * awaited from Python, returns `nullptr` otherwise.
    *
    * @returns the Python future object or `nullptr`.
