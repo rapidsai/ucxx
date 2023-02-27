@@ -226,7 +226,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             uint64_t periodNs
         ) except +raise_py_error
         void runRequestNotifier() except +raise_py_error
-        void populatePythonFuturesPool() except +raise_py_error
+        void populateFuturesPool() except +raise_py_error
         shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error

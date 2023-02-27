@@ -376,7 +376,7 @@ class Worker : public Component {
    * @brief Get a future from the pool.
    *
    * Get a future from the pool. If the pool is empty,
-   * `ucxx::Worker::populatePythonFuturesPool()` is called and a warning is raised, since
+   * `ucxx::Worker::populateFuturesPool()` is called and a warning is raised, since
    * that likely means the user is missing to call the aforementioned method regularly.
    *
    * @throws std::runtime_error if UCXX Python support is unavailable.

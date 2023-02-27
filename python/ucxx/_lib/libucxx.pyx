@@ -570,7 +570,7 @@ cdef class UCXWorker():
 
     def populate_python_futures_pool(self):
         with nogil:
-            self._worker.get().populatePythonFuturesPool()
+            self._worker.get().populateFuturesPool()
 
     def is_python_future_enabled(self):
         return self._enable_python_future
