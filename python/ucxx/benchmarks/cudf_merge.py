@@ -242,10 +242,12 @@ def _get_worker_command(
 
 async def worker(rank, eps, args):
     # Setting current device and make RMM use it
+    from rmm.allocators.cupy import rmm_cupy_allocator
+
     rmm.reinitialize(pool_allocator=True, initial_pool_size=args.rmm_init_pool_size)
 
     # Make cupy use RMM
-    cupy.cuda.set_allocator(rmm.rmm_cupy_allocator)
+    cupy.cuda.set_allocator(rmm_cupy_allocator)
 
     df1 = generate_chunk(rank, args.chunk_size, args.n_chunks, "build", args.frac_match)
     df2 = generate_chunk(rank, args.chunk_size, args.n_chunks, "other", args.frac_match)

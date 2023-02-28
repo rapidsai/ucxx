@@ -1,7 +1,6 @@
 # Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
 # See file LICENSE for terms.
 
-import glob
 import os
 import re
 from distutils.sysconfig import get_config_var, get_python_inc

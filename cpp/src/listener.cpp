@@ -4,8 +4,8 @@
  * See file LICENSE for terms.
  */
 #include <memory>
-#include <string>
 #include <netinet/in.h>
+#include <string>
 #include <ucp/api/ucp.h>
 
 #include <ucxx/exception.h>

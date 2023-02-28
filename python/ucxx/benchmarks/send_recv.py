@@ -345,10 +345,11 @@ def parse_args():
     if args.progress_mode not in ["blocking", "polling", "thread", "thread-polling"]:
         raise RuntimeError(f"Invalid `--progress-mode`: '{args.progress_mode}'")
     if args.progress_mode == "blocking" and args.backend == "ucxx-async":
-        raise RuntimeError(f"Blocking progress mode not supported for ucxx-async yet")
+        raise RuntimeError("Blocking progress mode not supported for ucxx-async yet")
     if args.asyncio_wait and not args.progress_mode.startswith("thread"):
         raise RuntimeError(
-            "`--asyncio-wait` requires `--progress-mode=thread` or `--progress-mode=thread-polling`"
+            "`--asyncio-wait` requires `--progress-mode=thread` or "
+            "`--progress-mode=thread-polling`"
         )
 
     if args.n_buffers > 1 and args.backend != "ucxx-async":

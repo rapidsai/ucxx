@@ -13,7 +13,6 @@ from types import ModuleType
 import numpy as np
 
 import ucxx
-import ucxx._lib.libucxx as ucx_api
 from ucxx.utils import get_address
 
 logger = logging.getLogger("ucx")
@@ -59,13 +58,14 @@ def get_allocator(
         import cupy as xp
 
         import rmm
+        from rmm.allocators.cupy import rmm_cupy_allocator
 
         rmm.reinitialize(
             pool_allocator=True,
             managed_memory=rmm_managed_memory,
             initial_pool_size=rmm_init_pool_size,
         )
-        xp.cuda.set_allocator(rmm.rmm_cupy_allocator)
+        xp.cuda.set_allocator(rmm_cupy_allocator)
 
     return xp
 

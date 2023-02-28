@@ -10,6 +10,8 @@ import socket
 import struct
 import time
 
+import numpy as np
+
 mp = mp.get_context("spawn")
 
 
