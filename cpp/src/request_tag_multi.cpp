@@ -37,6 +37,7 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
   if (enablePythonFuture) _pythonFuture = worker->getPythonFuture();
 #endif
 
+  ucxx_debug("RequestTagMulti created: %p", this);
   callback();
 }
 
@@ -58,7 +59,27 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
   if (enablePythonFuture) _pythonFuture = worker->getPythonFuture();
 #endif
 
+  ucxx_trace("RequestTagMulti created: %p", this);
   send(buffer, size, isCUDA);
+}
+
+RequestTagMulti::~RequestTagMulti()
+{
+  for (auto& br : _bufferRequests) {
+    const auto& ptr = br->request.get();
+    if (ptr != nullptr)
+      ucxx_trace("RequestTagMulti destroying BufferRequest: %p", br->request.get());
+
+    /**
+     * FIXME: The `BufferRequest`s destructor should be doing this, but it seems a
+     * reference to the object is lingering and thus it never gets destroyed. This
+     * causes a chain effect that prevents `Worker` and `Context` from being destroyed
+     * as well. It seems the default destructor fails only for frames, headers seem
+     * to be destroyed as expected.
+     */
+    br->request = nullptr;
+  }
+  ucxx_trace("RequestTagMulti destroyed: %p", this);
 }
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
@@ -195,24 +216,35 @@ void RequestTagMulti::callback()
   ucxx_trace_req("RequestTagMulti::callback request: %p, tag: %lx", this, _tag);
 
   if (_bufferRequests.empty()) {
-    ucxx_trace_req("RequestTagMulti::callback first header, request: %p, tag: %lx", this, _tag);
     recvHeader();
   } else {
     const auto request = _bufferRequests.back();
-    auto header        = Header(*_bufferRequests.back()->stringBuffer);
 
-    // FIXME: request->request is not available when recvHeader completes immediately,
-    // the `tagRecv` operation hasn't returned yet.
-    // ucxx_trace_req(
-    //   "RequestTagMulti::callback request: %p, tag: %lx, "
-    //   "num_requests: %lu, next: %d, request isCompleted: %d, "
-    //   "request status: %s",
-    //   this,
-    //   _tag,
-    //   _bufferRequests.size(),
-    //   header.next,
-    //   request->request->isCompleted(),
-    //   ucs_status_string(request->request->getStatus()));
+    // nullptr/NULL and UCS_OK have the same meaning, request completed immediately.
+    const ucs_status_t status =
+      request->request == nullptr ? UCS_OK : request->request->getStatus();
+
+    if (status == UCS_OK) {
+      ucxx_trace_req(
+        "RequestTagMulti::callback header received, multi request: %p, tag: %lx", this, _tag);
+    } else {
+      ucxx_trace_req(
+        "RequestTagMulti::callback failed receiving header with status %d (%s), multi request: %p, "
+        "tag: %lx",
+        status,
+        ucs_status_string(status),
+        this,
+        _tag);
+
+      _status = status;
+#if UCXX_ENABLE_PYTHON
+      if (_pythonFuture) _pythonFuture->notify(status);
+#endif
+
+      return;
+    }
+
+    auto header = Header(*_bufferRequests.back()->stringBuffer);
 
     if (header.next)
       recvHeader();

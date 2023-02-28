@@ -46,7 +46,7 @@ Worker::Worker(std::shared_ptr<Context> context,
   if (enableDelayedSubmission)
     _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
 
-  ucxx_debug("Worker %p created, enableDelayedSubmission: %d, enablePythonFuture: %d",
+  ucxx_trace("Worker created: %p, enableDelayedSubmission: %d, enablePythonFuture: %d",
              this,
              enableDelayedSubmission,
              _enablePythonFuture);
@@ -102,10 +102,8 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
 Worker::~Worker()
 {
-  {
-    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
-    _inflightRequests->cancelAll();
-  }
+  size_t canceled = cancelInflightRequests();
+  ucxx_debug("Worker %p canceled %lu requests", _handle, canceled);
 
   stopProgressThreadNoWarn();
 #if UCXX_ENABLE_PYTHON
@@ -115,6 +113,7 @@ Worker::~Worker()
   drainWorkerTagRecv();
 
   ucp_worker_destroy(_handle);
+  ucxx_trace("Worker destroyed: %p", _handle);
 
   if (_epollFileDescriptor >= 0) close(_epollFileDescriptor);
 }
@@ -172,7 +171,7 @@ bool Worker::progressWorkerEvent()
 
   cancelInflightRequests();
 
-  if (progressOnce()) return true;
+  if (progress()) return true;
 
   if ((_epollFileDescriptor == -1) || !arm()) return false;
 
@@ -187,22 +186,33 @@ void Worker::signal() { utils::ucsErrorThrow(ucp_worker_signal(_handle)); }
 
 bool Worker::waitProgress()
 {
-  cancelInflightRequests();
   utils::ucsErrorThrow(ucp_worker_wait(_handle));
-  return progressOnce();
+  return progress();
 }
 
-bool Worker::progressOnce()
+bool Worker::progressOnce() { return ucp_worker_progress(_handle) != 0; }
+
+bool Worker::progressPending()
 {
-  cancelInflightRequests();
-  return ucp_worker_progress(_handle) != 0;
+  bool ret = false, prog = false;
+  do {
+    prog = progressOnce();
+    ret |= prog;
+  } while (prog);
+  return ret;
 }
 
 bool Worker::progress()
 {
-  while (progressOnce())
-    ;
-  return true;
+  bool ret = progressPending();
+
+  // Before canceling requests scheduled for cancelation, attempt to let them complete.
+  if (_inflightRequestsToCancel > 0) ret |= progressPending();
+
+  // Requests that were not completed now must be canceled.
+  if (cancelInflightRequests() > 0) ret |= progressPending();
+
+  return ret;
 }
 
 void Worker::registerDelayedSubmission(DelayedSubmissionCallbackType callback)

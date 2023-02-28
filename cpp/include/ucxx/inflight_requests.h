@@ -13,7 +13,7 @@ namespace ucxx {
 
 class Request;
 
-typedef std::map<const Request* const, std::weak_ptr<Request>> InflightRequestsMap;
+typedef std::map<const Request* const, std::shared_ptr<Request>> InflightRequestsMap;
 typedef std::unique_ptr<InflightRequestsMap> InflightRequestsMapPtr;
 
 class InflightRequests {
@@ -22,6 +22,8 @@ class InflightRequests {
     std::make_unique<InflightRequestsMap>()};  ///< Container storing pointers to all inflight
                                                ///< requests known to the owner of this object
   std::mutex _mutex{};  ///< Mutex to control access to inflight requests container
+  std::mutex
+    _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
 
  public:
   /**

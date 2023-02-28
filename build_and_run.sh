@@ -32,21 +32,11 @@ HELP="$0 [cpp_tests] [cpp_bench] [py_tests] [py_async_tests] [py_bench] [py_asyn
      ./build.sh libucxx libucxx_python ucxx tests
 "
 RUN_CPP_TESTS=0
+RUN_CPP_BENCH=0
 RUN_PY_TESTS=0
 RUN_PY_ASYNC_TESTS=0
 RUN_PY_BENCH=0
 RUN_PY_ASYNC_BENCH=0
-
-# export CMAKE_EXPORT_COMPILE_COMMANDS=ON
-
-# Exit if a building error occurs
-set -e
-
-(cd ${REPODIR}; ./build.sh libucxx libucxx_python ucxx tests)
-# (cd ${REPO_DIR}; cp cpp/build/compile_commands.json cpp/)
-
-# Let all tests run even if they fail
-set +e
 
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -79,6 +69,17 @@ fi
 if runAll || hasArg py_async_bench; then
     RUN_PY_ASYNC_BENCH=1
 fi
+
+# Exit if a building error occurs
+set -e
+
+export CMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+(cd ${REPODIR}; ./build.sh -g libucxx libucxx_python ucxx benchmarks tests)
+(cd ${REPODIR}; cp cpp/build/compile_commands.json cpp/)
+
+# Let all tests run even if they fail
+set +e
 
 run_cpp_benchmark() {
   PROGRESS_MODE=$1

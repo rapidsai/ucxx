@@ -39,6 +39,8 @@ struct ErrorCallbackData {
 class Endpoint : public Component {
  private:
   ucp_ep_h _handle{nullptr};          ///< Handle to the UCP endpoint
+  ucp_ep_h _originalHandle{nullptr};  ///< Handle to the UCP endpoint, after it was previously
+                                      ///< closed, used for logging purposes only
   bool _endpointErrorHandling{true};  ///< Whether the endpoint enables error handling
   std::unique_ptr<ErrorCallbackData> _callbackData{
     nullptr};  ///< Data struct to pass to endpoint error handling callback
@@ -75,11 +77,14 @@ class Endpoint : public Component {
    * @brief Register an inflight request.
    *
    * Called each time a new transfer request is made by the `Endpoint`, such that it may
-   * be canceled when necessary.
+   * be canceled when necessary. Also schedule requests to be canceled immediately after
+   * registration if the endpoint error handler has been called with an error.
    *
    * @param[in] request the request to register.
+   *
+   * @return the request that was registered (i.e., the `request` argument itself).
    */
-  void registerInflightRequest(std::shared_ptr<Request> request);
+  std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
  public:
   Endpoint()                = delete;

@@ -76,23 +76,25 @@ void RequestStream::populateDelayedSubmission()
   const bool pythonFutureLog = _enablePythonFuture;
 
   if (pythonFutureLog)
-    ucxx_trace_req("req: %p, %s, buffer: %p, size: %lu, future: %p, future handle: %p",
-                   _request,
-                   _operationName.c_str(),
-                   _delayedSubmission->_buffer,
-                   _delayedSubmission->_length,
-                   _pythonFuture.get(),
-                   _pythonFuture->getHandle());
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
+                     _delayedSubmission->_buffer,
+                     _delayedSubmission->_length,
+                     _pythonFuture.get(),
+                     _pythonFuture->getHandle());
 #else
   const bool pythonFutureLog = false;
 #endif
 
   if (!pythonFutureLog)
-    ucxx_trace_req("req: %p, %s, buffer: %p, size: %lu",
-                   _request,
-                   _operationName.c_str(),
-                   _delayedSubmission->_buffer,
-                   _delayedSubmission->_length);
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "buffer %p, size %lu, populateDelayedSubmission",
+                     _delayedSubmission->_buffer,
+                     _delayedSubmission->_length);
   process();
 }
 
@@ -113,15 +115,15 @@ void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 
 void RequestStream::streamSendCallback(void* request, ucs_status_t status, void* arg)
 {
-  ucxx_trace_req("req: %p, streamSendCallback", request);
   Request* req = (Request*)arg;
+  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "streamSend", "streamSendCallback");
   return req->callback(request, status);
 }
 
 void RequestStream::streamRecvCallback(void* request, ucs_status_t status, size_t length, void* arg)
 {
-  ucxx_trace_req("req: %p, streamRecvCallback", request);
   RequestStream* req = (RequestStream*)arg;
+  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "streamRecv", "streamRecvCallback");
   return req->callback(request, status, length);
 }
 

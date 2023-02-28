@@ -18,7 +18,14 @@ namespace python {
 
 Future::Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
 
-Future::~Future() { Py_XDECREF(_handle); }
+Future::~Future()
+{
+  // TODO: check it is truly safe to require the GIL here. Segfaults can occur
+  // if `Py_XDECREF` is called but the thread doesn't currently own the GIL.
+  PyGILState_STATE state = PyGILState_Ensure();
+  Py_XDECREF(_handle);
+  PyGILState_Release(state);
+}
 
 void Future::set(ucs_status_t status)
 {

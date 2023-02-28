@@ -44,6 +44,7 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   ucp_listener_h handle = nullptr;
   utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &handle));
   _handle = std::unique_ptr<ucp_listener, void (*)(ucp_listener_h)>(handle, ucpListenerDestructor);
+  ucxx_trace("Listener created: %p", _handle.get());
 
   attr.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR;
   utils::ucsErrorThrow(ucp_listener_query(_handle.get(), &attr));
@@ -58,7 +59,7 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   setParent(worker);
 }
 
-Listener::~Listener() {}
+Listener::~Listener() { ucxx_debug("Listener destroyed: %p", _handle.get()); }
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          uint16_t port,

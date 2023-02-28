@@ -742,6 +742,18 @@ cdef class UCXBufferRequests:
 
         return self._is_completed
 
+    def check_error(self):
+        with nogil:
+            self._ucxx_request_tag_multi.get().checkError()
+
+    def get_status(self):
+        cdef ucs_status_t status
+
+        with nogil:
+            status = self._ucxx_request_tag_multi.get().getStatus()
+
+        return status
+
     async def wait_yield(self):
         while True:
             if self.is_completed():
@@ -781,6 +793,7 @@ cdef class UCXBufferRequests:
             await self.wait_yield()
 
     def get_requests(self):
+        self._populate_requests()
         return self._requests
 
     def get_py_buffers(self):

@@ -5,6 +5,7 @@
  */
 #include <chrono>
 #include <memory>
+#include <sstream>
 
 #include <ucp/api/ucp.h>
 
@@ -44,28 +45,47 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
   }
 #endif
 
-  if (_endpoint)
+  std::stringstream ss;
+
+  if (_endpoint) {
     setParent(_endpoint);
-  else
+    ss << "ep " << _endpoint->getHandle();
+  } else {
     setParent(_worker);
+    ss << "worker " << _worker->getHandle();
+  }
+
+  _ownerString = ss.str();
+
+  ucxx_trace("Request created: %p, %s", this, _operationName.c_str());
 }
 
-Request::~Request()
-{
-  if (_endpoint)
-    _endpoint->removeInflightRequest(this);
-  else
-    _worker->removeInflightRequest(this);
-}
+Request::~Request() { ucxx_trace("Request destroyed: %p, %s", this, _operationName.c_str()); }
 
 void Request::cancel()
 {
-  if (_request == nullptr) {
-    ucxx_trace_req("req: %p already completed or cancelled", _request);
-    return;
+  if (_status == UCS_INPROGRESS) {
+    if (UCS_PTR_IS_ERR(_request)) {
+      ucs_status_t status = UCS_PTR_STATUS(_request);
+      ucxx_trace_req_f(_ownerString.c_str(),
+                       _request,
+                       _operationName.c_str(),
+                       "unprocessed request during cancelation contains error: %d (%s)",
+                       status,
+                       ucs_status_string(status));
+    } else {
+      ucxx_trace_req_f(_ownerString.c_str(), _request, _operationName.c_str(), "canceling");
+      ucp_request_cancel(_worker->getHandle(), _request);
+    }
+  } else {
+    auto status = _status.load();
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "already completed with status: %d (%s)",
+                     status,
+                     ucs_status_string(status));
   }
-  ucxx_trace_req("req: %p, cancelling", _request);
-  ucp_request_cancel(_worker->getHandle(), _request);
 }
 
 ucs_status_t Request::getStatus() { return _status; }
@@ -93,40 +113,57 @@ void Request::callback(void* request, ucs_status_t status)
 {
   setStatus(status);
 
-  ucxx_trace_req("req: %p, _callback: %p", request, _callback.target<void (*)(void)>());
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   request,
+                   _operationName.c_str(),
+                   "callback %p",
+                   _callback.target<void (*)(void)>());
   if (_callback) _callback(_callbackData);
 
   ucp_request_free(request);
+  ucxx_trace("Request completed: %p, handle: %p", this, request);
 }
 
 void Request::process()
 {
   ucs_status_t status = _status.load();
 
-  // Operation completed immediately
-  if (_request == nullptr) {
-    status = UCS_OK;
+  if (UCS_PTR_IS_ERR(_request)) {
+    // Operation errored immediately
+    status = UCS_PTR_STATUS(_request);
+  } else if (UCS_PTR_IS_PTR(_request)) {
+    // Completion will be handled by callback
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "completion will be handled by callback");
+    ucxx_trace("Request submitted: %p, handle: %p", this, _request);
+    return;
   } else {
-    if (UCS_PTR_IS_ERR(_request)) {
-      status = UCS_PTR_STATUS(_request);
-    } else if (UCS_PTR_IS_PTR(_request)) {
-      // Completion will be handled by callback
-      return;
-    } else {
-      status = UCS_OK;
-    }
+    // Operation completed immediately
+    status = UCS_OK;
   }
 
-  ucxx_trace_req("req: %p, status: %d (%s)", _request, status, ucs_status_string(status));
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   _request,
+                   _operationName.c_str(),
+                   "status %d (%s)",
+                   status,
+                   ucs_status_string(status));
 
-  ucxx_trace_req("req: %p, callback: %p", _request, _callback.target<void (*)(void)>());
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   _request,
+                   _operationName.c_str(),
+                   "callback %p",
+                   _callback.target<void (*)(void)>());
   if (_callback) _callback(_callbackData);
 
   if (status != UCS_OK) {
     ucxx_error(
       "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
   } else {
-    ucxx_trace_req("req: %p, %s completed immediately", _request, _operationName.c_str());
+    ucxx_trace_req_f(
+      _ownerString.c_str(), _request, _operationName.c_str(), "completed immediately");
   }
 
   setStatus(status);
@@ -134,6 +171,9 @@ void Request::process()
 
 void Request::setStatus(ucs_status_t status)
 {
+  if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
+  _worker->removeInflightRequest(this);
+
   if (_status == UCS_INPROGRESS) {
     // If the status is not `UCS_INPROGRESS`, the derived class has already set the
     // status, a truncated message for example.
@@ -142,11 +182,12 @@ void Request::setStatus(ucs_status_t status)
 
   ucs_status_t s = _status;
 
-  ucxx_trace_req("req: %p, callback called \"%s\" with status %d (%s)",
-                 _request,
-                 _operationName.c_str(),
-                 s,
-                 ucs_status_string(s));
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   _request,
+                   _operationName.c_str(),
+                   "callback called with status %d (%s)",
+                   s,
+                   ucs_status_string(s));
 
 #if UCXX_ENABLE_PYTHON
   if (_enablePythonFuture) {
@@ -155,5 +196,7 @@ void Request::setStatus(ucs_status_t status)
   }
 #endif
 }
+
+const std::string& Request::getOwnerString() const { return _ownerString; }
 
 }  // namespace ucxx
