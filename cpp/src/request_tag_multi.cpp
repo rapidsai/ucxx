@@ -17,12 +17,6 @@
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
 
-#if UCXX_ENABLE_PYTHON
-#include <ucxx/python/python_future.h>
-#else
-typedef void PyObject;
-#endif
-
 namespace ucxx {
 
 RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
@@ -33,9 +27,7 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
   ucxx_trace_req("RequestTagMulti::RequestTagMulti [recv]: %p, tag: %lx", this, _tag);
 
   auto worker = Endpoint::getWorker(endpoint->getParent());
-#if UCXX_ENABLE_PYTHON
-  if (enablePythonFuture) _pythonFuture = worker->getPythonFuture();
-#endif
+  if (enablePythonFuture) _future = worker->getFuture();
 
   ucxx_debug("RequestTagMulti created: %p", this);
   callback();
@@ -55,9 +47,7 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
     throw std::runtime_error("All input vectors should be of equal size");
 
   auto worker = Endpoint::getWorker(endpoint->getParent());
-#if UCXX_ENABLE_PYTHON
-  if (enablePythonFuture) _pythonFuture = worker->getPythonFuture();
-#endif
+  if (enablePythonFuture) _future = worker->getFuture();
 
   ucxx_trace("RequestTagMulti created: %p", this);
   send(buffer, size, isCUDA);
@@ -168,9 +158,7 @@ void RequestTagMulti::markCompleted(std::shared_ptr<void> request)
   if (_completedRequests.size() == _totalFrames) {
     // TODO: Actually handle errors
     _status = UCS_OK;
-#if UCXX_ENABLE_PYTHON
-    if (_pythonFuture) _pythonFuture->notify(UCS_OK);
-#endif
+    if (_future) _future->notify(UCS_OK);
   }
 
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
@@ -237,9 +225,7 @@ void RequestTagMulti::callback()
         _tag);
 
       _status = status;
-#if UCXX_ENABLE_PYTHON
-      if (_pythonFuture) _pythonFuture->notify(status);
-#endif
+      if (_future) _future->notify(status);
 
       return;
     }
@@ -294,15 +280,7 @@ void RequestTagMulti::send(std::vector<void*>& buffer,
 
 ucs_status_t RequestTagMulti::getStatus() { return _status; }
 
-PyObject* RequestTagMulti::getPyFuture()
-{
-#if UCXX_ENABLE_PYTHON
-  if (_pythonFuture)
-    return (PyObject*)_pythonFuture->getHandle();
-  else
-#endif
-    return nullptr;
-}
+void* RequestTagMulti::getFuture() { return _future ? _future->getHandle() : nullptr; }
 
 void RequestTagMulti::checkError() { utils::ucsErrorThrow(_status); }
 

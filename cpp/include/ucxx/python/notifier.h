@@ -10,22 +10,17 @@
 #include <memory>
 #include <mutex>
 
-#include <ucxx/log.h>
-
-#include <ucxx/python/typedefs.h>
+#include <ucxx/future.h>
+#include <ucxx/notifier.h>
 
 namespace ucxx {
 
 namespace python {
 
-enum class RequestNotifierThreadState { NotRunning = 0, Running, Stopping };
-
-class Future;
-
-class Notifier {
+class Notifier : public ::ucxx::Notifier {
  private:
   std::mutex _notifierThreadMutex{};  ///< Mutex to access thread's resources
-  std::vector<std::pair<std::shared_ptr<Future>, ucs_status_t>>
+  std::vector<std::pair<std::shared_ptr<::ucxx::Future>, ucs_status_t>>
     _notifierThreadFutureStatus{};               ///< Container with futures and statuses to set
   bool _notifierThreadFutureStatusReady{false};  ///< Whether a future is scheduled for notification
   RequestNotifierThreadState _notifierThreadFutureStatusFinished{
@@ -60,9 +55,7 @@ class Notifier {
    *
    * @param[in] period the time to wait for an event before unblocking.
    */
-  template <typename Rep, typename Period>
-  RequestNotifierWaitState waitRequestNotifierWithTimeout(
-    std::chrono::duration<Rep, Period> period);
+  RequestNotifierWaitState waitRequestNotifierWithTimeout(uint64_t period);
 
  public:
   Notifier(const Notifier&) = delete;
@@ -85,7 +78,14 @@ class Notifier {
    *
    * @returns The `shared_ptr<ucxx::python::Notifier>` object
    */
-  friend std::shared_ptr<Notifier> createNotifier();
+  friend std::shared_ptr<::ucxx::Notifier> createPythonNotifier();
+
+  /**
+   * @brief Virtual destructor.
+   *
+   * Virtual destructor with empty implementation.
+   */
+  virtual ~Notifier();
 
   /**
    * @brief Schedule event loop notification of completed Python future.
@@ -100,22 +100,7 @@ class Notifier {
    * @param[in] future  Python future to notify.
    * @param[in] status  the request completion status.
    */
-  void scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t status);
-
-  /**
-   * @brief Wait for a new event with a timeout.
-   *
-   * Block while waiting for an event (new future to be notified or stop signal) with added
-   * timeout to unblock after a certain period if no event has occurred. A period of zero
-   * means this call will never unblock until an event occurs.
-   *
-   * WARNING: Be cautious using a period of zero, if no event ever occurs it will be
-   * impossible to continue the thread.
-   *
-   * @param[in] period the time to wait for an event before unblocking.
-   */
-  template <typename Rep, typename Period>
-  RequestNotifierWaitState waitRequestNotifier(std::chrono::duration<Rep, Period> period);
+  void scheduleFutureNotify(std::shared_ptr<::ucxx::Future> future, ucs_status_t status) override;
 
   /**
    * @brief Wait for a new event with a timeout in nanoseconds.
@@ -129,7 +114,7 @@ class Notifier {
    *
    * @param[in] period the time in nanoseconds to wait for an event before unblocking.
    */
-  RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
+  RequestNotifierWaitState waitRequestNotifier(uint64_t period) override;
 
   /**
    * @brief Notify event loop of all pending completed Python futures.
@@ -139,7 +124,7 @@ class Notifier {
    * indefinitely but must instead run periodically. Futures that completed must first be
    * scheduled with `scheduleFutureNotify()`.
    */
-  void runRequestNotifier();
+  void runRequestNotifier() override;
 
   /**
    * @brief Make known to the notifier thread that it should stop.
@@ -147,7 +132,7 @@ class Notifier {
    * Often called when the application is shutting down, make known to the notifier thread
    * that it should stop and exit.
    */
-  void stopRequestNotifierThread();
+  void stopRequestNotifierThread() override;
 };
 
 }  // namespace python

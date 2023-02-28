@@ -270,7 +270,6 @@ add_library(
   src/header.cpp
   src/inflight_requests.cpp
   src/listener.cpp
-  src/log.cpp
   src/request.cpp
   src/request_helper.cpp
   src/request_stream.cpp
@@ -279,6 +278,7 @@ add_library(
   src/worker.cpp
   src/worker_progress_thread.cpp
   src/utils/file_descriptor.cpp
+  src/utils/python.cpp
   src/utils/sockaddr.cpp
   src/utils/ucx.cpp
 )

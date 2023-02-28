@@ -16,7 +16,12 @@ namespace ucxx {
 
 namespace python {
 
-Future::Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
+Future::Future(std::shared_ptr<::ucxx::Notifier> notifier) : ::ucxx::Future(notifier) {}
+
+std::shared_ptr<::ucxx::Future> createPythonFuture(std::shared_ptr<::ucxx::Notifier> notifier)
+{
+  return std::shared_ptr<::ucxx::Future>(new ::ucxx::python::Future(notifier));
+}
 
 Future::~Future()
 {
@@ -54,14 +59,14 @@ void Future::notify(ucs_status_t status)
   _notifier->scheduleFutureNotify(shared_from_this(), status);
 }
 
-PyObject* Future::getHandle()
+void* Future::getHandle()
 {
   if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
 
   return _handle;
 }
 
-PyObject* Future::release()
+void* Future::release()
 {
   if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
 

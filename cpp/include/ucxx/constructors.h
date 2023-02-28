@@ -19,7 +19,9 @@ class Address;
 class RequestTagMulti;
 class Context;
 class Endpoint;
+class Future;
 class Listener;
+class Notifier;
 class Request;
 class RequestStream;
 class RequestTag;
@@ -85,9 +87,12 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpo
 #if UCXX_ENABLE_PYTHON
 namespace python {
 
+class Future;
 class Notifier;
 
-std::shared_ptr<Notifier> createNotifier();
+std::shared_ptr<::ucxx::Future> createPythonFuture(std::shared_ptr<::ucxx::Notifier> notifier);
+
+std::shared_ptr<::ucxx::Notifier> createPythonNotifier();
 
 }  // namespace python
 #endif

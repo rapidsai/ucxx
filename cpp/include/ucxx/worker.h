@@ -16,27 +16,16 @@
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/delayed_submission.h>
+#include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>
+#include <ucxx/notifier.h>
 #include <ucxx/worker_progress_thread.h>
-
-#include <ucxx/python/typedefs.h>
-
-#if UCXX_ENABLE_PYTHON
-#include <ucxx/python/notifier.h>
-#include <ucxx/python/python_future.h>
-#endif
 
 namespace ucxx {
 
 class Address;
 class Endpoint;
 class Listener;
-
-namespace python {
-
-class Future;
-
-}  // namespace python
 
 class Worker : public Component {
  private:
@@ -59,13 +48,10 @@ class Worker : public Component {
     nullptr};  ///< Collection of enqueued delayed submissions
   bool _enablePythonFuture{
     false};  ///< Boolean identifying whether the worker was created with Python future capability
-#if UCXX_ENABLE_PYTHON
-  std::mutex _pythonFuturesPoolMutex{};  ///< Mutex to access the Python futures pool
-  std::queue<std::shared_ptr<ucxx::python::Future>>
-    _pythonFuturesPool{};  ///< Python futures pool to prevent running out of fresh futures
-  std::shared_ptr<ucxx::python::Notifier> _notifier{
-    ucxx::python::createNotifier()};  ///< Python notifier object
-#endif
+  std::mutex _futuresPoolMutex{};  ///< Mutex to access the Python futures pool
+  std::queue<std::shared_ptr<Future>>
+    _futuresPool{};  ///< Futures pool to prevent running out of fresh futures
+  std::shared_ptr<Notifier> _notifier{nullptr};  ///< Notifier object
 
   /**
    * @brief Private constructor of `ucxx::Worker`.
@@ -81,8 +67,7 @@ class Worker : public Component {
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
    * @param[in] enablePythonFuture if `true`, notifies the Python future associated
-   *                               with each `ucxx::Request`. Requires UCXX built with
-   *                               `-DUCXX_ENABLE_PYTHON=1`.
+   *                               with each `ucxx::Request`. Requires UCXX Python support.
    */
   Worker(std::shared_ptr<Context> context,
          const bool enableDelayedSubmission = false,
@@ -151,8 +136,7 @@ class Worker : public Component {
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
    * @param[in] enablePythonFuture if `true`, notifies the Python future associated
-   *                               with each `ucxx::Request`. Requires UCXX built with
-   *                               `-DUCXX_ENABLE_PYTHON=1`.
+   *                               with each `ucxx::Request`. Requires UCXX Python support.
    * @returns The `shared_ptr<ucxx::Worker>` object
    */
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
@@ -366,83 +350,77 @@ class Worker : public Component {
   void registerDelayedSubmission(DelayedSubmissionCallbackType callback);
 
   /**
-   * @brief Inquire if worker has been created with Python future supoprt.
+   * @brief Inquire if worker has been created with Python future support.
    *
-   * Check whether the worker has been created with Python future support. Reqiures
-   * UCXX built with `-DUCXX_ENABLE_PYTHON=1`.
+   * Check whether the worker has been created with Python future support. Requires UCXX
+   * Python support.
    *
    * @returns `true` if Python support is enabled, `false` otherwise.
    */
   bool isPythonFutureEnabled() const;
 
   /**
-   * @brief Populate the Pyton future pool.
+   * @brief Populate the future pool.
    *
-   * To avoid taking the GIL for every new Python future required by each `ucxx::Request`,
-   * the `ucxx::Worker` maintains a pool of futures that can be acquired when a new
-   * `ucxx::Request` is created. Currently the pool has a maximum size of 100 objects,
-   * and will refill once it goes under 50, otherwise calling this functions results in a
-   * no-op.
+   * To avoid taking blocking resources (such as the Python GIL) for every new future
+   * required by each `ucxx::Request`, the `ucxx::Worker` maintains a pool of futures
+   * that can be acquired when a new `ucxx::Request` is created. Currently the pool has
+   * a maximum size of 100 objects, and will refill once it goes under 50, otherwise
+   * calling this functions results in a no-op.
    *
-   * @throws std::runtime_error if UCXX was compiled without `-DUCXX_ENABLE_PYTHON=1` or if
-   *                            `ucxx::Worker` was created with `enablePythonFuture=false`.
+   * @throws std::runtime_error if UCXX Python support is unavailable.
    */
-  void populatePythonFuturesPool();
+  void populateFuturesPool();
 
   /**
-   * @brief Get a Python future from the pool.
+   * @brief Get a future from the pool.
    *
-   * Get a Python future from the pool. If the pool is empty,
+   * Get a future from the pool. If the pool is empty,
    * `ucxx::Worker::populatePythonFuturesPool()` is called and a warning is raised, since
    * that likely means the user is missing to call the aforementioned method regularly.
    *
-   * @throws std::runtime_error if UCXX was compiled without `-DUCXX_ENABLE_PYTHON=1` or if
-   *                            `ucxx::Worker` was created with `enablePythonFuture=false`.
+   * @throws std::runtime_error if UCXX Python support is unavailable.
    *
    * @returns The `shared_ptr<ucxx::python::Future>` object
    */
-  std::shared_ptr<ucxx::python::Future> getPythonFuture();
+  std::shared_ptr<Future> getFuture();
 
   /**
    * @brief Block until a request event.
    *
-   * Blocks until some communication is completed and Python future is ready to be notified,
+   * Blocks until some communication is completed and future is ready to be notified,
    * shutdown was initiated or a timeout occurred (only if `periodNs > 0`). This method is
-   * intended for use from Python, where a notifier thread will block until one of the
-   * aforementioned events occur.
+   * intended for use from the notifier (such as the Python thread running it), where that
+   * thread will block until one of the aforementioned events occur.
    *
-   * @throws std::runtime_error if UCXX was compiled without `-DUCXX_ENABLE_PYTHON=1` or if
-   *                            `ucxx::Worker` was created with `enablePythonFuture=false`.
+   * @throws std::runtime_error if UCXX Python support is unavailable.
    *
    * @returns `RequestNotifierWaitState::Ready` if some communication completed,
    *          `RequestNotifierWaitStats::Timeout` if a timeout occurred, or
    *          `RequestNotifierWaitStats::Shutdown` if shutdown has initiated.
    */
-  python::RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
+  RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
 
   /**
-   * @brief Notify Python futures of each completed communication request.
+   * @brief Notify futures of each completed communication request.
    *
-   * Notifies Python futures of each completed communication request of their new status.
-   * This method is intended to be used from Python, where a notifier thread will call
-   * `waitRequestNotifier()` and block until some communication is completed, and then
-   * call this method to notify all futures. The thread where this method is called from
-   * must be using the same Python event loop as the thread that submitted the transfer
-   * request.
+   * Notifies futures of each completed communication request of their new status. This
+   * method is intended to be used from the Notifier (such as the Python thread running it),
+   * where the thread will call `waitRequestNotifier()` and block until some communication
+   * is completed, and then call this method to notify all futures. If this is notifying
+   * a Python future, the thread where this method is called from must be using the same
+   * Python event loop as the thread that submitted the transfer request.
    *
-   * @throws std::runtime_error if UCXX was compiled without `-DUCXX_ENABLE_PYTHON=1` or if
-   *                            `ucxx::Worker` was created with `enablePythonFuture=false`.
+   * @throws std::runtime_error if UCXX Python support is unavailable.
    */
   void runRequestNotifier();
 
   /**
-   * @brief Signal the Python notifier thread to terminate.
+   * @brief Signal the notifier to terminate.
    *
-   * Signals the Python notifier thread to terminate, awakening the `waitRequestNotifier()`
-   * blocking call.
+   * Signals the notifier to terminate, awakening the `waitRequestNotifier()` blocking call.
    *
-   * @throws std::runtime_error if UCXX was compiled without `-DUCXX_ENABLE_PYTHON=1` or if
-   *                            `ucxx::Worker` was created with `enablePythonFuture=false`.
+   * @throws std::runtime_error if UCXX Python support is unavailable.
    */
   void stopRequestNotifierThread();
 
@@ -549,8 +527,7 @@ class Worker : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
+   * ensure the transfer has completed. Requires UCXX Python support.
    *
    * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
    *                                data will be stored.

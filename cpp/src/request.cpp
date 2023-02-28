@@ -14,10 +14,6 @@
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/ucx.h>
 
-#if UCXX_ENABLE_PYTHON
-#include <Python.h>
-#endif
-
 namespace ucxx {
 
 Request::Request(std::shared_ptr<Component> endpointOrWorker,
@@ -37,13 +33,11 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr)
     throw ucxx::Error("Endpoint not initialized");
 
-#if UCXX_ENABLE_PYTHON
   _enablePythonFuture &= _worker->isPythonFutureEnabled();
   if (_enablePythonFuture) {
-    _pythonFuture = _worker->getPythonFuture();
-    ucxx_trace_req("req: %p, _pythonFuture: %p", _request, _pythonFuture.get());
+    _future = _worker->getFuture();
+    ucxx_trace_req("req: %p, _future: %p", _request, _future.get());
   }
-#endif
 
   std::stringstream ss;
 
@@ -90,14 +84,7 @@ void Request::cancel()
 
 ucs_status_t Request::getStatus() { return _status; }
 
-PyObject* Request::getPyFuture()
-{
-#if UCXX_ENABLE_PYTHON
-  return (PyObject*)_pythonFuture->getHandle();
-#else
-  return nullptr;
-#endif
-}
+void* Request::getFuture() { return _future ? _future->getHandle() : nullptr; }
 
 void Request::checkError()
 {
@@ -189,12 +176,10 @@ void Request::setStatus(ucs_status_t status)
                    s,
                    ucs_status_string(s));
 
-#if UCXX_ENABLE_PYTHON
   if (_enablePythonFuture) {
-    auto future = std::static_pointer_cast<ucxx::python::Future>(_pythonFuture);
+    auto future = std::static_pointer_cast<ucxx::Future>(_future);
     future->notify(status);
   }
-#endif
 }
 
 const std::string& Request::getOwnerString() const { return _ownerString; }

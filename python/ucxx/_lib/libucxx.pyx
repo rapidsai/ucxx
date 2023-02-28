@@ -206,21 +206,14 @@ class Feature(enum.Enum):
 
 
 class PythonRequestNotifierWaitState(enum.Enum):
-    Ready = UcxxPythonRequestNotifierWaitStateReady
-    Timeout = UcxxPythonRequestNotifierWaitStateTimeout
-    Shutdown = UcxxPythonRequestNotifierWaitStateShutdown
+    Ready = UcxxRequestNotifierWaitStateReady
+    Timeout = UcxxRequestNotifierWaitStateTimeout
+    Shutdown = UcxxRequestNotifierWaitStateShutdown
 
 
 ###############################################################################
 #                                   Classes                                   #
 ###############################################################################
-
-def PythonEnabled():
-    cdef int python_enabled
-    with nogil:
-        python_enabled = UCXX_ENABLE_PYTHON
-    return bool(python_enabled)
-
 
 cdef class UCXConfig():
     cdef:
@@ -447,8 +440,8 @@ cdef class UCXWorker():
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
+            self._enable_python_future = self._worker.get().isPythonFutureEnabled()
 
-        self._enable_python_future = PythonEnabled() and enable_python_future
         self._context_feature_flags = <uint64_t>(context.feature_flags)
 
     @property
@@ -645,7 +638,7 @@ cdef class UCXRequest():
         cdef PyObject* future_ptr
 
         with nogil:
-            future_ptr = self._request.get().getPyFuture()
+            future_ptr = <PyObject*>self._request.get().getFuture()
 
         return <object>future_ptr
 
@@ -782,7 +775,7 @@ cdef class UCXBufferRequests:
         cdef PyObject* future_ptr
 
         with nogil:
-            future_ptr = self._ucxx_request_tag_multi.get().getPyFuture()
+            future_ptr = <PyObject*>self._ucxx_request_tag_multi.get().getFuture()
 
         return <object>future_ptr
 

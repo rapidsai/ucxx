@@ -160,16 +160,12 @@ cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
         void* data() except +raise_py_error
 
 
-cdef extern from "<ucxx/python/typedefs.h>" namespace "ucxx::python" nogil:
+cdef extern from "<ucxx/notifier.h>" namespace "ucxx" nogil:
     # TODO: use `cdef enum class` after moving to Cython 3.x
     ctypedef enum RequestNotifierWaitState:
-        UcxxPythonRequestNotifierWaitStateReady "ucxx::python::RequestNotifierWaitState::Ready"  # noqa: E501
-        UcxxPythonRequestNotifierWaitStateTimeout "ucxx::python::RequestNotifierWaitState::Timeout"  # noqa: E501
-        UcxxPythonRequestNotifierWaitStateShutdown "ucxx::python::RequestNotifierWaitState::Shutdown"  # noqa: E501
-
-
-cdef extern from "<ucxx/api.h>" nogil:
-    int UCXX_ENABLE_PYTHON
+        UcxxRequestNotifierWaitStateReady "ucxx::RequestNotifierWaitState::Ready"  # noqa: E501
+        UcxxRequestNotifierWaitStateTimeout "ucxx::RequestNotifierWaitState::Timeout"  # noqa: E501
+        UcxxRequestNotifierWaitStateShutdown "ucxx::RequestNotifierWaitState::Shutdown"  # noqa: E501
 
 
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
@@ -234,6 +230,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
+        bint isPythonFutureEnabled() const
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
@@ -282,7 +279,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         cpp_bool isCompleted()
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
-        PyObject* getPyFuture() except +raise_py_error
+        void* getFuture() except +raise_py_error
 
 
 cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
@@ -306,4 +303,8 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         cpp_bool isCompleted()
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
-        PyObject* getPyFuture() except +raise_py_error
+        void* getFuture() except +raise_py_error
+
+
+cdef extern from "<ucxx/utils/python.h>" namespace "ucxx::utils" nogil:
+    cpp_bool isPythonAvailable()

@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 
+#include <ucxx/log.h>
 #include <ucxx/python/notifier.h>
 #include <ucxx/python/python_future.h>
 
@@ -14,9 +15,14 @@ namespace ucxx {
 
 namespace python {
 
-std::shared_ptr<Notifier> createNotifier() { return std::shared_ptr<Notifier>(new Notifier()); }
+std::shared_ptr<::ucxx::Notifier> createPythonNotifier()
+{
+  return std::shared_ptr<::ucxx::Notifier>(new ::ucxx::python::Notifier());
+}
 
-void Notifier::scheduleFutureNotify(std::shared_ptr<Future> future, ucs_status_t status)
+Notifier::~Notifier() {}
+
+void Notifier::scheduleFutureNotify(std::shared_ptr<::ucxx::Future> future, ucs_status_t status)
 {
   ucxx_trace_req(
     "Notifier::scheduleFutureNotify(): future: %p, handle: %p", future.get(), future->getHandle());
@@ -69,17 +75,16 @@ RequestNotifierWaitState Notifier::waitRequestNotifierWithoutTimeout()
   return state;
 }
 
-template <typename Rep, typename Period>
-RequestNotifierWaitState Notifier::waitRequestNotifierWithTimeout(
-  std::chrono::duration<Rep, Period> period)
+RequestNotifierWaitState Notifier::waitRequestNotifierWithTimeout(uint64_t period)
 {
   ucxx_trace_req("Notifier::waitRequestNotifierWithTimeout()");
 
   std::unique_lock<std::mutex> lock(_notifierThreadMutex);
-  bool condition = _notifierThreadConditionVariable.wait_for(lock, period, [this] {
-    return _notifierThreadFutureStatusReady ||
-           _notifierThreadFutureStatusFinished == RequestNotifierThreadState::Stopping;
-  });
+  bool condition = _notifierThreadConditionVariable.wait_for(
+    lock, std::chrono::duration<uint64_t, std::nano>(period), [this] {
+      return _notifierThreadFutureStatusReady ||
+             _notifierThreadFutureStatusFinished == RequestNotifierThreadState::Stopping;
+    });
 
   auto state = (condition ? (_notifierThreadFutureStatusReady ? RequestNotifierWaitState::Ready
                                                               : RequestNotifierWaitState::Shutdown)
@@ -91,8 +96,7 @@ RequestNotifierWaitState Notifier::waitRequestNotifierWithTimeout(
   return state;
 }
 
-template <typename Rep, typename Period>
-RequestNotifierWaitState Notifier::waitRequestNotifier(std::chrono::duration<Rep, Period> period)
+RequestNotifierWaitState Notifier::waitRequestNotifier(uint64_t period)
 {
   ucxx_trace_req("Notifier::waitRequestNotifier()");
 
@@ -101,13 +105,8 @@ RequestNotifierWaitState Notifier::waitRequestNotifier(std::chrono::duration<Rep
     return RequestNotifierWaitState::Shutdown;
   }
 
-  return (period > std::chrono::nanoseconds(0)) ? waitRequestNotifierWithTimeout(period)
-                                                : waitRequestNotifierWithoutTimeout();
-}
-
-RequestNotifierWaitState Notifier::waitRequestNotifier(uint64_t periodNs)
-{
-  return waitRequestNotifier(std::chrono::nanoseconds(periodNs));
+  return (period > 0) ? waitRequestNotifierWithTimeout(period)
+                      : waitRequestNotifierWithoutTimeout();
 }
 
 void Notifier::stopRequestNotifierThread()
