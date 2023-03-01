@@ -436,11 +436,12 @@ cdef class UCXWorker():
         cdef bint ucxx_enable_delayed_submission = enable_delayed_submission
         cdef bint ucxx_enable_python_future = enable_python_future
         with nogil:
-            self._worker = context._context.get().createWorker(
+            self._worker = createPythonWorker(
+                context._context,
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
-            self._enable_python_future = self._worker.get().isPythonFutureEnabled()
+            self._enable_python_future = self._worker.get().isFutureEnabled()
 
         self._context_feature_flags = <uint64_t>(context.feature_flags)
 
