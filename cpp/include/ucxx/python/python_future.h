@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#if UCXX_ENABLE_PYTHON
 #include <functional>
 #include <memory>
 
@@ -111,5 +110,3 @@ class Future : public ::ucxx::Future {
 }  // namespace python
 
 }  // namespace ucxx
-
-#endif

@@ -3,7 +3,6 @@
  *
  * See file LICENSE for terms.
  */
-#if UCXX_ENABLE_PYTHON
 #include <ios>
 #include <stdexcept>
 
@@ -207,5 +206,3 @@ PyObject* get_python_exception_from_ucs_status(ucs_status_t status)
 }  // namespace python
 
 }  // namespace ucxx
-
-#endif

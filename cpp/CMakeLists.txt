@@ -183,6 +183,98 @@ endif()
 
 add_library(ucxx::common ALIAS ucxx_common)
 
+# Build main library
+add_library(
+  ucxx
+  src/address.cpp
+  src/buffer.cpp
+  src/component.cpp
+  src/config.cpp
+  src/context.cpp
+  src/delayed_submission.cpp
+  src/endpoint.cpp
+  src/header.cpp
+  src/inflight_requests.cpp
+  src/listener.cpp
+  src/request.cpp
+  src/request_helper.cpp
+  src/request_stream.cpp
+  src/request_tag.cpp
+  src/request_tag_multi.cpp
+  src/worker.cpp
+  src/worker_progress_thread.cpp
+  src/utils/file_descriptor.cpp
+  src/utils/sockaddr.cpp
+  src/utils/ucx.cpp
+)
+
+set_target_properties(
+  ucxx
+  PROPERTIES BUILD_RPATH "\$ORIGIN"
+             INSTALL_RPATH "\$ORIGIN"
+             # set target compile options
+             CXX_STANDARD 17
+             CXX_STANDARD_REQUIRED ON
+             # For std:: support of __int128_t. Can be removed once using cuda::std
+             # CXX_EXTENSIONS ON
+             CUDA_STANDARD 17
+             CUDA_STANDARD_REQUIRED ON
+             POSITION_INDEPENDENT_CODE ON
+             INTERFACE_POSITION_INDEPENDENT_CODE ON
+)
+
+target_compile_options(
+  ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
+               "$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_FLAGS}>"
+)
+
+# Specify include paths for the current target and dependents
+target_include_directories(
+  ucxx
+  PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
+         "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
+  PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
+  INTERFACE "$<INSTALL_INTERFACE:include>"
+)
+
+target_compile_definitions(
+  ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
+              "$<BUILD_INTERFACE:$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_DEFINITIONS}>>"
+)
+
+# Enable RMM if necessary
+if(UCXX_ENABLE_RMM)
+    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
+endif()
+
+# Define spdlog level
+target_compile_definitions(ucxx PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
+
+# Specify the target module library dependencies
+target_link_libraries(
+  ucxx
+  PUBLIC rmm::rmm ucx::ucp ucxx::common
+)
+
+# Add Conda library, and include paths if specified
+if(TARGET conda_env)
+  target_link_libraries(ucxx PRIVATE conda_env)
+endif()
+
+if(CUDA_STATIC_RUNTIME)
+  # Tell CMake what CUDA language runtime to use
+  set_target_properties(ucxx PROPERTIES CUDA_RUNTIME_LIBRARY Static)
+  # Make sure to export to consumers what runtime we used
+  target_link_libraries(ucxx PUBLIC CUDA::cudart_static)
+else()
+  # Tell CMake what CUDA language runtime to use
+  set_target_properties(ucxx PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+  # Make sure to export to consumers what runtime we used
+  target_link_libraries(ucxx PUBLIC CUDA::cudart)
+endif()
+
+add_library(ucxx::ucxx ALIAS ucxx)
+
 # Build Python if requested
 if(UCXX_ENABLE_PYTHON)
   add_library(
@@ -235,7 +327,7 @@ if(UCXX_ENABLE_PYTHON)
   # Specify the target module library dependencies
   target_link_libraries(
     ucxx_python
-    PUBLIC rmm::rmm ucx::ucp ucxx::common ${UCXX_PYTHON_LIB}
+    PUBLIC rmm::rmm ucx::ucp ucxx::ucxx ucxx::common ${UCXX_PYTHON_LIB}
   )
 
   # Add Conda library, and include paths if specified
@@ -257,104 +349,6 @@ if(UCXX_ENABLE_PYTHON)
 
   add_library(ucxx::python ALIAS ucxx_python)
 endif()
-
-# Build main library
-add_library(
-  ucxx
-  src/address.cpp
-  src/buffer.cpp
-  src/component.cpp
-  src/config.cpp
-  src/context.cpp
-  src/delayed_submission.cpp
-  src/endpoint.cpp
-  src/header.cpp
-  src/inflight_requests.cpp
-  src/listener.cpp
-  src/request.cpp
-  src/request_helper.cpp
-  src/request_stream.cpp
-  src/request_tag.cpp
-  src/request_tag_multi.cpp
-  src/worker.cpp
-  src/worker_progress_thread.cpp
-  src/utils/file_descriptor.cpp
-  src/utils/python.cpp
-  src/utils/sockaddr.cpp
-  src/utils/ucx.cpp
-)
-
-set_target_properties(
-  ucxx
-  PROPERTIES BUILD_RPATH "\$ORIGIN"
-             INSTALL_RPATH "\$ORIGIN"
-             # set target compile options
-             CXX_STANDARD 17
-             CXX_STANDARD_REQUIRED ON
-             # For std:: support of __int128_t. Can be removed once using cuda::std
-             # CXX_EXTENSIONS ON
-             CUDA_STANDARD 17
-             CUDA_STANDARD_REQUIRED ON
-             POSITION_INDEPENDENT_CODE ON
-             INTERFACE_POSITION_INDEPENDENT_CODE ON
-)
-
-target_compile_options(
-  ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
-               "$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_FLAGS}>"
-)
-
-# Specify include paths for the current target and dependents
-target_include_directories(
-  ucxx
-  PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
-         "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
-  PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
-  INTERFACE "$<INSTALL_INTERFACE:include>"
-)
-
-target_compile_definitions(
-  ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
-              "$<BUILD_INTERFACE:$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_DEFINITIONS}>>"
-)
-
-# Enable Python if necessary
-if(UCXX_ENABLE_PYTHON)
-  target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_PYTHON)
-endif()
-
-# Enable RMM if necessary
-if(UCXX_ENABLE_RMM)
-    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
-endif()
-
-# Define spdlog level
-target_compile_definitions(ucxx PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
-
-# Specify the target module library dependencies
-target_link_libraries(
-  ucxx
-  PUBLIC rmm::rmm ucx::ucp ucxx::common ucxx::python
-)
-
-# Add Conda library, and include paths if specified
-if(TARGET conda_env)
-  target_link_libraries(ucxx PRIVATE conda_env)
-endif()
-
-if(CUDA_STATIC_RUNTIME)
-  # Tell CMake what CUDA language runtime to use
-  set_target_properties(ucxx PROPERTIES CUDA_RUNTIME_LIBRARY Static)
-  # Make sure to export to consumers what runtime we used
-  target_link_libraries(ucxx PUBLIC CUDA::cudart_static)
-else()
-  # Tell CMake what CUDA language runtime to use
-  set_target_properties(ucxx PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
-  # Make sure to export to consumers what runtime we used
-  target_link_libraries(ucxx PUBLIC CUDA::cudart)
-endif()
-
-add_library(ucxx::ucxx ALIAS ucxx)
 
 # ##################################################################################################
 # * tests and benchmarks --------------------------------------------------------------------------

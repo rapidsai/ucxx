@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#if UCXX_ENABLE_PYTHON
 #include <functional>
 #include <mutex>
 #include <queue>
@@ -131,4 +130,3 @@ class Worker : public ::ucxx::Worker {
 }  // namespace python
 
 }  // namespace ucxx
-#endif
