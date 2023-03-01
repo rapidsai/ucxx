@@ -14,7 +14,7 @@ namespace ucxx {
 
 enum class RequestNotifierThreadState { NotRunning = 0, Running, Stopping };
 
-enum class RequestNotifierWaitState { Ready = 0, Timeout, Shutdown };
+enum class RequestNotifierWaitState { Ready = 0, Timeout, Shutdown, Invalid };
 
 class Future;
 

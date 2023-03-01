@@ -189,8 +189,9 @@ if(UCXX_ENABLE_PYTHON)
     ucxx_python
     src/python/exception.cpp
     src/python/future.cpp
-    src/python/python_future.cpp
     src/python/notifier.cpp
+    src/python/python_future.cpp
+    src/python/worker.cpp
   )
 
   set_target_properties(

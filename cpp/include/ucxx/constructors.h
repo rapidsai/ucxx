@@ -53,8 +53,7 @@ std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          void* callback_args);
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedSubmission,
-                                     const bool enablePythonFuture);
+                                     const bool enableDelayedSubmission);
 
 // Transfers
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
@@ -87,12 +86,13 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpo
 #if UCXX_ENABLE_PYTHON
 namespace python {
 
-class Future;
-class Notifier;
-
 std::shared_ptr<::ucxx::Future> createPythonFuture(std::shared_ptr<::ucxx::Notifier> notifier);
 
 std::shared_ptr<::ucxx::Notifier> createPythonNotifier();
+
+std::shared_ptr<::ucxx::Worker> createPythonWorker(std::shared_ptr<Context> context,
+                                                   const bool enableDelayedSubmission,
+                                                   const bool enablePythonFuture);
 
 }  // namespace python
 #endif

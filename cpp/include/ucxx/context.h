@@ -148,12 +148,9 @@ class Context : public Component {
    *
    * @param[in] enableDelayedSubmission whether the worker should delay
    *                                    transfer requests to the worker thread.
-   * @param[in] enablePythonFuture whether to enable notification of Ptyhon
-   *                               futures upon transfer request completion.
    * @return Shared pointer to the `ucxx::Worker` object.
    */
-  std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
-                                       const bool enablePythonFuture      = false);
+  std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false);
 };
 
 }  // namespace ucxx
