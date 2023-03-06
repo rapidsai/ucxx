@@ -136,53 +136,6 @@ endif()
 # ##################################################################################################
 # * library targets -------------------------------------------------------------------------------
 
-# Separate library for common functionality, e.g., logging.
-add_library(
-  ucxx_common
-  src/log.cpp
-)
-
-set_target_properties(
-  ucxx_common
-  PROPERTIES BUILD_RPATH "\$ORIGIN"
-             INSTALL_RPATH "\$ORIGIN"
-             # set target compile options
-             CXX_STANDARD 17
-             CXX_STANDARD_REQUIRED ON
-             POSITION_INDEPENDENT_CODE ON
-             INTERFACE_POSITION_INDEPENDENT_CODE ON
-)
-
-target_compile_options(
-  ucxx_common PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
-)
-
-# Specify include paths for the current target and dependents
-target_include_directories(
-  ucxx_common
-  PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
-         "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
-  PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
-  INTERFACE "$<INSTALL_INTERFACE:include>"
-)
-
-target_compile_definitions(
-  ucxx_common PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
-)
-
-# Specify the target module library dependencies
-target_link_libraries(
-  ucxx_common
-  PUBLIC ucx::ucs
-)
-
-# Add Conda library, and include paths if specified
-if(TARGET conda_env)
-  target_link_libraries(ucxx_common PRIVATE conda_env)
-endif()
-
-add_library(ucxx::common ALIAS ucxx_common)
-
 # Build main library
 add_library(
   ucxx
@@ -196,6 +149,7 @@ add_library(
   src/header.cpp
   src/inflight_requests.cpp
   src/listener.cpp
+  src/log.cpp
   src/request.cpp
   src/request_helper.cpp
   src/request_stream.cpp
@@ -253,7 +207,7 @@ target_compile_definitions(ucxx PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_L
 # Specify the target module library dependencies
 target_link_libraries(
   ucxx
-  PUBLIC rmm::rmm ucx::ucp ucxx::common
+  PUBLIC rmm::rmm ucx::ucp
 )
 
 # Add Conda library, and include paths if specified
@@ -327,7 +281,7 @@ if(UCXX_ENABLE_PYTHON)
   # Specify the target module library dependencies
   target_link_libraries(
     ucxx_python
-    PUBLIC rmm::rmm ucx::ucp ucxx::ucxx ucxx::common ${UCXX_PYTHON_LIB}
+    PUBLIC rmm::rmm ucx::ucp ucxx::ucxx ${UCXX_PYTHON_LIB}
   )
 
   # Add Conda library, and include paths if specified
@@ -382,7 +336,7 @@ include(GNUInstallDirs)
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ucxx)
 
 install(
-  TARGETS ucxx ucxx_common ucxx_python
+  TARGETS ucxx ucxx_python
   DESTINATION ${lib_dir}
   EXPORT ucxx-exports
 )
@@ -411,7 +365,7 @@ targets:
 )
 
 rapids_export(
-  INSTALL ucxx ucxx_common ucxx_python
+  INSTALL ucxx ucxx_python
   EXPORT_SET ucxx-exports
   GLOBAL_TARGETS ucxx
   NAMESPACE ucxx::
