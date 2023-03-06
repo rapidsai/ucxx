@@ -214,31 +214,26 @@ void Worker::registerDelayedSubmission(DelayedSubmissionCallbackType callback)
   }
 }
 
-static void throwFutureNotImplemented()
-{
-  throw std::runtime_error(
-    "ucxx::Worker's future support not implemented, please ensure you use an "
-    "implementation with future support and that enableFuture=true is set when creating "
-    "the Worker to use this method.");
-}
+#define THROW_FUTURE_NOT_IMPLEMENTED()                                                      \
+  do {                                                                                      \
+    throw std::runtime_error(                                                               \
+      "ucxx::Worker's future support not implemented, please ensure you use an "            \
+      "implementation with future support and that enableFuture=true is set when creating " \
+      "the Worker to use this method.");                                                    \
+  } while (0)
 
-void Worker::populateFuturesPool() { throwFutureNotImplemented(); }
+void Worker::populateFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-std::shared_ptr<Future> Worker::getFuture()
-{
-  throwFutureNotImplemented();
-  return nullptr;
-}
+std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
 {
-  throwFutureNotImplemented();
-  return RequestNotifierWaitState::Invalid;
+  THROW_FUTURE_NOT_IMPLEMENTED();
 }
 
-void Worker::runRequestNotifier() { throwFutureNotImplemented(); }
+void Worker::runRequestNotifier() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-void Worker::stopRequestNotifierThread() { throwFutureNotImplemented(); }
+void Worker::stopRequestNotifierThread() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback, void* callbackArg)
 {
