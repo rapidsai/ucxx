@@ -1,11 +1,14 @@
 #include <cassert>
 #include <chrono>
+#include <iostream>
 #include <numeric>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 #include <ucxx/api.h>
 #include <ucxx/utils/sockaddr.h>
+#include <ucxx/utils/ucx.h>
 
 enum progress_mode_t {
   PROGRESS_MODE_BLOCKING,
