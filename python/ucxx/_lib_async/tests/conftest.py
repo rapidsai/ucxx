@@ -11,10 +11,6 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_configure(config):
-    config.addinivalue_line("markers", "slow: mark test as slow to run")
-
-
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--runslow"):
         # --runslow given in cli: do not skip slow tests
@@ -40,3 +36,44 @@ def event_loop(scope="session"):
     yield loop
     ucxx.reset()
     loop.run_until_complete(asyncio.sleep(0))
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_pyfunc_call(pyfuncitem: pytest.Function):
+    """
+    Add timeout for tests.
+
+    Add timeout for tests with `pytest.mark.asyncio_timeout` marker as specified by the
+    decorator, otherwise a default timeout of 60 seconds for regular tests and 600
+    seconds for tests marked slow.
+    """
+    timeout_marker = pyfuncitem.get_closest_marker("asyncio_timeout")
+    slow_marker = pyfuncitem.get_closest_marker("slow")
+    default_timeout = 12.0 if slow_marker else 6.0
+    timeout = float(timeout_marker.args[0]) if timeout_marker else default_timeout
+    if timeout <= 0.0:
+        raise ValueError("The `pytest.mark.asyncio_timeout` value must be positive.")
+
+    if timeout > 0.0:
+
+        async def wrapped_obj(*args, **kwargs):
+            try:
+                return await asyncio.wait_for(
+                    inner_obj(*args, **kwargs), timeout=timeout
+                )
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pytest.fail(f"{pyfuncitem.name} timed out after {timeout} seconds.")
+
+        inner_obj = pyfuncitem.obj
+        pyfuncitem.obj = wrapped_obj
+
+    yield
+
+
+def pytest_configure(config: pytest.Config):
+    config.addinivalue_line(
+        "markers",
+        "asyncio_timeout(timeout): cancels the test execution after the specified "
+        "amount of seconds",
+    )
+    config.addinivalue_line("markers", "slow: mark test as slow to run")
