@@ -74,6 +74,6 @@ def pytest_configure(config: pytest.Config):
     config.addinivalue_line(
         "markers",
         "asyncio_timeout(timeout): cancels the test execution after the specified "
-        "amount of seconds",
+        "number of seconds",
     )
     config.addinivalue_line("markers", "slow: mark test as slow to run")
