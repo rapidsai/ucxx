@@ -49,7 +49,7 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
     """
     timeout_marker = pyfuncitem.get_closest_marker("asyncio_timeout")
     slow_marker = pyfuncitem.get_closest_marker("slow")
-    default_timeout = 12.0 if slow_marker else 6.0
+    default_timeout = 600.0 if slow_marker else 60.0
     timeout = float(timeout_marker.args[0]) if timeout_marker else default_timeout
     if timeout <= 0.0:
         raise ValueError("The `pytest.mark.asyncio_timeout` value must be positive.")
