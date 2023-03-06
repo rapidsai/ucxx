@@ -38,7 +38,7 @@ HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [-v] [-g
    default action (no args) is to build and install 'libucxx' and 'libucxx_python', and then 'ucxx' targets
 "
 LIB_BUILD_DIR=${LIB_BUILD_DIR:=${REPODIR}/cpp/build}
-UCXX_BUILD_DIR=${REPODIR}/python/
+UCXX_BUILD_DIR=${REPODIR}/python/build
 
 BUILD_DIRS="${LIB_BUILD_DIR} ${UCXX_BUILD_DIR}"
 
