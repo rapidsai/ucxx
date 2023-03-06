@@ -7,6 +7,8 @@
 #include <ios>
 #include <mutex>
 
+#include <Python.h>
+
 #include <ucxx/python/future.h>
 #include <ucxx/python/worker.h>
 #include <ucxx/request_tag.h>
@@ -39,8 +41,10 @@ void Worker::populateFuturesPool()
     // If the pool goes under half expected size, fill it up again.
     if (_futuresPool.size() < 50) {
       std::lock_guard<std::mutex> lock(_futuresPoolMutex);
+      PyGILState_STATE state = PyGILState_Ensure();
       while (_futuresPool.size() < 100)
         _futuresPool.emplace(createPythonFuture(_notifier));
+      PyGILState_Release(state);
     }
   } else {
     throw std::runtime_error(
