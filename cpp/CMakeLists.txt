@@ -238,6 +238,7 @@ if(UCXX_ENABLE_PYTHON)
     src/python/notifier.cpp
     src/python/python_future.cpp
     src/python/worker.cpp
+    src/utils/python.cpp
   )
 
   set_target_properties(
@@ -302,6 +303,9 @@ if(UCXX_ENABLE_PYTHON)
   endif()
 
   add_library(ucxx::python ALIAS ucxx_python)
+  set(UCXX_PYTHON_TARGET_ALIAS ucxx_python)
+else()
+  set(UCXX_PYTHON_TARGET_TARGET "")
 endif()
 
 # ##################################################################################################
@@ -336,7 +340,7 @@ include(GNUInstallDirs)
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ucxx)
 
 install(
-  TARGETS ucxx ucxx_python
+  TARGETS ucxx ${UCXX_PYTHON_TARGET_ALIAS}
   DESTINATION ${lib_dir}
   EXPORT ucxx-exports
 )
@@ -365,7 +369,7 @@ targets:
 )
 
 rapids_export(
-  INSTALL ucxx ucxx_python
+  INSTALL ucxx ${UCXX_PYTHON_TARGET_ALIAS}
   EXPORT_SET ucxx-exports
   GLOBAL_TARGETS ucxx
   NAMESPACE ucxx::
