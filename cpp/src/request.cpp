@@ -33,7 +33,7 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr)
     throw ucxx::Error("Endpoint not initialized");
 
-  _enablePythonFuture &= _worker->isPythonFutureEnabled();
+  _enablePythonFuture &= _worker->isFutureEnabled();
   if (_enablePythonFuture) {
     _future = _worker->getFuture();
     ucxx_trace_req("req: %p, _future: %p", _request, _future.get());

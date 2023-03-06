@@ -3,7 +3,6 @@
  *
  * See file LICENSE for terms.
  */
-#if UCXX_ENABLE_PYTHON
 #include <Python.h>
 
 #include <ucp/api/ucp.h>
@@ -76,5 +75,3 @@ void* Future::release()
 }  // namespace python
 
 }  // namespace ucxx
-
-#endif

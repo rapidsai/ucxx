@@ -3,7 +3,6 @@
  *
  * See file LICENSE for terms.
  */
-#if UCXX_ENABLE_PYTHON
 #include <ucxx/log.h>
 
 #include <Python.h>
@@ -172,5 +171,3 @@ finish:
 }  // namespace python
 
 }  // namespace ucxx
-
-#endif

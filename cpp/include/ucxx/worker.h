@@ -46,33 +46,16 @@ class Worker : public Component {
     nullptr};  ///< The argument to be passed to the progress thread start callback
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
-  bool _enablePythonFuture{
-    false};  ///< Boolean identifying whether the worker was created with Python future capability
-  std::mutex _futuresPoolMutex{};  ///< Mutex to access the Python futures pool
+
+ protected:
+  bool _enableFuture{
+    false};  ///< Boolean identifying whether the worker was created with future capability
+  std::mutex _futuresPoolMutex{};  ///< Mutex to access the futures pool
   std::queue<std::shared_ptr<Future>>
     _futuresPool{};  ///< Futures pool to prevent running out of fresh futures
   std::shared_ptr<Notifier> _notifier{nullptr};  ///< Notifier object
 
-  /**
-   * @brief Private constructor of `ucxx::Worker`.
-   *
-   * This is the internal implementation of `ucxx::Worker` constructor, made private not
-   * to be called directly. Instead the user should call `context::createWorker()` or
-   * `ucxx::createWorker()`.
-   *
-   *
-   * @param[in] context the context from which to create the worker.
-   * @param[in] enableDelayedSubmission if `true`, each `ucxx::Request` will not be
-   *                                    submitted immediately, but instead delayed to
-   *                                    the progress thread. Requires use of the
-   *                                    progress thread.
-   * @param[in] enablePythonFuture if `true`, notifies the Python future associated
-   *                               with each `ucxx::Request`. Requires UCXX Python support.
-   */
-  Worker(std::shared_ptr<Context> context,
-         const bool enableDelayedSubmission = false,
-         const bool enablePythonFuture      = false);
-
+ private:
   /**
    * @brief Drain the worker for uncatched tag messages received.
    *
@@ -108,6 +91,24 @@ class Worker : public Component {
    */
   bool progressPending();
 
+ protected:
+  /**
+   * @brief Protected constructor of `ucxx::Worker`.
+   *
+   * This is the internal implementation of `ucxx::Worker` constructor, made protected not
+   * to be called directly. Instead the user should call `context::createWorker()` or
+   * `ucxx::createWorker()` (or `ucxx::createPythonWorker` for the Python-enabled
+   * implementation).
+   *
+   *
+   * @param[in] context the context from which to create the worker.
+   * @param[in] enableDelayedSubmission if `true`, each `ucxx::Request` will not be
+   *                                    submitted immediately, but instead delayed to
+   *                                    the progress thread. Requires use of the
+   *                                    progress thread.
+   */
+  Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission = false);
+
  public:
   Worker()              = delete;
   Worker(const Worker&) = delete;
@@ -135,18 +136,15 @@ class Worker : public Component {
    *                                    submitted immediately, but instead delayed to
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
-   * @param[in] enablePythonFuture if `true`, notifies the Python future associated
-   *                               with each `ucxx::Request`. Requires UCXX Python support.
    * @returns The `shared_ptr<ucxx::Worker>` object
    */
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                              const bool enableDelayedSubmission,
-                                              const bool enablePythonFuture);
+                                              const bool enableDelayedSubmission);
 
   /**
    * @brief `ucxx::Worker` destructor.
    */
-  ~Worker();
+  virtual ~Worker();
 
   /**
    * @brief Get the underlying `ucp_worker_h` handle.
@@ -350,14 +348,13 @@ class Worker : public Component {
   void registerDelayedSubmission(DelayedSubmissionCallbackType callback);
 
   /**
-   * @brief Inquire if worker has been created with Python future support.
+   * @brief Inquire if worker has been created with future support.
    *
-   * Check whether the worker has been created with Python future support. Requires UCXX
-   * Python support.
+   * Check whether the worker has been created with future support.
    *
-   * @returns `true` if Python support is enabled, `false` otherwise.
+   * @returns `true` if future support is enabled, `false` otherwise.
    */
-  bool isPythonFutureEnabled() const;
+  bool isFutureEnabled() const;
 
   /**
    * @brief Populate the future pool.
@@ -368,9 +365,9 @@ class Worker : public Component {
    * a maximum size of 100 objects, and will refill once it goes under 50, otherwise
    * calling this functions results in a no-op.
    *
-   * @throws std::runtime_error if UCXX Python support is unavailable.
+   * @throws std::runtime_error if future support is not implemented.
    */
-  void populateFuturesPool();
+  virtual void populateFuturesPool();
 
   /**
    * @brief Get a future from the pool.
@@ -379,11 +376,11 @@ class Worker : public Component {
    * `ucxx::Worker::populateFuturesPool()` is called and a warning is raised, since
    * that likely means the user is missing to call the aforementioned method regularly.
    *
-   * @throws std::runtime_error if UCXX Python support is unavailable.
+   * @throws std::runtime_error if future support is not implemented.
    *
    * @returns The `shared_ptr<ucxx::python::Future>` object
    */
-  std::shared_ptr<Future> getFuture();
+  virtual std::shared_ptr<Future> getFuture();
 
   /**
    * @brief Block until a request event.
@@ -393,13 +390,13 @@ class Worker : public Component {
    * intended for use from the notifier (such as the Python thread running it), where that
    * thread will block until one of the aforementioned events occur.
    *
-   * @throws std::runtime_error if UCXX Python support is unavailable.
+   * @throws std::runtime_error if future support is not implemented.
    *
    * @returns `RequestNotifierWaitState::Ready` if some communication completed,
    *          `RequestNotifierWaitStats::Timeout` if a timeout occurred, or
    *          `RequestNotifierWaitStats::Shutdown` if shutdown has initiated.
    */
-  RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
+  virtual RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
 
   /**
    * @brief Notify futures of each completed communication request.
@@ -411,18 +408,18 @@ class Worker : public Component {
    * a Python future, the thread where this method is called from must be using the same
    * Python event loop as the thread that submitted the transfer request.
    *
-   * @throws std::runtime_error if UCXX Python support is unavailable.
+   * @throws std::runtime_error if future support is not implemented.
    */
-  void runRequestNotifier();
+  virtual void runRequestNotifier();
 
   /**
    * @brief Signal the notifier to terminate.
    *
    * Signals the notifier to terminate, awakening the `waitRequestNotifier()` blocking call.
    *
-   * @throws std::runtime_error if UCXX Python support is unavailable.
+   * @throws std::runtime_error if future support is not implemented.
    */
-  void stopRequestNotifierThread();
+  virtual void stopRequestNotifierThread();
 
   /**
    * @brief Set callback to be executed at the progress thread start.
@@ -525,18 +522,18 @@ class Worker : public Component {
    * status of the transfer must be verified from the resulting request object before the
    * data can be consumed.
    *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
+   * Using a future may be requested by specifying `enableFuture` if the worker
+   * implementation has support for it. If a future is requested, the application must then
+   * await on this future to ensure the transfer has completed.
    *
-   * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
-   *                                data will be stored.
-   * @param[in] length              the size in bytes of the tag message to be received.
-   * @param[in] tag                 the tag to match.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
+   *                              data will be stored.
+   * @param[in] length            the size in bytes of the tag message to be received.
+   * @param[in] tag               the tag to match.
+   * @param[in] enableFuture      whether a future should be created and subsequently
+   *                              notified.
+   * @param[in] callbackFunction  user-defined callback function to call upon completion.
+   * @param[in] callbackData      user-defined data to pass to the `callbackFunction`.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
@@ -544,7 +541,7 @@ class Worker : public Component {
     void* buffer,
     size_t length,
     ucp_tag_t tag,
-    const bool enablePythonFuture                               = false,
+    const bool enableFuture                                     = false,
     std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
     std::shared_ptr<void> callbackData                          = nullptr);
 

@@ -79,7 +79,7 @@ class Listener : public Component {
    * clientContext->listener = listener;
    *
    * // Equivalent to line above
-   * // auto worker = ucxx::createWorker(context, false, false);
+   * // auto worker = ucxx::createWorker(context, false);
    * @endcode
    *
    * @param[in] worker        the worker from which to create the listener.

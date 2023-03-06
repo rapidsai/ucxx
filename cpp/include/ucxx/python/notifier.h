@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#if UCXX_ENABLE_PYTHON
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -138,4 +137,3 @@ class Notifier : public ::ucxx::Notifier {
 }  // namespace python
 
 }  // namespace ucxx
-#endif

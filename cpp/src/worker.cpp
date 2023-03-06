@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
  *
  * See file LICENSE for terms.
  */
@@ -12,31 +12,15 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
-// #include <ucxx/python/future.h>
 #include <ucxx/request_tag.h>
 #include <ucxx/utils/file_descriptor.h>
-#include <ucxx/utils/python.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
 
-Worker::Worker(std::shared_ptr<Context> context,
-               const bool enableDelayedSubmission,
-               const bool enablePythonFuture)
-  : _enablePythonFuture(enablePythonFuture)
+Worker::Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission)
 {
-  if (_enablePythonFuture) {
-    if (!utils::isPythonAvailable()) {
-      ucxx_warn(
-        "enablePythonFuture set to true, but compiled Python support is unavaiable, "
-        "Python futures will be disabled.");
-      _enablePythonFuture = false;
-    } else {
-      _notifier = utils::createPythonNotifier();
-    }
-  }
-
   ucp_worker_params_t params{};
 
   if (context == nullptr || context->getHandle() == nullptr)
@@ -49,10 +33,10 @@ Worker::Worker(std::shared_ptr<Context> context,
   if (enableDelayedSubmission)
     _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
 
-  ucxx_trace("Worker created: %p, enableDelayedSubmission: %d, enablePythonFuture: %d",
+  ucxx_trace("Worker created: %p, enableDelayedSubmission: %d, enableFuture: %d",
              this,
              enableDelayedSubmission,
-             _enablePythonFuture);
+             _enableFuture);
 
   setParent(std::dynamic_pointer_cast<Component>(context));
 }
@@ -97,10 +81,9 @@ void Worker::drainWorkerTagRecv()
 }
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedSubmission,
-                                     const bool enablePythonFuture)
+                                     const bool enableDelayedSubmission)
 {
-  return std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enablePythonFuture));
+  return std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission));
 }
 
 Worker::~Worker()
@@ -128,7 +111,7 @@ std::string Worker::getInfo()
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 
-bool Worker::isPythonFutureEnabled() const { return _enablePythonFuture; }
+bool Worker::isFutureEnabled() const { return _enableFuture; }
 
 void Worker::initBlockingProgressMode()
 {
@@ -231,122 +214,26 @@ void Worker::registerDelayedSubmission(DelayedSubmissionCallbackType callback)
   }
 }
 
-void Worker::populateFuturesPool()
-{
-  if (!utils::isPythonAvailable()) {
-    throw std::runtime_error(
-      "Python support unavailable, please compile with "
-      "-DUCXX_ENABLE_PYTHON 1 and make sure libucxx_python.so is in the "
-      "library path");
-  }
+#define THROW_FUTURE_NOT_IMPLEMENTED()                                                      \
+  do {                                                                                      \
+    throw std::runtime_error(                                                               \
+      "ucxx::Worker's future support not implemented, please ensure you use an "            \
+      "implementation with future support and that enableFuture=true is set when creating " \
+      "the Worker to use this method.");                                                    \
+  } while (0)
 
-  if (_enablePythonFuture) {
-    ucxx_trace_req("populateFuturesPool: %p %p", this, shared_from_this().get());
-    // If the pool goes under half expected size, fill it up again.
-    if (_futuresPool.size() < 50) {
-      std::lock_guard<std::mutex> lock(_futuresPoolMutex);
-      while (_futuresPool.size() < 100)
-        _futuresPool.emplace(utils::createPythonFuture(_notifier));
-    }
-  } else {
-    throw std::runtime_error(
-      "Worker's enablePythonFuture set to false, please set "
-      "enablePythonFuture=true when creating the Worker to "
-      "use this method.");
-  }
-}
+void Worker::populateFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-std::shared_ptr<Future> Worker::getFuture()
-{
-  if (!utils::isPythonAvailable()) {
-    throw std::runtime_error(
-      "Python support unavailable, please compile with "
-      "-DUCXX_ENABLE_PYTHON 1 and make sure libucxx_python.so is in the "
-      "library path");
-  }
-
-  if (_enablePythonFuture) {
-    if (_futuresPool.size() == 0) {
-      ucxx_warn(
-        "No Futures available during getFuture(), make sure the Notifier is running "
-        "running and calling populateFuturesPool() periodically. Filling futures pool "
-        "now, but this may be inefficient.");
-      populateFuturesPool();
-    }
-
-    std::shared_ptr<Future> ret{nullptr};
-    {
-      std::lock_guard<std::mutex> lock(_futuresPoolMutex);
-      ret = _futuresPool.front();
-      _futuresPool.pop();
-    }
-    ucxx_trace_req("getFuture: %p %p", ret.get(), ret->getHandle());
-    return ret;
-  } else {
-    throw std::runtime_error(
-      "Worker's enablePythonFuture set to false, please set "
-      "enablePythonFuture=true when creating the Worker to "
-      "use this method.");
-    return nullptr;
-  }
-}
+std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
 {
-  if (!utils::isPythonAvailable()) {
-    throw std::runtime_error(
-      "Python support unavailable, please compile with "
-      "-DUCXX_ENABLE_PYTHON 1 and make sure libucxx_python.so is in the "
-      "library path");
-  }
-
-  if (_enablePythonFuture) {
-    return _notifier->waitRequestNotifier(periodNs);
-  } else {
-    throw std::runtime_error(
-      "Worker's enablePythonFuture set to false, please set "
-      "enablePythonFuture=true when creating the Worker to "
-      "use this method.");
-  }
+  THROW_FUTURE_NOT_IMPLEMENTED();
 }
 
-void Worker::runRequestNotifier()
-{
-  if (!utils::isPythonAvailable()) {
-    throw std::runtime_error(
-      "Python support unavailable, please compile with "
-      "-DUCXX_ENABLE_PYTHON 1 and make sure libucxx_python.so is in the "
-      "library path");
-  }
+void Worker::runRequestNotifier() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-  if (_enablePythonFuture) {
-    _notifier->runRequestNotifier();
-  } else {
-    throw std::runtime_error(
-      "Worker's enablePythonFuture set to false, please set "
-      "enablePythonFuture=true when creating the Worker to "
-      "use this method.");
-  }
-}
-
-void Worker::stopRequestNotifierThread()
-{
-  if (!utils::isPythonAvailable()) {
-    throw std::runtime_error(
-      "Python support unavailable, please compile with "
-      "-DUCXX_ENABLE_PYTHON 1 and make sure libucxx_python.so is in the "
-      "library path");
-  }
-
-  if (_enablePythonFuture) {
-    _notifier->stopRequestNotifierThread();
-  } else {
-    throw std::runtime_error(
-      "Worker's enablePythonFuture set to false, please set "
-      "enablePythonFuture=true when creating the Worker to "
-      "use this method.");
-  }
-}
+void Worker::stopRequestNotifierThread() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback, void* callbackArg)
 {
@@ -433,13 +320,13 @@ std::shared_ptr<Request> Worker::tagRecv(
   void* buffer,
   size_t length,
   ucp_tag_t tag,
-  const bool enablePythonFuture,
+  const bool enableFuture,
   std::function<void(std::shared_ptr<void>)> callbackFunction,
   std::shared_ptr<void> callbackData)
 {
   auto worker  = std::dynamic_pointer_cast<Worker>(shared_from_this());
   auto request = createRequestTag(
-    worker, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData);
+    worker, false, buffer, length, tag, enableFuture, callbackFunction, callbackData);
   registerInflightRequest(request);
   return request;
 }

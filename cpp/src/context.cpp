@@ -86,11 +86,10 @@ std::string Context::getInfo()
 
 uint64_t Context::getFeatureFlags() const { return _featureFlags; }
 
-std::shared_ptr<Worker> Context::createWorker(const bool enableDelayedSubmission,
-                                              const bool enablePythonFuture)
+std::shared_ptr<Worker> Context::createWorker(const bool enableDelayedSubmission)
 {
   auto context = std::dynamic_pointer_cast<Context>(shared_from_this());
-  auto worker  = ucxx::createWorker(context, enableDelayedSubmission, enablePythonFuture);
+  auto worker  = ucxx::createWorker(context, enableDelayedSubmission);
   return worker;
 }
 

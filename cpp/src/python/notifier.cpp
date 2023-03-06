@@ -3,7 +3,6 @@
  *
  * See file LICENSE for terms.
  */
-#if UCXX_ENABLE_PYTHON
 #include <memory>
 #include <mutex>
 
@@ -121,4 +120,3 @@ void Notifier::stopRequestNotifierThread()
 }  // namespace python
 
 }  // namespace ucxx
-#endif

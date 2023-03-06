@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#if UCXX_ENABLE_PYTHON
 #include <Python.h>
 
 namespace ucxx {
@@ -60,5 +59,3 @@ PyObject* future_set_exception(PyObject* future, PyObject* exception, const char
 }  // namespace python
 
 }  // namespace ucxx
-
-#endif

@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#if UCXX_ENABLE_PYTHON
 #include <Python.h>
 
 #include <ucp/api/ucp.h>
@@ -82,5 +81,3 @@ PyObject* get_python_exception_from_ucs_status(ucs_status_t status);
 }  // namespace python
 
 }  // namespace ucxx
-
-#endif
