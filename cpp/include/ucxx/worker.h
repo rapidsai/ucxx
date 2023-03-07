@@ -125,10 +125,10 @@ class Worker : public Component {
    *
    * @code{.cpp}
    * // context is `std::shared_ptr<ucxx::Context>`
-   * auto worker = context->createWorker(false, false);
+   * auto worker = context->createWorker(false);
    *
    * // Equivalent to line above
-   * // auto worker = ucxx::createWorker(context, false, false);
+   * // auto worker = ucxx::createWorker(context, false);
    * @endcode
    *
    * @param[in] context the context from which to create the worker.
