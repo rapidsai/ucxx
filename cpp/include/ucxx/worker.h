@@ -178,7 +178,7 @@ class Worker : public Component {
    *
    * Initialize blocking progress mode, creates internal file descriptors to handle blocking
    * progress by waiting for the UCP worker to notify the file descriptors. This method is
-   * supposed to be callde when usage of `progressWorkerEvent()` is intended, before the
+   * supposed to be called when usage of `progressWorkerEvent()` is intended, before the
    * first call to `progressWorkerEvent()`. If using polling mode only via
    * `progress()`/`progressOnce()` calls or wake-up with `waitProgress()`, this method should
    * not be called.
