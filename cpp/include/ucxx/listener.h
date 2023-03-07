@@ -75,11 +75,11 @@ class Listener : public Component {
    * ClientContext clientContext;
    *
    * // worker is `std::shared_ptr<ucxx::Worker>`
-   * auto listener = context->createListener(12345, myCallback, clientContext);
+   * auto listener = worker->createListener(12345, myCallback, clientContext);
    * clientContext->listener = listener;
    *
    * // Equivalent to line above
-   * // auto worker = ucxx::createWorker(context, false);
+   * // auto listener = ucxx::createListener(worker, 12345, myCallback, clientContext);
    * @endcode
    *
    * @param[in] worker        the worker from which to create the listener.
@@ -102,7 +102,7 @@ class Listener : public Component {
    * as delivered by a `ucxx::Listener` connection callback.
    *
    * @code{.cpp}
-   * // worker is `std::shared_ptr<ucxx::Worker>`, with a `ucp_conn_request_h` delivered
+   * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
    * // by a `ucxx::Listener` connection callback.
    * auto endpoint = listener->createEndpointFromConnRequest(connRequest, true);
    *
