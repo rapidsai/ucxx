@@ -56,7 +56,7 @@ class Listener : public Component {
    * @brief Constructor of `shared_ptr<ucxx::Listener>`.
    *
    * The constructor for a `shared_ptr<ucxx::Listener>` object. The default constructor is
-   * made private to ensure all UCXX objects are shared pointers and correct lifetime
+   * made private to ensure all UCXX objects are shared pointers for correct lifetime
    * management.
    *
    * @code{.cpp}

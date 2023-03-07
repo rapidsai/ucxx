@@ -66,7 +66,7 @@ class Notifier : public ::ucxx::Notifier {
    * @brief Constructor of `shared_ptr<ucxx::python::Notifier>`.
    *
    * The constructor for a `shared_ptr<ucxx::python::Notifier>` object. The default
-   * constructor is made private to ensure all UCXX objects are shared pointers and correct
+   * constructor is made private to ensure all UCXX objects are shared pointers for correct
    * lifetime management.
    *
    * The notifier should run on its own Python thread, but need to have the same asyncio

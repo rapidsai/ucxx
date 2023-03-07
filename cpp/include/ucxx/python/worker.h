@@ -51,7 +51,7 @@ class Worker : public ::ucxx::Worker {
    * @brief Constructor of `shared_ptr<ucxx::python::Worker>`.
    *
    * The constructor for a `shared_ptr<ucxx::python::Worker>` object. The default
-   * constructor is made private to ensure all UCXX objects are shared pointers and correct
+   * constructor is made private to ensure all UCXX objects are shared pointers for correct
    * lifetime management.
    *
    * @code{.cpp}

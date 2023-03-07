@@ -51,7 +51,7 @@ class Context : public Component {
    * @brief Constructor of `shared_ptr<ucxx::Context>`.
    *
    * The constructor for a `shared_ptr<ucxx::Context>` object. The default constructor is
-   * made private to ensure all UCXX objects are shared pointers and correct
+   * made private to ensure all UCXX objects are shared pointers for correct
    * lifetime management.
    *
    * @code{.cpp}
@@ -81,7 +81,7 @@ class Context : public Component {
    *   auto contextConfig = context->getConfig();
    * @endcode
    *
-   * @return A `ConfigMap` column indicating if each element in `needles` exists in the search space
+   * @return A `ConfigMap` corresponding to the context.
    */
   ConfigMap getConfig();
 
@@ -130,7 +130,7 @@ class Context : public Component {
    *   uint64_t contextFeatureFlags= context->getFeatureFlags();
    * @endcode
    *
-   * @return String containing context information
+   * @return Feature flags for this context
    */
   uint64_t getFeatureFlags() const;
 
@@ -143,7 +143,7 @@ class Context : public Component {
    *
    * @code{.cpp}
    *   // context is `std::shared_ptr<ucxx::Context>`
-   *   auto worker = context->createWorker(false, true);
+   *   auto worker = context->createWorker(true);
    * @endcode
    *
    * @param[in] enableDelayedSubmission whether the worker should delay

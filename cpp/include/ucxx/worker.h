@@ -120,7 +120,7 @@ class Worker : public Component {
    * @brief Constructor of `shared_ptr<ucxx::Worker>`.
    *
    * The constructor for a `shared_ptr<ucxx::Worker>` object. The default constructor is
-   * made private to ensure all UCXX objects are shared pointers and correct
+   * made private to ensure all UCXX objects are shared pointers for correct
    * lifetime management.
    *
    * @code{.cpp}
