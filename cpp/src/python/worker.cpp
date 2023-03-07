@@ -9,6 +9,7 @@
 
 #include <Python.h>
 
+#include <ucxx/python/constructors.h>
 #include <ucxx/python/future.h>
 #include <ucxx/python/worker.h>
 #include <ucxx/request_tag.h>
