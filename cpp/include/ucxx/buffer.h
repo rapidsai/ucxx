@@ -107,7 +107,7 @@ class HostBuffer : public Buffer {
    * auto buffer = HostBuffer(1024);
    * @endcode
    */
-  HostBuffer(const size_t size);
+  explicit HostBuffer(const size_t size);
 
   /**
    * @brief Destructor of concrete type `HostBuffer`.
@@ -192,7 +192,7 @@ class RMMBuffer : public Buffer {
    * auto buffer = RMMBuffer(1024);
    * @endcode
    */
-  RMMBuffer(const size_t size);
+  explicit RMMBuffer(const size_t size);
 
   /**
    * @brief Release the allocated `rmm::device_buffer` to the caller.

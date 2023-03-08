@@ -25,7 +25,7 @@ class ListenerContext {
   std::shared_ptr<ucxx::Listener> _listener{nullptr};
 
  public:
-  ListenerContext(std::shared_ptr<ucxx::Worker> worker) : _worker{worker} {}
+  explicit ListenerContext(std::shared_ptr<ucxx::Worker> worker) : _worker{worker} {}
 
   ~ListenerContext() { releaseEndpoint(); }
 

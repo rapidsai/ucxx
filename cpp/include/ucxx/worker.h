@@ -109,7 +109,7 @@ class Worker : public Component {
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
    */
-  Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission = false);
+  explicit Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission = false);
 
  public:
   Worker()              = delete;

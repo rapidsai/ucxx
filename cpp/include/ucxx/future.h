@@ -27,7 +27,7 @@ class Future : public std::enable_shared_from_this<Future> {
    *
    * @param[in] notifier  notifier object, possibly running on a separate thread.
    */
-  Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
+  explicit Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
 
  public:
   Future()              = delete;

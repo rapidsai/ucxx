@@ -50,7 +50,7 @@ class ListenerContext {
   std::atomic<bool> _isAvailable{true};
 
  public:
-  ListenerContext(std::shared_ptr<ucxx::Worker> worker) : _worker{worker} {}
+  explicit ListenerContext(std::shared_ptr<ucxx::Worker> worker) : _worker{worker} {}
 
   ~ListenerContext() { releaseEndpoint(); }
 

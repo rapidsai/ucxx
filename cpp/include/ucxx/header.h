@@ -61,7 +61,7 @@ class Header {
    *
    * @param[in] serializedHeader  the header in serialized format.
    */
-  Header(std::string serializedHeader);
+  explicit Header(std::string serializedHeader);
 
   /**
    * @brief Get the size of the underlying data.
