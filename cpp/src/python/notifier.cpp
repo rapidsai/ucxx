@@ -14,7 +14,7 @@ namespace ucxx {
 
 namespace python {
 
-std::shared_ptr<::ucxx::Notifier> createPythonNotifier()
+std::shared_ptr<::ucxx::Notifier> createNotifier()
 {
   return std::shared_ptr<::ucxx::Notifier>(new ::ucxx::python::Notifier());
 }

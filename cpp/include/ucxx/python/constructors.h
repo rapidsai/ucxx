@@ -18,13 +18,13 @@ class Worker;
 
 namespace python {
 
-std::shared_ptr<::ucxx::Future> createPythonFuture(std::shared_ptr<::ucxx::Notifier> notifier);
+std::shared_ptr<::ucxx::Future> createFuture(std::shared_ptr<::ucxx::Notifier> notifier);
 
-std::shared_ptr<::ucxx::Notifier> createPythonNotifier();
+std::shared_ptr<::ucxx::Notifier> createNotifier();
 
-std::shared_ptr<::ucxx::Worker> createPythonWorker(std::shared_ptr<ucxx::Context> context,
-                                                   const bool enableDelayedSubmission,
-                                                   const bool enablePythonFuture);
+std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<ucxx::Context> context,
+                                             const bool enableDelayedSubmission,
+                                             const bool enablePythonFuture);
 
 }  // namespace python
 

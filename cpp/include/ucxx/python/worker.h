@@ -56,7 +56,7 @@ class Worker : public ::ucxx::Worker {
    *
    * @code{.cpp}
    * // context is `std::shared_ptr<ucxx::Context>`
-   * auto worker = ucxx::createPythonWorker(context, false, false);
+   * auto worker = ucxx::createWorker(context, false, false);
    * @endcode
    *
    * @param[in] context the context from which to create the worker.
@@ -68,9 +68,9 @@ class Worker : public ::ucxx::Worker {
    *                         `ucxx::Request`.
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
-  friend std::shared_ptr<::ucxx::Worker> createPythonWorker(std::shared_ptr<Context> context,
-                                                            const bool enableDelayedSubmission,
-                                                            const bool enableFuture);
+  friend std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
+                                                      const bool enableDelayedSubmission,
+                                                      const bool enableFuture);
 
   /**
    * @brief Populate the Python future pool.

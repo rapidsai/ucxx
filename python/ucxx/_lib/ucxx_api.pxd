@@ -136,6 +136,14 @@ cdef extern from "<ucxx/python/exception.h>" namespace "ucxx::python" nogil:
     cdef void raise_py_error()
 
 
+cdef extern from "<ucxx/python/api.h>" namespace "ucxx::python" nogil:
+    shared_ptr[Worker] createPythonWorker "ucxx::python::createWorker"(
+        shared_ptr[Context] context,
+        bint enableDelayedSubmission,
+        bint enablePythonFuture
+    ) except +raise_py_error
+
+
 cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
     # TODO: use `cdef enum class` after moving to Cython 3.x
     ctypedef enum BufferType:
@@ -279,14 +287,6 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
         void* getFuture() except +raise_py_error
-
-
-cdef extern from "<ucxx/python/api.h>" namespace "ucxx::python" nogil:
-    shared_ptr[Worker] createPythonWorker(
-        shared_ptr[Context] context,
-        bint enableDelayedSubmission,
-        bint enablePythonFuture
-    ) except +raise_py_error
 
 
 cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
