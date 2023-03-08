@@ -64,7 +64,7 @@ void Request::cancel()
       ucxx_trace_req_f(_ownerString.c_str(),
                        _request,
                        _operationName.c_str(),
-                       "unprocessed request during cancelation contains error: %d (%s)",
+                       "unprocessed request during cancellation contains error: %d (%s)",
                        status,
                        ucs_status_string(status));
     } else {

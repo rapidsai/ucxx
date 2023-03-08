@@ -45,7 +45,7 @@ class Request : public Component {
    *
    * Construct an abstract request, registering the request to the appropriate parent
    * (either an endpoint or a worker) so that it may be canceled if necessary. This
-   * constuctor is also responsible for populating a `ucxx::DelayedSubmission` object that
+   * constructor is also responsible for populating a `ucxx::DelayedSubmission` object that
    * will effectively dispatch the request when appropriate (either immediately or a the
    * next worker progress iteration), as well as create Python futures that can be later
    * awaited in Python asynchronous code.

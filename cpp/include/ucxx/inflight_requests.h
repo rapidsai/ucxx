@@ -23,7 +23,7 @@ class InflightRequests {
                                                ///< requests known to the owner of this object
   std::mutex _mutex{};  ///< Mutex to control access to inflight requests container
   std::mutex
-    _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
+    _cancelMutex{};  ///< Mutex to allow cancellation and prevent removing requests simultaneously
 
  public:
   /**
@@ -83,9 +83,9 @@ class InflightRequests {
   void remove(const Request* const request);
 
   /**
-   * @brief Issue cancelation of all inflight requests and clear the internal container.
+   * @brief Issue cancellation of all inflight requests and clear the internal container.
    *
-   * Issue cancelation of all inflight requests known to this object and clear the
+   * Issue cancellation of all inflight requests known to this object and clear the
    * internal container. The total number of canceled requests is returned.
    *
    * @returns The total number of canceled requests.

@@ -97,7 +97,7 @@ class HostBuffer : public Buffer {
   /**
    * @brief Constructor of concrete type `HostBuffer`.
    *
-   * Construtor to materialize a buffer holding host memory. The internal buffer
+   * Constructor to materialize a buffer holding host memory. The internal buffer
    * is allocated using `malloc`, and thus should be freed with `free`.
    *
    * @param[in] size the size of the host buffer to allocate.
@@ -181,7 +181,7 @@ class RMMBuffer : public Buffer {
   /**
    * @brief Constructor of concrete type `RMMBuffer`.
    *
-   * Construtor to materialize a buffer holding device memory. The internal
+   * Constructor to materialize a buffer holding device memory. The internal
    * buffer holds a `std::unique_ptr<rmm::device_buffer>` and is destroyed
    * when the object goes out-of-scope or is explicitly deleted.
    *

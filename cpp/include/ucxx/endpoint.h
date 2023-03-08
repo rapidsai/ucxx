@@ -426,7 +426,7 @@ class Endpoint : public Component {
   /**
    * @brief Get `ucxx::Worker` component form a worker or listener object.
    *
-   * A `ucxx::Endpoint` needs to be created and registered by and registerd on
+   * A `ucxx::Endpoint` needs to be created and registered by and registered on
    * `std::shared_ptr<ucxx::Worker>`, but the endpoint may be a child of a `ucxx::Listener`
    * object. For convenience, this method can be used to derive the
    * `std::shared_ptr<ucxx::Worker>` from either the `std::shared_ptr<ucxx::Worker>` itself
