@@ -94,7 +94,8 @@ class Header {
    *
    * @returns A vector of one or more `ucxx::Header` objects.
    */
-  static std::vector<Header> buildHeaders(std::vector<size_t>& size, std::vector<int>& isCUDA);
+  static std::vector<Header> buildHeaders(const std::vector<size_t>& size,
+                                          const std::vector<int>& isCUDA);
 };
 
 }  // namespace ucxx

@@ -75,9 +75,9 @@ std::shared_ptr<RequestTag> createRequestTag(
   std::shared_ptr<void> callbackData);
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                                           std::vector<void*>& buffer,
-                                                           std::vector<size_t>& size,
-                                                           std::vector<int>& isCUDA,
+                                                           const std::vector<void*>& buffer,
+                                                           const std::vector<size_t>& size,
+                                                           const std::vector<int>& isCUDA,
                                                            const ucp_tag_t tag,
                                                            const bool enablePythonFuture);
 

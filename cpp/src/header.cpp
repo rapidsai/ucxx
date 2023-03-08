@@ -55,7 +55,8 @@ void Header::deserialize(const std::string& serializedHeader)
     ss.read((char*)&size[i], sizeof(size[i]));
 }
 
-std::vector<Header> Header::buildHeaders(std::vector<size_t>& size, std::vector<int>& isCUDA)
+std::vector<Header> Header::buildHeaders(const std::vector<size_t>& size,
+                                         const std::vector<int>& isCUDA)
 {
   const size_t totalFrames = size.size();
 

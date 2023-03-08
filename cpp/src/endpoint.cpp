@@ -244,9 +244,9 @@ std::shared_ptr<Request> Endpoint::tagRecv(
     endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
-std::shared_ptr<RequestTagMulti> Endpoint::tagMultiSend(std::vector<void*>& buffer,
-                                                        std::vector<size_t>& size,
-                                                        std::vector<int>& isCUDA,
+std::shared_ptr<RequestTagMulti> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
+                                                        const std::vector<size_t>& size,
+                                                        const std::vector<int>& isCUDA,
                                                         const ucp_tag_t tag,
                                                         const bool enablePythonFuture)
 {

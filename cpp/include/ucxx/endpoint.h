@@ -394,9 +394,9 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<RequestTagMulti> tagMultiSend(std::vector<void*>& buffer,
-                                                std::vector<size_t>& size,
-                                                std::vector<int>& isCUDA,
+  std::shared_ptr<RequestTagMulti> tagMultiSend(const std::vector<void*>& buffer,
+                                                const std::vector<size_t>& size,
+                                                const std::vector<int>& isCUDA,
                                                 const ucp_tag_t tag,
                                                 const bool enablePythonFuture);
 

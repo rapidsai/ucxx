@@ -15,8 +15,8 @@ void createCudaContextCallback(void* callbackArg)
 }
 
 void waitRequests(std::shared_ptr<ucxx::Worker> worker,
-                  std::vector<std::shared_ptr<ucxx::Request>>& requests,
-                  std::function<void()>& progressWorker)
+                  const std::vector<std::shared_ptr<ucxx::Request>>& requests,
+                  const std::function<void()>& progressWorker)
 {
   for (auto& r : requests) {
     do {
@@ -27,8 +27,8 @@ void waitRequests(std::shared_ptr<ucxx::Worker> worker,
 }
 
 void waitRequestsTagMulti(std::shared_ptr<ucxx::Worker> worker,
-                          std::vector<std::shared_ptr<ucxx::RequestTagMulti>>& requests,
-                          std::function<void()>& progressWorker)
+                          const std::vector<std::shared_ptr<ucxx::RequestTagMulti>>& requests,
+                          const std::function<void()>& progressWorker)
 {
   for (auto& r : requests) {
     do {

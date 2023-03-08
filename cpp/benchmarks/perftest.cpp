@@ -202,7 +202,7 @@ std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
 
 void waitRequests(ProgressMode progressMode,
                   std::shared_ptr<ucxx::Worker> worker,
-                  std::vector<std::shared_ptr<ucxx::Request>>& requests)
+                  const std::vector<std::shared_ptr<ucxx::Request>>& requests)
 {
   auto progress = getProgressFunction(worker, progressMode);
   // Wait until all messages are completed
@@ -245,7 +245,7 @@ BufferMap allocateTransferBuffers(size_t message_size)
                    {RECV, std::vector<char>(message_size)}};
 }
 
-auto doTransfer(app_context_t& app_context,
+auto doTransfer(const app_context_t& app_context,
                 std::shared_ptr<ucxx::Worker> worker,
                 std::shared_ptr<ucxx::Endpoint> endpoint,
                 TagMap& tagMap,

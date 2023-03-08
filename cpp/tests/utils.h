@@ -24,12 +24,12 @@ enum class ProgressMode {
 void createCudaContextCallback(void* callbackArg);
 
 void waitRequests(std::shared_ptr<ucxx::Worker> worker,
-                  std::vector<std::shared_ptr<ucxx::Request>>& requests,
-                  std::function<void()>& progressWorker);
+                  const std::vector<std::shared_ptr<ucxx::Request>>& requests,
+                  const std::function<void()>& progressWorker);
 
 void waitRequestsTagMulti(std::shared_ptr<ucxx::Worker> worker,
-                          std::vector<std::shared_ptr<ucxx::RequestTagMulti>>& requests,
-                          std::function<void()>& progressWorker);
+                          const std::vector<std::shared_ptr<ucxx::RequestTagMulti>>& requests,
+                          const std::function<void()>& progressWorker);
 
 std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
                                           ProgressMode progressMode);

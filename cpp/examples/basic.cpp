@@ -110,7 +110,7 @@ ucs_status_t parseCommand(int argc, char* const argv[])
 }
 
 void waitRequests(std::shared_ptr<ucxx::Worker> worker,
-                  std::vector<std::shared_ptr<ucxx::Request>>& requests)
+                  const std::vector<std::shared_ptr<ucxx::Request>>& requests)
 {
   // Wait until all messages are completed
   if (progress_mode == PROGRESS_MODE_BLOCKING) {

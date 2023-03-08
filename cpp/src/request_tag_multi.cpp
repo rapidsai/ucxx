@@ -35,9 +35,9 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
 }
 
 RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                                 std::vector<void*>& buffer,
-                                 std::vector<size_t>& size,
-                                 std::vector<int>& isCUDA,
+                                 const std::vector<void*>& buffer,
+                                 const std::vector<size_t>& size,
+                                 const std::vector<int>& isCUDA,
                                  const ucp_tag_t tag,
                                  const bool enablePythonFuture)
   : _endpoint(endpoint), _send(true), _tag(tag)
@@ -74,9 +74,9 @@ RequestTagMulti::~RequestTagMulti()
 }
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                                           std::vector<void*>& buffer,
-                                                           std::vector<size_t>& size,
-                                                           std::vector<int>& isCUDA,
+                                                           const std::vector<void*>& buffer,
+                                                           const std::vector<size_t>& size,
+                                                           const std::vector<int>& isCUDA,
                                                            const ucp_tag_t tag,
                                                            const bool enablePythonFuture)
 {
@@ -240,9 +240,9 @@ void RequestTagMulti::callback()
   }
 }
 
-void RequestTagMulti::send(std::vector<void*>& buffer,
-                           std::vector<size_t>& size,
-                           std::vector<int>& isCUDA)
+void RequestTagMulti::send(const std::vector<void*>& buffer,
+                           const std::vector<size_t>& size,
+                           const std::vector<int>& isCUDA)
 {
   _totalFrames = buffer.size();
 
