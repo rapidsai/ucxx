@@ -104,7 +104,7 @@ class Endpoint : public Component {
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`, with a presumed listener on
    * // "localhost:12345"
-   * auto endpoint = endpoint->createEndpointFromHostname("localhost", 12345, true);
+   * auto endpoint = worker->createEndpointFromHostname("localhost", 12345, true);
    *
    * // Equivalent to line above
    * // auto endpoint = ucxx::createEndpointFromHostname(worker, "localhost", 12345, true);
@@ -129,15 +129,15 @@ class Endpoint : public Component {
    * as delivered by a `ucxx::Listener` connection callback.
    *
    * @code{.cpp}
-   * // worker is `std::shared_ptr<ucxx::Worker>`, with a `ucp_conn_request_h` delivered
+   * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
    * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = endpoint->createEndpointFromHostname(connRequest, true);
+   * auto endpoint = listener->createEndpointFromConnRequest(connRequest, true);
    *
    * // Equivalent to line above
-   * // auto endpoint = ucxx::createEndpointFromHostname(worker, connRequest, true);
+   * // auto endpoint = ucxx::createEndpointFromConnRequest(listener, connRequest, true);
    * @endcode
    *
-   * @param[in] worker                parent worker from which to create the endpoint.
+   * @param[in] listener              listener from which to create the endpoint.
    * @param[in] connRequest           handle to connection request delivered by a
    *                                  listener callback.
    * @param[in] endpointErrorHandling whether to enable endpoint error handling.
@@ -148,6 +148,25 @@ class Endpoint : public Component {
                                                                  ucp_conn_request_h connRequest,
                                                                  bool endpointErrorHandling);
 
+  /**
+   * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
+   *
+   * The constructor for a `shared_ptr<ucxx::Endpoint>` object from a `shared_ptr<ucxx::Address>`.
+   *
+   * @code{.cpp}
+   * // worker is `std::shared_ptr<ucxx::Worker>`, address is `std::shared_ptr<ucxx::Address>`
+   * auto endpoint = worker->createEndpointFromWorkerAddress(address, true);
+   *
+   * // Equivalent to line above
+   * // auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, true);
+   * @endcode
+   *
+   * @param[in] worker                parent worker from which to create the endpoint.
+   * @param[in] address               address of the remote UCX worker
+   * @param[in] endpointErrorHandling whether to enable endpoint error handling.
+   *
+   * @returns The `shared_ptr<ucxx::Endpoint>` object
+   */
   friend std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker> worker,
                                                                    std::shared_ptr<Address> address,
                                                                    bool endpointErrorHandling);
@@ -406,7 +425,7 @@ class Endpoint : public Component {
   /**
    * @brief Get `ucxx::Worker` component form a worker or listener object.
    *
-   * A `ucxx::Endpoint` needs to be created and registered by and registerd on
+   * A `ucxx::Endpoint` needs to be created and registered by and registered on
    * `std::shared_ptr<ucxx::Worker>`, but the endpoint may be a child of a `ucxx::Listener`
    * object. For convenience, this method can be used to derive the
    * `std::shared_ptr<ucxx::Worker>` from either the `std::shared_ptr<ucxx::Worker>` itself

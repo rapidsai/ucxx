@@ -57,9 +57,9 @@ class Worker : public Component {
 
  private:
   /**
-   * @brief Drain the worker for uncatched tag messages received.
+   * @brief Drain the worker for uncaught tag messages received.
    *
-   * Called by the destructor, any uncatched tag messages received will be drained so as
+   * Called by the destructor, any uncaught tag messages received will be drained so as
    * not to generate UCX warnings.
    */
   void drainWorkerTagRecv();
@@ -120,15 +120,15 @@ class Worker : public Component {
    * @brief Constructor of `shared_ptr<ucxx::Worker>`.
    *
    * The constructor for a `shared_ptr<ucxx::Worker>` object. The default constructor is
-   * made private to ensure all UCXX objects are shared pointers and correct
+   * made private to ensure all UCXX objects are shared pointers for correct
    * lifetime management.
    *
    * @code{.cpp}
    * // context is `std::shared_ptr<ucxx::Context>`
-   * auto worker = context->createWorker(false, false);
+   * auto worker = context->createWorker(false);
    *
    * // Equivalent to line above
-   * // auto worker = ucxx::createWorker(context, false, false);
+   * // auto worker = ucxx::createWorker(context, false);
    * @endcode
    *
    * @param[in] context the context from which to create the worker.
@@ -178,7 +178,7 @@ class Worker : public Component {
    *
    * Initialize blocking progress mode, creates internal file descriptors to handle blocking
    * progress by waiting for the UCP worker to notify the file descriptors. This method is
-   * supposed to be callde when usage of `progressWorkerEvent()` is intended, before the
+   * supposed to be called when usage of `progressWorkerEvent()` is intended, before the
    * first call to `progressWorkerEvent()`. If using polling mode only via
    * `progress()`/`progressOnce()` calls or wake-up with `waitProgress()`, this method should
    * not be called.
@@ -494,9 +494,9 @@ class Worker : public Component {
   void removeInflightRequest(const Request* const request);
 
   /**
-   * @brief Check for uncatched tag messages.
+   * @brief Check for uncaught tag messages.
    *
-   * Checks the worker for any uncatched tag messages. An uncatched tag message is any
+   * Checks the worker for any uncaught tag messages. An uncaught tag message is any
    * tag message that has been fully or partially received by the worker, but not matched
    * by a corresponding `ucp_tag_recv_*` call.
    *
@@ -510,7 +510,7 @@ class Worker : public Component {
    * assert(worker->tagProbe(0));
    * @endcode
    *
-   * @returns `true` if any uncatched messages were received, `false` otherwise.
+   * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
   bool tagProbe(ucp_tag_t tag);
 
