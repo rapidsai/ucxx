@@ -31,6 +31,17 @@ repos:
                 files: \.(h|cpp)$
                 types_or: [file]
                 args: ['-fallback-style=none', '-style=file', '-i']
+      - repo: https://github.com/cpplint/cpplint
+        rev: 1.6.1
+        hooks:
+              - id: cpplint
+                name: cpplint
+                # description: Check C++ code style using cpplint.py.
+                # entry: bash ./tools/codestyle/cpplint_pre_commit.hook
+                # language: system
+                files: \.(h|cpp)$
+                # exclude: path/to/myfile.h
+
 
 
 default_language_version:
