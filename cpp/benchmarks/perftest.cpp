@@ -1,6 +1,9 @@
+#include <unistd.h>  // for getopt, optarg
+
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <iostream>
 #include <numeric>
 #include <thread>
 #include <vector>
