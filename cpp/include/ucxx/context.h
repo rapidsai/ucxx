@@ -81,7 +81,7 @@ class Context : public Component {
    *   auto contextConfig = context->getConfig();
    * @endcode
    *
-   * @return A `ConfigMap` corresponding to the context.
+   * @return A `ConfigMap` corresponding to the context's configuration.
    */
   ConfigMap getConfig();
 
