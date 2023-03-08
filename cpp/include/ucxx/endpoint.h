@@ -131,7 +131,7 @@ class Endpoint : public Component {
    * @code{.cpp}
    * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
    * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = endpoint->createEndpointFromHostname(listener, connRequest, true);
+   * auto endpoint = listener->createEndpointFromConnRequest(connRequest, true);
    *
    * // Equivalent to line above
    * // auto endpoint = ucxx::createEndpointFromConnRequest(listener, connRequest, true);
@@ -155,7 +155,7 @@ class Endpoint : public Component {
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`, address is `std::shared_ptr<ucxx::Address>`
-   * auto endpoint = endpoint->createEndpointFromWorkerAddress(worker, address, true);
+   * auto endpoint = worker->createEndpointFromWorkerAddress(address, true);
    *
    * // Equivalent to line above
    * // auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, true);
