@@ -37,7 +37,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
   auto tls       = configMap.find("TLS");
   if (tls != configMap.end()) {
     auto tls_value = tls->second;
-    if (!tls_value.empty() and tls_value[0] == '^') {
+    if (!tls_value.empty() && tls_value[0] == '^') {
       this->_cudaSupport  = true;
       std::size_t current = 1;  // Skip the ^
       do {

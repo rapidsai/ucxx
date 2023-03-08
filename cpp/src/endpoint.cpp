@@ -124,7 +124,7 @@ void Endpoint::close()
 
   // Close the endpoint
   unsigned closeMode = UCP_EP_CLOSE_MODE_FORCE;
-  if (_endpointErrorHandling and _callbackData->status != UCS_OK) {
+  if (_endpointErrorHandling && _callbackData->status != UCS_OK) {
     // We force close endpoint if endpoint error handling is enabled and
     // the endpoint status is not UCS_OK
     closeMode = UCP_EP_CLOSE_MODE_FORCE;
