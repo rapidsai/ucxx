@@ -221,7 +221,7 @@ class Worker : public Component {
    * Blocks until a new worker event has happened and the worker notifies the file descriptor
    * associated with it. Requires blocking progress mode to be initialized with
    * `initBlockingProgressMode()` before the first call to this method. Additionally ensure
-   * inflight messages pending for cancellation are canceled.
+   * inflight messages pending for cancelation are canceled.
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`
@@ -279,7 +279,7 @@ class Worker : public Component {
    * @brief Block until an event has happened, then progresses.
    *
    * Blocks until an event has happened as part of UCX's wake-up mechanism and progress
-   * the worker. Additionally ensure inflight messages pending for cancellation are canceled.
+   * the worker. Additionally ensure inflight messages pending for cancelation are canceled.
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`
@@ -318,13 +318,13 @@ class Worker : public Component {
    * @brief Progress the worker until all communication events are completed.
    *
    * Iteratively calls `progressOnce()` until all communication events are completed.
-   * Additionally ensure inflight messages pending for cancellation are canceled.
+   * Additionally ensure inflight messages pending for cancelation are canceled.
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`
    * worker->progress();
    *
-   * // All events have been progressed and inflight pending for cancellation were canceled.
+   * // All events have been progressed and inflight pending for cancelation were canceled.
    * @endcode
    *
    * @returns whether any communication events have been progressed.
@@ -467,7 +467,7 @@ class Worker : public Component {
   size_t cancelInflightRequests();
 
   /**
-   * @brief Schedule cancellation of inflight requests.
+   * @brief Schedule cancelation of inflight requests.
    *
    * Schedule inflight request to be canceled when `cancelInflightRequests()` is executed
    * the next time, usually during the progress loop. This is usually called from a

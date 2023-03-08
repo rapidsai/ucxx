@@ -190,7 +190,7 @@ bool Worker::progress()
 {
   bool ret = progressPending();
 
-  // Before canceling requests scheduled for cancellation, attempt to let them complete.
+  // Before canceling requests scheduled for cancelation, attempt to let them complete.
   if (_inflightRequestsToCancel > 0) ret |= progressPending();
 
   // Requests that were not completed now must be canceled.
@@ -287,7 +287,7 @@ void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightReq
 {
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
-    ucxx_debug("Scheduling cancellation of %lu requests", inflightRequests->size());
+    ucxx_debug("Scheduling cancelation of %lu requests", inflightRequests->size());
     _inflightRequestsToCancel->merge(inflightRequests->release());
   }
 }
