@@ -5,6 +5,7 @@
  */
 #include <memory>
 #include <mutex>
+#include <utility>
 
 #include <ucxx/log.h>
 #include <ucxx/python/notifier.h>

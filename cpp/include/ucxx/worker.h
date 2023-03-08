@@ -6,8 +6,10 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
 
 #include <ucp/api/ucp.h>

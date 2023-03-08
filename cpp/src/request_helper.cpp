@@ -3,6 +3,9 @@
  *
  * See file LICENSE for terms.
  */
+#include <memory>
+#include <vector>
+
 #include <ucxx/request.h>
 
 namespace ucxx {

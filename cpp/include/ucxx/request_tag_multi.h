@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include <ucp/api/ucp.h>

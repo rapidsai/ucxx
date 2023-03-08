@@ -3,6 +3,9 @@
  *
  * See file LICENSE for terms.
  */
+#include <memory>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>

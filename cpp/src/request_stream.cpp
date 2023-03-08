@@ -3,6 +3,9 @@
  *
  * See file LICENSE for terms.
  */
+#include <memory>
+#include <string>
+
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>

@@ -3,6 +3,8 @@
  *
  * See file LICENSE for terms.
  */
+#include <memory>
+
 #include <ucxx/log.h>
 #include <ucxx/worker_progress_thread.h>
 

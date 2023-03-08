@@ -3,6 +3,8 @@
  *
  * See file LICENSE for terms.
  */
+#include <memory>
+
 #include <ucxx/inflight_requests.h>
 #include <ucxx/log.h>
 #include <ucxx/request.h>

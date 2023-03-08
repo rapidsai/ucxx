@@ -4,6 +4,8 @@
  * See file LICENSE for terms.
  */
 #include <cstdio>
+#include <memory>
+#include <string>
 
 #include <ucp/api/ucp.h>
 

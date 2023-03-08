@@ -5,8 +5,12 @@
  */
 #include <functional>
 #include <ios>
+#include <memory>
 #include <mutex>
 #include <queue>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <sys/epoll.h>
 #include <sys/eventfd.h>

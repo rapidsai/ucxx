@@ -6,6 +6,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include <ucxx/request.h>
 #include <ucxx/worker.h>

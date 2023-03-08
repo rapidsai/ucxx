@@ -4,6 +4,8 @@
  * See file LICENSE for terms.
  */
 #include <iterator>
+#include <memory>
+#include <utility>
 
 #include <ucxx/buffer.h>
 

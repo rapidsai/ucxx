@@ -3,6 +3,9 @@
  *
  * See file LICENSE for terms.
  */
+#include <memory>
+#include <vector>
+
 #include "utils.h"
 
 void createCudaContextCallback(void* callbackArg)

@@ -3,10 +3,13 @@
  *
  * See file LICENSE for terms.
  */
+#include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <memory>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include <ucxx/header.h>
 

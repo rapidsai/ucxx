@@ -3,7 +3,11 @@
  *
  * See file LICENSE for terms.
  */
+#include <memory>
 #include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 

@@ -8,6 +8,8 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <utility>
+#include <vector>
 
 #include <ucxx/future.h>
 #include <ucxx/notifier.h>

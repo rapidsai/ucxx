@@ -1,6 +1,7 @@
 #include <cassert>
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <numeric>
 #include <thread>
 #include <unistd.h>

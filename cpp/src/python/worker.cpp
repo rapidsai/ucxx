@@ -5,6 +5,7 @@
  */
 #include <functional>
 #include <ios>
+#include <memory>
 #include <mutex>
 
 #include <Python.h>

@@ -5,6 +5,7 @@
  */
 #include <algorithm>
 #include <cstdlib>
+#include <string>
 
 #include <ucxx/log.h>
 #include <ucxx/typedefs.h>

@@ -4,8 +4,11 @@
 #include <cassert>
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <numeric>
+#include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include <ucxx/api.h>

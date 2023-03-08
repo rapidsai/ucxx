@@ -3,6 +3,10 @@
  *
  * See file LICENSE for terms.
  */
+#include <memory>
+#include <tuple>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>

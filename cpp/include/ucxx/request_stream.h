@@ -4,6 +4,7 @@
  * See file LICENSE for terms.
  */
 #pragma once
+#include <memory>
 
 #include <ucp/api/ucp.h>
 

@@ -6,6 +6,8 @@
 #pragma once
 
 #include <functional>
+#include <memory>
+#include <vector>
 
 #include <cuda_runtime_api.h>
 

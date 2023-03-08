@@ -3,7 +3,11 @@
  *
  * See file LICENSE for terms.
  */
+#include <algorithm>
+#include <memory>
 #include <numeric>
+#include <tuple>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

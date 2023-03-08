@@ -3,6 +3,9 @@
  *
  * See file LICENSE for terms.
  */
+#include <memory>
+#include <string>
+
 #include <ucxx/address.h>
 #include <ucxx/utils/ucx.h>
 
