@@ -11,7 +11,7 @@
 
 #include <ucxx/api.h>
 
-#include "utils.h"
+#include "include/utils.h"
 
 namespace {
 
@@ -131,7 +131,7 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
       ASSERT_EQ(br->buffer->getSize(), send.size() * sizeof(int));
 
       std::vector<int> recvAbstract(reinterpret_cast<int*>(br->buffer->data()),
-                                    reinterpret_cast<int*>(br->buffer->data() + send.size()));
+                                    reinterpret_cast<int*>(br->buffer->data()) + send.size());
       ASSERT_EQ(recvAbstract[0], send[0]);
 
       const auto& recvConcretePtr = dynamic_cast<ucxx::HostBuffer*>(br->buffer);
@@ -139,7 +139,7 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
       ASSERT_EQ(recvConcretePtr->getSize(), send.size() * sizeof(int));
 
       std::vector<int> recvConcrete(reinterpret_cast<int*>(recvConcretePtr->data()),
-                                    reinterpret_cast<int*>(recvConcretePtr->data() + send.size()));
+                                    reinterpret_cast<int*>(recvConcretePtr->data()) + send.size());
       ASSERT_EQ(recvConcrete[0], send[0]);
     }
   }

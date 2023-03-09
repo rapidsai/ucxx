@@ -10,7 +10,7 @@
 
 #include <ucxx/api.h>
 
-#include "utils.h"
+#include "include/utils.h"
 
 namespace {
 

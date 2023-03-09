@@ -6,7 +6,7 @@
 #include <memory>
 #include <vector>
 
-#include "utils.h"
+#include "include/utils.h"
 
 void createCudaContextCallback(void* callbackArg)
 {
