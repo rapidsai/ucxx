@@ -17,7 +17,7 @@ class Error : public std::exception {
  public:
   explicit Error(const std::string& msg) : _msg{msg} {}
 
-  virtual const char* what() const noexcept override { return this->_msg.c_str(); }
+  const char* what() const noexcept override { return this->_msg.c_str(); }
 };
 
 /**
