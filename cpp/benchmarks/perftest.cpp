@@ -88,7 +88,7 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
   char ip_str[INET6_ADDRSTRLEN];
   char port_str[INET6_ADDRSTRLEN];
   ucp_conn_request_attr_t attr{};
-  ListenerContext* listener_ctx = (ListenerContext*)arg;
+  ListenerContext* listener_ctx = reinterpret_cast<ListenerContext*>(arg);
 
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
   ucxx::utils::ucsErrorThrow(ucp_conn_request_query(conn_request, &attr));

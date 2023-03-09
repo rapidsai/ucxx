@@ -50,7 +50,7 @@ static void _drainCallback(void* request,
                            const ucp_tag_recv_info_t* info,
                            void* arg)
 {
-  *(ucs_status_t*)request = status;
+  *reinterpret_cast<ucs_status_t*>(request) = status;
 }
 
 void Worker::drainWorkerTagRecv()

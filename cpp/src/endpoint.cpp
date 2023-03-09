@@ -273,7 +273,7 @@ std::shared_ptr<Worker> Endpoint::getWorker(std::shared_ptr<Component> workerOrL
 
 void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
-  ErrorCallbackData* data = (ErrorCallbackData*)arg;
+  ErrorCallbackData* data = reinterpret_cast<ErrorCallbackData*>(arg);
   data->status            = status;
   data->worker->scheduleRequestCancel(data->inflightRequests);
   if (data->closeCallback) {

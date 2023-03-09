@@ -27,7 +27,7 @@ typedef std::shared_ptr<ListenerContainer> ListenerContainerPtr;
 
 static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
 {
-  ListenerContainer* listenerContainer = (ListenerContainer*)arg;
+  ListenerContainer* listenerContainer = reinterpret_cast<ListenerContainer*>(arg);
   ucp_conn_request_attr_t attr{};
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
 
@@ -201,7 +201,8 @@ TEST_F(ListenerTest, CloseCallback)
   auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
 
   bool isClosed = false;
-  ep->setCloseCallback([](void* isClosed) { *(bool*)isClosed = true; }, (void*)&isClosed);
+  ep->setCloseCallback([](void* isClosed) { *reinterpret_cast<bool*>(isClosed) = true; },
+                       reinterpret_cast<void*>(&isClosed));
 
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();

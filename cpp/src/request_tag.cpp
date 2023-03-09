@@ -77,7 +77,7 @@ void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv
 
 void RequestTag::tagSendCallback(void* request, ucs_status_t status, void* arg)
 {
-  Request* req = (Request*)arg;
+  Request* req = reinterpret_cast<Request*>(arg);
   ucxx_trace_req_f(req->getOwnerString().c_str(), request, "tagSend", "tagSendCallback");
   return req->callback(request, status);
 }
@@ -87,7 +87,7 @@ void RequestTag::tagRecvCallback(void* request,
                                  const ucp_tag_recv_info_t* info,
                                  void* arg)
 {
-  RequestTag* req = (RequestTag*)arg;
+  RequestTag* req = reinterpret_cast<RequestTag*>(arg);
   ucxx_trace_req_f(req->getOwnerString().c_str(), request, "tagRecv", "tagRecvCallback");
   return req->callback(request, status, info);
 }

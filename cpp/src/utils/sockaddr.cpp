@@ -16,7 +16,7 @@ namespace utils {
 
 int sockaddr_set(ucs_sock_addr_t* sockaddr, const char* ip_address, uint16_t port)
 {
-  struct sockaddr_in* addr = (sockaddr_in*)malloc(sizeof(struct sockaddr_in));
+  struct sockaddr_in* addr = reinterpret_cast<sockaddr_in*>(malloc(sizeof(struct sockaddr_in)));
   if (addr == NULL) { return 1; }
   memset(addr, 0, sizeof(struct sockaddr_in));
   addr->sin_family      = AF_INET;
@@ -27,7 +27,10 @@ int sockaddr_set(ucs_sock_addr_t* sockaddr, const char* ip_address, uint16_t por
   return 0;
 }
 
-void sockaddr_free(ucs_sock_addr_t* sockaddr) { ::free((void*)sockaddr->addr); }
+void sockaddr_free(ucs_sock_addr_t* sockaddr)
+{
+  ::free(const_cast<void*>(reinterpret_cast<const void*>(sockaddr->addr)));
+}
 
 void sockaddr_get_ip_port_str(const struct sockaddr_storage* sockaddr,
                               char* ip_str,
@@ -46,7 +49,9 @@ void sockaddr_get_ip_port_str(const struct sockaddr_storage* sockaddr,
       memcpy(&addr_in6, sockaddr, sizeof(struct sockaddr_in6));
       inet_ntop(AF_INET6, &addr_in6.sin6_addr, ip_str, max_str_size);
       snprintf(port_str, max_str_size, "%d", ntohs(addr_in6.sin6_port));
-    default: ip_str = (char*)"Invalid address family"; port_str = (char*)"Invalid address family";
+    default:
+      ip_str   = const_cast<char*>(reinterpret_cast<const char*>("Invalid address family"));
+      port_str = const_cast<char*>(reinterpret_cast<const char*>("Invalid address family"));
   }
 }
 

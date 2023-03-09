@@ -43,14 +43,18 @@ std::shared_ptr<Address> createAddressFromString(std::string addressString)
 {
   char* address = new char[addressString.length()];
   size_t length = addressString.length();
-  memcpy((char*)address, addressString.c_str(), length);
-  return std::shared_ptr<Address>(new Address(nullptr, (ucp_address_t*)address, length));
+  memcpy(reinterpret_cast<char*>(address), addressString.c_str(), length);
+  return std::shared_ptr<Address>(
+    new Address(nullptr, reinterpret_cast<ucp_address_t*>(address), length));
 }
 
 ucp_address_t* Address::getHandle() const { return _handle; }
 
 size_t Address::getLength() const { return _length; }
 
-std::string Address::getString() const { return std::string{(char*)_handle, _length}; }
+std::string Address::getString() const
+{
+  return std::string{reinterpret_cast<char*>(_handle), _length};
+}
 
 }  // namespace ucxx

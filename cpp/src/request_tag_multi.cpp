@@ -154,7 +154,7 @@ void RequestTagMulti::markCompleted(std::shared_ptr<void> request)
    * BufferRequest*, or remove pointer holding entirely here since it
    * is not currently used for anything besides counting completed transfers.
    */
-  _completedRequests.push_back((BufferRequest*)request.get());
+  _completedRequests.push_back(reinterpret_cast<BufferRequest*>(request.get()));
 
   if (_completedRequests.size() == _totalFrames) {
     // TODO: Actually handle errors

@@ -104,7 +104,7 @@ static PyCFunction get_future_method(const char* method_name)
   PyObject* future_object = get_asyncio_future_object();
   if (PyErr_Occurred()) ucxx_trace_req("Python error here");
   if (PyErr_Occurred()) PyErr_Print();
-  PyMethodDef* m = ((PyTypeObject*)future_object)->tp_methods;
+  PyMethodDef* m = reinterpret_cast<PyTypeObject*>(future_object)->tp_methods;
 
   for (; m != NULL; ++m) {
     if (m->ml_name && !strcmp(m->ml_name, method_name)) {
