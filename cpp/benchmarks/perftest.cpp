@@ -267,9 +267,10 @@ auto doTransfer(const app_context_t& app_context,
   waitRequests(app_context.progress_mode, worker, requests);
   auto stop = std::chrono::high_resolution_clock::now();
 
-  if (app_context.verify_results)
+  if (app_context.verify_results) {
     for (size_t j = 0; j < (*bufferMap)[SEND].size(); ++j)
       assert((*bufferMap)[RECV][j] == (*bufferMap)[RECV][j]);
+  }
 
   return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 }

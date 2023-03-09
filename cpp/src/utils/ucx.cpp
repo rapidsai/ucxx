@@ -51,7 +51,7 @@ void ucsErrorThrow(const ucs_status_t status, const std::string& userMessage)
     case UCS_ERR_ENDPOINT_TIMEOUT: throw ucxx::EndpointTimeoutError(message); return;
     case UCS_ERR_LAST_ENDPOINT_FAILURE: throw ucxx::LastEndpointFailureError(message); return;
     default: throw ucxx::Error(message); return;
-  };
+  }
 }
 
 }  // namespace utils
