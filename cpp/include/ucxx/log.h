@@ -76,7 +76,7 @@ const std::unordered_map<std::string, ucxx_log_level_t> logLevelNames = {
   {"TRACE_POLL", UCXX_LOG_LEVEL_TRACE_POLL},
   {"PRINT", UCXX_LOG_LEVEL_PRINT}};
 
-const std::string logLevelNameDefault{"WARN"};
+const char logLevelNameDefault[]      = "WARN";
 const ucs_log_level_t logLevelDefault = (ucs_log_level_t)logLevelNames.at(logLevelNameDefault);
 
 // Functions

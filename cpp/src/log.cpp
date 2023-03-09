@@ -32,7 +32,7 @@ void parseLogLevel()
     else
       ucxx_warn("UCXX_LOG_LEVEL %s unknown, defaulting to UCXX_LOG_LEVEL=%s",
                 logLevelName.c_str(),
-                logLevelNameDefault.c_str());
+                logLevelNameDefault);
 
     ucxx_info("UCXX_LOG_LEVEL: %s", logLevelName.c_str());
   }
