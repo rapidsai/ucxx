@@ -17,12 +17,6 @@ find_package(Threads REQUIRED)
 # ##################################################################################################
 # * compiler function -----------------------------------------------------------------------------
 
-# Use an OBJECT library so we only compile these helper source files only once
-# add_library(
-#   cudf_benchmark_common OBJECT "${CUDF_SOURCE_DIR}/tests/utilities/base_fixture.cpp"
-#                                synchronization/synchronization.cpp io/cuio_common.cpp
-# )
-# target_link_libraries(cudf_benchmark_common PRIVATE cudf_datagen $<TARGET_NAME_IF_EXISTS:conda_env>)
 add_custom_command(
   OUTPUT UCXX_BENCHMARKS
   COMMAND echo Running benchmarks
@@ -67,27 +61,6 @@ function(ConfigureBench CMAKE_BENCH_NAME)
     EXCLUDE_FROM_ALL
   )
 endfunction()
-
-# # This function takes in a benchmark name and benchmark source for nvbench benchmarks and handles
-# # setting all of the associated properties and linking to build the benchmark
-# function(ConfigureNVBench CMAKE_BENCH_NAME)
-#   add_executable(${CMAKE_BENCH_NAME} ${ARGN})
-#   set_target_properties(
-#     ${CMAKE_BENCH_NAME}
-#     PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${UCXX_BINARY_DIR}/benchmarks>"
-#                INSTALL_RPATH "\$ORIGIN/../../../lib"
-#   )
-#   target_link_libraries(
-#     ${CMAKE_BENCH_NAME} PRIVATE cudf_benchmark_common cudf_datagen nvbench::main
-#                                 $<TARGET_NAME_IF_EXISTS:conda_env>
-#   )
-#   install(
-#     TARGETS ${CMAKE_BENCH_NAME}
-#     COMPONENT testing
-#     DESTINATION bin/benchmarks/libcudf
-#     EXCLUDE_FROM_ALL
-#   )
-# endfunction()
 
 # ##################################################################################################
 # * perftest benchmarks ----------------------------------------------------------------------------
