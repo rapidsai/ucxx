@@ -9,6 +9,7 @@ VALIDARGS="cpp_tests py_tests py_async_tests py_bench py_async_bench"
 HELP="$0 [cpp_tests] [cpp_bench] [py_tests] [py_async_tests] [py_bench] [py_async_bench]
    cpp_tests                     - run all C++ tests
    cpp_bench                     - run C++ benchmarks
+   cpp_example                   - run C++ example
    py_tests                      - run all Python core tests
    py_async_tests                - run all Python async tests
    py_bench                      - run Python core benchmarks
@@ -33,6 +34,7 @@ HELP="$0 [cpp_tests] [cpp_bench] [py_tests] [py_async_tests] [py_bench] [py_asyn
 "
 RUN_CPP_TESTS=0
 RUN_CPP_BENCH=0
+RUN_CPP_EXAMPLE=0
 RUN_PY_TESTS=0
 RUN_PY_ASYNC_TESTS=0
 RUN_PY_BENCH=0
@@ -57,6 +59,9 @@ fi
 if runAll || hasArg cpp_bench; then
     RUN_CPP_BENCH=1
 fi
+if runAll || hasArg cpp_example; then
+    RUN_CPP_EXAMPLE=1
+fi
 if runAll || hasArg py_tests; then
     RUN_PY_TESTS=1
 fi
@@ -75,7 +80,7 @@ set -e
 
 export CMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-(cd ${REPODIR}; ./build.sh -g libucxx libucxx_python ucxx benchmarks tests)
+(cd ${REPODIR}; ./build.sh -g libucxx libucxx_python ucxx benchmarks tests examples)
 (cd ${REPODIR}; cp cpp/build/compile_commands.json cpp/)
 
 # Let all tests run even if they fail
@@ -90,6 +95,15 @@ run_cpp_benchmark() {
   echo -e "\e[1mRunning: \n  - ${CMD_LINE_SERVER}\n  - ${CMD_LINE_CLIENT}\e[0m"
   UCX_TCP_CM_REUSEADDR=y ./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} &
   ./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1
+}
+
+run_cpp_example() {
+  PROGRESS_MODE=$1
+
+  CMD_LINE="UCX_TCP_CM_REUSEADDR=y ./cpp/build/examples/ucxx_example_basic -m ${PROGRESS_MODE}"
+
+  echo -e "\e[1mRunning: \n  - ${CMD_LINE}\e[0m"
+  UCX_TCP_CM_REUSEADDR=y ./cpp/build/examples/ucxx_example_basic -m ${PROGRESS_MODE} &
 }
 
 run_tests_async() {
@@ -141,6 +155,13 @@ if [[ $RUN_CPP_BENCH != 0 ]]; then
   run_cpp_benchmark   blocking
   run_cpp_benchmark   thread-polling
   run_cpp_benchmark   thread-blocking
+fi
+if [[ $RUN_CPP_EXAMPLE != 0 ]]; then
+  # run_cpp_example PROGRESS_MODE
+  run_cpp_example   polling
+  run_cpp_example   blocking
+  run_cpp_example   thread-polling
+  run_cpp_example   thread-blocking
 fi
 if [[ $RUN_PY_TESTS != 0 ]]; then
   echo -e "\e[1mRunning: pytest-vs python/ucxx/_lib/tests/\e[0m"

@@ -45,6 +45,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 option(BUILD_TESTS "Configure CMake to build tests" ON)
 option(BUILD_BENCHMARKS "Configure CMake to build (google & nvbench) benchmarks" OFF)
+option(BUILD_EXAMPLES "Configure CMake to build examples" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
 option(UCXX_ENABLE_PYTHON "Enable support for Python notifier thread" OFF)
 option(UCXX_ENABLE_RMM "Enable support for CUDA multi-buffer transfer with RMM" OFF)
@@ -60,6 +61,7 @@ option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 
 message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
 message(VERBOSE "UCXX: Configure CMake to build (google & nvbench) benchmarks: ${BUILD_BENCHMARKS}")
+message(VERBOSE "UCXX: Configure CMake to build examples: ${BUILD_EXAMPLES}")
 message(VERBOSE "UCXX: Build cuDF shared libraries: ${BUILD_SHARED_LIBS}")
 message(VERBOSE "UCXX: Enable support for Python notifier thread: ${UCXX_ENABLE_PYTHON}")
 message(VERBOSE "UCXX: Enable support for CUDA multi-buffer transfer with RMM: ${UCXX_ENABLE_RMM}")
@@ -77,6 +79,7 @@ message(VERBOSE "UCXX: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}"
 rapids_cmake_build_type("Release")
 set(UCXX_BUILD_TESTS ${BUILD_TESTS})
 set(UCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
+set(UCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
 
 set(UCXX_CXX_FLAGS "")
 set(UCXX_CUDA_FLAGS "")
@@ -329,6 +332,13 @@ endif()
 
 if(UCXX_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
+endif()
+
+# ##################################################################################################
+# * add examples ----------------------------------------------------------------------------------
+
+if(UCXX_BUILD_EXAMPLES)
+  add_subdirectory(examples)
 endif()
 
 # ##################################################################################################
