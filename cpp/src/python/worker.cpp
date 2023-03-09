@@ -9,6 +9,7 @@
 
 #include <Python.h>
 
+#include <ucxx/python/constructors.h>
 #include <ucxx/python/future.h>
 #include <ucxx/python/worker.h>
 #include <ucxx/request_tag.h>
@@ -23,12 +24,12 @@ Worker::Worker(std::shared_ptr<Context> context,
                const bool enableFuture)
   : ::ucxx::Worker(context, enableDelayedSubmission)
 {
-  if (_enableFuture) _notifier = createPythonNotifier();
+  if (_enableFuture) _notifier = createNotifier();
 }
 
-std::shared_ptr<::ucxx::Worker> createPythonWorker(std::shared_ptr<Context> context,
-                                                   const bool enableDelayedSubmission,
-                                                   const bool enableFuture)
+std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
+                                             const bool enableDelayedSubmission,
+                                             const bool enableFuture)
 {
   return std::shared_ptr<::ucxx::Worker>(
     new ::ucxx::python::Worker(context, enableDelayedSubmission, enableFuture));
@@ -43,7 +44,7 @@ void Worker::populateFuturesPool()
       std::lock_guard<std::mutex> lock(_futuresPoolMutex);
       PyGILState_STATE state = PyGILState_Ensure();
       while (_futuresPool.size() < 100)
-        _futuresPool.emplace(createPythonFuture(_notifier));
+        _futuresPool.emplace(createFuture(_notifier));
       PyGILState_Release(state);
     }
   } else {

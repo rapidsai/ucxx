@@ -17,7 +17,7 @@ namespace python {
 
 Future::Future(std::shared_ptr<::ucxx::Notifier> notifier) : ::ucxx::Future(notifier) {}
 
-std::shared_ptr<::ucxx::Future> createPythonFuture(std::shared_ptr<::ucxx::Notifier> notifier)
+std::shared_ptr<::ucxx::Future> createFuture(std::shared_ptr<::ucxx::Notifier> notifier)
 {
   return std::shared_ptr<::ucxx::Future>(new ::ucxx::python::Future(notifier));
 }

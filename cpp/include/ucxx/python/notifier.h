@@ -77,7 +77,7 @@ class Notifier : public ::ucxx::Notifier {
    *
    * @returns The `shared_ptr<ucxx::python::Notifier>` object
    */
-  friend std::shared_ptr<::ucxx::Notifier> createPythonNotifier();
+  friend std::shared_ptr<::ucxx::Notifier> createNotifier();
 
   /**
    * @brief Virtual destructor.

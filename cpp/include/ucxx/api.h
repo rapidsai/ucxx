@@ -5,10 +5,6 @@
  */
 #pragma once
 
-#ifndef UCXX_ENABLE_PYTHON
-#define UCXX_ENABLE_PYTHON 0
-#endif
-
 #ifndef UCXX_ENABLE_RMM
 #define UCXX_ENABLE_RMM 0
 #endif
