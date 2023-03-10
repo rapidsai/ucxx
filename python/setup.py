@@ -22,8 +22,8 @@ include_dirs = [
     np.get_include(),
     "/usr/local/cuda/include",
 ]
-library_dirs = [get_config_var("LIBDIR"), "/usr/local/cuda/lib64"]
-libraries = ["ucxx", "ucxx_python", "cudart", "cuda"]
+library_dirs = [get_config_var("LIBDIR")]
+libraries = ["ucxx", "ucxx_python", "fmt"]
 cpp_extra_compile_args = [
     "-std=c++17",
     "-Werror",

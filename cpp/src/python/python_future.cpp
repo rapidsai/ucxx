@@ -3,6 +3,8 @@
  *
  * See file LICENSE for terms.
  */
+#include <stdexcept>
+
 #include <Python.h>
 
 #include <ucp/api/ucp.h>
