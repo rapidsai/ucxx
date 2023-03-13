@@ -41,22 +41,24 @@ requirements:
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - python
+    - pip
     - cython >=0.29,<0.30
-    - numpy
+    - numpy 1.21
     - setuptools
     - libucxx ={{ version }}
     - ucx
     - rmm ={{ rapids_version }}
   run:
+    - python
+    - packaging
     - libucxx {{ version }}
     - ucx
     - {{ pin_compatible('rmm', max_pin='x.x') }}
-    - packaging
+    - {{ pin_compatible('numpy') }}
     - pynvml >={{ pynvml_min_version }}
   run_constrained:
     - cupy >=9.5.0,<12.0.0a0
     - numba >=0.56.2
-    - numpy >=1.21
 
 test:
   imports:

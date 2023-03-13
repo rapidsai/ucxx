@@ -4,4 +4,4 @@
 cd python/
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=$(nproc)}
 PARALLEL_LEVEL=${PARALLEL_LEVEL} python setup.py build_ext --inplace -j${PARALLEL_LEVEL}
-python setup.py install --single-version-externally-managed --record=record.txt
+$PYTHON -m pip install -vv --no-deps --ignore-installed . --global-option="build_ext" --global-option="-j$(nproc)" --no-use-pep517
