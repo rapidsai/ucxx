@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -36,10 +36,6 @@ function(ConfigureBench CMAKE_BENCH_NAME)
                INSTALL_RPATH "\$ORIGIN/../../../lib"
                CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
-               # For std:: support of __int128_t. Can be removed once using cuda::std
-               CXX_EXTENSIONS ON
-               CUDA_STANDARD 17
-               CUDA_STANDARD_REQUIRED ON
   )
   target_link_libraries(
     ${CMAKE_BENCH_NAME} PRIVATE ucxx
