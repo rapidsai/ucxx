@@ -5,8 +5,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="cpp_tests py_tests py_async_tests py_bench py_async_bench"
-HELP="$0 [cpp_tests] [cpp_bench] [py_tests] [py_async_tests] [py_bench] [py_async_bench]
+VALIDARGS="cpp_tests py_tests cpp_examples py_async_tests py_bench py_async_bench"
+HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_bench] [py_async_bench]
    cpp_tests                     - run all C++ tests
    cpp_bench                     - run C++ benchmarks
    cpp_example                   - run C++ example

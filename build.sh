@@ -17,8 +17,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests -v -g -n -l --show_depr_warn -h --build_metrics --incl_cache_stats"
-HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [-v] [-g] [-n] [-h] [--cmake-args=\\\"<args>\\\"]
+VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests examples -v -g -n -l --show_depr_warn -h --build_metrics --incl_cache_stats"
+HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [examples] [-v] [-g] [-n] [-h] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
    libucxx                       - build the UCXX C++ module
