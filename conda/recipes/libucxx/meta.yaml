@@ -94,9 +94,9 @@ outputs:
         - test -f $PREFIX/include/ucxx/log.h
     about:
       home: https://rapids.ai/
-      license: Apache-2.0
-      license_family: APACHE
-      license_file: LICENSE
+      license: BSD-3-Clause
+      license_family: BSD
+      license_file: ../../../LICENSE
       summary: libucxx library
   - name: libucxx-example
     version: {{ version }}
@@ -117,9 +117,9 @@ outputs:
         - {{ pin_subpackage('libucxx', exact=True) }}
     about:
       home: https://rapids.ai/
-      license: Apache-2.0
-      license_family: APACHE
-      license_file: LICENSE
+      license: BSD-3-Clause
+      license_family: BSD
+      license_file: ../../../LICENSE
       summary: libucxx_example library
   - name: libucxx-tests
     version: {{ version }}
@@ -137,7 +137,7 @@ outputs:
         - gmock {{ gtest_version }}
     about:
       home: https://rapids.ai/
-      license: Apache-2.0
-      license_family: APACHE
-      license_file: LICENSE
+      license: BSD-3-Clause
+      license_family: BSD
+      license_file: ../../../LICENSE
       summary: libucxx test & benchmark executables
