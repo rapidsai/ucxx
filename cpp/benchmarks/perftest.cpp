@@ -190,14 +190,13 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
 std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
                                           ProgressMode progressMode)
 {
-  if (progressMode == ProgressMode::Polling)
-    return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
-  else if (progressMode == ProgressMode::Blocking)
-    return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
-  else if (progressMode == ProgressMode::Wait)
-    return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
-  else
-    return []() {};
+  switch (progressMode) {
+    case ProgressMode::Polling: return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
+    case ProgressMode::Blocking:
+      return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
+    case ProgressMode::Wait: return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
+    default: return []() {};
+  }
 }
 
 void waitRequests(ProgressMode progressMode,
