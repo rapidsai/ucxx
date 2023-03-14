@@ -155,6 +155,7 @@ if [[ $RUN_CPP_BENCH != 0 ]]; then
   run_cpp_benchmark   blocking
   run_cpp_benchmark   thread-polling
   run_cpp_benchmark   thread-blocking
+  run_cpp_benchmark   wait
 fi
 if [[ $RUN_CPP_EXAMPLE != 0 ]]; then
   # run_cpp_example PROGRESS_MODE
@@ -162,6 +163,7 @@ if [[ $RUN_CPP_EXAMPLE != 0 ]]; then
   run_cpp_example   blocking
   run_cpp_example   thread-polling
   run_cpp_example   thread-blocking
+  run_cpp_example   wait
 fi
 if [[ $RUN_PY_TESTS != 0 ]]; then
   echo -e "\e[1mRunning: pytest-vs python/ucxx/_lib/tests/\e[0m"

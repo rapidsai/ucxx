@@ -124,7 +124,7 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "m:p:s:w:n:rv")) != -1) {
+  while ((c = getopt(argc, argv, "m:p:s:w:n:rvh")) != -1) {
     switch (c) {
       case 'm':
         if (strcmp(optarg, "blocking") == 0) {
@@ -138,6 +138,9 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
           break;
         } else if (strcmp(optarg, "thread-polling") == 0) {
           app_context->progress_mode = ProgressMode::ThreadPolling;
+          break;
+        } else if (strcmp(optarg, "wait") == 0) {
+          app_context->progress_mode = ProgressMode::Wait;
           break;
         } else {
           std::cerr << "Invalid progress mode: " << optarg << std::endl;
