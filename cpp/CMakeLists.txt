@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -62,7 +62,7 @@ option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
 message(VERBOSE "UCXX: Configure CMake to build benchmarks: ${BUILD_BENCHMARKS}")
 message(VERBOSE "UCXX: Configure CMake to build examples: ${BUILD_EXAMPLES}")
-message(VERBOSE "UCXX: Build cuDF shared libraries: ${BUILD_SHARED_LIBS}")
+message(VERBOSE "UCXX: Build UCXX shared libraries: ${BUILD_SHARED_LIBS}")
 message(VERBOSE "UCXX: Enable support for Python notifier thread: ${UCXX_ENABLE_PYTHON}")
 message(VERBOSE "UCXX: Enable support for CUDA multi-buffer transfer with RMM: ${UCXX_ENABLE_RMM}")
 message(
@@ -172,8 +172,6 @@ set_target_properties(
              # set target compile options
              CXX_STANDARD 17
              CXX_STANDARD_REQUIRED ON
-             # For std:: support of __int128_t. Can be removed once using cuda::std
-             # CXX_EXTENSIONS ON
              CUDA_STANDARD 17
              CUDA_STANDARD_REQUIRED ON
              POSITION_INDEPENDENT_CODE ON
@@ -251,8 +249,6 @@ if(UCXX_ENABLE_PYTHON)
                # set target compile options
                CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
-               # For std:: support of __int128_t. Can be removed once using cuda::std
-               # CXX_EXTENSIONS ON
                CUDA_STANDARD 17
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON

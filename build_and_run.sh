@@ -5,8 +5,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="cpp_tests py_tests py_async_tests py_bench py_async_bench"
-HELP="$0 [cpp_tests] [cpp_bench] [py_tests] [py_async_tests] [py_bench] [py_async_bench]
+VALIDARGS="cpp_tests py_tests cpp_examples py_async_tests py_bench py_async_bench"
+HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_bench] [py_async_bench]
    cpp_tests                     - run all C++ tests
    cpp_bench                     - run C++ benchmarks
    cpp_example                   - run C++ example
@@ -89,6 +89,8 @@ set +e
 run_cpp_benchmark() {
   PROGRESS_MODE=$1
 
+  # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
+  # `TIME_WAIT` timeout
   CMD_LINE_SERVER="UCX_TCP_CM_REUSEADDR=y ./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE}"
   CMD_LINE_CLIENT="./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1"
 
@@ -100,6 +102,8 @@ run_cpp_benchmark() {
 run_cpp_example() {
   PROGRESS_MODE=$1
 
+  # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
+  # `TIME_WAIT` timeout
   CMD_LINE="UCX_TCP_CM_REUSEADDR=y ./cpp/build/examples/ucxx_example_basic -m ${PROGRESS_MODE}"
 
   echo -e "\e[1mRunning: \n  - ${CMD_LINE}\e[0m"
@@ -155,6 +159,7 @@ if [[ $RUN_CPP_BENCH != 0 ]]; then
   run_cpp_benchmark   blocking
   run_cpp_benchmark   thread-polling
   run_cpp_benchmark   thread-blocking
+  run_cpp_benchmark   wait
 fi
 if [[ $RUN_CPP_EXAMPLE != 0 ]]; then
   # run_cpp_example PROGRESS_MODE
@@ -162,6 +167,7 @@ if [[ $RUN_CPP_EXAMPLE != 0 ]]; then
   run_cpp_example   blocking
   run_cpp_example   thread-polling
   run_cpp_example   thread-blocking
+  run_cpp_example   wait
 fi
 if [[ $RUN_PY_TESTS != 0 ]]; then
   echo -e "\e[1mRunning: pytest-vs python/ucxx/_lib/tests/\e[0m"

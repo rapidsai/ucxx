@@ -84,7 +84,7 @@ static void printUsage()
   std::cerr << "Parameters are:" << std::endl;
   std::cerr << "  -m          progress mode to use, valid values are: 'polling', 'blocking',"
             << std::endl;
-  std::cerr << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
+  std::cerr << "              'thread-polling', 'thread-blocking' and 'wait' (default: 'blocking')"
             << std::endl;
   std::cerr << "  -p <port>   Port number to listen at" << std::endl;
   std::cerr << "  -h          Print this help" << std::endl;
@@ -94,7 +94,7 @@ static void printUsage()
 ucs_status_t parseCommand(int argc, char* const argv[])
 {
   int c;
-  while ((c = getopt(argc, argv, "btp:")) != -1) {
+  while ((c = getopt(argc, argv, "m:p:h")) != -1) {
     switch (c) {
       case 'm':
         if (strcmp(optarg, "blocking") == 0) {
@@ -108,6 +108,9 @@ ucs_status_t parseCommand(int argc, char* const argv[])
           break;
         } else if (strcmp(optarg, "thread-polling") == 0) {
           progress_mode = ProgressMode::ThreadPolling;
+          break;
+        } else if (strcmp(optarg, "wait") == 0) {
+          progress_mode = ProgressMode::Wait;
           break;
         } else {
           std::cerr << "Invalid progress mode: " << optarg << std::endl;
@@ -128,34 +131,16 @@ ucs_status_t parseCommand(int argc, char* const argv[])
   return UCS_OK;
 }
 
-// void waitRequests(std::shared_ptr<ucxx::Worker> worker,
-//                   std::vector<std::shared_ptr<ucxx::Request>>& requests)
-// {
-//   // Wait until all messages are completed
-//   if (progress_mode == ProgressMode::Blocking) {
-//     for (auto& r : requests) {
-//       do {
-//         worker->progressWorkerEvent();
-//       } while (!r->isCompleted());
-//       r->checkError();
-//     }
-//   } else {
-//     for (auto& r : requests)
-//       r->checkError();
-//   }
-// }
-
 std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
                                           ProgressMode progressMode)
 {
-  if (progressMode == ProgressMode::Polling)
-    return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
-  else if (progressMode == ProgressMode::Blocking)
-    return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
-  else if (progressMode == ProgressMode::Wait)
-    return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
-  else
-    return []() {};
+  switch (progressMode) {
+    case ProgressMode::Polling: return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
+    case ProgressMode::Blocking:
+      return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
+    case ProgressMode::Wait: return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
+    default: return []() {};
+  }
 }
 
 void waitRequests(ProgressMode progressMode,
