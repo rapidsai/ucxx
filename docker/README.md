@@ -17,7 +17,7 @@ docker build -t ucxx-conda-build -f conda-build.dockerfile .
 You can control some of the behaviour of the docker file with docker `--build-arg` flags:
 
 - `DISTRIBUTION_VERSION`: version of distribution in the base image (default `ubuntu20.04`), must exist in the [nvidia/cuda](https://hub.docker.com/layers/cuda/nvidia/cuda) docker hub image list;
-- `CUDA_VERSION`: version of cuda toolkit in the base image (default `11.5.2`), must exist in the [nvidia/cuda](https://hub.docker.com/layers/cuda/nvidia/cuda) docker hub image list;
+- `CUDA_VERSION`: version of cuda toolkit in the base image (default `11.8.0`), must exist in the [nvidia/cuda](https://hub.docker.com/layers/cuda/nvidia/cuda) docker hub image list;
 - `CONDA_HOME`: Where to install conda in the image (default `/opt/conda`);
 
 ## Building Conda packages
@@ -53,7 +53,7 @@ The following arguments may be specified to control build parameters and depende
 - `NUMPY_VERSION` (default: 1.21): NumPy version to build against;
 - `RAPIDS_DATE_STRING` (default: `date +%y%m%d`): Date string to use for RAPIDS package build;
 - `RAPIDS_VERSION` (default: 23.04): RAPIDS version to build against (RMM dependency);
-- `RAPIDS_CUDA_VERSION` (default: 11.5): CUDA version to build for (must match Docker image's major CUDA version);
+- `RAPIDS_CUDA_VERSION` (default: 11.8): CUDA version to build for (must match Docker image's major CUDA version);
 - `PYNVML_MIN_VERSION` (default: 11.4.1): Minimum PyNVML version required to run;
 
 For example:
