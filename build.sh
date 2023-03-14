@@ -17,8 +17,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests -v -g -n -l --show_depr_warn -h --build_metrics --incl_cache_stats"
-HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [-v] [-g] [-n] [-h] [--cmake-args=\\\"<args>\\\"]
+VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests examples -v -g -n -l --show_depr_warn -h --build_metrics --incl_cache_stats"
+HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [examples] [-v] [-g] [-n] [-h] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
    libucxx                       - build the UCXX C++ module
@@ -26,6 +26,7 @@ HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [-v] [-g
    ucxx                          - build the ucxx Python package
    benchmarks                    - build benchmarks
    tests                         - build tests
+   examples                      - build examples
    -v                            - verbose build mode
    -g                            - build for debug
    -n                            - no install step
@@ -48,6 +49,7 @@ BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_BENCHMARKS=OFF
 BUILD_TESTS=OFF
+BUILD_EXAMPLES=OFF
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_REPORT_METRICS=OFF
 BUILD_REPORT_INCL_CACHE_STATS=OFF
@@ -124,6 +126,9 @@ fi
 if hasArg tests; then
     BUILD_TESTS=ON
 fi
+if hasArg examples; then
+    BUILD_EXAMPLES=ON
+fi
 if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
 fi
@@ -181,6 +186,7 @@ if buildAll || hasArg libucxx; then
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DBUILD_BENCHMARKS=${BUILD_BENCHMARKS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
+          -DBUILD_EXAMPLES=${BUILD_EXAMPLES} \
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DUCXX_ENABLE_PYTHON=${UCXX_ENABLE_PYTHON} \

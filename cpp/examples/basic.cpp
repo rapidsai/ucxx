@@ -10,10 +10,13 @@
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
-enum progress_mode_t {
-  PROGRESS_MODE_BLOCKING,
-  PROGRESS_MODE_THREADED
-} progress_mode = PROGRESS_MODE_BLOCKING;
+enum class ProgressMode {
+  Polling,
+  Blocking,
+  Wait,
+  ThreadPolling,
+  ThreadBlocking,
+} progress_mode = ProgressMode::Polling;
 
 static uint16_t listener_port = 12345;
 
@@ -79,8 +82,10 @@ static void printUsage()
   std::cerr << " basic client/server example" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
-  std::cerr << "  -b          Use blocking progress mode" << std::endl;
-  std::cerr << "  -t          Use thread progress mode" << std::endl;
+  std::cerr << "  -m          progress mode to use, valid values are: 'polling', 'blocking',"
+            << std::endl;
+  std::cerr << "              'thread-polling', 'thread-blocking' and 'wait' (default: 'blocking')"
+            << std::endl;
   std::cerr << "  -p <port>   Port number to listen at" << std::endl;
   std::cerr << "  -h          Print this help" << std::endl;
   std::cerr << std::endl;
@@ -89,10 +94,28 @@ static void printUsage()
 ucs_status_t parseCommand(int argc, char* const argv[])
 {
   int c;
-  while ((c = getopt(argc, argv, "btp:")) != -1) {
+  while ((c = getopt(argc, argv, "m:p:h")) != -1) {
     switch (c) {
-      case 'b': progress_mode = PROGRESS_MODE_BLOCKING; break;
-      case 't': progress_mode = PROGRESS_MODE_THREADED; break;
+      case 'm':
+        if (strcmp(optarg, "blocking") == 0) {
+          progress_mode = ProgressMode::Blocking;
+          break;
+        } else if (strcmp(optarg, "polling") == 0) {
+          progress_mode = ProgressMode::Polling;
+          break;
+        } else if (strcmp(optarg, "thread-blocking") == 0) {
+          progress_mode = ProgressMode::ThreadBlocking;
+          break;
+        } else if (strcmp(optarg, "thread-polling") == 0) {
+          progress_mode = ProgressMode::ThreadPolling;
+          break;
+        } else if (strcmp(optarg, "wait") == 0) {
+          progress_mode = ProgressMode::Wait;
+          break;
+        } else {
+          std::cerr << "Invalid progress mode: " << optarg << std::endl;
+          return UCS_ERR_INVALID_PARAM;
+        }
       case 'p':
         listener_port = atoi(optarg);
         if (listener_port <= 0) {
@@ -108,20 +131,28 @@ ucs_status_t parseCommand(int argc, char* const argv[])
   return UCS_OK;
 }
 
-void waitRequests(std::shared_ptr<ucxx::Worker> worker,
+std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
+                                          ProgressMode progressMode)
+{
+  switch (progressMode) {
+    case ProgressMode::Polling: return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
+    case ProgressMode::Blocking:
+      return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
+    case ProgressMode::Wait: return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
+    default: return []() {};
+  }
+}
+
+void waitRequests(ProgressMode progressMode,
+                  std::shared_ptr<ucxx::Worker> worker,
                   std::vector<std::shared_ptr<ucxx::Request>>& requests)
 {
+  auto progress = getProgressFunction(worker, progressMode);
   // Wait until all messages are completed
-  if (progress_mode == PROGRESS_MODE_BLOCKING) {
-    for (auto& r : requests) {
-      do {
-        worker->progressWorkerEvent();
-      } while (!r->isCompleted());
-      r->checkError();
-    }
-  } else {
-    for (auto& r : requests)
-      r->checkError();
+  for (auto& r : requests) {
+    while (!r->isCompleted())
+      progress();
+    r->checkError();
   }
 }
 
@@ -138,16 +169,18 @@ int main(int argc, char** argv)
   auto endpoint = worker->createEndpointFromHostname("127.0.0.1", listener_port, true);
 
   // Initialize worker progress
-  if (progress_mode == PROGRESS_MODE_BLOCKING)
+  if (progress_mode == ProgressMode::Blocking)
     worker->initBlockingProgressMode();
-  else
-    worker->startProgressThread();
+  else if (progress_mode == ProgressMode::ThreadBlocking)
+    worker->startProgressThread(false);
+  else if (progress_mode == ProgressMode::ThreadPolling)
+    worker->startProgressThread(true);
+
+  auto progress = getProgressFunction(worker, progress_mode);
 
   // Block until client connects
-  while (listener_ctx->isAvailable()) {
-    if (progress_mode == PROGRESS_MODE_BLOCKING) worker->progressWorkerEvent();
-    // Else progress thread is enabled
-  }
+  while (listener_ctx->isAvailable())
+    progress();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
 
@@ -167,7 +200,7 @@ int main(int argc, char** argv)
     sendWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
   requests.push_back(
     endpoint->tagRecv(recvWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
-  ::waitRequests(worker, requests);
+  ::waitRequests(progress_mode, worker, requests);
   requests.clear();
 
   // Schedule send and recv messages on different tags and different ordering
@@ -185,7 +218,7 @@ int main(int argc, char** argv)
     endpoint->tagRecv(recvBuffers[0].data(), recvBuffers[0].size() * sizeof(int), 0));
 
   // Wait for requests to be set, i.e., transfers complete
-  ::waitRequests(worker, requests);
+  ::waitRequests(progress_mode, worker, requests);
 
   // Verify results
   for (size_t i = 0; i < sendWireupBuffer.size(); ++i)
@@ -195,7 +228,8 @@ int main(int argc, char** argv)
       assert(recvBuffers[i][j] == sendBuffers[i][j]);
 
   // Stop progress thread
-  if (progress_mode == PROGRESS_MODE_THREADED) worker->stopProgressThread();
+  if (progress_mode == ProgressMode::ThreadBlocking || progress_mode == ProgressMode::ThreadPolling)
+    worker->stopProgressThread();
 
   return 0;
 }

@@ -18,21 +18,21 @@ find_package(Threads REQUIRED)
 # * compiler function -----------------------------------------------------------------------------
 
 add_custom_command(
-  OUTPUT UCXX_BENCHMARKS
-  COMMAND echo Running benchmarks
+  OUTPUT UCXX_EXAMPLES
+  COMMAND echo Running examples
   COMMAND mkdir -p results
   VERBATIM
-  COMMENT "Running ucxx benchmarks."
+  COMMENT "Running ucxx examples."
   USES_TERMINAL
 )
 
-# This function takes in a benchmark name and benchmark source and handles setting all of the
-# associated properties and linking to build the benchmark
+# This function takes in an example name and example source and handles setting all of the
+# associated properties and linking to build the example
 function(ConfigureBench CMAKE_BENCH_NAME)
   add_executable(${CMAKE_BENCH_NAME} ${ARGN})
   set_target_properties(
     ${CMAKE_BENCH_NAME}
-    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${UCXX_BINARY_DIR}/benchmarks>"
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${UCXX_BINARY_DIR}/examples>"
                INSTALL_RPATH "\$ORIGIN/../../../lib"
                CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
@@ -42,9 +42,7 @@ function(ConfigureBench CMAKE_BENCH_NAME)
                                 $<TARGET_NAME_IF_EXISTS:conda_env>
   )
   add_custom_command(
-    OUTPUT UCXX_BENCHMARKS
-    # COMMAND ${CMAKE_BENCH_NAME} --benchmark_out_format=json
-    #         --benchmark_out=results/${CMAKE_BENCH_NAME}.json
+    OUTPUT UCXX_EXAMPLES
     COMMAND ${CMAKE_BENCH_NAME}
     APPEND
     COMMENT "Adding ${CMAKE_BENCH_NAME}"
@@ -52,18 +50,18 @@ function(ConfigureBench CMAKE_BENCH_NAME)
 
   install(
     TARGETS ${CMAKE_BENCH_NAME}
-    COMPONENT testing
-    DESTINATION bin/benchmarks/ucxx
+    COMPONENT examples
+    DESTINATION bin/examples/ucxx
     EXCLUDE_FROM_ALL
   )
 endfunction()
 
 # ##################################################################################################
-# * perftest benchmarks ----------------------------------------------------------------------------
-ConfigureBench(ucxx_perftest perftest.cpp)
+# * basic example ---------------------------------------------------------------------------------
+ConfigureBench(ucxx_example_basic basic.cpp)
 
 add_custom_target(
-  run_benchmarks
-  DEPENDS UCXX_BENCHMARKS
-  COMMENT "Custom command for running ucxx benchmarks."
+  run_examples
+  DEPENDS UCXX_EXAMPLES
+  COMMENT "Custom command for running ucxx examples."
 )

@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -44,7 +44,8 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 # * build options ---------------------------------------------------------------------------------
 
 option(BUILD_TESTS "Configure CMake to build tests" ON)
-option(BUILD_BENCHMARKS "Configure CMake to build (google & nvbench) benchmarks" OFF)
+option(BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
+option(BUILD_EXAMPLES "Configure CMake to build examples" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
 option(UCXX_ENABLE_PYTHON "Enable support for Python notifier thread" OFF)
 option(UCXX_ENABLE_RMM "Enable support for CUDA multi-buffer transfer with RMM" OFF)
@@ -59,8 +60,9 @@ option(CUDA_WARNINGS_AS_ERRORS "Enable -Werror=all-warnings for all CUDA compila
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 
 message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
-message(VERBOSE "UCXX: Configure CMake to build (google & nvbench) benchmarks: ${BUILD_BENCHMARKS}")
-message(VERBOSE "UCXX: Build cuDF shared libraries: ${BUILD_SHARED_LIBS}")
+message(VERBOSE "UCXX: Configure CMake to build benchmarks: ${BUILD_BENCHMARKS}")
+message(VERBOSE "UCXX: Configure CMake to build examples: ${BUILD_EXAMPLES}")
+message(VERBOSE "UCXX: Build UCXX shared libraries: ${BUILD_SHARED_LIBS}")
 message(VERBOSE "UCXX: Enable support for Python notifier thread: ${UCXX_ENABLE_PYTHON}")
 message(VERBOSE "UCXX: Enable support for CUDA multi-buffer transfer with RMM: ${UCXX_ENABLE_RMM}")
 message(
@@ -77,6 +79,7 @@ message(VERBOSE "UCXX: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}"
 rapids_cmake_build_type("Release")
 set(UCXX_BUILD_TESTS ${BUILD_TESTS})
 set(UCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
+set(UCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
 
 set(UCXX_CXX_FLAGS "")
 set(UCXX_CUDA_FLAGS "")
@@ -169,8 +172,6 @@ set_target_properties(
              # set target compile options
              CXX_STANDARD 17
              CXX_STANDARD_REQUIRED ON
-             # For std:: support of __int128_t. Can be removed once using cuda::std
-             # CXX_EXTENSIONS ON
              CUDA_STANDARD 17
              CUDA_STANDARD_REQUIRED ON
              POSITION_INDEPENDENT_CODE ON
@@ -248,8 +249,6 @@ if(UCXX_ENABLE_PYTHON)
                # set target compile options
                CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
-               # For std:: support of __int128_t. Can be removed once using cuda::std
-               # CXX_EXTENSIONS ON
                CUDA_STANDARD 17
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
@@ -329,6 +328,13 @@ endif()
 
 if(UCXX_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
+endif()
+
+# ##################################################################################################
+# * add examples ----------------------------------------------------------------------------------
+
+if(UCXX_BUILD_EXAMPLES)
+  add_subdirectory(examples)
 endif()
 
 # ##################################################################################################
