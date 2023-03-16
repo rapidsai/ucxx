@@ -17,7 +17,6 @@ static void* _ucxxPythonLib        = nullptr;
 
 bool isPythonAvailable()
 {
-#if UCXX_ENABLE_PYTHON
   if (!_ucxxPythonLoadChecked) {
     _ucxxPythonLoadChecked = true;
     _ucxxPythonLib         = dlopen("libucxx_python.so", RTLD_LAZY);
@@ -27,9 +26,6 @@ bool isPythonAvailable()
       ucxx_debug("dlopen('libucxx_python.so') loaded at %p", _ucxxPythonLib);
   }
   return _ucxxPythonLib != nullptr;
-#else
-  return false;
-#endif
 }
 
 }  // namespace utils
