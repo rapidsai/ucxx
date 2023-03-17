@@ -38,6 +38,7 @@ requirements:
   host:
     - cudatoolkit ={{ cuda_version }}
     - ucx
+    - python
 
 outputs:
   - name: libucxx
