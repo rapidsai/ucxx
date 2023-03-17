@@ -19,7 +19,7 @@ include_dirs = [
     "/usr/local/cuda/include",
 ]
 library_dirs = [get_config_var("LIBDIR")]
-libraries = ["ucxx", "ucxx_python", "fmt"]
+libraries = ["ucxx", "ucxx_python"]
 cpp_extra_compile_args = [
     "-std=c++17",
     "-Werror",
