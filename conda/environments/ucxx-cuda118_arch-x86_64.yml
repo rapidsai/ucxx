@@ -17,9 +17,11 @@ dependencies:
   - libtool
   - automake
   - autoconf
-# UCX-Py Build
+# UCXX Build
   - cython
   - pkg-config
+  - ninja
+  - scikit-build>=0.13.1
 # UCXX/RAPIDS testing
   - cmake
   - gmock

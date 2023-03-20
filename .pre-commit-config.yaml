@@ -3,7 +3,9 @@ repos:
         rev: 5.12.0
         hooks:
               - id: isort
-                args: ["--settings-path=python/setup.cfg"]
+                # Use the config file specific to each subproject so that each
+                # project can specify its own first/third-party packages.
+                args: ["--config-root=python/", "--resolve-all-configs"]
                 files: python/.*
                 exclude: __init__.py$
                 types: [text]

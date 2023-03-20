@@ -25,7 +25,7 @@ rapids_cuda_init_architectures(UCX)
 
 project(
     UCXX
-  VERSION 22.12.00
+  VERSION 0.0.1
   LANGUAGES C CXX CUDA
 )
 if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA" AND CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11.5)
@@ -111,7 +111,11 @@ rapids_find_package(
   BUILD_EXPORT_SET ucxx-exports
   INSTALL_EXPORT_SET ucxx-exports
 )
-find_package(ucx REQUIRED)
+rapids_find_package(
+  ucx REQUIRED
+  BUILD_EXPORT_SET ucxx-exports
+  INSTALL_EXPORT_SET ucxx-exports
+)
 include(cmake/Modules/ConfigureCUDA.cmake) # set other CUDA compilation flags
 
 # ##################################################################################################
