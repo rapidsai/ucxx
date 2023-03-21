@@ -4,8 +4,9 @@
 from setuptools import find_packages
 from skbuild import setup
 
+packages = find_packages(include=["ucxx*"])
 setup(
-    include_package_data=True,
-    packages=find_packages(include=["ucxx", "ucxx.*"]),
+    packages=packages,
+    package_data={key: ["*.pxd"] for key in packages},
     zip_safe=False,
 )
