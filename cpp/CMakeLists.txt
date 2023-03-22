@@ -233,9 +233,6 @@ add_library(ucxx::ucxx ALIAS ucxx)
 # Build Python if requested
 if(UCXX_ENABLE_PYTHON)
   add_subdirectory(python)
-
-  add_library(ucxx::python ALIAS ucxx_python)
-  set(UCXX_PYTHON_TARGET_ALIAS ucxx_python)
 else()
   set(UCXX_PYTHON_TARGET_TARGET "")
 endif()
@@ -277,9 +274,12 @@ include(CPack)
 include(GNUInstallDirs)
 
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ucxx)
-
+set(additional_targets)
+if(TARGET ucxx_python)
+  list(APPEND additional_targets ucxx_python)
+endif()
 install(
-  TARGETS ucxx ${UCXX_PYTHON_TARGET_ALIAS}
+  TARGETS ucxx ${additional_targets}
   DESTINATION ${lib_dir}
   EXPORT ucxx-exports
 )
@@ -287,12 +287,6 @@ install(
 install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx
                   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-
-if(UCXX_ENABLE_PYTHON)
-  install(DIRECTORY ${UCXX_SOURCE_DIR}/python/include/ucxx
-                    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  )
-endif()
 
 set(doc_string
     [=[
