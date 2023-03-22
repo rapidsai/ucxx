@@ -275,9 +275,19 @@ include(GNUInstallDirs)
 
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ucxx)
 set(additional_targets)
+set(_components_export_string)
+
 if(TARGET ucxx_python)
   list(APPEND additional_targets ucxx_python)
+  install(
+    TARGETS ucxx_python
+    COMPONENT python
+    DESTINATION ${lib_dir}
+    EXPORT ucxx-python-exports
+  )
+  set(_components_export_string COMPONENTS python COMPONENTS_EXPORT_SET ucxx-python-exports)
 endif()
+
 install(
   TARGETS ucxx ${additional_targets}
   DESTINATION ${lib_dir}
@@ -308,9 +318,9 @@ targets:
 )
 
 rapids_export(
-  INSTALL ucxx ${UCXX_PYTHON_TARGET_ALIAS}
-  EXPORT_SET ucxx-exports
-  GLOBAL_TARGETS ucxx
+  INSTALL ucxx
+  EXPORT_SET ucxx-exports ${_components_export_string}
+  GLOBAL_TARGETS ucxx python
   NAMESPACE ucxx::
   DOCUMENTATION doc_string
 )
@@ -319,8 +329,8 @@ rapids_export(
 # * build export -------------------------------------------------------------------------------
 rapids_export(
   BUILD ucxx
-  EXPORT_SET ucxx-exports
-  GLOBAL_TARGETS ucxx
+  EXPORT_SET ucxx-exports ${_components_export_string}
+  GLOBAL_TARGETS ucxx python
   NAMESPACE ucxx::
   DOCUMENTATION doc_string
 )

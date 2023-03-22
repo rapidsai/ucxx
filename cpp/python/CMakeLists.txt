@@ -14,8 +14,8 @@
 
 rapids_find_package(
   Python3 REQUIRED COMPONENTS Development
-  BUILD_EXPORT_SET ucxx-exports
-  INSTALL_EXPORT_SET ucxx-exports
+  BUILD_EXPORT_SET ucxx-python-exports
+  INSTALL_EXPORT_SET ucxx-python-exports
 )
 set(UCXX_PYTHON_LIB Python3::Python)
 
@@ -96,4 +96,9 @@ include(GNUInstallDirs)
 add_library(ucxx::python ALIAS ucxx_python)
 install(DIRECTORY ${UCXX_SOURCE_DIR}/python/include/ucxx
                   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+include("${rapids-cmake-dir}/export/find_package_root.cmake")
+rapids_export_find_package_root(
+  BUILD Python3 [=[${CMAKE_CURRENT_LIST_DIR}]=] ucxx-python-exports
 )
