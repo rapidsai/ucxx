@@ -274,11 +274,15 @@ include(CPack)
 include(GNUInstallDirs)
 
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ucxx)
-set(additional_targets)
 set(_components_export_string)
 
+install(
+  TARGETS ucxx
+  DESTINATION ${lib_dir}
+  EXPORT ucxx-exports
+)
+
 if(TARGET ucxx_python)
-  list(APPEND additional_targets ucxx_python)
   install(
     TARGETS ucxx_python
     COMPONENT python
@@ -287,12 +291,6 @@ if(TARGET ucxx_python)
   )
   set(_components_export_string COMPONENTS python COMPONENTS_EXPORT_SET ucxx-python-exports)
 endif()
-
-install(
-  TARGETS ucxx ${additional_targets}
-  DESTINATION ${lib_dir}
-  EXPORT ucxx-exports
-)
 
 install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx
                   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
