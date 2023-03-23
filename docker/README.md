@@ -54,7 +54,6 @@ The following arguments may be specified to control build parameters and depende
 - `RAPIDS_DATE_STRING` (default: `date +%y%m%d`): Date string to use for RAPIDS package build;
 - `RAPIDS_VERSION` (default: 23.04): RAPIDS version to build against (RMM dependency);
 - `RAPIDS_CUDA_VERSION` (default: 11.8): CUDA version to build for (must match Docker image's major CUDA version);
-- `PYNVML_MIN_VERSION` (default: 11.4.1): Minimum PyNVML version required to run;
 
 For example:
 
