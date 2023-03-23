@@ -30,7 +30,7 @@ project(
             C CXX CUDA
 )
 
-option(FIND_UCXX_CPP "Search for existing CUDF C++ installations before defaulting to local files"
+option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulting to local files"
        OFF
 )
 option(UCXX_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
@@ -53,20 +53,12 @@ if(NOT ucxx_FOUND)
     # Statically link cudart if building wheels
     set(CUDA_STATIC_RUNTIME ON)
 
-    # Need to set this so all the nvcomp targets are global, not only nvcomp::nvcomp
-    # https://cmake.org/cmake/help/latest/variable/CMAKE_FIND_PACKAGE_TARGETS_GLOBAL.html#variable:CMAKE_FIND_PACKAGE_TARGETS_GLOBAL
-    # set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL ON)
-
     # Don't install the UCXX C++ targets into wheels
     set(_exclude_from_all EXCLUDE_FROM_ALL)
   endif()
 
   add_subdirectory(../cpp ucxx-cpp ${_exclude_from_all})
 
-  if(UCXX_BUILD_WHEELS)
-    # Ensure all the shared objects we need at runtime are in the wheel
-    # add_target_libs_to_wheel(LIB_DIR cudf TARGETS arrow_shared nvcomp::nvcomp ${_nvcomp_link_libs})
-  endif()
   # Since ucxx._lib requires access to libucxx, we place the library in the ucxx directory
   # and modify the rpaths appropriately.
   set(cython_lib_dir ucxx)
