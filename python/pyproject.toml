@@ -74,13 +74,9 @@ order_by_type = true
 known_dask = [
     "dask",
     "distributed",
-    "dask_cuda",
 ]
 known_rapids = [
     "rmm",
-    "cuml",
-    "cugraph",
-    "dask_cudf",
     "cudf",
 ]
 known_first_party = [
