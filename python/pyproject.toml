@@ -62,7 +62,7 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rapidsai/ucx-py"
+Homepage = "https://github.com/rapidsai/ucxx"
 
 [tool.isort]
 line_length = 79
