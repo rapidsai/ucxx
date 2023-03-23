@@ -37,7 +37,7 @@ option(UCXX_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_CPP)
-  find_package(ucxx ${ucxx_version} REQUIRED)
+  find_package(ucxx ${ucxx_version} REQUIRED COMPONENTS python)
 else()
   set(ucxx_FOUND OFF)
 endif()
