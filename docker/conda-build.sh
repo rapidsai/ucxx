@@ -9,5 +9,4 @@ export RAPIDS_DATE_STRING=${RAPIDS_DATE_STRING:-$(date +%y%m%d)}
 export RAPIDS_VERSION=${RAPIDS_VERSION:-23.04}
 export RAPIDS_CUDA_VERSION=${RAPIDS_CUDA_VERSION:-11.8}
 
-conda mambabuild --python=${PYTHON_VERSION} --numpy=${NUMPY_VERSION} /ucxx/conda/recipes/libucxx/ 2>&1 | tee libucxx-mamba-build-docker.log
 conda mambabuild --python=${PYTHON_VERSION} --numpy=${NUMPY_VERSION} /ucxx/conda/recipes/ucxx/ 2>&1 | tee ucxx-mamba-build-docker.log
