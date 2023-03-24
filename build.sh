@@ -143,7 +143,7 @@ if hasArg --incl_cache_stats; then
     BUILD_REPORT_INCL_CACHE_STATS=ON
 fi
 
-if buildAll || hasArg libucxx_python || hasArg ucxx; then
+if buildAll || hasArg libucxx_python; then
   UCXX_ENABLE_PYTHON=ON
   UCXX_ENABLE_RMM=ON
 fi

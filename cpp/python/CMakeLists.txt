@@ -96,6 +96,8 @@ include(GNUInstallDirs)
 add_library(ucxx::python ALIAS ucxx_python)
 install(DIRECTORY ${UCXX_SOURCE_DIR}/python/include/ucxx
                   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+                  COMPONENT python
+                  EXCLUDE_FROM_ALL
 )
 
 include("${rapids-cmake-dir}/export/find_package_root.cmake")

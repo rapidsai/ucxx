@@ -287,6 +287,7 @@ if(TARGET ucxx_python)
     TARGETS ucxx_python
     COMPONENT python
     DESTINATION ${lib_dir}
+    EXCLUDE_FROM_ALL
     EXPORT ucxx-python-exports
   )
   set(_components_export_string COMPONENTS python COMPONENTS_EXPORT_SET ucxx-python-exports)
