@@ -99,9 +99,9 @@ outputs:
       license_family: BSD
       license_file: ../../../LICENSE
       summary: libucxx library
-  - name: libucxx-example
+  - name: libucxx-examples
     version: {{ version }}
-    script: install_libucxx_example.sh
+    script: install_libucxx_examples.sh
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: {{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
@@ -121,7 +121,7 @@ outputs:
       license: BSD-3-Clause
       license_family: BSD
       license_file: ../../../LICENSE
-      summary: libucxx_example library
+      summary: libucxx examples executables
   - name: libucxx-tests
     version: {{ version }}
     script: install_libucxx_tests.sh
