@@ -1,3 +1,8 @@
+#!/bin/bash
+
+# SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 source /opt/conda/etc/profile.d/conda.sh
 conda activate base
 conda config --set conda_build.root-dir /ucxx/.conda-bld

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 ARG CUDA_VERSION=11.8.0
 ARG DISTRIBUTION_VERSION=ubuntu20.04
 FROM nvidia/cuda:${CUDA_VERSION}-devel-${DISTRIBUTION_VERSION}
