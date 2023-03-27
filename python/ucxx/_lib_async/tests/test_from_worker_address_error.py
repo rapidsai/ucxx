@@ -1,8 +1,10 @@
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 import asyncio
 import multiprocessing as mp
 import os
 import re
-import time
 from unittest.mock import patch
 
 import numpy as np
