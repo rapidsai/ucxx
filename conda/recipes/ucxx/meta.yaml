@@ -40,7 +40,7 @@ requirements:
   host:
     - cudatoolkit ={{ cuda_version }}
     - ucx
-    - python
+    - python {{ python_version }}
 
 outputs:
   - name: libucxx
@@ -159,7 +159,7 @@ outputs:
         - ucx
         - rmm ={{ rapids_version }}
       run:
-        - python
+        - python {{ python_version }}
         - packaging
         - ucx
         - {{ pin_subpackage('libucxx', exact=True) }}
