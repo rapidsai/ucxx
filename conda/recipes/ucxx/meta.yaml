@@ -162,6 +162,7 @@ outputs:
         - python
         - packaging
         - ucx
+        - {{ pin_subpackage('libucxx', exact=True) }}
         - {{ pin_compatible('rmm', max_pin='x.x') }}
         - {{ pin_compatible('numpy') }}
         - pynvml >=11.4.1
