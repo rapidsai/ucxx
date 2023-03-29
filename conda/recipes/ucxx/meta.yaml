@@ -125,8 +125,8 @@ outputs:
       run:
         - {{ pin_subpackage('libucxx', exact=True) }}
         - cudatoolkit {{ cuda_spec }}
-        - gtest {{ gtest_version }}
-        - gmock {{ gtest_version }}
+        - gtest
+        - gmock
     about:
       home: https://rapids.ai/
       license: BSD-3-Clause
