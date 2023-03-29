@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include <ucp/api/ucp.h>
@@ -87,9 +88,9 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
    *                                subsequently notified.
    */
   RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                  std::vector<void*>& buffer,
-                  std::vector<size_t>& size,
-                  std::vector<int>& isCUDA,
+                  const std::vector<void*>& buffer,
+                  const std::vector<size_t>& size,
+                  const std::vector<int>& isCUDA,
                   const ucp_tag_t tag,
                   const bool enablePythonFuture);
 
@@ -127,7 +128,9 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
    * @throws std::length_error  if the lengths of `buffer`, `size` and `isCUDA` do not
    *                            match.
    */
-  void send(std::vector<void*>& buffer, std::vector<size_t>& size, std::vector<int>& isCUDA);
+  void send(const std::vector<void*>& buffer,
+            const std::vector<size_t>& size,
+            const std::vector<int>& isCUDA);
 
  public:
   /**
@@ -163,9 +166,9 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
    */
   friend std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(
     std::shared_ptr<Endpoint> endpoint,
-    std::vector<void*>& buffer,
-    std::vector<size_t>& size,
-    std::vector<int>& isCUDA,
+    const std::vector<void*>& buffer,
+    const std::vector<size_t>& size,
+    const std::vector<int>& isCUDA,
     const ucp_tag_t tag,
     const bool enablePythonFuture);
 

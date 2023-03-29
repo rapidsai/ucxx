@@ -255,9 +255,9 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[RequestTagMulti] tagMultiSend(
-            vector[void*]& buffer,
-            vector[size_t]& length,
-            vector[int]& isCUDA,
+            const vector[void*]& buffer,
+            const vector[size_t]& length,
+            const vector[int]& isCUDA,
             ucp_tag_t tag,
             bint enable_python_future
         ) except +raise_py_error

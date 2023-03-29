@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include <ucxx/buffer.h>
@@ -33,9 +34,9 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
 }
 
 RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                                 std::vector<void*>& buffer,
-                                 std::vector<size_t>& size,
-                                 std::vector<int>& isCUDA,
+                                 const std::vector<void*>& buffer,
+                                 const std::vector<size_t>& size,
+                                 const std::vector<int>& isCUDA,
                                  const ucp_tag_t tag,
                                  const bool enablePythonFuture)
   : _endpoint(endpoint), _send(true), _tag(tag)
@@ -72,9 +73,9 @@ RequestTagMulti::~RequestTagMulti()
 }
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                                           std::vector<void*>& buffer,
-                                                           std::vector<size_t>& size,
-                                                           std::vector<int>& isCUDA,
+                                                           const std::vector<void*>& buffer,
+                                                           const std::vector<size_t>& size,
+                                                           const std::vector<int>& isCUDA,
                                                            const ucp_tag_t tag,
                                                            const bool enablePythonFuture)
 {
@@ -152,7 +153,7 @@ void RequestTagMulti::markCompleted(std::shared_ptr<void> request)
    * BufferRequest*, or remove pointer holding entirely here since it
    * is not currently used for anything besides counting completed transfers.
    */
-  _completedRequests.push_back((BufferRequest*)request.get());
+  _completedRequests.push_back(reinterpret_cast<BufferRequest*>(request.get()));
 
   if (_completedRequests.size() == _totalFrames) {
     // TODO: Actually handle errors
@@ -238,9 +239,9 @@ void RequestTagMulti::callback()
   }
 }
 
-void RequestTagMulti::send(std::vector<void*>& buffer,
-                           std::vector<size_t>& size,
-                           std::vector<int>& isCUDA)
+void RequestTagMulti::send(const std::vector<void*>& buffer,
+                           const std::vector<size_t>& size,
+                           const std::vector<int>& isCUDA)
 {
   _totalFrames = buffer.size();
 

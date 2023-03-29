@@ -50,10 +50,11 @@ PyObject* UCXXConfigError;
 
 static PyObject* new_exception(PyObject** exception, const char* name, PyObject* base)
 {
-  char qualified_name[255];
+  constexpr size_t max_len     = 255;
+  char qualified_name[max_len] = {0};
 
   if (*exception == NULL) {
-    sprintf(qualified_name, "ucxx.%s", name);
+    snprintf(qualified_name, max_len, "ucxx.%s", name);
 
     *exception = PyErr_NewException(qualified_name, base, NULL);
   }

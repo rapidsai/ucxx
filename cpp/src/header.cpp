@@ -2,10 +2,13 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <memory>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include <ucxx/header.h>
 
@@ -43,15 +46,16 @@ void Header::deserialize(const std::string& serializedHeader)
 {
   std::stringstream ss{serializedHeader};
 
-  ss.read((char*)&next, sizeof(next));
-  ss.read((char*)&nframes, sizeof(nframes));
+  ss.read(reinterpret_cast<char*>(&next), sizeof(next));
+  ss.read(reinterpret_cast<char*>(&nframes), sizeof(nframes));
   for (size_t i = 0; i < HeaderFramesSize; ++i)
-    ss.read((char*)&isCUDA[i], sizeof(isCUDA[i]));
+    ss.read(reinterpret_cast<char*>(&isCUDA[i]), sizeof(isCUDA[i]));
   for (size_t i = 0; i < HeaderFramesSize; ++i)
-    ss.read((char*)&size[i], sizeof(size[i]));
+    ss.read(reinterpret_cast<char*>(&size[i]), sizeof(size[i]));
 }
 
-std::vector<Header> Header::buildHeaders(std::vector<size_t>& size, std::vector<int>& isCUDA)
+std::vector<Header> Header::buildHeaders(const std::vector<size_t>& size,
+                                         const std::vector<int>& isCUDA)
 {
   const size_t totalFrames = size.size();
 
@@ -68,7 +72,10 @@ std::vector<Header> Header::buildHeaders(std::vector<size_t>& size, std::vector<
       hasNext ? HeaderFramesSize : HeaderFramesSize - (HeaderFramesSize * (i + 1) - totalFrames);
 
     size_t idx = i * HeaderFramesSize;
-    headers.push_back(Header(hasNext, headerFrames, (int*)&isCUDA[idx], (size_t*)&size[idx]));
+    headers.push_back(Header(hasNext,
+                             headerFrames,
+                             const_cast<int*>(reinterpret_cast<const int*>(&isCUDA[idx])),
+                             const_cast<size_t*>(reinterpret_cast<const size_t*>(&size[idx]))));
   }
 
   return headers;

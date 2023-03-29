@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
+#include <memory>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 

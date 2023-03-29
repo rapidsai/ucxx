@@ -34,7 +34,7 @@ class Future : public ::ucxx::Future {
    *
    * @param[in] notifier  notifier object running on a separate thread.
    */
-  Future(std::shared_ptr<::ucxx::Notifier> notifier);
+  explicit Future(std::shared_ptr<::ucxx::Notifier> notifier);
 
  public:
   Future()              = delete;

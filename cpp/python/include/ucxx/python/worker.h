@@ -5,6 +5,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -80,7 +81,7 @@ class Worker : public ::ucxx::Worker {
    * `ucxx::Request` is created. Currently the pool has a maximum size of 100 objects, and
    * will refill once it goes under 50, otherwise calling this functions results in a no-op.
    */
-  virtual void populateFuturesPool() override;
+  void populateFuturesPool() override;
 
   /**
    * @brief Get a Python future from the pool.
@@ -91,7 +92,7 @@ class Worker : public ::ucxx::Worker {
    *
    * @returns The `shared_ptr<ucxx::python::Future>` object
    */
-  virtual std::shared_ptr<::ucxx::Future> getFuture() override;
+  std::shared_ptr<::ucxx::Future> getFuture() override;
 
   /**
    * @brief Block until a request event.
@@ -105,7 +106,7 @@ class Worker : public ::ucxx::Worker {
    *          `RequestNotifierWaitStats::Timeout` if a timeout occurred, or
    *          `RequestNotifierWaitStats::Shutdown` if shutdown has initiated.
    */
-  virtual RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs) override;
+  RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs) override;
 
   /**
    * @brief Notify Python futures of each completed communication request.
@@ -117,14 +118,14 @@ class Worker : public ::ucxx::Worker {
    * thread where this method is called from must be using the same Python event loop as
    * the thread that submitted the transfer request.
    */
-  virtual void runRequestNotifier() override;
+  void runRequestNotifier() override;
 
   /**
    * @brief Signal the notifier to terminate.
    *
    * Signals the notifier to terminate, awakening the `waitRequestNotifier()` blocking call.
    */
-  virtual void stopRequestNotifierThread() override;
+  void stopRequestNotifierThread() override;
 };
 
 }  // namespace python

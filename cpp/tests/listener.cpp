@@ -2,11 +2,14 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <memory>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
 
-#include "utils.h"
+#include "include/utils.h"
 
 namespace {
 
@@ -19,9 +22,11 @@ struct ListenerContainer {
   // bool exchange{false};
 };
 
+typedef std::shared_ptr<ListenerContainer> ListenerContainerPtr;
+
 static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
 {
-  ListenerContainer* listenerContainer = (ListenerContainer*)arg;
+  ListenerContainer* listenerContainer = reinterpret_cast<ListenerContainer*>(arg);
   ucp_conn_request_attr_t attr{};
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
 
@@ -69,27 +74,27 @@ class ListenerTest : public ::testing::Test {
 
   virtual void SetUp() { _worker = _context->createWorker(); }
 
-  ListenerContainer createListenerContainer()
+  ListenerContainerPtr createListenerContainer()
   {
-    ListenerContainer listenerContainer;
-    listenerContainer.worker = _worker;
+    auto listenerContainer    = std::make_shared<ListenerContainer>();
+    listenerContainer->worker = _worker;
     return listenerContainer;
   }
 
-  virtual std::shared_ptr<ucxx::Listener> createListener(ListenerContainer& listenerContainer)
+  virtual std::shared_ptr<ucxx::Listener> createListener(ListenerContainerPtr listenerContainer)
   {
-    auto listener              = _worker->createListener(0, listenerCallback, &listenerContainer);
-    listenerContainer.listener = listener;
+    auto listener = _worker->createListener(0, listenerCallback, listenerContainer.get());
+    listenerContainer->listener = listener;
     return listener;
   }
 };
 
 class ListenerPortTest : public ListenerTest, public ::testing::WithParamInterface<uint16_t> {
  protected:
-  virtual std::shared_ptr<ucxx::Listener> createListener(ListenerContainer& listenerContainer)
+  virtual std::shared_ptr<ucxx::Listener> createListener(ListenerContainerPtr listenerContainer)
   {
-    auto listener = _worker->createListener(GetParam(), listenerCallback, &listenerContainer);
-    listenerContainer.listener = listener;
+    auto listener = _worker->createListener(GetParam(), listenerCallback, listenerContainer.get());
+    listenerContainer->listener = listener;
     return listener;
   }
 };
@@ -126,7 +131,7 @@ TEST_F(ListenerTest, EndpointSendRecv)
   progress();
 
   auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
-  while (listenerContainer.endpoint == nullptr)
+  while (listenerContainer->endpoint == nullptr)
     progress();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -135,13 +140,13 @@ TEST_F(ListenerTest, EndpointSendRecv)
   std::vector<int> server_buf{0};
   requests.push_back(ep->tagSend(client_buf.data(), client_buf.size() * sizeof(int), 0));
   requests.push_back(
-    listenerContainer.endpoint->tagRecv(&server_buf.front(), server_buf.size() * sizeof(int), 0));
+    listenerContainer->endpoint->tagRecv(&server_buf.front(), server_buf.size() * sizeof(int), 0));
   ::waitRequests(_worker, requests, progress);
 
   ASSERT_EQ(server_buf[0], client_buf[0]);
 
   requests.push_back(
-    listenerContainer.endpoint->tagSend(&server_buf.front(), server_buf.size() * sizeof(int), 1));
+    listenerContainer->endpoint->tagSend(&server_buf.front(), server_buf.size() * sizeof(int), 1));
   requests.push_back(ep->tagRecv(client_buf.data(), client_buf.size() * sizeof(int), 1));
   ::waitRequests(_worker, requests, progress);
   ASSERT_EQ(client_buf[0], server_buf[0]);
@@ -156,7 +161,7 @@ TEST_F(ListenerTest, IsAlive)
   _worker->progress();
 
   auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
-  while (listenerContainer.endpoint == nullptr)
+  while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
   ASSERT_TRUE(ep->isAlive());
@@ -166,7 +171,7 @@ TEST_F(ListenerTest, IsAlive)
   while (!send_req->isCompleted())
     _worker->progress();
 
-  listenerContainer.endpoint = nullptr;
+  listenerContainer->endpoint = nullptr;
   _worker->progress();
   ASSERT_FALSE(ep->isAlive());
 }
@@ -178,10 +183,10 @@ TEST_F(ListenerTest, RaiseOnError)
   _worker->progress();
 
   auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
-  while (listenerContainer.endpoint == nullptr)
+  while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
-  listenerContainer.endpoint = nullptr;
+  listenerContainer->endpoint = nullptr;
   _worker->progress();
   EXPECT_THROW(ep->raiseOnError(), ucxx::Error);
 }
@@ -195,14 +200,15 @@ TEST_F(ListenerTest, CloseCallback)
   auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
 
   bool isClosed = false;
-  ep->setCloseCallback([](void* isClosed) { *(bool*)isClosed = true; }, (void*)&isClosed);
+  ep->setCloseCallback([](void* isClosed) { *reinterpret_cast<bool*>(isClosed) = true; },
+                       reinterpret_cast<void*>(&isClosed));
 
-  while (listenerContainer.endpoint == nullptr)
+  while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
   ASSERT_FALSE(isClosed);
 
-  listenerContainer.endpoint = nullptr;
+  listenerContainer->endpoint = nullptr;
   _worker->progress();
 
   ASSERT_TRUE(isClosed);

@@ -8,8 +8,11 @@
 #include <cassert>
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <numeric>
+#include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include <ucxx/api.h>
@@ -28,6 +31,9 @@ enum transfer_type_t { SEND, RECV };
 
 typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
 typedef std::unordered_map<transfer_type_t, ucp_tag_t> TagMap;
+
+typedef std::shared_ptr<BufferMap> BufferMapPtr;
+typedef std::shared_ptr<TagMap> TagMapPtr;
 
 struct app_context_t {
   ProgressMode progress_mode = ProgressMode::Blocking;
@@ -48,7 +54,7 @@ class ListenerContext {
   std::atomic<bool> _isAvailable{true};
 
  public:
-  ListenerContext(std::shared_ptr<ucxx::Worker> worker) : _worker{worker} {}
+  explicit ListenerContext(std::shared_ptr<ucxx::Worker> worker) : _worker{worker} {}
 
   ~ListenerContext() { releaseEndpoint(); }
 
@@ -81,7 +87,7 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
   char ip_str[INET6_ADDRSTRLEN];
   char port_str[INET6_ADDRSTRLEN];
   ucp_conn_request_attr_t attr{};
-  ListenerContext* listener_ctx = (ListenerContext*)arg;
+  ListenerContext* listener_ctx = reinterpret_cast<ListenerContext*>(arg);
 
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
   ucxx::utils::ucsErrorThrow(ucp_conn_request_query(conn_request, &attr));
@@ -205,7 +211,7 @@ std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
 
 void waitRequests(ProgressMode progressMode,
                   std::shared_ptr<ucxx::Worker> worker,
-                  std::vector<std::shared_ptr<ucxx::Request>>& requests)
+                  const std::vector<std::shared_ptr<ucxx::Request>>& requests)
 {
   auto progress = getProgressFunction(worker, progressMode);
   // Wait until all messages are completed
@@ -242,34 +248,35 @@ std::string parseBandwidth(size_t totalBytes, size_t countNs)
     return std::to_string(bw / (1024 * 1024 * 1024)) + std::string("GB/s");
 }
 
-BufferMap allocateTransferBuffers(size_t message_size)
+BufferMapPtr allocateTransferBuffers(size_t message_size)
 {
-  return BufferMap{{SEND, std::vector<char>(message_size, 0xaa)},
-                   {RECV, std::vector<char>(message_size)}};
+  return std::make_shared<BufferMap>(BufferMap{{SEND, std::vector<char>(message_size, 0xaa)},
+                                               {RECV, std::vector<char>(message_size)}});
 }
 
-auto doTransfer(app_context_t& app_context,
+auto doTransfer(const app_context_t& app_context,
                 std::shared_ptr<ucxx::Worker> worker,
                 std::shared_ptr<ucxx::Endpoint> endpoint,
-                TagMap& tagMap,
-                BufferMap& bufferMapReuse)
+                TagMapPtr tagMap,
+                BufferMapPtr bufferMapReuse)
 {
-  BufferMap localBufferMap;
+  BufferMapPtr localBufferMap;
   if (!app_context.reuse_alloc) localBufferMap = allocateTransferBuffers(app_context.message_size);
-  BufferMap& bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
+  BufferMapPtr bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
 
   auto start                                           = std::chrono::high_resolution_clock::now();
   std::vector<std::shared_ptr<ucxx::Request>> requests = {
-    endpoint->tagSend(bufferMap[SEND].data(), app_context.message_size, tagMap[SEND]),
-    endpoint->tagRecv(bufferMap[RECV].data(), app_context.message_size, tagMap[RECV])};
+    endpoint->tagSend((*bufferMap)[SEND].data(), app_context.message_size, (*tagMap)[SEND]),
+    endpoint->tagRecv((*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV])};
 
   // Wait for requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);
   auto stop = std::chrono::high_resolution_clock::now();
 
-  if (app_context.verify_results)
-    for (size_t j = 0; j < bufferMap[SEND].size(); ++j)
-      assert(bufferMap[RECV][j] == bufferMap[RECV][j]);
+  if (app_context.verify_results) {
+    for (size_t j = 0; j < (*bufferMap)[SEND].size(); ++j)
+      assert((*bufferMap)[RECV][j] == (*bufferMap)[RECV][j]);
+  }
 
   return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 }
@@ -284,10 +291,10 @@ int main(int argc, char** argv)
   auto worker  = context->createWorker();
 
   bool is_server = app_context.server_addr == NULL;
-  TagMap tagMap  = {
+  auto tagMap    = std::make_shared<TagMap>(TagMap{
     {SEND, is_server ? 0 : 1},
     {RECV, is_server ? 1 : 0},
-  };
+  });
 
   std::shared_ptr<ListenerContext> listener_ctx;
   std::shared_ptr<ucxx::Endpoint> endpoint;
@@ -321,23 +328,26 @@ int main(int argc, char** argv)
   std::vector<std::shared_ptr<ucxx::Request>> requests;
 
   // Allocate wireup buffers
-  BufferMap wireupBufferMap = {{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}};
+  auto wireupBufferMap = std::make_shared<BufferMap>(
+    BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
 
   // Schedule small wireup messages to let UCX identify capabilities between endpoints
-  requests.push_back(endpoint->tagSend(
-    wireupBufferMap[SEND].data(), wireupBufferMap[SEND].size() * sizeof(int), tagMap[SEND]));
-  requests.push_back(endpoint->tagRecv(
-    wireupBufferMap[RECV].data(), wireupBufferMap[RECV].size() * sizeof(int), tagMap[RECV]));
+  requests.push_back(endpoint->tagSend((*wireupBufferMap)[SEND].data(),
+                                       (*wireupBufferMap)[SEND].size() * sizeof(int),
+                                       (*tagMap)[SEND]));
+  requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
+                                       (*wireupBufferMap)[RECV].size() * sizeof(int),
+                                       (*tagMap)[RECV]));
 
   // Wait for wireup requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);
   requests.clear();
 
   // Verify wireup result
-  for (size_t i = 0; i < wireupBufferMap[SEND].size(); ++i)
-    assert(wireupBufferMap[RECV][i] == wireupBufferMap[SEND][i]);
+  for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
+    assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
 
-  BufferMap bufferMapReuse;
+  BufferMapPtr bufferMapReuse;
   if (app_context.reuse_alloc) bufferMapReuse = allocateTransferBuffers(app_context.message_size);
 
   // Warmup

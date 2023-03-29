@@ -2,14 +2,18 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <algorithm>
+#include <memory>
 #include <numeric>
+#include <tuple>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
 
-#include "utils.h"
+#include "include/utils.h"
 
 namespace {
 
@@ -53,10 +57,10 @@ class RequestTest
 
     _worker = _context->createWorker(_enableDelayedSubmission);
 
-    if (_progressMode == ProgressMode::Blocking)
+    if (_progressMode == ProgressMode::Blocking) {
       _worker->initBlockingProgressMode();
-    else if (_progressMode == ProgressMode::ThreadPolling ||
-             _progressMode == ProgressMode::ThreadBlocking) {
+    } else if (_progressMode == ProgressMode::ThreadPolling ||
+               _progressMode == ProgressMode::ThreadBlocking) {
       _worker->setProgressThreadStartCallback(::createCudaContextCallback, nullptr);
 
       if (_progressMode == ProgressMode::ThreadPolling) _worker->startProgressThread(true);
@@ -91,10 +95,9 @@ class RequestTest
         _sendBuffer[i] = std::make_unique<ucxx::HostBuffer>(_messageSize);
         if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<ucxx::HostBuffer>(_messageSize);
 
-        std::copy(_send[i].begin(), _send[i].end(), (int*)_sendBuffer[i]->data());
-      }
+        std::copy(_send[i].begin(), _send[i].end(), reinterpret_cast<int*>(_sendBuffer[i]->data()));
 #if UCXX_ENABLE_RMM
-      else if (_bufferType == ucxx::BufferType::RMM) {
+      } else if (_bufferType == ucxx::BufferType::RMM) {
         _sendBuffer[i] = std::make_unique<ucxx::RMMBuffer>(_messageSize);
         if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<ucxx::RMMBuffer>(_messageSize);
 
@@ -103,8 +106,8 @@ class RequestTest
                                      _messageSize,
                                      cudaMemcpyDefault,
                                      rmm::cuda_stream_default.value()));
-      }
 #endif
+      }
 
       _sendPtr[i] = _sendBuffer[i]->data();
       if (allocateRecvBuffer) _recvPtr[i] = _recvBuffer[i]->data();
@@ -115,17 +118,18 @@ class RequestTest
   {
     for (size_t i = 0; i < _numBuffers; ++i) {
       if (_bufferType == ucxx::BufferType::Host) {
-        std::copy((int*)_recvPtr[i], (int*)_recvPtr[i] + _messageLength, _recv[i].begin());
-      }
+        std::copy(reinterpret_cast<int*>(_recvPtr[i]),
+                  reinterpret_cast<int*>(_recvPtr[i]) + _messageLength,
+                  _recv[i].begin());
 #if UCXX_ENABLE_RMM
-      else if (_bufferType == ucxx::BufferType::RMM) {
+      } else if (_bufferType == ucxx::BufferType::RMM) {
         RMM_CUDA_TRY(cudaMemcpyAsync(_recv[i].data(),
                                      _recvPtr[i],
                                      _messageSize,
                                      cudaMemcpyDefault,
                                      rmm::cuda_stream_default.value()));
-      }
 #endif
+      }
     }
   }
 };

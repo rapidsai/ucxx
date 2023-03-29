@@ -4,6 +4,7 @@
  */
 #include <memory>
 #include <mutex>
+#include <utility>
 
 #include <ucxx/log.h>
 #include <ucxx/python/notifier.h>
@@ -67,7 +68,7 @@ RequestNotifierWaitState Notifier::waitRequestNotifierWithoutTimeout()
   auto state = _notifierThreadFutureStatusReady ? RequestNotifierWaitState::Ready
                                                 : RequestNotifierWaitState::Shutdown;
 
-  ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d", (int)state);
+  ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d", static_cast<int>(state));
   _notifierThreadFutureStatusReady = false;
 
   return state;
@@ -88,7 +89,7 @@ RequestNotifierWaitState Notifier::waitRequestNotifierWithTimeout(uint64_t perio
                                                               : RequestNotifierWaitState::Shutdown)
                           : RequestNotifierWaitState::Timeout);
 
-  ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d", (int)state);
+  ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d", static_cast<int>(state));
   if (state == RequestNotifierWaitState::Ready) _notifierThreadFutureStatusReady = false;
 
   return state;

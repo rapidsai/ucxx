@@ -2,6 +2,9 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <memory>
+#include <string>
+
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
@@ -103,14 +106,14 @@ void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 
 void RequestStream::streamSendCallback(void* request, ucs_status_t status, void* arg)
 {
-  Request* req = (Request*)arg;
+  Request* req = reinterpret_cast<Request*>(arg);
   ucxx_trace_req_f(req->getOwnerString().c_str(), request, "streamSend", "streamSendCallback");
   return req->callback(request, status);
 }
 
 void RequestStream::streamRecvCallback(void* request, ucs_status_t status, size_t length, void* arg)
 {
-  RequestStream* req = (RequestStream*)arg;
+  RequestStream* req = reinterpret_cast<RequestStream*>(arg);
   ucxx_trace_req_f(req->getOwnerString().c_str(), request, "streamRecv", "streamRecvCallback");
   return req->callback(request, status, length);
 }

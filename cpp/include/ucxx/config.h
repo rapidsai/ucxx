@@ -54,7 +54,7 @@ class Config {
    * @param[in] userOptions user-defined options overriding defaults and environment
    *                        variable modifiers.
    */
-  Config(ConfigMap userOptions);
+  explicit Config(ConfigMap userOptions);
 
   ~Config();
 

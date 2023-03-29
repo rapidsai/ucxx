@@ -2,7 +2,11 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <memory>
 #include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -119,7 +123,7 @@ void Endpoint::close()
 
   // Close the endpoint
   unsigned closeMode = UCP_EP_CLOSE_MODE_FORCE;
-  if (_endpointErrorHandling and _callbackData->status != UCS_OK) {
+  if (_endpointErrorHandling && _callbackData->status != UCS_OK) {
     // We force close endpoint if endpoint error handling is enabled and
     // the endpoint status is not UCS_OK
     closeMode = UCP_EP_CLOSE_MODE_FORCE;
@@ -239,9 +243,9 @@ std::shared_ptr<Request> Endpoint::tagRecv(
     endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
-std::shared_ptr<RequestTagMulti> Endpoint::tagMultiSend(std::vector<void*>& buffer,
-                                                        std::vector<size_t>& size,
-                                                        std::vector<int>& isCUDA,
+std::shared_ptr<RequestTagMulti> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
+                                                        const std::vector<size_t>& size,
+                                                        const std::vector<int>& isCUDA,
                                                         const ucp_tag_t tag,
                                                         const bool enablePythonFuture)
 {
@@ -268,7 +272,7 @@ std::shared_ptr<Worker> Endpoint::getWorker(std::shared_ptr<Component> workerOrL
 
 void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
-  ErrorCallbackData* data = (ErrorCallbackData*)arg;
+  ErrorCallbackData* data = reinterpret_cast<ErrorCallbackData*>(arg);
   data->status            = status;
   data->worker->scheduleRequestCancel(data->inflightRequests);
   if (data->closeCallback) {

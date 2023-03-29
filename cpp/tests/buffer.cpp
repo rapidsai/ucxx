@@ -4,6 +4,7 @@
  */
 #include <algorithm>
 #include <numeric>
+#include <utility>
 
 #include <gtest/gtest.h>
 

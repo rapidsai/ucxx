@@ -6,6 +6,8 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
+#include <string>
 
 #include <ucp/api/ucp.h>
 

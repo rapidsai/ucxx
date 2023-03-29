@@ -14,9 +14,9 @@ class Error : public std::exception {
   std::string _msg{};
 
  public:
-  Error(const std::string& msg) : _msg{msg} {}
+  explicit Error(const std::string& msg) : _msg{msg} {}
 
-  virtual const char* what() const noexcept override { return this->_msg.c_str(); }
+  const char* what() const noexcept override { return this->_msg.c_str(); }
 };
 
 /**
@@ -24,7 +24,7 @@ class Error : public std::exception {
  */
 class NoMessageError : public Error {
  public:
-  NoMessageError(const std::string& msg) : Error(msg) {}
+  explicit NoMessageError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -32,7 +32,7 @@ class NoMessageError : public Error {
  */
 class NoResourceError : public Error {
  public:
-  NoResourceError(const std::string& msg) : Error(msg) {}
+  explicit NoResourceError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -40,7 +40,7 @@ class NoResourceError : public Error {
  */
 class IOError : public Error {
  public:
-  IOError(const std::string& msg) : Error(msg) {}
+  explicit IOError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -48,7 +48,7 @@ class IOError : public Error {
  */
 class NoMemoryError : public Error {
  public:
-  NoMemoryError(const std::string& msg) : Error(msg) {}
+  explicit NoMemoryError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -56,7 +56,7 @@ class NoMemoryError : public Error {
  */
 class InvalidParamError : public Error {
  public:
-  InvalidParamError(const std::string& msg) : Error(msg) {}
+  explicit InvalidParamError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -64,7 +64,7 @@ class InvalidParamError : public Error {
  */
 class UnreachableError : public Error {
  public:
-  UnreachableError(const std::string& msg) : Error(msg) {}
+  explicit UnreachableError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -72,7 +72,7 @@ class UnreachableError : public Error {
  */
 class InvalidAddrError : public Error {
  public:
-  InvalidAddrError(const std::string& msg) : Error(msg) {}
+  explicit InvalidAddrError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -80,7 +80,7 @@ class InvalidAddrError : public Error {
  */
 class NotImplementedError : public Error {
  public:
-  NotImplementedError(const std::string& msg) : Error(msg) {}
+  explicit NotImplementedError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -88,7 +88,7 @@ class NotImplementedError : public Error {
  */
 class MessageTruncatedError : public Error {
  public:
-  MessageTruncatedError(const std::string& msg) : Error(msg) {}
+  explicit MessageTruncatedError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -96,7 +96,7 @@ class MessageTruncatedError : public Error {
  */
 class NoProgressError : public Error {
  public:
-  NoProgressError(const std::string& msg) : Error(msg) {}
+  explicit NoProgressError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -104,7 +104,7 @@ class NoProgressError : public Error {
  */
 class BufferTooSmallError : public Error {
  public:
-  BufferTooSmallError(const std::string& msg) : Error(msg) {}
+  explicit BufferTooSmallError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -112,7 +112,7 @@ class BufferTooSmallError : public Error {
  */
 class NoElemError : public Error {
  public:
-  NoElemError(const std::string& msg) : Error(msg) {}
+  explicit NoElemError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -120,7 +120,7 @@ class NoElemError : public Error {
  */
 class SomeConnectsFailedError : public Error {
  public:
-  SomeConnectsFailedError(const std::string& msg) : Error(msg) {}
+  explicit SomeConnectsFailedError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -128,7 +128,7 @@ class SomeConnectsFailedError : public Error {
  */
 class NoDeviceError : public Error {
  public:
-  NoDeviceError(const std::string& msg) : Error(msg) {}
+  explicit NoDeviceError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -136,7 +136,7 @@ class NoDeviceError : public Error {
  */
 class BusyError : public Error {
  public:
-  BusyError(const std::string& msg) : Error(msg) {}
+  explicit BusyError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -144,7 +144,7 @@ class BusyError : public Error {
  */
 class CanceledError : public Error {
  public:
-  CanceledError(const std::string& msg) : Error(msg) {}
+  explicit CanceledError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -152,7 +152,7 @@ class CanceledError : public Error {
  */
 class ShmemSegmentError : public Error {
  public:
-  ShmemSegmentError(const std::string& msg) : Error(msg) {}
+  explicit ShmemSegmentError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -160,7 +160,7 @@ class ShmemSegmentError : public Error {
  */
 class AlreadyExistsError : public Error {
  public:
-  AlreadyExistsError(const std::string& msg) : Error(msg) {}
+  explicit AlreadyExistsError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -168,7 +168,7 @@ class AlreadyExistsError : public Error {
  */
 class OutOfRangeError : public Error {
  public:
-  OutOfRangeError(const std::string& msg) : Error(msg) {}
+  explicit OutOfRangeError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -176,7 +176,7 @@ class OutOfRangeError : public Error {
  */
 class TimedOutError : public Error {
  public:
-  TimedOutError(const std::string& msg) : Error(msg) {}
+  explicit TimedOutError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -184,7 +184,7 @@ class TimedOutError : public Error {
  */
 class ExceedsLimitError : public Error {
  public:
-  ExceedsLimitError(const std::string& msg) : Error(msg) {}
+  explicit ExceedsLimitError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -192,7 +192,7 @@ class ExceedsLimitError : public Error {
  */
 class UnsupportedError : public Error {
  public:
-  UnsupportedError(const std::string& msg) : Error(msg) {}
+  explicit UnsupportedError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -200,7 +200,7 @@ class UnsupportedError : public Error {
  */
 class RejectedError : public Error {
  public:
-  RejectedError(const std::string& msg) : Error(msg) {}
+  explicit RejectedError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -208,7 +208,7 @@ class RejectedError : public Error {
  */
 class NotConnectedError : public Error {
  public:
-  NotConnectedError(const std::string& msg) : Error(msg) {}
+  explicit NotConnectedError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -216,7 +216,7 @@ class NotConnectedError : public Error {
  */
 class ConnectionResetError : public Error {
  public:
-  ConnectionResetError(const std::string& msg) : Error(msg) {}
+  explicit ConnectionResetError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -224,7 +224,7 @@ class ConnectionResetError : public Error {
  */
 class FirstLinkFailureError : public Error {
  public:
-  FirstLinkFailureError(const std::string& msg) : Error(msg) {}
+  explicit FirstLinkFailureError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -232,7 +232,7 @@ class FirstLinkFailureError : public Error {
  */
 class LastLinkFailureError : public Error {
  public:
-  LastLinkFailureError(const std::string& msg) : Error(msg) {}
+  explicit LastLinkFailureError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -240,7 +240,7 @@ class LastLinkFailureError : public Error {
  */
 class FirstEndpointFailureError : public Error {
  public:
-  FirstEndpointFailureError(const std::string& msg) : Error(msg) {}
+  explicit FirstEndpointFailureError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -248,7 +248,7 @@ class FirstEndpointFailureError : public Error {
  */
 class EndpointTimeoutError : public Error {
  public:
-  EndpointTimeoutError(const std::string& msg) : Error(msg) {}
+  explicit EndpointTimeoutError(const std::string& msg) : Error(msg) {}
 };
 
 /**
@@ -256,7 +256,7 @@ class EndpointTimeoutError : public Error {
  */
 class LastEndpointFailureError : public Error {
  public:
-  LastEndpointFailureError(const std::string& msg) : Error(msg) {}
+  explicit LastEndpointFailureError(const std::string& msg) : Error(msg) {}
 };
 
 }  // namespace ucxx

@@ -5,6 +5,7 @@
 #include <chrono>
 #include <memory>
 #include <sstream>
+#include <string>
 
 #include <ucp/api/ucp.h>
 

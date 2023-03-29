@@ -21,9 +21,10 @@ extern ucs_log_component_config_t ucxx_log_component_config;
 #endif
 
 #define ucxx_log_component_is_enabled(_level, _comp_log_config) \
-  ucs_unlikely(((_level) <= UCXX_MAX_LOG_LEVEL) &&              \
-               ((_level) <= (ucxx::ucxx_log_level_t)(           \
-                              ((ucs_log_component_config_t*)(_comp_log_config))->log_level)))
+  ucs_unlikely(                                                 \
+    ((_level) <= UCXX_MAX_LOG_LEVEL) &&                         \
+    ((_level) <= (ucxx::ucxx_log_level_t)(                      \
+                   reinterpret_cast<ucs_log_component_config_t*>(_comp_log_config)->log_level)))
 
 #define ucxx_log_is_enabled(_level) \
   ucxx_log_component_is_enabled(_level, &ucxx::ucxx_log_component_config)
@@ -75,7 +76,7 @@ const std::unordered_map<std::string, ucxx_log_level_t> logLevelNames = {
   {"TRACE_POLL", UCXX_LOG_LEVEL_TRACE_POLL},
   {"PRINT", UCXX_LOG_LEVEL_PRINT}};
 
-const std::string logLevelNameDefault{"WARN"};
+const char logLevelNameDefault[]      = "WARN";
 const ucs_log_level_t logLevelDefault = (ucs_log_level_t)logLevelNames.at(logLevelNameDefault);
 
 // Functions

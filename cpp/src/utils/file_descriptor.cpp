@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <exception>
 #include <ios>
+#include <string>
 
 #include <ucxx/utils/file_descriptor.h>
 

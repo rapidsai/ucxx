@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <iterator>
+#include <memory>
+#include <utility>
 
 #include <ucxx/buffer.h>
 
