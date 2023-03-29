@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
- *
- * See file LICENSE for terms.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
@@ -44,8 +43,18 @@ class Future : public ::ucxx::Future {
   Future(Future&& o)               = delete;
   Future& operator=(Future&& o) = delete;
 
-  friend std::shared_ptr<::ucxx::Future> createPythonFuture(
-    std::shared_ptr<::ucxx::Notifier> notifier);
+  /**
+   * @brief Constructor of `shared_ptr<ucxx::python::Future>`.
+   *
+   * The constructor for a `shared_ptr<ucxx::python::Future>` object. The default
+   * constructor is made private to ensure all UCXX objects are shared pointers and correct
+   * lifetime management.
+   *
+   * @param[in] notifier  notifier object running on a separate thread.
+   *
+   * @returns The `shared_ptr<ucxx::python::Worker>` object
+   */
+  friend std::shared_ptr<::ucxx::Future> createFuture(std::shared_ptr<::ucxx::Notifier> notifier);
 
   /**
    * @brief Virtual destructor.

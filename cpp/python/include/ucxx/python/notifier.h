@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
- *
- * See file LICENSE for terms.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
@@ -79,7 +78,7 @@ class Notifier : public ::ucxx::Notifier {
    *
    * @returns The `shared_ptr<ucxx::python::Notifier>` object
    */
-  friend std::shared_ptr<::ucxx::Notifier> createPythonNotifier();
+  friend std::shared_ptr<::ucxx::Notifier> createNotifier();
 
   /**
    * @brief Virtual destructor.

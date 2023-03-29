@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
- *
- * See file LICENSE for terms.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
@@ -11,14 +10,9 @@
 
 #include <ucxx/typedefs.h>
 
-#if UCXX_ENABLE_PYTHON
-#include <ucxx/buffer.h>
-#endif
-
 namespace ucxx {
 
 class Address;
-class RequestTagMulti;
 class Context;
 class Endpoint;
 class Future;
@@ -27,6 +21,7 @@ class Notifier;
 class Request;
 class RequestStream;
 class RequestTag;
+class RequestTagMulti;
 class Worker;
 
 // Components
@@ -84,19 +79,5 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpo
 std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
                                                            const ucp_tag_t tag,
                                                            const bool enablePythonFuture);
-
-#if UCXX_ENABLE_PYTHON
-namespace python {
-
-std::shared_ptr<::ucxx::Future> createPythonFuture(std::shared_ptr<::ucxx::Notifier> notifier);
-
-std::shared_ptr<::ucxx::Notifier> createPythonNotifier();
-
-std::shared_ptr<::ucxx::Worker> createPythonWorker(std::shared_ptr<Context> context,
-                                                   const bool enableDelayedSubmission,
-                                                   const bool enablePythonFuture);
-
-}  // namespace python
-#endif
 
 }  // namespace ucxx

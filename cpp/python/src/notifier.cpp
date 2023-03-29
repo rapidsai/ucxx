@@ -1,7 +1,6 @@
 /**
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
- *
- * See file LICENSE for terms.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
 #include <mutex>
@@ -15,7 +14,7 @@ namespace ucxx {
 
 namespace python {
 
-std::shared_ptr<::ucxx::Notifier> createPythonNotifier()
+std::shared_ptr<::ucxx::Notifier> createNotifier()
 {
   return std::shared_ptr<::ucxx::Notifier>(new ::ucxx::python::Notifier());
 }

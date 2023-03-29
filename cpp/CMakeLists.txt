@@ -1,16 +1,7 @@
-# =============================================================================
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
-#
-# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
-# in compliance with the License. You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software distributed under the License
-# is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
-# or implied. See the License for the specific language governing permissions and limitations under
-# the License.
-# =============================================================================
+# =================================================================================
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD 3-Clause License
+# =================================================================================
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
@@ -25,7 +16,7 @@ rapids_cuda_init_architectures(UCX)
 
 project(
     UCXX
-  VERSION 22.12.00
+  VERSION 0.0.1
   LANGUAGES C CXX CUDA
 )
 if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA" AND CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11.5)
@@ -44,7 +35,8 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 # * build options ---------------------------------------------------------------------------------
 
 option(BUILD_TESTS "Configure CMake to build tests" ON)
-option(BUILD_BENCHMARKS "Configure CMake to build (google & nvbench) benchmarks" OFF)
+option(BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
+option(BUILD_EXAMPLES "Configure CMake to build examples" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
 option(UCXX_ENABLE_PYTHON "Enable support for Python notifier thread" OFF)
 option(UCXX_ENABLE_RMM "Enable support for CUDA multi-buffer transfer with RMM" OFF)
@@ -59,8 +51,9 @@ option(CUDA_WARNINGS_AS_ERRORS "Enable -Werror=all-warnings for all CUDA compila
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 
 message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
-message(VERBOSE "UCXX: Configure CMake to build (google & nvbench) benchmarks: ${BUILD_BENCHMARKS}")
-message(VERBOSE "UCXX: Build cuDF shared libraries: ${BUILD_SHARED_LIBS}")
+message(VERBOSE "UCXX: Configure CMake to build benchmarks: ${BUILD_BENCHMARKS}")
+message(VERBOSE "UCXX: Configure CMake to build examples: ${BUILD_EXAMPLES}")
+message(VERBOSE "UCXX: Build UCXX shared libraries: ${BUILD_SHARED_LIBS}")
 message(VERBOSE "UCXX: Enable support for Python notifier thread: ${UCXX_ENABLE_PYTHON}")
 message(VERBOSE "UCXX: Enable support for CUDA multi-buffer transfer with RMM: ${UCXX_ENABLE_RMM}")
 message(
@@ -77,6 +70,7 @@ message(VERBOSE "UCXX: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}"
 rapids_cmake_build_type("Release")
 set(UCXX_BUILD_TESTS ${BUILD_TESTS})
 set(UCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
+set(UCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
 
 set(UCXX_CXX_FLAGS "")
 set(UCXX_CUDA_FLAGS "")
@@ -108,7 +102,11 @@ rapids_find_package(
   BUILD_EXPORT_SET ucxx-exports
   INSTALL_EXPORT_SET ucxx-exports
 )
-find_package(ucx REQUIRED)
+rapids_find_package(
+  ucx REQUIRED
+  BUILD_EXPORT_SET ucxx-exports
+  INSTALL_EXPORT_SET ucxx-exports
+)
 include(cmake/Modules/ConfigureCUDA.cmake) # set other CUDA compilation flags
 
 # ##################################################################################################
@@ -127,11 +125,6 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_rmm.cmake)
 # find or install GoogleTest
 include(cmake/thirdparty/get_gtest.cmake)
-
-if(UCXX_ENABLE_PYTHON)
-  find_package(Python3 REQUIRED COMPONENTS Development)
-  set(UCXX_PYTHON_LIB Python3::Python)
-endif()
 
 # ##################################################################################################
 # * library targets -------------------------------------------------------------------------------
@@ -158,6 +151,7 @@ add_library(
   src/worker.cpp
   src/worker_progress_thread.cpp
   src/utils/file_descriptor.cpp
+  src/utils/python.cpp
   src/utils/sockaddr.cpp
   src/utils/ucx.cpp
 )
@@ -169,8 +163,6 @@ set_target_properties(
              # set target compile options
              CXX_STANDARD 17
              CXX_STANDARD_REQUIRED ON
-             # For std:: support of __int128_t. Can be removed once using cuda::std
-             # CXX_EXTENSIONS ON
              CUDA_STANDARD 17
              CUDA_STANDARD_REQUIRED ON
              POSITION_INDEPENDENT_CODE ON
@@ -231,79 +223,7 @@ add_library(ucxx::ucxx ALIAS ucxx)
 
 # Build Python if requested
 if(UCXX_ENABLE_PYTHON)
-  add_library(
-    ucxx_python
-    src/python/exception.cpp
-    src/python/future.cpp
-    src/python/notifier.cpp
-    src/python/python_future.cpp
-    src/python/worker.cpp
-    src/utils/python.cpp
-  )
-
-  set_target_properties(
-    ucxx_python
-    PROPERTIES BUILD_RPATH "\$ORIGIN"
-               INSTALL_RPATH "\$ORIGIN"
-               # set target compile options
-               CXX_STANDARD 17
-               CXX_STANDARD_REQUIRED ON
-               # For std:: support of __int128_t. Can be removed once using cuda::std
-               # CXX_EXTENSIONS ON
-               CUDA_STANDARD 17
-               CUDA_STANDARD_REQUIRED ON
-               POSITION_INDEPENDENT_CODE ON
-               INTERFACE_POSITION_INDEPENDENT_CODE ON
-  )
-
-  target_compile_options(
-    ucxx_python PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
-                        "$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_FLAGS}>"
-  )
-
-  # Specify include paths for the current target and dependents
-  target_include_directories(
-    ucxx_python
-    PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
-           "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
-    PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
-    INTERFACE "$<INSTALL_INTERFACE:include>"
-  )
-
-  target_compile_definitions(
-    ucxx_python PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
-                       "$<BUILD_INTERFACE:$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_DEFINITIONS}>>"
-  )
-
-  target_compile_definitions(ucxx_python PUBLIC UCXX_ENABLE_PYTHON)
-  # Define spdlog level
-  target_compile_definitions(ucxx_python PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
-
-  # Specify the target module library dependencies
-  target_link_libraries(
-    ucxx_python
-    PUBLIC rmm::rmm ucx::ucp ucxx::ucxx ${UCXX_PYTHON_LIB}
-  )
-
-  # Add Conda library, and include paths if specified
-  if(TARGET conda_env)
-    target_link_libraries(ucxx_python PRIVATE conda_env)
-  endif()
-
-  if(CUDA_STATIC_RUNTIME)
-    # Tell CMake what CUDA language runtime to use
-    set_target_properties(ucxx_python PROPERTIES CUDA_RUNTIME_LIBRARY Static)
-    # Make sure to export to consumers what runtime we used
-    target_link_libraries(ucxx_python PUBLIC CUDA::cudart_static)
-  else()
-    # Tell CMake what CUDA language runtime to use
-    set_target_properties(ucxx_python PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
-    # Make sure to export to consumers what runtime we used
-    target_link_libraries(ucxx_python PUBLIC CUDA::cudart)
-  endif()
-
-  add_library(ucxx::python ALIAS ucxx_python)
-  set(UCXX_PYTHON_TARGET_ALIAS ucxx_python)
+  add_subdirectory(python)
 else()
   set(UCXX_PYTHON_TARGET_TARGET "")
 endif()
@@ -332,18 +252,37 @@ if(UCXX_BUILD_BENCHMARKS)
 endif()
 
 # ##################################################################################################
+# * add examples ----------------------------------------------------------------------------------
+
+if(UCXX_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
+
+# ##################################################################################################
 # * install targets -------------------------------------------------------------------------------
 rapids_cmake_install_lib_dir(lib_dir)
 include(CPack)
 include(GNUInstallDirs)
 
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ucxx)
+set(_components_export_string)
 
 install(
-  TARGETS ucxx ${UCXX_PYTHON_TARGET_ALIAS}
+  TARGETS ucxx
   DESTINATION ${lib_dir}
   EXPORT ucxx-exports
 )
+
+if(TARGET ucxx_python)
+  install(
+    TARGETS ucxx_python
+    COMPONENT python
+    DESTINATION ${lib_dir}
+    EXCLUDE_FROM_ALL
+    EXPORT ucxx-python-exports
+  )
+  set(_components_export_string COMPONENTS python COMPONENTS_EXPORT_SET ucxx-python-exports)
+endif()
 
 install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx
                   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
@@ -369,9 +308,9 @@ targets:
 )
 
 rapids_export(
-  INSTALL ucxx ${UCXX_PYTHON_TARGET_ALIAS}
-  EXPORT_SET ucxx-exports
-  GLOBAL_TARGETS ucxx
+  INSTALL ucxx
+  EXPORT_SET ucxx-exports ${_components_export_string}
+  GLOBAL_TARGETS ucxx python
   NAMESPACE ucxx::
   DOCUMENTATION doc_string
 )
@@ -380,8 +319,8 @@ rapids_export(
 # * build export -------------------------------------------------------------------------------
 rapids_export(
   BUILD ucxx
-  EXPORT_SET ucxx-exports
-  GLOBAL_TARGETS ucxx
+  EXPORT_SET ucxx-exports ${_components_export_string}
+  GLOBAL_TARGETS ucxx python
   NAMESPACE ucxx::
   DOCUMENTATION doc_string
 )

@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
- *
- * See file LICENSE for terms.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <stdexcept>
 
 #include <Python.h>
 
@@ -19,7 +19,7 @@ namespace python {
 
 Future::Future(std::shared_ptr<::ucxx::Notifier> notifier) : ::ucxx::Future(notifier) {}
 
-std::shared_ptr<::ucxx::Future> createPythonFuture(std::shared_ptr<::ucxx::Notifier> notifier)
+std::shared_ptr<::ucxx::Future> createFuture(std::shared_ptr<::ucxx::Notifier> notifier)
 {
   return std::shared_ptr<::ucxx::Future>(new ::ucxx::python::Future(notifier));
 }

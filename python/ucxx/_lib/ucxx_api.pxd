@@ -1,5 +1,5 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
-# See file LICENSE for terms.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
 
 # distutils: language = c++
 # cython: language_level=3
@@ -134,6 +134,14 @@ cdef extern from "<ucxx/python/exception.h>" namespace "ucxx::python" nogil:
 
     cdef void create_exceptions()
     cdef void raise_py_error()
+
+
+cdef extern from "<ucxx/python/api.h>" namespace "ucxx::python" nogil:
+    shared_ptr[Worker] createPythonWorker "ucxx::python::createWorker"(
+        shared_ptr[Context] context,
+        bint enableDelayedSubmission,
+        bint enablePythonFuture
+    ) except +raise_py_error
 
 
 cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
@@ -279,14 +287,6 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
         void* getFuture() except +raise_py_error
-
-
-cdef extern from "<ucxx/python/worker.h>" namespace "ucxx::python" nogil:
-    shared_ptr[Worker] createPythonWorker(
-        shared_ptr[Context] context,
-        bint enableDelayedSubmission,
-        bint enablePythonFuture
-    ) except +raise_py_error
 
 
 cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:

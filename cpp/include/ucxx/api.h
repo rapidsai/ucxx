@@ -1,13 +1,8 @@
 /**
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
- *
- * See file LICENSE for terms.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
-
-#ifndef UCXX_ENABLE_PYTHON
-#define UCXX_ENABLE_PYTHON 0
-#endif
 
 #ifndef UCXX_ENABLE_RMM
 #define UCXX_ENABLE_RMM 0
