@@ -32,7 +32,7 @@ build:
 
 requirements:
   build:
-    - cmake {{ cmake }}
+    - cmake
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - ninja
@@ -40,7 +40,7 @@ requirements:
   host:
     - cudatoolkit ={{ cuda_version }}
     - ucx
-    - python {{ python }}
+    - python
 
 outputs:
   - name: libucxx
@@ -53,7 +53,7 @@ outputs:
         - {{ pin_subpackage("libucxx", max_pin="x.x") }}
     requirements:
       build:
-        - cmake {{ cmake }}
+        - cmake
       run:
         - cudatoolkit {{ cuda_spec }}
         - ucx
@@ -103,7 +103,7 @@ outputs:
       string: {{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
       build:
-        - cmake {{ cmake }}
+        - cmake
       run:
         - {{ pin_subpackage('libucxx', exact=True) }}
     about:
@@ -121,7 +121,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
       build:
-        - cmake {{ cmake }}
+        - cmake
       run:
         - {{ pin_subpackage('libucxx', exact=True) }}
         - cudatoolkit {{ cuda_spec }}
@@ -142,15 +142,15 @@ outputs:
       string: cuda{{ cuda_major }}_py{{ python }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
       build:
-        - cmake {{ cmake }}
+        - cmake
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         - ninja
         - sysroot_{{ target_platform }}
       host:
-        - python {{ python }}
+        - python
         - pip
-        - cmake {{ cmake }}
+        - cmake
         - scikit-build>=0.13.1
         - setuptools
         - cython >=0.29,<0.30
