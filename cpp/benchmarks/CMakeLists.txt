@@ -43,7 +43,7 @@ function(ConfigureBench CMAKE_BENCH_NAME)
 
   install(
     TARGETS ${CMAKE_BENCH_NAME}
-    COMPONENT testing
+    COMPONENT benchmarks
     DESTINATION bin/benchmarks/ucxx
     EXCLUDE_FROM_ALL
   )

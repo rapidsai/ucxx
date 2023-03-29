@@ -3,7 +3,11 @@
 # SPDX-License-Identifier: BSD 3-Clause License
 # ======================================================================================================
 
-find_package(Python3 REQUIRED COMPONENTS Development)
+rapids_find_package(
+  Python3 REQUIRED COMPONENTS Development
+  BUILD_EXPORT_SET ucxx-python-exports
+  INSTALL_EXPORT_SET ucxx-python-exports
+)
 set(UCXX_PYTHON_LIB Python3::Python)
 
 # ##################################################################################################
@@ -21,6 +25,7 @@ set_target_properties(
   ucxx_python
   PROPERTIES BUILD_RPATH "\$ORIGIN"
              INSTALL_RPATH "\$ORIGIN"
+             EXPORT_NAME python
              # set target compile options
              CXX_STANDARD 17
              CXX_STANDARD_REQUIRED ON
@@ -77,3 +82,16 @@ else()
   # Make sure to export to consumers what runtime we used
   target_link_libraries(ucxx_python PUBLIC CUDA::cudart)
 endif()
+
+include(GNUInstallDirs)
+add_library(ucxx::python ALIAS ucxx_python)
+install(DIRECTORY ${UCXX_SOURCE_DIR}/python/include/ucxx
+                  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+                  COMPONENT python
+                  EXCLUDE_FROM_ALL
+)
+
+include("${rapids-cmake-dir}/export/find_package_root.cmake")
+rapids_export_find_package_root(
+  BUILD Python3 [=[${CMAKE_CURRENT_LIST_DIR}]=] ucxx-python-exports
+)

@@ -144,12 +144,9 @@ if hasArg --incl_cache_stats; then
     BUILD_REPORT_INCL_CACHE_STATS=ON
 fi
 
-if buildAll || hasArg libucxx_python || hasArg ucxx; then
-  if ! hasArg libucxx; then
-    ARGS="libucxx $ARGS"
-  fi
-    UCXX_ENABLE_PYTHON=ON
-    UCXX_ENABLE_RMM=ON
+if buildAll || hasArg libucxx_python; then
+  UCXX_ENABLE_PYTHON=ON
+  UCXX_ENABLE_RMM=ON
 fi
 
 # If clean given, run it prior to any other steps
@@ -235,14 +232,17 @@ if buildAll || hasArg libucxx; then
     fi
 fi
 
+# Append `-DFIND_UCXX_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_UCXX_CPP"* ]]; then
+    EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_UCXX_CPP=ON"
+fi
+
 # Build and install the UCXX Python package
 if buildAll || hasArg ucxx; then
 
     cd ${REPODIR}/python/
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBUCXX_BUILD_DIR} -DCMAKE_CUDA_ARCHITECTURES=${UCXX_CMAKE_CUDA_ARCHITECTURES} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        PARALLEL_LEVEL=${PARALLEL_LEVEL} python setup.py build_ext --inplace -j${PARALLEL_LEVEL}
-        python setup.py install --single-version-externally-managed --record=record.txt
-    else
-        PARALLEL_LEVEL=${PARALLEL_LEVEL} python setup.py build_ext --inplace -j${PARALLEL_LEVEL}
+        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBUCXX_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     fi
 fi
