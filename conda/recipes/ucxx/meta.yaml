@@ -32,11 +32,11 @@ build:
 
 requirements:
   build:
-    - cmake {{ cmake_version }}
+    - cmake
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - ninja
-    - sysroot_{{ target_platform }} {{ sysroot_version }}
+    - sysroot_{{ target_platform }}
   host:
     - cudatoolkit ={{ cuda_version }}
     - ucx
@@ -53,7 +53,7 @@ outputs:
         - {{ pin_subpackage("libucxx", max_pin="x.x") }}
     requirements:
       build:
-        - cmake {{ cmake_version }}
+        - cmake
       run:
         - cudatoolkit {{ cuda_spec }}
         - ucx
@@ -103,7 +103,7 @@ outputs:
       string: {{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
       build:
-        - cmake {{ cmake_version }}
+        - cmake
       run:
         - {{ pin_subpackage('libucxx', exact=True) }}
     about:
@@ -121,12 +121,12 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
       build:
-        - cmake {{ cmake_version }}
+        - cmake
       run:
         - {{ pin_subpackage('libucxx', exact=True) }}
         - cudatoolkit {{ cuda_spec }}
-        - gtest {{ gtest_version }}
-        - gmock {{ gtest_version }}
+        - gtest
+        - gmock
     about:
       home: https://rapids.ai/
       license: BSD-3-Clause
@@ -139,18 +139,18 @@ outputs:
     script: build_and_install_ucxx.sh
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
-      string: cuda{{ cuda_major }}_py{{ python_version }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_py{{ python }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
     requirements:
       build:
-        - cmake {{ cmake_version }}
+        - cmake
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         - ninja
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
+        - sysroot_{{ target_platform }}
       host:
-        - python {{ python_version }}
+        - python
         - pip
-        - cmake {{ cmake_version }}
+        - cmake
         - scikit-build>=0.13.1
         - setuptools
         - cython >=0.29,<0.30
@@ -159,9 +159,10 @@ outputs:
         - ucx
         - rmm ={{ rapids_version }}
       run:
-        - python
+        - python * *_cpython
         - packaging
         - ucx
+        - {{ pin_subpackage('libucxx', exact=True) }}
         - {{ pin_compatible('rmm', max_pin='x.x') }}
         - {{ pin_compatible('numpy') }}
         - pynvml >=11.4.1
