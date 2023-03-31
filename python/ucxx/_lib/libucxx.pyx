@@ -810,7 +810,7 @@ cdef void _endpoint_close_callback(void *args) with gil:
             **cb_data['cb_kwargs']
         )
     except Exception as e:
-        logger.debug(f"{type(e)} when calling endpoint close callback: {e}")
+        logger.error(f"{type(e)} when calling endpoint close callback: {e}")
 
 
 cdef class UCXEndpoint():
@@ -1076,16 +1076,19 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
     """Callback function used by UCXListener"""
     cdef dict cb_data = <dict> args
 
-    cb_data['cb_func'](
-        (
-            cb_data['listener'].create_endpoint_from_conn_request(
-                int(<uintptr_t>conn_request), True
-            ) if 'listener' in cb_data else
-            int(<uintptr_t>conn_request)
-        ),
-        *cb_data['cb_args'],
-        **cb_data['cb_kwargs']
-    )
+    try:
+        cb_data['cb_func'](
+            (
+                cb_data['listener'].create_endpoint_from_conn_request(
+                    int(<uintptr_t>conn_request), True
+                ) if 'listener' in cb_data else
+                int(<uintptr_t>conn_request)
+            ),
+            *cb_data['cb_args'],
+            **cb_data['cb_kwargs']
+        )
+    except Exception as e:
+        logger.error(f"{type(e)} when calling listener callback: {e}")
 
 
 cdef class UCXListener():
