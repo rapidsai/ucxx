@@ -45,6 +45,8 @@ RUN_PY_ASYNC_TESTS=0
 RUN_PY_BENCH=0
 RUN_PY_ASYNC_BENCH=0
 
+BINARY_PATH=${CONDA_PREFIX}/bin
+
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
@@ -96,12 +98,12 @@ run_cpp_benchmark() {
 
   # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
   # `TIME_WAIT` timeout
-  CMD_LINE_SERVER="UCX_TCP_CM_REUSEADDR=y ./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE}"
-  CMD_LINE_CLIENT="./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1"
+  CMD_LINE_SERVER="UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE}"
+  CMD_LINE_CLIENT="${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1"
 
   echo -e "\e[1mRunning: \n  - ${CMD_LINE_SERVER}\n  - ${CMD_LINE_CLIENT}\e[0m"
-  UCX_TCP_CM_REUSEADDR=y ./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} &
-  ./cpp/build/benchmarks/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1
+  UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} &
+  ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1
 }
 
 run_cpp_example() {
@@ -109,10 +111,10 @@ run_cpp_example() {
 
   # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
   # `TIME_WAIT` timeout
-  CMD_LINE="UCX_TCP_CM_REUSEADDR=y ./cpp/build/examples/ucxx_example_basic -m ${PROGRESS_MODE}"
+  CMD_LINE="UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE}"
 
   echo -e "\e[1mRunning: \n  - ${CMD_LINE}\e[0m"
-  UCX_TCP_CM_REUSEADDR=y ./cpp/build/examples/ucxx_example_basic -m ${PROGRESS_MODE} &
+  UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE}
 }
 
 run_tests_async() {
@@ -156,7 +158,7 @@ run_py_benchmark() {
 }
 
 if [[ $RUN_CPP_TESTS != 0 ]]; then
-  ./cpp/build/gtests/UCXX_TEST
+  ${BINARY_PATH}/gtests/libucxx/UCXX_TEST
 fi
 if [[ $RUN_CPP_BENCH != 0 ]]; then
   # run_cpp_benchmark PROGRESS_MODE
