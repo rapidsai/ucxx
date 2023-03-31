@@ -120,6 +120,8 @@ fi
 if hasArg -n; then
     INSTALL_TARGET=""
     LIBUCXX_BUILD_DIR=${LIB_BUILD_DIR}
+else
+    LIBUCXX_BUILD_DIR=${CONDA_PREFIX}/lib
 fi
 if hasArg benchmarks; then
     BUILD_BENCHMARKS=ON
@@ -229,6 +231,18 @@ if buildAll || hasArg libucxx; then
 
     if [[ ${INSTALL_TARGET} != "" ]]; then
         cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
+        if [[ ${UCXX_ENABLE_PYTHON} == "ON" ]]; then
+          cmake --install . --component python
+        fi
+        if [[ ${BUILD_BENCHMARKS} == "ON" ]]; then
+          cmake --install . --component benchmarks
+        fi
+        if [[ ${BUILD_EXAMPLES} == "ON" ]]; then
+          cmake --install . --component examples
+        fi
+        if [[ ${BUILD_TESTS} == "ON" ]]; then
+          cmake --install . --component testing
+        fi
     fi
 fi
 
