@@ -1,0 +1,10 @@
+#cpp code owners
+cpp/               @rapidsai/ucxpy-python-codeowners
+
+#python code owners
+python/            @rapidsai/ucxpy-python-codeowners
+
+#build/ops code owners
+.github/           @rapidsai/ops-codeowners 
+ci/                @rapidsai/ops-codeowners
+conda/             @rapidsai/ops-codeowners
