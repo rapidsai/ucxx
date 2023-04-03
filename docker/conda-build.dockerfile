@@ -44,7 +44,7 @@ RUN source /opt/conda/etc/profile.d/conda.sh && \
     conda activate base && \
     conda config --prepend channels rapidsai-nightly && \
     conda config --set conda_build.root-dir /ucxx/.conda-bld && \
-    mamba install boa
+    mamba install boa conda-libmamba-solver
 
 WORKDIR /ucxx
 

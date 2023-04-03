@@ -42,7 +42,7 @@ function(ConfigureBench CMAKE_BENCH_NAME)
   install(
     TARGETS ${CMAKE_BENCH_NAME}
     COMPONENT examples
-    DESTINATION bin/examples/ucxx
+    DESTINATION bin/examples/libucxx
     EXCLUDE_FROM_ALL
   )
 endfunction()

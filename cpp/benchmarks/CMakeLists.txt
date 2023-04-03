@@ -44,7 +44,7 @@ function(ConfigureBench CMAKE_BENCH_NAME)
   install(
     TARGETS ${CMAKE_BENCH_NAME}
     COMPONENT benchmarks
-    DESTINATION bin/benchmarks/ucxx
+    DESTINATION bin/benchmarks/libucxx
     EXCLUDE_FROM_ALL
   )
 endfunction()
