@@ -29,15 +29,12 @@ set_target_properties(
              # set target compile options
              CXX_STANDARD 17
              CXX_STANDARD_REQUIRED ON
-             CUDA_STANDARD 17
-             CUDA_STANDARD_REQUIRED ON
              POSITION_INDEPENDENT_CODE ON
              INTERFACE_POSITION_INDEPENDENT_CODE ON
 )
 
 target_compile_options(
   ucxx_python PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
-                      "$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_FLAGS}>"
 )
 
 # Specify include paths for the current target and dependents
@@ -53,7 +50,6 @@ target_include_directories(
 
 target_compile_definitions(
   ucxx_python PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
-                     "$<BUILD_INTERFACE:$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_DEFINITIONS}>>"
 )
 
 target_compile_definitions(ucxx_python PUBLIC UCXX_ENABLE_PYTHON)
@@ -69,18 +65,6 @@ target_link_libraries(
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
   target_link_libraries(ucxx_python PRIVATE conda_env)
-endif()
-
-if(CUDA_STATIC_RUNTIME)
-  # Tell CMake what CUDA language runtime to use
-  set_target_properties(ucxx_python PROPERTIES CUDA_RUNTIME_LIBRARY Static)
-  # Make sure to export to consumers what runtime we used
-  target_link_libraries(ucxx_python PUBLIC CUDA::cudart_static)
-else()
-  # Tell CMake what CUDA language runtime to use
-  set_target_properties(ucxx_python PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
-  # Make sure to export to consumers what runtime we used
-  target_link_libraries(ucxx_python PUBLIC CUDA::cudart)
 endif()
 
 include(GNUInstallDirs)
