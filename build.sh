@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests examples -v -g -n -l --show_depr_warn -h --build_metrics --incl_cache_stats"
+VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests examples -v -g -n -l --show_depr_warn -h"
 HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [examples] [-v] [-g] [-n] [-h] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
@@ -32,8 +32,6 @@ HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [example
    -g                            - build for debug
    -n                            - no install step
    --show_depr_warn              - show cmake deprecation warnings
-   --build_metrics               - generate build metrics report for libucxx
-   --incl_cache_stats            - include cache statistics in build metrics report
    --cmake-args=\\\"<args>\\\"   - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h | --h[elp]                 - print this text
 
@@ -52,8 +50,6 @@ BUILD_BENCHMARKS=OFF
 BUILD_TESTS=OFF
 BUILD_EXAMPLES=OFF
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
-BUILD_REPORT_METRICS=OFF
-BUILD_REPORT_INCL_CACHE_STATS=OFF
 UCXX_ENABLE_PYTHON=OFF
 UCXX_ENABLE_RMM=OFF
 
@@ -135,16 +131,6 @@ fi
 if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
 fi
-if hasArg --ptds; then
-    BUILD_PER_THREAD_DEFAULT_STREAM=ON
-fi
-if hasArg --build_metrics; then
-    BUILD_REPORT_METRICS=ON
-fi
-
-if hasArg --incl_cache_stats; then
-    BUILD_REPORT_INCL_CACHE_STATS=ON
-fi
 
 if buildAll || hasArg libucxx_python; then
   UCXX_ENABLE_PYTHON=ON
@@ -175,12 +161,6 @@ fi
 
 
 if buildAll || hasArg libucxx; then
-    # get the current count before the compile starts
-    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v sccache)" ]]; then
-        # zero the sccache statistics
-        sccache --zero-stats
-    fi
-
     pwd
     cmake -S $REPODIR/cpp -B ${LIB_BUILD_DIR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
@@ -199,35 +179,6 @@ if buildAll || hasArg libucxx; then
     cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
     compile_end=$(date +%s)
     compile_total=$(( compile_end - compile_start ))
-
-    # Record build times
-    if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIB_BUILD_DIR}/.ninja_log" ]]; then
-        echo "Formatting build metrics"
-        python ${REPODIR}/cpp/scripts/sort_ninja_log.py ${LIB_BUILD_DIR}/.ninja_log --fmt xml > ${LIB_BUILD_DIR}/ninja_log.xml
-        MSG="<p>"
-        # get some sccache stats after the compile
-        if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v sccache)" ]]; then
-           COMPILE_REQUESTS=$(sccache -s | grep "Compile requests \+ [0-9]\+$" | awk '{ print $NF }')
-           CACHE_HITS=$(sccache -s | grep "Cache hits \+ [0-9]\+$" | awk '{ print $NF }')
-           HIT_RATE=$(echo - | awk "{printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100}")
-           MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
-        fi
-        MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
-        MSG="${MSG}<br/>parallel build time: $compile_total seconds"
-        if [[ -f "${LIB_BUILD_DIR}/libucxx.so" ]]; then
-           LIBUCXX_FS=$(ls -lh ${LIB_BUILD_DIR}/libucxx.so | awk '{print $5}')
-           LIBUCXX_COMMON_FS=$(ls -lh ${LIB_BUILD_DIR}/libucxx_common.so | awk '{print $5}')
-           MSG="${MSG}<br/>libucxx.so size: $LIBUCXX_FS"
-           MSG="${MSG}<br/>libucxx_common.so size: $LIBUCXX_COMMON_FS"
-        fi
-        if [[ -f "${LIB_BUILD_DIR}/libpython.so" ]]; then
-           LIBUCXX_PYTHON_FS=$(ls -lh ${LIB_BUILD_DIR}/libucxx_python.so | awk '{print $5}')
-           MSG="${MSG}<br/>libucxx_python.so size: $LIBUCXX_PYTHON_FS"
-        fi
-        echo "$MSG"
-        python ${REPODIR}/cpp/scripts/sort_ninja_log.py ${LIB_BUILD_DIR}/.ninja_log --fmt html --msg "$MSG" > ${LIB_BUILD_DIR}/ninja_log.html
-        cp ${LIB_BUILD_DIR}/.ninja_log ${LIB_BUILD_DIR}/ninja.log
-    fi
 
     if [[ ${INSTALL_TARGET} != "" ]]; then
         cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
