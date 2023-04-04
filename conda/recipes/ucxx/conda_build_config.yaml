@@ -10,6 +10,9 @@ sysroot_linux_64:
 cmake:
   - ">=3.23.1,!=3.25.0"
 
+rmm_version:
+  - "23.04.*"
+
 python:
   - 3.8
   - 3.10
