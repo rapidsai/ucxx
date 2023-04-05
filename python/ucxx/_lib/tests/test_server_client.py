@@ -6,7 +6,6 @@ import os
 from queue import Empty as QueueIsEmpty
 
 import pytest
-
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
 from ucxx.testing import terminate_process, wait_requests

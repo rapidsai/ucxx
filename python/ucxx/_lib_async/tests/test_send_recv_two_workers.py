@@ -8,10 +8,10 @@ import random
 
 import numpy as np
 import pytest
+from ucxx._lib_async.utils import get_event_loop
 from utils import am_recv, am_send, get_cuda_devices, get_num_gpus, recv, send
 
 import ucxx as ucxx
-from ucxx._lib_async.utils import get_event_loop
 
 cupy = pytest.importorskip("cupy")
 rmm = pytest.importorskip("rmm")

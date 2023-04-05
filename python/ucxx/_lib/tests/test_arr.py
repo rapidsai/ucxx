@@ -8,7 +8,6 @@ import mmap
 import operator
 
 import pytest
-
 from ucxx._lib.arr import Array
 
 builtin_buffers = [

@@ -7,7 +7,6 @@ from itertools import chain
 
 import numpy as np
 import pytest
-
 from ucxx.benchmarks.utils import _run_cluster_server, _run_cluster_workers
 
 

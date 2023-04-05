@@ -4,7 +4,6 @@
 import os
 
 import pytest
-
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
 from ucxx._lib.libucxx import UCXInvalidParamError

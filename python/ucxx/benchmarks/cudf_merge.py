@@ -18,8 +18,6 @@ from time import monotonic as clock
 
 import cupy
 import numpy as np
-
-import ucxx
 from ucxx.benchmarks.asyncssh import run_ssh_cluster
 from ucxx.benchmarks.utils import (
     _run_cluster_server,
@@ -34,6 +32,8 @@ from ucxx.utils import (
     print_multi,
     print_separator,
 )
+
+import ucxx
 
 # Must be set _before_ importing RAPIDS libraries (cuDF, RMM)
 os.environ["RAPIDS_NO_INITIALIZE"] = "True"

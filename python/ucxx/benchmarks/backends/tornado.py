@@ -8,7 +8,6 @@ import numpy as np
 from tornado.iostream import StreamClosedError
 from tornado.tcpclient import TCPClient
 from tornado.tcpserver import TCPServer
-
 from ucxx.benchmarks.backends.base import BaseClient, BaseServer
 
 

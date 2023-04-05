@@ -6,7 +6,6 @@ import re
 from multiprocessing.queues import Empty
 
 import pytest
-
 from ucxx.testing import terminate_process
 
 

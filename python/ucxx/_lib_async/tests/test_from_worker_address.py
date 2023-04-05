@@ -8,9 +8,9 @@ import struct
 
 import numpy as np
 import pytest
+from ucxx._lib_async.utils import get_event_loop, hash64bits
 
 import ucxx
-from ucxx._lib_async.utils import get_event_loop, hash64bits
 
 mp = mp.get_context("spawn")
 
