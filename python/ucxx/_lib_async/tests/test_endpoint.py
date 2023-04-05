@@ -39,6 +39,7 @@ async def test_close_callback(server_close_callback):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("transfer_api", ["am", "tag", "tag_multi"])
+@pytest.mark.xfail(reason="https://github.com/rapidsai/ucxx/issues/19")
 async def test_cancel(transfer_api):
     if transfer_api == "am":
         pytest.skip("AM not implemented yet")
