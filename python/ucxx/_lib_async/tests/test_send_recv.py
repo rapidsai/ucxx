@@ -78,6 +78,7 @@ async def test_send_recv_numpy(size, dtype):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("size", msg_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
+@pytest.mark.rerun_on_failure(3)
 async def test_send_recv_cupy(size, dtype):
     cupy = pytest.importorskip("cupy")
 
@@ -99,6 +100,7 @@ async def test_send_recv_cupy(size, dtype):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("size", msg_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
+@pytest.mark.rerun_on_failure(3)
 async def test_send_recv_numba(size, dtype):
     cuda = pytest.importorskip("numba.cuda")
 

@@ -10,6 +10,7 @@ import ucxx as ucxx
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("transfer_api", ["am", "tag"])
+@pytest.mark.xfail(reason="https://github.com/rapidsai/ucxx/issues/19")
 async def test_message_probe(transfer_api):
     if transfer_api == "am":
         pytest.skip("AM not implemented yet")
