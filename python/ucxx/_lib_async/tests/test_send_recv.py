@@ -34,6 +34,7 @@ def make_echo_server(create_empty_data):
         msg = create_empty_data(msg_size[0])
         await ep.recv(msg)
         await ep.send(msg)
+        await ep.close()
 
     return echo_server
 

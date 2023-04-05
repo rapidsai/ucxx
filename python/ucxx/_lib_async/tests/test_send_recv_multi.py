@@ -31,6 +31,7 @@ def make_echo_server():
         """
         msg = await ep.recv_multi()
         await ep.send_multi(msg)
+        await ep.close()
 
     return echo_server
 
