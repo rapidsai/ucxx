@@ -1,10 +1,21 @@
 #cpp code owners
-cpp/               @rapidsai/ucxpy-python-codeowners
+cpp/                              @rapidsai/ucxx-cpp-codeowners
 
 #python code owners
-python/            @rapidsai/ucxpy-python-codeowners
+python/                           @rapidsai/ucxx-python-codeowners
+
+#cmake code owners
+cpp/CMakeLists.txt                @rapidsai/ucxx-cmake-codeowners
+cpp/python/CMakeLists.txt         @rapidsai/ucxx-cmake-codeowners
+cpp/examples/CMakeLists.txt       @rapidsai/ucxx-cmake-codeowners
+cpp/benchmarks/CMakeLists.txt     @rapidsai/ucxx-cmake-codeowners
+cpp/tests/CMakeLists.txt          @rapidsai/ucxx-cmake-codeowners
+python/CMakeLists.txt             @rapidsai/ucxx-cmake-codeowners
+python/ucxx/_lib/CMakeLists.txt   @rapidsai/ucxx-cmake-codeowners
+fetch_rapids.cmake                @rapidsai/ucxx-cmake-codeowners
+**/cmake/                         @rapidsai/ucxx-cmake-codeowners
 
 #build/ops code owners
-.github/           @rapidsai/ops-codeowners 
-ci/                @rapidsai/ops-codeowners
-conda/             @rapidsai/ops-codeowners
+.github/                          @rapidsai/ops-codeowners
+ci/                               @rapidsai/ops-codeowners
+conda/                            @rapidsai/ops-codeowners
