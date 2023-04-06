@@ -1080,7 +1080,7 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
         cb_data['cb_func'](
             (
                 cb_data['listener'].create_endpoint_from_conn_request(
-                    int(<uintptr_t>conn_request), True
+                    int(<uintptr_t>conn_request), cb_data['endpoint_error_handling']
                 ) if 'listener' in cb_data else
                 int(<uintptr_t>conn_request)
             ),
@@ -1112,6 +1112,7 @@ cdef class UCXListener():
             cls,
             UCXWorker worker,
             uint16_t port,
+            bint endpoint_error_handling,
             cb_func,
             tuple cb_args=None,
             dict cb_kwargs=None,
@@ -1130,6 +1131,7 @@ cdef class UCXListener():
             "cb_func": cb_func,
             "cb_args": cb_args,
             "cb_kwargs": cb_kwargs,
+            "endpoint_error_handling": endpoint_error_handling,
         }
 
         with nogil:
