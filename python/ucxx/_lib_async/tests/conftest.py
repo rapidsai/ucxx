@@ -42,11 +42,14 @@ def handle_exception(loop, context):
 @pytest.fixture()
 def event_loop(scope="session"):
     loop = asyncio.new_event_loop()
-    loop.set_exception_handler(handle_exception)
-    ucxx.reset()
-    yield loop
-    ucxx.reset()
-    loop.run_until_complete(asyncio.sleep(0))
+    try:
+        loop.set_exception_handler(handle_exception)
+        ucxx.reset()
+        yield loop
+        ucxx.reset()
+        loop.run_until_complete(asyncio.sleep(0))
+    finally:
+        loop.close()
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
