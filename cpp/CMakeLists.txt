@@ -8,23 +8,15 @@ cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
-include(rapids-cuda)
 include(rapids-export)
 include(rapids-find)
 
-rapids_cuda_init_architectures(UCX)
 
 project(
     UCXX
   VERSION 0.0.1
-  LANGUAGES C CXX CUDA
+  LANGUAGES C CXX
 )
-if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA" AND CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11.5)
-  message(
-    FATAL_ERROR
-      "libucxx requires CUDA Toolkit 11.5+ to compile (nvcc ${CMAKE_CUDA_COMPILER_VERSION} provided)"
-  )
-endif()
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -41,14 +33,6 @@ option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
 option(UCXX_ENABLE_PYTHON "Enable support for Python notifier thread" OFF)
 option(UCXX_ENABLE_RMM "Enable support for CUDA multi-buffer transfer with RMM" OFF)
 option(DISABLE_DEPRECATION_WARNINGS "Disable warnings generated from deprecated declarations." OFF)
-# Option to enable line info in CUDA device compilation to allow introspection when profiling /
-# memchecking
-option(CUDA_ENABLE_LINEINFO
-       "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler" OFF
-)
-option(CUDA_WARNINGS_AS_ERRORS "Enable -Werror=all-warnings for all CUDA compilation" ON)
-# cudart can be statically linked or dynamically linked. The python ecosystem wants dynamic linking
-option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 
 message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
 message(VERBOSE "UCXX: Configure CMake to build benchmarks: ${BUILD_BENCHMARKS}")
@@ -60,11 +44,6 @@ message(
   VERBOSE
   "UCXX: Disable warnings generated from deprecated declarations: ${DISABLE_DEPRECATION_WARNINGS}"
 )
-message(
-  VERBOSE
-  "UCXX: Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler: ${CUDA_ENABLE_LINEINFO}"
-)
-message(VERBOSE "UCXX: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 
 # Set a default build type if none was specified
 rapids_cmake_build_type("Release")
@@ -73,9 +52,7 @@ set(UCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
 set(UCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
 
 set(UCXX_CXX_FLAGS "")
-set(UCXX_CUDA_FLAGS "")
 set(UCXX_CXX_DEFINITIONS "")
-set(UCXX_CUDA_DEFINITIONS "")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL
@@ -98,16 +75,10 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
 rapids_find_package(
-  CUDAToolkit REQUIRED
-  BUILD_EXPORT_SET ucxx-exports
-  INSTALL_EXPORT_SET ucxx-exports
-)
-rapids_find_package(
   ucx REQUIRED
   BUILD_EXPORT_SET ucxx-exports
   INSTALL_EXPORT_SET ucxx-exports
 )
-include(cmake/Modules/ConfigureCUDA.cmake) # set other CUDA compilation flags
 
 # ##################################################################################################
 # * dependencies ----------------------------------------------------------------------------------
@@ -163,15 +134,12 @@ set_target_properties(
              # set target compile options
              CXX_STANDARD 17
              CXX_STANDARD_REQUIRED ON
-             CUDA_STANDARD 17
-             CUDA_STANDARD_REQUIRED ON
              POSITION_INDEPENDENT_CODE ON
              INTERFACE_POSITION_INDEPENDENT_CODE ON
 )
 
 target_compile_options(
   ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
-               "$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_FLAGS}>"
 )
 
 # Specify include paths for the current target and dependents
@@ -185,7 +153,6 @@ target_include_directories(
 
 target_compile_definitions(
   ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
-              "$<BUILD_INTERFACE:$<$<COMPILE_LANGUAGE:CUDA>:${UCXX_CUDA_DEFINITIONS}>>"
 )
 
 # Enable RMM if necessary
@@ -205,18 +172,6 @@ target_link_libraries(
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
   target_link_libraries(ucxx PRIVATE conda_env)
-endif()
-
-if(CUDA_STATIC_RUNTIME)
-  # Tell CMake what CUDA language runtime to use
-  set_target_properties(ucxx PROPERTIES CUDA_RUNTIME_LIBRARY Static)
-  # Make sure to export to consumers what runtime we used
-  target_link_libraries(ucxx PUBLIC CUDA::cudart_static)
-else()
-  # Tell CMake what CUDA language runtime to use
-  set_target_properties(ucxx PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
-  # Make sure to export to consumers what runtime we used
-  target_link_libraries(ucxx PUBLIC CUDA::cudart)
 endif()
 
 add_library(ucxx::ucxx ALIAS ucxx)
@@ -347,6 +302,6 @@ add_custom_target(
 # * make gdb helper scripts ------------------------------------------------------------------------
 
 # build pretty-printer load script
-if(Thrust_SOURCE_DIR AND rmm_SOURCE_DIR)
+if(rmm_SOURCE_DIR)
   configure_file(scripts/load-pretty-printers.in load-pretty-printers @ONLY)
 endif()

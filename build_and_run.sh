@@ -29,8 +29,6 @@ HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_
    -g                            - build for debug
    -n                            - no install step
    --show_depr_warn              - show cmake deprecation warnings
-   --build_metrics               - generate build metrics report for libucxx
-   --incl_cache_stats            - include cache statistics in build metrics report
    --cmake-args=\\\"<args>\\\"   - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h | --h[elp]                 - print this text
 

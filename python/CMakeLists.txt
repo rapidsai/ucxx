@@ -8,8 +8,6 @@ cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 set(ucxx_version 0.0.1)
 
 include(../fetch_rapids.cmake)
-include(rapids-cuda)
-rapids_cuda_init_architectures(ucxx-python)
 
 project(
   ucxx-python
@@ -18,13 +16,12 @@ project(
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
             # that is fixed we need to keep C.
-            C CXX CUDA
+            C CXX
 )
 
 option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulting to local files"
        OFF
 )
-option(UCXX_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_CPP)
@@ -40,13 +37,6 @@ if(NOT ucxx_FOUND)
   set(BUILD_BENCHMARKS OFF)
 
   set(_exclude_from_all "")
-  if(UCXX_BUILD_WHEELS)
-    # Statically link cudart if building wheels
-    set(CUDA_STATIC_RUNTIME ON)
-
-    # Don't install the UCXX C++ targets into wheels
-    set(_exclude_from_all EXCLUDE_FROM_ALL)
-  endif()
 
   add_subdirectory(../cpp ucxx-cpp ${_exclude_from_all})
 
