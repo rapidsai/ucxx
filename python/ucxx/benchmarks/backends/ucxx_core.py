@@ -145,7 +145,10 @@ class UCXPyCoreServer(BaseServer):
             ep = listener.create_endpoint_from_conn_request(conn_request, True)
 
         listener = ucx_api.UCXListener.create(
-            worker=worker, port=self.args.port or 0, cb_func=_listener_handler
+            worker=worker,
+            port=self.args.port or 0,
+            endpoint_error_handling=True,
+            cb_func=_listener_handler,
         )
         self.queue.put(listener.port)
 

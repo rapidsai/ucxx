@@ -27,7 +27,7 @@ def _server_cancel(queue):
         ep[0] = listener.create_endpoint_from_conn_request(conn_request, True)
 
     listener = ucx_api.UCXListener.create(
-        worker=worker, port=0, cb_func=_listener_handler
+        worker=worker, port=0, endpoint_error_handling=True, cb_func=_listener_handler
     )
     queue.put(listener.port)
 

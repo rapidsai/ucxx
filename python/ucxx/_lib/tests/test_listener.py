@@ -12,7 +12,7 @@ def test_listener_ip_port():
         pass
 
     listener = ucx_api.UCXListener.create(
-        worker=worker, port=0, cb_func=_listener_handler
+        worker=worker, port=0, endpoint_error_handling=True, cb_func=_listener_handler
     )
 
     assert isinstance(listener.ip, str) and listener.ip
