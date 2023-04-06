@@ -88,6 +88,7 @@ outputs:
         - test -f $PREFIX/include/ucxx/worker.h
         - test -f $PREFIX/include/ucxx/exception.h
         - test -f $PREFIX/include/ucxx/log.h
+        - test ! -d ${PREFIX}/include/rapids
     about:
       home: https://rapids.ai/
       license: BSD-3-Clause
