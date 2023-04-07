@@ -16,4 +16,4 @@ rapids-logger "Begin C++ and Python builds"
 rapids-mamba-retry mambabuild \
   conda/recipes/ucxx
 
-rapids-upload-conda-to-s3 python
+rapids-upload-conda-to-s3 cpp

@@ -58,10 +58,10 @@ run_example() {
 }
 
 rapids-logger "Downloading artifacts from previous jobs"
-PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
+CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-mamba-retry install \
-  --channel "${PYTHON_CHANNEL}" \
+  --channel "${CPP_CHANNEL}" \
   libucxx libucxx-examples libucxx-tests
 
 print_ucx_config
