@@ -69,11 +69,6 @@ print_ucx_config
 rapids-logger "Run tests with conda package"
 run_tests
 
-if [[ "${RUNNER_ARCH}" == "ARM64" ]]; then
-  rapids-logger "arm64 C++ benchmarks and examples disabled"
-  exit 0
-fi
-
 # run_cpp_benchmark PROGRESS_MODE
 run_benchmark   polling
 run_benchmark   blocking

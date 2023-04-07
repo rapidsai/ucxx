@@ -77,11 +77,6 @@ rapids-mamba-retry install \
 rapids-logger "Run tests with conda package"
 run_tests
 
-if [[ "${RUNNER_ARCH}" == "ARM64" ]]; then
-  rapids-logger "arm64 Python async tests and benchmarks disabled"
-  exit 0
-fi
-
 print_ucx_config
 
 rapids-logger "\e[1mRunning: pytest-vs python/ucxx/_lib/tests/\e[0m"
