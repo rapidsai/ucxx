@@ -22,6 +22,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      matrix_filter: map(select(.ARCH != "arm64"))
   conda-python-tests:
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@filter-matrices
@@ -30,3 +31,4 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      matrix_filter: map(select(.ARCH != "arm64"))
