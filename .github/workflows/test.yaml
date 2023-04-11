@@ -16,7 +16,7 @@ on:
 jobs:
   conda-cpp-tests:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-cpp.yaml@filter-matrices
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@filter-matrices
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
