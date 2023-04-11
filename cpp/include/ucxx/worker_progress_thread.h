@@ -13,6 +13,7 @@
 
 namespace ucxx {
 
+typedef std::function<void(void)> SignalWorkerFunction;
 typedef std::function<void(void*)> ProgressThreadStartCallback;
 typedef void* ProgressThreadStartCallbackArg;
 
@@ -21,6 +22,9 @@ class WorkerProgressThread {
   std::thread _thread{};     ///< Thread object
   bool _stop{false};         ///< Signal to stop on next iteration
   bool _pollingMode{false};  ///< Whether thread will use polling mode to progress
+  SignalWorkerFunction _signalWorkerFunction{
+    nullptr};  ///< Function signaling worker to wake the progress event (when _pollingMode is
+               ///< `false`)
   ProgressThreadStartCallback _startCallback{
     nullptr};  ///< Callback to execute at start of the progress thread
   ProgressThreadStartCallbackArg _startCallbackArg{
@@ -71,6 +75,8 @@ class WorkerProgressThread {
    * @param[in] pollingMode                 whether the thread should use polling mode to
    *                                        progress.
    * @param[in] progressFunction            user-defined progress function implementation.
+   * @param[in] signalWorkerFunction        user-defined function to wake the worker
+   *                                        progress event (when `pollingMode` is `false`).
    * @param[in] startCallback               user-defined callback function to be executed
    *                                        at the start of the progress thread.
    * @param[in] startCallbackArg            an argument to be passed to the start callback.
@@ -79,6 +85,7 @@ class WorkerProgressThread {
    */
   WorkerProgressThread(const bool pollingMode,
                        std::function<bool(void)> progressFunction,
+                       std::function<void(void)> signalWorkerFunction,
                        ProgressThreadStartCallback startCallback,
                        ProgressThreadStartCallbackArg startCallbackArg,
                        std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection);
