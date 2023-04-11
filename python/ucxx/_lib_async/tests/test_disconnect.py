@@ -97,6 +97,10 @@ def test_shutdown_unexpected_closed_peer(caplog, endpoint_error_handling):
     The main goal is to assert that the processes exit without errors
     despite a somewhat messy initial state.
     """
+    if endpoint_error_handling is False:
+        pytest.xfail(
+            "Temporarily xfailing, due to https://github.com/rapidsai/ucxx/issues/21"
+        )
     if endpoint_error_handling is False and any(
         [
             t.startswith(i)
