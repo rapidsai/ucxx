@@ -92,9 +92,9 @@ dependencies:
           - matrix:
             packages:
               - python>=3.8,<3.11
-  run:
+  run_python:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
           - numpy
           - ucx
@@ -105,15 +105,6 @@ dependencies:
           - *cmake_ver
           - *gtest
           - *gmock
-    specific:
-      - output_types: conda
-        matrices:
-          - matrix:
-              cuda: "11.8"
-            packages:
-              - cuda-sanitizer-api=11.8.86
-          - matrix:
-            packages:
   test_python:
     common:
       - output_types: [conda, requirements]
