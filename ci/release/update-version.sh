@@ -35,6 +35,8 @@ function sed_runner() {
 }
 
 sed_runner "s/cudf=.*/cudf=${NEXT_RAPIDS_VERSION}/g" dependencies.yaml
+sed_runner "s/rmm=.*/rmm=${NEXT_RAPIDS_VERSION}/g" dependencies.yaml
+sed_runner "s/rmm =.*/rmm =${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/conda_build_config.yaml
 
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-action-workflows/ s/@.*/@branch-${NEXT_RAPIDS_VERSION}/g" "${FILE}"
