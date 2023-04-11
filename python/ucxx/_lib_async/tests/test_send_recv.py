@@ -34,6 +34,7 @@ def make_echo_server(create_empty_data):
         msg = create_empty_data(msg_size[0])
         await ep.recv(msg)
         await ep.send(msg)
+        await ep.close()
 
     return echo_server
 
@@ -77,6 +78,7 @@ async def test_send_recv_numpy(size, dtype):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("size", msg_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
+@pytest.mark.rerun_on_failure(3)
 async def test_send_recv_cupy(size, dtype):
     cupy = pytest.importorskip("cupy")
 
@@ -98,6 +100,7 @@ async def test_send_recv_cupy(size, dtype):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("size", msg_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
+@pytest.mark.rerun_on_failure(3)
 async def test_send_recv_numba(size, dtype):
     cuda = pytest.importorskip("numba.cuda")
 

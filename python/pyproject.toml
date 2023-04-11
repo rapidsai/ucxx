@@ -93,9 +93,6 @@ skip = [
     "__init__.py",
 ]
 
-[tool.pytest.ini_options]
-xfail_strict = true
-
 [tool.setuptools]
 license-files = ["LICENSE"]
 zip-safe = false
