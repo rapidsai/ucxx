@@ -7,7 +7,7 @@ files:
       - checks
       - cudatoolkit
       - py_version
-      - run
+      - run_python
       - test_cpp
       - test_python
   test_cpp:
@@ -46,7 +46,7 @@ dependencies:
           - &gmock gmock==1.10.0.*
           - spdlog>=1.11.0,<1.12
           - cython>=0.29,<0.30
-          - numpy>=1.21
+          - &numpy numpy>=1.21
           - rmm==23.04.*
   checks:
     common:
@@ -96,7 +96,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy
+          - *numpy
           - ucx
   test_cpp:
     common:
