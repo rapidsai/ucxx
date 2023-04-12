@@ -2,6 +2,8 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdlib>
+
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
@@ -19,11 +21,13 @@ TEST(ContextTest, DefaultConfigsAndFlags)
 {
   static constexpr auto featureFlags = ucxx::Context::defaultFeatureFlags;
   auto context                       = ucxx::createContext({}, featureFlags);
-
-  auto configMapOut = context->getConfig();
+  auto configMapOut                  = context->getConfig();
   ASSERT_GT(configMapOut.size(), 1u);
   ASSERT_NE(configMapOut.find("TLS"), configMapOut.end());
-  ASSERT_EQ(configMapOut["TLS"], "all");
+  if (const char* envTls = std::getenv("UCX_TLS"))
+    ASSERT_EQ(configMapOut["TLS"], envTls);
+  else
+    ASSERT_EQ(configMapOut["TLS"], "all");
 
   ASSERT_EQ(context->getFeatureFlags(), featureFlags);
 }
