@@ -254,19 +254,18 @@ void Worker::startProgressThread(const bool pollingMode)
   if (!pollingMode) initBlockingProgressMode();
   auto progressFunction = pollingMode ? std::bind(&Worker::progress, this)
                                       : std::bind(&Worker::progressWorkerEvent, this);
+  auto signalWorkerFunction =
+    pollingMode ? std::function<void()>{[]() {}} : std::bind(&Worker::signal, this);
 
   _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
                                                            progressFunction,
+                                                           signalWorkerFunction,
                                                            _progressThreadStartCallback,
                                                            _progressThreadStartCallbackArg,
                                                            _delayedSubmissionCollection);
 }
 
-void Worker::stopProgressThreadNoWarn()
-{
-  if (_progressThread && !_progressThread->pollingMode()) signal();
-  _progressThread = nullptr;
-}
+void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
 
 void Worker::stopProgressThread()
 {

@@ -28,10 +28,14 @@ void WorkerProgressThread::progressUntilSync(
 WorkerProgressThread::WorkerProgressThread(
   const bool pollingMode,
   std::function<bool(void)> progressFunction,
+  std::function<void(void)> signalWorkerFunction,
   ProgressThreadStartCallback startCallback,
   ProgressThreadStartCallbackArg startCallbackArg,
   std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection)
-  : _pollingMode(pollingMode), _startCallback(startCallback), _startCallbackArg(startCallbackArg)
+  : _pollingMode(pollingMode),
+    _signalWorkerFunction(signalWorkerFunction),
+    _startCallback(startCallback),
+    _startCallbackArg(startCallbackArg)
 {
   _thread = std::thread(WorkerProgressThread::progressUntilSync,
                         progressFunction,
@@ -49,6 +53,7 @@ WorkerProgressThread::~WorkerProgressThread()
   }
 
   _stop = true;
+  _signalWorkerFunction();
   _thread.join();
 }
 
