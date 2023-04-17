@@ -44,7 +44,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
         // "cuda" or "cuda_copy", then there is no cuda support (just
         // disabling "cuda_ipc" is fine)
         auto next  = tls_value.find_first_of(',', current);
-        auto field = tls_value.substr(next, next - current);
+        auto field = tls_value.substr(current, next - current);
         current    = next + 1;
         if (field == "cuda" || field == "cuda_copy") {
           this->_cudaSupport = false;

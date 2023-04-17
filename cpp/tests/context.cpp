@@ -2,11 +2,19 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdlib>
+#include <string>
+
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
 
 namespace {
+
+static std::vector<std::string> TlsConfig{"^tcp", "^tcp,sm", "tcp", "tcp,sm", "all"};
+
+class ContextTestCustomConfig : public testing::TestWithParam<std::string> {
+};
 
 TEST(ContextTest, HandleIsValid)
 {
@@ -19,23 +27,29 @@ TEST(ContextTest, DefaultConfigsAndFlags)
 {
   static constexpr auto featureFlags = ucxx::Context::defaultFeatureFlags;
   auto context                       = ucxx::createContext({}, featureFlags);
-
-  auto configMapOut = context->getConfig();
+  auto configMapOut                  = context->getConfig();
   ASSERT_GT(configMapOut.size(), 1u);
   ASSERT_NE(configMapOut.find("TLS"), configMapOut.end());
-  ASSERT_EQ(configMapOut["TLS"], "all");
+  if (const char* envTls = std::getenv("UCX_TLS"))
+    ASSERT_EQ(configMapOut["TLS"], envTls);
+  else
+    ASSERT_EQ(configMapOut["TLS"], "all");
 
   ASSERT_EQ(context->getFeatureFlags(), featureFlags);
 }
 
-TEST(ContextTest, CustomConfig)
+TEST_P(ContextTestCustomConfig, TLS)
 {
-  auto context = ucxx::createContext({{"UCX_TLS", "tcp"}}, ucxx::Context::defaultFeatureFlags);
+  auto tls                           = GetParam();
+  static constexpr auto featureFlags = ucxx::Context::defaultFeatureFlags;
+  auto context                       = ucxx::createContext({{"TLS", tls}}, featureFlags);
 
   auto configMapOut = context->getConfig();
   ASSERT_GT(configMapOut.size(), 1u);
   ASSERT_NE(configMapOut.find("TLS"), configMapOut.end());
-  ASSERT_EQ(configMapOut["TLS"], "tcp");
+  ASSERT_EQ(configMapOut["TLS"], tls);
+
+  ASSERT_EQ(context->getFeatureFlags(), featureFlags);
 }
 
 TEST(ContextTest, CustomFlags)
@@ -63,5 +77,7 @@ TEST(ContextTest, CreateWorker)
   auto worker2 = context->createWorker();
   ASSERT_TRUE(worker2 != nullptr);
 }
+
+INSTANTIATE_TEST_SUITE_P(TLS, ContextTestCustomConfig, testing::ValuesIn(TlsConfig));
 
 }  // namespace
