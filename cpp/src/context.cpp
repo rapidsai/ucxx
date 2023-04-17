@@ -92,6 +92,8 @@ std::string Context::getInfo()
 
 uint64_t Context::getFeatureFlags() const { return _featureFlags; }
 
+bool Context::hasCudaSupport() const { return _cudaSupport; }
+
 std::shared_ptr<Worker> Context::createWorker(const bool enableDelayedSubmission)
 {
   auto context = std::dynamic_pointer_cast<Context>(shared_from_this());
