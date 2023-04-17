@@ -949,6 +949,13 @@ cdef class UCXEndpoint():
 
         if not self._context_feature_flags & Feature.STREAM.value:
             raise ValueError("UCXContext must be created with `Feature.STREAM`")
+        if arr.cuda and not self._cuda_support:
+            raise ValueError(
+                "UCX is not configured with CUDA support, please ensure that the "
+                "available UCX on your environment is built against CUDA and that "
+                "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                "the default `UCX_TLS=all`."
+            )
 
         with nogil:
             req = self._endpoint.get().streamSend(
@@ -966,6 +973,13 @@ cdef class UCXEndpoint():
 
         if not self._context_feature_flags & Feature.STREAM.value:
             raise ValueError("UCXContext must be created with `Feature.STREAM`")
+        if arr.cuda and not self._cuda_support:
+            raise ValueError(
+                "UCX is not configured with CUDA support, please ensure that the "
+                "available UCX on your environment is built against CUDA and that "
+                "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                "the default `UCX_TLS=all`."
+            )
 
         with nogil:
             req = self._endpoint.get().streamRecv(
@@ -983,6 +997,13 @@ cdef class UCXEndpoint():
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
+        if arr.cuda and not self._cuda_support:
+            raise ValueError(
+                "UCX is not configured with CUDA support, please ensure that the "
+                "available UCX on your environment is built against CUDA and that "
+                "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                "the default `UCX_TLS=all`."
+            )
 
         with nogil:
             req = self._endpoint.get().tagSend(
@@ -1001,6 +1022,13 @@ cdef class UCXEndpoint():
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
+        if arr.cuda and not self._cuda_support:
+            raise ValueError(
+                "UCX is not configured with CUDA support, please ensure that the "
+                "available UCX on your environment is built against CUDA and that "
+                "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                "the default `UCX_TLS=all`."
+            )
 
         with nogil:
             req = self._endpoint.get().tagRecv(
@@ -1022,6 +1050,13 @@ cdef class UCXEndpoint():
             if not isinstance(arr, Array):
                 raise ValueError(
                     "All elements of the `arrays` should be of `Array` type"
+                )
+            if arr.cuda and not self._cuda_support:
+                raise ValueError(
+                    "UCX is not configured with CUDA support, please ensure that the "
+                    "available UCX on your environment is built against CUDA and that "
+                    "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                    "the default `UCX_TLS=all`."
                 )
 
         for arr in arrays:
