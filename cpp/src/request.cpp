@@ -138,13 +138,6 @@ void Request::process()
                    status,
                    ucs_status_string(status));
 
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   _request,
-                   _operationName.c_str(),
-                   "callback %p",
-                   _callback.target<void (*)(void)>());
-  if (_callback) _callback(_callbackData);
-
   if (status != UCS_OK) {
     ucxx_error(
       "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
@@ -154,6 +147,13 @@ void Request::process()
   }
 
   setStatus(status);
+
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   _request,
+                   _operationName.c_str(),
+                   "callback %p",
+                   _callback.target<void (*)(void)>());
+  if (_callback) _callback(_callbackData);
 }
 
 void Request::setStatus(ucs_status_t status)
