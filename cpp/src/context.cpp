@@ -28,7 +28,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
   utils::ucsErrorThrow(ucp_init(&params, this->_config.getHandle(), &this->_handle));
   ucxx_trace("Context created: %p", this->_handle);
 
-  ucp_context_attr_t attr;
+  ucp_context_attr_t attr = {.field_mask = UCP_ATTR_FIELD_MEMORY_TYPES};
   ucp_context_query(_handle, &attr);
   bool _cudaSupport = (attr.memory_types & UCS_MEMORY_TYPE_CUDA) == UCS_MEMORY_TYPE_CUDA;
 
