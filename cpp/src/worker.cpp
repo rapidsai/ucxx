@@ -259,7 +259,7 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
   } else {
     initBlockingProgressMode();
     progressFunction = [this, epollTimeout]() { return this->progressWorkerEvent(epollTimeout); };
-    signalWorkerFunction = std::bind(&Worker::signal, this);
+    signalWorkerFunction = [this]() { return this->signal(); };
   }
 
   _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
