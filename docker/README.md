@@ -48,11 +48,11 @@ conda install -c .conda-bld/linux-64 -c conda-forge libucxx
 
 The following arguments may be specified to control build parameters and dependencies:
 
-- `GIT_DESCRIBE_NUMBER` (default: 0): 
+- `GIT_DESCRIBE_NUMBER` (default: 0):
 - `PYTHON_VERSION` (default: 3.10): Python version to build for;
 - `NUMPY_VERSION` (default: 1.21): NumPy version to build against;
 - `RAPIDS_DATE_STRING` (default: `date +%y%m%d`): Date string to use for RAPIDS package build;
-- `RAPIDS_VERSION` (default: 23.04): RAPIDS version to build against (RMM dependency);
+- `RAPIDS_VERSION` (default: 23.06): RAPIDS version to build against (RMM dependency);
 - `RAPIDS_CUDA_VERSION` (default: 11.8): CUDA version to build for (must match Docker image's major CUDA version);
 
 For example:
