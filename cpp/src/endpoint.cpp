@@ -66,8 +66,9 @@ std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> wor
   struct hostent* hostname = gethostbyname(ipAddress.c_str());
   if (hostname == nullptr) throw ucxx::Error(std::string("Invalid IP address or hostname"));
 
-  params->field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_SOCK_ADDR |
-                       UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
+  params->field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_SOCK_ADDR;
+  if (endpointErrorHandling)
+    params->field_mask |= UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
   params->flags = UCP_EP_PARAMS_FLAGS_CLIENT_SERVER;
   if (ucxx::utils::sockaddr_set(&params->sockaddr, hostname->h_name, port)) throw std::bad_alloc();
 
@@ -82,8 +83,9 @@ std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener
     throw ucxx::Error("Worker not initialized");
 
   auto params        = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
-  params->field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_CONN_REQUEST |
-                       UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
+  params->field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_CONN_REQUEST;
+  if (endpointErrorHandling)
+    params->field_mask |= UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
   params->flags        = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK;
   params->conn_request = connRequest;
 
@@ -101,8 +103,9 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
     throw ucxx::Error("Address not initialized");
 
   auto params        = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
-  params->field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS | UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE |
-                       UCP_EP_PARAM_FIELD_ERR_HANDLER;
+  params->field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS;
+  if (endpointErrorHandling)
+    params->field_mask |= UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
   params->address = address->getHandle();
 
   return std::shared_ptr<Endpoint>(new Endpoint(worker, std::move(params), endpointErrorHandling));
@@ -122,7 +125,7 @@ void Endpoint::close()
   ucxx_debug("Endpoint %p canceled %lu requests", _handle, canceled);
 
   // Close the endpoint
-  unsigned closeMode = UCP_EP_CLOSE_MODE_FORCE;
+  unsigned closeMode = UCP_EP_CLOSE_MODE_FLUSH;
   if (_endpointErrorHandling && _callbackData->status != UCS_OK) {
     // We force close endpoint if endpoint error handling is enabled and
     // the endpoint status is not UCS_OK

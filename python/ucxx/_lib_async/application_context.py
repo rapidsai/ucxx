@@ -205,6 +205,7 @@ class ApplicationContext:
             ucx_api.UCXListener.create(
                 worker=self.worker,
                 port=port,
+                endpoint_error_handling=endpoint_error_handling,
                 cb_func=_listener_handler,
                 cb_args=(
                     loop,
