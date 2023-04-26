@@ -8,9 +8,11 @@ dependencies:
   - cudatoolkit=11.8
   - pip
 # RAPIDS
-  - cudf=23.06
-  - dask-cudf=23.06
-  - dask-cuda=23.06
+  - cudf==23.4.*
+  - dask-cuda==23.4.*
+  - dask-cudf==23.4.*
+  - librmm==23.4.*
+  - rmm==23.4.*
   - ucx
 # UCX Build
   - libtool
