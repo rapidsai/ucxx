@@ -30,7 +30,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
 
   ucp_context_attr_t attr = {.field_mask = UCP_ATTR_FIELD_MEMORY_TYPES};
   ucp_context_query(_handle, &attr);
-  bool _cudaSupport = (attr.memory_types & UCS_MEMORY_TYPE_CUDA) == UCS_MEMORY_TYPE_CUDA;
+  _cudaSupport = (attr.memory_types & UCS_MEMORY_TYPE_CUDA) == UCS_MEMORY_TYPE_CUDA;
 
   // UCX supports CUDA if TLS is "all", or one of {"cuda",
   // "cuda_copy", "cuda_ipc"} is in the active transports.
@@ -51,14 +51,14 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
           auto field = tls_value.substr(current, next - current);
           current    = next + 1;
           if (field == "cuda" || field == "cuda_copy") {
-            this->_cudaSupport = false;
+            _cudaSupport = false;
             break;
           }
         } while (current != std::string::npos + 1);
       } else {
         // UCX_TLS lists enabled transports, all, or anything with cuda
         // enables cuda support
-        this->_cudaSupport = tls_value == "all" || tls_value.find("cuda") != std::string::npos;
+        _cudaSupport = tls_value == "all" || tls_value.find("cuda") != std::string::npos;
       }
     }
   }
