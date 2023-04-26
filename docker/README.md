@@ -59,7 +59,7 @@ For example:
 
 ```bash
 docker run -v /path/to/src/ucxx:/ucxx \
-  -e PYTHON_VERSION="3.8" \
+  -e PYTHON_VERSION="3.9" \
   -e RAPIDS_CUDA_VERSION="11.7" \
   ucxx-conda-build
 ```

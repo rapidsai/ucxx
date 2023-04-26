@@ -22,7 +22,7 @@ authors = [
     { name = "NVIDIA Corporation" },
 ]
 license = { text = "BSD-3-Clause" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "numpy>=1.21",
     "pynvml>=11.4.1",

@@ -4,7 +4,7 @@ channels:
   - nvidia
 dependencies:
 # Base
-  - python=3.8
+  - python=3.9
   - cudatoolkit=11.8
   - pip
 # RAPIDS
