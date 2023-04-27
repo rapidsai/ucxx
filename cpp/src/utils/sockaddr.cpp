@@ -51,18 +51,18 @@ void sockaddr_get_ip_port_str(const struct sockaddr_storage* sockaddr,
                               char* port_str,
                               size_t max_str_size)
 {
-  struct sockaddr_in addr_in;
-  struct sockaddr_in6 addr_in6;
+  const struct sockaddr_in* addr_in   = nullptr;
+  const struct sockaddr_in6* addr_in6 = nullptr;
 
   switch (sockaddr->ss_family) {
     case AF_INET:
-      memcpy(&addr_in, sockaddr, sizeof(struct sockaddr_in));
-      inet_ntop(AF_INET, &addr_in.sin_addr, ip_str, max_str_size);
-      snprintf(port_str, max_str_size, "%d", ntohs(addr_in.sin_port));
+      addr_in = reinterpret_cast<decltype(addr_in)>(sockaddr);
+      inet_ntop(AF_INET, &addr_in->sin_addr, ip_str, max_str_size);
+      snprintf(port_str, max_str_size, "%u", ntohs(addr_in->sin_port));
     case AF_INET6:
-      memcpy(&addr_in6, sockaddr, sizeof(struct sockaddr_in6));
-      inet_ntop(AF_INET6, &addr_in6.sin6_addr, ip_str, max_str_size);
-      snprintf(port_str, max_str_size, "%d", ntohs(addr_in6.sin6_port));
+      addr_in6 = reinterpret_cast<decltype(addr_in6)>(sockaddr);
+      inet_ntop(AF_INET6, &addr_in6->sin6_addr, ip_str, max_str_size);
+      snprintf(port_str, max_str_size, "%u", ntohs(addr_in6->sin6_port));
     default:
       ip_str   = const_cast<char*>(reinterpret_cast<const char*>("Invalid address family"));
       port_str = const_cast<char*>(reinterpret_cast<const char*>("Invalid address family"));
