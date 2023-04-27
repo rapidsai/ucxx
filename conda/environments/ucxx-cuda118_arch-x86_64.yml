@@ -4,13 +4,13 @@ channels:
   - nvidia
 dependencies:
 # Base
-  - python=3.8
+  - python=3.9
   - cudatoolkit=11.8
   - pip
 # RAPIDS
-  - cudf=23.04
-  - dask-cudf=23.04
-  - dask-cuda=23.04
+  - cudf=23.06
+  - dask-cudf=23.06
+  - dask-cuda=23.06
   - ucx
 # UCX Build
   - libtool
