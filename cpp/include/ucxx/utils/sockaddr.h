@@ -12,18 +12,17 @@ namespace ucxx {
 namespace utils {
 
 /**
- * @brief Set socket address and port of a socket address storage.
+ * @brief Get an addrinfo struct corresponding to an address and port.
  *
- * Set a socket address and port as defined by the user in a socket address storage that
- * may later be used to specify an address to bind a UCP listener to.
+ * This information can later be used to bind a UCP listener or endpoint.
  *
  * @param[in] ip_address  valid socket address (e.g., IP address or hostname) or NULL as a
  *                        wildcard for "all" to set the socket address storage to.
  * @param[in] port        port to set the socket address storaget to.
  *
- * @returns unique pointer wrapping a `struct addrinfo`
+ * @returns unique pointer wrapping a `struct addrinfo` (frees the addrinfo when out of scope)
  */
-std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> sockaddr_set(const char* ip_address,
+std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> get_addrinfo(const char* ip_address,
                                                                           uint16_t port);
 
 /**

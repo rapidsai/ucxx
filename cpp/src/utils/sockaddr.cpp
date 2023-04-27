@@ -16,7 +16,7 @@ namespace ucxx {
 
 namespace utils {
 
-std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> sockaddr_set(const char* ip_address,
+std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> get_addrinfo(const char* ip_address,
                                                                           uint16_t port)
 {
   std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> info(nullptr, ::freeaddrinfo);

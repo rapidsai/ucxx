@@ -59,7 +59,7 @@ std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> wor
   params.field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_SOCK_ADDR |
                       UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
   params.flags = UCP_EP_PARAMS_FLAGS_CLIENT_SERVER;
-  auto info    = ucxx::utils::sockaddr_set(ipAddress.c_str(), port);
+  auto info    = ucxx::utils::get_addrinfo(ipAddress.c_str(), port);
 
   params.sockaddr.addrlen = info->ai_addrlen;
   params.sockaddr.addr    = info->ai_addr;

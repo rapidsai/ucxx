@@ -34,7 +34,7 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   params.conn_handler.cb  = callback;
   params.conn_handler.arg = callbackArgs;
 
-  auto info               = ucxx::utils::sockaddr_set(NULL, port);
+  auto info               = ucxx::utils::get_addrinfo(NULL, port);
   params.sockaddr.addr    = info->ai_addr;
   params.sockaddr.addrlen = info->ai_addrlen;
 
