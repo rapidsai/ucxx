@@ -27,6 +27,7 @@ void EpParamsDeleter::operator()(ucp_ep_params_t* ptr)
 {
   if (ptr != nullptr && ptr->field_mask & UCP_EP_PARAM_FIELD_SOCK_ADDR)
     ucxx::utils::sockaddr_free(&ptr->sockaddr);
+  if (ptr) delete ptr;
 }
 
 Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
