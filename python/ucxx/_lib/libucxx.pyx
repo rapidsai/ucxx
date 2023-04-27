@@ -500,13 +500,17 @@ cdef class UCXWorker():
 
         return progress_made
 
-    def progress_worker_event(self):
-        with nogil:
-            self._worker.get().progressWorkerEvent()
+    def progress_worker_event(self, epoll_timeout=-1):
+        cdef int ucxx_epoll_timeout = epoll_timeout
 
-    def start_progress_thread(self, bint polling_mode=False):
         with nogil:
-            self._worker.get().startProgressThread(polling_mode)
+            self._worker.get().progressWorkerEvent(ucxx_epoll_timeout)
+
+    def start_progress_thread(self, bint polling_mode=False, epoll_timeout=-1):
+        cdef int ucxx_epoll_timeout = epoll_timeout
+
+        with nogil:
+            self._worker.get().startProgressThread(polling_mode, epoll_timeout=ucxx_epoll_timeout)
 
     def stop_progress_thread(self):
         with nogil:

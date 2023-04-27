@@ -43,7 +43,7 @@ std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
   if (progressMode == ProgressMode::Polling)
     return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
   else if (progressMode == ProgressMode::Blocking)
-    return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
+    return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker, -1);
   else if (progressMode == ProgressMode::Wait)
     return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
   else
