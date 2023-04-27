@@ -34,11 +34,9 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   params.conn_handler.cb  = callback;
   params.conn_handler.arg = callbackArgs;
 
-  if (ucxx::utils::sockaddr_set(&params.sockaddr, NULL, port))
-    // throw std::bad_alloc("Failed allocation of sockaddr")
-    throw std::bad_alloc();
-  std::unique_ptr<ucs_sock_addr_t, void (*)(ucs_sock_addr_t*)> sockaddr(&params.sockaddr,
-                                                                        ucxx::utils::sockaddr_free);
+  auto info               = ucxx::utils::sockaddr_set(NULL, port);
+  params.sockaddr.addr    = info->ai_addr;
+  params.sockaddr.addrlen = info->ai_addrlen;
 
   ucp_listener_h handle = nullptr;
   utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &handle));

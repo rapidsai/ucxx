@@ -4,7 +4,8 @@
  */
 #pragma once
 
-#include <ucp/api/ucp.h>
+#include <memory>
+#include <netdb.h>
 
 namespace ucxx {
 
@@ -16,24 +17,14 @@ namespace utils {
  * Set a socket address and port as defined by the user in a socket address storage that
  * may later be used to specify an address to bind a UCP listener to.
  *
- * @param[in] sockaddr    pointer to the UCS socket address storage.
  * @param[in] ip_address  valid socket address (e.g., IP address or hostname) or NULL as a
  *                        wildcard for "all" to set the socket address storage to.
  * @param[in] port        port to set the socket address storaget to.
+ *
+ * @returns unique pointer wrapping a `struct addrinfo`
  */
-int sockaddr_set(ucs_sock_addr_t* sockaddr, const char* ip_address, uint16_t port);
-
-/**
- * @brief Release the underlying socket address.
- *
- * Release the underlying socket address container.
- *
- * NOTE: This function does not release the `ucs_sock_addr_t`, only the underlying
- * `sockaddr` member.
- *
- * @param[in] sockaddr  pointer to the UCS socket address storage.
- */
-void sockaddr_free(ucs_sock_addr_t* sockaddr);
+std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> sockaddr_set(const char* ip_address,
+                                                                          uint16_t port);
 
 /**
  * @brief Get socket address and port of a socket address storage.

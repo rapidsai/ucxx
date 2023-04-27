@@ -16,7 +16,8 @@ namespace ucxx {
 
 namespace utils {
 
-int sockaddr_set(ucs_sock_addr_t* sockaddr, const char* ip_address, uint16_t port)
+std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> sockaddr_set(const char* ip_address,
+                                                                          uint16_t port)
 {
   std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> info(nullptr, ::freeaddrinfo);
   {
@@ -34,16 +35,7 @@ int sockaddr_set(ucs_sock_addr_t* sockaddr, const char* ip_address, uint16_t por
       throw ucxx::Error(std::string("Invalid IP address or hostname"));
     info.reset(result);
   }
-  void* x = ::malloc(info->ai_addrlen);
-  ::memcpy(x, info->ai_addr, info->ai_addrlen);
-  sockaddr->addr    = reinterpret_cast<struct sockaddr*>(x);
-  sockaddr->addrlen = info->ai_addrlen;
-  return 0;
-}
-
-void sockaddr_free(ucs_sock_addr_t* sockaddr)
-{
-  ::free(const_cast<void*>(reinterpret_cast<const void*>(sockaddr->addr)));
+  return info;
 }
 
 void sockaddr_get_ip_port_str(const struct sockaddr_storage* sockaddr,
