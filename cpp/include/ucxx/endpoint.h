@@ -70,7 +70,7 @@ class Endpoint : public Component {
    * @param[in] endpointErrorHandling whether to enable endpoint error handling.
    */
   Endpoint(std::shared_ptr<Component> workerOrListener,
-           std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
+           ucp_ep_params_t* params,
            bool endpointErrorHandling);
 
   /**
