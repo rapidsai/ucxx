@@ -55,11 +55,11 @@ std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> wor
   if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
 
-  ucp_ep_params_t params{};
-  params.field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_SOCK_ADDR |
-                      UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
-  params.flags = UCP_EP_PARAMS_FLAGS_CLIENT_SERVER;
-  auto info    = ucxx::utils::get_addrinfo(ipAddress.c_str(), port);
+  ucp_ep_params_t params = {.field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_SOCK_ADDR |
+                                          UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE |
+                                          UCP_EP_PARAM_FIELD_ERR_HANDLER,
+                            .flags = UCP_EP_PARAMS_FLAGS_CLIENT_SERVER};
+  auto info              = ucxx::utils::get_addrinfo(ipAddress.c_str(), port);
 
   params.sockaddr.addrlen = info->ai_addrlen;
   params.sockaddr.addr    = info->ai_addr;
@@ -74,11 +74,11 @@ std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener
   if (listener == nullptr || listener->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
 
-  ucp_ep_params_t params{};
-  params.field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_CONN_REQUEST |
-                      UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
-  params.flags        = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK;
-  params.conn_request = connRequest;
+  ucp_ep_params_t params = {
+    .field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_CONN_REQUEST |
+                  UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER,
+    .flags        = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK,
+    .conn_request = connRequest};
 
   return std::shared_ptr<Endpoint>(new Endpoint(listener, &params, endpointErrorHandling));
 }
@@ -92,10 +92,10 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
   if (address == nullptr || address->getHandle() == nullptr || address->getLength() == 0)
     throw ucxx::Error("Address not initialized");
 
-  ucp_ep_params_t params{};
-  params.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS | UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE |
-                      UCP_EP_PARAM_FIELD_ERR_HANDLER;
-  params.address = address->getHandle();
+  ucp_ep_params_t params = {.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS |
+                                          UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE |
+                                          UCP_EP_PARAM_FIELD_ERR_HANDLER,
+                            .address = address->getHandle()};
 
   return std::shared_ptr<Endpoint>(new Endpoint(worker, &params, endpointErrorHandling));
 }
