@@ -16,7 +16,7 @@ on:
 jobs:
   conda-cpp-tests:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@py-39
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.06
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -25,7 +25,7 @@ jobs:
       matrix_filter: map(select(.ARCH != "arm64"))
   conda-python-tests:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@py-39
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.06
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
