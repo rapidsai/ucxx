@@ -98,17 +98,17 @@ bool Request::isCompleted() { return _status != UCS_INPROGRESS; }
 
 void Request::callback(void* request, ucs_status_t status)
 {
-  setStatus(status);
-
   ucxx_trace_req_f(_ownerString.c_str(),
                    request,
                    _operationName.c_str(),
                    "callback %p",
                    _callback.target<void (*)(void)>());
-  if (_callback) _callback(_callbackData);
+  if (_callback) _callback(status, _callbackData);
 
   ucp_request_free(request);
+
   ucxx_trace("Request completed: %p, handle: %p", this, request);
+  setStatus(status);
 }
 
 void Request::process()
@@ -146,14 +146,14 @@ void Request::process()
       _ownerString.c_str(), _request, _operationName.c_str(), "completed immediately");
   }
 
-  setStatus(status);
-
   ucxx_trace_req_f(_ownerString.c_str(),
                    _request,
                    _operationName.c_str(),
                    "callback %p",
                    _callback.target<void (*)(void)>());
-  if (_callback) _callback(_callbackData);
+  if (_callback) _callback(status, _callbackData);
+
+  setStatus(status);
 }
 
 void Request::setStatus(ucs_status_t status)

@@ -218,7 +218,7 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
    *
    * @param[in] request the `ucxx::BufferRequest` object containing a single tag .
    */
-  void markCompleted(std::shared_ptr<void> request);
+  void markCompleted(ucs_status_t status, RequestCallbackUserData request);
 
   /**
    * @brief Callback to submit request to receive new header or frames.
@@ -233,7 +233,7 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
    *
    * @throws std::runtime_error if called by a send request.
    */
-  void callback();
+  void callback(ucs_status_t status);
 
   /**
    * @brief Return the status of the request.

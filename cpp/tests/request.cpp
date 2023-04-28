@@ -219,20 +219,11 @@ TEST_P(RequestTest, TagUserCallback)
   std::vector<std::shared_ptr<ucxx::Request>> requests(2);
   std::vector<ucs_status_t> requestStatus(2, UCS_INPROGRESS);
 
-  auto checkStatus = [&requests, &requestStatus](std::shared_ptr<void> data) {
+  auto checkStatus = [&requests, &requestStatus](ucs_status_t status,
+                                                 ::ucxx::RequestCallbackUserData data) {
     auto idx = *std::static_pointer_cast<size_t>(data);
-    if (requests[idx] == nullptr) {
-      /**
-       * Unfortunately, we can't check the status this way if the request completes
-       * immediately, as `request[idx]` will only be assigned after completion, and thus,
-       * after the callback has been executed.
-       *
-       * TODO: find a better way to test this.
-       */
-      requestStatus[idx] = UCS_OK;
-    } else {
-      requestStatus[idx] = requests[idx]->getStatus();
-    }
+    if (status != UCS_OK) abort();
+    requestStatus[idx] = status;
   };
 
   auto sendIndex = std::make_shared<size_t>(0u);
@@ -245,9 +236,6 @@ TEST_P(RequestTest, TagUserCallback)
 
   copyResults();
 
-  // Assert status was set before user callback is executed
-  for (const auto status : requestStatus)
-    ASSERT_THAT(status, UCS_OK);
   for (const auto request : requests)
     ASSERT_THAT(request->getStatus(), UCS_OK);
 
