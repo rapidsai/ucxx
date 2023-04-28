@@ -18,7 +18,7 @@ namespace utils {
  *
  * @param[in] ip_address  valid socket address (e.g., IP address or hostname) or NULL as a
  *                        wildcard for "all" to set the socket address storage to.
- * @param[in] port        port to set the socket address storaget to.
+ * @param[in] port        port to set the socket address storage to.
  *
  * @returns unique pointer wrapping a `struct addrinfo` (frees the addrinfo when out of scope)
  */
