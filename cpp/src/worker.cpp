@@ -24,13 +24,11 @@ namespace ucxx {
 
 Worker::Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission)
 {
-  ucp_worker_params_t params{};
-
   if (context == nullptr || context->getHandle() == nullptr)
     throw std::runtime_error("Context not initialized");
 
-  params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-  params.thread_mode = UCS_THREAD_MODE_MULTI;
+  ucp_worker_params_t params = {.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE,
+                                .thread_mode = UCS_THREAD_MODE_MULTI};
   utils::ucsErrorThrow(ucp_worker_create(context->getHandle(), &params, &_handle));
 
   if (enableDelayedSubmission)
