@@ -13,6 +13,8 @@
 
 namespace {
 
+constexpr size_t MaxProgressAttempts = 50;
+
 struct ListenerContainer {
   ucs_status_t status{UCS_OK};
   std::shared_ptr<ucxx::Worker> worker{nullptr};
@@ -172,7 +174,8 @@ TEST_F(ListenerTest, IsAlive)
     _worker->progress();
 
   listenerContainer->endpoint = nullptr;
-  _worker->progress();
+  for (size_t attempts = 0; attempts < MaxProgressAttempts && ep->isAlive(); ++attempts)
+    _worker->progress();
   ASSERT_FALSE(ep->isAlive());
 }
 
@@ -187,7 +190,15 @@ TEST_F(ListenerTest, RaiseOnError)
     _worker->progress();
 
   listenerContainer->endpoint = nullptr;
-  _worker->progress();
+  for (size_t attempts = 0; attempts < MaxProgressAttempts; ++attempts) {
+    try {
+      _worker->progress();
+      ep->raiseOnError();
+    } catch (ucxx::Error) {
+      break;
+    }
+  }
+
   EXPECT_THROW(ep->raiseOnError(), ucxx::Error);
 }
 
@@ -209,7 +220,8 @@ TEST_F(ListenerTest, CloseCallback)
   ASSERT_FALSE(isClosed);
 
   listenerContainer->endpoint = nullptr;
-  _worker->progress();
+  for (size_t attempts = 0; attempts < MaxProgressAttempts && !isClosed; ++attempts)
+    _worker->progress();
 
   ASSERT_TRUE(isClosed);
 }
