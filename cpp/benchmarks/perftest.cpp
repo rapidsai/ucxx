@@ -203,7 +203,7 @@ std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
   switch (progressMode) {
     case ProgressMode::Polling: return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
     case ProgressMode::Blocking:
-      return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
+      return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker, -1);
     case ProgressMode::Wait: return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
     default: return []() {};
   }
