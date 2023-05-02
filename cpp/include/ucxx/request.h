@@ -27,8 +27,8 @@ class Request : public Component {
   std::string _status_msg{};                          ///< Human-readable status message
   void* _request{nullptr};                            ///< Pointer to UCP request
   std::shared_ptr<Future> _future{nullptr};           ///< Future to notify upon completion
-  std::function<void(std::shared_ptr<void>)> _callback{nullptr};  ///< Completion callback
-  std::shared_ptr<void> _callbackData{nullptr};                   ///< Completion callback data
+  RequestCallbackUserFunction _callback{nullptr};     ///< Completion callback
+  RequestCallbackUserData _callbackData{nullptr};     ///< Completion callback data
   std::shared_ptr<Worker> _worker{
     nullptr};  ///< Worker that generated request (if not from endpoint)
   std::shared_ptr<Endpoint> _endpoint{

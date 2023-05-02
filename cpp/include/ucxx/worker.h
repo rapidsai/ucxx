@@ -544,13 +544,12 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagRecv(
-    void* buffer,
-    size_t length,
-    ucp_tag_t tag,
-    const bool enableFuture                                     = false,
-    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
-    std::shared_ptr<void> callbackData                          = nullptr);
+  std::shared_ptr<Request> tagRecv(void* buffer,
+                                   size_t length,
+                                   ucp_tag_t tag,
+                                   const bool enableFuture                      = false,
+                                   RequestCallbackUserFunction callbackFunction = nullptr,
+                                   RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Get the address of the UCX worker object.
