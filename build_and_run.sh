@@ -156,7 +156,9 @@ run_py_benchmark() {
 }
 
 if [[ $RUN_CPP_TESTS != 0 ]]; then
-  ${BINARY_PATH}/gtests/libucxx/UCXX_TEST
+  # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
+  # `TIME_WAIT` timeout
+  UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/gtests/libucxx/UCXX_TEST
 fi
 if [[ $RUN_CPP_BENCH != 0 ]]; then
   # run_cpp_benchmark PROGRESS_MODE

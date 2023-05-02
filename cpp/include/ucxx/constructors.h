@@ -59,15 +59,14 @@ std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> end
                                                    size_t length,
                                                    const bool enablePythonFuture);
 
-std::shared_ptr<RequestTag> createRequestTag(
-  std::shared_ptr<Component> endpointOrWorker,
-  bool send,
-  void* buffer,
-  size_t length,
-  ucp_tag_t tag,
-  const bool enablePythonFuture,
-  std::function<void(std::shared_ptr<void>)> callbackFunction,
-  std::shared_ptr<void> callbackData);
+std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
+                                             bool send,
+                                             void* buffer,
+                                             size_t length,
+                                             ucp_tag_t tag,
+                                             const bool enablePythonFuture,
+                                             RequestCallbackUserFunction callbackFunction,
+                                             RequestCallbackUserData callbackData);
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
                                                            const std::vector<void*>& buffer,

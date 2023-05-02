@@ -321,13 +321,12 @@ bool Worker::tagProbe(ucp_tag_t tag)
   return tag_message != NULL;
 }
 
-std::shared_ptr<Request> Worker::tagRecv(
-  void* buffer,
-  size_t length,
-  ucp_tag_t tag,
-  const bool enableFuture,
-  std::function<void(std::shared_ptr<void>)> callbackFunction,
-  std::shared_ptr<void> callbackData)
+std::shared_ptr<Request> Worker::tagRecv(void* buffer,
+                                         size_t length,
+                                         ucp_tag_t tag,
+                                         const bool enableFuture,
+                                         RequestCallbackUserFunction callbackFunction,
+                                         RequestCallbackUserData callbackData)
 {
   auto worker  = std::dynamic_pointer_cast<Worker>(shared_from_this());
   auto request = createRequestTag(
