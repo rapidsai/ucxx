@@ -13,15 +13,14 @@
 
 namespace ucxx {
 
-std::shared_ptr<RequestTag> createRequestTag(
-  std::shared_ptr<Component> endpointOrWorker,
-  bool send,
-  void* buffer,
-  size_t length,
-  ucp_tag_t tag,
-  const bool enablePythonFuture                               = false,
-  std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
-  std::shared_ptr<void> callbackData                          = nullptr)
+std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
+                                             bool send,
+                                             void* buffer,
+                                             size_t length,
+                                             ucp_tag_t tag,
+                                             const bool enablePythonFuture                = false,
+                                             RequestCallbackUserFunction callbackFunction = nullptr,
+                                             RequestCallbackUserData callbackData         = nullptr)
 {
   return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
                                                     send,
@@ -39,8 +38,8 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                        size_t length,
                        ucp_tag_t tag,
                        const bool enablePythonFuture,
-                       std::function<void(std::shared_ptr<void>)> callbackFunction,
-                       std::shared_ptr<void> callbackData)
+                       RequestCallbackUserFunction callbackFunction,
+                       RequestCallbackUserData callbackData)
   : Request(endpointOrWorker,
             std::make_shared<DelayedSubmission>(send, buffer, length, tag),
             std::string(send ? "tagSend" : "tagRecv"),
