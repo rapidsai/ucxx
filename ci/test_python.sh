@@ -91,8 +91,8 @@ run_py_benchmark    ucxx-core thread          0             0                   
 run_py_benchmark    ucxx-core thread          1             0                         0                    1        0
 
 for nbuf in 1 8; do
-  # run_py_benchmark  BACKEND     PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
-  if [[ $RAPIDS_CUDA_VERSION != "11.2.*" ]]; then
+  if [[ ! $RAPIDS_CUDA_VERSION =~ 11.2.* ]]; then
+    # run_py_benchmark  BACKEND     PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
     run_py_benchmark    ucxx-async  thread          0             0                         0                    ${nbuf}  0
     run_py_benchmark    ucxx-async  thread          0             0                         1                    ${nbuf}  0
     run_py_benchmark    ucxx-async  thread          0             1                         0                    ${nbuf}  0
