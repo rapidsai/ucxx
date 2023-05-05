@@ -48,8 +48,10 @@ endif()
 
 rapids_cython_init()
 
+add_subdirectory(ucxx/examples)
 add_subdirectory(ucxx/_lib)
 
 if(DEFINED cython_lib_dir)
   rapids_cython_add_rpath_entries(TARGET ucxx PATHS "${cython_lib_dir}")
+  rapids_cython_add_rpath_entries(TARGET ucxx_examples PATHS "${cython_lib_dir}")
 endif()
