@@ -116,6 +116,8 @@ std::string Worker::getInfo()
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 
+bool Worker::isDelayedSubmissionEnabled() const { return _delayedSubmissionCollection != nullptr; }
+
 bool Worker::isFutureEnabled() const { return _enableFuture; }
 
 void Worker::initBlockingProgressMode()

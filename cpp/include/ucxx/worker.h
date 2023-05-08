@@ -361,6 +361,15 @@ class Worker : public Component {
   void registerDelayedSubmission(DelayedSubmissionCallbackType callback);
 
   /**
+   * @brief Inquire if worker has been created with delayed submission enabled.
+   *
+   * Check whether the worker has been created with delayed submission enabled.
+   *
+   * @returns `true` if delayed submission is enabled, `false` otherwise.
+   */
+  bool isDelayedSubmissionEnabled() const;
+
+  /**
    * @brief Inquire if worker has been created with future support.
    *
    * Check whether the worker has been created with future support.
