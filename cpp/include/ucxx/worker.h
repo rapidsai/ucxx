@@ -107,8 +107,12 @@ class Worker : public Component {
    *                                    submitted immediately, but instead delayed to
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
+   * @param[in] enableFuture if `true`, notifies the future associated with each
+   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    */
-  explicit Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission = false);
+  explicit Worker(std::shared_ptr<Context> context,
+                  const bool enableDelayedSubmission = false,
+                  const bool enableFuture            = false);
 
  public:
   Worker()              = delete;
@@ -137,10 +141,13 @@ class Worker : public Component {
    *                                    submitted immediately, but instead delayed to
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
+   * @param[in] enableFuture if `true`, notifies the future associated with each
+   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    * @returns The `shared_ptr<ucxx::Worker>` object
    */
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                              const bool enableDelayedSubmission);
+                                              const bool enableDelayedSubmission,
+                                              const bool enableFuture);
 
   /**
    * @brief `ucxx::Worker` destructor.

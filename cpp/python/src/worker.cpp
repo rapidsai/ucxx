@@ -22,7 +22,7 @@ namespace python {
 Worker::Worker(std::shared_ptr<Context> context,
                const bool enableDelayedSubmission,
                const bool enableFuture)
-  : ::ucxx::Worker(context, enableDelayedSubmission)
+  : ::ucxx::Worker(context, enableDelayedSubmission, enableFuture)
 {
   if (_enableFuture) _notifier = createNotifier();
 }
