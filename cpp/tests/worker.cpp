@@ -26,6 +26,23 @@ class WorkerTest : public ::testing::Test {
   virtual void SetUp() { _worker = _context->createWorker(); }
 };
 
+class WorkerCapabilityTest : public ::testing::Test,
+                             public ::testing::WithParamInterface<std::tuple<bool, bool>> {
+ protected:
+  std::shared_ptr<ucxx::Context> _context{
+    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+  std::shared_ptr<ucxx::Worker> _worker{nullptr};
+  bool _enableDelayedSubmission;
+  bool _enableFuture;
+
+  virtual void SetUp()
+  {
+    std::tie(_enableDelayedSubmission, _enableFuture) = GetParam();
+
+    _worker = _context->createWorker(_enableDelayedSubmission, _enableFuture);
+  }
+};
+
 class WorkerProgressTest : public WorkerTest,
                            public ::testing::WithParamInterface<std::tuple<bool, ProgressMode>> {
  protected:
@@ -71,6 +88,16 @@ TEST_F(WorkerTest, TagProbe)
 
   ASSERT_TRUE(_worker->tagProbe(0));
 }
+
+TEST_P(WorkerCapabilityTest, CheckCapability)
+{
+  ASSERT_EQ(_worker->isDelayedSubmissionEnabled(), _enableDelayedSubmission);
+  ASSERT_EQ(_worker->isFutureEnabled(), _enableFuture);
+}
+
+INSTANTIATE_TEST_SUITE_P(Capabilities,
+                         WorkerCapabilityTest,
+                         Combine(Values(false, true), Values(false, true)));
 
 TEST_P(WorkerProgressTest, ProgressStream)
 {
