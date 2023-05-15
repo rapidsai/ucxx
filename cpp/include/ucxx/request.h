@@ -192,6 +192,8 @@ class Request : public Component {
    * @returns the formatted string containing the owner type and its handle.
    */
   const std::string& getOwnerString() const;
+
+  virtual std::shared_ptr<Buffer> getRecvBuffer();
 };
 
 }  // namespace ucxx

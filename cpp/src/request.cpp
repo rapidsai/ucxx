@@ -184,4 +184,6 @@ void Request::setStatus(ucs_status_t status)
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
 
+std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }
+
 }  // namespace ucxx
