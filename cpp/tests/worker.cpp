@@ -72,6 +72,33 @@ TEST_F(WorkerTest, TagProbe)
   ASSERT_TRUE(_worker->tagProbe(0));
 }
 
+TEST_P(WorkerProgressTest, ProgressAm)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    // TODO: Is this the same reason as TagMulti?
+    GTEST_SKIP() << "Wait mode not supported";
+  }
+
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  std::vector<int> send{123};
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(ep->amSend(send.data(), send.size() * sizeof(int)));
+  requests.push_back(ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto recvReq    = requests[1];
+  auto recvBuffer = recvReq->getRecvBuffer();
+
+  ASSERT_EQ(recvBuffer->getType(), ucxx::BufferType::Host);
+  ASSERT_EQ(recvBuffer->getSize(), send.size() * sizeof(int));
+
+  std::vector<int> recvAbstract(reinterpret_cast<int*>(recvBuffer->data()),
+                                reinterpret_cast<int*>(recvBuffer->data()) + send.size());
+  ASSERT_EQ(recvAbstract[0], send[0]);
+}
+
 TEST_P(WorkerProgressTest, ProgressStream)
 {
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());

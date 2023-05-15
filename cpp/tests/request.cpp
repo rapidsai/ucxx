@@ -134,6 +134,29 @@ class RequestTest
   }
 };
 
+TEST_P(RequestTest, ProgressAm)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  allocate(1, false);
+
+  // Submit and wait for transfers to complete
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto recvReq = requests[1];
+  _recvPtr[0]  = recvReq->getRecvBuffer()->data();
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
 TEST_P(RequestTest, ProgressStream)
 {
   allocate();
