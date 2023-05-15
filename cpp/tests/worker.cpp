@@ -121,7 +121,7 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
   std::vector<std::shared_ptr<ucxx::RequestTagMulti>> requests;
   requests.push_back(ep->tagMultiSend(multiBuffer, multiSize, multiIsCUDA, 0, false));
   requests.push_back(ep->tagMultiRecv(0, false));
-  waitRequestsTagMulti(_worker, requests, _progressWorker);
+  waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& br : requests[1]->_bufferRequests) {
     // br->buffer == nullptr are headers

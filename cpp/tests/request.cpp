@@ -185,7 +185,7 @@ TEST_P(RequestTest, ProgressTagMulti)
   std::vector<std::shared_ptr<ucxx::RequestTagMulti>> requests;
   requests.push_back(_ep->tagMultiSend(_sendPtr, multiSize, multiIsCUDA, 0, false));
   requests.push_back(_ep->tagMultiRecv(0, false));
-  waitRequestsTagMulti(_worker, requests, _progressWorker);
+  waitRequests(_worker, requests, _progressWorker);
 
   auto recvRequest = requests[1];
 
