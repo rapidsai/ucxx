@@ -193,6 +193,14 @@ class Request : public Component {
    */
   const std::string& getOwnerString() const;
 
+  /**
+   * @brief Get the received buffer.
+   *
+   * This method is used to get the received buffer for applicable derived classes (e.g.,
+   * `RequestAM` receive operations), in all other cases this will return `nullptr`.
+   *
+   * @return The received buffer (if applicable) or `nullptr`.
+   */
   virtual std::shared_ptr<Buffer> getRecvBuffer();
 };
 

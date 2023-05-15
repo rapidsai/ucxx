@@ -55,7 +55,7 @@ class Worker : public Component {
     nullptr};  ///< Collection of enqueued delayed submissions
 
   friend std::shared_ptr<RequestAM> createRequestAMRecv(
-    std::shared_ptr<Component> endpointOrWorker,
+    std::shared_ptr<Endpoint> endpoint,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
@@ -680,11 +680,11 @@ class Worker : public Component {
    *
    * Register a new allocator for active messages. By default, only one allocator is defined
    * for host memory (`UCS_MEMORY_TYPE_HOST`), and is used as a fallback when an allocator
-   * for the source's memory type is unavailable. In many certain circumstances relying
-   * exclusively on the host allocator is undesirable, for example when transferring CUDA
-   * buffers the destination is always going to be a host buffer and prevent the use of
-   * transports like NVLink or InfiniBand+GPUDirectRDMA. For that reason it's important that
-   * the user defines those allocators that are important for the application.
+   * for the source's memory type is unavailable. In many circumstances relying exclusively
+   * on the host allocator is undesirable, for example when transferring CUDA buffers the
+   * destination is always going to be a host buffer and prevent the use of transports such
+   * as NVLink or InfiniBand+GPUDirectRDMA. For that reason it's important that the user
+   * defines those allocators that are important for the application.
    *
    * If the `memoryType` has already been registered, the previous allocator will be
    * replaced by the new one. Be careful when doing this after transfers have started, there

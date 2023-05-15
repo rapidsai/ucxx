@@ -10,7 +10,7 @@
 
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
-#include <ucxx/internal/am_data.h>
+#include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
 
 namespace ucxx {
@@ -28,17 +28,16 @@ std::shared_ptr<RequestAM> createRequestAMSend(
 }
 
 std::shared_ptr<RequestAM> createRequestAMRecv(
-  std::shared_ptr<Component> endpointOrWorker,
+  std::shared_ptr<Endpoint> endpoint,
   const bool enablePythonFuture                = false,
   RequestCallbackUserFunction callbackFunction = nullptr,
   RequestCallbackUserData callbackData         = nullptr)
 {
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(endpointOrWorker);
-  auto worker   = endpoint->getWorker(endpoint->getParent());
+  auto worker = endpoint->getWorker(endpoint->getParent());
 
-  auto createRequest = [endpointOrWorker, enablePythonFuture, callbackFunction, callbackData]() {
+  auto createRequest = [endpoint, enablePythonFuture, callbackFunction, callbackData]() {
     return std::shared_ptr<RequestAM>(
-      new RequestAM(endpointOrWorker, enablePythonFuture, callbackFunction, callbackData));
+      new RequestAM(endpoint, enablePythonFuture, callbackFunction, callbackData));
   };
   return worker->getAmRecv(endpoint->getHandle(), createRequest);
 }
@@ -54,8 +53,6 @@ RequestAM::RequestAM(std::shared_ptr<Endpoint> endpoint,
             std::string("amSend"),
             enablePythonFuture)
 {
-  if (_endpoint == nullptr) throw ucxx::Error("An endpoint is required to send active messages");
-
   _callback     = callbackFunction;
   _callbackData = callbackData;
 
@@ -76,10 +73,10 @@ RequestAM::RequestAM(std::shared_ptr<Component> endpointOrWorker,
   _callbackData = callbackData;
 }
 
-void RequestAM::amSendCallback(void* request, ucs_status_t status, void* user_data)
+static void _amSendCallback(void* request, ucs_status_t status, void* user_data)
 {
   Request* req = reinterpret_cast<Request*>(user_data);
-  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "amSend", "amSendCallback");
+  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "amSend", "_amSendCallback");
   req->callback(request, status);
 }
 
@@ -101,7 +98,7 @@ ucs_status_t RequestAM::recvCallback(void* arg,
                                      size_t length,
                                      const ucp_am_recv_param_t* param)
 {
-  internal::AMData* amData = reinterpret_cast<internal::AMData*>(arg);
+  internal::AmData* amData = reinterpret_cast<internal::AmData*>(arg);
   auto worker              = amData->_worker;
   auto& recvPool           = amData->_recvPool;
   auto& recvWait           = amData->_recvWait;
@@ -204,7 +201,7 @@ void RequestAM::request()
   _sendHeader = UCS_MEMORY_TYPE_HOST;
 
   if (_delayedSubmission->_send) {
-    param.cb.send = amSendCallback;
+    param.cb.send = _amSendCallback;
     _request      = ucp_am_send_nbx(_endpoint->getHandle(),
                                0,
                                &_sendHeader,

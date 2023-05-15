@@ -61,7 +61,7 @@ std::shared_ptr<RequestAM> createRequestAMSend(std::shared_ptr<Endpoint> endpoin
                                                RequestCallbackUserFunction callbackFunction,
                                                RequestCallbackUserData callbackData);
 
-std::shared_ptr<RequestAM> createRequestAMRecv(std::shared_ptr<Component> endpointOrWorker,
+std::shared_ptr<RequestAM> createRequestAMRecv(std::shared_ptr<Endpoint> endpoint,
                                                const bool enablePythonFuture,
                                                RequestCallbackUserFunction callbackFunction,
                                                RequestCallbackUserData callbackData);
