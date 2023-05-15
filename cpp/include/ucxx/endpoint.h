@@ -254,6 +254,57 @@ class Endpoint : public Component {
   void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
 
   /**
+   * @brief Enqueue an active message send operation.
+   *
+   * Enqueue an active message send operation, returning a `std::shared<ucxx::Request>` that
+   * can be later awaited and checked for errors. This is a non-blocking operation, and the
+   * status of the transfer must be verified from the resulting request object before the
+   * data can be released.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> amSend(void* buffer,
+                                  size_t length,
+                                  const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Enqueue an active message receive operation.
+   *
+   * Enqueue an active message receive operation, returning a `std::shared<ucxx::Request>`
+   * that can be later awaited and checked for errors, making data available via the return
+   * value's `getRecvBuffer()` method once the operation completes successfully. This is a
+   * non-blocking operation, and the status of the transfer must be verified from the
+   * resulting request object before the data can be consumed.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion state and data.
+   */
+  std::shared_ptr<Request> amRecv(const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
+  /**
    * @brief Enqueue a stream send operation.
    *
    * Enqueue a stream send operation, returning a `std::shared<ucxx::Request>` that can
