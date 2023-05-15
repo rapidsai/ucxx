@@ -25,8 +25,14 @@
 namespace ucxx {
 
 class Address;
+class Buffer;
 class Endpoint;
 class Listener;
+class RequestAM;
+
+namespace internal {
+class AmData;
+}  // namespace internal
 
 class Worker : public Component {
  private:
@@ -48,6 +54,12 @@ class Worker : public Component {
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
 
+  friend std::shared_ptr<RequestAM> createRequestAMRecv(
+    std::shared_ptr<Component> endpointOrWorker,
+    const bool enablePythonFuture,
+    RequestCallbackUserFunction callbackFunction,
+    RequestCallbackUserData callbackData);
+
  protected:
   bool _enableFuture{
     false};  ///< Boolean identifying whether the worker was created with future capability
@@ -55,6 +67,8 @@ class Worker : public Component {
   std::queue<std::shared_ptr<Future>>
     _futuresPool{};  ///< Futures pool to prevent running out of fresh futures
   std::shared_ptr<Notifier> _notifier{nullptr};  ///< Notifier object
+  std::shared_ptr<internal::AmData>
+    _amData;  ///< Worker data made available to Active Messages callback
 
  private:
   /**
@@ -64,6 +78,23 @@ class Worker : public Component {
    * not to generate UCX warnings.
    */
   void drainWorkerTagRecv();
+
+  /**
+   * @brief Get active message receive request.
+   *
+   * Returns an active message request from the pool if the worker has already begun
+   * handling a request with the active messages callback, otherwise creates a new request
+   * that is later populated with status and buffer by the active messages callback.
+   *
+   * @param[in] ep  the endpoint handle where receiving the message, the same handle that
+   *                will later be used to reply to the message.
+   * @param[in] createAmRecvRequestFunction function to create a new request if one is not
+   *                                        already availale in the pool.
+   *
+   * @returns Request to be subsequently checked for the completion state and data.
+   */
+  std::shared_ptr<RequestAM> getAmRecv(
+    ucp_ep_h ep, std::function<std::shared_ptr<RequestAM>()> createAmRecvRequestFunction);
 
   /**
    * @brief Stop the progress thread if running without raising warnings.
@@ -643,6 +674,35 @@ class Worker : public Component {
   std::shared_ptr<Listener> createListener(uint16_t port,
                                            ucp_listener_conn_callback_t callback,
                                            void* callbackArgs);
+
+  /**
+   * @brief Register allocator for active messages.
+   *
+   * Register a new allocator for active messages. By default, only one allocator is defined
+   * for host memory (`UCS_MEMORY_TYPE_HOST`), and is used as a fallback when an allocator
+   * for the source's memory type is unavailable. In many certain circumstances relying
+   * exclusively on the host allocator is undesirable, for example when transferring CUDA
+   * buffers the destination is always going to be a host buffer and prevent the use of
+   * transports like NVLink or InfiniBand+GPUDirectRDMA. For that reason it's important that
+   * the user defines those allocators that are important for the application.
+   *
+   * If the `memoryType` has already been registered, the previous allocator will be
+   * replaced by the new one. Be careful when doing this after transfers have started, there
+   * are no guarantees that inflight messages have not already been allocated with the old
+   * allocator for that type.
+   *
+   * @code{.cpp}
+   * // context is `std::shared_ptr<ucxx::Context>`
+   * auto worker = context->createWorker(false);
+   *
+   * worker->registerAmAllocator(`UCS_MEMORY_TYPE_CUDA`, ucxx::RMMBuffer);
+   * @endcode
+   *
+   * @param[in] memoryType  the memory type the allocator will be used for.
+   * @param[in] allocator   the allocator callbable that will be used to allocate new
+   *                        active message buffers.
+   */
+  void registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator);
 };
 
 }  // namespace ucxx
