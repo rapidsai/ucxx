@@ -99,7 +99,7 @@ ucs_status_t RequestAM::recvCallback(void* arg,
                                      const ucp_am_recv_param_t* param)
 {
   internal::AmData* amData = reinterpret_cast<internal::AmData*>(arg);
-  auto worker              = amData->_worker;
+  auto worker              = amData->_worker.lock();
   auto& recvPool           = amData->_recvPool;
   auto& recvWait           = amData->_recvWait;
 

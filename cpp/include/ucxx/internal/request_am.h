@@ -75,8 +75,7 @@ typedef std::unordered_map<RequestAM*, std::shared_ptr<RecvAmMessage>> RecvAmMes
 
 class AmData {
  public:
-  std::shared_ptr<Worker> _worker{
-    nullptr};              ///< The worker to which the Active Message callback belongs
+  std::weak_ptr<Worker> _worker{};  ///< The worker to which the Active Message callback belongs
   AmPoolType _recvPool{};  ///< The pool of completed receive requests (waiting for user request)
   AmPoolType _recvWait{};  ///< The pool of user receive requests (waiting for message arrival)
   RecvAmMessageMapType
