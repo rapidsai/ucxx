@@ -244,6 +244,12 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
         void close()
+        shared_ptr[Request] amSend(
+            void* buffer, size_t length, bint enable_python_future
+        ) except +raise_py_error
+        shared_ptr[Request] amRecv(
+            bint enable_python_future
+        ) except +raise_py_error
         shared_ptr[Request] streamSend(
             void* buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
@@ -289,6 +295,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ucs_status_t getStatus()
         void checkError() except +raise_py_error
         void* getFuture() except +raise_py_error
+        shared_ptr[Buffer] getRecvBuffer() except +raise_py_error
 
 
 cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:

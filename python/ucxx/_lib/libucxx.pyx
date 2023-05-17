@@ -652,6 +652,22 @@ cdef class UCXRequest():
         else:
             await self.wait_yield()
 
+    def get_recv_buffer(self):
+        cdef shared_ptr[Buffer] buf
+        cdef BufferType bufType
+
+        with nogil:
+            buf = self._request.get().getRecvBuffer()
+            bufType = buf.get().getType()
+
+        # If buf == NULL, it's not allocated by the request but rather the user
+        if buf == NULL:
+            return None
+        elif bufType == BufferType.RMM:
+            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
+        else:
+            return _get_host_buffer(<uintptr_t><void*>buf.get())
+
 
 cdef class UCXBufferRequest:
     cdef:
@@ -929,6 +945,34 @@ cdef class UCXEndpoint():
     def close(self):
         with nogil:
             self._endpoint.get().close()
+
+    def am_send(self, Array arr):
+        cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.AM.value:
+            raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        with nogil:
+            req = self._endpoint.get().amSend(
+                buf,
+                nbytes,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
+    def am_recv(self):
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.AM.value:
+            raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        with nogil:
+            req = self._endpoint.get().amRecv(self._enable_python_future)
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
     def stream_send(self, Array arr):
         cdef void* buf = <void*>arr.ptr
