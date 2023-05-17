@@ -72,6 +72,26 @@ TEST_F(WorkerTest, TagProbe)
   ASSERT_TRUE(_worker->tagProbe(0));
 }
 
+TEST_F(WorkerTest, AmProbe)
+{
+  auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  ASSERT_FALSE(_worker->amProbe(ep->getHandle()));
+
+  std::vector<int> buf{123};
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(ep->amSend(buf.data(), buf.size() * sizeof(int)));
+  waitRequests(_worker, requests, progressWorker);
+
+  // Attempt to progress worker 10 times (arbitrarily defined).
+  // TODO: Maybe a timeout would fit best.
+  for (size_t i = 0; i < 10 && !_worker->tagProbe(0); ++i)
+    progressWorker();
+
+  ASSERT_TRUE(_worker->amProbe(ep->getHandle()));
+}
+
 TEST_P(WorkerProgressTest, ProgressAm)
 {
   if (_progressMode == ProgressMode::Wait) {

@@ -360,7 +360,7 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(ucp_tag_t tag)
+bool Worker::tagProbe(const ucp_tag_t tag) const
 {
   ucp_tag_recv_info_t info;
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);
@@ -418,6 +418,11 @@ std::shared_ptr<Listener> Worker::createListener(uint16_t port,
 void Worker::registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)
 {
   _amData->_allocators.insert_or_assign(memoryType, allocator);
+}
+
+bool Worker::amProbe(const ucp_ep_h endpointHandle) const
+{
+  return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
 }
 
 }  // namespace ucxx

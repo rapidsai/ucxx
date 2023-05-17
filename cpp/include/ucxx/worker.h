@@ -550,7 +550,7 @@ class Worker : public Component {
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
-  bool tagProbe(ucp_tag_t tag);
+  bool tagProbe(const ucp_tag_t tag) const;
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -703,6 +703,27 @@ class Worker : public Component {
    *                        active message buffers.
    */
   void registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator);
+
+  /**
+   * @brief Check for uncaught active messages.
+   *
+   * Checks the worker for any uncaught active messages. An uncaught active message is any
+   * active message that has been fully or partially received by the worker, but not matched
+   * by a corresponding `createRequestAMRecv()` call.
+   *
+   * @code{.cpp}
+   * // `worker` is `std::shared_ptr<ucxx::Worker>`
+   * // `ep` is a remote `std::shared_ptr<ucxx::Endpoint` to the local `worker`
+   * assert(!worker->amProbe(ep->getHandle()));
+   *
+   * ep->amSend(buffer, length);
+   *
+   * assert(worker->amProbe(0));
+   * @endcode
+   *
+   * @returns `true` if any uncaught messages were received, `false` otherwise.
+   */
+  bool amProbe(const ucp_ep_h endpointHandle) const;
 };
 
 }  // namespace ucxx
