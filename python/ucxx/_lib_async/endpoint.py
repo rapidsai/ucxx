@@ -251,10 +251,10 @@ class Endpoint:
 
     async def am_recv(self):
         """Receive from connected peer via active messages."""
-        # if not self._ctx.worker.tag_probe(tag):
-        #     self._ep.raise_on_error()
-        #     if self.closed():
-        #         raise UCXCloseError("Endpoint closed")
+        if not self._ep.am_probe():
+            self._ep.raise_on_error()
+            if self.closed():
+                raise UCXCloseError("Endpoint closed")
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):

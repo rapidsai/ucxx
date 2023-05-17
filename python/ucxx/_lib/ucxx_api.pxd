@@ -226,7 +226,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         void stopProgressThread() except +raise_py_error
         size_t cancelInflightRequests() except +raise_py_error
-        bint tagProbe(ucp_tag_t)
+        bint tagProbe(ucp_tag_t) const
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callbackArg
         )
@@ -240,6 +240,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
         bint isFutureEnabled() const
+        bint amProbe(ucp_ep_h) const
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
@@ -277,6 +278,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void setCloseCallback(
             function[void(void*)] close_callback, void* close_callback_arg
         )
+        shared_ptr[Worker] getWorker(shared_ptr[Component] worker_or_listener)
 
     cdef cppclass Listener(Component):
         shared_ptr[Endpoint] createEndpointFromConnRequest(

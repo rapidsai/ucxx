@@ -946,6 +946,20 @@ cdef class UCXEndpoint():
         with nogil:
             self._endpoint.get().close()
 
+    def am_probe(self):
+        cdef ucp_ep_h handle
+        cdef shared_ptr[Component] parent
+        cdef shared_ptr[Worker] worker
+        cdef bint ep_matched
+
+        with nogil:
+            handle = self._endpoint.get().getHandle()
+            parent = self._endpoint.get().getParent()
+            worker = self._endpoint.get().getWorker(parent)
+            ep_matched = worker.get().amProbe(handle)
+
+        return ep_matched
+
     def am_send(self, Array arr):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
