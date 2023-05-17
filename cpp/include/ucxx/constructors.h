@@ -57,6 +57,7 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 std::shared_ptr<RequestAM> createRequestAMSend(std::shared_ptr<Endpoint> endpoint,
                                                void* buffer,
                                                size_t length,
+                                               ucs_memory_type_t memoryType,
                                                const bool enablePythonFuture,
                                                RequestCallbackUserFunction callbackFunction,
                                                RequestCallbackUserData callbackData);

@@ -19,12 +19,13 @@ std::shared_ptr<RequestAM> createRequestAMSend(
   std::shared_ptr<Endpoint> endpoint,
   void* buffer,
   size_t length,
+  ucs_memory_type_t memoryType                 = UCS_MEMORY_TYPE_HOST,
   const bool enablePythonFuture                = false,
   RequestCallbackUserFunction callbackFunction = nullptr,
   RequestCallbackUserData callbackData         = nullptr)
 {
-  return std::shared_ptr<RequestAM>(
-    new RequestAM(endpoint, buffer, length, enablePythonFuture, callbackFunction, callbackData));
+  return std::shared_ptr<RequestAM>(new RequestAM(
+    endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<RequestAM> createRequestAMRecv(
@@ -45,11 +46,12 @@ std::shared_ptr<RequestAM> createRequestAMRecv(
 RequestAM::RequestAM(std::shared_ptr<Endpoint> endpoint,
                      void* buffer,
                      size_t length,
+                     ucs_memory_type_t memoryType,
                      const bool enablePythonFuture,
                      RequestCallbackUserFunction callbackFunction,
                      RequestCallbackUserData callbackData)
   : Request(endpoint,
-            std::make_shared<DelayedSubmission>(true, buffer, length),
+            std::make_shared<DelayedSubmission>(true, buffer, length, 0, memoryType),
             std::string("amSend"),
             enablePythonFuture)
 {
@@ -132,14 +134,19 @@ ucs_status_t RequestAM::recvCallback(void* arg,
   }
 
   if (is_rndv) {
-    if (allocatorType == UCS_MEMORY_TYPE_HOST || allocatorType == UCS_MEMORY_TYPE_CUDA) {
-      buf = amData->_allocators.at(allocatorType)(length);
-    } else {
-      ucxx_debug("Unsupported memory type %d", allocatorType);
-      internal::RecvAmMessage recvAmMessage(amData, ep, req, nullptr);
-      recvAmMessage.callback(nullptr, UCS_ERR_UNSUPPORTED);
-      return UCS_ERR_UNSUPPORTED;
+    if (amData->_allocators.find(allocatorType) == amData->_allocators.end()) {
+      // TODO: Is a hard failure better?
+      // ucxx_debug("Unsupported memory type %d", allocatorType);
+      // internal::RecvAmMessage recvAmMessage(amData, ep, req, nullptr);
+      // recvAmMessage.callback(nullptr, UCS_ERR_UNSUPPORTED);
+      // return UCS_ERR_UNSUPPORTED;
+
+      ucxx_trace_req("No allocator registered for memory type %d, falling back to host memory.",
+                     allocatorType);
+      allocatorType = UCS_MEMORY_TYPE_HOST;
     }
+
+    buf = amData->_allocators.at(allocatorType)(length);
 
     auto recvAmMessage = std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf);
 
@@ -197,8 +204,8 @@ void RequestAM::request()
                                .datatype  = ucp_dt_make_contig(1),
                                .user_data = this};
 
-  // TODO: add CUDA support
-  _sendHeader = UCS_MEMORY_TYPE_HOST;
+  _sendHeader = _delayedSubmission->_memoryType;
+  ucxx_debug("RequestAM::request memtype: %d", _sendHeader);
 
   if (_delayedSubmission->_send) {
     param.cb.send = _amSendCallback;

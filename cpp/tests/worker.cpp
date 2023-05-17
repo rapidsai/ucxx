@@ -81,7 +81,7 @@ TEST_F(WorkerTest, AmProbe)
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->amSend(buf.data(), buf.size() * sizeof(int)));
+  requests.push_back(ep->amSend(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
   waitRequests(_worker, requests, progressWorker);
 
   // Attempt to progress worker 10 times (arbitrarily defined).
@@ -104,7 +104,7 @@ TEST_P(WorkerProgressTest, ProgressAm)
   std::vector<int> send{123};
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->amSend(send.data(), send.size() * sizeof(int)));
+  requests.push_back(ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
   requests.push_back(ep->amRecv());
   waitRequests(_worker, requests, _progressWorker);
 

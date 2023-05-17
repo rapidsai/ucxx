@@ -25,6 +25,7 @@ class DelayedSubmission {
   void* _buffer{nullptr};  ///< Raw pointer to data buffer
   size_t _length{0};       ///< Length of the message in bytes
   ucp_tag_t _tag{0};       ///< Tag to match
+  ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_UNKNOWN};  ///< Buffer memory type
 
   DelayedSubmission() = delete;
 
@@ -42,12 +43,18 @@ class DelayedSubmission {
    * a multi-threaded application for blocking while waiting for the UCX spinlock, since
    * all transfer operations may be pushed to the worker progress thread.
    *
-   * @param[in] send    whether this is a send (`true`) or receive (`false`) operation.
-   * @param[in] buffer  a raw pointer to the data being transferred.
-   * @param[in] length  the size in bytes of the message being transfer.
-   * @param[in] tag     tag to match for this operation (only applies for tag operations).
+   * @param[in] send        whether this is a send (`true`) or receive (`false`) operation.
+   * @param[in] buffer      a raw pointer to the data being transferred.
+   * @param[in] length      the size in bytes of the message being transfer.
+   * @param[in] tag         tag to match for this operation (only applies for tag
+   *                        operations).
+   * @param[in] memoryType  the memory type of the buffer.
    */
-  DelayedSubmission(const bool send, void* buffer, const size_t length, const ucp_tag_t tag = 0);
+  DelayedSubmission(const bool send,
+                    void* buffer,
+                    const size_t length,
+                    const ucp_tag_t tag                = 0,
+                    const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_UNKNOWN);
 };
 
 class DelayedSubmissionCollection {

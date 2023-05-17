@@ -16,8 +16,9 @@ namespace ucxx {
 DelayedSubmission::DelayedSubmission(const bool send,
                                      void* buffer,
                                      const size_t length,
-                                     const ucp_tag_t tag)
-  : _send(send), _buffer(buffer), _length(length), _tag(tag)
+                                     const ucp_tag_t tag,
+                                     const ucs_memory_type_t memoryType)
+  : _send(send), _buffer(buffer), _length(length), _tag(tag), _memoryType(memoryType)
 {
 }
 

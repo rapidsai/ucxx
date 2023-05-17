@@ -267,6 +267,7 @@ class Endpoint : public Component {
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] memoryType          the memory type of the buffer.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
@@ -276,6 +277,7 @@ class Endpoint : public Component {
    */
   std::shared_ptr<Request> amSend(void* buffer,
                                   size_t length,
+                                  ucs_memory_type_t memoryType,
                                   const bool enablePythonFuture                = false,
                                   RequestCallbackUserFunction callbackFunction = nullptr,
                                   RequestCallbackUserData callbackData         = nullptr);
