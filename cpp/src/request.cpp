@@ -69,7 +69,7 @@ void Request::cancel()
                        ucs_status_string(status));
     } else {
       ucxx_trace_req_f(_ownerString.c_str(), _request, _operationName.c_str(), "canceling");
-      ucp_request_cancel(_worker->getHandle(), _request);
+      if (_request != nullptr) ucp_request_cancel(_worker->getHandle(), _request);
     }
   } else {
     auto status = _status.load();
@@ -105,10 +105,11 @@ void Request::callback(void* request, ucs_status_t status)
                    _callback.target<void (*)(void)>());
   if (_callback) _callback(status, _callbackData);
 
-  ucp_request_free(request);
+  if (request != nullptr) ucp_request_free(request);
 
   ucxx_trace("Request completed: %p, handle: %p", this, request);
   setStatus(status);
+  ucxx_trace("Request %p, isCompleted: %d", this, isCompleted());
 }
 
 void Request::process()

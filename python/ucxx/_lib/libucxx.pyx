@@ -18,6 +18,7 @@ from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport (
     dynamic_pointer_cast,
+    make_shared,
     make_unique,
     shared_ptr,
     unique_ptr,
@@ -58,6 +59,11 @@ def _get_host_buffer(uintptr_t recv_buffer_ptr):
     cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
     cdef size_t size = host_buffer.getSize()
     return ptr_to_ndarray(host_buffer.release(), size)
+
+
+cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length):
+    cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
+    return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
 
 
 ###############################################################################
@@ -434,6 +440,10 @@ cdef class UCXWorker():
     ):
         cdef bint ucxx_enable_delayed_submission = enable_delayed_submission
         cdef bint ucxx_enable_python_future = enable_python_future
+        cdef AmAllocatorType rmm_am_allocator
+
+        self._context_feature_flags = <uint64_t>(context.feature_flags)
+
         with nogil:
             self._worker = createPythonWorker(
                 context._context,
@@ -442,7 +452,9 @@ cdef class UCXWorker():
             )
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
-        self._context_feature_flags = <uint64_t>(context.feature_flags)
+            if self._context_feature_flags & UCP_FEATURE_AM:
+                rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
+                self._worker.get().registerAmAllocator(UCS_MEMORY_TYPE_CUDA, rmm_am_allocator)
 
     @property
     def handle(self):
@@ -963,6 +975,7 @@ cdef class UCXEndpoint():
     def am_send(self, Array arr):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
+        cdef bint cuda_array = arr.cuda
         cdef shared_ptr[Request] req
 
         if not self._context_feature_flags & Feature.AM.value:
@@ -972,6 +985,7 @@ cdef class UCXEndpoint():
             req = self._endpoint.get().amSend(
                 buf,
                 nbytes,
+                UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST,
                 self._enable_python_future
             )
 
