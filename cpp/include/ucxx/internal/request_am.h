@@ -16,7 +16,7 @@ namespace ucxx {
 
 class Buffer;
 class InflightRequests;
-class RequestAM;
+class RequestAm;
 class Request;
 class Worker;
 
@@ -28,7 +28,7 @@ class RecvAmMessage {
  public:
   internal::AmData* _amData{nullptr};  ///< Active messages data
   ucp_ep_h _ep{nullptr};               ///< Handle containing address of the reply endpoint
-  std::shared_ptr<RequestAM> _request{
+  std::shared_ptr<RequestAm> _request{
     nullptr};  ///< Request which will later be notified/delivered to user
   std::shared_ptr<Buffer> _buffer{nullptr};  ///< Buffer containing the received data
 
@@ -45,13 +45,13 @@ class RecvAmMessage {
    */
   RecvAmMessage(internal::AmData* amData,
                 ucp_ep_h ep,
-                std::shared_ptr<RequestAM> request,
+                std::shared_ptr<RequestAm> request,
                 std::shared_ptr<Buffer> buffer);
 
   /**
    * @brief Set the UCP request.
    *
-   * Set the underlying UCP request (`_request` attribute) of the `RequestAM`.
+   * Set the underlying UCP request (`_request` attribute) of the `RequestAm`.
    *
    * @param[in] request the UCP request associated to the active message receive operation.
    */
@@ -70,8 +70,8 @@ class RecvAmMessage {
   void callback(void* request, ucs_status_t status);
 };
 
-typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAM>>> AmPoolType;
-typedef std::unordered_map<RequestAM*, std::shared_ptr<RecvAmMessage>> RecvAmMessageMapType;
+typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAm>>> AmPoolType;
+typedef std::unordered_map<RequestAm*, std::shared_ptr<RecvAmMessage>> RecvAmMessageMapType;
 
 class AmData {
  public:

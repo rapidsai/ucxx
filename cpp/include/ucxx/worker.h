@@ -28,7 +28,7 @@ class Address;
 class Buffer;
 class Endpoint;
 class Listener;
-class RequestAM;
+class RequestAm;
 
 namespace internal {
 class AmData;
@@ -54,7 +54,7 @@ class Worker : public Component {
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
 
-  friend std::shared_ptr<RequestAM> createRequestAMRecv(
+  friend std::shared_ptr<RequestAm> createRequestAmRecv(
     std::shared_ptr<Endpoint> endpoint,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
@@ -93,8 +93,8 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion state and data.
    */
-  std::shared_ptr<RequestAM> getAmRecv(
-    ucp_ep_h ep, std::function<std::shared_ptr<RequestAM>()> createAmRecvRequestFunction);
+  std::shared_ptr<RequestAm> getAmRecv(
+    ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction);
 
   /**
    * @brief Stop the progress thread if running without raising warnings.
@@ -709,7 +709,7 @@ class Worker : public Component {
    *
    * Checks the worker for any uncaught active messages. An uncaught active message is any
    * active message that has been fully or partially received by the worker, but not matched
-   * by a corresponding `createRequestAMRecv()` call.
+   * by a corresponding `createRequestAmRecv()` call.
    *
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`

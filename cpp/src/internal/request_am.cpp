@@ -13,7 +13,7 @@ namespace internal {
 
 RecvAmMessage::RecvAmMessage(internal::AmData* amData,
                              ucp_ep_h ep,
-                             std::shared_ptr<RequestAM> request,
+                             std::shared_ptr<RequestAm> request,
                              std::shared_ptr<Buffer> buffer)
   : _amData(amData), _ep(ep), _request(request), _buffer(buffer)
 {

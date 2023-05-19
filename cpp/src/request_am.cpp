@@ -15,7 +15,7 @@
 
 namespace ucxx {
 
-std::shared_ptr<RequestAM> createRequestAMSend(
+std::shared_ptr<RequestAm> createRequestAmSend(
   std::shared_ptr<Endpoint> endpoint,
   void* buffer,
   size_t length,
@@ -24,11 +24,11 @@ std::shared_ptr<RequestAM> createRequestAMSend(
   RequestCallbackUserFunction callbackFunction = nullptr,
   RequestCallbackUserData callbackData         = nullptr)
 {
-  return std::shared_ptr<RequestAM>(new RequestAM(
+  return std::shared_ptr<RequestAm>(new RequestAm(
     endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
 }
 
-std::shared_ptr<RequestAM> createRequestAMRecv(
+std::shared_ptr<RequestAm> createRequestAmRecv(
   std::shared_ptr<Endpoint> endpoint,
   const bool enablePythonFuture                = false,
   RequestCallbackUserFunction callbackFunction = nullptr,
@@ -37,13 +37,13 @@ std::shared_ptr<RequestAM> createRequestAMRecv(
   auto worker = endpoint->getWorker(endpoint->getParent());
 
   auto createRequest = [endpoint, enablePythonFuture, callbackFunction, callbackData]() {
-    return std::shared_ptr<RequestAM>(
-      new RequestAM(endpoint, enablePythonFuture, callbackFunction, callbackData));
+    return std::shared_ptr<RequestAm>(
+      new RequestAm(endpoint, enablePythonFuture, callbackFunction, callbackData));
   };
   return worker->getAmRecv(endpoint->getHandle(), createRequest);
 }
 
-RequestAM::RequestAM(std::shared_ptr<Endpoint> endpoint,
+RequestAm::RequestAm(std::shared_ptr<Endpoint> endpoint,
                      void* buffer,
                      size_t length,
                      ucs_memory_type_t memoryType,
@@ -65,7 +65,7 @@ RequestAM::RequestAM(std::shared_ptr<Endpoint> endpoint,
     std::bind(std::mem_fn(&Request::populateDelayedSubmission), this));
 }
 
-RequestAM::RequestAM(std::shared_ptr<Component> endpointOrWorker,
+RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
                      const bool enablePythonFuture,
                      RequestCallbackUserFunction callbackFunction,
                      RequestCallbackUserData callbackData)
@@ -93,7 +93,7 @@ static void _recvCompletedCallback(void* request,
   recvAmMessage->callback(request, status);
 }
 
-ucs_status_t RequestAM::recvCallback(void* arg,
+ucs_status_t RequestAm::recvCallback(void* arg,
                                      const void* header,
                                      size_t header_length,
                                      void* data,
@@ -109,14 +109,14 @@ ucs_status_t RequestAM::recvCallback(void* arg,
     ucxx_error("UCP_AM_RECV_ATTR_FIELD_REPLY_EP not set");
 
   ucp_ep_h ep = param->reply_ep;
-  recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAM>>());
+  recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
 
   bool is_rndv = param->recv_attr & UCP_AM_RECV_ATTR_FLAG_RNDV;
 
   std::shared_ptr<Buffer> buf{nullptr};
   auto allocatorType = *reinterpret_cast<const ucs_memory_type_t*>(header);
 
-  std::shared_ptr<RequestAM> req{nullptr};
+  std::shared_ptr<RequestAm> req{nullptr};
 
   {
     std::lock_guard<std::mutex> lock(amData->_mutex);
@@ -126,8 +126,8 @@ ucs_status_t RequestAM::recvCallback(void* arg,
       recvWait.at(ep).pop();
       ucxx_trace_req("amRecv recvWait: %p", req.get());
     } else {
-      req = std::shared_ptr<RequestAM>(
-        new RequestAM(worker, worker->isFutureEnabled(), nullptr, nullptr));
+      req = std::shared_ptr<RequestAm>(
+        new RequestAm(worker, worker->isFutureEnabled(), nullptr, nullptr));
       recvPool.at(ep).push(req);
       ucxx_trace_req("amRecv recvPool: %p", req.get());
     }
@@ -191,9 +191,9 @@ ucs_status_t RequestAM::recvCallback(void* arg,
   }
 }
 
-std::shared_ptr<Buffer> RequestAM::getRecvBuffer() { return _buffer; }
+std::shared_ptr<Buffer> RequestAm::getRecvBuffer() { return _buffer; }
 
-void RequestAM::request()
+void RequestAm::request()
 {
   static const ucp_tag_t tagMask = -1;
 
@@ -205,7 +205,6 @@ void RequestAM::request()
                                .user_data = this};
 
   _sendHeader = _delayedSubmission->_memoryType;
-  ucxx_debug("RequestAM::request memtype: %d", _sendHeader);
 
   if (_delayedSubmission->_send) {
     param.cb.send = _amSendCallback;
@@ -222,7 +221,7 @@ void RequestAM::request()
   }
 }
 
-void RequestAM::populateDelayedSubmission()
+void RequestAm::populateDelayedSubmission()
 {
   request();
 

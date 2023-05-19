@@ -50,7 +50,7 @@ Worker::Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmiss
                                                              UCP_AM_HANDLER_PARAM_FIELD_CB |
                                                              UCP_AM_HANDLER_PARAM_FIELD_ARG,
                                                .id  = AM_MSG_ID,
-                                               .cb  = RequestAM::recvCallback,
+                                               .cb  = RequestAm::recvCallback,
                                                .arg = _amData.get()};
     utils::ucsErrorThrow(ucp_worker_set_am_recv_handler(_handle, &am_handler_param));
   }
@@ -102,8 +102,8 @@ void Worker::drainWorkerTagRecv()
   }
 }
 
-std::shared_ptr<RequestAM> Worker::getAmRecv(
-  ucp_ep_h ep, std::function<std::shared_ptr<RequestAM>()> createAmRecvRequestFunction)
+std::shared_ptr<RequestAm> Worker::getAmRecv(
+  ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction)
 {
   std::lock_guard<std::mutex> lock(_amData->_mutex);
 
@@ -116,7 +116,7 @@ std::shared_ptr<RequestAM> Worker::getAmRecv(
     return req;
   } else {
     auto req = createAmRecvRequestFunction();
-    recvWait.try_emplace(ep, std::queue<std::shared_ptr<RequestAM>>());
+    recvWait.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
     recvWait.at(ep).push(req);
     return req;
   }

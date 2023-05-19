@@ -20,7 +20,7 @@ namespace internal {
 class RecvAmMessage;
 }  // namespace internal
 
-class RequestAM : public Request {
+class RequestAm : public Request {
  private:
   friend class internal::RecvAmMessage;
 
@@ -28,16 +28,16 @@ class RequestAM : public Request {
   std::shared_ptr<Buffer> _buffer{nullptr};  ///< The AM received message buffer
 
   /**
-   * @brief Private constructor of `ucxx::RequestAM` send.
+   * @brief Private constructor of `ucxx::RequestAm` send.
    *
-   * This is the internal implementation of `ucxx::RequestAM` send constructor, made private
+   * This is the internal implementation of `ucxx::RequestAm` send constructor, made private
    * not to be called directly. This constructor is made private to ensure all UCXX objects
    * are shared pointers and the correct lifetime management of each one.
    *
    * Instead the user should use one of the following:
    *
    * - `ucxx::Endpoint::amSend()`
-   * - `ucxx::createRequestAMSend()`
+   * - `ucxx::createRequestAmSend()`
    *
    * @throws ucxx::Error  if `endpoint` is not a valid `std::shared_ptr<ucxx::Endpoint>`.
    *
@@ -50,7 +50,7 @@ class RequestAM : public Request {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
-  RequestAM(std::shared_ptr<Endpoint> endpoint,
+  RequestAm(std::shared_ptr<Endpoint> endpoint,
             void* buffer,
             size_t length,
             ucs_memory_type_t memoryType,
@@ -59,16 +59,16 @@ class RequestAM : public Request {
             RequestCallbackUserData callbackData         = nullptr);
 
   /**
-   * @brief Private constructor of `ucxx::RequestAM` receive.
+   * @brief Private constructor of `ucxx::RequestAm` receive.
    *
-   * This is the internal implementation of `ucxx::RequestAM` receive constructor, made
+   * This is the internal implementation of `ucxx::RequestAm` receive constructor, made
    * private not to be called directly. This constructor is made private to ensure all UCXX
    * objects are shared pointers and the correct lifetime management of each one.
    *
    * Instead the user should use one of the following:
    *
    * - `ucxx::Endpoint::amRecv()`
-   * - `ucxx::createRequestAMRecv()`
+   * - `ucxx::createRequestAmRecv()`
    *
    * @throws ucxx::Error  if `endpointOrWorker` is not a valid
    *                      `std::shared_ptr<ucxx::Endpoint>` or
@@ -82,16 +82,16 @@ class RequestAM : public Request {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
-  RequestAM(std::shared_ptr<Component> endpointOrWorker,
+  RequestAm(std::shared_ptr<Component> endpointOrWorker,
             const bool enablePythonFuture                = false,
             RequestCallbackUserFunction callbackFunction = nullptr,
             RequestCallbackUserData callbackData         = nullptr);
 
  public:
   /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestAM>` send.
+   * @brief Constructor for `std::shared_ptr<ucxx::RequestAm>` send.
    *
-   * The constructor for a `std::shared_ptr<ucxx::RequestAM>` object, creating a send active
+   * The constructor for a `std::shared_ptr<ucxx::RequestAm>` object, creating a send active
    * message request, returning a pointer to a request object that can be later awaited and
    * checked for errors. This is a non-blocking operation, and the status of the transfer
    * must be verified from the resulting request object before the data can be
@@ -109,9 +109,9 @@ class RequestAM : public Request {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns The `shared_ptr<ucxx::RequestAM>` object
+   * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
-  friend std::shared_ptr<RequestAM> createRequestAMSend(
+  friend std::shared_ptr<RequestAm> createRequestAmSend(
     std::shared_ptr<Endpoint> endpoint,
     void* buffer,
     size_t length,
@@ -121,9 +121,9 @@ class RequestAM : public Request {
     RequestCallbackUserData callbackData);
 
   /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestAM>` send.
+   * @brief Constructor for `std::shared_ptr<ucxx::RequestAm>` receive.
    *
-   * The constructor for a `std::shared_ptr<ucxx::RequestAM>` object, creating a receive
+   * The constructor for a `std::shared_ptr<ucxx::RequestAm>` object, creating a receive
    * active message request, returning a pointer to a request object that can be later
    * awaited and checked for errors. This is a non-blocking operation, and the status of
    * the transfer must be verified from the resulting request object before the data can be
@@ -141,7 +141,7 @@ class RequestAM : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestTag>` object
    */
-  friend std::shared_ptr<RequestAM> createRequestAMRecv(
+  friend std::shared_ptr<RequestAm> createRequestAmRecv(
     std::shared_ptr<Endpoint> endpoint,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
@@ -167,7 +167,7 @@ class RequestAM : public Request {
    * the header sent by the remote endpoint using the default allocator or one registered by
    * the user via `ucxx::Worker::registerAmAllocator()`. Following that, the message is
    * immediately received onto the buffer and a `UCS_OK` or the proper error status is set
-   * onto the `RequestAM` that is returned to the user, or will be later handled by another
+   * onto the `RequestAm` that is returned to the user, or will be later handled by another
    * callback when the message is ready. If the callback is executed when a user has already
    * requested received of the active message, the buffer and status will be set on the
    * earliest request, otherwise a new request is created and saved in a pool that will be

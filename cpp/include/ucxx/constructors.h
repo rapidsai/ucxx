@@ -19,7 +19,7 @@ class Future;
 class Listener;
 class Notifier;
 class Request;
-class RequestAM;
+class RequestAm;
 class RequestStream;
 class RequestTag;
 class RequestTagMulti;
@@ -54,7 +54,7 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableDelayedSubmission);
 
 // Transfers
-std::shared_ptr<RequestAM> createRequestAMSend(std::shared_ptr<Endpoint> endpoint,
+std::shared_ptr<RequestAm> createRequestAmSend(std::shared_ptr<Endpoint> endpoint,
                                                void* buffer,
                                                size_t length,
                                                ucs_memory_type_t memoryType,
@@ -62,7 +62,7 @@ std::shared_ptr<RequestAM> createRequestAMSend(std::shared_ptr<Endpoint> endpoin
                                                RequestCallbackUserFunction callbackFunction,
                                                RequestCallbackUserData callbackData);
 
-std::shared_ptr<RequestAM> createRequestAMRecv(std::shared_ptr<Endpoint> endpoint,
+std::shared_ptr<RequestAm> createRequestAmRecv(std::shared_ptr<Endpoint> endpoint,
                                                const bool enablePythonFuture,
                                                RequestCallbackUserFunction callbackFunction,
                                                RequestCallbackUserData callbackData);

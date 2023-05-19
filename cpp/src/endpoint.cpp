@@ -200,7 +200,7 @@ std::shared_ptr<Request> Endpoint::amSend(void* buffer,
                                           RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestAMSend(
+  return registerInflightRequest(createRequestAmSend(
     endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
 }
 
@@ -210,7 +210,7 @@ std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
-    createRequestAMRecv(endpoint, enablePythonFuture, callbackFunction, callbackData));
+    createRequestAmRecv(endpoint, enablePythonFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
