@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <unordered_map>
 
 #include <ucp/api/ucp.h>
@@ -76,6 +77,7 @@ typedef std::unordered_map<RequestAm*, std::shared_ptr<RecvAmMessage>> RecvAmMes
 class AmData {
  public:
   std::weak_ptr<Worker> _worker{};  ///< The worker to which the Active Message callback belongs
+  std::string _ownerString{};       ///< The owner string used for logging
   AmPoolType _recvPool{};  ///< The pool of completed receive requests (waiting for user request)
   AmPoolType _recvWait{};  ///< The pool of user receive requests (waiting for message arrival)
   RecvAmMessageMapType

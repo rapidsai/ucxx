@@ -4,6 +4,7 @@
  */
 #include <cstdio>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include <ucp/api/ucp.h>
@@ -102,6 +103,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 {
   internal::AmData* amData = reinterpret_cast<internal::AmData*>(arg);
   auto worker              = amData->_worker.lock();
+  auto& ownerString        = amData->_ownerString;
   auto& recvPool           = amData->_recvPool;
   auto& recvWait           = amData->_recvWait;
 
@@ -159,7 +161,16 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     ucs_status_ptr_t status =
       ucp_am_recv_data_nbx(worker->getHandle(), data, buf->data(), length, &request_param);
 
-    ucxx_debug("am rndv: ep %p len %lu", ep, length);
+    ucxx_trace_req_f(
+      ownerString.c_str(),
+      status,
+      "amRecv rndv",
+      "ep %p, buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
+      ep,
+      buf->data(),
+      length,
+      req->_future.get(),
+      req->_future->getHandle());
 
     if (req->isCompleted()) {
       // The request completed/errored immediately
@@ -180,10 +191,19 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       return UCS_INPROGRESS;
     }
   } else {
-    ucxx_debug("am eager copying %lu bytes with ep %p", length, ep);
-
     buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
     if (length > 0) memcpy(buf->data(), data, length);
+
+    ucxx_trace_req_f(
+      ownerString.c_str(),
+      nullptr,
+      "amRecv eager",
+      "ep: %p, buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
+      ep,
+      buf->data(),
+      length,
+      req->_future.get(),
+      req->_future->getHandle());
 
     internal::RecvAmMessage recvAmMessage(amData, ep, req, buf);
     recvAmMessage.callback(nullptr, UCS_OK);

@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -129,7 +130,13 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
   // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
   // been created, thus this cannot be in the constructor.
-  if (worker->_amData != nullptr) worker->_amData->_worker = worker;
+  if (worker->_amData != nullptr) {
+    worker->_amData->_worker = worker;
+
+    std::stringstream ownerStream;
+    ownerStream << "worker " << worker->getHandle();
+    worker->_amData->_ownerString = ownerStream.str();
+  }
 
   return worker;
 }
