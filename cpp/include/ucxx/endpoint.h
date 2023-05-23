@@ -70,7 +70,7 @@ class Endpoint : public Component {
    * @param[in] endpointErrorHandling whether to enable endpoint error handling.
    */
   Endpoint(std::shared_ptr<Component> workerOrListener,
-           std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
+           ucp_ep_params_t* params,
            bool endpointErrorHandling);
 
   /**
@@ -319,13 +319,12 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagSend(
-    void* buffer,
-    size_t length,
-    ucp_tag_t tag,
-    const bool enablePythonFuture                               = false,
-    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
-    std::shared_ptr<void> callbackData                          = nullptr);
+  std::shared_ptr<Request> tagSend(void* buffer,
+                                   size_t length,
+                                   ucp_tag_t tag,
+                                   const bool enablePythonFuture                = false,
+                                   RequestCallbackUserFunction callbackFunction = nullptr,
+                                   RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -350,13 +349,12 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagRecv(
-    void* buffer,
-    size_t length,
-    ucp_tag_t tag,
-    const bool enablePythonFuture                               = false,
-    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
-    std::shared_ptr<void> callbackData                          = nullptr);
+  std::shared_ptr<Request> tagRecv(void* buffer,
+                                   size_t length,
+                                   ucp_tag_t tag,
+                                   const bool enablePythonFuture                = false,
+                                   RequestCallbackUserFunction callbackFunction = nullptr,
+                                   RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a multi-buffer tag send operation.

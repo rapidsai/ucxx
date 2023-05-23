@@ -212,6 +212,37 @@ TEST_P(RequestTest, ProgressTagMulti)
     ASSERT_THAT(_recv[i], ContainerEq(_send[i]));
 }
 
+TEST_P(RequestTest, TagUserCallback)
+{
+  allocate();
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests(2);
+  std::vector<ucs_status_t> requestStatus(2, UCS_INPROGRESS);
+
+  auto checkStatus = [&requests, &requestStatus](ucs_status_t status,
+                                                 ::ucxx::RequestCallbackUserData data) {
+    auto idx = *std::static_pointer_cast<size_t>(data);
+    if (status != UCS_OK) abort();
+    requestStatus[idx] = status;
+  };
+
+  auto sendIndex = std::make_shared<size_t>(0u);
+  auto recvIndex = std::make_shared<size_t>(1u);
+
+  // Submit and wait for transfers to complete
+  requests[0] = _ep->tagSend(_sendPtr[0], _messageSize, 0, false, checkStatus, sendIndex);
+  requests[1] = _ep->tagRecv(_recvPtr[0], _messageSize, 0, false, checkStatus, recvIndex);
+  waitRequests(_worker, requests, _progressWorker);
+
+  copyResults();
+
+  for (const auto request : requests)
+    ASSERT_THAT(request->getStatus(), UCS_OK);
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
 INSTANTIATE_TEST_SUITE_P(ProgressModes,
                          RequestTest,
                          Combine(Values(ucxx::BufferType::Host),

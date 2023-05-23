@@ -216,9 +216,10 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
    * which will be later used to evaluate if all frames completed and set the final status
    * of the multi-transfer request and the Python future, if enabled.
    *
+   * @param[in] status the status of the request being completed.
    * @param[in] request the `ucxx::BufferRequest` object containing a single tag .
    */
-  void markCompleted(std::shared_ptr<void> request);
+  void markCompleted(ucs_status_t status, RequestCallbackUserData request);
 
   /**
    * @brief Callback to submit request to receive new header or frames.
@@ -231,9 +232,12 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
    * containing the `next` flag set, then the next request is another header. Otherwise, the
    * next incoming message(s) is(are) frame(s).
    *
+   * When called, the callback receives a single argument, the status of the current request.
+   *
+   * @param[in] status the status of the request being completed.
    * @throws std::runtime_error if called by a send request.
    */
-  void callback();
+  void callback(ucs_status_t status);
 
   /**
    * @brief Return the status of the request.

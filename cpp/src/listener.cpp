@@ -27,25 +27,19 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
 
-  ucp_listener_params_t params{};
-  ucp_listener_attr_t attr{};
-
-  params.field_mask = UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER;
-  params.conn_handler.cb  = callback;
-  params.conn_handler.arg = callbackArgs;
-
-  if (ucxx::utils::sockaddr_set(&params.sockaddr, NULL, port))
-    // throw std::bad_alloc("Failed allocation of sockaddr")
-    throw std::bad_alloc();
-  std::unique_ptr<ucs_sock_addr_t, void (*)(ucs_sock_addr_t*)> sockaddr(&params.sockaddr,
-                                                                        ucxx::utils::sockaddr_free);
+  ucp_listener_params_t params = {
+    .field_mask   = UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER,
+    .conn_handler = {.cb = callback, .arg = callbackArgs}};
+  auto info               = ucxx::utils::get_addrinfo(NULL, port);
+  params.sockaddr.addr    = info->ai_addr;
+  params.sockaddr.addrlen = info->ai_addrlen;
 
   ucp_listener_h handle = nullptr;
   utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &handle));
   _handle = std::unique_ptr<ucp_listener, void (*)(ucp_listener_h)>(handle, ucpListenerDestructor);
   ucxx_trace("Listener created: %p", _handle.get());
 
-  attr.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR;
+  ucp_listener_attr_t attr = {.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR};
   utils::ucsErrorThrow(ucp_listener_query(_handle.get(), &attr));
 
   char ipString[INET6_ADDRSTRLEN];
