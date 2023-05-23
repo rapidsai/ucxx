@@ -86,7 +86,14 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                 while ep._ep.is_alive():
                     ucxx.progress()
 
-                with pytest.raises(ucxx.exceptions.UCXError, match="Endpoint timeout"):
+                # TCP generally raises `UCXConnectionResetError`, whereas InfiniBand
+                # raises `UCXEndpointTimeoutError`
+                with pytest.raises(
+                    (
+                        ucxx.exceptions.UCXConnectionResetError,
+                        ucxx.exceptions.UCXEndpointTimeoutError,
+                    )
+                ):
                     if error_type == "timeout_am_send":
                         await asyncio.wait_for(ep.am_send(np.zeros(10)), timeout=1.0)
                     else:
@@ -94,7 +101,14 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                             ep.send(np.zeros(10), tag=0, force_tag=True), timeout=1.0
                         )
             else:
-                with pytest.raises(ucxx.exceptions.UCXError):
+                # TCP generally raises `UCXConnectionResetError`, whereas InfiniBand
+                # raises `UCXEndpointTimeoutError`
+                with pytest.raises(
+                    (
+                        ucxx.exceptions.UCXConnectionResetError,
+                        ucxx.exceptions.UCXEndpointTimeoutError,
+                    )
+                ):
                     if error_type == "timeout_am_recv":
                         task = asyncio.wait_for(ep.am_recv(), timeout=3.0)
                     else:
