@@ -87,13 +87,17 @@ class ApplicationContext:
     def _check_enable_delayed_submission(enable_delayed_submission):
         if enable_delayed_submission is None:
             if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
-                enable_delayed_submission = (
+                explicit_enable_delayed_submission = (
                     False
                     if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0"
                     else True
                 )
             else:
-                enable_delayed_submission = True
+                explicit_enable_delayed_submission = True
+        else:
+            explicit_enable_delayed_submission = enable_delayed_submission
+
+        return explicit_enable_delayed_submission
 
     @staticmethod
     def _check_enable_python_future(enable_python_future, progress_mode):

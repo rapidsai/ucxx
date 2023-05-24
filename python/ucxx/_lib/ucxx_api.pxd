@@ -140,7 +140,7 @@ cdef extern from "<ucxx/python/api.h>" namespace "ucxx::python" nogil:
     shared_ptr[Worker] createPythonWorker "ucxx::python::createWorker"(
         shared_ptr[Context] context,
         bint enableDelayedSubmission,
-        bint enablePythonFuture
+        bint enableFuture
     ) except +raise_py_error
 
 
@@ -198,6 +198,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass Context(Component):
         shared_ptr[Worker] createWorker(
             bint enableDelayedSubmission,
+            bint enableFuture,
         ) except +raise_py_error
         ConfigMap getConfig() except +raise_py_error
         ucp_context_h getHandle()
@@ -239,6 +240,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
+        bint isDelayedSubmissionEnabled() const
         bint isFutureEnabled() const
 
     cdef cppclass Endpoint(Component):
