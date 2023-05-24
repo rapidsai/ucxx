@@ -25,8 +25,8 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
     _enablePythonFuture(enablePythonFuture)
 {
   _endpoint = std::dynamic_pointer_cast<Endpoint>(endpointOrWorker);
-  _worker   = _endpoint ? Endpoint::getWorker(_endpoint->getParent())
-                        : std::dynamic_pointer_cast<Worker>(endpointOrWorker);
+  _worker =
+    _endpoint ? _endpoint->getWorker() : std::dynamic_pointer_cast<Worker>(endpointOrWorker);
 
   if (_worker == nullptr || _worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");

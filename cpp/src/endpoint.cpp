@@ -23,12 +23,22 @@
 
 namespace ucxx {
 
+static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener)
+{
+  auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
+  if (worker == nullptr) {
+    auto listener = std::dynamic_pointer_cast<Listener>(workerOrListener);
+    worker        = std::dynamic_pointer_cast<Worker>(listener->getParent());
+  }
+  return worker;
+}
+
 Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
                    ucp_ep_params_t* params,
                    bool endpointErrorHandling)
   : _endpointErrorHandling{endpointErrorHandling}
 {
-  auto worker = Endpoint::getWorker(workerOrListener);
+  auto worker = ::ucxx::getWorker(workerOrListener);
 
   if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
@@ -122,7 +132,7 @@ void Endpoint::close()
   }
   ucs_status_ptr_t status = ucp_ep_close_nb(_handle, closeMode);
   if (UCS_PTR_IS_PTR(status)) {
-    auto worker = Endpoint::getWorker(_parent);
+    auto worker = ::ucxx::getWorker(_parent);
     while (ucp_request_check_status(status) == UCS_INPROGRESS)
       worker->progress();
     ucp_request_free(status);
@@ -250,15 +260,7 @@ std::shared_ptr<RequestTagMulti> Endpoint::tagMultiRecv(const ucp_tag_t tag,
   return createRequestTagMultiRecv(endpoint, tag, enablePythonFuture);
 }
 
-std::shared_ptr<Worker> Endpoint::getWorker(std::shared_ptr<Component> workerOrListener)
-{
-  auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
-  if (worker == nullptr) {
-    auto listener = std::dynamic_pointer_cast<Listener>(workerOrListener);
-    worker        = std::dynamic_pointer_cast<Worker>(listener->getParent());
-  }
-  return worker;
-}
+std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }
 
 void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
