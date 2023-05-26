@@ -26,7 +26,7 @@ void parseLogLevel()
       });
 
     auto level = logLevelNames.find(logLevelName);
-    if (!logLevelName.empty() > 0 && level != logLevelNames.end())
+    if (!logLevelName.empty() && level != logLevelNames.end())
       ucxx_log_component_config.log_level = (ucs_log_level_t)level->second;
     else
       ucxx_warn("UCXX_LOG_LEVEL %s unknown, defaulting to UCXX_LOG_LEVEL=%s",
