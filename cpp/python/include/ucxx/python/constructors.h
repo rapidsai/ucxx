@@ -23,7 +23,7 @@ std::shared_ptr<::ucxx::Notifier> createNotifier();
 
 std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<ucxx::Context> context,
                                              const bool enableDelayedSubmission,
-                                             const bool enablePythonFuture);
+                                             const bool enableFuture);
 
 }  // namespace python
 

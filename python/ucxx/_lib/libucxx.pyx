@@ -427,6 +427,7 @@ cdef class UCXWorker():
     cdef:
         shared_ptr[Worker] _worker
         dict _progress_thread_start_cb_data
+        bint _enable_delayed_submission
         bint _enable_python_future
         uint64_t _context_feature_flags
 
@@ -444,6 +445,7 @@ cdef class UCXWorker():
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
+            self._enable_delayed_submission = self._worker.get().isDelayedSubmissionEnabled()
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
         self._context_feature_flags = <uint64_t>(context.feature_flags)
@@ -579,6 +581,9 @@ cdef class UCXWorker():
     def populate_python_futures_pool(self):
         with nogil:
             self._worker.get().populateFuturesPool()
+
+    def is_delayed_submission_enabled(self):
+        return self._enable_delayed_submission
 
     def is_python_future_enabled(self):
         return self._enable_python_future
