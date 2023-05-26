@@ -136,6 +136,22 @@ class Context : public Component {
   uint64_t getFeatureFlags() const;
 
   /**
+   * @brief Query whether CUDA support is available.
+   *
+   * Query whether the UCP context has CUDA support available. This is a done through a
+   * combination of verifying whether CUDA memory support is available and `UCX_TLS` allows
+   * CUDA to be enabled, essentially `UCX_TLS` must explicitly be one of the following:
+   *
+   * 1. Exactly `all`;
+   * 2. Contain a field starting with `cuda`;
+   * 3. Start with `^` (disable all listed transports) and _NOT_ contain a field named
+   *    either `cuda` or `cuda_copy`.
+   *
+   * @return Whether CUDA support is availale.
+   */
+  bool hasCudaSupport() const;
+
+  /**
    * @brief Create a new `ucxx::Worker`.
    *
    * Create a new `ucxx::Worker` as a child of the current `ucxx::Context`.
