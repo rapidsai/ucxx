@@ -28,7 +28,11 @@ static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrList
   auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
   if (worker == nullptr) {
     auto listener = std::dynamic_pointer_cast<Listener>(workerOrListener);
-    worker        = std::dynamic_pointer_cast<Worker>(listener->getParent());
+    if (listener == nullptr)
+      throw std::invalid_argument(
+        "Invalid object, it's not a shared_ptr to either ucxx::Worker nor ucxx::Listener");
+
+    worker = std::dynamic_pointer_cast<Worker>(listener->getParent());
   }
   return worker;
 }
