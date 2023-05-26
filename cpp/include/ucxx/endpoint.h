@@ -428,7 +428,7 @@ class Endpoint : public Component {
    * `std::shared_ptr<ucxx::Listener>` object. For convenience, this method can be used to
    * get the `std::shared_ptr<ucxx::Worker>` which the endpoint is associated with.
    *
-   * @returns The `std::shared_ptr<ucxx::Worker>` which the endpoint is assocaited with.
+   * @returns The `std::shared_ptr<ucxx::Worker>` which the endpoint is associated with.
    */
   std::shared_ptr<Worker> getWorker();
 
