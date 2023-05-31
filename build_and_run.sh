@@ -182,14 +182,14 @@ if [[ $RUN_PY_TESTS != 0 ]]; then
 fi
 if [[ $RUN_PY_ASYNC_TESTS != 0 ]]; then
   # run_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
-  run_tests_async   polling         0                         0                    1    # Unstable
-  run_tests_async   polling         0                         1                    1    # Unstable
-  run_tests_async   polling         1                         0                    1    # Unstable
-  run_tests_async   polling         1                         1                    1    # Unstable
-  run_tests_async   thread-polling  0                         0                    1    # Unstable
-  run_tests_async   thread-polling  0                         1                    1    # Unstable
-  run_tests_async   thread-polling  1                         0                    1    # Unstable
-  run_tests_async   thread-polling  1                         1                    1    # Unstable
+  run_tests_async   polling         0                         0                    0
+  run_tests_async   polling         0                         1                    0
+  run_tests_async   polling         1                         0                    1    # Delayed submission can't be used with polling
+  run_tests_async   polling         1                         1                    1    # Delayed submission can't be used with polling
+  run_tests_async   thread-polling  0                         0                    0
+  run_tests_async   thread-polling  0                         1                    0
+  run_tests_async   thread-polling  1                         0                    0
+  run_tests_async   thread-polling  1                         1                    0
   run_tests_async   thread          0                         0                    0
   run_tests_async   thread          0                         1                    0
   run_tests_async   thread          1                         0                    0
