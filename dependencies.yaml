@@ -109,6 +109,6 @@ dependencies:
           - cupy
           - dask>=2023.1.1
           - distributed>=2023.1.1
-          - numba
+          - numba>=0.57.0
           - pytest
           - pytest-asyncio
