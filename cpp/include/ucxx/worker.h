@@ -699,7 +699,7 @@ class Worker : public Component {
    * @endcode
    *
    * @param[in] memoryType  the memory type the allocator will be used for.
-   * @param[in] allocator   the allocator callbable that will be used to allocate new
+   * @param[in] allocator   the allocator callable that will be used to allocate new
    *                        active message buffers.
    */
   void registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator);

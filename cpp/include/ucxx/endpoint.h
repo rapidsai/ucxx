@@ -256,10 +256,10 @@ class Endpoint : public Component {
   /**
    * @brief Enqueue an active message send operation.
    *
-   * Enqueue an active message send operation, returning a `std::shared<ucxx::Request>` that
-   * can be later awaited and checked for errors. This is a non-blocking operation, and the
-   * status of the transfer must be verified from the resulting request object before the
-   * data can be released.
+   * Enqueue an active message send operation, returning a `std::shared_ptr<ucxx::Request>`
+   * that can be later awaited and checked for errors. This is a non-blocking operation, and
+   * the status of the transfer must be verified from the resulting request object before
+   * the data can be released.
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
@@ -285,11 +285,12 @@ class Endpoint : public Component {
   /**
    * @brief Enqueue an active message receive operation.
    *
-   * Enqueue an active message receive operation, returning a `std::shared<ucxx::Request>`
-   * that can be later awaited and checked for errors, making data available via the return
-   * value's `getRecvBuffer()` method once the operation completes successfully. This is a
-   * non-blocking operation, and the status of the transfer must be verified from the
-   * resulting request object before the data can be consumed.
+   * Enqueue an active message receive operation, returning a
+   * `std::shared_ptr<ucxx::Request>` that can be later awaited and checked for errors,
+   * making data available via the return value's `getRecvBuffer()` method once the
+   * operation completes successfully. This is a non-blocking operation, and the status of
+   * the transfer must be verified from the resulting request object before the data can be
+   * consumed.
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
