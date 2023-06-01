@@ -146,7 +146,7 @@ cdef extern from "<ucxx/python/api.h>" namespace "ucxx::python" nogil:
     shared_ptr[Worker] createPythonWorker "ucxx::python::createWorker"(
         shared_ptr[Context] context,
         bint enableDelayedSubmission,
-        bint enablePythonFuture
+        bint enableFuture
     ) except +raise_py_error
 
 
@@ -213,11 +213,13 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass Context(Component):
         shared_ptr[Worker] createWorker(
             bint enableDelayedSubmission,
+            bint enableFuture,
         ) except +raise_py_error
         ConfigMap getConfig() except +raise_py_error
         ucp_context_h getHandle()
         string getInfo() except +raise_py_error
         uint64_t getFeatureFlags()
+        bint hasCudaSupport()
 
     cdef cppclass Worker(Component):
         ucp_worker_h getHandle()
@@ -254,6 +256,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
+        bint isDelayedSubmissionEnabled() const
         bint isFutureEnabled() const
         bint amProbe(ucp_ep_h) const
         void registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)

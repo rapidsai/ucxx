@@ -25,11 +25,11 @@ print_system_stats
 BINARY_PATH=${CONDA_PREFIX}/bin
 
 run_tests() {
-  CMD_LINE="UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST --gtest_filter=-ListenerTest.CloseCallback:ListenerTest.IsAlive:ListenerTest.RaiseOnError"
+  CMD_LINE="UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
 
   rapids-logger "Running: \n  - ${CMD_LINE}"
 
-  UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST --gtest_filter=-ListenerTest.CloseCallback:ListenerTest.IsAlive:ListenerTest.RaiseOnError
+  UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST
 }
 
 run_benchmark() {

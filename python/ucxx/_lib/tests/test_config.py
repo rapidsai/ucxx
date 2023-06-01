@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
+from unittest.mock import patch
 
 import pytest
 import ucxx._lib.libucxx as ucx_api
@@ -85,3 +86,9 @@ def test_feature_flags_mismatch(feature_flag):
             ValueError, match="UCXContext must be created with `Feature.STREAM`"
         ):
             ep.stream_recv(msg)
+
+
+@patch.dict(os.environ, {"UCX_TLS": "^cuda"})
+def test_no_cuda_support():
+    ctx = ucx_api.UCXContext(feature_flags=(ucx_api.Feature.TAG,))
+    assert ctx.cuda_support is False

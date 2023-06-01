@@ -26,7 +26,10 @@
 
 namespace ucxx {
 
-Worker::Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission)
+Worker::Worker(std::shared_ptr<Context> context,
+               const bool enableDelayedSubmission,
+               const bool enableFuture)
+  : _enableFuture(enableFuture)
 {
   if (context == nullptr || context->getHandle() == nullptr)
     throw std::runtime_error("Context not initialized");
@@ -124,9 +127,10 @@ std::shared_ptr<RequestAm> Worker::getAmRecv(
 }
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedSubmission)
+                                     const bool enableDelayedSubmission,
+                                     const bool enableFuture)
 {
-  auto worker = std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission));
+  auto worker = std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
 
   // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
   // been created, thus this cannot be in the constructor.
@@ -165,6 +169,8 @@ std::string Worker::getInfo()
   ucp_worker_print_info(this->_handle, TextFileDescriptor);
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
+
+bool Worker::isDelayedSubmissionEnabled() const { return _delayedSubmissionCollection != nullptr; }
 
 bool Worker::isFutureEnabled() const { return _enableFuture; }
 

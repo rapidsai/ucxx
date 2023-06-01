@@ -51,7 +51,8 @@ std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          void* callback_args);
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedSubmission);
+                                     const bool enableDelayedSubmission,
+                                     const bool enableFuture);
 
 // Transfers
 std::shared_ptr<RequestAm> createRequestAmSend(std::shared_ptr<Endpoint> endpoint,
