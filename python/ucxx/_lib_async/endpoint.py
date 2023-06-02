@@ -59,7 +59,7 @@ class Endpoint:
         To do that, use `Endpoint.close()`
         """
         if self._ep is not None:
-            logger.debug("Endpoint.abort(): %s" % hex(self.uid))
+            logger.debug("Endpoint.abort(): 0x%x" % self.uid)
             self._ep.close()
         self._ep = None
         self._ctx = None
@@ -103,9 +103,9 @@ class Endpoint:
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
             nbytes = buffer.nbytes
-            log = "[AM Send #%03d] ep: %s, nbytes: %d, type: %s" % (
+            log = "[AM Send #%03d] ep: 0x%x, nbytes: %d, type: %s" % (
                 self._send_count,
-                hex(self.uid),
+                self.uid,
                 nbytes,
                 type(buffer.obj),
             )
@@ -154,10 +154,10 @@ class Endpoint:
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
             nbytes = buffer.nbytes
-            log = "[Send #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
+            log = "[Send #%03d] ep: 0x%x, tag: 0x%x, nbytes: %d, type: %s" % (
                 self._send_count,
-                hex(self.uid),
-                hex(tag),
+                self.uid,
+                tag,
                 nbytes,
                 type(buffer.obj),
             )
@@ -205,10 +205,10 @@ class Endpoint:
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
-            log = "[Send Multi #%03d] ep: %s, tag: %s, nbytes: %s, type: %s" % (
+            log = "[Send Multi #%03d] ep: 0x%x, tag: 0x%x, nbytes: %s, type: %s" % (
                 self._send_count,
-                hex(self.uid),
-                hex(tag),
+                self.uid,
+                tag,
                 tuple([b.nbytes for b in buffers]),  # nbytes,
                 tuple([type(b.obj) for b in buffers]),
             )
@@ -258,9 +258,9 @@ class Endpoint:
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
-            log = "[AM Recv #%03d] ep: %s" % (
+            log = "[AM Recv #%03d] ep: 0x%x" % (
                 self._recv_count,
-                hex(self.uid),
+                self.uid,
             )
             logger.debug(log)
 
@@ -271,9 +271,9 @@ class Endpoint:
         buffer = req.get_recv_buffer()
 
         if logger.isEnabledFor(logging.DEBUG):
-            log = "[AM Recv Completed #%03d] ep: %s, nbytes: %d, type: %s" % (
+            log = "[AM Recv Completed #%03d] ep: 0x%x, nbytes: %d, type: %s" % (
                 self._recv_count,
-                hex(self.uid),
+                self.uid,
                 buffer.nbytes,
                 type(buffer),
             )
@@ -323,10 +323,10 @@ class Endpoint:
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
             nbytes = buffer.nbytes
-            log = "[Recv #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
+            log = "[Recv #%03d] ep: 0x%x, tag: 0x%x, nbytes: %d, type: %s" % (
                 self._recv_count,
-                hex(self.uid),
-                hex(tag),
+                self.uid,
+                tag,
                 nbytes,
                 type(buffer.obj),
             )
@@ -373,10 +373,10 @@ class Endpoint:
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
-            log = "[Recv Multi #%03d] ep: %s, tag: %s" % (
+            log = "[Recv Multi #%03d] ep: 0x%x, tag: 0x%x" % (
                 self._recv_count,
-                hex(self.uid),
-                hex(tag),
+                self.uid,
+                tag,
             )
             logger.debug(log)
 
