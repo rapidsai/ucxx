@@ -101,7 +101,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                                      size_t length,
                                      const ucp_am_recv_param_t* param)
 {
-  internal::AmData* amData = reinterpret_cast<internal::AmData*>(arg);
+  internal::AmData* amData = static_cast<internal::AmData*>(arg);
   auto worker              = amData->_worker.lock();
   auto& ownerString        = amData->_ownerString;
   auto& recvPool           = amData->_recvPool;
@@ -116,7 +116,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   bool is_rndv = param->recv_attr & UCP_AM_RECV_ATTR_FLAG_RNDV;
 
   std::shared_ptr<Buffer> buf{nullptr};
-  auto allocatorType = *reinterpret_cast<const ucs_memory_type_t*>(header);
+  auto allocatorType = *static_cast<const ucs_memory_type_t*>(header);
 
   std::shared_ptr<RequestAm> req{nullptr};
 
