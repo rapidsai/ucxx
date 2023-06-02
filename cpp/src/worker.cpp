@@ -114,14 +114,15 @@ std::shared_ptr<RequestAm> Worker::getAmRecv(
   auto& recvPool = _amData->_recvPool;
   auto& recvWait = _amData->_recvWait;
 
-  if (recvPool.find(ep) != recvPool.end() && !recvPool.at(ep).empty()) {
-    auto req = recvPool.at(ep).front();
-    recvPool.at(ep).pop();
+  auto reqs = recvPool.find(ep);
+  if (reqs != recvPool.end() && !reqs->second.empty()) {
+    auto req = reqs->second.front();
+    reqs->second.pop();
     return req;
   } else {
-    auto req = createAmRecvRequestFunction();
-    recvWait.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
-    recvWait.at(ep).push(req);
+    auto req        = createAmRecvRequestFunction();
+    auto [queue, _] = recvWait.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
+    queue->second.push(req);
     return req;
   }
 }

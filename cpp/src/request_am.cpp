@@ -111,7 +111,6 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     ucxx_error("UCP_AM_RECV_ATTR_FIELD_REPLY_EP not set");
 
   ucp_ep_h ep = param->reply_ep;
-  recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
 
   bool is_rndv = param->recv_attr & UCP_AM_RECV_ATTR_FLAG_RNDV;
 
@@ -123,14 +122,16 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   {
     std::lock_guard<std::mutex> lock(amData->_mutex);
 
-    if (recvWait.find(ep) != recvWait.end() && !recvWait[ep].empty()) {
-      req = recvWait.at(ep).front();
-      recvWait.at(ep).pop();
+    auto reqs = recvWait.find(ep);
+    if (reqs != recvWait.end() && !reqs->second.empty()) {
+      req = reqs->second.front();
+      reqs->second.pop();
       ucxx_trace_req("amRecv recvWait: %p", req.get());
     } else {
       req = std::shared_ptr<RequestAm>(
         new RequestAm(worker, worker->isFutureEnabled(), nullptr, nullptr));
-      recvPool.at(ep).push(req);
+      auto [queue, _] = recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
+      queue->second.push(req);
       ucxx_trace_req("amRecv recvPool: %p", req.get());
     }
   }
