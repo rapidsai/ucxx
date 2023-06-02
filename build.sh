@@ -18,8 +18,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests examples -v -g -n -l --show_depr_warn -h"
-HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [examples] [-v] [-g] [-n] [-h] [--cmake-args=\\\"<args>\\\"]
+VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests examples -v -g -n -c --show_depr_warn -h"
+HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [examples] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
    libucxx                       - build the UCXX C++ module
@@ -31,6 +31,7 @@ HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [example
    -v                            - verbose build mode
    -g                            - build for debug
    -n                            - no install step
+   -c                            - create cpp/compile_commands.json
    --show_depr_warn              - show cmake deprecation warnings
    --cmake-args=\\\"<args>\\\"   - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h | --h[elp]                 - print this text
@@ -50,6 +51,7 @@ BUILD_BENCHMARKS=OFF
 BUILD_TESTS=OFF
 BUILD_EXAMPLES=OFF
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
+BUILD_COMPILE_COMMANDS=OFF
 UCXX_ENABLE_PYTHON=OFF
 UCXX_ENABLE_RMM=OFF
 
@@ -119,6 +121,9 @@ if hasArg -n; then
 else
     LIBUCXX_BUILD_DIR=${CONDA_PREFIX}/lib
 fi
+if hasArg -c; then
+    BUILD_COMPILE_COMMANDS=ON
+fi
 if hasArg benchmarks; then
     BUILD_BENCHMARKS=ON
 fi
@@ -169,6 +174,7 @@ if buildAll || hasArg libucxx; then
           -DBUILD_EXAMPLES=${BUILD_EXAMPLES} \
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
           -DUCXX_ENABLE_PYTHON=${UCXX_ENABLE_PYTHON} \
           -DUCXX_ENABLE_RMM=${UCXX_ENABLE_RMM} \
           ${EXTRA_CMAKE_ARGS}
@@ -179,6 +185,10 @@ if buildAll || hasArg libucxx; then
     cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
     compile_end=$(date +%s)
     compile_total=$(( compile_end - compile_start ))
+
+    if [[ ${BUILD_COMPILE_COMMANDS} == "ON" ]]; then
+      cp compile_commands.json ..
+    fi
 
     if [[ ${INSTALL_TARGET} != "" ]]; then
         cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
