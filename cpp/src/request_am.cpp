@@ -148,7 +148,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       allocatorType = UCS_MEMORY_TYPE_HOST;
     }
 
-    buf = amData->_allocators.at(allocatorType)(length);
+    std::shared_ptr<Buffer> buf = amData->_allocators.at(allocatorType)(length);
 
     auto recvAmMessage = std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf);
 
@@ -191,7 +191,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       return UCS_INPROGRESS;
     }
   } else {
-    buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
+    std::shared_ptr<Buffer> buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
     if (length > 0) memcpy(buf->data(), data, length);
 
     ucxx_trace_req_f(
