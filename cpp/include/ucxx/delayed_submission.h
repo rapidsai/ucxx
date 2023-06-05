@@ -11,6 +11,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/component.h>
 #include <ucxx/log.h>
 
 namespace ucxx {
@@ -19,7 +20,7 @@ typedef std::function<void()> DelayedSubmissionCallbackType;
 
 typedef std::shared_ptr<DelayedSubmissionCallbackType> DelayedSubmissionCallbackPtrType;
 
-class DelayedSubmission {
+class DelayedSubmission : public Component {
  public:
   bool _send{false};       ///< Whether this is a send (`true`) operation or recv (`false`)
   void* _buffer{nullptr};  ///< Raw pointer to data buffer

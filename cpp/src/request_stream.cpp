@@ -38,8 +38,11 @@ std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> end
                                                    size_t length,
                                                    const bool enablePythonFuture = false)
 {
-  return std::shared_ptr<RequestStream>(
+  auto req = std::shared_ptr<RequestStream>(
     new RequestStream(endpoint, send, buffer, length, enablePythonFuture));
+
+  req->_delayedSubmission->setParent(req);
+  return req;
 }
 
 void RequestStream::request()

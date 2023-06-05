@@ -22,14 +22,17 @@ std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpoint
                                              RequestCallbackUserFunction callbackFunction = nullptr,
                                              RequestCallbackUserData callbackData         = nullptr)
 {
-  return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
-                                                    send,
-                                                    buffer,
-                                                    length,
-                                                    tag,
-                                                    enablePythonFuture,
-                                                    callbackFunction,
-                                                    callbackData));
+  auto req = std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
+                                                        send,
+                                                        buffer,
+                                                        length,
+                                                        tag,
+                                                        enablePythonFuture,
+                                                        callbackFunction,
+                                                        callbackData));
+
+  req->_delayedSubmission->setParent(req);
+  return req;
 }
 
 RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
