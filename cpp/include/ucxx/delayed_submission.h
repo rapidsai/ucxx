@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
@@ -16,8 +17,6 @@
 namespace ucxx {
 
 typedef std::function<void()> DelayedSubmissionCallbackType;
-
-typedef std::shared_ptr<DelayedSubmissionCallbackType> DelayedSubmissionCallbackPtrType;
 
 class DelayedSubmission {
  public:
@@ -59,7 +58,7 @@ class DelayedSubmission {
 
 class DelayedSubmissionCollection {
  private:
-  std::vector<DelayedSubmissionCallbackPtrType>
+  std::vector<std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>
     _collection{};      ///< The collection of all known delayed submission operations.
   std::mutex _mutex{};  ///< Mutex to provide access to the collection.
 
@@ -94,10 +93,12 @@ class DelayedSubmissionCollection {
    * Register a request for delayed submission with a callback that will be executed when
    * the request is in fact submitted when `process()` is called.
    *
+   * @param[in] request   the request to which the callback belongs, ensuring it remains
+   *                      alive until the callback is invoked.
    * @param[in] callback  the callback that will be executed by `process()` when the
    *                      operation is submitted.
    */
-  void registerRequest(DelayedSubmissionCallbackType callback);
+  void registerRequest(std::shared_ptr<Request> request, DelayedSubmissionCallbackType callback);
 };
 
 }  // namespace ucxx

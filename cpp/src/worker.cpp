@@ -261,12 +261,13 @@ bool Worker::progress()
   return ret;
 }
 
-void Worker::registerDelayedSubmission(DelayedSubmissionCallbackType callback)
+void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
+                                       DelayedSubmissionCallbackType callback)
 {
   if (_delayedSubmissionCollection == nullptr) {
     callback();
   } else {
-    _delayedSubmissionCollection->registerRequest(callback);
+    _delayedSubmissionCollection->registerRequest(request, callback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must signal the progress task so

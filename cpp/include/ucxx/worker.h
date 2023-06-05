@@ -386,10 +386,13 @@ class Worker : public Component {
    * thread, thus decreasing computation on the caller thread, but potentially increasing
    * transfer latency.
    *
+   * @param[in] request  the request to which the callback belongs, ensuring it remains
+   *                     alive until the callback is invoked.
    * @param[in] callback the callback set to execute the UCP transfer routine during the
    *                     worker thread loop.
    */
-  void registerDelayedSubmission(DelayedSubmissionCallbackType callback);
+  void registerDelayedSubmission(std::shared_ptr<Request> request,
+                                 DelayedSubmissionCallbackType callback);
 
   /**
    * @brief Inquire if worker has been created with delayed submission enabled.

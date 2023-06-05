@@ -35,26 +35,25 @@ void DelayedSubmissionCollection::process()
       toProcess = std::move(_collection);
     }
 
-    for (auto& callbackPtr : toProcess) {
-      auto& callback = *callbackPtr;
+    for (auto& pair : toProcess) {
+      auto& req      = pair.first;
+      auto& callback = pair.second;
 
-      ucxx_trace_req("Submitting request: %p", callback.target<void (*)(std::shared_ptr<void>)>());
+      ucxx_trace_req("Submitting request: %p", req.get());
 
       if (callback) callback();
     }
   }
 }
 
-void DelayedSubmissionCollection::registerRequest(DelayedSubmissionCallbackType callback)
+void DelayedSubmissionCollection::registerRequest(std::shared_ptr<Request> request,
+                                                  DelayedSubmissionCallbackType callback)
 {
-  auto r = std::make_shared<DelayedSubmissionCallbackType>(callback);
-
   {
     std::lock_guard<std::mutex> lock(_mutex);
-    _collection.push_back(r);
+    _collection.push_back(std::make_pair(request, callback));
   }
-  ucxx_trace_req("Registered submit request: %p",
-                 callback.target<void (*)(std::shared_ptr<void>)>());
+  ucxx_trace_req("Registered submit request: %p", request.get());
 }
 
 }  // namespace ucxx

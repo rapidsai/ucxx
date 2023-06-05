@@ -25,8 +25,16 @@ std::shared_ptr<RequestAm> createRequestAmSend(
   RequestCallbackUserFunction callbackFunction = nullptr,
   RequestCallbackUserData callbackData         = nullptr)
 {
-  return std::shared_ptr<RequestAm>(new RequestAm(
+  auto req = std::shared_ptr<RequestAm>(new RequestAm(
     endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
+
+  // A delayed notification request is not populated immediately, instead it is
+  // delayed to allow the worker progress thread to set its status, and more
+  // importantly the Python future later on, so that we don't need the GIL here.
+  req->_worker->registerDelayedSubmission(
+    req, std::bind(std::mem_fn(&Request::populateDelayedSubmission), req.get()));
+
+  return req;
 }
 
 std::shared_ptr<RequestAm> createRequestAmRecv(
@@ -58,12 +66,6 @@ RequestAm::RequestAm(std::shared_ptr<Endpoint> endpoint,
 {
   _callback     = callbackFunction;
   _callbackData = callbackData;
-
-  // A delayed notification request is not populated immediately, instead it is
-  // delayed to allow the worker progress thread to set its status, and more
-  // importantly the Python future later on, so that we don't need the GIL here.
-  _worker->registerDelayedSubmission(
-    std::bind(std::mem_fn(&Request::populateDelayedSubmission), this));
 }
 
 RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
