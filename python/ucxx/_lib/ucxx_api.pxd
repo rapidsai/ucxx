@@ -243,7 +243,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         void stopProgressThread() except +raise_py_error
         size_t cancelInflightRequests() except +raise_py_error
-        bint tagProbe(ucp_tag_t) const
+        bint tagProbe(const ucp_tag_t) const
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callbackArg
         )
@@ -297,7 +297,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void setCloseCallback(
             function[void(void*)] close_callback, void* close_callback_arg
         )
-        shared_ptr[Worker] getWorker(shared_ptr[Component] worker_or_listener)
+        shared_ptr[Worker] getWorker()
 
     cdef cppclass Listener(Component):
         shared_ptr[Endpoint] createEndpointFromConnRequest(

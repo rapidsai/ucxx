@@ -981,14 +981,12 @@ cdef class UCXEndpoint():
 
     def am_probe(self):
         cdef ucp_ep_h handle
-        cdef shared_ptr[Component] parent
         cdef shared_ptr[Worker] worker
         cdef bint ep_matched
 
         with nogil:
             handle = self._endpoint.get().getHandle()
-            parent = self._endpoint.get().getParent()
-            worker = self._endpoint.get().getWorker(parent)
+            worker = self._endpoint.get().getWorker()
             ep_matched = worker.get().amProbe(handle)
 
         return ep_matched

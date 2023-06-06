@@ -38,7 +38,7 @@ std::shared_ptr<RequestAm> createRequestAmRecv(
   RequestCallbackUserFunction callbackFunction = nullptr,
   RequestCallbackUserData callbackData         = nullptr)
 {
-  auto worker = endpoint->getWorker(endpoint->getParent());
+  auto worker = endpoint->getWorker();
 
   auto createRequest = [endpoint, enablePythonFuture, callbackFunction, callbackData]() {
     return std::shared_ptr<RequestAm>(
