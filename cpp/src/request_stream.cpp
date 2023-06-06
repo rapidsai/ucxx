@@ -23,7 +23,7 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
             enablePythonFuture),
     _length(length)
 {
-  auto worker = Endpoint::getWorker(endpoint->getParent());
+  auto worker = endpoint->getWorker();
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more

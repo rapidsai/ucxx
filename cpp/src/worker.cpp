@@ -22,7 +22,10 @@
 
 namespace ucxx {
 
-Worker::Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission)
+Worker::Worker(std::shared_ptr<Context> context,
+               const bool enableDelayedSubmission,
+               const bool enableFuture)
+  : _enableFuture(enableFuture)
 {
   if (context == nullptr || context->getHandle() == nullptr)
     throw std::runtime_error("Context not initialized");
@@ -82,9 +85,10 @@ void Worker::drainWorkerTagRecv()
 }
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedSubmission)
+                                     const bool enableDelayedSubmission,
+                                     const bool enableFuture)
 {
-  return std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission));
+  return std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
 }
 
 Worker::~Worker()
@@ -111,6 +115,8 @@ std::string Worker::getInfo()
   ucp_worker_print_info(this->_handle, TextFileDescriptor);
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
+
+bool Worker::isDelayedSubmissionEnabled() const { return _delayedSubmissionCollection != nullptr; }
 
 bool Worker::isFutureEnabled() const { return _enableFuture; }
 
