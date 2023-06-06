@@ -162,7 +162,7 @@ outputs:
         - numpy 1.21
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
-        - rmm =23.06
+        - rmm =23.08
       run:
         - python * *_cpython
         - packaging
