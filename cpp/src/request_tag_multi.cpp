@@ -26,7 +26,7 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
 {
   ucxx_trace_req("RequestTagMulti::RequestTagMulti [recv]: %p, tag: %lx", this, _tag);
 
-  auto worker = Endpoint::getWorker(endpoint->getParent());
+  auto worker = endpoint->getWorker();
   if (enablePythonFuture) _future = worker->getFuture();
 
   ucxx_debug("RequestTagMulti created: %p", this);
@@ -46,7 +46,7 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
   if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
     throw std::runtime_error("All input vectors should be of equal size");
 
-  auto worker = Endpoint::getWorker(endpoint->getParent());
+  auto worker = endpoint->getWorker();
   if (enablePythonFuture) _future = worker->getFuture();
 
   ucxx_trace("RequestTagMulti created: %p", this);
