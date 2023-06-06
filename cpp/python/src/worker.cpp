@@ -34,7 +34,7 @@ std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
                                              const bool enableFuture)
 {
   auto worker = std::shared_ptr<::ucxx::python::Worker>(
-    new ::ucxx::python::Worker(context, enableDelayedSubmission));
+    new ::ucxx::python::Worker(context, enableDelayedSubmission, enableFuture));
 
   // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
   // been created, thus this cannot be in the constructor.
