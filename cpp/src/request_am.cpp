@@ -165,16 +165,24 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     ucs_status_ptr_t status =
       ucp_am_recv_data_nbx(worker->getHandle(), data, buf->data(), length, &request_param);
 
-    ucxx_trace_req_f(
-      ownerString.c_str(),
-      status,
-      "amRecv rndv",
-      "ep %p, buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
-      ep,
-      buf->data(),
-      length,
-      req->_future.get(),
-      req->_future->getHandle());
+    if (req->_enablePythonFuture)
+      ucxx_trace_req_f(ownerString.c_str(),
+                       status,
+                       "amRecv rndv",
+                       "ep %p, buffer %p, size %lu, future %p, future handle %p, recvCallback",
+                       ep,
+                       buf->data(),
+                       length,
+                       req->_future.get(),
+                       req->_future->getHandle());
+    else
+      ucxx_trace_req_f(ownerString.c_str(),
+                       status,
+                       "amRecv rndv",
+                       "ep %p, buffer %p, size %lu, recvCallback",
+                       ep,
+                       buf->data(),
+                       length);
 
     if (req->isCompleted()) {
       // The request completed/errored immediately
@@ -198,16 +206,24 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     std::shared_ptr<Buffer> buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
     if (length > 0) memcpy(buf->data(), data, length);
 
-    ucxx_trace_req_f(
-      ownerString.c_str(),
-      nullptr,
-      "amRecv eager",
-      "ep: %p, buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
-      ep,
-      buf->data(),
-      length,
-      req->_future.get(),
-      req->_future->getHandle());
+    if (req->_enablePythonFuture)
+      ucxx_trace_req_f(ownerString.c_str(),
+                       nullptr,
+                       "amRecv eager",
+                       "ep: %p, buffer %p, size %lu, future %p, future handle %p, recvCallback",
+                       ep,
+                       buf->data(),
+                       length,
+                       req->_future.get(),
+                       req->_future->getHandle());
+    else
+      ucxx_trace_req_f(ownerString.c_str(),
+                       nullptr,
+                       "amRecv eager",
+                       "ep: %p, buffer %p, size %lu, recvCallback",
+                       ep,
+                       buf->data(),
+                       length);
 
     internal::RecvAmMessage recvAmMessage(amData, ep, req, buf);
     recvAmMessage.callback(nullptr, UCS_OK);
