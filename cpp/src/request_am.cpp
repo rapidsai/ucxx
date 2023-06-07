@@ -25,11 +25,8 @@ std::shared_ptr<RequestAm> createRequestAmSend(
   RequestCallbackUserFunction callbackFunction = nullptr,
   RequestCallbackUserData callbackData         = nullptr)
 {
-  auto req = std::shared_ptr<RequestAm>(new RequestAm(
+  return std::shared_ptr<RequestAm>(new RequestAm(
     endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
-
-  req->_delayedSubmission->setParent(req);
-  return req;
 }
 
 std::shared_ptr<RequestAm> createRequestAmRecv(
