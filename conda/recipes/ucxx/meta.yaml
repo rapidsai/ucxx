@@ -30,6 +30,7 @@ build:
     - SCCACHE_S3_KEY_PREFIX=libucxx-aarch64 # [aarch64]
     - SCCACHE_S3_KEY_PREFIX=libucxx-linux64 # [linux64]
     - SCCACHE_S3_USE_SSL
+    - SCCACHE_S3_NO_CREDENTIALS
 
 requirements:
   build:
@@ -55,6 +56,8 @@ outputs:
     requirements:
       build:
         - cmake
+      host:
+        - ucx
       run:
         - cudatoolkit {{ cuda_spec }}
         - ucx
@@ -159,7 +162,7 @@ outputs:
         - numpy 1.21
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
-        - rmm =23.04.*
+        - rmm =23.06
       run:
         - python * *_cpython
         - packaging
@@ -169,8 +172,8 @@ outputs:
         - {{ pin_compatible('numpy') }}
         - pynvml >=11.4.1
       run_constrained:
-        - cupy >=9.5.0,<12.0.0a0
-        - numba >=0.56.2
+        - cupy >=9.5.0
+        - numba >=0.57.0
     test:
       commands:
         - test -f $PREFIX/lib/libucxx_python.so

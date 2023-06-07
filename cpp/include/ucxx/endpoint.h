@@ -70,7 +70,7 @@ class Endpoint : public Component {
    * @param[in] endpointErrorHandling whether to enable endpoint error handling.
    */
   Endpoint(std::shared_ptr<Component> workerOrListener,
-           std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
+           ucp_ep_params_t* params,
            bool endpointErrorHandling);
 
   /**
@@ -319,13 +319,12 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagSend(
-    void* buffer,
-    size_t length,
-    ucp_tag_t tag,
-    const bool enablePythonFuture                               = false,
-    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
-    std::shared_ptr<void> callbackData                          = nullptr);
+  std::shared_ptr<Request> tagSend(void* buffer,
+                                   size_t length,
+                                   ucp_tag_t tag,
+                                   const bool enablePythonFuture                = false,
+                                   RequestCallbackUserFunction callbackFunction = nullptr,
+                                   RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -350,13 +349,12 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagRecv(
-    void* buffer,
-    size_t length,
-    ucp_tag_t tag,
-    const bool enablePythonFuture                               = false,
-    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
-    std::shared_ptr<void> callbackData                          = nullptr);
+  std::shared_ptr<Request> tagRecv(void* buffer,
+                                   size_t length,
+                                   ucp_tag_t tag,
+                                   const bool enablePythonFuture                = false,
+                                   RequestCallbackUserFunction callbackFunction = nullptr,
+                                   RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a multi-buffer tag send operation.
@@ -423,20 +421,16 @@ class Endpoint : public Component {
   std::shared_ptr<RequestTagMulti> tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture);
 
   /**
-   * @brief Get `ucxx::Worker` component form a worker or listener object.
+   * @brief Get `ucxx::Worker` component from a worker or listener object.
    *
-   * A `ucxx::Endpoint` needs to be created and registered by and registered on
-   * `std::shared_ptr<ucxx::Worker>`, but the endpoint may be a child of a `ucxx::Listener`
-   * object. For convenience, this method can be used to derive the
-   * `std::shared_ptr<ucxx::Worker>` from either the `std::shared_ptr<ucxx::Worker>` itself
-   * or from a `std::shared_ptr<ucxx::Listener>`.
+   * A `std::shared_ptr<ucxx::Endpoint>` needs to be created and registered by
+   * `std::shared_ptr<ucxx::Worker>`, but the endpoint may be a child of a
+   * `std::shared_ptr<ucxx::Listener>` object. For convenience, this method can be used to
+   * get the `std::shared_ptr<ucxx::Worker>` which the endpoint is associated with.
    *
-   * @param[in] workerOrListener the `std::shared_ptr<ucxx::Worker>` or
-   *                             `std::shared_ptr<ucxx::Listener>` object.
-   *
-   * @returns The `std::shared_ptr<ucxx::Worker>` derived from `workerOrListener` argument.
+   * @returns The `std::shared_ptr<ucxx::Worker>` which the endpoint is associated with.
    */
-  static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener);
+  std::shared_ptr<Worker> getWorker();
 
   /**
    * @brief The error callback registered at endpoint creation time.

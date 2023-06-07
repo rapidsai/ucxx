@@ -107,8 +107,12 @@ class Worker : public Component {
    *                                    submitted immediately, but instead delayed to
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
+   * @param[in] enableFuture if `true`, notifies the future associated with each
+   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    */
-  explicit Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission = false);
+  explicit Worker(std::shared_ptr<Context> context,
+                  const bool enableDelayedSubmission = false,
+                  const bool enableFuture            = false);
 
  public:
   Worker()              = delete;
@@ -137,10 +141,13 @@ class Worker : public Component {
    *                                    submitted immediately, but instead delayed to
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
+   * @param[in] enableFuture if `true`, notifies the future associated with each
+   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    * @returns The `shared_ptr<ucxx::Worker>` object
    */
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                              const bool enableDelayedSubmission);
+                                              const bool enableDelayedSubmission,
+                                              const bool enableFuture);
 
   /**
    * @brief `ucxx::Worker` destructor.
@@ -220,9 +227,9 @@ class Worker : public Component {
    * @brief Progress worker event while in blocking progress mode.
    *
    * Blocks until a new worker event has happened and the worker notifies the file descriptor
-   * associated with it. Requires blocking progress mode to be initialized with
-   * `initBlockingProgressMode()` before the first call to this method. Additionally ensure
-   * inflight messages pending for cancelation are canceled.
+   * associated with it, or `epollTimeout` has elapsed. Requires blocking progress mode to
+   * be initialized with `initBlockingProgressMode()` before the first call to this method.
+   * Additionally ensure inflight messages pending for cancelation are canceled.
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`
@@ -235,10 +242,15 @@ class Worker : public Component {
    * // All events have been progressed.
    * @endcode
    *
+   * @param[in] epollTimeout  timeout in ms when waiting for worker event, or -1 to block
+   *                          indefinitely.
+   *
    * @throws std::ios_base::failure if creating any of the file descriptors or setting their
    *                                statuses.
+   *
+   * @returns `true` if any communication was progressed, `false` otherwise.
    */
-  bool progressWorkerEvent();
+  bool progressWorkerEvent(const int epollTimeout = -1);
 
   /**
    * @brief Signal the worker that an event happened.
@@ -349,6 +361,15 @@ class Worker : public Component {
   void registerDelayedSubmission(DelayedSubmissionCallbackType callback);
 
   /**
+   * @brief Inquire if worker has been created with delayed submission enabled.
+   *
+   * Check whether the worker has been created with delayed submission enabled.
+   *
+   * @returns `true` if delayed submission is enabled, `false` otherwise.
+   */
+  bool isDelayedSubmissionEnabled() const;
+
+  /**
    * @brief Inquire if worker has been created with future support.
    *
    * Check whether the worker has been created with future support.
@@ -442,10 +463,11 @@ class Worker : public Component {
    * when worker events happen, or in polling mode by continuously calling `progress()`
    * (incurs in high CPU utilization).
    *
-   * @param[in] pollingMode use polling mode if `true`, or blocking mode if `false`.
-   * @param[in] callbackArg argument to be passed to the callback function
+   * @param[in] pollingMode   use polling mode if `true`, or blocking mode if `false`.
+   * @param[in] epollTimeout  timeout in ms when waiting for worker event, or -1 to block
+   *                          indefinitely, only applicable if `pollingMode==true`.
    */
-  void startProgressThread(const bool pollingMode = false);
+  void startProgressThread(const bool pollingMode = false, const int epollTimeout = 1);
 
   /**
    * @brief Stop the progress thread.
@@ -538,13 +560,12 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagRecv(
-    void* buffer,
-    size_t length,
-    ucp_tag_t tag,
-    const bool enableFuture                                     = false,
-    std::function<void(std::shared_ptr<void>)> callbackFunction = nullptr,
-    std::shared_ptr<void> callbackData                          = nullptr);
+  std::shared_ptr<Request> tagRecv(void* buffer,
+                                   size_t length,
+                                   ucp_tag_t tag,
+                                   const bool enableFuture                      = false,
+                                   RequestCallbackUserFunction callbackFunction = nullptr,
+                                   RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Get the address of the UCX worker object.

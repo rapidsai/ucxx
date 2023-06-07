@@ -5,6 +5,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -31,5 +32,8 @@ typedef enum {
 } ucxx_log_level_t;
 
 typedef std::unordered_map<std::string, std::string> ConfigMap;
+
+typedef std::function<void(ucs_status_t, std::shared_ptr<void>)> RequestCallbackUserFunction;
+typedef std::shared_ptr<void> RequestCallbackUserData;
 
 }  // namespace ucxx

@@ -140,7 +140,7 @@ cdef extern from "<ucxx/python/api.h>" namespace "ucxx::python" nogil:
     shared_ptr[Worker] createPythonWorker "ucxx::python::createWorker"(
         shared_ptr[Context] context,
         bint enableDelayedSubmission,
-        bint enablePythonFuture
+        bint enableFuture
     ) except +raise_py_error
 
 
@@ -198,11 +198,13 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass Context(Component):
         shared_ptr[Worker] createWorker(
             bint enableDelayedSubmission,
+            bint enableFuture,
         ) except +raise_py_error
         ConfigMap getConfig() except +raise_py_error
         ucp_context_h getHandle()
         string getInfo() except +raise_py_error
         uint64_t getFeatureFlags()
+        bint hasCudaSupport()
 
     cdef cppclass Worker(Component):
         ucp_worker_h getHandle()
@@ -220,8 +222,10 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void initBlockingProgressMode() except +raise_py_error
         void progress()
         bint progressOnce()
-        void progressWorkerEvent()
-        void startProgressThread(bint pollingMode) except +raise_py_error
+        void progressWorkerEvent(int epoll_timeout)
+        void startProgressThread(
+            bint pollingMode, int epoll_timeout
+        ) except +raise_py_error
         void stopProgressThread() except +raise_py_error
         size_t cancelInflightRequests() except +raise_py_error
         bint tagProbe(ucp_tag_t)
@@ -237,6 +241,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
+        bint isDelayedSubmissionEnabled() const
         bint isFutureEnabled() const
 
     cdef cppclass Endpoint(Component):

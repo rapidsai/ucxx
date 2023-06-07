@@ -22,15 +22,16 @@
 
 namespace ucxx {
 
-Worker::Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission)
+Worker::Worker(std::shared_ptr<Context> context,
+               const bool enableDelayedSubmission,
+               const bool enableFuture)
+  : _enableFuture(enableFuture)
 {
-  ucp_worker_params_t params{};
-
   if (context == nullptr || context->getHandle() == nullptr)
     throw std::runtime_error("Context not initialized");
 
-  params.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-  params.thread_mode = UCS_THREAD_MODE_MULTI;
+  ucp_worker_params_t params = {.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE,
+                                .thread_mode = UCS_THREAD_MODE_MULTI};
   utils::ucsErrorThrow(ucp_worker_create(context->getHandle(), &params, &_handle));
 
   if (enableDelayedSubmission)
@@ -84,9 +85,10 @@ void Worker::drainWorkerTagRecv()
 }
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedSubmission)
+                                     const bool enableDelayedSubmission,
+                                     const bool enableFuture)
 {
-  return std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission));
+  return std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
 }
 
 Worker::~Worker()
@@ -113,6 +115,8 @@ std::string Worker::getInfo()
   ucp_worker_print_info(this->_handle, TextFileDescriptor);
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
+
+bool Worker::isDelayedSubmissionEnabled() const { return _delayedSubmissionCollection != nullptr; }
 
 bool Worker::isFutureEnabled() const { return _enableFuture; }
 
@@ -151,7 +155,7 @@ bool Worker::arm()
   return true;
 }
 
-bool Worker::progressWorkerEvent()
+bool Worker::progressWorkerEvent(const int epollTimeout)
 {
   int ret;
   epoll_event ev;
@@ -163,7 +167,7 @@ bool Worker::progressWorkerEvent()
   if ((_epollFileDescriptor == -1) || !arm()) return false;
 
   do {
-    ret = epoll_wait(_epollFileDescriptor, &ev, 1, -1);
+    ret = epoll_wait(_epollFileDescriptor, &ev, 1, epollTimeout);
   } while ((ret == -1) && (errno == EINTR || errno == EAGAIN));
 
   return false;
@@ -244,18 +248,23 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
   _progressThreadStartCallbackArg = callbackArg;
 }
 
-void Worker::startProgressThread(const bool pollingMode)
+void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
   if (_progressThread) {
     ucxx_warn("Worker progress thread already running");
     return;
   }
 
-  if (!pollingMode) initBlockingProgressMode();
-  auto progressFunction = pollingMode ? std::bind(&Worker::progress, this)
-                                      : std::bind(&Worker::progressWorkerEvent, this);
-  auto signalWorkerFunction =
-    pollingMode ? std::function<void()>{[]() {}} : std::bind(&Worker::signal, this);
+  std::function<bool()> progressFunction;
+  std::function<void()> signalWorkerFunction;
+  if (pollingMode) {
+    progressFunction     = [this]() { return this->progress(); };
+    signalWorkerFunction = []() {};
+  } else {
+    initBlockingProgressMode();
+    progressFunction = [this, epollTimeout]() { return this->progressWorkerEvent(epollTimeout); };
+    signalWorkerFunction = [this]() { return this->signal(); };
+  }
 
   _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
                                                            progressFunction,
@@ -318,13 +327,12 @@ bool Worker::tagProbe(ucp_tag_t tag)
   return tag_message != NULL;
 }
 
-std::shared_ptr<Request> Worker::tagRecv(
-  void* buffer,
-  size_t length,
-  ucp_tag_t tag,
-  const bool enableFuture,
-  std::function<void(std::shared_ptr<void>)> callbackFunction,
-  std::shared_ptr<void> callbackData)
+std::shared_ptr<Request> Worker::tagRecv(void* buffer,
+                                         size_t length,
+                                         ucp_tag_t tag,
+                                         const bool enableFuture,
+                                         RequestCallbackUserFunction callbackFunction,
+                                         RequestCallbackUserData callbackData)
 {
   auto worker  = std::dynamic_pointer_cast<Worker>(shared_from_this());
   auto request = createRequestTag(
