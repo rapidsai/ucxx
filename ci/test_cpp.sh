@@ -43,7 +43,25 @@ run_benchmark() {
   rapids-logger "Running: \n  - ${CMD_LINE_SERVER}\n  - ${CMD_LINE_CLIENT}"
   UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} &
   sleep 1
-  timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1
+
+  MAX_ATTEMPTS=10
+
+  set +e
+  for attempt in $(seq 1 ${MAX_ATTEMPTS}); do
+    echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run client"
+    timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1
+    LAST_STATUS=$?
+    if [ ${LAST_STATUS} -eq 0 ]; then
+      break;
+    fi
+    sleep 1
+  done
+  set -e
+
+  if [ ${LAST_STATUS} -ne 0 ]; then
+    echo "Failure running benchmark client after ${MAX_ATTEMPTS} attempts"
+    exit $LAST_STATUS
+  fi
 }
 
 run_example() {
