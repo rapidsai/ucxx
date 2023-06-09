@@ -30,6 +30,15 @@ function sed_runner() {
     sed -i.bak ''"$1"'' $2 && rm -f ${2}.bak
 }
 
+# C++ update
+sed_runner 's/'"libucxx_version .*)"'/'"libucxx_version ${NEXT_FULL_TAG})"'/g' cpp/CMakeLists.txt
+
+# Python updates
+sed_runner 's/'"ucxx_version .*)"'/'"ucxx_version ${NEXT_FULL_TAG})"'/g' python/CMakeLists.txt
+sed_runner "s/^__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/ucxx/__init__.py
+sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/pyproject.toml
+
+
 # bump RAPIDS libs
 sed_runner "/- rmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
 for FILE in conda/environments/*.yaml dependencies.yaml; do

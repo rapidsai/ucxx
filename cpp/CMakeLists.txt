@@ -11,10 +11,11 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
+set(libucxx_version 0.33.00)
 
 project(
-    UCXX
-  VERSION 0.0.1
+  UCXX
+  VERSION ${libucxx_version}
   LANGUAGES C CXX
 )
 
