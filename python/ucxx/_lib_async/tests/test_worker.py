@@ -15,15 +15,27 @@ import ucxx
 async def test_worker_capabilities_args(
     enable_delayed_submission, enable_python_future
 ):
-    ucxx.init(
-        enable_delayed_submission=enable_delayed_submission,
-        enable_python_future=enable_python_future,
-    )
+    progress_mode = os.getenv("UCXPY_PROGRESS_MODE", "thread")
 
-    worker = ucxx.core._get_ctx().worker
+    if enable_delayed_submission and not progress_mode.startswith("thread"):
+        with pytest.raises(ValueError, match="Delayed submission requested, but"):
+            ucxx.init(
+                enable_delayed_submission=enable_delayed_submission,
+                enable_python_future=enable_python_future,
+            )
+    else:
+        ucxx.init(
+            enable_delayed_submission=enable_delayed_submission,
+            enable_python_future=enable_python_future,
+        )
 
-    assert worker.is_delayed_submission_enabled() is enable_delayed_submission
-    assert worker.is_python_future_enabled() is enable_python_future
+        worker = ucxx.core._get_ctx().worker
+
+        assert worker.is_delayed_submission_enabled() is enable_delayed_submission
+        if progress_mode.startswith("thread"):
+            assert worker.is_python_future_enabled() is enable_python_future
+        else:
+            assert worker.is_python_future_enabled() is False
 
 
 @pytest.mark.asyncio
@@ -39,9 +51,18 @@ async def test_worker_capabilities_env(enable_delayed_submission, enable_python_
             "UCXPY_ENABLE_PYTHON_FUTURE": "1" if enable_python_future else "0",
         },
     ):
-        ucxx.init()
+        progress_mode = os.getenv("UCXPY_PROGRESS_MODE", "thread")
 
-        worker = ucxx.core._get_ctx().worker
+        if enable_delayed_submission and not progress_mode.startswith("thread"):
+            with pytest.raises(ValueError, match="Delayed submission requested, but"):
+                ucxx.init()
+        else:
+            ucxx.init()
 
-        assert worker.is_delayed_submission_enabled() is enable_delayed_submission
-        assert worker.is_python_future_enabled() is enable_python_future
+            worker = ucxx.core._get_ctx().worker
+
+            assert worker.is_delayed_submission_enabled() is enable_delayed_submission
+            if progress_mode.startswith("thread"):
+                assert worker.is_python_future_enabled() is enable_python_future
+            else:
+                assert worker.is_python_future_enabled() is False

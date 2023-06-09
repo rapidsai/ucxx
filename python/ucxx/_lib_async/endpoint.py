@@ -239,10 +239,15 @@ class Endpoint:
         elif not force_tag:
             tag = hash64bits(self._tags["msg_recv"], hash(tag))
 
-        if not self._ctx.worker.tag_probe(tag):
+        try:
             self._ep.raise_on_error()
             if self.closed():
                 raise UCXCloseError("Endpoint closed")
+        except Exception as e:
+            # Only probe the worker as last resort. To be reliable, probing for the tag
+            # requires progressing the worker, thus prevent that happening too often.
+            if not self._ctx.worker.tag_probe(tag):
+                raise e
 
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
@@ -293,10 +298,15 @@ class Endpoint:
         elif not force_tag:
             tag = hash64bits(self._tags["msg_recv"], hash(tag))
 
-        if not self._ctx.worker.tag_probe(tag):
+        try:
             self._ep.raise_on_error()
             if self.closed():
                 raise UCXCloseError("Endpoint closed")
+        except Exception as e:
+            # Only probe the worker as last resort. To be reliable, probing for the tag
+            # requires progressing the worker, thus prevent that happening too often.
+            if not self._ctx.worker.tag_probe(tag):
+                raise e
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
