@@ -51,7 +51,7 @@ void DelayedSubmissionCollection::registerRequest(std::shared_ptr<Request> reque
 {
   {
     std::lock_guard<std::mutex> lock(_mutex);
-    _collection.push_back(std::make_pair(request, callback));
+    _collection.push_back({request, callback});
   }
   ucxx_trace_req("Registered submit request: %p", request.get());
 }
