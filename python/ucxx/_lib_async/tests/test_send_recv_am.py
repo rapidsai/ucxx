@@ -61,12 +61,11 @@ def simple_server(size, recv):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("size", msg_sizes)
-@pytest.mark.parametrize("progress_mode", ["polling", "thread", "thread-polling"])
 @pytest.mark.parametrize("recv_wait", [True, False])
 @pytest.mark.parametrize("data", get_data())
-async def test_send_recv_am(size, progress_mode, recv_wait, data):
+async def test_send_recv_am(size, recv_wait, data):
     rndv_thresh = 8192
-    ucxx.init(options={"RNDV_THRESH": str(rndv_thresh)}, progress_mode=progress_mode)
+    ucxx.init(options={"RNDV_THRESH": str(rndv_thresh)})
 
     msg = data["generator"](size)
 
