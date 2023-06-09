@@ -569,7 +569,7 @@ class Worker : public Component {
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
-  bool tagProbe(const ucp_tag_t tag) const;
+  bool tagProbe(const ucp_tag_t tag);
 
   /**
    * @brief Enqueue a tag receive operation.

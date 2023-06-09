@@ -375,7 +375,7 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(const ucp_tag_t tag) const
+bool Worker::tagProbe(const ucp_tag_t tag)
 {
   // TODO: Fix temporary workaround, if progress thread is active we must wait for it
   // to progress the worker instead.
