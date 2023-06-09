@@ -18,7 +18,6 @@ if "UCX_MEMTYPE_CACHE" not in os.environ:
 
 from . import exceptions, testing  # noqa
 from ._lib import libucxx  # type: ignore
-from ._version import get_versions
 from .core import *  # noqa
 from .utils import get_address, get_ucxpy_logger  # noqa
 
