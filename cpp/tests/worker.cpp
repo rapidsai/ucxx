@@ -69,6 +69,16 @@ class WorkerProgressTest : public WorkerTest,
 
 TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr); }
 
+TEST_P(WorkerCapabilityTest, CheckCapability)
+{
+  ASSERT_EQ(_worker->isDelayedSubmissionEnabled(), _enableDelayedSubmission);
+  ASSERT_EQ(_worker->isFutureEnabled(), _enableFuture);
+}
+
+INSTANTIATE_TEST_SUITE_P(Capabilities,
+                         WorkerCapabilityTest,
+                         Combine(Values(false, true), Values(false, true)));
+
 TEST_F(WorkerTest, TagProbe)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
@@ -89,15 +99,52 @@ TEST_F(WorkerTest, TagProbe)
   ASSERT_TRUE(_worker->tagProbe(0));
 }
 
-TEST_P(WorkerCapabilityTest, CheckCapability)
+TEST_F(WorkerTest, AmProbe)
 {
-  ASSERT_EQ(_worker->isDelayedSubmissionEnabled(), _enableDelayedSubmission);
-  ASSERT_EQ(_worker->isFutureEnabled(), _enableFuture);
+  auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  ASSERT_FALSE(_worker->amProbe(ep->getHandle()));
+
+  std::vector<int> buf{123};
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(ep->amSend(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
+  waitRequests(_worker, requests, progressWorker);
+
+  // Attempt to progress worker 10 times (arbitrarily defined).
+  // TODO: Maybe a timeout would fit best.
+  for (size_t i = 0; i < 10 && !_worker->tagProbe(0); ++i)
+    progressWorker();
+
+  ASSERT_TRUE(_worker->amProbe(ep->getHandle()));
 }
 
-INSTANTIATE_TEST_SUITE_P(Capabilities,
-                         WorkerCapabilityTest,
-                         Combine(Values(false, true), Values(false, true)));
+TEST_P(WorkerProgressTest, ProgressAm)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    // TODO: Is this the same reason as TagMulti?
+    GTEST_SKIP() << "Wait mode not supported";
+  }
+
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  std::vector<int> send{123};
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
+  requests.push_back(ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto recvReq    = requests[1];
+  auto recvBuffer = recvReq->getRecvBuffer();
+
+  ASSERT_EQ(recvBuffer->getType(), ucxx::BufferType::Host);
+  ASSERT_EQ(recvBuffer->getSize(), send.size() * sizeof(int));
+
+  std::vector<int> recvAbstract(reinterpret_cast<int*>(recvBuffer->data()),
+                                reinterpret_cast<int*>(recvBuffer->data()) + send.size());
+  ASSERT_EQ(recvAbstract[0], send[0]);
+}
 
 TEST_P(WorkerProgressTest, ProgressStream)
 {
@@ -148,7 +195,7 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
   std::vector<std::shared_ptr<ucxx::RequestTagMulti>> requests;
   requests.push_back(ep->tagMultiSend(multiBuffer, multiSize, multiIsCUDA, 0, false));
   requests.push_back(ep->tagMultiRecv(0, false));
-  waitRequestsTagMulti(_worker, requests, _progressWorker);
+  waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& br : requests[1]->_bufferRequests) {
     // br->buffer == nullptr are headers

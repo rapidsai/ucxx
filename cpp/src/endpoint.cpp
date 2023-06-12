@@ -14,6 +14,7 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
+#include <ucxx/request_am.h>
 #include <ucxx/request_stream.h>
 #include <ucxx/request_tag.h>
 #include <ucxx/typedefs.h>
@@ -204,6 +205,27 @@ void Endpoint::removeInflightRequest(const Request* const request)
 }
 
 size_t Endpoint::cancelInflightRequests() { return _inflightRequests->cancelAll(); }
+
+std::shared_ptr<Request> Endpoint::amSend(void* buffer,
+                                          size_t length,
+                                          ucs_memory_type_t memoryType,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(createRequestAmSend(
+    endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(
+    createRequestAmRecv(endpoint, enablePythonFuture, callbackFunction, callbackData));
+}
 
 std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
                                               size_t length,

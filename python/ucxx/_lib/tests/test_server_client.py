@@ -17,14 +17,18 @@ WireupMessageSize = 10
 
 
 def _send(ep, api, message):
-    if api == "stream":
+    if api == "am":
+        return ep.am_send(message)
+    elif api == "stream":
         return ep.stream_send(message)
     else:
         return ep.tag_send(message, tag=0)
 
 
 def _recv(ep, api, message):
-    if api == "stream":
+    if api == "am":
+        return ep.am_recv()
+    elif api == "stream":
         return ep.stream_recv(message)
     else:
         return ep.tag_recv(message, tag=0)
@@ -38,7 +42,9 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
     outside of the callback function.
     """
     feature_flags = [ucx_api.Feature.WAKEUP]
-    if transfer_api == "stream":
+    if transfer_api == "am":
+        feature_flags.append(ucx_api.Feature.AM)
+    elif transfer_api == "stream":
         feature_flags.append(ucx_api.Feature.STREAM)
     else:
         feature_flags.append(ucx_api.Feature.TAG)
@@ -78,6 +84,8 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
     # it back again.
     requests = [_recv(ep[0], transfer_api, msg)]
     wait_requests(worker, progress_mode, requests)
+    if transfer_api == "am":
+        msg = Array(requests[0].get_recv_buffer())
     requests = [_send(ep[0], transfer_api, msg)]
     wait_requests(worker, progress_mode, requests)
 
@@ -92,6 +100,8 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
 
 def _echo_client(transfer_api, msg_size, progress_mode, port):
     feature_flags = [ucx_api.Feature.WAKEUP]
+    if transfer_api == "am":
+        feature_flags.append(ucx_api.Feature.AM)
     if transfer_api == "stream":
         feature_flags.append(ucx_api.Feature.STREAM)
     else:
@@ -127,10 +137,15 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
     ]
     wait_requests(worker, progress_mode, requests)
 
-    assert recv_msg == send_msg
+    if transfer_api == "am":
+        recv_msg = requests[1].get_recv_buffer()
+
+        assert bytes(recv_msg) == send_msg
+    else:
+        assert recv_msg == send_msg
 
 
-@pytest.mark.parametrize("transfer_api", ["stream", "tag"])
+@pytest.mark.parametrize("transfer_api", ["am", "stream", "tag"])
 @pytest.mark.parametrize("msg_size", [10, 2**24])
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
 def test_server_client(transfer_api, msg_size, progress_mode):

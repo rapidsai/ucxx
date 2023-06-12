@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
@@ -17,14 +18,13 @@ namespace ucxx {
 
 typedef std::function<void()> DelayedSubmissionCallbackType;
 
-typedef std::shared_ptr<DelayedSubmissionCallbackType> DelayedSubmissionCallbackPtrType;
-
 class DelayedSubmission {
  public:
   bool _send{false};       ///< Whether this is a send (`true`) operation or recv (`false`)
   void* _buffer{nullptr};  ///< Raw pointer to data buffer
   size_t _length{0};       ///< Length of the message in bytes
   ucp_tag_t _tag{0};       ///< Tag to match
+  ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_UNKNOWN};  ///< Buffer memory type
 
   DelayedSubmission() = delete;
 
@@ -42,17 +42,23 @@ class DelayedSubmission {
    * a multi-threaded application for blocking while waiting for the UCX spinlock, since
    * all transfer operations may be pushed to the worker progress thread.
    *
-   * @param[in] send    whether this is a send (`true`) or receive (`false`) operation.
-   * @param[in] buffer  a raw pointer to the data being transferred.
-   * @param[in] length  the size in bytes of the message being transfer.
-   * @param[in] tag     tag to match for this operation (only applies for tag operations).
+   * @param[in] send        whether this is a send (`true`) or receive (`false`) operation.
+   * @param[in] buffer      a raw pointer to the data being transferred.
+   * @param[in] length      the size in bytes of the message being transfer.
+   * @param[in] tag         tag to match for this operation (only applies for tag
+   *                        operations).
+   * @param[in] memoryType  the memory type of the buffer.
    */
-  DelayedSubmission(const bool send, void* buffer, const size_t length, const ucp_tag_t tag = 0);
+  DelayedSubmission(const bool send,
+                    void* buffer,
+                    const size_t length,
+                    const ucp_tag_t tag                = 0,
+                    const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_UNKNOWN);
 };
 
 class DelayedSubmissionCollection {
  private:
-  std::vector<DelayedSubmissionCallbackPtrType>
+  std::vector<std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>
     _collection{};      ///< The collection of all known delayed submission operations.
   std::mutex _mutex{};  ///< Mutex to provide access to the collection.
 
@@ -87,10 +93,12 @@ class DelayedSubmissionCollection {
    * Register a request for delayed submission with a callback that will be executed when
    * the request is in fact submitted when `process()` is called.
    *
+   * @param[in] request   the request to which the callback belongs, ensuring it remains
+   *                      alive until the callback is invoked.
    * @param[in] callback  the callback that will be executed by `process()` when the
    *                      operation is submitted.
    */
-  void registerRequest(DelayedSubmissionCallbackType callback);
+  void registerRequest(std::shared_ptr<Request> request, DelayedSubmissionCallbackType callback);
 };
 
 }  // namespace ucxx
