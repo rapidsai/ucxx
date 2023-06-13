@@ -23,13 +23,6 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
             enablePythonFuture),
     _length(length)
 {
-  auto worker = endpoint->getWorker();
-
-  // A delayed notification request is not populated immediately, instead it is
-  // delayed to allow the worker progress thread to set its status, and more
-  // importantly the Python future later on, so that we don't need the GIL here.
-  worker->registerDelayedSubmission(
-    std::bind(std::mem_fn(&Request::populateDelayedSubmission), this));
 }
 
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
@@ -38,8 +31,16 @@ std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> end
                                                    size_t length,
                                                    const bool enablePythonFuture = false)
 {
-  return std::shared_ptr<RequestStream>(
+  auto req = std::shared_ptr<RequestStream>(
     new RequestStream(endpoint, send, buffer, length, enablePythonFuture));
+
+  // A delayed notification request is not populated immediately, instead it is
+  // delayed to allow the worker progress thread to set its status, and more
+  // importantly the Python future later on, so that we don't need the GIL here.
+  req->_worker->registerDelayedSubmission(
+    req, std::bind(std::mem_fn(&Request::populateDelayedSubmission), req.get()));
+
+  return req;
 }
 
 void RequestStream::request()

@@ -11,6 +11,7 @@
 
 namespace ucxx {
 
+class Buffer;
 class Request;
 
 // Logging levels
@@ -35,5 +36,7 @@ typedef std::unordered_map<std::string, std::string> ConfigMap;
 
 typedef std::function<void(ucs_status_t, std::shared_ptr<void>)> RequestCallbackUserFunction;
 typedef std::shared_ptr<void> RequestCallbackUserData;
+
+typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
 
 }  // namespace ucxx

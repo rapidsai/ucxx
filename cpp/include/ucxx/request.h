@@ -192,6 +192,20 @@ class Request : public Component {
    * @returns the formatted string containing the owner type and its handle.
    */
   const std::string& getOwnerString() const;
+
+  /**
+   * @brief Get the received buffer.
+   *
+   * This method is used to get the received buffer for applicable derived classes (e.g.,
+   * `RequestAm` receive operations), in all other cases this will return `nullptr`. Before
+   * getting the received buffer it's necessary to check that the request completed
+   * successfully either by validating `getStatus() == UCS_OK` or by checking the request
+   * completed with `isCompleted() == true` and that it did not error with `checkError()`,
+   * if any of those is unsuccessful this call returns `nullptr`.
+   *
+   * @return The received buffer (if applicable) or `nullptr`.
+   */
+  virtual std::shared_ptr<Buffer> getRecvBuffer();
 };
 
 }  // namespace ucxx

@@ -202,7 +202,6 @@ void RequestTagMulti::callback(ucs_status_t status)
 {
   if (_send) throw std::runtime_error("Send requests cannot call callback()");
 
-  // TODO: Remove arg
   ucxx_trace_req("RequestTagMulti::callback request: %p, tag: %lx", this, _tag);
 
   if (_bufferRequests.empty()) {

@@ -22,14 +22,22 @@ std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpoint
                                              RequestCallbackUserFunction callbackFunction = nullptr,
                                              RequestCallbackUserData callbackData         = nullptr)
 {
-  return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
-                                                    send,
-                                                    buffer,
-                                                    length,
-                                                    tag,
-                                                    enablePythonFuture,
-                                                    callbackFunction,
-                                                    callbackData));
+  auto req = std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
+                                                        send,
+                                                        buffer,
+                                                        length,
+                                                        tag,
+                                                        enablePythonFuture,
+                                                        callbackFunction,
+                                                        callbackData));
+
+  // A delayed notification request is not populated immediately, instead it is
+  // delayed to allow the worker progress thread to set its status, and more
+  // importantly the Python future later on, so that we don't need the GIL here.
+  req->_worker->registerDelayedSubmission(
+    req, std::bind(std::mem_fn(&Request::populateDelayedSubmission), req.get()));
+
+  return req;
 }
 
 RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
@@ -50,12 +58,6 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
     throw ucxx::Error("An endpoint is required to send tag messages");
   _callback     = callbackFunction;
   _callbackData = callbackData;
-
-  // A delayed notification request is not populated immediately, instead it is
-  // delayed to allow the worker progress thread to set its status, and more
-  // importantly the Python future later on, so that we don't need the GIL here.
-  _worker->registerDelayedSubmission(
-    std::bind(std::mem_fn(&Request::populateDelayedSubmission), this));
 }
 
 void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* info)

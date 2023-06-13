@@ -105,10 +105,11 @@ void Request::callback(void* request, ucs_status_t status)
                    _callback.target<void (*)(void)>());
   if (_callback) _callback(status, _callbackData);
 
-  if (_request != nullptr) ucp_request_free(request);
+  if (request != nullptr) ucp_request_free(request);
 
   ucxx_trace("Request completed: %p, handle: %p", this, request);
   setStatus(status);
+  ucxx_trace("Request %p, isCompleted: %d", this, isCompleted());
 }
 
 void Request::process()
@@ -183,5 +184,7 @@ void Request::setStatus(ucs_status_t status)
 }
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
+
+std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }
 
 }  // namespace ucxx

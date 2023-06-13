@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,6 +16,9 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
+#include <ucxx/buffer.h>
+#include <ucxx/internal/request_am.h>
+#include <ucxx/request_am.h>
 #include <ucxx/request_tag.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
@@ -36,6 +40,24 @@ Worker::Worker(std::shared_ptr<Context> context,
 
   if (enableDelayedSubmission)
     _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
+
+  if (context->getFeatureFlags() & UCP_FEATURE_AM) {
+    unsigned int AM_MSG_ID            = 0;
+    _amData                           = std::make_shared<internal::AmData>();
+    _amData->_registerInflightRequest = [this](std::shared_ptr<Request> req) {
+      this->registerInflightRequest(req);
+    };
+    registerAmAllocator(UCS_MEMORY_TYPE_HOST,
+                        [](size_t length) { return std::make_shared<HostBuffer>(length); });
+
+    ucp_am_handler_param_t am_handler_param = {.field_mask = UCP_AM_HANDLER_PARAM_FIELD_ID |
+                                                             UCP_AM_HANDLER_PARAM_FIELD_CB |
+                                                             UCP_AM_HANDLER_PARAM_FIELD_ARG,
+                                               .id  = AM_MSG_ID,
+                                               .cb  = RequestAm::recvCallback,
+                                               .arg = _amData.get()};
+    utils::ucsErrorThrow(ucp_worker_set_am_recv_handler(_handle, &am_handler_param));
+  }
 
   ucxx_trace("Worker created: %p, enableDelayedSubmission: %d, enableFuture: %d",
              this,
@@ -84,11 +106,44 @@ void Worker::drainWorkerTagRecv()
   }
 }
 
+std::shared_ptr<RequestAm> Worker::getAmRecv(
+  ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction)
+{
+  std::lock_guard<std::mutex> lock(_amData->_mutex);
+
+  auto& recvPool = _amData->_recvPool;
+  auto& recvWait = _amData->_recvWait;
+
+  auto reqs = recvPool.find(ep);
+  if (reqs != recvPool.end() && !reqs->second.empty()) {
+    auto req = reqs->second.front();
+    reqs->second.pop();
+    return req;
+  } else {
+    auto req        = createAmRecvRequestFunction();
+    auto [queue, _] = recvWait.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
+    queue->second.push(req);
+    return req;
+  }
+}
+
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableDelayedSubmission,
                                      const bool enableFuture)
 {
-  return std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
+  auto worker = std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
+
+  // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
+  // been created, thus this cannot be in the constructor.
+  if (worker->_amData != nullptr) {
+    worker->_amData->_worker = worker;
+
+    std::stringstream ownerStream;
+    ownerStream << "worker " << worker->getHandle();
+    worker->_amData->_ownerString = ownerStream.str();
+  }
+
+  return worker;
 }
 
 Worker::~Worker()
@@ -206,12 +261,13 @@ bool Worker::progress()
   return ret;
 }
 
-void Worker::registerDelayedSubmission(DelayedSubmissionCallbackType callback)
+void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
+                                       DelayedSubmissionCallbackType callback)
 {
   if (_delayedSubmissionCollection == nullptr) {
     callback();
   } else {
-    _delayedSubmissionCollection->registerRequest(callback);
+    _delayedSubmissionCollection->registerRequest(request, callback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must signal the progress task so
@@ -319,7 +375,7 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(ucp_tag_t tag)
+bool Worker::tagProbe(const ucp_tag_t tag)
 {
   // TODO: Fix temporary workaround, if progress thread is active we must wait for it
   // to progress the worker instead.
@@ -376,6 +432,18 @@ std::shared_ptr<Listener> Worker::createListener(uint16_t port,
   auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
   auto listener = ucxx::createListener(worker, port, callback, callbackArgs);
   return listener;
+}
+
+void Worker::registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)
+{
+  if (_amData == nullptr)
+    throw std::runtime_error("Active Messages wasn not enabled during context creation");
+  _amData->_allocators.insert_or_assign(memoryType, allocator);
+}
+
+bool Worker::amProbe(const ucp_ep_h endpointHandle) const
+{
+  return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
 }
 
 }  // namespace ucxx
