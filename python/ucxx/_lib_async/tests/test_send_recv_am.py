@@ -83,9 +83,9 @@ async def test_send_recv_am(size, recv_wait, data):
             # immediately as receive data is already available.
             await asyncio.sleep(1)
         await c.am_send(msg)
-    for c in clients:
-        await c.close()
-    await wait_listener_client_handlers(listener)
+
+    while len(recv) == 0:
+        await asyncio.sleep(0)
 
     if data["memory_type"] == "cuda" and msg.nbytes < rndv_thresh:
         # Eager messages are always received on the host, if no custom host
@@ -93,3 +93,7 @@ async def test_send_recv_am(size, recv_wait, data):
         np.testing.assert_equal(recv[0].view(np.int64), msg.get())
     else:
         data["validator"](recv[0], msg)
+
+    for c in clients:
+        await c.close()
+    await wait_listener_client_handlers(listener)
