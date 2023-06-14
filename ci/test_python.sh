@@ -72,7 +72,7 @@ run_py_benchmark() {
 }
 
 rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=${RAPIDS_CONDA_BLD_OUTPUT_DIR}
+CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
