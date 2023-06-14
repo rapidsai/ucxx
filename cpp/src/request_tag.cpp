@@ -70,8 +70,6 @@ void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv
     std::snprintf(_status_msg.data(), _status_msg.size(), fmt, info->length, _length);
   }
 
-  _status = status;
-
   Request::callback(request, status);
 }
 
