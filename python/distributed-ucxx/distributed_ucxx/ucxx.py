@@ -11,6 +11,7 @@ import functools
 import logging
 import os
 import struct
+import threading
 import weakref
 from collections.abc import Awaitable, Callable, Collection
 from typing import TYPE_CHECKING, Any
@@ -52,6 +53,9 @@ device_array = None
 pre_existing_cuda_context = False
 cuda_context_created = False
 multi_buffer = None
+
+instances = 0
+instances_lock = threading.Lock()
 
 
 _warning_suffix = (
@@ -264,6 +268,8 @@ class UCXX(Comm):
         deserialize: bool = True,
         enable_close_callback: bool = True,
     ):
+        global instances, instances_lock
+
         super().__init__(deserialize=deserialize)
         self._ep = ep
         self._ep_handle = int(self._ep._ep.handle)
@@ -285,6 +291,23 @@ class UCXX(Comm):
             self._has_close_callback = False
 
         logger.debug("UCX.__init__ %s", self)
+
+        with instances_lock:
+            instances += 1
+            ucxx.core._get_ctx().continuous_ucx_progress()
+
+    def __del__(self):
+        global instances, instances_lock
+
+        # print(f"[{os.getpid()}] UCXX.__del__")
+
+        with instances_lock:
+            instances -= 1
+            if instances == 0:
+                # print(f"[{os.getpid()}] Stopping notifier thread", flush=True)
+                ucxx.stop_notifier_thread()
+                # print(f"[{os.getpid()}] Stopping progress tasks", flush=True)
+                ucxx.core._get_ctx().progress_tasks.clear()
 
     @property
     def local_address(self) -> str:
