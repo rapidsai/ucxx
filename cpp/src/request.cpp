@@ -169,6 +169,7 @@ void Request::setStatus(ucs_status_t status)
                    status,
                    ucs_status_string(status));
 
+  if (_status != UCS_INPROGRESS) ucxx_error("setStatus called but the status was already set");
   _status.store(status);
 
   if (_enablePythonFuture) {
