@@ -94,6 +94,5 @@ async def test_send_recv_am(size, recv_wait, data):
     else:
         data["validator"](recv[0], msg)
 
-    for c in clients:
-        await c.close()
+    await asyncio.gather(*(c.close() for c in clients))
     await wait_listener_client_handlers(listener)
