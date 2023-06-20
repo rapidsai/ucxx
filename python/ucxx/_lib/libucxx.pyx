@@ -1123,7 +1123,7 @@ cdef class UCXEndpoint():
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
-        cdef RequestTagMultiPtr ucxx_buffer_requests
+        cdef shared_ptr[Request] ucxx_buffer_requests
 
         for arr in arrays:
             if not isinstance(arr, Array):
@@ -1157,7 +1157,7 @@ cdef class UCXEndpoint():
         )
 
     def tag_recv_multi(self, size_t tag):
-        cdef RequestTagMultiPtr ucxx_buffer_requests
+        cdef shared_ptr[Request] ucxx_buffer_requests
 
         with nogil:
             ucxx_buffer_requests = self._endpoint.get().tagMultiRecv(

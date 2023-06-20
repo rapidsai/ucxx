@@ -282,14 +282,14 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
-        shared_ptr[RequestTagMulti] tagMultiSend(
+        shared_ptr[Request] tagMultiSend(
             const vector[void*]& buffer,
             const vector[size_t]& length,
             const vector[int]& isCUDA,
             ucp_tag_t tag,
             bint enable_python_future
         ) except +raise_py_error
-        shared_ptr[RequestTagMulti] tagMultiRecv(
+        shared_ptr[Request] tagMultiRecv(
             ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
         bint isAlive()

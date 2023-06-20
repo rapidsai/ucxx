@@ -107,7 +107,7 @@ class Request : public Component {
    * Cancel the request. Often called by the an error handler or parent's object
    * destructor but may be called by the user to cancel the request as well.
    */
-  void cancel();
+  virtual void cancel();
 
   /**
    * @brief Return the status of the request.

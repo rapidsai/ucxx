@@ -15,7 +15,6 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/future.h>
 #include <ucxx/request.h>
-#include <ucxx/request_helper.h>
 
 namespace ucxx {
 
@@ -27,23 +26,25 @@ struct BufferRequest {
 
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
 
-class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
+class RequestTagMulti : public Request {
  private:
-  std::shared_ptr<Endpoint> _endpoint{nullptr};  ///< Endpoint that generated request
   bool _send{false};       ///< Whether this is a send (`true`) operation or recv (`false`)
   ucp_tag_t _tag{0};       ///< Tag to match
   size_t _totalFrames{0};  ///< The total number of frames handled by this request
-  std::mutex _completedRequestsMutex;  ///< Mutex to control access to completed requests container
+  std::mutex
+    _completedRequestsMutex{};  ///< Mutex to control access to completed requests container
   std::vector<BufferRequest*> _completedRequests{};  ///< Requests that already completed
-  ucs_status_t _status{UCS_INPROGRESS};              ///< Status of the multi-buffer request
-  std::shared_ptr<Future> _future;  ///< Future to be notified when transfer of all frames complete
 
  public:
   std::vector<BufferRequestPtr> _bufferRequests{};  ///< Container of all requests posted
   bool _isFilled{false};                            ///< Whether the all requests have been posted
 
  private:
-  RequestTagMulti() = delete;
+  RequestTagMulti()                       = delete;
+  RequestTagMulti(const RequestTagMulti&) = delete;
+  RequestTagMulti& operator=(RequestTagMulti const&) = delete;
+  RequestTagMulti(RequestTagMulti&& o)               = delete;
+  RequestTagMulti& operator=(RequestTagMulti&& o) = delete;
 
   /**
    * @brief Protected constructor of a multi-buffer tag receive request.
@@ -237,52 +238,11 @@ class RequestTagMulti : public std::enable_shared_from_this<RequestTagMulti> {
    * @param[in] status the status of the request being completed.
    * @throws std::runtime_error if called by a send request.
    */
-  void callback(ucs_status_t status);
+  void recvCallback(ucs_status_t status);
 
-  /**
-   * @brief Return the status of the request.
-   *
-   * Return a `ucs_status_t` that may be used for more fine-grained error handling than
-   * relying on `checkError()` alone, which does not currently implement all error
-   * statuses supported by UCX.
-   *
-   * @return the current status of the request.
-   */
-  ucs_status_t getStatus();
+  void populateDelayedSubmission() override;
 
-  /**
-   * @brief Return the future used to check on state.
-   *
-   * If the object is built with Python future support, return the future that can be
-   * awaited from Python, returns `nullptr` otherwise.
-   *
-   * @returns the Python future object or `nullptr`.
-   */
-  void* getFuture();
-
-  /**
-   * @brief Check whether the request completed with an error.
-   *
-   * Check whether the request has completed with an error, if an error occurred an
-   * exception is raised, but if the request has completed or is in progress this call will
-   * act as a no-op. To verify whether the request is in progress either `isCompleted()` or
-   * `getStatus()` should be checked.
-   *
-   * @throw `ucxx::CanceledError`         if the request was canceled.
-   * @throw `ucxx::MessageTruncatedError` if the message was truncated.
-   * @throw `ucxx::Error`                 if another error occurred.
-   */
-  void checkError();
-
-  /**
-   * @brief Check whether the request has already completed.
-   *
-   * Check whether the request has already completed. The status of the request must be
-   * verified with `getStatus()` before consumption.
-   *
-   * @return whether the request has completed.
-   */
-  bool isCompleted();
+  void cancel() override;
 };
 
 typedef std::shared_ptr<RequestTagMulti> RequestTagMultiPtr;
