@@ -92,8 +92,7 @@ void RequestStream::populateDelayedSubmission()
 
 void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 {
-  status  = length == _length ? status : UCS_ERR_MESSAGE_TRUNCATED;
-  _status = status;
+  status = length == _length ? status : UCS_ERR_MESSAGE_TRUNCATED;
 
   if (status == UCS_ERR_MESSAGE_TRUNCATED) {
     const char* fmt = "length mismatch: %llu (got) != %llu (expected)";

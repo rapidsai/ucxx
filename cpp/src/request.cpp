@@ -162,20 +162,15 @@ void Request::setStatus(ucs_status_t status)
   if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
   _worker->removeInflightRequest(this);
 
-  if (_status == UCS_INPROGRESS) {
-    // If the status is not `UCS_INPROGRESS`, the derived class has already set the
-    // status, a truncated message for example.
-    _status.store(status);
-  }
-
-  ucs_status_t s = _status;
-
   ucxx_trace_req_f(_ownerString.c_str(),
                    _request,
                    _operationName.c_str(),
                    "callback called with status %d (%s)",
-                   s,
-                   ucs_status_string(s));
+                   status,
+                   ucs_status_string(status));
+
+  if (_status != UCS_INPROGRESS) ucxx_error("setStatus called but the status was already set");
+  _status.store(status);
 
   if (_enablePythonFuture) {
     auto future = std::static_pointer_cast<ucxx::Future>(_future);

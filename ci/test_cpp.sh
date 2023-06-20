@@ -24,6 +24,12 @@ print_system_stats
 
 BINARY_PATH=${CONDA_PREFIX}/bin
 
+NEXT_PORT=12345
+function get_next_port() {
+  echo ${NEXT_PORT}
+  NEXT_PORT=$((NEXT_PORT + 1))
+}
+
 run_tests() {
   CMD_LINE="UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
 
@@ -35,13 +41,13 @@ run_tests() {
 run_benchmark() {
   PROGRESS_MODE=$1
 
-  # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
-  # `TIME_WAIT` timeout
-  CMD_LINE_SERVER="UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE}"
-  CMD_LINE_CLIENT="timeout 10m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1"
+  SERVER_PORT=$(get_next_port)    # Use different ports every time to prevent `Device is busy`
+
+  CMD_LINE_SERVER="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
+  CMD_LINE_CLIENT="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1"
 
   rapids-logger "Running: \n  - ${CMD_LINE_SERVER}\n  - ${CMD_LINE_CLIENT}"
-  UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} &
+  UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} &
   sleep 1
 
   MAX_ATTEMPTS=10
@@ -49,7 +55,7 @@ run_benchmark() {
   set +e
   for attempt in $(seq 1 ${MAX_ATTEMPTS}); do
     echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run client"
-    timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1
+    timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1
     LAST_STATUS=$?
     if [ ${LAST_STATUS} -eq 0 ]; then
       break;
@@ -67,12 +73,12 @@ run_benchmark() {
 run_example() {
   PROGRESS_MODE=$1
 
-  # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
-  # `TIME_WAIT` timeout
-  CMD_LINE="UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE}"
+  SERVER_PORT=$(get_next_port)    # Use different ports every time to prevent `Device is busy`
+
+  CMD_LINE="timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
 
   rapids-logger "Running: \n  - ${CMD_LINE}"
-  UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE}
+  UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -p ${SERVER_PORT}
 }
 
 rapids-logger "Downloading artifacts from previous jobs"
