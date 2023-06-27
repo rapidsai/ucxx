@@ -180,7 +180,7 @@ outputs:
         {% if cuda_major == "11" %}
         - cudatoolkit {{ cuda_spec }}
         {% else %}
-        - cuda-cudart
+        - cuda-cudart-dev
         {% endif %}
         - cuda-version {{ cuda_spec }}
       run:
