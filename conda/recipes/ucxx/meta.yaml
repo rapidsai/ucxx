@@ -40,7 +40,12 @@ requirements:
     - ninja
     - sysroot_{{ target_platform }}
   host:
-    - cudatoolkit ={{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - cudatoolkit
+    {% else %}
+    - cuda-cudart
+    {% endif %}
+    - cuda-version ={{ cuda_version }}
     - ucx
     - python
 
@@ -59,7 +64,10 @@ outputs:
       host:
         - ucx
       run:
-        - cudatoolkit {{ cuda_spec }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% endif %}
+        - cuda-version ={{ cuda_spec }}
         - ucx
     test:
       commands:
@@ -129,7 +137,12 @@ outputs:
         - cmake
       run:
         - {{ pin_subpackage('libucxx', exact=True) }}
-        - cudatoolkit {{ cuda_spec }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% else %}
+        - cuda-cudart
+        {% endif %}
+        - cuda-version ={{ cuda_spec }}
         - gtest
         - gmock
     about:
