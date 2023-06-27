@@ -41,7 +41,7 @@ requirements:
     - sysroot_{{ target_platform }}
   host:
     {% if cuda_major == "11" %}
-    - cudatoolkit ={{ cuda_version }}
+    - cudatoolkit
     {% else %}
     - cuda-cudart-dev
     {% endif %}
@@ -65,7 +65,7 @@ outputs:
         - ucx
       run:
         {% if cuda_major == "11" %}
-        - cudatoolkit {{ cuda_spec }}
+        - cudatoolkit
         {% endif %}
         - cuda-version {{ cuda_spec }}
         - ucx
@@ -137,7 +137,7 @@ outputs:
         - cmake
       host:
         {% if cuda_major == "11" %}
-        - cudatoolkit ={{ cuda_version }}
+        - cudatoolkit
         {% else %}
         - cuda-cudart-dev
         {% endif %}
@@ -178,7 +178,7 @@ outputs:
         - ucx
         - rmm =23.08
         {% if cuda_major == "11" %}
-        - cudatoolkit {{ cuda_spec }}
+        - cudatoolkit
         {% else %}
         - cuda-cudart-dev
         {% endif %}
