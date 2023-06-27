@@ -43,7 +43,7 @@ requirements:
     {% if cuda_major == "11" %}
     - cudatoolkit ={{ cuda_version }}
     {% else %}
-    - cuda-cudart
+    - cuda-cudart-dev
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - ucx
