@@ -18,47 +18,20 @@
 namespace ucxx {
 
 RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
+                                 const bool send,
                                  const ucp_tag_t tag,
                                  const bool enablePythonFuture)
   : Request(endpoint,
-            std::make_shared<DelayedSubmission>(true, nullptr, 0, 0),
-            std::string("tagMultiSend"),
+            std::make_shared<DelayedSubmission>(!send, nullptr, 0, 0),
+            std::string(send ? "tagMultiSend" : "tagMultiRecv"),
             enablePythonFuture),
-    _send(false),
+    _send(send),
     _tag(tag)
 {
-  ucxx_trace_req("RequestTagMulti::RequestTagMulti [recv]: %p, tag: %lx", this, _tag);
+  ucxx_trace_req("RequestTagMulti::RequestTagMulti: %p, send: %d, tag: %lx", this, send, _tag);
 
   auto worker = endpoint->getWorker();
   if (enablePythonFuture) _future = worker->getFuture();
-
-  ucxx_debug("RequestTagMulti created: %p", this);
-  recvCallback(UCS_OK);
-}
-
-RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                                 const std::vector<void*>& buffer,
-                                 const std::vector<size_t>& size,
-                                 const std::vector<int>& isCUDA,
-                                 const ucp_tag_t tag,
-                                 const bool enablePythonFuture)
-  : Request(endpoint,
-            std::make_shared<DelayedSubmission>(false, nullptr, 0, 0),
-            std::string("tagMultiRecv"),
-            enablePythonFuture),
-    _send(true),
-    _tag(tag)
-{
-  ucxx_trace_req("RequestTagMulti::RequestTagMulti [send]: %p, tag: %lx", this, _tag);
-
-  if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
-    throw std::runtime_error("All input vectors should be of equal size");
-
-  auto worker = endpoint->getWorker();
-  if (enablePythonFuture) _future = worker->getFuture();
-
-  ucxx_trace("RequestTagMulti created: %p", this);
-  send(buffer, size, isCUDA);
 }
 
 RequestTagMulti::~RequestTagMulti()
@@ -88,8 +61,17 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpo
                                                            const bool enablePythonFuture)
 {
   ucxx_trace_req("RequestTagMulti::tagMultiSend");
-  return std::shared_ptr<RequestTagMulti>(
-    new RequestTagMulti(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
+  auto ret =
+    std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, true, tag, enablePythonFuture));
+
+  if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
+    throw std::runtime_error("All input vectors should be of equal size");
+
+  ucxx_trace("RequestTagMulti created: %p", ret.get());
+
+  ret->send(buffer, size, isCUDA);
+
+  return ret;
 }
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
@@ -98,7 +80,12 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpo
 {
   ucxx_trace_req("RequestTagMulti::tagMultiRecv");
   auto ret =
-    std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, tag, enablePythonFuture));
+    std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, false, tag, enablePythonFuture));
+
+  ucxx_trace("RequestTagMulti created: %p", ret.get());
+
+  ret->recvCallback(UCS_OK);
+
   return ret;
 }
 
@@ -127,8 +114,10 @@ void RequestTagMulti::recvFrames()
     for (size_t i = 0; i < h.nframes; ++i) {
       auto bufferRequest = std::make_shared<BufferRequest>();
       _bufferRequests.push_back(bufferRequest);
-      const auto bufferType  = h.isCUDA[i] ? ucxx::BufferType::RMM : ucxx::BufferType::Host;
-      auto buf               = allocateBuffer(bufferType, h.size[i]);
+      const auto bufferType = h.isCUDA[i] ? ucxx::BufferType::RMM : ucxx::BufferType::Host;
+      auto buf              = allocateBuffer(bufferType, h.size[i]);
+      bufferRequest->requestTagMulti =
+        std::static_pointer_cast<RequestTagMulti>(shared_from_this());
       bufferRequest->request = _endpoint->tagRecv(
         buf->data(),
         buf->getSize(),
@@ -256,9 +245,12 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
 
   auto headers = Header::buildHeaders(size, isCUDA);
 
+  auto requestTagMulti = std::static_pointer_cast<RequestTagMulti>(shared_from_this());
+
   for (const auto& header : headers) {
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
-    auto r = _endpoint->tagSend(&serializedHeader->front(), serializedHeader->size(), _tag, false);
+    auto r                = _endpoint->tagSend(
+      &serializedHeader->front(), serializedHeader->size(), _tag, false, nullptr, requestTagMulti);
 
     auto bufferRequest          = std::make_shared<BufferRequest>();
     bufferRequest->request      = r;
@@ -267,8 +259,9 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
   }
 
   for (size_t i = 0; i < _totalFrames; ++i) {
-    auto bufferRequest = std::make_shared<BufferRequest>();
-    auto r             = _endpoint->tagSend(
+    auto bufferRequest             = std::make_shared<BufferRequest>();
+    bufferRequest->requestTagMulti = requestTagMulti;
+    auto r                         = _endpoint->tagSend(
       buffer[i],
       size[i],
       _tag,

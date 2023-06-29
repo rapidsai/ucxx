@@ -18,10 +18,15 @@
 
 namespace ucxx {
 
+class RequestTagMulti;
+
 struct BufferRequest {
   std::shared_ptr<Request> request{nullptr};  ///< The `ucxx::RequestTag` of a header or frame
   std::shared_ptr<std::string> stringBuffer{nullptr};  ///< Serialized `Header`
   Buffer* buffer{nullptr};  ///< Internally allocated buffer to receive a frame
+  std::shared_ptr<RequestTagMulti> requestTagMulti{
+    nullptr};  ///< Reference to the owner to ensure it remains alive until all children callbacks
+               ///< terminate
 };
 
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
@@ -58,40 +63,14 @@ class RequestTagMulti : public Request {
    * the first request to receive a header.
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
+   * @param[in] send                whether this is a send (`true`) or receive (`false`)
+   *                                tag request.
    * @param[in] tag                 the tag to match.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    */
   RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                  const ucp_tag_t tag,
-                  const bool enablePythonFuture);
-
-  /**
-   * @brief Protected constructor of a multi-buffer tag send request.
-   *
-   * Construct multi-buffer tag send request, registering the request to the
-   * `std::shared_ptr<Endpoint>` parent so that it may be canceled if necessary. This
-   * constructor is responsible for creating a Python future that can be later awaited
-   * in Python asynchronous code, which is indenpendent of the Python futures used by
-   * the underlying `ucxx::RequestTag` object, which will be invisible to the user. Once
-   * the initial setup is complete, `send()` is called to post messages containing the
-   * header(s) and frame(s).
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] buffer              a vector of raw pointers to the data frames to be sent.
-   * @param[in] length              a vector of size in bytes of each frame to be sent.
-   * @param[in] isCUDA              a vector of booleans (integers to prevent incoherence
-   *                                with other vector types) indicating whether frame is
-   *                                CUDA, to ensure proper memory allocation by the
-   *                                receiver.
-   * @param[in] tag                 the tag to match.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   */
-  RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                  const std::vector<void*>& buffer,
-                  const std::vector<size_t>& size,
-                  const std::vector<int>& isCUDA,
+                  const bool send,
                   const ucp_tag_t tag,
                   const bool enablePythonFuture);
 
