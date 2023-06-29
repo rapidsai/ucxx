@@ -63,11 +63,12 @@ outputs:
         - cmake
       host:
         - ucx
+        - cuda-version ={{ cuda_version }}
       run:
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% endif %}
-        - cuda-version {{ cuda_spec }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - ucx
     test:
       commands:
@@ -144,6 +145,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_subpackage('libucxx', exact=True) }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - gtest
         - gmock
     about:
@@ -182,10 +184,11 @@ outputs:
         {% else %}
         - cuda-cudart-dev
         {% endif %}
-        - cuda-version {{ cuda_spec }}
+        - cuda-version {{ cuda_version }}
       run:
         - python * *_cpython
         - packaging
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - ucx
         - {{ pin_subpackage('libucxx', exact=True) }}
         - {{ pin_compatible('rmm', max_pin='x.x') }}
