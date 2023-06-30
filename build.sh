@@ -166,8 +166,10 @@ fi
 
 
 if buildAll || hasArg libucxx; then
+    CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
     pwd
     cmake -S $REPODIR/cpp -B ${LIB_BUILD_DIR} \
+          -G${CMAKE_GENERATOR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DBUILD_BENCHMARKS=${BUILD_BENCHMARKS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
