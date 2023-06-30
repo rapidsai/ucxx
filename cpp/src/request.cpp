@@ -98,18 +98,24 @@ bool Request::isCompleted() { return _status != UCS_INPROGRESS; }
 
 void Request::callback(void* request, ucs_status_t status)
 {
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   request,
-                   _operationName.c_str(),
-                   "callback %p",
-                   _callback.target<void (*)(void)>());
-  if (_callback) _callback(status, _callbackData);
+  /**
+   * Prevent reference count to self from going to zero and thus cause self to be destroyed
+   * while `callback()` executes.
+   */
+  auto selfReference = shared_from_this();
 
   if (request != nullptr) ucp_request_free(request);
 
   ucxx_trace("Request completed: %p, handle: %p", this, request);
   setStatus(status);
   ucxx_trace("Request %p, isCompleted: %d", this, isCompleted());
+
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   request,
+                   _operationName.c_str(),
+                   "callback %p",
+                   _callback.target<void (*)(void)>());
+  if (_callback) _callback(status, _callbackData);
 }
 
 void Request::process()
