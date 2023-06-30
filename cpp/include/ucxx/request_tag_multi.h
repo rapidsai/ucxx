@@ -24,9 +24,6 @@ struct BufferRequest {
   std::shared_ptr<Request> request{nullptr};  ///< The `ucxx::RequestTag` of a header or frame
   std::shared_ptr<std::string> stringBuffer{nullptr};  ///< Serialized `Header`
   Buffer* buffer{nullptr};  ///< Internally allocated buffer to receive a frame
-  std::shared_ptr<RequestTagMulti> requestTagMulti{
-    nullptr};  ///< Reference to the owner to ensure it remains alive until all children callbacks
-               ///< terminate
 };
 
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;

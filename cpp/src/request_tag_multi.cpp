@@ -114,10 +114,8 @@ void RequestTagMulti::recvFrames()
     for (size_t i = 0; i < h.nframes; ++i) {
       auto bufferRequest = std::make_shared<BufferRequest>();
       _bufferRequests.push_back(bufferRequest);
-      const auto bufferType = h.isCUDA[i] ? ucxx::BufferType::RMM : ucxx::BufferType::Host;
-      auto buf              = allocateBuffer(bufferType, h.size[i]);
-      bufferRequest->requestTagMulti =
-        std::static_pointer_cast<RequestTagMulti>(shared_from_this());
+      const auto bufferType  = h.isCUDA[i] ? ucxx::BufferType::RMM : ucxx::BufferType::Host;
+      auto buf               = allocateBuffer(bufferType, h.size[i]);
       bufferRequest->request = _endpoint->tagRecv(
         buf->data(),
         buf->getSize(),
@@ -245,12 +243,9 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
 
   auto headers = Header::buildHeaders(size, isCUDA);
 
-  auto requestTagMulti = std::static_pointer_cast<RequestTagMulti>(shared_from_this());
-
   for (const auto& header : headers) {
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
-    auto r                = _endpoint->tagSend(
-      &serializedHeader->front(), serializedHeader->size(), _tag, false, nullptr, requestTagMulti);
+    auto r = _endpoint->tagSend(&serializedHeader->front(), serializedHeader->size(), _tag, false);
 
     auto bufferRequest          = std::make_shared<BufferRequest>();
     bufferRequest->request      = r;
@@ -259,9 +254,8 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
   }
 
   for (size_t i = 0; i < _totalFrames; ++i) {
-    auto bufferRequest             = std::make_shared<BufferRequest>();
-    bufferRequest->requestTagMulti = requestTagMulti;
-    auto r                         = _endpoint->tagSend(
+    auto bufferRequest = std::make_shared<BufferRequest>();
+    auto r             = _endpoint->tagSend(
       buffer[i],
       size[i],
       _tag,
