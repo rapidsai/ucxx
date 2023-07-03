@@ -147,7 +147,13 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
    * Prevent reference count to self from going to zero and thus cause self to be destroyed
    * while `markCompleted()` executes.
    */
-  auto selfReference = shared_from_this();
+  try {
+    auto selfReference = shared_from_this();
+  } catch (std::bad_weak_ptr& exception) {
+    ucxx_debug("RequestTagMulti %p destroyed before all markCompleted() callbacks were executed",
+               this);
+    return;
+  }
 
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx", this, _tag);
   std::lock_guard<std::mutex> lock(_completedRequestsMutex);
