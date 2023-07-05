@@ -455,7 +455,7 @@ cdef class UCXWorker():
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
-            self._enable_delayed_submission = self._worker.get().isDelayedSubmissionEnabled()
+            self._enable_delayed_submission = self._worker.get().isDelayedRequestSubmissionEnabled()
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
             if self._context_feature_flags & UCP_FEATURE_AM:

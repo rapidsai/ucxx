@@ -19,9 +19,11 @@ void WorkerProgressThread::progressUntilSync(
   if (startCallback) startCallback(startCallbackArg);
 
   while (!stop) {
-    if (delayedSubmissionCollection != nullptr) delayedSubmissionCollection->process();
+    delayedSubmissionCollection->processPre();
 
     progressFunction();
+
+    delayedSubmissionCollection->processPost();
   }
 }
 
@@ -58,5 +60,7 @@ WorkerProgressThread::~WorkerProgressThread()
 }
 
 bool WorkerProgressThread::pollingMode() const { return _pollingMode; }
+
+std::thread::id WorkerProgressThread::getId() const { return _thread.get_id(); }
 
 }  // namespace ucxx

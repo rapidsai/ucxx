@@ -38,8 +38,8 @@ Worker::Worker(std::shared_ptr<Context> context,
                                 .thread_mode = UCS_THREAD_MODE_MULTI};
   utils::ucsErrorThrow(ucp_worker_create(context->getHandle(), &params, &_handle));
 
-  if (enableDelayedSubmission)
-    _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
+  _delayedSubmissionCollection =
+    std::make_shared<DelayedSubmissionCollection>(enableDelayedSubmission);
 
   if (context->getFeatureFlags() & UCP_FEATURE_AM) {
     unsigned int AM_MSG_ID            = 0;
@@ -171,7 +171,10 @@ std::string Worker::getInfo()
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 
-bool Worker::isDelayedSubmissionEnabled() const { return _delayedSubmissionCollection != nullptr; }
+bool Worker::isDelayedRequestSubmissionEnabled() const
+{
+  return _delayedSubmissionCollection->isDelayedRequestSubmissionEnabled();
+}
 
 bool Worker::isFutureEnabled() const { return _enableFuture; }
 
@@ -264,10 +267,48 @@ bool Worker::progress()
 void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
                                        DelayedSubmissionCallbackType callback)
 {
-  if (_delayedSubmissionCollection == nullptr) {
+  if (_delayedSubmissionCollection->isDelayedRequestSubmissionEnabled()) {
+    _delayedSubmissionCollection->registerRequest(request, callback);
+
+    /* Waking the progress event is needed here because the UCX request is
+     * not dispatched immediately. Thus we must signal the progress task so
+     * it will ensure the request is dispatched.
+     */
+    signal();
+  } else {
+    callback();
+  }
+}
+
+void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
+{
+  if (_progressThread != nullptr && std::this_thread::get_id() == _progressThread->getId()) {
+    /**
+     * If the method is called from within the progress thread (e.g., from the
+     * listener callback), execute it immediately.
+     */
     callback();
   } else {
-    _delayedSubmissionCollection->registerRequest(request, callback);
+    _delayedSubmissionCollection->registerGenericPre(callback);
+
+    /* Waking the progress event is needed here because the UCX request is
+     * not dispatched immediately. Thus we must signal the progress task so
+     * it will ensure the request is dispatched.
+     */
+    signal();
+  }
+}
+
+void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
+{
+  if (_progressThread != nullptr && std::this_thread::get_id() == _progressThread->getId()) {
+    /**
+     * If the method is called from within the progress thread (e.g., from the
+     * listener callback), execute it immediately.
+     */
+    callback();
+  } else {
+    _delayedSubmissionCollection->registerGenericPost(callback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must signal the progress task so
@@ -340,6 +381,8 @@ void Worker::stopProgressThread()
     stopProgressThreadNoWarn();
 }
 
+bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
+
 size_t Worker::cancelInflightRequests()
 {
   auto inflightRequestsToCancel = std::make_shared<InflightRequests>();
@@ -379,7 +422,15 @@ bool Worker::tagProbe(const ucp_tag_t tag)
 {
   // TODO: Fix temporary workaround, if progress thread is active we must wait for it
   // to progress the worker instead.
-  progress();
+  if (!isProgressThreadRunning()) {
+    progress();
+  } else {
+    size_t progressCount = 0;
+    auto progressPost    = [&progressCount]() { ++progressCount; };
+    _delayedSubmissionCollection->registerGenericPost(progressPost);
+    while (progressCount < 2)
+      ;
+  }
 
   ucp_tag_recv_info_t info;
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);

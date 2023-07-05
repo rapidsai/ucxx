@@ -58,9 +58,14 @@ class DelayedSubmission {
 
 class DelayedSubmissionCollection {
  private:
+  std::vector<DelayedSubmissionCallbackType>
+    _genericPre{};  ///< The collection of all known generic pre-progress operations.
+  std::vector<DelayedSubmissionCallbackType>
+    _genericPost{};  ///< The collection of all known generic post-progress operations.
   std::vector<std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>
-    _collection{};      ///< The collection of all known delayed submission operations.
+    _requests{};        ///< The collection of all known delayed request submission operations.
   std::mutex _mutex{};  ///< Mutex to provide access to the collection.
+  bool _enableDelayedRequestSubmission{false};
 
  public:
   /**
@@ -69,36 +74,83 @@ class DelayedSubmissionCollection {
    * Construct an empty collection of delayed submissions. Despite its name, a delayed
    * submission registration may be processed right after registration, thus effectively
    * making it an immediate submission.
+   *
+   * @param[in] enableDelayedRequestSubmission  whether request submission should be
+   *                                            enabled, if `false`, only generic
+   *                                            callbacks are enabled.
    */
-  DelayedSubmissionCollection()                                   = default;
+  explicit DelayedSubmissionCollection(bool enableDelayedRequestSubmission = false);
+
+  DelayedSubmissionCollection()                                   = delete;
   DelayedSubmissionCollection(const DelayedSubmissionCollection&) = delete;
   DelayedSubmissionCollection& operator=(DelayedSubmissionCollection const&) = delete;
   DelayedSubmissionCollection(DelayedSubmissionCollection&& o)               = delete;
   DelayedSubmissionCollection& operator=(DelayedSubmissionCollection&& o) = delete;
 
   /**
-   * @brief Process all pending delayed submission operations.
+   * @brief Process pending delayed request submission and generic-pre callback operations.
    *
-   * Process all pending delayed submissions and execute their callbacks. The execution
-   * of the callbacks does not imply completion of the operation, only that it has been
-   * submitted. The completion of each operation is handled externally by the
-   * implementation of the object being processed, for example by checking the result
-   * of `ucxx::Request::isCompleted()`.
+   * Process all pending delayed request submissions and generic callbacks. Generic
+   * callbacks are deemed completed when their execution completes. On the other hand, the
+   * execution of the delayed request submission callbacks does not imply completion of the
+   * operation, only that it has been submitted. The completion of each delayed request
+   * submission is handled externally by the implementation of the object being processed,
+   * for example by checking the result of `ucxx::Request::isCompleted()`.
    */
-  void process();
+  void processPre();
+
+  /**
+   * @brief Process all pending generic-post callback operations.
+   *
+   * Process all pending generic-post callbacks. Generic callbacks are deemed completed when
+   * their execution completes.
+   */
+  void processPost();
 
   /**
    * @brief Register a request for delayed submission.
    *
    * Register a request for delayed submission with a callback that will be executed when
-   * the request is in fact submitted when `process()` is called.
+   * the request is in fact submitted when `processPre()` is called.available
+   *
+   * @throws std::runtime_error if delayed request submission was disabled at construction.
    *
    * @param[in] request   the request to which the callback belongs, ensuring it remains
    *                      alive until the callback is invoked.
-   * @param[in] callback  the callback that will be executed by `process()` when the
+   * @param[in] callback  the callback that will be executed by `processPre()` when the
    *                      operation is submitted.
    */
   void registerRequest(std::shared_ptr<Request> request, DelayedSubmissionCallbackType callback);
+
+  /**
+   * @brief Register a generic callback to execute during `processPre()`.
+   *
+   * Register a generic callback that will be executed when `processPre()` is called.
+   * Lifetime of the callback must be ensured by the caller.
+   *
+   * @param[in] callback  the callback that will be executed by `processPre()`.
+   */
+  void registerGenericPre(DelayedSubmissionCallbackType callback);
+
+  /**
+   * @brief Register a generic callback to execute during `processPost()`.
+   *
+   * Register a generic callback that will be executed when `processPost()` is called.
+   * Lifetime of the callback must be ensured by the caller.
+   *
+   * @param[in] callback  the callback that will be executed by `processPre()`.
+   */
+  void registerGenericPost(DelayedSubmissionCallbackType callback);
+
+  /**
+   * @brief Inquire if delayed request submission is enabled.
+   *
+   * Check whether delayed submission request is enabled, in which case `registerRequest()`
+   * may be used to register requests that will be executed during `processPre()`.
+   *
+   * @returns `true` if a delayed request submission is enabled, `false` otherwise.
+   */
+  bool isDelayedRequestSubmissionEnabled() const;
 };
 
 }  // namespace ucxx
