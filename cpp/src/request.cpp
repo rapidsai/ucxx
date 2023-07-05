@@ -102,8 +102,9 @@ void Request::callback(void* request, ucs_status_t status)
    * Prevent reference count to self from going to zero and thus cause self to be destroyed
    * while `callback()` executes.
    */
+  decltype(shared_from_this()) selfReference = nullptr;
   try {
-    auto selfReference = shared_from_this();
+    selfReference = shared_from_this();
   } catch (std::bad_weak_ptr& exception) {
     ucxx_debug("Request %p destroyed before callback() was executed", this);
     return;
