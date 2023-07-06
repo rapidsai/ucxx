@@ -109,8 +109,16 @@ void Request::callback(void* request, ucs_status_t status)
     ucxx_debug("Request %p destroyed before callback() was executed", this);
     return;
   }
+  auto statusAttr = _status.load();
+  if (statusAttr != UCS_INPROGRESS)
+    ucxx_trace("Request %p has status already set to %d (%s), callback setting %d (%s)",
+               this,
+               statusAttr,
+               ucs_status_string(statusAttr),
+               status,
+               ucs_status_string(status));
 
-  if (request != nullptr) ucp_request_free(request);
+  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
 
   ucxx_trace("Request completed: %p, handle: %p", this, request);
   setStatus(status);
@@ -152,7 +160,7 @@ void Request::process()
                    ucs_status_string(status));
 
   if (status != UCS_OK) {
-    ucxx_error(
+    ucxx_debug(
       "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
   } else {
     ucxx_trace_req_f(
