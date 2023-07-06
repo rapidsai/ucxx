@@ -51,6 +51,8 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - ucx
     - python
+    - librmm =23.08
+    - gtest {{ gtest_version }}
 
 outputs:
   - name: libucxx

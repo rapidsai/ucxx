@@ -40,6 +40,7 @@ sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/pyproject.t
 
 
 # bump RAPIDS libs
+sed_runner "/- librmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
 sed_runner "/- rmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
 for FILE in conda/environments/*.yaml dependencies.yaml; do
   sed_runner "/- cuda==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};

@@ -22,3 +22,6 @@ python:
 
 ucx:
   - 1.14.0
+
+gtest_version:
+  - ">=1.13.0"
