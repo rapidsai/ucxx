@@ -261,7 +261,8 @@ class ApplicationContext:
         ucx_ep = ucx_api.UCXEndpoint.create(
             self.worker, ip_address, port, endpoint_error_handling
         )
-        self.worker.progress()
+        if not self.progress_mode.startswith("thread"):
+            self.worker.progress()
 
         # We create the Endpoint in three steps:
         #  1) Generate unique IDs to use as tags
@@ -328,7 +329,8 @@ class ApplicationContext:
             address,
             endpoint_error_handling,
         )
-        self.worker.progress()
+        if not self.progress_mode.startswith("thread"):
+            self.worker.progress()
 
         ep = Endpoint(endpoint=ucx_ep, ctx=self, tags=None)
 

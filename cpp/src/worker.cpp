@@ -420,15 +420,22 @@ void Worker::removeInflightRequest(const Request* const request)
 
 bool Worker::tagProbe(const ucp_tag_t tag)
 {
-  // TODO: Fix temporary workaround, if progress thread is active we must wait for it
-  // to progress the worker instead.
   if (!isProgressThreadRunning()) {
     progress();
   } else {
-    size_t progressCount = 0;
-    auto progressPost    = [&progressCount]() { ++progressCount; };
-    _delayedSubmissionCollection->registerGenericPost(progressPost);
-    while (progressCount < 2)
+    /**
+     * To ensure the worker was progressed at least once, we must make sure a callback runs
+     * pre-progressing, and another one runs post-progress. Running post-progress only may
+     * indicate the progress thread has immediately finished executing and post-progress
+     * ran without a further progress operation.
+     */
+    volatile bool pre  = false;
+    volatile bool post = false;
+    registerGenericPre([&pre]() { pre = true; });
+    while (!pre)
+      ;
+    registerGenericPost([&post]() { post = true; });
+    while (!post)
       ;
   }
 

@@ -52,7 +52,15 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   setParent(worker);
 }
 
-Listener::~Listener() { ucxx_debug("Listener destroyed: %p", _handle.get()); }
+Listener::~Listener()
+{
+  std::static_pointer_cast<Worker>(_parent)->registerGenericPre(
+    [this]() { this->_handle = nullptr; });
+  while (_handle != nullptr)
+    ;
+
+  ucxx_debug("Listener destroyed: %p", _handle.get());
+}
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          uint16_t port,

@@ -58,8 +58,18 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.cb  = Endpoint::errorCallback;
   params->err_handler.arg = _callbackData.get();
 
-  utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
-  ucxx_trace("Endpoint created: %p", _handle);
+  if (worker->isProgressThreadRunning()) {
+    volatile ucs_status_t status = UCS_INPROGRESS;
+    worker->registerGenericPre([this, params, &status]() {
+      auto worker = ::ucxx::getWorker(this->_parent);
+      status      = ucp_ep_create(worker->getHandle(), params, &this->_handle);
+    });
+    while (status == UCS_INPROGRESS)
+      ;
+    utils::ucsErrorThrow(status);
+  } else {
+    utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
+  }
 }
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
@@ -139,7 +149,7 @@ void Endpoint::close()
   if (UCS_PTR_IS_PTR(status)) {
     auto worker = ::ucxx::getWorker(_parent);
     while (ucp_request_check_status(status) == UCS_INPROGRESS)
-      worker->progress();
+      if (!worker->isProgressThreadRunning()) worker->progress();
     ucp_request_free(status);
   } else if (UCS_PTR_STATUS(status) != UCS_OK) {
     ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
