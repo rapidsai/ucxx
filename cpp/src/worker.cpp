@@ -385,12 +385,32 @@ bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
 
 size_t Worker::cancelInflightRequests()
 {
+  size_t canceled = 0;
+
   auto inflightRequestsToCancel = std::make_shared<InflightRequests>();
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
     std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
   }
-  return inflightRequestsToCancel->cancelAll();
+
+  if (isProgressThreadRunning()) {
+    volatile bool completed = false;
+    registerGenericPre([inflightRequestsToCancel, &canceled, &completed]() {
+      canceled  = inflightRequestsToCancel->cancelAll();
+      completed = true;
+    });
+    while (!completed)
+      ;
+
+    completed = false;
+    registerGenericPost([&completed]() { completed = true; });
+    while (!completed)
+      ;
+  } else {
+    canceled = inflightRequestsToCancel->cancelAll();
+  }
+
+  return canceled;
 }
 
 void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests)

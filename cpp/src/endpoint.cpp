@@ -214,7 +214,30 @@ void Endpoint::removeInflightRequest(const Request* const request)
   _inflightRequests->remove(request);
 }
 
-size_t Endpoint::cancelInflightRequests() { return _inflightRequests->cancelAll(); }
+size_t Endpoint::cancelInflightRequests()
+{
+  auto worker     = ::ucxx::getWorker(this->_parent);
+  size_t canceled = 0;
+
+  if (worker->isProgressThreadRunning()) {
+    volatile bool completed = false;
+    worker->registerGenericPre([this, &canceled, &completed]() {
+      canceled  = _inflightRequests->cancelAll();
+      completed = true;
+    });
+    while (!completed)
+      ;
+
+    completed = false;
+    worker->registerGenericPost([&completed]() { completed = true; });
+    while (!completed)
+      ;
+  } else {
+    canceled = _inflightRequests->cancelAll();
+  }
+
+  return canceled;
+}
 
 std::shared_ptr<Request> Endpoint::amSend(void* buffer,
                                           size_t length,
