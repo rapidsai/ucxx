@@ -14,11 +14,6 @@
 
 namespace ucxx {
 
-void ucpListenerDestructor(ucp_listener_h ptr)
-{
-  if (ptr != nullptr) ucp_listener_destroy(ptr);
-}
-
 Listener::Listener(std::shared_ptr<Worker> worker,
                    uint16_t port,
                    ucp_listener_conn_callback_t callback,
@@ -34,13 +29,11 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   params.sockaddr.addr    = info->ai_addr;
   params.sockaddr.addrlen = info->ai_addrlen;
 
-  ucp_listener_h handle = nullptr;
-  utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &handle));
-  _handle = std::unique_ptr<ucp_listener, void (*)(ucp_listener_h)>(handle, ucpListenerDestructor);
-  ucxx_trace("Listener created: %p", _handle.get());
+  utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &_handle));
+  ucxx_trace("Listener created: %p", _handle);
 
   ucp_listener_attr_t attr = {.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR};
-  utils::ucsErrorThrow(ucp_listener_query(_handle.get(), &attr));
+  utils::ucsErrorThrow(ucp_listener_query(_handle, &attr));
 
   char ipString[INET6_ADDRSTRLEN];
   char portString[INET6_ADDRSTRLEN];
@@ -54,12 +47,28 @@ Listener::Listener(std::shared_ptr<Worker> worker,
 
 Listener::~Listener()
 {
-  std::static_pointer_cast<Worker>(_parent)->registerGenericPre(
-    [this]() { this->_handle = nullptr; });
-  while (_handle != nullptr)
-    ;
+  decltype(_handle) origHandle = _handle;
 
-  ucxx_debug("Listener destroyed: %p", _handle.get());
+  auto worker = std::static_pointer_cast<Worker>(_parent);
+
+  if (worker->isProgressThreadRunning()) {
+    worker->registerGenericPre([this]() {
+      ucp_listener_destroy(this->_handle);
+      this->_handle = nullptr;
+    });
+    while (_handle != nullptr)
+      ;
+
+    volatile bool progressed = false;
+    worker->registerGenericPost([&progressed]() { progressed = true; });
+    while (!progressed)
+      ;
+  } else {
+    ucp_listener_destroy(this->_handle);
+    worker->progress();
+  }
+
+  ucxx_trace("Listener destroyed: %p", origHandle);
 }
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
@@ -78,7 +87,7 @@ std::shared_ptr<Endpoint> Listener::createEndpointFromConnRequest(ucp_conn_reque
   return endpoint;
 }
 
-ucp_listener_h Listener::getHandle() { return _handle.get(); }
+ucp_listener_h Listener::getHandle() { return _handle; }
 
 uint16_t Listener::getPort() { return _port; }
 
