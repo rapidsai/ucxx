@@ -192,12 +192,13 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
   std::vector<size_t> multiSize(numMulti, send.size() * sizeof(int));
   std::vector<int> multiIsCUDA(numMulti, false);
 
-  std::vector<std::shared_ptr<ucxx::RequestTagMulti>> requests;
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(ep->tagMultiSend(multiBuffer, multiSize, multiIsCUDA, 0, false));
   requests.push_back(ep->tagMultiRecv(0, false));
   waitRequests(_worker, requests, _progressWorker);
 
-  for (const auto& br : requests[1]->_bufferRequests) {
+  for (const auto& br :
+       std::dynamic_pointer_cast<ucxx::RequestTagMulti>(requests[1])->_bufferRequests) {
     // br->buffer == nullptr are headers
     if (br->buffer) {
       ASSERT_EQ(br->buffer->getType(), ucxx::BufferType::Host);

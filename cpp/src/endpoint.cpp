@@ -17,6 +17,7 @@
 #include <ucxx/request_am.h>
 #include <ucxx/request_stream.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/request_tag_multi.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
@@ -302,21 +303,21 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
     endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
-std::shared_ptr<RequestTagMulti> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
-                                                        const std::vector<size_t>& size,
-                                                        const std::vector<int>& isCUDA,
-                                                        const ucp_tag_t tag,
-                                                        const bool enablePythonFuture)
+std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
+                                                const std::vector<size_t>& size,
+                                                const std::vector<int>& isCUDA,
+                                                const ucp_tag_t tag,
+                                                const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture);
+  return registerInflightRequest(
+    createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
 }
 
-std::shared_ptr<RequestTagMulti> Endpoint::tagMultiRecv(const ucp_tag_t tag,
-                                                        const bool enablePythonFuture)
+std::shared_ptr<Request> Endpoint::tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return createRequestTagMultiRecv(endpoint, tag, enablePythonFuture);
+  return registerInflightRequest(createRequestTagMultiRecv(endpoint, tag, enablePythonFuture));
 }
 
 std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }
