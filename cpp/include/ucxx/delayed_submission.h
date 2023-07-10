@@ -111,7 +111,7 @@ class DelayedSubmissionCollection {
    * @brief Register a request for delayed submission.
    *
    * Register a request for delayed submission with a callback that will be executed when
-   * the request is in fact submitted when `processPre()` is called.available
+   * the request is in fact submitted when `processPre()` is called.
    *
    * @throws std::runtime_error if delayed request submission was disabled at construction.
    *
