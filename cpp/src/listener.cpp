@@ -47,16 +47,16 @@ Listener::Listener(std::shared_ptr<Worker> worker,
 
 Listener::~Listener()
 {
-  decltype(_handle) origHandle = _handle;
-
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
   if (worker->isProgressThreadRunning()) {
-    worker->registerGenericPre([this]() {
-      ucp_listener_destroy(this->_handle);
-      this->_handle = nullptr;
+    volatile decltype(_handle) handle = _handle;
+
+    worker->registerGenericPre([&handle]() {
+      ucp_listener_destroy(handle);
+      handle = nullptr;
     });
-    while (_handle != nullptr)
+    while (handle != nullptr)
       ;
 
     volatile bool progressed = false;
@@ -68,7 +68,7 @@ Listener::~Listener()
     worker->progress();
   }
 
-  ucxx_trace("Listener destroyed: %p", origHandle);
+  ucxx_trace("Listener destroyed: %p", this->_handle);
 }
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
