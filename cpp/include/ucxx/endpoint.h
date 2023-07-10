@@ -445,11 +445,11 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<RequestTagMulti> tagMultiSend(const std::vector<void*>& buffer,
-                                                const std::vector<size_t>& size,
-                                                const std::vector<int>& isCUDA,
-                                                const ucp_tag_t tag,
-                                                const bool enablePythonFuture);
+  std::shared_ptr<Request> tagMultiSend(const std::vector<void*>& buffer,
+                                        const std::vector<size_t>& size,
+                                        const std::vector<int>& isCUDA,
+                                        const ucp_tag_t tag,
+                                        const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a multi-buffer tag receive operation.
@@ -472,7 +472,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<RequestTagMulti> tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture);
+  std::shared_ptr<Request> tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture);
 
   /**
    * @brief Get `ucxx::Worker` component from a worker or listener object.

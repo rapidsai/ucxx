@@ -69,6 +69,16 @@ void RequestStream::request()
 
 void RequestStream::populateDelayedSubmission()
 {
+  if (_delayedSubmission->_send && _endpoint->getHandle() == nullptr) {
+    ucxx_warn("Endpoint was closed before message could be sent");
+    Request::callback(this, UCS_ERR_CANCELED);
+    return;
+  } else if (!_delayedSubmission->_send && _worker->getHandle() == nullptr) {
+    ucxx_warn("Worker was closed before message could be received");
+    Request::callback(this, UCS_ERR_CANCELED);
+    return;
+  }
+
   request();
 
   if (_enablePythonFuture)

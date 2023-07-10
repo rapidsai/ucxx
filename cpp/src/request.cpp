@@ -98,18 +98,38 @@ bool Request::isCompleted() { return _status != UCS_INPROGRESS; }
 
 void Request::callback(void* request, ucs_status_t status)
 {
+  /**
+   * Prevent reference count to self from going to zero and thus cause self to be destroyed
+   * while `callback()` executes.
+   */
+  decltype(shared_from_this()) selfReference = nullptr;
+  try {
+    selfReference = shared_from_this();
+  } catch (std::bad_weak_ptr& exception) {
+    ucxx_debug("Request %p destroyed before callback() was executed", this);
+    return;
+  }
+  auto statusAttr = _status.load();
+  if (statusAttr != UCS_INPROGRESS)
+    ucxx_trace("Request %p has status already set to %d (%s), callback setting %d (%s)",
+               this,
+               statusAttr,
+               ucs_status_string(statusAttr),
+               status,
+               ucs_status_string(status));
+
+  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
+
+  ucxx_trace("Request completed: %p, handle: %p", this, request);
+  setStatus(status);
+  ucxx_trace("Request %p, isCompleted: %d", this, isCompleted());
+
   ucxx_trace_req_f(_ownerString.c_str(),
                    request,
                    _operationName.c_str(),
                    "callback %p",
                    _callback.target<void (*)(void)>());
   if (_callback) _callback(status, _callbackData);
-
-  if (request != nullptr) ucp_request_free(request);
-
-  ucxx_trace("Request completed: %p, handle: %p", this, request);
-  setStatus(status);
-  ucxx_trace("Request %p, isCompleted: %d", this, isCompleted());
 }
 
 void Request::process()
@@ -140,7 +160,7 @@ void Request::process()
                    ucs_status_string(status));
 
   if (status != UCS_OK) {
-    ucxx_error(
+    ucxx_debug(
       "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
   } else {
     ucxx_trace_req_f(

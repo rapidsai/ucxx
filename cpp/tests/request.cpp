@@ -227,7 +227,7 @@ TEST_P(RequestTest, ProgressTagMulti)
   std::vector<int> multiIsCUDA(numMulti, _bufferType == ucxx::BufferType::RMM);
 
   // Submit and wait for transfers to complete
-  std::vector<std::shared_ptr<ucxx::RequestTagMulti>> requests;
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->tagMultiSend(_sendPtr, multiSize, multiIsCUDA, 0, false));
   requests.push_back(_ep->tagMultiRecv(0, false));
   waitRequests(_worker, requests, _progressWorker);
@@ -238,7 +238,8 @@ TEST_P(RequestTest, ProgressTagMulti)
   size_t transferIdx = 0;
 
   // Populate recv pointers
-  for (const auto& br : recvRequest->_bufferRequests) {
+  for (const auto& br :
+       std::dynamic_pointer_cast<ucxx::RequestTagMulti>(requests[1])->_bufferRequests) {
     // br->buffer == nullptr are headers
     if (br->buffer) {
       ASSERT_EQ(br->buffer->getType(), _bufferType);
