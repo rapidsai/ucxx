@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <condition_variable>
 #include <functional>
 #include <ios>
 #include <memory>
@@ -20,6 +21,7 @@
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/utils/condition.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
@@ -38,8 +40,8 @@ Worker::Worker(std::shared_ptr<Context> context,
                                 .thread_mode = UCS_THREAD_MODE_MULTI};
   utils::ucsErrorThrow(ucp_worker_create(context->getHandle(), &params, &_handle));
 
-  if (enableDelayedSubmission)
-    _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
+  _delayedSubmissionCollection =
+    std::make_shared<DelayedSubmissionCollection>(enableDelayedSubmission);
 
   if (context->getFeatureFlags() & UCP_FEATURE_AM) {
     unsigned int AM_MSG_ID            = 0;
@@ -171,7 +173,10 @@ std::string Worker::getInfo()
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 
-bool Worker::isDelayedSubmissionEnabled() const { return _delayedSubmissionCollection != nullptr; }
+bool Worker::isDelayedRequestSubmissionEnabled() const
+{
+  return _delayedSubmissionCollection->isDelayedRequestSubmissionEnabled();
+}
 
 bool Worker::isFutureEnabled() const { return _enableFuture; }
 
@@ -264,10 +269,48 @@ bool Worker::progress()
 void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
                                        DelayedSubmissionCallbackType callback)
 {
-  if (_delayedSubmissionCollection == nullptr) {
+  if (_delayedSubmissionCollection->isDelayedRequestSubmissionEnabled()) {
+    _delayedSubmissionCollection->registerRequest(request, callback);
+
+    /* Waking the progress event is needed here because the UCX request is
+     * not dispatched immediately. Thus we must signal the progress task so
+     * it will ensure the request is dispatched.
+     */
+    signal();
+  } else {
+    callback();
+  }
+}
+
+void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
+{
+  if (_progressThread != nullptr && std::this_thread::get_id() == _progressThread->getId()) {
+    /**
+     * If the method is called from within the progress thread (e.g., from the
+     * listener callback), execute it immediately.
+     */
     callback();
   } else {
-    _delayedSubmissionCollection->registerRequest(request, callback);
+    _delayedSubmissionCollection->registerGenericPre(callback);
+
+    /* Waking the progress event is needed here because the UCX request is
+     * not dispatched immediately. Thus we must signal the progress task so
+     * it will ensure the request is dispatched.
+     */
+    signal();
+  }
+}
+
+void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
+{
+  if (_progressThread != nullptr && std::this_thread::get_id() == _progressThread->getId()) {
+    /**
+     * If the method is called from within the progress thread (e.g., from the
+     * listener callback), execute it immediately.
+     */
+    callback();
+  } else {
+    _delayedSubmissionCollection->registerGenericPost(callback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must signal the progress task so
@@ -340,14 +383,47 @@ void Worker::stopProgressThread()
     stopProgressThreadNoWarn();
 }
 
+bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
+
 size_t Worker::cancelInflightRequests()
 {
+  size_t canceled = 0;
+
   auto inflightRequestsToCancel = std::make_shared<InflightRequests>();
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
     std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
   }
-  return inflightRequestsToCancel->cancelAll();
+
+  if (isProgressThreadRunning()) {
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto pre                     = std::make_shared<bool>(false);
+    auto post                    = std::make_shared<bool>(false);
+
+    auto setterPre = [this, &canceled, pre]() {
+      canceled = _inflightRequests->cancelAll();
+      *pre     = true;
+    };
+    auto getterPre = [pre]() { return *pre; };
+
+    registerGenericPre([&statusMutex, &statusConditionVariable, &setterPre]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPre);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, pre, getterPre);
+
+    auto setterPost = [this, post]() { *post = true; };
+    auto getterPost = [post]() { return *post; };
+
+    registerGenericPost([&statusMutex, &statusConditionVariable, &setterPost]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPost);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, post, getterPost);
+  } else {
+    canceled = inflightRequestsToCancel->cancelAll();
+  }
+
+  return canceled;
 }
 
 void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests)
@@ -377,9 +453,36 @@ void Worker::removeInflightRequest(const Request* const request)
 
 bool Worker::tagProbe(const ucp_tag_t tag)
 {
-  // TODO: Fix temporary workaround, if progress thread is active we must wait for it
-  // to progress the worker instead.
-  progress();
+  if (!isProgressThreadRunning()) {
+    progress();
+  } else {
+    /**
+     * To ensure the worker was progressed at least once, we must make sure a callback runs
+     * pre-progressing, and another one runs post-progress. Running post-progress only may
+     * indicate the progress thread has immediately finished executing and post-progress
+     * ran without a further progress operation.
+     */
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto pre                     = std::make_shared<bool>(false);
+    auto post                    = std::make_shared<bool>(false);
+
+    auto setterPre = [this, pre]() { *pre = true; };
+    auto getterPre = [pre]() { return *pre; };
+
+    registerGenericPre([&statusMutex, &statusConditionVariable, &setterPre]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPre);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, pre, getterPre);
+
+    auto setterPost = [this, post]() { *post = true; };
+    auto getterPost = [post]() { return *post; };
+
+    registerGenericPost([&statusMutex, &statusConditionVariable, &setterPost]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPost);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, post, getterPost);
+  }
 
   ucp_tag_recv_info_t info;
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);

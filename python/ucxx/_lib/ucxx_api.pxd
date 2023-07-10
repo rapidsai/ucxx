@@ -256,7 +256,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] tagRecv(
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
-        bint isDelayedSubmissionEnabled() const
+        bint isDelayedRequestSubmissionEnabled() const
         bint isFutureEnabled() const
         bint amProbe(ucp_ep_h) const
         void registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)

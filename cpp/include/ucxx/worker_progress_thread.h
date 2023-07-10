@@ -103,6 +103,8 @@ class WorkerProgressThread {
    * @returns Whether polling mode is enabled.
    */
   bool pollingMode() const;
+
+  std::thread::id getId() const;
 };
 
 }  // namespace ucxx

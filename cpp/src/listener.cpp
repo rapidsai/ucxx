@@ -2,22 +2,22 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <netinet/in.h>
 #include <string>
 #include <ucp/api/ucp.h>
 
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
+#include <ucxx/utils/condition.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
-namespace ucxx {
+#include <iostream>
 
-void ucpListenerDestructor(ucp_listener_h ptr)
-{
-  if (ptr != nullptr) ucp_listener_destroy(ptr);
-}
+namespace ucxx {
 
 Listener::Listener(std::shared_ptr<Worker> worker,
                    uint16_t port,
@@ -34,13 +34,11 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   params.sockaddr.addr    = info->ai_addr;
   params.sockaddr.addrlen = info->ai_addrlen;
 
-  ucp_listener_h handle = nullptr;
-  utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &handle));
-  _handle = std::unique_ptr<ucp_listener, void (*)(ucp_listener_h)>(handle, ucpListenerDestructor);
-  ucxx_trace("Listener created: %p", _handle.get());
+  utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &_handle));
+  ucxx_trace("Listener created: %p", _handle);
 
   ucp_listener_attr_t attr = {.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR};
-  utils::ucsErrorThrow(ucp_listener_query(_handle.get(), &attr));
+  utils::ucsErrorThrow(ucp_listener_query(_handle, &attr));
 
   char ipString[INET6_ADDRSTRLEN];
   char portString[INET6_ADDRSTRLEN];
@@ -52,7 +50,40 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   setParent(worker);
 }
 
-Listener::~Listener() { ucxx_debug("Listener destroyed: %p", _handle.get()); }
+Listener::~Listener()
+{
+  auto worker = std::static_pointer_cast<Worker>(_parent);
+
+  if (worker->isProgressThreadRunning()) {
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto pre                     = std::make_shared<bool>(false);
+    auto post                    = std::make_shared<bool>(false);
+
+    auto setterPre = [this, pre]() {
+      ucp_listener_destroy(_handle);
+      *pre = true;
+    };
+    auto getterPre = [pre]() { return *pre; };
+
+    worker->registerGenericPre([&statusMutex, &statusConditionVariable, &setterPre]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPre);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, pre, getterPre);
+
+    auto setterPost = [this, post]() { *post = true; };
+    auto getterPost = [post]() { return *post; };
+    worker->registerGenericPost([&statusMutex, &statusConditionVariable, &setterPost]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPost);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, post, getterPost);
+  } else {
+    ucp_listener_destroy(this->_handle);
+    worker->progress();
+  }
+
+  ucxx_trace("Listener destroyed: %p", this->_handle);
+}
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          uint16_t port,
@@ -70,7 +101,7 @@ std::shared_ptr<Endpoint> Listener::createEndpointFromConnRequest(ucp_conn_reque
   return endpoint;
 }
 
-ucp_listener_h Listener::getHandle() { return _handle.get(); }
+ucp_listener_h Listener::getHandle() { return _handle; }
 
 uint16_t Listener::getPort() { return _port; }
 

@@ -2,7 +2,9 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -19,6 +21,7 @@
 #include <ucxx/request_tag.h>
 #include <ucxx/request_tag_multi.h>
 #include <ucxx/typedefs.h>
+#include <ucxx/utils/condition.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
@@ -59,8 +62,28 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.cb  = Endpoint::errorCallback;
   params->err_handler.arg = _callbackData.get();
 
-  utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
-  ucxx_trace("Endpoint created: %p", _handle);
+  if (worker->isProgressThreadRunning()) {
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto status                  = std::make_shared<ucs_status_t>(UCS_INPROGRESS);
+
+    auto setter = [this, &params, status]() {
+      auto worker = ::ucxx::getWorker(_parent);
+      *status     = ucp_ep_create(worker->getHandle(), params, &_handle);
+    };
+    auto getter = [status]() { return *status != UCS_INPROGRESS; };
+
+    auto worker = ::ucxx::getWorker(_parent);
+    worker->registerGenericPre([&statusMutex, &statusConditionVariable, &setter]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setter);
+    });
+
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, status, getter);
+
+    utils::ucsErrorThrow(*status);
+  } else {
+    utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
+  }
 }
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
@@ -140,7 +163,7 @@ void Endpoint::close()
   if (UCS_PTR_IS_PTR(status)) {
     auto worker = ::ucxx::getWorker(_parent);
     while (ucp_request_check_status(status) == UCS_INPROGRESS)
-      worker->progress();
+      if (!worker->isProgressThreadRunning()) worker->progress();
     ucp_request_free(status);
   } else if (UCS_PTR_STATUS(status) != UCS_OK) {
     ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
@@ -205,7 +228,39 @@ void Endpoint::removeInflightRequest(const Request* const request)
   _inflightRequests->remove(request);
 }
 
-size_t Endpoint::cancelInflightRequests() { return _inflightRequests->cancelAll(); }
+size_t Endpoint::cancelInflightRequests()
+{
+  auto worker     = ::ucxx::getWorker(this->_parent);
+  size_t canceled = 0;
+
+  if (worker->isProgressThreadRunning()) {
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto completed               = std::make_shared<bool>(false);
+
+    auto setterCancel = [this, &canceled, completed]() {
+      canceled   = _inflightRequests->cancelAll();
+      *completed = true;
+    };
+    auto getter = [completed]() { return *completed; };
+
+    worker->registerGenericPre([&statusMutex, &statusConditionVariable, &setterCancel]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterCancel);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, completed, getter);
+
+    *completed        = false;
+    auto setterVerify = [this, completed]() { *completed = true; };
+    worker->registerGenericPost([&statusMutex, &statusConditionVariable, &setterVerify]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterVerify);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, completed, getter);
+  } else {
+    canceled = _inflightRequests->cancelAll();
+  }
+
+  return canceled;
+}
 
 std::shared_ptr<Request> Endpoint::amSend(void* buffer,
                                           size_t length,
