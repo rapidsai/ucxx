@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <condition_variable>
 #include <functional>
 #include <ios>
 #include <memory>
@@ -20,6 +21,7 @@
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/utils/condition.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
@@ -394,18 +396,29 @@ size_t Worker::cancelInflightRequests()
   }
 
   if (isProgressThreadRunning()) {
-    volatile bool completed = false;
-    registerGenericPre([inflightRequestsToCancel, &canceled, &completed]() {
-      canceled  = inflightRequestsToCancel->cancelAll();
-      completed = true;
-    });
-    while (!completed)
-      ;
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto pre                     = std::make_shared<bool>(false);
+    auto post                    = std::make_shared<bool>(false);
 
-    completed = false;
-    registerGenericPost([&completed]() { completed = true; });
-    while (!completed)
-      ;
+    auto setterPre = [this, &canceled, pre]() {
+      canceled = _inflightRequests->cancelAll();
+      *pre     = true;
+    };
+    auto getterPre = [pre]() { return *pre; };
+
+    registerGenericPre([&statusMutex, &statusConditionVariable, &setterPre]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPre);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, pre, getterPre);
+
+    auto setterPost = [this, post]() { *post = true; };
+    auto getterPost = [post]() { return *post; };
+
+    registerGenericPost([&statusMutex, &statusConditionVariable, &setterPost]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPost);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, post, getterPost);
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
   }
@@ -449,14 +462,26 @@ bool Worker::tagProbe(const ucp_tag_t tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    volatile bool pre  = false;
-    volatile bool post = false;
-    registerGenericPre([&pre]() { pre = true; });
-    while (!pre)
-      ;
-    registerGenericPost([&post]() { post = true; });
-    while (!post)
-      ;
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto pre                     = std::make_shared<bool>(false);
+    auto post                    = std::make_shared<bool>(false);
+
+    auto setterPre = [this, pre]() { *pre = true; };
+    auto getterPre = [pre]() { return *pre; };
+
+    registerGenericPre([&statusMutex, &statusConditionVariable, &setterPre]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPre);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, pre, getterPre);
+
+    auto setterPost = [this, post]() { *post = true; };
+    auto getterPost = [post]() { return *post; };
+
+    registerGenericPost([&statusMutex, &statusConditionVariable, &setterPost]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPost);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, post, getterPost);
   }
 
   ucp_tag_recv_info_t info;

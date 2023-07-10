@@ -2,15 +2,20 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <netinet/in.h>
 #include <string>
 #include <ucp/api/ucp.h>
 
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
+#include <ucxx/utils/condition.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
+
+#include <iostream>
 
 namespace ucxx {
 
@@ -50,19 +55,28 @@ Listener::~Listener()
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
   if (worker->isProgressThreadRunning()) {
-    volatile decltype(_handle) handle = _handle;
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto pre                     = std::make_shared<bool>(false);
+    auto post                    = std::make_shared<bool>(false);
 
-    worker->registerGenericPre([&handle]() {
-      ucp_listener_destroy(handle);
-      handle = nullptr;
+    auto setterPre = [this, pre]() {
+      ucp_listener_destroy(_handle);
+      *pre = true;
+    };
+    auto getterPre = [pre]() { return *pre; };
+
+    worker->registerGenericPre([&statusMutex, &statusConditionVariable, &setterPre]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPre);
     });
-    while (handle != nullptr)
-      ;
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, pre, getterPre);
 
-    volatile bool progressed = false;
-    worker->registerGenericPost([&progressed]() { progressed = true; });
-    while (!progressed)
-      ;
+    auto setterPost = [this, post]() { *post = true; };
+    auto getterPost = [post]() { return *post; };
+    worker->registerGenericPost([&statusMutex, &statusConditionVariable, &setterPost]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPost);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, post, getterPost);
   } else {
     ucp_listener_destroy(this->_handle);
     worker->progress();

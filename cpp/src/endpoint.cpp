@@ -2,7 +2,9 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -19,6 +21,7 @@
 #include <ucxx/request_tag.h>
 #include <ucxx/request_tag_multi.h>
 #include <ucxx/typedefs.h>
+#include <ucxx/utils/condition.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
@@ -60,14 +63,24 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.arg = _callbackData.get();
 
   if (worker->isProgressThreadRunning()) {
-    volatile ucs_status_t status = UCS_INPROGRESS;
-    worker->registerGenericPre([this, params, &status]() {
-      auto worker = ::ucxx::getWorker(this->_parent);
-      status      = ucp_ep_create(worker->getHandle(), params, &this->_handle);
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto status                  = std::make_shared<ucs_status_t>(UCS_INPROGRESS);
+
+    auto setter = [this, &params, status]() {
+      auto worker = ::ucxx::getWorker(_parent);
+      *status     = ucp_ep_create(worker->getHandle(), params, &_handle);
+    };
+    auto getter = [status]() { return *status != UCS_INPROGRESS; };
+
+    auto worker = ::ucxx::getWorker(_parent);
+    worker->registerGenericPre([&statusMutex, &statusConditionVariable, &setter]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setter);
     });
-    while (status == UCS_INPROGRESS)
-      ;
-    utils::ucsErrorThrow(status);
+
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, status, getter);
+
+    utils::ucsErrorThrow(*status);
   } else {
     utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
   }
@@ -221,18 +234,27 @@ size_t Endpoint::cancelInflightRequests()
   size_t canceled = 0;
 
   if (worker->isProgressThreadRunning()) {
-    volatile bool completed = false;
-    worker->registerGenericPre([this, &canceled, &completed]() {
-      canceled  = _inflightRequests->cancelAll();
-      completed = true;
-    });
-    while (!completed)
-      ;
+    auto statusMutex             = std::make_shared<std::mutex>();
+    auto statusConditionVariable = std::make_shared<std::condition_variable>();
+    auto completed               = std::make_shared<bool>(false);
 
-    completed = false;
-    worker->registerGenericPost([&completed]() { completed = true; });
-    while (!completed)
-      ;
+    auto setterCancel = [this, &canceled, completed]() {
+      canceled   = _inflightRequests->cancelAll();
+      *completed = true;
+    };
+    auto getter = [completed]() { return *completed; };
+
+    worker->registerGenericPre([&statusMutex, &statusConditionVariable, &setterCancel]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterCancel);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, completed, getter);
+
+    *completed        = false;
+    auto setterVerify = [this, completed]() { *completed = true; };
+    worker->registerGenericPost([&statusMutex, &statusConditionVariable, &setterVerify]() {
+      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterVerify);
+    });
+    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, completed, getter);
   } else {
     canceled = _inflightRequests->cancelAll();
   }
