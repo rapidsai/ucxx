@@ -23,5 +23,8 @@ python:
 ucx:
   - 1.14.0
 
-gtest_version:
+gmock:
+  - ">=1.13.0"
+
+gtest:
   - ">=1.13.0"
