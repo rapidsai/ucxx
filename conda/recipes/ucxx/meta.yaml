@@ -52,7 +52,7 @@ requirements:
     - ucx
     - python
     - librmm =23.08
-    - gtest {{ gtest_version }}
+    - gtest
 
 outputs:
   - name: libucxx
