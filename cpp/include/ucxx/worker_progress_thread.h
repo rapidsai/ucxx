@@ -29,6 +29,8 @@ class WorkerProgressThread {
     nullptr};  ///< Callback to execute at start of the progress thread
   ProgressThreadStartCallbackArg _startCallbackArg{
     nullptr};  ///< Argument to pass to start callback
+  std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
+    nullptr};  ///< Collection of enqueued delayed submissions
 
   /**
    * @brief The function executed in the new thread.
