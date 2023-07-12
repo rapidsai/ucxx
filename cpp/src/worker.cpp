@@ -284,7 +284,7 @@ void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
 
 void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
 {
-  if (_progressThread != nullptr && std::this_thread::get_id() == _progressThread->getId()) {
+  if (std::this_thread::get_id() == _progressThreadId) {
     /**
      * If the method is called from within the progress thread (e.g., from the
      * listener callback), execute it immediately.
@@ -303,7 +303,7 @@ void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
 
 void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
 {
-  if (_progressThread != nullptr && std::this_thread::get_id() == _progressThread->getId()) {
+  if (std::this_thread::get_id() == _progressThreadId) {
     /**
      * If the method is called from within the progress thread (e.g., from the
      * listener callback), execute it immediately.
@@ -371,6 +371,13 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
                                                            _progressThreadStartCallback,
                                                            _progressThreadStartCallbackArg,
                                                            _delayedSubmissionCollection);
+
+  /**
+   * Ensure the progress thread's ID is available allowing generic callbacks to run
+   * successfully even after `_progressThread == nullptr`, which may occur before
+   * `WorkerProgressThreads`'s destructor completes.
+   */
+  _progressThreadId = _progressThread->getId();
 }
 
 void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }

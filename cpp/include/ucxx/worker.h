@@ -47,6 +47,7 @@ class Worker : public Component {
   std::shared_ptr<InflightRequests> _inflightRequestsToCancel{
     std::make_shared<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};  ///< The progress thread object
+  std::thread::id _progressThreadId{};                             ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
     nullptr};  ///< The callback function to execute at progress thread start
   void* _progressThreadStartCallbackArg{
