@@ -11,7 +11,7 @@
 
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
-#include <ucxx/utils/condition.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
@@ -55,28 +55,13 @@ Listener::~Listener()
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
   if (worker->isProgressThreadRunning()) {
-    auto statusMutex             = std::make_shared<std::mutex>();
-    auto statusConditionVariable = std::make_shared<std::condition_variable>();
-    auto pre                     = std::make_shared<bool>(false);
-    auto post                    = std::make_shared<bool>(false);
+    utils::CallbackNotifier callback_pre{false, [this]() { ucp_listener_destroy(_handle); }};
+    worker->registerGenericPre([&callback_pre]() { callback_pre.store(true); });
+    callback_pre.wait([](auto flag) { return flag; });
 
-    auto setterPre = [this, pre]() {
-      ucp_listener_destroy(_handle);
-      *pre = true;
-    };
-    auto getterPre = [pre]() { return *pre; };
-
-    worker->registerGenericPre([&statusMutex, &statusConditionVariable, &setterPre]() {
-      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPre);
-    });
-    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, pre, getterPre);
-
-    auto setterPost = [this, post]() { *post = true; };
-    auto getterPost = [post]() { return *post; };
-    worker->registerGenericPost([&statusMutex, &statusConditionVariable, &setterPost]() {
-      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPost);
-    });
-    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, post, getterPost);
+    utils::CallbackNotifier callback_post{false};
+    worker->registerGenericPost([&callback_post]() { callback_post.store(true); });
+    callback_post.wait([](auto flag) { return flag; });
   } else {
     ucp_listener_destroy(this->_handle);
     worker->progress();

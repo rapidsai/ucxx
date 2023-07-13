@@ -7,7 +7,7 @@
 #include <mutex>
 
 #include <ucxx/log.h>
-#include <ucxx/utils/condition.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/worker_progress_thread.h>
 
 namespace ucxx {
@@ -58,33 +58,16 @@ WorkerProgressThread::~WorkerProgressThread()
     return;
   }
 
-  auto statusMutex             = std::make_shared<std::mutex>();
-  auto statusConditionVariable = std::make_shared<std::condition_variable>();
-  auto pre                     = std::make_shared<bool>(false);
-  auto post                    = std::make_shared<bool>(false);
-
-  auto setterPre = [pre]() { *pre = true; };
-  auto getterPre = [pre]() { return *pre; };
-
-  _delayedSubmissionCollection->registerGenericPre(
-    [&statusMutex, &statusConditionVariable, &setterPre]() {
-      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPre);
-    });
+  utils::CallbackNotifier callback_pre{false};
+  _delayedSubmissionCollection->registerGenericPre([&callback_pre]() { callback_pre.store(true); });
   _signalWorkerFunction();
-  ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, pre, getterPre);
+  callback_pre.wait([](auto flag) { return flag; });
 
-  auto setterPost = [this, post]() {
-    _stop = true;
-    *post = true;
-  };
-  auto getterPost = [post]() { return *post; };
-
+  utils::CallbackNotifier callback_post{false, [this]() { _stop = true; }};
   _delayedSubmissionCollection->registerGenericPost(
-    [&statusMutex, &statusConditionVariable, &setterPost]() {
-      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPost);
-    });
+    [&callback_post]() { callback_post.store(true); });
   _signalWorkerFunction();
-  ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, post, getterPost);
+  callback_post.wait([](auto flag) { return flag; });
 
   _thread.join();
 }

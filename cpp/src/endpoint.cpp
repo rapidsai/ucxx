@@ -21,7 +21,7 @@
 #include <ucxx/request_tag.h>
 #include <ucxx/request_tag_multi.h>
 #include <ucxx/typedefs.h>
-#include <ucxx/utils/condition.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
@@ -63,24 +63,15 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.arg = _callbackData.get();
 
   if (worker->isProgressThreadRunning()) {
-    auto statusMutex             = std::make_shared<std::mutex>();
-    auto statusConditionVariable = std::make_shared<std::condition_variable>();
-    auto status                  = std::make_shared<ucs_status_t>(UCS_INPROGRESS);
-
-    auto setter = [this, &params, status]() {
-      auto worker = ::ucxx::getWorker(_parent);
-      *status     = ucp_ep_create(worker->getHandle(), params, &_handle);
-    };
-    auto getter = [status]() { return *status != UCS_INPROGRESS; };
-
+    utils::CallbackNotifier callback{UCS_INPROGRESS};
     auto worker = ::ucxx::getWorker(_parent);
-    worker->registerGenericPre([&statusMutex, &statusConditionVariable, &setter]() {
-      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setter);
+    worker->registerGenericPre([this, &params, &callback]() {
+      auto worker = ::ucxx::getWorker(_parent);
+      auto status = ucp_ep_create(worker->getHandle(), params, &_handle);
+      callback.store(status);
     });
-
-    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, status, getter);
-
-    utils::ucsErrorThrow(*status);
+    auto status = callback.wait([](auto status) { return status != UCS_INPROGRESS; });
+    utils::ucsErrorThrow(status);
   } else {
     utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
   }
@@ -234,27 +225,13 @@ size_t Endpoint::cancelInflightRequests()
   size_t canceled = 0;
 
   if (worker->isProgressThreadRunning()) {
-    auto statusMutex             = std::make_shared<std::mutex>();
-    auto statusConditionVariable = std::make_shared<std::condition_variable>();
-    auto completed               = std::make_shared<bool>(false);
-
-    auto setterCancel = [this, &canceled, completed]() {
-      canceled   = _inflightRequests->cancelAll();
-      *completed = true;
-    };
-    auto getter = [completed]() { return *completed; };
-
-    worker->registerGenericPre([&statusMutex, &statusConditionVariable, &setterCancel]() {
-      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterCancel);
-    });
-    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, completed, getter);
-
-    *completed        = false;
-    auto setterVerify = [this, completed]() { *completed = true; };
-    worker->registerGenericPost([&statusMutex, &statusConditionVariable, &setterVerify]() {
-      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterVerify);
-    });
-    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, completed, getter);
+    utils::CallbackNotifier callback_pre{
+      false, [this, &canceled]() { canceled = _inflightRequests->cancelAll(); }};
+    worker->registerGenericPre([&callback_pre]() { callback_pre.store(true); });
+    callback_pre.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callback_post{false};
+    worker->registerGenericPost([&callback_post]() { callback_post.store(true); });
+    callback_post.wait([](auto flag) { return flag; });
   } else {
     canceled = _inflightRequests->cancelAll();
   }

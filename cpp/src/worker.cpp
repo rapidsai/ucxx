@@ -22,7 +22,6 @@
 #include <ucxx/request_am.h>
 #include <ucxx/request_tag.h>
 #include <ucxx/utils/callback_notifier.h>
-#include <ucxx/utils/condition.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
@@ -404,35 +403,14 @@ size_t Worker::cancelInflightRequests()
   }
 
   if (isProgressThreadRunning()) {
-    auto pre = std::make_shared<std::atomic<bool>>(false);
     utils::CallbackNotifier callbackNotifierPre{
-      pre, [this, &canceled]() { canceled = _inflightRequests->cancelAll(); }};
-    ucxx_warn("callbackNotifierPre: %p, registering with flag at %p (%d)",
-              &callbackNotifierPre,
-              pre.get(),
-              pre->load());
+      false, [this, &canceled]() { canceled = _inflightRequests->cancelAll(); }};
     registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.store(true); });
-    callbackNotifierPre.wait([pre](auto flag) { return pre->load() == flag->load(); });
-    ucxx_warn("callbackNotifierPre: %p, waited flag at %p (%d)",
-              &callbackNotifierPre,
-              pre.get(),
-              pre->load());
+    callbackNotifierPre.wait([](auto flag) { return flag; });
 
-    auto post = std::make_shared<std::atomic<bool>>(false);
-    utils::CallbackNotifier callbackNotifierPost{post, nullptr};
-    ucxx_warn("callbackNotifierPost: %p, registering with flag at %p (%d)",
-              &callbackNotifierPost,
-              post.get(),
-              post->load());
-    registerGenericPost([&callbackNotifierPost]() {
-      ucxx_warn("callbackNotifierPost: %p", &callbackNotifierPost);
-      callbackNotifierPost.store(true);
-    });
-    callbackNotifierPost.wait([post](auto flag) { return post->load() == flag->load(); });
-    ucxx_warn("callbackNotifierPost: %p, waited flag at %p (%d)",
-              &callbackNotifierPost,
-              post.get(),
-              post->load());
+    utils::CallbackNotifier callbackNotifierPost{false, nullptr};
+    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
+    callbackNotifierPost.wait([](auto flag) { return flag; });
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
   }
@@ -476,26 +454,12 @@ bool Worker::tagProbe(const ucp_tag_t tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    auto statusMutex             = std::make_shared<std::mutex>();
-    auto statusConditionVariable = std::make_shared<std::condition_variable>();
-    auto pre                     = std::make_shared<bool>(false);
-    auto post                    = std::make_shared<bool>(false);
-
-    auto setterPre = [this, pre]() { *pre = true; };
-    auto getterPre = [pre]() { return *pre; };
-
-    registerGenericPre([&statusMutex, &statusConditionVariable, &setterPre]() {
-      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPre);
-    });
-    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, pre, getterPre);
-
-    auto setterPost = [this, post]() { *post = true; };
-    auto getterPost = [post]() { return *post; };
-
-    registerGenericPost([&statusMutex, &statusConditionVariable, &setterPost]() {
-      ucxx::utils::conditionSetter(statusMutex, statusConditionVariable, setterPost);
-    });
-    ucxx::utils::conditionGetter(statusMutex, statusConditionVariable, post, getterPost);
+    utils::CallbackNotifier callback_pre{false};
+    registerGenericPre([&callback_pre]() { callback_pre.store(true); });
+    callback_pre.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callback_post{false};
+    registerGenericPost([&callback_post]() { callback_post.store(true); });
+    callback_post.wait([](auto flag) { return flag; });
   }
 
   ucp_tag_recv_info_t info;
