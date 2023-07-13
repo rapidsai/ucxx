@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 namespace ucxx {
 
@@ -13,7 +15,7 @@ namespace utils {
 template <typename Flag>
 class CallbackNotifier {
  private:
-  std::shared_ptr<std::atomic<Flag>> _flag{};    //< flag to spin on
+  Flag _flag{};
   std::function<void()> _function{};             //< function to run before setting flag
   std::mutex _mutex{};                           //< lock to guard accesses
   std::condition_variable _conditionVariable{};  //< notification condition var
@@ -24,17 +26,12 @@ class CallbackNotifier {
    *
    * @param[in] init   The initial flag value
    */
-  CallbackNotifier(std::shared_ptr<std::atomic<Flag>> flag,
-                   std::function<void()> function = nullptr)
+  explicit CallbackNotifier(Flag flag, std::function<void()> function = nullptr)
     : _flag{flag}, _function{function}
   {
-    ucxx_warn("CallbackNotifier: %p, flag: %p (%d)", this, _flag.get(), _flag->load());
   }
 
-  ~CallbackNotifier()
-  {
-    ucxx_warn("~CallbackNotifier: %p, flag: %p (%d)", this, _flag.get(), _flag->load());
-  }
+  ~CallbackNotifier() {}
 
   CallbackNotifier(const CallbackNotifier&) = delete;
   CallbackNotifier& operator=(CallbackNotifier const&) = delete;
@@ -51,13 +48,10 @@ class CallbackNotifier {
     {
       std::lock_guard lock(_mutex);
       if (_function) {
-        ucxx_warn("calling _function");
         _function();
       } else {
-        ucxx_warn("_function not set");
       }
-      ucxx_warn("this: %p, setting _flag at %p (%d) to %d", this, _flag.get(), _flag->load(), flag);
-      _flag->store(flag);
+      _flag = flag;
     }
     _conditionVariable.notify_one();
   }
@@ -71,12 +65,11 @@ class CallbackNotifier {
    * @param[out]    The new flag value
    */
   template <typename Compare>
-  std::shared_ptr<std::atomic<Flag>> wait(Compare compare)
+  Flag wait(Compare compare)
   {
     std::unique_lock lock(_mutex);
     _conditionVariable.wait(lock, [this, &compare]() { return compare(_flag); });
-    ucxx_warn("this: %p, waited _flag at %p (%d)", this, _flag.get(), _flag->load());
-    return _flag;
+    return std::move(_flag);
   }
 };
 
