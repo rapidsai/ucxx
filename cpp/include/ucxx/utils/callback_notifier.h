@@ -26,7 +26,15 @@ class CallbackNotifier {
    */
   CallbackNotifier(std::shared_ptr<std::atomic<Flag>> flag,
                    std::function<void()> function = nullptr)
-    : _flag{flag}, _function{function} {};
+    : _flag{flag}, _function{function}
+  {
+    ucxx_warn("CallbackNotifier: %p, flag: %p (%d)", this, _flag.get(), _flag->load());
+  }
+
+  ~CallbackNotifier()
+  {
+    ucxx_warn("~CallbackNotifier: %p, flag: %p (%d)", this, _flag.get(), _flag->load());
+  }
 
   CallbackNotifier(const CallbackNotifier&) = delete;
   CallbackNotifier& operator=(CallbackNotifier const&) = delete;
@@ -42,7 +50,13 @@ class CallbackNotifier {
   {
     {
       std::lock_guard lock(_mutex);
-      if (_function) _function();
+      if (_function) {
+        ucxx_warn("calling _function");
+        _function();
+      } else {
+        ucxx_warn("_function not set");
+      }
+      ucxx_warn("this: %p, setting _flag at %p (%d) to %d", this, _flag.get(), _flag->load(), flag);
       _flag->store(flag);
     }
     _conditionVariable.notify_one();
@@ -61,6 +75,7 @@ class CallbackNotifier {
   {
     std::unique_lock lock(_mutex);
     _conditionVariable.wait(lock, [this, &compare]() { return compare(_flag); });
+    ucxx_warn("this: %p, waited _flag at %p (%d)", this, _flag.get(), _flag->load());
     return _flag;
   }
 };

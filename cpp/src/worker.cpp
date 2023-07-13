@@ -407,13 +407,32 @@ size_t Worker::cancelInflightRequests()
     auto pre = std::make_shared<std::atomic<bool>>(false);
     utils::CallbackNotifier callbackNotifierPre{
       pre, [this, &canceled]() { canceled = _inflightRequests->cancelAll(); }};
+    ucxx_warn("callbackNotifierPre: %p, registering with flag at %p (%d)",
+              &callbackNotifierPre,
+              pre.get(),
+              pre->load());
     registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.store(true); });
     callbackNotifierPre.wait([pre](auto flag) { return pre->load() == flag->load(); });
+    ucxx_warn("callbackNotifierPre: %p, waited flag at %p (%d)",
+              &callbackNotifierPre,
+              pre.get(),
+              pre->load());
 
     auto post = std::make_shared<std::atomic<bool>>(false);
     utils::CallbackNotifier callbackNotifierPost{post, nullptr};
-    registerGenericPre([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
+    ucxx_warn("callbackNotifierPost: %p, registering with flag at %p (%d)",
+              &callbackNotifierPost,
+              post.get(),
+              post->load());
+    registerGenericPost([&callbackNotifierPost]() {
+      ucxx_warn("callbackNotifierPost: %p", &callbackNotifierPost);
+      callbackNotifierPost.store(true);
+    });
     callbackNotifierPost.wait([post](auto flag) { return post->load() == flag->load(); });
+    ucxx_warn("callbackNotifierPost: %p, waited flag at %p (%d)",
+              &callbackNotifierPost,
+              post.get(),
+              post->load());
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
   }
