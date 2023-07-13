@@ -34,18 +34,16 @@ bool DelayedSubmissionCollection::isDelayedRequestSubmissionEnabled() const
 
 void DelayedSubmissionCollection::processPre()
 {
-  if (_requests.size() > 0) {
-    ucxx_trace_req("Submitting %lu requests", _requests.size());
-
+  decltype(_requests) requestsToProcess;
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
     // Move _requests to a local copy in order to to hold the lock for as
     // short as possible
-    decltype(_requests) toProcess;
-    {
-      std::lock_guard<std::mutex> lock(_mutex);
-      toProcess = std::move(_requests);
-    }
-
-    for (auto& pair : toProcess) {
+    requestsToProcess = std::move(_requests);
+  }
+  if (requestsToProcess.size() > 0) {
+    ucxx_trace_req("Submitting %lu requests", requestsToProcess.size());
+    for (auto& pair : requestsToProcess) {
       auto& req      = pair.first;
       auto& callback = pair.second;
 
@@ -54,19 +52,18 @@ void DelayedSubmissionCollection::processPre()
       if (callback) callback();
     }
   }
-
-  if (_genericPre.size() > 0) {
-    ucxx_trace_req("Submitting %lu generic", _genericPre.size());
-
+  decltype(_genericPre) callbacks;
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
     // Move _genericPre to a local copy in order to to hold the lock for as
     // short as possible
-    decltype(_genericPre) toProcess;
-    {
-      std::lock_guard<std::mutex> lock(_mutex);
-      toProcess = std::move(_genericPre);
-    }
+    callbacks = std::move(_genericPre);
+  }
 
-    for (auto& callback : toProcess) {
+  if (callbacks.size() > 0) {
+    ucxx_trace_req("Submitting %lu generic", callbacks.size());
+
+    for (auto& callback : callbacks) {
       ucxx_trace_req("Submitting generic");
 
       if (callback) callback();
@@ -76,18 +73,18 @@ void DelayedSubmissionCollection::processPre()
 
 void DelayedSubmissionCollection::processPost()
 {
-  if (_genericPost.size() > 0) {
-    ucxx_trace_req("Submitting %lu generic", _genericPost.size());
-
+  decltype(_genericPost) callbacks;
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
     // Move _genericPost to a local copy in order to to hold the lock for as
     // short as possible
-    decltype(_genericPost) toProcess;
-    {
-      std::lock_guard<std::mutex> lock(_mutex);
-      toProcess = std::move(_genericPost);
-    }
+    callbacks = std::move(_genericPost);
+  }
 
-    for (auto& callback : toProcess) {
+  if (callbacks.size() > 0) {
+    ucxx_trace_req("Submitting %lu generic", callbacks.size());
+
+    for (auto& callback : callbacks) {
       ucxx_trace_req("Submitting generic");
 
       if (callback) callback();
