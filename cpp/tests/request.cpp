@@ -150,6 +150,9 @@ TEST_P(RequestTest, ProgressAm)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
+#if !UCXX_ENABLE_RMM
+  GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
     _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
       return std::make_shared<ucxx::RMMBuffer>(length);
@@ -177,6 +180,7 @@ TEST_P(RequestTest, ProgressAm)
 
   // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+#endif
 }
 
 TEST_P(RequestTest, ProgressStream)
