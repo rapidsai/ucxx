@@ -427,12 +427,14 @@ void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightReq
   }
 }
 
-void Worker::registerInflightRequest(std::shared_ptr<Request> request)
+std::shared_ptr<Request> Worker::registerInflightRequest(std::shared_ptr<Request> request)
 {
-  {
+  if (!request->isCompleted()) {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
     _inflightRequests->insert(request);
   }
+
+  return request;
 }
 
 void Worker::removeInflightRequest(const Request* const request)
@@ -475,11 +477,9 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                          RequestCallbackUserFunction callbackFunction,
                                          RequestCallbackUserData callbackData)
 {
-  auto worker  = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto request = createRequestTag(
-    worker, false, buffer, length, tag, enableFuture, callbackFunction, callbackData);
-  registerInflightRequest(request);
-  return request;
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  return registerInflightRequest(createRequestTag(
+    worker, false, buffer, length, tag, enableFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<Address> Worker::getAddress()

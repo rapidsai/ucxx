@@ -112,8 +112,10 @@ class Worker : public Component {
    * be canceled when necessary.
    *
    * @param[in] request the request to register.
+   *
+   * @return the request that was registered (i.e., the `request` argument itself).
    */
-  void registerInflightRequest(std::shared_ptr<Request> request);
+  std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Progress the worker until all communication events are completed.
