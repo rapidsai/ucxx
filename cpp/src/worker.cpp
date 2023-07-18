@@ -404,7 +404,7 @@ size_t Worker::cancelInflightRequests()
 
   if (isProgressThreadRunning()) {
     utils::CallbackNotifier callbackNotifierPre{
-      false, [this, &canceled]() { canceled = _inflightRequestsToCancel->cancelAll(); }};
+      false, [this, &canceled]() { canceled = inflightRequestsToCancel->cancelAll(); }};
     registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.store(true); });
     callbackNotifierPre.wait([](auto flag) { return flag; });
 
