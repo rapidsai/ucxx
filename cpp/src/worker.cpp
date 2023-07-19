@@ -403,14 +403,14 @@ size_t Worker::cancelInflightRequests()
   }
 
   if (isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{false,
-                                                [this, &canceled, &inflightRequestsToCancel]() {
-                                                  canceled = inflightRequestsToCancel->cancelAll();
-                                                }};
-    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.store(true); });
+    utils::CallbackNotifier callbackNotifierPre{false};
+    registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
+      canceled = inflightRequestsToCancel->cancelAll();
+      callbackNotifierPre.store(true);
+    });
     callbackNotifierPre.wait([](auto flag) { return flag; });
 
-    utils::CallbackNotifier callbackNotifierPost{false, nullptr};
+    utils::CallbackNotifier callbackNotifierPost{false};
     registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
     callbackNotifierPost.wait([](auto flag) { return flag; });
   } else {

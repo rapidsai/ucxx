@@ -63,9 +63,11 @@ WorkerProgressThread::~WorkerProgressThread()
   _signalWorkerFunction();
   callback_pre.wait([](auto flag) { return flag; });
 
-  utils::CallbackNotifier callback_post{false, [this]() { _stop = true; }};
-  _delayedSubmissionCollection->registerGenericPost(
-    [&callback_post]() { callback_post.store(true); });
+  utils::CallbackNotifier callback_post{false};
+  _delayedSubmissionCollection->registerGenericPost([this, &callback_post]() {
+    _stop = true;
+    callback_post.store(true);
+  });
   _signalWorkerFunction();
   callback_post.wait([](auto flag) { return flag; });
 

@@ -225,9 +225,11 @@ size_t Endpoint::cancelInflightRequests()
   size_t canceled = 0;
 
   if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callback_pre{
-      false, [this, &canceled]() { canceled = _inflightRequests->cancelAll(); }};
-    worker->registerGenericPre([&callback_pre]() { callback_pre.store(true); });
+    utils::CallbackNotifier callback_pre{false};
+    worker->registerGenericPre([this, &callback_pre, &canceled]() {
+      canceled = _inflightRequests->cancelAll();
+      callback_pre.store(true);
+    });
     callback_pre.wait([](auto flag) { return flag; });
     utils::CallbackNotifier callback_post{false};
     worker->registerGenericPost([&callback_post]() { callback_post.store(true); });

@@ -16,7 +16,6 @@ template <typename Flag>
 class CallbackNotifier {
  private:
   Flag _flag{};
-  std::function<void()> _function{};             //< function to run before setting flag
   std::mutex _mutex{};                           //< lock to guard accesses
   std::condition_variable _conditionVariable{};  //< notification condition var
 
@@ -26,10 +25,7 @@ class CallbackNotifier {
    *
    * @param[in] init   The initial flag value
    */
-  explicit CallbackNotifier(Flag flag, std::function<void()> function = nullptr)
-    : _flag{flag}, _function{function}
-  {
-  }
+  explicit CallbackNotifier(Flag flag) : _flag{flag} {}
 
   ~CallbackNotifier() {}
 
@@ -47,10 +43,6 @@ class CallbackNotifier {
   {
     {
       std::lock_guard lock(_mutex);
-      if (_function) {
-        _function();
-      } else {
-      }
       _flag = flag;
     }
     _conditionVariable.notify_one();
