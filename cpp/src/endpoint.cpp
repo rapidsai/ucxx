@@ -230,7 +230,7 @@ size_t Endpoint::cancelInflightRequests()
       canceled = _inflightRequests->cancelAll();
       callbackNotifierPre.store(true);
     });
-    callbackNotifierPost.wait([](auto flag) { return flag; });
+    callbackNotifierPre.wait([](auto flag) { return flag; });
     utils::CallbackNotifier callbackNotifierPost{false};
     worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
     callbackNotifierPost.wait([](auto flag) { return flag; });
