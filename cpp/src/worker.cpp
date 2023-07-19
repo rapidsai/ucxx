@@ -458,12 +458,12 @@ bool Worker::tagProbe(const ucp_tag_t tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    utils::CallbackNotifier callback_pre{false};
-    registerGenericPre([&callback_pre]() { callback_pre.store(true); });
-    callback_pre.wait([](auto flag) { return flag; });
-    utils::CallbackNotifier callback_post{false};
-    registerGenericPost([&callback_post]() { callback_post.store(true); });
-    callback_post.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callbackNotifierPre{false};
+    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.store(true); });
+    callbackNotifierPre.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callbackNotifierPost{false};
+    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
+    callbackNotifierPost.wait([](auto flag) { return flag; });
   }
 
   ucp_tag_recv_info_t info;

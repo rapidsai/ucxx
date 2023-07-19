@@ -55,16 +55,16 @@ Listener::~Listener()
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
   if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callback_pre{false};
-    worker->registerGenericPre([this, &callback_pre]() {
+    utils::CallbackNotifier callbackNotifierPre{false};
+    worker->registerGenericPre([this, &callbackNotifierPre]() {
       ucp_listener_destroy(_handle);
-      callback_pre.store(true);
+      callbackNotifierPre.store(true);
     });
-    callback_pre.wait([](auto flag) { return flag; });
+    callbackNotifierPre.wait([](auto flag) { return flag; });
 
-    utils::CallbackNotifier callback_post{false};
-    worker->registerGenericPost([&callback_post]() { callback_post.store(true); });
-    callback_post.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callbackNotifierPost{false};
+    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
+    callbackNotifierPost.wait([](auto flag) { return flag; });
   } else {
     ucp_listener_destroy(this->_handle);
     worker->progress();
