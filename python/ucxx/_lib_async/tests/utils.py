@@ -161,4 +161,5 @@ async def wait_listener_client_handlers(listener):
     pass
     while listener.active_clients > 0:
         await asyncio.sleep(0)
-        ucxx.progress()
+        if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
+            ucxx.progress()

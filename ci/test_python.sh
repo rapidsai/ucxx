@@ -23,7 +23,7 @@ rapids-print-env
 print_system_stats
 
 run_tests() {
-  rapids-logger "Running: timeout 2m pytest-vs python/ucxx/_lib/tests/"
+  rapids-logger "Running: timeout 2m pytest -vs python/ucxx/_lib/tests/"
   timeout 2m pytest -vs python/ucxx/_lib/tests/
 }
 
@@ -78,13 +78,10 @@ rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   libucxx ucxx
 
-rapids-logger "Run tests with conda package"
-run_tests
-
 print_ucx_config
 
-rapids-logger "\e[1mRunning: pytest-vs python/ucxx/_lib/tests/\e[0m"
-pytest -vs python/ucxx/_lib/tests/
+rapids-logger "Run tests with conda package"
+run_tests
 
 # run_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
 run_tests_async   thread          0                         0                    0
