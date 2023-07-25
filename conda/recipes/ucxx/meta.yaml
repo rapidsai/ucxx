@@ -178,8 +178,8 @@ outputs:
         - cudatoolkit
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        - gtest {{ gtest_version }}
-        - gmock {{ gtest_version }}
+        - gtest
+        - gmock
     about:
       home: https://rapids.ai/
       license: BSD-3-Clause
