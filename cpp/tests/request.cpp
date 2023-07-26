@@ -122,6 +122,9 @@ class RequestTest : public ::testing::TestWithParam<
       _sendPtr[i] = _sendBuffer[i]->data();
       if (allocateRecvBuffer) _recvPtr[i] = _recvBuffer[i]->data();
     }
+#if UCXX_ENABLE_RMM
+    if (_bufferType == ucxx::BufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
+#endif
   }
 
   void copyResults()
@@ -141,6 +144,9 @@ class RequestTest : public ::testing::TestWithParam<
 #endif
       }
     }
+#if UCXX_ENABLE_RMM
+    if (_bufferType == ucxx::BufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
+#endif
   }
 };
 
