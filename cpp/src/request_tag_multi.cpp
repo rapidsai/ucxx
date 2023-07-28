@@ -17,6 +17,10 @@
 
 namespace ucxx {
 
+BufferRequest::BufferRequest() { ucxx_trace("BufferRequest created: %p", this); }
+
+BufferRequest::~BufferRequest() { ucxx_trace("BufferRequest destroyed: %p", this); }
+
 RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
                                  const bool send,
                                  const ucp_tag_t tag,

@@ -24,6 +24,14 @@ struct BufferRequest {
   std::shared_ptr<Request> request{nullptr};  ///< The `ucxx::RequestTag` of a header or frame
   std::shared_ptr<std::string> stringBuffer{nullptr};  ///< Serialized `Header`
   Buffer* buffer{nullptr};  ///< Internally allocated buffer to receive a frame
+
+  BufferRequest();
+  ~BufferRequest();
+
+  BufferRequest(const BufferRequest&) = delete;
+  BufferRequest& operator=(BufferRequest const&) = delete;
+  BufferRequest(BufferRequest&& o)               = delete;
+  BufferRequest& operator=(BufferRequest&& o) = delete;
 };
 
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
