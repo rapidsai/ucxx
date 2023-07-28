@@ -28,8 +28,6 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
     _send(send),
     _tag(tag)
 {
-  ucxx_trace_req("RequestTagMulti::RequestTagMulti: %p, send: %d, tag: %lx", this, send, _tag);
-
   auto worker = endpoint->getWorker();
   if (enablePythonFuture) _future = worker->getFuture();
 }
@@ -50,7 +48,6 @@ RequestTagMulti::~RequestTagMulti()
      */
     br->request = nullptr;
   }
-  ucxx_trace("RequestTagMulti destroyed: %p", this);
 }
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
@@ -60,14 +57,11 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpo
                                                            const ucp_tag_t tag,
                                                            const bool enablePythonFuture)
 {
-  ucxx_trace_req("RequestTagMulti::tagMultiSend");
   auto ret =
     std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, true, tag, enablePythonFuture));
 
   if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
     throw std::runtime_error("All input vectors should be of equal size");
-
-  ucxx_trace("RequestTagMulti created: %p", ret.get());
 
   ret->send(buffer, size, isCUDA);
 
@@ -78,11 +72,8 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpo
                                                            const ucp_tag_t tag,
                                                            const bool enablePythonFuture)
 {
-  ucxx_trace_req("RequestTagMulti::tagMultiRecv");
   auto ret =
     std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, false, tag, enablePythonFuture));
-
-  ucxx_trace("RequestTagMulti created: %p", ret.get());
 
   ret->recvCallback(UCS_OK);
 
