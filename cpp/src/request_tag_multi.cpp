@@ -166,8 +166,17 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
   ++_completedRequests;
 
   if (_completedRequests == _totalFrames) {
-    // TODO: Actually handle errors
-    setStatus(UCS_OK);
+    auto s = UCS_OK;
+
+    // Get the first non-UCS_OK status and set that as complete status
+    for (const auto& br : _bufferRequests) {
+      if (br->request) {
+        s = br->request->getStatus();
+        if (s != UCS_OK) break;
+      }
+    }
+
+    setStatus(s);
   }
 
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",

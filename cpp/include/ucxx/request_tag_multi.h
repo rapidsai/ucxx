@@ -191,7 +191,10 @@ class RequestTagMulti : public Request {
    *
    * When this method is called, the request that completed will be pushed into a container
    * which will be later used to evaluate if all frames completed and set the final status
-   * of the multi-transfer request and the Python future, if enabled.
+   * of the multi-transfer request and the Python future, if enabled. The final status is
+   * either `UCS_OK` if all underlying requests completed successfully, otherwise it will
+   * contain the status of the first failing request, for granular information the user
+   * may still verify each of the underlying requests individually.
    *
    * @param[in] status the status of the request being completed.
    * @param[in] request the `ucxx::BufferRequest` object containing a single tag .
