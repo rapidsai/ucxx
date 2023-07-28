@@ -34,8 +34,8 @@ class RequestTagMulti : public Request {
   ucp_tag_t _tag{0};       ///< Tag to match
   size_t _totalFrames{0};  ///< The total number of frames handled by this request
   std::mutex
-    _completedRequestsMutex{};  ///< Mutex to control access to completed requests container
-  std::vector<BufferRequest*> _completedRequests{};  ///< Requests that already completed
+    _completedRequestsMutex{};   ///< Mutex to control access to completed requests container
+  size_t _completedRequests{0};  ///< Count requests that already completed
 
  public:
   std::vector<BufferRequestPtr> _bufferRequests{};  ///< Container of all requests posted

@@ -163,18 +163,17 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
    * BufferRequest*, or remove pointer holding entirely here since it
    * is not currently used for anything besides counting completed transfers.
    */
-  _completedRequests.push_back(reinterpret_cast<BufferRequest*>(request.get()));
+  ++_completedRequests;
 
-  if (_completedRequests.size() == _totalFrames) {
+  if (_completedRequests == _totalFrames) {
     // TODO: Actually handle errors
-    _status = UCS_OK;
-    if (_future) _future->notify(UCS_OK);
+    setStatus(UCS_OK);
   }
 
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
                  this,
                  _tag,
-                 _completedRequests.size(),
+                 _completedRequests,
                  _totalFrames);
 }
 
