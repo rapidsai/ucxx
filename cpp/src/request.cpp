@@ -123,13 +123,6 @@ void Request::callback(void* request, ucs_status_t status)
   ucxx_trace("Request completed: %p, handle: %p", this, request);
   setStatus(status);
   ucxx_trace("Request %p, isCompleted: %d", this, isCompleted());
-
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   request,
-                   _operationName.c_str(),
-                   "callback %p",
-                   _callback.target<void (*)(void)>());
-  if (_callback) _callback(status, _callbackData);
 }
 
 void Request::process()
@@ -167,13 +160,6 @@ void Request::process()
       _ownerString.c_str(), _request, _operationName.c_str(), "completed immediately");
   }
 
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   _request,
-                   _operationName.c_str(),
-                   "callback %p",
-                   _callback.target<void (*)(void)>());
-  if (_callback) _callback(status, _callbackData);
-
   setStatus(status);
 }
 
@@ -196,6 +182,13 @@ void Request::setStatus(ucs_status_t status)
     auto future = std::static_pointer_cast<ucxx::Future>(_future);
     future->notify(status);
   }
+
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   _request,
+                   _operationName.c_str(),
+                   "callback %p",
+                   _callback.target<void (*)(void)>());
+  if (_callback) _callback(status, _callbackData);
 }
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
