@@ -23,7 +23,7 @@ class RequestTagMulti;
 struct BufferRequest {
   std::shared_ptr<Request> request{nullptr};  ///< The `ucxx::RequestTag` of a header or frame
   std::shared_ptr<std::string> stringBuffer{nullptr};  ///< Serialized `Header`
-  Buffer* buffer{nullptr};  ///< Internally allocated buffer to receive a frame
+  std::shared_ptr<Buffer> buffer{nullptr};  ///< Internally allocated buffer to receive a frame
 
   BufferRequest();
   ~BufferRequest();

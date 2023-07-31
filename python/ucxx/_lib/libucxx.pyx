@@ -706,18 +706,20 @@ cdef class UCXBufferRequest:
         )
 
     def get_py_buffer(self):
-        cdef Buffer* buf
+        cdef shared_ptr[Buffer] buf
+        cdef BufferType bufType
 
         with nogil:
             buf = self._buffer_request.get().buffer
+            bufType = buf.get().getType()
 
         # If buf == NULL, it holds a header
         if buf == NULL:
             return None
-        elif buf.getType() == BufferType.RMM:
-            return _get_rmm_buffer(<uintptr_t><void*>buf)
+        elif bufType == BufferType.RMM:
+            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
         else:
-            return _get_host_buffer(<uintptr_t><void*>buf)
+            return _get_host_buffer(<uintptr_t><void*>buf.get())
 
 
 cdef class UCXBufferRequests:
