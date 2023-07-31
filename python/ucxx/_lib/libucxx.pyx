@@ -679,7 +679,7 @@ cdef class UCXRequest():
 
         with nogil:
             buf = self._request.get().getRecvBuffer()
-            bufType = buf.get().getType()
+            bufType = buf.get().getType() if buf != nullptr else Invalid
 
         # If buf == NULL, it's not allocated by the request but rather the user
         if buf == NULL:
@@ -711,7 +711,7 @@ cdef class UCXBufferRequest:
 
         with nogil:
             buf = self._buffer_request.get().buffer
-            bufType = buf.get().getType()
+            bufType = buf.get().getType() if buf != nullptr else Invalid
 
         # If buf == NULL, it holds a header
         if buf == NULL:
