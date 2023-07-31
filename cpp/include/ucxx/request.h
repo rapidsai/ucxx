@@ -39,6 +39,7 @@ class Request : public Component {
     nullptr};  ///< The submission object that will dispatch the request
   std::string _operationName{
     "request_undefined"};          ///< Human-readable operation name, mostly used for log messages
+  std::mutex _mutex{};             ///< Mutex to prevent checking status while it's being set
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
 
   /**

@@ -82,19 +82,33 @@ void Request::cancel()
   }
 }
 
-ucs_status_t Request::getStatus() { return _status; }
+ucs_status_t Request::getStatus()
+{
+  std::lock_guard<std::mutex> lock(_mutex);
+  return _status;
+}
 
-void* Request::getFuture() { return _future ? _future->getHandle() : nullptr; }
+void* Request::getFuture()
+{
+  std::lock_guard<std::mutex> lock(_mutex);
+  return _future ? _future->getHandle() : nullptr;
+}
 
 void Request::checkError()
 {
+  std::lock_guard<std::mutex> lock(_mutex);
+
   // Only load the atomic variable once
   auto status = _status.load();
 
   utils::ucsErrorThrow(status, status == UCS_ERR_MESSAGE_TRUNCATED ? _status_msg : std::string());
 }
 
-bool Request::isCompleted() { return _status != UCS_INPROGRESS; }
+bool Request::isCompleted()
+{
+  std::lock_guard<std::mutex> lock(_mutex);
+  return _status != UCS_INPROGRESS;
+}
 
 void Request::callback(void* request, ucs_status_t status)
 {
@@ -165,24 +179,32 @@ void Request::process()
 
 void Request::setStatus(ucs_status_t status)
 {
-  if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
-  _worker->removeInflightRequest(this);
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
 
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   _request,
-                   _operationName.c_str(),
-                   "callback called with status %d (%s)",
-                   status,
-                   ucs_status_string(status));
+    if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
+    _worker->removeInflightRequest(this);
 
-  if (_status != UCS_INPROGRESS) ucxx_error("setStatus called but the status was already set");
-  _status.store(status);
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "callback called with status %d (%s)",
+                     status,
+                     ucs_status_string(status));
 
-  if (_enablePythonFuture) {
-    auto future = std::static_pointer_cast<ucxx::Future>(_future);
-    future->notify(status);
+    if (_status != UCS_INPROGRESS) ucxx_error("setStatus called but the status was already set");
+    _status.store(status);
+
+    if (_enablePythonFuture) {
+      auto future = std::static_pointer_cast<ucxx::Future>(_future);
+      future->notify(status);
+    }
   }
 
+  /**
+   * The callback may execute arbitrary user code (e.g., `getStatus()`) and that may require
+   * the mutex.
+   */
   ucxx_trace_req_f(_ownerString.c_str(),
                    _request,
                    _operationName.c_str(),
