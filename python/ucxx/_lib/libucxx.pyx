@@ -679,14 +679,14 @@ cdef class UCXRequest():
 
         with nogil:
             buf = self._request.get().getRecvBuffer()
-            bufType = buf.get().getType() if buf != nullptr else Invalid
+            bufType = buf.get().getType() if buf != nullptr else BufferType.Invalid
 
         # If buf == NULL, it's not allocated by the request but rather the user
         if buf == NULL:
             return None
         elif bufType == BufferType.RMM:
             return _get_rmm_buffer(<uintptr_t><void*>buf.get())
-        else:
+        elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
 
@@ -711,14 +711,14 @@ cdef class UCXBufferRequest:
 
         with nogil:
             buf = self._buffer_request.get().buffer
-            bufType = buf.get().getType() if buf != nullptr else Invalid
+            bufType = buf.get().getType() if buf != nullptr else BufferType.Invalid
 
         # If buf == NULL, it holds a header
         if buf == NULL:
             return None
         elif bufType == BufferType.RMM:
             return _get_rmm_buffer(<uintptr_t><void*>buf.get())
-        else:
+        elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
 
