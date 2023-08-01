@@ -190,13 +190,14 @@ void RequestTagMulti::recvHeader()
   auto bufferRequest = std::make_shared<BufferRequest>();
   _bufferRequests.push_back(bufferRequest);
   bufferRequest->stringBuffer = std::make_shared<std::string>(Header::dataSize(), 0);
-  bufferRequest->request      = _endpoint->tagRecv(
-    &bufferRequest->stringBuffer->front(),
-    bufferRequest->stringBuffer->size(),
-    _tag,
-    false,
-    [this](ucs_status_t status, RequestCallbackUserData arg) { return this->recvCallback(status); },
-    nullptr);
+  bufferRequest->request =
+    _endpoint->tagRecv(&bufferRequest->stringBuffer->front(),
+                       bufferRequest->stringBuffer->size(),
+                       _tag,
+                       false,
+                       [this](ucs_status_t status, RequestCallbackUserData arg) {
+                         return this->recvCallback(status);
+                       });
 
   if (bufferRequest->request->isCompleted()) {
     // TODO: Errors may not be raisable within callback
@@ -261,26 +262,19 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
 
   for (const auto& header : headers) {
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
-    auto r = _endpoint->tagSend(&serializedHeader->front(), serializedHeader->size(), _tag, false);
-
-    auto bufferRequest          = std::make_shared<BufferRequest>();
-    bufferRequest->request      = r;
+    auto bufferRequest    = std::make_shared<BufferRequest>();
+    bufferRequest->request =
+      _endpoint->tagSend(&serializedHeader->front(), serializedHeader->size(), _tag, false);
     bufferRequest->stringBuffer = serializedHeader;
     _bufferRequests.push_back(bufferRequest);
   }
 
   for (size_t i = 0; i < _totalFrames; ++i) {
-    auto bufferRequest = std::make_shared<BufferRequest>();
-    auto r             = _endpoint->tagSend(
-      buffer[i],
-      size[i],
-      _tag,
-      false,
-      [this](ucs_status_t status, RequestCallbackUserData arg) {
+    auto bufferRequest     = std::make_shared<BufferRequest>();
+    bufferRequest->request = _endpoint->tagSend(
+      buffer[i], size[i], _tag, false, [this](ucs_status_t status, RequestCallbackUserData arg) {
         return this->markCompleted(status, arg);
-      },
-      bufferRequest);
-    bufferRequest->request = r;
+      });
     _bufferRequests.push_back(bufferRequest);
   }
 
