@@ -197,18 +197,14 @@ void Request::setStatus(ucs_status_t status)
       auto future = std::static_pointer_cast<ucxx::Future>(_future);
       future->notify(status);
     }
-  }
 
-  /**
-   * The callback may execute arbitrary user code (e.g., `getStatus()`) and that may require
-   * the mutex.
-   */
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   _request,
-                   _operationName.c_str(),
-                   "callback %p",
-                   _callback.target<void (*)(void)>());
-  if (_callback) _callback(status, _callbackData);
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "callback %p",
+                     _callback.target<void (*)(void)>());
+    if (_callback) _callback(status, _callbackData);
+  }
 }
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
