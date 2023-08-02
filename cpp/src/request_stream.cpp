@@ -50,21 +50,25 @@ void RequestStream::request()
                                                UCP_OP_ATTR_FIELD_USER_DATA,
                                .datatype  = ucp_dt_make_contig(1),
                                .user_data = this};
+  void* request             = nullptr;
 
   if (_delayedSubmission->_send) {
     param.cb.send = streamSendCallback;
-    _request      = ucp_stream_send_nbx(
+    request       = ucp_stream_send_nbx(
       _endpoint->getHandle(), _delayedSubmission->_buffer, _delayedSubmission->_length, &param);
   } else {
     param.op_attr_mask |= UCP_OP_ATTR_FIELD_FLAGS;
     param.flags          = UCP_STREAM_RECV_FLAG_WAITALL;
     param.cb.recv_stream = streamRecvCallback;
-    _request             = ucp_stream_recv_nbx(_endpoint->getHandle(),
-                                   _delayedSubmission->_buffer,
-                                   _delayedSubmission->_length,
-                                   &_delayedSubmission->_length,
-                                   &param);
+    request              = ucp_stream_recv_nbx(_endpoint->getHandle(),
+                                  _delayedSubmission->_buffer,
+                                  _delayedSubmission->_length,
+                                  &_delayedSubmission->_length,
+                                  &param);
   }
+
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  _request = request;
 }
 
 void RequestStream::populateDelayedSubmission()

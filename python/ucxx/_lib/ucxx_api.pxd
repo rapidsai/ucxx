@@ -324,7 +324,7 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
     ctypedef struct BufferRequest:
         shared_ptr[Request] request
         shared_ptr[string] stringBuffer
-        Buffer* buffer
+        shared_ptr[Buffer] buffer
 
     ctypedef shared_ptr[BufferRequest] BufferRequestPtr
 
