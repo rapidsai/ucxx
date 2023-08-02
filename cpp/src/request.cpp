@@ -58,6 +58,7 @@ Request::~Request() { ucxx_trace("Request destroyed: %p, %s", this, _operationNa
 
 void Request::cancel()
 {
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
   if (_status == UCS_INPROGRESS) {
     if (UCS_PTR_IS_ERR(_request)) {
       ucs_status_t status = UCS_PTR_STATUS(_request);
@@ -72,41 +73,37 @@ void Request::cancel()
       if (_request != nullptr) ucp_request_cancel(_worker->getHandle(), _request);
     }
   } else {
-    auto status = _status.load();
     ucxx_trace_req_f(_ownerString.c_str(),
                      _request,
                      _operationName.c_str(),
                      "already completed with status: %d (%s)",
-                     status,
-                     ucs_status_string(status));
+                     _status,
+                     ucs_status_string(_status));
   }
 }
 
 ucs_status_t Request::getStatus()
 {
-  std::lock_guard<std::mutex> lock(_mutex);
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
   return _status;
 }
 
 void* Request::getFuture()
 {
-  std::lock_guard<std::mutex> lock(_mutex);
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
   return _future ? _future->getHandle() : nullptr;
 }
 
 void Request::checkError()
 {
-  std::lock_guard<std::mutex> lock(_mutex);
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-  // Only load the atomic variable once
-  auto status = _status.load();
-
-  utils::ucsErrorThrow(status, status == UCS_ERR_MESSAGE_TRUNCATED ? _status_msg : std::string());
+  utils::ucsErrorThrow(_status, _status == UCS_ERR_MESSAGE_TRUNCATED ? _status_msg : std::string());
 }
 
 bool Request::isCompleted()
 {
-  std::lock_guard<std::mutex> lock(_mutex);
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
   return _status != UCS_INPROGRESS;
 }
 
@@ -123,12 +120,11 @@ void Request::callback(void* request, ucs_status_t status)
     ucxx_debug("Request %p destroyed before callback() was executed", this);
     return;
   }
-  auto statusAttr = _status.load();
-  if (statusAttr != UCS_INPROGRESS)
+  if (_status != UCS_INPROGRESS)
     ucxx_trace("Request %p has status already set to %d (%s), callback setting %d (%s)",
                this,
-               statusAttr,
-               ucs_status_string(statusAttr),
+               _status,
+               ucs_status_string(_status),
                status,
                ucs_status_string(status));
 
@@ -141,7 +137,9 @@ void Request::callback(void* request, ucs_status_t status)
 
 void Request::process()
 {
-  ucs_status_t status = _status.load();
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  ucs_status_t status = UCS_INPROGRESS;
 
   if (UCS_PTR_IS_ERR(_request)) {
     // Operation errored immediately
@@ -180,7 +178,7 @@ void Request::process()
 void Request::setStatus(ucs_status_t status)
 {
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
     if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
     _worker->removeInflightRequest(this);
@@ -193,7 +191,7 @@ void Request::setStatus(ucs_status_t status)
                      ucs_status_string(status));
 
     if (_status != UCS_INPROGRESS) ucxx_error("setStatus called but the status was already set");
-    _status.store(status);
+    _status = status;
 
     if (_enablePythonFuture) {
       auto future = std::static_pointer_cast<ucxx::Future>(_future);

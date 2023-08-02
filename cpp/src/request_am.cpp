@@ -246,6 +246,7 @@ void RequestAm::request()
   _sendHeader = _delayedSubmission->_memoryType;
 
   if (_delayedSubmission->_send) {
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
     param.cb.send = _amSendCallback;
     _request      = ucp_am_send_nbx(_endpoint->getHandle(),
                                0,

@@ -100,6 +100,8 @@ void RequestTag::request()
                                .datatype  = ucp_dt_make_contig(1),
                                .user_data = this};
 
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
   if (_delayedSubmission->_send) {
     param.cb.send = tagSendCallback;
     _request      = ucp_tag_send_nbx(_endpoint->getHandle(),

@@ -154,13 +154,7 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx", this, _tag);
   std::lock_guard<std::mutex> lock(_completedRequestsMutex);
 
-  /* TODO: Move away from std::shared_ptr<void> to avoid casting void* to
-   * BufferRequest*, or remove pointer holding entirely here since it
-   * is not currently used for anything besides counting completed transfers.
-   */
-  ++_completedRequests;
-
-  if (_completedRequests == _totalFrames) {
+  if (++_completedRequests == _totalFrames) {
     auto s = UCS_OK;
 
     // Get the first non-UCS_OK status and set that as complete status
@@ -219,8 +213,6 @@ void RequestTagMulti::recvCallback(ucs_status_t status)
   if (_bufferRequests.empty()) {
     recvHeader();
   } else {
-    const auto request = _bufferRequests.back();
-
     if (status == UCS_OK) {
       ucxx_trace_req(
         "RequestTagMulti::recvCallback header received, multi request: %p, tag: %lx", this, _tag);
