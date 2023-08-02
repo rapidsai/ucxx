@@ -247,13 +247,16 @@ void RequestAm::request()
 
   if (_delayedSubmission->_send) {
     param.cb.send = _amSendCallback;
-    _request      = ucp_am_send_nbx(_endpoint->getHandle(),
-                               0,
-                               &_sendHeader,
-                               sizeof(_sendHeader),
-                               _delayedSubmission->_buffer,
-                               _delayedSubmission->_length,
-                               &param);
+    void* request = ucp_am_send_nbx(_endpoint->getHandle(),
+                                    0,
+                                    &_sendHeader,
+                                    sizeof(_sendHeader),
+                                    _delayedSubmission->_buffer,
+                                    _delayedSubmission->_length,
+                                    &param);
+
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
+    _request = request;
   } else {
     throw ucxx::UnsupportedError(
       "Receiving active messages must be handled by the worker's callback");

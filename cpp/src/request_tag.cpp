@@ -99,23 +99,27 @@ void RequestTag::request()
                                                UCP_OP_ATTR_FIELD_USER_DATA,
                                .datatype  = ucp_dt_make_contig(1),
                                .user_data = this};
+  void* request             = nullptr;
 
   if (_delayedSubmission->_send) {
     param.cb.send = tagSendCallback;
-    _request      = ucp_tag_send_nbx(_endpoint->getHandle(),
-                                _delayedSubmission->_buffer,
-                                _delayedSubmission->_length,
-                                _delayedSubmission->_tag,
-                                &param);
+    request       = ucp_tag_send_nbx(_endpoint->getHandle(),
+                               _delayedSubmission->_buffer,
+                               _delayedSubmission->_length,
+                               _delayedSubmission->_tag,
+                               &param);
   } else {
     param.cb.recv = tagRecvCallback;
-    _request      = ucp_tag_recv_nbx(_worker->getHandle(),
-                                _delayedSubmission->_buffer,
-                                _delayedSubmission->_length,
-                                _delayedSubmission->_tag,
-                                tagMask,
-                                &param);
+    request       = ucp_tag_recv_nbx(_worker->getHandle(),
+                               _delayedSubmission->_buffer,
+                               _delayedSubmission->_length,
+                               _delayedSubmission->_tag,
+                               tagMask,
+                               &param);
   }
+
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  _request = request;
 }
 
 void RequestTag::populateDelayedSubmission()

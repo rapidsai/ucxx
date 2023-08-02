@@ -208,7 +208,7 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
                                     reinterpret_cast<int*>(br->buffer->data()) + send.size());
       ASSERT_EQ(recvAbstract[0], send[0]);
 
-      const auto& recvConcretePtr = dynamic_cast<ucxx::HostBuffer*>(br->buffer);
+      const auto& recvConcretePtr = std::dynamic_pointer_cast<ucxx::HostBuffer>(br->buffer);
       ASSERT_EQ(recvConcretePtr->getType(), ucxx::BufferType::Host);
       ASSERT_EQ(recvConcretePtr->getSize(), send.size() * sizeof(int));
 

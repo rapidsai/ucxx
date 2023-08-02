@@ -245,6 +245,6 @@ class RMMBuffer : public Buffer {
 };
 #endif
 
-Buffer* allocateBuffer(BufferType bufferType, const size_t size);
+std::shared_ptr<Buffer> allocateBuffer(BufferType bufferType, const size_t size);
 
 }  // namespace ucxx
