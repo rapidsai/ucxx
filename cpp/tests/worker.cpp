@@ -71,7 +71,7 @@ TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr)
 
 TEST_P(WorkerCapabilityTest, CheckCapability)
 {
-  ASSERT_EQ(_worker->isDelayedSubmissionEnabled(), _enableDelayedSubmission);
+  ASSERT_EQ(_worker->isDelayedRequestSubmissionEnabled(), _enableDelayedSubmission);
   ASSERT_EQ(_worker->isFutureEnabled(), _enableFuture);
 }
 
