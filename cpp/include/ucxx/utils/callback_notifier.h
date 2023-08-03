@@ -51,7 +51,7 @@ class CallbackNotifier {
       std::lock_guard lock(_mutex);
       _flag = flag;
     }
-    _conditionVariable.notify_one();
+    _conditionVariable.notify_all();
   }
 
   /**
