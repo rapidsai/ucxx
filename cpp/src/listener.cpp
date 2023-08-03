@@ -13,7 +13,6 @@
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
-
 namespace ucxx {
 
 Listener::Listener(std::shared_ptr<Worker> worker,
