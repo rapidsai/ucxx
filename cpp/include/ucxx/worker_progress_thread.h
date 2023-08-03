@@ -66,6 +66,13 @@ class WorkerProgressThread {
    * made private to ensure all UCXX objects are shared pointers for correct
    * lifetime management.
    *
+   * This thread runs asynchronously with the main application thread. If you require
+   * cross-thread synchronization (for example when tearing down the thread or canceling
+   * requests), use the generic pre and post callbacks with a `CallbackNotifier` that
+   * synchronizes with the application thread. Since the worker progress itself may change
+   * state, it is usually the case that synchronization is needed in both pre and post
+   * callbacks.
+   *
    * @code{.cpp}
    * // context is `std::shared_ptr<ucxx::Context>`
    * auto worker = context->createWorker(false);
