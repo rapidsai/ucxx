@@ -15,7 +15,7 @@ namespace utils {
 template <typename Flag>
 class CallbackNotifier {
  private:
-  Flag _flag{};
+  Flag _flag{};                                  //< flag storing state
   std::mutex _mutex{};                           //< lock to guard accesses
   std::condition_variable _conditionVariable{};  //< notification condition var
 
@@ -24,7 +24,7 @@ class CallbackNotifier {
    * @brief Construct a thread-safe notification object with given initial value.
    *
    * Construct a thread-safe notification object with a given initial value which may be
-   * later set via `store()` in one thread and block another thread running `wait()` while
+   * later set via `store()` in one thread and block other threads running `wait()` while
    * the new value is not set.
    *
    * @param[in] init  The initial flag value
@@ -39,9 +39,10 @@ class CallbackNotifier {
   CallbackNotifier& operator=(CallbackNotifier&& o) = delete;
 
   /**
-   * @brief Store a new flag value and notify a waiting thread.
+   * @brief Store a new flag value and notify waiting threads.
    *
-   * Store a new flag value and notify another thread blocked by a call to `wait()`.
+   * Store a new flag value and notify others threads blocked by a call to `wait()`.
+   * See also `std::condition_variable::notify_all`.
    *
    * @param[in] flag  The new flag value.
    */
