@@ -41,7 +41,7 @@ dependencies:
           - rmm==23.10.*
       - output_types: conda
         packages:
-          - cython>=0.29,<0.30
+          - cython>=3.0.0
           - fmt>=9.1.0,<10
           - &gmock gmock>=1.13.0
           - &gtest gtest>=1.13.0
