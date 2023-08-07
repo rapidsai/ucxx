@@ -14,14 +14,11 @@
 
 namespace ucxx {
 
-void ucpListenerDestructor(ucp_listener_h ptr);
-
 class Listener : public Component {
  private:
-  std::unique_ptr<ucp_listener, void (*)(ucp_listener_h)> _handle{
-    nullptr, ucpListenerDestructor};  ///< The UCP listener handle
-  std::string _ip{};                  ///< The IP address to which the listener is bound to
-  uint16_t _port{0};                  ///< The port to which the listener is bound to
+  ucp_listener_h _handle{nullptr};  ///< The UCP listener handle
+  std::string _ip{};                ///< The IP address to which the listener is bound to
+  uint16_t _port{0};                ///< The port to which the listener is bound to
 
   /**
    * @brief Private constructor of `ucxx::Listener`.

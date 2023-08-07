@@ -23,7 +23,15 @@ class RequestTagMulti;
 struct BufferRequest {
   std::shared_ptr<Request> request{nullptr};  ///< The `ucxx::RequestTag` of a header or frame
   std::shared_ptr<std::string> stringBuffer{nullptr};  ///< Serialized `Header`
-  Buffer* buffer{nullptr};  ///< Internally allocated buffer to receive a frame
+  std::shared_ptr<Buffer> buffer{nullptr};  ///< Internally allocated buffer to receive a frame
+
+  BufferRequest();
+  ~BufferRequest();
+
+  BufferRequest(const BufferRequest&) = delete;
+  BufferRequest& operator=(BufferRequest const&) = delete;
+  BufferRequest(BufferRequest&& o)               = delete;
+  BufferRequest& operator=(BufferRequest&& o) = delete;
 };
 
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
@@ -34,8 +42,8 @@ class RequestTagMulti : public Request {
   ucp_tag_t _tag{0};       ///< Tag to match
   size_t _totalFrames{0};  ///< The total number of frames handled by this request
   std::mutex
-    _completedRequestsMutex{};  ///< Mutex to control access to completed requests container
-  std::vector<BufferRequest*> _completedRequests{};  ///< Requests that already completed
+    _completedRequestsMutex{};   ///< Mutex to control access to completed requests container
+  size_t _completedRequests{0};  ///< Count requests that already completed
 
  public:
   std::vector<BufferRequestPtr> _bufferRequests{};  ///< Container of all requests posted
@@ -191,7 +199,10 @@ class RequestTagMulti : public Request {
    *
    * When this method is called, the request that completed will be pushed into a container
    * which will be later used to evaluate if all frames completed and set the final status
-   * of the multi-transfer request and the Python future, if enabled.
+   * of the multi-transfer request and the Python future, if enabled. The final status is
+   * either `UCS_OK` if all underlying requests completed successfully, otherwise it will
+   * contain the status of the first failing request, for granular information the user
+   * may still verify each of the underlying requests individually.
    *
    * @param[in] status the status of the request being completed.
    * @param[in] request the `ucxx::BufferRequest` object containing a single tag .
