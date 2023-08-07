@@ -47,6 +47,7 @@ class Worker : public Component {
   std::shared_ptr<InflightRequests> _inflightRequestsToCancel{
     std::make_shared<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};  ///< The progress thread object
+  std::thread::id _progressThreadId{};                             ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
     nullptr};  ///< The callback function to execute at progress thread start
   void* _progressThreadStartCallbackArg{
@@ -111,8 +112,10 @@ class Worker : public Component {
    * be canceled when necessary.
    *
    * @param[in] request the request to register.
+   *
+   * @return the request that was registered (i.e., the `request` argument itself).
    */
-  void registerInflightRequest(std::shared_ptr<Request> request);
+  std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Progress the worker until all communication events are completed.
@@ -376,7 +379,7 @@ class Worker : public Component {
   bool progress();
 
   /**
-   * @brief Register delayed submission.
+   * @brief Register delayed request submission.
    *
    * Register `ucxx::Request` for delayed submission. When the `ucxx::Worker` is created
    * with `enableDelayedSubmission=true`, calling actual UCX transfer routines will not
@@ -395,13 +398,46 @@ class Worker : public Component {
                                  DelayedSubmissionCallbackType callback);
 
   /**
+   * @brief Register callback to be executed in progress thread before progressing.
+   *
+   * Register callback to be executed in the current or next iteration of the progress
+   * thread before the worker is progressed. There is no guarantee that the callback will
+   * be executed in the current or next iteration, this depends on where the progress thread
+   * is in the current iteration when this callback is registered. The lifetime of the
+   * callback must be ensured by the caller.
+   *
+   * The purpose of this method is to schedule operations to be executed in the progress
+   * thread, such as endpoint creation and closing, so that progressing doesn't ever need
+   * to occur in the application thread when using a progress thread.
+   *
+   * @param[in] callback  the callback to execute before progressing the worker.
+   */
+  void registerGenericPre(DelayedSubmissionCallbackType callback);
+
+  /**
+   * @brief Register callback to be executed in progress thread after progressing.
+   *
+   * Register callback to be executed in the current or next iteration of the progress
+   * thread after the worker is progressed. There is no guarantee that the callback will
+   * be executed in the current or next iteration, this depends on where the progress thread
+   * is in the current iteration when this callback is registered. The lifetime of the
+   * callback must be ensured by the caller.
+   *
+   * The purpose of this method is to schedule operations to be executed in the progress
+   * thread, immediately after progressing the worker completes.
+   *
+   * @param[in] callback  the callback to execute after progressing the worker.
+   */
+  void registerGenericPost(DelayedSubmissionCallbackType callback);
+
+  /**
    * @brief Inquire if worker has been created with delayed submission enabled.
    *
    * Check whether the worker has been created with delayed submission enabled.
    *
    * @returns `true` if delayed submission is enabled, `false` otherwise.
    */
-  bool isDelayedSubmissionEnabled() const;
+  bool isDelayedRequestSubmissionEnabled() const;
 
   /**
    * @brief Inquire if worker has been created with future support.
@@ -512,6 +548,15 @@ class Worker : public Component {
    * worker thread was ever started.
    */
   void stopProgressThread();
+
+  /**
+   * @brief Inquire if worker has a progress thread running.
+   *
+   * Check whether the worker currently has a progress thread running.
+   *
+   * @returns `true` if a progress thread is running, `false` otherwise.
+   */
+  bool isProgressThreadRunning();
 
   /**
    * @brief Cancel inflight requests.

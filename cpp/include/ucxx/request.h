@@ -23,12 +23,12 @@ namespace ucxx {
 
 class Request : public Component {
  protected:
-  std::atomic<ucs_status_t> _status{UCS_INPROGRESS};  ///< Requests status
-  std::string _status_msg{};                          ///< Human-readable status message
-  void* _request{nullptr};                            ///< Pointer to UCP request
-  std::shared_ptr<Future> _future{nullptr};           ///< Future to notify upon completion
-  RequestCallbackUserFunction _callback{nullptr};     ///< Completion callback
-  RequestCallbackUserData _callbackData{nullptr};     ///< Completion callback data
+  ucs_status_t _status{UCS_INPROGRESS};            ///< Requests status
+  std::string _status_msg{};                       ///< Human-readable status message
+  void* _request{nullptr};                         ///< Pointer to UCP request
+  std::shared_ptr<Future> _future{nullptr};        ///< Future to notify upon completion
+  RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
+  RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
   std::shared_ptr<Worker> _worker{
     nullptr};  ///< Worker that generated request (if not from endpoint)
   std::shared_ptr<Endpoint> _endpoint{
@@ -39,6 +39,7 @@ class Request : public Component {
     nullptr};  ///< The submission object that will dispatch the request
   std::string _operationName{
     "request_undefined"};          ///< Human-readable operation name, mostly used for log messages
+  std::recursive_mutex _mutex{};   ///< Mutex to prevent checking status while it's being set
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
 
   /**
