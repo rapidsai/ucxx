@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
-# distutils: language = c++
-# cython: language_level=3
 
 import asyncio
 import enum
@@ -211,9 +209,9 @@ class Feature(enum.Enum):
 
 
 class PythonRequestNotifierWaitState(enum.Enum):
-    Ready = UcxxRequestNotifierWaitStateReady
-    Timeout = UcxxRequestNotifierWaitStateTimeout
-    Shutdown = UcxxRequestNotifierWaitStateShutdown
+    Ready = RequestNotifierWaitState.Ready
+    Timeout = RequestNotifierWaitState.Timeout
+    Shutdown = RequestNotifierWaitState.Shutdown
 
 
 ###############################################################################
