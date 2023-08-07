@@ -15,9 +15,6 @@ from libcpp.unordered_map cimport (  # noqa: E402
 )
 from libcpp.vector cimport vector  # noqa: E402
 
-# from cython.cimports.cpython.ref import PyObject
-# from cpython.ref import PyObject
-
 
 cdef extern from "Python.h" nogil:
     ctypedef struct PyObject
@@ -149,11 +146,10 @@ cdef extern from "<ucxx/python/api.h>" namespace "ucxx::python" nogil:
 
 
 cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
-    # TODO: use `cdef enum class` after moving to Cython 3.x
-    ctypedef enum BufferType:
-        Host "ucxx::BufferType::Host"
-        RMM "ucxx::BufferType::RMM"
-        Invalid "ucxx::BufferType::Invalid"
+    cdef enum class BufferType:
+        Host
+        RMM
+        Invalid
 
     cdef cppclass Buffer:
         Buffer(const BufferType bufferType, const size_t size_t)
@@ -176,11 +172,10 @@ cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
 
 
 cdef extern from "<ucxx/notifier.h>" namespace "ucxx" nogil:
-    # TODO: use `cdef enum class` after moving to Cython 3.x
-    ctypedef enum RequestNotifierWaitState:
-        UcxxRequestNotifierWaitStateReady "ucxx::RequestNotifierWaitState::Ready"  # noqa: E501
-        UcxxRequestNotifierWaitStateTimeout "ucxx::RequestNotifierWaitState::Timeout"  # noqa: E501
-        UcxxRequestNotifierWaitStateShutdown "ucxx::RequestNotifierWaitState::Shutdown"  # noqa: E501
+    cdef enum class RequestNotifierWaitState:
+        Ready
+        Timeout
+        Shutdown
 
 
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:

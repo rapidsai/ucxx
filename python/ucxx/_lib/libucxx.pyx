@@ -209,9 +209,9 @@ class Feature(enum.Enum):
 
 
 class PythonRequestNotifierWaitState(enum.Enum):
-    Ready = UcxxRequestNotifierWaitStateReady
-    Timeout = UcxxRequestNotifierWaitStateTimeout
-    Shutdown = UcxxRequestNotifierWaitStateShutdown
+    Ready = RequestNotifierWaitState.Ready
+    Timeout = RequestNotifierWaitState.Timeout
+    Shutdown = RequestNotifierWaitState.Shutdown
 
 
 ###############################################################################
