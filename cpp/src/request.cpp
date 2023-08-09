@@ -58,6 +58,7 @@ Request::~Request() { ucxx_trace("Request destroyed: %p, %s", this, _operationNa
 
 void Request::cancel()
 {
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
   if (_status == UCS_INPROGRESS) {
     if (UCS_PTR_IS_ERR(_request)) {
       ucs_status_t status = UCS_PTR_STATUS(_request);
@@ -69,51 +70,76 @@ void Request::cancel()
                        ucs_status_string(status));
     } else {
       ucxx_trace_req_f(_ownerString.c_str(), _request, _operationName.c_str(), "canceling");
-      ucp_request_cancel(_worker->getHandle(), _request);
+      if (_request != nullptr) ucp_request_cancel(_worker->getHandle(), _request);
     }
   } else {
-    auto status = _status.load();
     ucxx_trace_req_f(_ownerString.c_str(),
                      _request,
                      _operationName.c_str(),
                      "already completed with status: %d (%s)",
-                     status,
-                     ucs_status_string(status));
+                     _status,
+                     ucs_status_string(_status));
   }
 }
 
-ucs_status_t Request::getStatus() { return _status; }
+ucs_status_t Request::getStatus()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  return _status;
+}
 
-void* Request::getFuture() { return _future ? _future->getHandle() : nullptr; }
+void* Request::getFuture()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  return _future ? _future->getHandle() : nullptr;
+}
 
 void Request::checkError()
 {
-  // Only load the atomic variable once
-  auto status = _status.load();
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-  utils::ucsErrorThrow(status, status == UCS_ERR_MESSAGE_TRUNCATED ? _status_msg : std::string());
+  utils::ucsErrorThrow(_status, _status == UCS_ERR_MESSAGE_TRUNCATED ? _status_msg : std::string());
 }
 
-bool Request::isCompleted() { return _status != UCS_INPROGRESS; }
+bool Request::isCompleted()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  return _status != UCS_INPROGRESS;
+}
 
 void Request::callback(void* request, ucs_status_t status)
 {
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   request,
-                   _operationName.c_str(),
-                   "callback %p",
-                   _callback.target<void (*)(void)>());
-  if (_callback) _callback(status, _callbackData);
+  /**
+   * Prevent reference count to self from going to zero and thus cause self to be destroyed
+   * while `callback()` executes.
+   */
+  decltype(shared_from_this()) selfReference = nullptr;
+  try {
+    selfReference = shared_from_this();
+  } catch (std::bad_weak_ptr& exception) {
+    ucxx_debug("Request %p destroyed before callback() was executed", this);
+    return;
+  }
+  if (_status != UCS_INPROGRESS)
+    ucxx_trace("Request %p has status already set to %d (%s), callback setting %d (%s)",
+               this,
+               _status,
+               ucs_status_string(_status),
+               status,
+               ucs_status_string(status));
 
-  ucp_request_free(request);
+  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
 
   ucxx_trace("Request completed: %p, handle: %p", this, request);
   setStatus(status);
+  ucxx_trace("Request %p, isCompleted: %d", this, isCompleted());
 }
 
 void Request::process()
 {
-  ucs_status_t status = _status.load();
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  ucs_status_t status = UCS_INPROGRESS;
 
   if (UCS_PTR_IS_ERR(_request)) {
     // Operation errored immediately
@@ -139,49 +165,50 @@ void Request::process()
                    ucs_status_string(status));
 
   if (status != UCS_OK) {
-    ucxx_error(
+    ucxx_debug(
       "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
   } else {
     ucxx_trace_req_f(
       _ownerString.c_str(), _request, _operationName.c_str(), "completed immediately");
   }
 
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   _request,
-                   _operationName.c_str(),
-                   "callback %p",
-                   _callback.target<void (*)(void)>());
-  if (_callback) _callback(status, _callbackData);
-
   setStatus(status);
 }
 
 void Request::setStatus(ucs_status_t status)
 {
-  if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
-  _worker->removeInflightRequest(this);
+  {
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-  if (_status == UCS_INPROGRESS) {
-    // If the status is not `UCS_INPROGRESS`, the derived class has already set the
-    // status, a truncated message for example.
-    _status.store(status);
-  }
+    if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
+    _worker->removeInflightRequest(this);
 
-  ucs_status_t s = _status;
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "callback called with status %d (%s)",
+                     status,
+                     ucs_status_string(status));
 
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   _request,
-                   _operationName.c_str(),
-                   "callback called with status %d (%s)",
-                   s,
-                   ucs_status_string(s));
+    if (_status != UCS_INPROGRESS) ucxx_error("setStatus called but the status was already set");
+    _status = status;
 
-  if (_enablePythonFuture) {
-    auto future = std::static_pointer_cast<ucxx::Future>(_future);
-    future->notify(status);
+    if (_enablePythonFuture) {
+      auto future = std::static_pointer_cast<ucxx::Future>(_future);
+      future->notify(status);
+    }
+
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     _request,
+                     _operationName.c_str(),
+                     "callback %p",
+                     _callback.target<void (*)(void)>());
+    if (_callback) _callback(status, _callbackData);
   }
 }
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
+
+std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }
 
 }  // namespace ucxx

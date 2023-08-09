@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,7 +16,11 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
+#include <ucxx/buffer.h>
+#include <ucxx/internal/request_am.h>
+#include <ucxx/request_am.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
@@ -34,8 +39,26 @@ Worker::Worker(std::shared_ptr<Context> context,
                                 .thread_mode = UCS_THREAD_MODE_MULTI};
   utils::ucsErrorThrow(ucp_worker_create(context->getHandle(), &params, &_handle));
 
-  if (enableDelayedSubmission)
-    _delayedSubmissionCollection = std::make_shared<DelayedSubmissionCollection>();
+  _delayedSubmissionCollection =
+    std::make_shared<DelayedSubmissionCollection>(enableDelayedSubmission);
+
+  if (context->getFeatureFlags() & UCP_FEATURE_AM) {
+    unsigned int AM_MSG_ID            = 0;
+    _amData                           = std::make_shared<internal::AmData>();
+    _amData->_registerInflightRequest = [this](std::shared_ptr<Request> req) {
+      this->registerInflightRequest(req);
+    };
+    registerAmAllocator(UCS_MEMORY_TYPE_HOST,
+                        [](size_t length) { return std::make_shared<HostBuffer>(length); });
+
+    ucp_am_handler_param_t am_handler_param = {.field_mask = UCP_AM_HANDLER_PARAM_FIELD_ID |
+                                                             UCP_AM_HANDLER_PARAM_FIELD_CB |
+                                                             UCP_AM_HANDLER_PARAM_FIELD_ARG,
+                                               .id  = AM_MSG_ID,
+                                               .cb  = RequestAm::recvCallback,
+                                               .arg = _amData.get()};
+    utils::ucsErrorThrow(ucp_worker_set_am_recv_handler(_handle, &am_handler_param));
+  }
 
   ucxx_trace("Worker created: %p, enableDelayedSubmission: %d, enableFuture: %d",
              this,
@@ -84,11 +107,44 @@ void Worker::drainWorkerTagRecv()
   }
 }
 
+std::shared_ptr<RequestAm> Worker::getAmRecv(
+  ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction)
+{
+  std::lock_guard<std::mutex> lock(_amData->_mutex);
+
+  auto& recvPool = _amData->_recvPool;
+  auto& recvWait = _amData->_recvWait;
+
+  auto reqs = recvPool.find(ep);
+  if (reqs != recvPool.end() && !reqs->second.empty()) {
+    auto req = reqs->second.front();
+    reqs->second.pop();
+    return req;
+  } else {
+    auto req        = createAmRecvRequestFunction();
+    auto [queue, _] = recvWait.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
+    queue->second.push(req);
+    return req;
+  }
+}
+
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableDelayedSubmission,
                                      const bool enableFuture)
 {
-  return std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
+  auto worker = std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
+
+  // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
+  // been created, thus this cannot be in the constructor.
+  if (worker->_amData != nullptr) {
+    worker->_amData->_worker = worker;
+
+    std::stringstream ownerStream;
+    ownerStream << "worker " << worker->getHandle();
+    worker->_amData->_ownerString = ownerStream.str();
+  }
+
+  return worker;
 }
 
 Worker::~Worker()
@@ -116,7 +172,10 @@ std::string Worker::getInfo()
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 
-bool Worker::isDelayedSubmissionEnabled() const { return _delayedSubmissionCollection != nullptr; }
+bool Worker::isDelayedRequestSubmissionEnabled() const
+{
+  return _delayedSubmissionCollection->isDelayedRequestSubmissionEnabled();
+}
 
 bool Worker::isFutureEnabled() const { return _enableFuture; }
 
@@ -206,12 +265,51 @@ bool Worker::progress()
   return ret;
 }
 
-void Worker::registerDelayedSubmission(DelayedSubmissionCallbackType callback)
+void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
+                                       DelayedSubmissionCallbackType callback)
 {
-  if (_delayedSubmissionCollection == nullptr) {
+  if (_delayedSubmissionCollection->isDelayedRequestSubmissionEnabled()) {
+    _delayedSubmissionCollection->registerRequest(request, callback);
+
+    /* Waking the progress event is needed here because the UCX request is
+     * not dispatched immediately. Thus we must signal the progress task so
+     * it will ensure the request is dispatched.
+     */
+    signal();
+  } else {
+    callback();
+  }
+}
+
+void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
+{
+  if (std::this_thread::get_id() == _progressThreadId) {
+    /**
+     * If the method is called from within the progress thread (e.g., from the
+     * listener callback), execute it immediately.
+     */
     callback();
   } else {
-    _delayedSubmissionCollection->registerRequest(callback);
+    _delayedSubmissionCollection->registerGenericPre(callback);
+
+    /* Waking the progress event is needed here because the UCX request is
+     * not dispatched immediately. Thus we must signal the progress task so
+     * it will ensure the request is dispatched.
+     */
+    signal();
+  }
+}
+
+void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
+{
+  if (std::this_thread::get_id() == _progressThreadId) {
+    /**
+     * If the method is called from within the progress thread (e.g., from the
+     * listener callback), execute it immediately.
+     */
+    callback();
+  } else {
+    _delayedSubmissionCollection->registerGenericPost(callback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must signal the progress task so
@@ -272,6 +370,13 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
                                                            _progressThreadStartCallback,
                                                            _progressThreadStartCallbackArg,
                                                            _delayedSubmissionCollection);
+
+  /**
+   * Ensure the progress thread's ID is available allowing generic callbacks to run
+   * successfully even after `_progressThread == nullptr`, which may occur before
+   * `WorkerProgressThreads`'s destructor completes.
+   */
+  _progressThreadId = _progressThread->getId();
 }
 
 void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
@@ -284,14 +389,34 @@ void Worker::stopProgressThread()
     stopProgressThreadNoWarn();
 }
 
+bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
+
 size_t Worker::cancelInflightRequests()
 {
+  size_t canceled = 0;
+
   auto inflightRequestsToCancel = std::make_shared<InflightRequests>();
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
     std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
   }
-  return inflightRequestsToCancel->cancelAll();
+
+  if (isProgressThreadRunning()) {
+    utils::CallbackNotifier callbackNotifierPre{false};
+    registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
+      canceled = inflightRequestsToCancel->cancelAll();
+      callbackNotifierPre.store(true);
+    });
+    callbackNotifierPre.wait([](auto flag) { return flag; });
+
+    utils::CallbackNotifier callbackNotifierPost{false};
+    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
+    callbackNotifierPost.wait([](auto flag) { return flag; });
+  } else {
+    canceled = inflightRequestsToCancel->cancelAll();
+  }
+
+  return canceled;
 }
 
 void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests)
@@ -303,12 +428,14 @@ void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightReq
   }
 }
 
-void Worker::registerInflightRequest(std::shared_ptr<Request> request)
+std::shared_ptr<Request> Worker::registerInflightRequest(std::shared_ptr<Request> request)
 {
-  {
+  if (!request->isCompleted()) {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
     _inflightRequests->insert(request);
   }
+
+  return request;
 }
 
 void Worker::removeInflightRequest(const Request* const request)
@@ -319,8 +446,25 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(ucp_tag_t tag)
+bool Worker::tagProbe(const ucp_tag_t tag)
 {
+  if (!isProgressThreadRunning()) {
+    progress();
+  } else {
+    /**
+     * To ensure the worker was progressed at least once, we must make sure a callback runs
+     * pre-progressing, and another one runs post-progress. Running post-progress only may
+     * indicate the progress thread has immediately finished executing and post-progress
+     * ran without a further progress operation.
+     */
+    utils::CallbackNotifier callbackNotifierPre{false};
+    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.store(true); });
+    callbackNotifierPre.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callbackNotifierPost{false};
+    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
+    callbackNotifierPost.wait([](auto flag) { return flag; });
+  }
+
   ucp_tag_recv_info_t info;
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);
 
@@ -334,11 +478,9 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                          RequestCallbackUserFunction callbackFunction,
                                          RequestCallbackUserData callbackData)
 {
-  auto worker  = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto request = createRequestTag(
-    worker, false, buffer, length, tag, enableFuture, callbackFunction, callbackData);
-  registerInflightRequest(request);
-  return request;
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  return registerInflightRequest(createRequestTag(
+    worker, false, buffer, length, tag, enableFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<Address> Worker::getAddress()
@@ -372,6 +514,18 @@ std::shared_ptr<Listener> Worker::createListener(uint16_t port,
   auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
   auto listener = ucxx::createListener(worker, port, callback, callbackArgs);
   return listener;
+}
+
+void Worker::registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)
+{
+  if (_amData == nullptr)
+    throw std::runtime_error("Active Messages wasn not enabled during context creation");
+  _amData->_allocators.insert_or_assign(memoryType, allocator);
+}
+
+bool Worker::amProbe(const ucp_ep_h endpointHandle) const
+{
+  return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
 }
 
 }  // namespace ucxx

@@ -18,6 +18,7 @@ from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport (
     dynamic_pointer_cast,
+    make_shared,
     make_unique,
     shared_ptr,
     unique_ptr,
@@ -58,6 +59,11 @@ def _get_host_buffer(uintptr_t recv_buffer_ptr):
     cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
     cdef size_t size = host_buffer.getSize()
     return ptr_to_ndarray(host_buffer.release(), size)
+
+
+cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length):
+    cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
+    return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
 
 
 ###############################################################################
@@ -439,16 +445,22 @@ cdef class UCXWorker():
     ):
         cdef bint ucxx_enable_delayed_submission = enable_delayed_submission
         cdef bint ucxx_enable_python_future = enable_python_future
+        cdef AmAllocatorType rmm_am_allocator
+
+        self._context_feature_flags = <uint64_t>(context.feature_flags)
+
         with nogil:
             self._worker = createPythonWorker(
                 context._context,
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
-            self._enable_delayed_submission = self._worker.get().isDelayedSubmissionEnabled()
+            self._enable_delayed_submission = self._worker.get().isDelayedRequestSubmissionEnabled()
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
-        self._context_feature_flags = <uint64_t>(context.feature_flags)
+            if self._context_feature_flags & UCP_FEATURE_AM:
+                rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
+                self._worker.get().registerAmAllocator(UCS_MEMORY_TYPE_CUDA, rmm_am_allocator)
 
     @property
     def handle(self):
@@ -661,6 +673,22 @@ cdef class UCXRequest():
         else:
             await self.wait_yield()
 
+    def get_recv_buffer(self):
+        cdef shared_ptr[Buffer] buf
+        cdef BufferType bufType
+
+        with nogil:
+            buf = self._request.get().getRecvBuffer()
+            bufType = buf.get().getType() if buf != nullptr else BufferType.Invalid
+
+        # If buf == NULL, it's not allocated by the request but rather the user
+        if buf == NULL:
+            return None
+        elif bufType == BufferType.RMM:
+            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
+        elif bufType == BufferType.Host:
+            return _get_host_buffer(<uintptr_t><void*>buf.get())
+
 
 cdef class UCXBufferRequest:
     cdef:
@@ -678,18 +706,20 @@ cdef class UCXBufferRequest:
         )
 
     def get_py_buffer(self):
-        cdef Buffer* buf
+        cdef shared_ptr[Buffer] buf
+        cdef BufferType bufType
 
         with nogil:
             buf = self._buffer_request.get().buffer
+            bufType = buf.get().getType() if buf != nullptr else BufferType.Invalid
 
         # If buf == NULL, it holds a header
         if buf == NULL:
             return None
-        elif buf.getType() == BufferType.RMM:
-            return _get_rmm_buffer(<uintptr_t><void*>buf)
-        else:
-            return _get_host_buffer(<uintptr_t><void*>buf)
+        elif bufType == BufferType.RMM:
+            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
+        elif bufType == BufferType.Host:
+            return _get_host_buffer(<uintptr_t><void*>buf.get())
 
 
 cdef class UCXBufferRequests:
@@ -951,6 +981,48 @@ cdef class UCXEndpoint():
         with nogil:
             self._endpoint.get().close()
 
+    def am_probe(self):
+        cdef ucp_ep_h handle
+        cdef shared_ptr[Worker] worker
+        cdef bint ep_matched
+
+        with nogil:
+            handle = self._endpoint.get().getHandle()
+            worker = self._endpoint.get().getWorker()
+            ep_matched = worker.get().amProbe(handle)
+
+        return ep_matched
+
+    def am_send(self, Array arr):
+        cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
+        cdef bint cuda_array = arr.cuda
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.AM.value:
+            raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        with nogil:
+            req = self._endpoint.get().amSend(
+                buf,
+                nbytes,
+                UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
+    def am_recv(self):
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.AM.value:
+            raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        with nogil:
+            req = self._endpoint.get().amRecv(self._enable_python_future)
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
     def stream_send(self, Array arr):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
@@ -1053,7 +1125,7 @@ cdef class UCXEndpoint():
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
-        cdef RequestTagMultiPtr ucxx_buffer_requests
+        cdef shared_ptr[Request] ucxx_buffer_requests
 
         for arr in arrays:
             if not isinstance(arr, Array):
@@ -1087,7 +1159,7 @@ cdef class UCXEndpoint():
         )
 
     def tag_recv_multi(self, size_t tag):
-        cdef RequestTagMultiPtr ucxx_buffer_requests
+        cdef shared_ptr[Request] ucxx_buffer_requests
 
         with nogil:
             ucxx_buffer_requests = self._endpoint.get().tagMultiRecv(

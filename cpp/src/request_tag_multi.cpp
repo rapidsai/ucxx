@@ -11,46 +11,29 @@
 #include <ucxx/buffer.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/header.h>
-#include <ucxx/request.h>
-#include <ucxx/request_helper.h>
 #include <ucxx/request_tag_multi.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
 
-RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                                 const ucp_tag_t tag,
-                                 const bool enablePythonFuture)
-  : _endpoint(endpoint), _send(false), _tag(tag)
-{
-  ucxx_trace_req("RequestTagMulti::RequestTagMulti [recv]: %p, tag: %lx", this, _tag);
+BufferRequest::BufferRequest() { ucxx_trace("BufferRequest created: %p", this); }
 
-  auto worker = endpoint->getWorker();
-  if (enablePythonFuture) _future = worker->getFuture();
-
-  ucxx_debug("RequestTagMulti created: %p", this);
-  callback(UCS_OK);
-}
+BufferRequest::~BufferRequest() { ucxx_trace("BufferRequest destroyed: %p", this); }
 
 RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                                 const std::vector<void*>& buffer,
-                                 const std::vector<size_t>& size,
-                                 const std::vector<int>& isCUDA,
+                                 const bool send,
                                  const ucp_tag_t tag,
                                  const bool enablePythonFuture)
-  : _endpoint(endpoint), _send(true), _tag(tag)
+  : Request(endpoint,
+            std::make_shared<DelayedSubmission>(!send, nullptr, 0, 0),
+            std::string(send ? "tagMultiSend" : "tagMultiRecv"),
+            enablePythonFuture),
+    _send(send),
+    _tag(tag)
 {
-  ucxx_trace_req("RequestTagMulti::RequestTagMulti [send]: %p, tag: %lx", this, _tag);
-
-  if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
-    throw std::runtime_error("All input vectors should be of equal size");
-
   auto worker = endpoint->getWorker();
   if (enablePythonFuture) _future = worker->getFuture();
-
-  ucxx_trace("RequestTagMulti created: %p", this);
-  send(buffer, size, isCUDA);
 }
 
 RequestTagMulti::~RequestTagMulti()
@@ -69,7 +52,6 @@ RequestTagMulti::~RequestTagMulti()
      */
     br->request = nullptr;
   }
-  ucxx_trace("RequestTagMulti destroyed: %p", this);
 }
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
@@ -79,18 +61,26 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpo
                                                            const ucp_tag_t tag,
                                                            const bool enablePythonFuture)
 {
-  ucxx_trace_req("RequestTagMulti::tagMultiSend");
-  return std::shared_ptr<RequestTagMulti>(
-    new RequestTagMulti(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
+  auto ret =
+    std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, true, tag, enablePythonFuture));
+
+  if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
+    throw std::runtime_error("All input vectors should be of equal size");
+
+  ret->send(buffer, size, isCUDA);
+
+  return ret;
 }
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
                                                            const ucp_tag_t tag,
                                                            const bool enablePythonFuture)
 {
-  ucxx_trace_req("RequestTagMulti::tagMultiRecv");
   auto ret =
-    std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, tag, enablePythonFuture));
+    std::shared_ptr<RequestTagMulti>(new RequestTagMulti(endpoint, false, tag, enablePythonFuture));
+
+  ret->recvCallback(UCS_OK);
+
   return ret;
 }
 
@@ -148,25 +138,40 @@ void RequestTagMulti::recvFrames()
 
 void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData request)
 {
+  /**
+   * Prevent reference count to self from going to zero and thus cause self to be destroyed
+   * while `markCompleted()` executes.
+   */
+  decltype(shared_from_this()) selfReference = nullptr;
+  try {
+    selfReference = shared_from_this();
+  } catch (std::bad_weak_ptr& exception) {
+    ucxx_debug("RequestTagMulti %p destroyed before all markCompleted() callbacks were executed",
+               this);
+    return;
+  }
+
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx", this, _tag);
   std::lock_guard<std::mutex> lock(_completedRequestsMutex);
 
-  /* TODO: Move away from std::shared_ptr<void> to avoid casting void* to
-   * BufferRequest*, or remove pointer holding entirely here since it
-   * is not currently used for anything besides counting completed transfers.
-   */
-  _completedRequests.push_back(reinterpret_cast<BufferRequest*>(request.get()));
+  if (++_completedRequests == _totalFrames) {
+    auto s = UCS_OK;
 
-  if (_completedRequests.size() == _totalFrames) {
-    // TODO: Actually handle errors
-    _status = UCS_OK;
-    if (_future) _future->notify(UCS_OK);
+    // Get the first non-UCS_OK status and set that as complete status
+    for (const auto& br : _bufferRequests) {
+      if (br->request) {
+        s = br->request->getStatus();
+        if (s != UCS_OK) break;
+      }
+    }
+
+    setStatus(s);
   }
 
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
                  this,
                  _tag,
-                 _completedRequests.size(),
+                 _completedRequests,
                  _totalFrames);
 }
 
@@ -179,13 +184,14 @@ void RequestTagMulti::recvHeader()
   auto bufferRequest = std::make_shared<BufferRequest>();
   _bufferRequests.push_back(bufferRequest);
   bufferRequest->stringBuffer = std::make_shared<std::string>(Header::dataSize(), 0);
-  bufferRequest->request      = _endpoint->tagRecv(
-    &bufferRequest->stringBuffer->front(),
-    bufferRequest->stringBuffer->size(),
-    _tag,
-    false,
-    [this](ucs_status_t status, RequestCallbackUserData arg) { return this->callback(status); },
-    nullptr);
+  bufferRequest->request =
+    _endpoint->tagRecv(&bufferRequest->stringBuffer->front(),
+                       bufferRequest->stringBuffer->size(),
+                       _tag,
+                       false,
+                       [this](ucs_status_t status, RequestCallbackUserData arg) {
+                         return this->recvCallback(status);
+                       });
 
   if (bufferRequest->request->isCompleted()) {
     // TODO: Errors may not be raisable within callback
@@ -198,24 +204,22 @@ void RequestTagMulti::recvHeader()
                  _bufferRequests.empty());
 }
 
-void RequestTagMulti::callback(ucs_status_t status)
+void RequestTagMulti::recvCallback(ucs_status_t status)
 {
-  if (_send) throw std::runtime_error("Send requests cannot call callback()");
+  if (_send) throw std::runtime_error("Send requests cannot call recvCallback()");
 
-  // TODO: Remove arg
-  ucxx_trace_req("RequestTagMulti::callback request: %p, tag: %lx", this, _tag);
+  ucxx_trace_req("RequestTagMulti::recvCallback request: %p, tag: %lx", this, _tag);
 
   if (_bufferRequests.empty()) {
     recvHeader();
   } else {
-    const auto request = _bufferRequests.back();
-
     if (status == UCS_OK) {
       ucxx_trace_req(
-        "RequestTagMulti::callback header received, multi request: %p, tag: %lx", this, _tag);
+        "RequestTagMulti::recvCallback header received, multi request: %p, tag: %lx", this, _tag);
     } else {
       ucxx_trace_req(
-        "RequestTagMulti::callback failed receiving header with status %d (%s), multi request: %p, "
+        "RequestTagMulti::recvCallback failed receiving header with status %d (%s), multi request: "
+        "%p, "
         "tag: %lx",
         status,
         ucs_status_string(status),
@@ -250,26 +254,19 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
 
   for (const auto& header : headers) {
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
-    auto r = _endpoint->tagSend(&serializedHeader->front(), serializedHeader->size(), _tag, false);
-
-    auto bufferRequest          = std::make_shared<BufferRequest>();
-    bufferRequest->request      = r;
+    auto bufferRequest    = std::make_shared<BufferRequest>();
+    bufferRequest->request =
+      _endpoint->tagSend(&serializedHeader->front(), serializedHeader->size(), _tag, false);
     bufferRequest->stringBuffer = serializedHeader;
     _bufferRequests.push_back(bufferRequest);
   }
 
   for (size_t i = 0; i < _totalFrames; ++i) {
-    auto bufferRequest = std::make_shared<BufferRequest>();
-    auto r             = _endpoint->tagSend(
-      buffer[i],
-      size[i],
-      _tag,
-      false,
-      [this](ucs_status_t status, RequestCallbackUserData arg) {
+    auto bufferRequest     = std::make_shared<BufferRequest>();
+    bufferRequest->request = _endpoint->tagSend(
+      buffer[i], size[i], _tag, false, [this](ucs_status_t status, RequestCallbackUserData arg) {
         return this->markCompleted(status, arg);
-      },
-      bufferRequest);
-    bufferRequest->request = r;
+      });
     _bufferRequests.push_back(bufferRequest);
   }
 
@@ -278,12 +275,12 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
     "RequestTagMulti::send request: %p, tag: %lx, isFilled: %d", this, _tag, _isFilled);
 }
 
-ucs_status_t RequestTagMulti::getStatus() { return _status; }
+void RequestTagMulti::populateDelayedSubmission() {}
 
-void* RequestTagMulti::getFuture() { return _future ? _future->getHandle() : nullptr; }
-
-void RequestTagMulti::checkError() { utils::ucsErrorThrow(_status); }
-
-bool RequestTagMulti::isCompleted() { return _status != UCS_INPROGRESS; }
+void RequestTagMulti::cancel()
+{
+  for (auto& br : _bufferRequests)
+    if (br->request) br->request->cancel();
+}
 
 }  // namespace ucxx

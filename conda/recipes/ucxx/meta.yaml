@@ -5,7 +5,6 @@
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
-{% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
 package:
@@ -37,12 +36,23 @@ requirements:
     - cmake
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }} ={{ cuda_version }}
+    {% else %}
+    - {{ compiler('cuda') }}
+    {% endif %}
+    - cuda-version ={{ cuda_version }}
     - ninja
     - sysroot_{{ target_platform }}
   host:
-    - cudatoolkit ={{ cuda_version }}
+    {% if cuda_major != "11" %}
+    - cuda-cudart-dev
+    {% endif %}
+    - cuda-version ={{ cuda_version }}
     - ucx
     - python
+    - librmm =23.08
+    - gtest
 
 outputs:
   - name: libucxx
@@ -53,13 +63,30 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       run_exports:
         - {{ pin_subpackage("libucxx", max_pin="x.x") }}
+      ignore_run_exports_from:
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }}
+        {% endif %}
     requirements:
       build:
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }} ={{ cuda_version }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        {% endif %}
+        - sysroot_{{ target_platform }}
         - cmake
+        - ninja
       host:
         - ucx
+        - cuda-version ={{ cuda_version }}
       run:
-        - cudatoolkit {{ cuda_spec }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% endif %}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - ucx
     test:
       commands:
@@ -124,12 +151,33 @@ outputs:
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }}
+        {% endif %}
     requirements:
       build:
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }} ={{ cuda_version }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        {% endif %}
+        - sysroot_{{ target_platform }}
         - cmake
+        - ninja
+      host:
+        {% if cuda_major != "11" %}
+        - cuda-cudart-dev
+        {% endif %}
+        - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_subpackage('libucxx', exact=True) }}
-        - cudatoolkit {{ cuda_spec }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% endif %}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - gtest
         - gmock
     about:
@@ -162,10 +210,18 @@ outputs:
         - numpy 1.21
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
-        - rmm =23.06
+        - rmm =23.08
+        {% if cuda_major != "11" %}
+        - cuda-cudart-dev
+        {% endif %}
+        - cuda-version {{ cuda_version }}
       run:
         - python * *_cpython
         - packaging
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% endif %}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - ucx
         - {{ pin_subpackage('libucxx', exact=True) }}
         - {{ pin_compatible('rmm', max_pin='x.x') }}

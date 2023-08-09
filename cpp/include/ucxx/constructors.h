@@ -19,6 +19,7 @@ class Future;
 class Listener;
 class Notifier;
 class Request;
+class RequestAm;
 class RequestStream;
 class RequestTag;
 class RequestTagMulti;
@@ -54,6 +55,19 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableFuture);
 
 // Transfers
+std::shared_ptr<RequestAm> createRequestAmSend(std::shared_ptr<Endpoint> endpoint,
+                                               void* buffer,
+                                               size_t length,
+                                               ucs_memory_type_t memoryType,
+                                               const bool enablePythonFuture,
+                                               RequestCallbackUserFunction callbackFunction,
+                                               RequestCallbackUserData callbackData);
+
+std::shared_ptr<RequestAm> createRequestAmRecv(std::shared_ptr<Endpoint> endpoint,
+                                               const bool enablePythonFuture,
+                                               RequestCallbackUserFunction callbackFunction,
+                                               RequestCallbackUserData callbackData);
+
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
                                                    bool send,
                                                    void* buffer,

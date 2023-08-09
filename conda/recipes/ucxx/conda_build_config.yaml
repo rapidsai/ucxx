@@ -4,6 +4,12 @@ c_compiler_version:
 cxx_compiler_version:
   - 11
 
+cuda_compiler:
+  - cuda-nvcc
+
+cuda11_compiler:
+  - nvcc
+
 sysroot_linux_64:
   - "2.17"
 
@@ -16,3 +22,9 @@ python:
 
 ucx:
   - 1.14.0
+
+gmock:
+  - ">=1.13.0"
+
+gtest:
+  - ">=1.13.0"
