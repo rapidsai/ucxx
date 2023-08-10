@@ -41,7 +41,8 @@ class ApplicationContext:
         self.progress_mode = ApplicationContext._check_progress_mode(progress_mode)
 
         enable_delayed_submission = ApplicationContext._check_enable_delayed_submission(
-            enable_delayed_submission
+            enable_delayed_submission,
+            self.progress_mode,
         )
         enable_python_future = ApplicationContext._check_enable_python_future(
             enable_python_future, self.progress_mode
@@ -84,16 +85,29 @@ class ApplicationContext:
         return progress_mode
 
     @staticmethod
-    def _check_enable_delayed_submission(enable_delayed_submission):
+    def _check_enable_delayed_submission(enable_delayed_submission, progress_mode):
         if enable_delayed_submission is None:
             if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
-                enable_delayed_submission = (
+                explicit_enable_delayed_submission = (
                     False
                     if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0"
                     else True
                 )
             else:
-                enable_delayed_submission = True
+                explicit_enable_delayed_submission = progress_mode.startswith("thread")
+        else:
+            explicit_enable_delayed_submission = enable_delayed_submission
+
+        if (
+            not progress_mode.startswith("thread")
+            and explicit_enable_delayed_submission
+        ):
+            raise ValueError(
+                f"Delayed submission requested, but {progress_mode} does not "
+                "support it, 'thread' or 'thread-polling' progress mode required."
+            )
+
+        return explicit_enable_delayed_submission
 
     @staticmethod
     def _check_enable_python_future(enable_python_future, progress_mode):
@@ -248,7 +262,8 @@ class ApplicationContext:
         ucx_ep = ucx_api.UCXEndpoint.create(
             self.worker, ip_address, port, endpoint_error_handling
         )
-        self.worker.progress()
+        if not self.progress_mode.startswith("thread"):
+            self.worker.progress()
 
         # We create the Endpoint in three steps:
         #  1) Generate unique IDs to use as tags
@@ -315,7 +330,8 @@ class ApplicationContext:
             address,
             endpoint_error_handling,
         )
-        self.worker.progress()
+        if not self.progress_mode.startswith("thread"):
+            self.worker.progress()
 
         ep = Endpoint(endpoint=ucx_ep, ctx=self, tags=None)
 

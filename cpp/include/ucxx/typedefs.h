@@ -5,11 +5,13 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
 namespace ucxx {
 
+class Buffer;
 class Request;
 
 // Logging levels
@@ -31,5 +33,10 @@ typedef enum {
 } ucxx_log_level_t;
 
 typedef std::unordered_map<std::string, std::string> ConfigMap;
+
+typedef std::function<void(ucs_status_t, std::shared_ptr<void>)> RequestCallbackUserFunction;
+typedef std::shared_ptr<void> RequestCallbackUserData;
+
+typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
 
 }  // namespace ucxx

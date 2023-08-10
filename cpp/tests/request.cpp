@@ -21,20 +21,22 @@ using ::testing::Combine;
 using ::testing::ContainerEq;
 using ::testing::Values;
 
-class RequestTest
-  : public ::testing::TestWithParam<std::tuple<ucxx::BufferType, bool, ProgressMode, size_t>> {
+class RequestTest : public ::testing::TestWithParam<
+                      std::tuple<ucxx::BufferType, bool, bool, ProgressMode, size_t>> {
  protected:
-  std::shared_ptr<ucxx::Context> _context{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+  std::shared_ptr<ucxx::Context> _context{nullptr};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   std::shared_ptr<ucxx::Endpoint> _ep{nullptr};
   std::function<void()> _progressWorker;
 
   ucxx::BufferType _bufferType;
+  ucs_memory_type_t _memoryType;
+  bool _registerCustomAmAllocator;
   bool _enableDelayedSubmission;
   ProgressMode _progressMode;
   size_t _messageLength;
   size_t _messageSize;
+  size_t _rndvThresh{8192};
 
   size_t _numBuffers{0};
   std::vector<std::vector<int>> _send;
@@ -52,10 +54,18 @@ class RequestTest
 #endif
     }
 
-    std::tie(_bufferType, _enableDelayedSubmission, _progressMode, _messageLength) = GetParam();
+    std::tie(_bufferType,
+             _registerCustomAmAllocator,
+             _enableDelayedSubmission,
+             _progressMode,
+             _messageLength) = GetParam();
+    _memoryType =
+      (_bufferType == ucxx::BufferType::RMM) ? UCS_MEMORY_TYPE_CUDA : UCS_MEMORY_TYPE_HOST;
     _messageSize = _messageLength * sizeof(int);
 
-    _worker = _context->createWorker(_enableDelayedSubmission);
+    _context = ucxx::createContext({{"RNDV_THRESH", std::to_string(_rndvThresh)}},
+                                   ucxx::Context::defaultFeatureFlags);
+    _worker  = _context->createWorker(_enableDelayedSubmission);
 
     if (_progressMode == ProgressMode::Blocking) {
       _worker->initBlockingProgressMode();
@@ -112,6 +122,9 @@ class RequestTest
       _sendPtr[i] = _sendBuffer[i]->data();
       if (allocateRecvBuffer) _recvPtr[i] = _recvBuffer[i]->data();
     }
+#if UCXX_ENABLE_RMM
+    if (_bufferType == ucxx::BufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
+#endif
   }
 
   void copyResults()
@@ -131,8 +144,50 @@ class RequestTest
 #endif
       }
     }
+#if UCXX_ENABLE_RMM
+    if (_bufferType == ucxx::BufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
+#endif
   }
 };
+
+TEST_P(RequestTest, ProgressAm)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+#if !UCXX_ENABLE_RMM
+  GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
+  if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+      return std::make_shared<ucxx::RMMBuffer>(length);
+    });
+  }
+
+  allocate(1, false);
+
+  // Submit and wait for transfers to complete
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto recvReq = requests[1];
+  _recvPtr[0]  = recvReq->getRecvBuffer()->data();
+
+  // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
+  // smaller messages are eager and will always be host-allocated.
+  ASSERT_THAT(recvReq->getRecvBuffer()->getType(),
+              (_registerCustomAmAllocator && _messageSize >= _rndvThresh) ? _bufferType
+                                                                          : ucxx::BufferType::Host);
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+#endif
+}
 
 TEST_P(RequestTest, ProgressStream)
 {
@@ -182,10 +237,10 @@ TEST_P(RequestTest, ProgressTagMulti)
   std::vector<int> multiIsCUDA(numMulti, _bufferType == ucxx::BufferType::RMM);
 
   // Submit and wait for transfers to complete
-  std::vector<std::shared_ptr<ucxx::RequestTagMulti>> requests;
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->tagMultiSend(_sendPtr, multiSize, multiIsCUDA, 0, false));
   requests.push_back(_ep->tagMultiRecv(0, false));
-  waitRequestsTagMulti(_worker, requests, _progressWorker);
+  waitRequests(_worker, requests, _progressWorker);
 
   auto recvRequest = requests[1];
 
@@ -193,7 +248,8 @@ TEST_P(RequestTest, ProgressTagMulti)
   size_t transferIdx = 0;
 
   // Populate recv pointers
-  for (const auto& br : recvRequest->_bufferRequests) {
+  for (const auto& br :
+       std::dynamic_pointer_cast<ucxx::RequestTagMulti>(requests[1])->_bufferRequests) {
     // br->buffer == nullptr are headers
     if (br->buffer) {
       ASSERT_EQ(br->buffer->getType(), _bufferType);
@@ -212,42 +268,77 @@ TEST_P(RequestTest, ProgressTagMulti)
     ASSERT_THAT(_recv[i], ContainerEq(_send[i]));
 }
 
+TEST_P(RequestTest, TagUserCallback)
+{
+  allocate();
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests(2);
+  std::vector<ucs_status_t> requestStatus(2, UCS_INPROGRESS);
+
+  auto checkStatus = [&requests, &requestStatus](ucs_status_t status,
+                                                 ::ucxx::RequestCallbackUserData data) {
+    auto idx = *std::static_pointer_cast<size_t>(data);
+    if (status != UCS_OK) abort();
+    requestStatus[idx] = status;
+  };
+
+  auto sendIndex = std::make_shared<size_t>(0u);
+  auto recvIndex = std::make_shared<size_t>(1u);
+
+  // Submit and wait for transfers to complete
+  requests[0] = _ep->tagSend(_sendPtr[0], _messageSize, 0, false, checkStatus, sendIndex);
+  requests[1] = _ep->tagRecv(_recvPtr[0], _messageSize, 0, false, checkStatus, recvIndex);
+  waitRequests(_worker, requests, _progressWorker);
+
+  copyResults();
+
+  for (const auto request : requests)
+    ASSERT_THAT(request->getStatus(), UCS_OK);
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
 INSTANTIATE_TEST_SUITE_P(ProgressModes,
                          RequestTest,
                          Combine(Values(ucxx::BufferType::Host),
+                                 Values(false),
                                  Values(false),
                                  Values(ProgressMode::Polling,
                                         ProgressMode::Blocking,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(1, 1024, 1048576)));
+                                 Values(1, 1024, 2048, 1048576)));
 
 INSTANTIATE_TEST_SUITE_P(DelayedSubmission,
                          RequestTest,
                          Combine(Values(ucxx::BufferType::Host),
+                                 Values(false),
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(1, 1024, 1048576)));
+                                 Values(1, 1024, 2048, 1048576)));
 
 #if UCXX_ENABLE_RMM
 INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
                          RequestTest,
                          Combine(Values(ucxx::BufferType::RMM),
+                                 Values(false, true),
                                  Values(false),
                                  Values(ProgressMode::Polling,
                                         ProgressMode::Blocking,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(1, 1024, 1048576)));
+                                 Values(1, 1024, 2048, 1048576)));
 
 INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
                          RequestTest,
                          Combine(Values(ucxx::BufferType::RMM),
+                                 Values(false, true),
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(1, 1024, 1048576)));
+                                 Values(1, 1024, 2048, 1048576)));
 #endif
 
 }  // namespace

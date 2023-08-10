@@ -9,15 +9,11 @@
 
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
 namespace ucxx {
-
-void ucpListenerDestructor(ucp_listener_h ptr)
-{
-  if (ptr != nullptr) ucp_listener_destroy(ptr);
-}
 
 Listener::Listener(std::shared_ptr<Worker> worker,
                    uint16_t port,
@@ -27,26 +23,18 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
 
-  ucp_listener_params_t params{};
-  ucp_listener_attr_t attr{};
+  ucp_listener_params_t params = {
+    .field_mask   = UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER,
+    .conn_handler = {.cb = callback, .arg = callbackArgs}};
+  auto info               = ucxx::utils::get_addrinfo(NULL, port);
+  params.sockaddr.addr    = info->ai_addr;
+  params.sockaddr.addrlen = info->ai_addrlen;
 
-  params.field_mask = UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER;
-  params.conn_handler.cb  = callback;
-  params.conn_handler.arg = callbackArgs;
+  utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &_handle));
+  ucxx_trace("Listener created: %p", _handle);
 
-  if (ucxx::utils::sockaddr_set(&params.sockaddr, NULL, port))
-    // throw std::bad_alloc("Failed allocation of sockaddr")
-    throw std::bad_alloc();
-  std::unique_ptr<ucs_sock_addr_t, void (*)(ucs_sock_addr_t*)> sockaddr(&params.sockaddr,
-                                                                        ucxx::utils::sockaddr_free);
-
-  ucp_listener_h handle = nullptr;
-  utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &handle));
-  _handle = std::unique_ptr<ucp_listener, void (*)(ucp_listener_h)>(handle, ucpListenerDestructor);
-  ucxx_trace("Listener created: %p", _handle.get());
-
-  attr.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR;
-  utils::ucsErrorThrow(ucp_listener_query(_handle.get(), &attr));
+  ucp_listener_attr_t attr = {.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR};
+  utils::ucsErrorThrow(ucp_listener_query(_handle, &attr));
 
   char ipString[INET6_ADDRSTRLEN];
   char portString[INET6_ADDRSTRLEN];
@@ -58,7 +46,28 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   setParent(worker);
 }
 
-Listener::~Listener() { ucxx_debug("Listener destroyed: %p", _handle.get()); }
+Listener::~Listener()
+{
+  auto worker = std::static_pointer_cast<Worker>(_parent);
+
+  if (worker->isProgressThreadRunning()) {
+    utils::CallbackNotifier callbackNotifierPre{false};
+    worker->registerGenericPre([this, &callbackNotifierPre]() {
+      ucp_listener_destroy(_handle);
+      callbackNotifierPre.store(true);
+    });
+    callbackNotifierPre.wait([](auto flag) { return flag; });
+
+    utils::CallbackNotifier callbackNotifierPost{false};
+    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
+    callbackNotifierPost.wait([](auto flag) { return flag; });
+  } else {
+    ucp_listener_destroy(this->_handle);
+    worker->progress();
+  }
+
+  ucxx_trace("Listener destroyed: %p", this->_handle);
+}
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          uint16_t port,
@@ -76,7 +85,7 @@ std::shared_ptr<Endpoint> Listener::createEndpointFromConnRequest(ucp_conn_reque
   return endpoint;
 }
 
-ucp_listener_h Listener::getHandle() { return _handle.get(); }
+ucp_listener_h Listener::getHandle() { return _handle; }
 
 uint16_t Listener::getPort() { return _port; }
 

@@ -5,6 +5,7 @@
 #include <memory>
 
 #include <ucxx/log.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/worker_progress_thread.h>
 
 namespace ucxx {
@@ -19,26 +20,33 @@ void WorkerProgressThread::progressUntilSync(
   if (startCallback) startCallback(startCallbackArg);
 
   while (!stop) {
-    if (delayedSubmissionCollection != nullptr) delayedSubmissionCollection->process();
+    delayedSubmissionCollection->processPre();
 
     progressFunction();
+
+    delayedSubmissionCollection->processPost();
   }
 }
 
 WorkerProgressThread::WorkerProgressThread(
   const bool pollingMode,
   std::function<bool(void)> progressFunction,
+  std::function<void(void)> signalWorkerFunction,
   ProgressThreadStartCallback startCallback,
   ProgressThreadStartCallbackArg startCallbackArg,
   std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection)
-  : _pollingMode(pollingMode), _startCallback(startCallback), _startCallbackArg(startCallbackArg)
+  : _pollingMode(pollingMode),
+    _signalWorkerFunction(signalWorkerFunction),
+    _startCallback(startCallback),
+    _startCallbackArg(startCallbackArg),
+    _delayedSubmissionCollection(delayedSubmissionCollection)
 {
   _thread = std::thread(WorkerProgressThread::progressUntilSync,
                         progressFunction,
                         std::ref(_stop),
                         _startCallback,
                         _startCallbackArg,
-                        delayedSubmissionCollection);
+                        _delayedSubmissionCollection);
 }
 
 WorkerProgressThread::~WorkerProgressThread()
@@ -48,10 +56,25 @@ WorkerProgressThread::~WorkerProgressThread()
     return;
   }
 
-  _stop = true;
+  utils::CallbackNotifier callbackNotifierPre{false};
+  _delayedSubmissionCollection->registerGenericPre(
+    [&callbackNotifierPre]() { callbackNotifierPre.store(true); });
+  _signalWorkerFunction();
+  callbackNotifierPre.wait([](auto flag) { return flag; });
+
+  utils::CallbackNotifier callbackNotifierPost{false};
+  _delayedSubmissionCollection->registerGenericPost([this, &callbackNotifierPost]() {
+    _stop = true;
+    callbackNotifierPost.store(true);
+  });
+  _signalWorkerFunction();
+  callbackNotifierPost.wait([](auto flag) { return flag; });
+
   _thread.join();
 }
 
 bool WorkerProgressThread::pollingMode() const { return _pollingMode; }
+
+std::thread::id WorkerProgressThread::getId() const { return _thread.get_id(); }
 
 }  // namespace ucxx

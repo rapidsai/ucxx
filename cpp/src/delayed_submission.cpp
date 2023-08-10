@@ -16,44 +16,110 @@ namespace ucxx {
 DelayedSubmission::DelayedSubmission(const bool send,
                                      void* buffer,
                                      const size_t length,
-                                     const ucp_tag_t tag)
-  : _send(send), _buffer(buffer), _length(length), _tag(tag)
+                                     const ucp_tag_t tag,
+                                     const ucs_memory_type_t memoryType)
+  : _send(send), _buffer(buffer), _length(length), _tag(tag), _memoryType(memoryType)
 {
 }
 
-void DelayedSubmissionCollection::process()
+DelayedSubmissionCollection::DelayedSubmissionCollection(bool enableDelayedRequestSubmission)
+  : _enableDelayedRequestSubmission(enableDelayedRequestSubmission)
 {
-  if (_collection.size() > 0) {
-    ucxx_trace_req("Submitting %lu requests", _collection.size());
+}
 
-    // Move _collection to a local copy in order to to hold the lock for as
+bool DelayedSubmissionCollection::isDelayedRequestSubmissionEnabled() const
+{
+  return _enableDelayedRequestSubmission;
+}
+
+void DelayedSubmissionCollection::processPre()
+{
+  decltype(_requests) requestsToProcess;
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    // Move _requests to a local copy in order to to hold the lock for as
     // short as possible
-    decltype(_collection) toProcess;
-    {
-      std::lock_guard<std::mutex> lock(_mutex);
-      toProcess = std::move(_collection);
+    requestsToProcess = std::move(_requests);
+  }
+  if (requestsToProcess.size() > 0) {
+    ucxx_trace_req("Submitting %lu requests", requestsToProcess.size());
+    for (auto& pair : requestsToProcess) {
+      auto& req      = pair.first;
+      auto& callback = pair.second;
+
+      ucxx_trace_req("Submitting request: %p", req.get());
+
+      if (callback) callback();
     }
+  }
+  decltype(_genericPre) callbacks;
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    // Move _genericPre to a local copy in order to to hold the lock for as
+    // short as possible
+    callbacks = std::move(_genericPre);
+  }
 
-    for (auto& callbackPtr : toProcess) {
-      auto& callback = *callbackPtr;
+  if (callbacks.size() > 0) {
+    ucxx_trace_req("Submitting %lu generic", callbacks.size());
 
-      ucxx_trace_req("Submitting request: %p", callback.target<void (*)(std::shared_ptr<void>)>());
+    for (auto& callback : callbacks) {
+      ucxx_trace_req("Submitting generic");
 
       if (callback) callback();
     }
   }
 }
 
-void DelayedSubmissionCollection::registerRequest(DelayedSubmissionCallbackType callback)
+void DelayedSubmissionCollection::processPost()
 {
-  auto r = std::make_shared<DelayedSubmissionCallbackType>(callback);
+  decltype(_genericPost) callbacks;
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    // Move _genericPost to a local copy in order to to hold the lock for as
+    // short as possible
+    callbacks = std::move(_genericPost);
+  }
+
+  if (callbacks.size() > 0) {
+    ucxx_trace_req("Submitting %lu generic", callbacks.size());
+
+    for (auto& callback : callbacks) {
+      ucxx_trace_req("Submitting generic");
+
+      if (callback) callback();
+    }
+  }
+}
+
+void DelayedSubmissionCollection::registerRequest(std::shared_ptr<Request> request,
+                                                  DelayedSubmissionCallbackType callback)
+{
+  if (!isDelayedRequestSubmissionEnabled()) throw std::runtime_error("Context not initialized");
 
   {
     std::lock_guard<std::mutex> lock(_mutex);
-    _collection.push_back(r);
+    _requests.push_back({request, callback});
   }
-  ucxx_trace_req("Registered submit request: %p",
-                 callback.target<void (*)(std::shared_ptr<void>)>());
+  ucxx_trace_req("Registered submit request: %p", request.get());
+}
+
+void DelayedSubmissionCollection::registerGenericPre(DelayedSubmissionCallbackType callback)
+{
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _genericPre.push_back({callback});
+  }
+  ucxx_trace_req("Registered generic");
+}
+
+void DelayedSubmissionCollection::registerGenericPost(DelayedSubmissionCallbackType callback)
+{
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _genericPost.push_back({callback});
+  }
+  ucxx_trace_req("Registered generic");
 }
 
 }  // namespace ucxx

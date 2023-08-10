@@ -10,7 +10,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="cpp_tests py_tests cpp_examples py_async_tests py_bench py_async_bench"
+VALIDARGS="cpp_tests py_tests cpp_examples py_async_tests py_bench py_async_bench -v -g -n -c --show_depr_warn -h"
 HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_bench] [py_async_bench]
    cpp_tests                     - run all C++ tests
    cpp_bench                     - run C++ benchmarks
@@ -28,6 +28,7 @@ HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_
    -v                            - verbose build mode
    -g                            - build for debug
    -n                            - no install step
+   -c                            - create cpp/compile_commands.json
    --show_depr_warn              - show cmake deprecation warnings
    --cmake-args=\\\"<args>\\\"   - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h | --h[elp]                 - print this text
@@ -35,6 +36,8 @@ HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_
    default action (no args) is to build (with command below) and run all tests and benchmarks.
      ./build.sh libucxx libucxx_python ucxx tests
 "
+BUILD_ARGS=""
+
 RUN_CPP_TESTS=0
 RUN_CPP_BENCH=0
 RUN_CPP_EXAMPLE=0
@@ -56,6 +59,19 @@ function runAll {
 if hasArg -h || hasArg --h || hasArg --help; then
     echo "${HELP}"
     exit 0
+fi
+
+if hasArg -v; then
+    BUILD_ARGS="${BUILD_ARGS} -v"
+fi
+if hasArg -g; then
+    BUILD_ARGS="${BUILD_ARGS} -g"
+fi
+if hasArg -n; then
+    BUILD_ARGS="${BUILD_ARGS} -n"
+fi
+if hasArg -c; then
+    BUILD_ARGS="${BUILD_ARGS} -c"
 fi
 
 if runAll || hasArg cpp_tests; then
@@ -83,10 +99,7 @@ fi
 # Exit if a building error occurs
 set -e
 
-export CMAKE_EXPORT_COMPILE_COMMANDS=ON
-
-(cd ${REPODIR}; ./build.sh -g libucxx libucxx_python ucxx benchmarks tests examples)
-(cd ${REPODIR}; cp cpp/build/compile_commands.json cpp/)
+(cd ${REPODIR}; ./build.sh ${BUILD_ARGS} libucxx libucxx_python ucxx benchmarks tests examples)
 
 # Let all tests run even if they fail
 set +e
@@ -156,7 +169,9 @@ run_py_benchmark() {
 }
 
 if [[ $RUN_CPP_TESTS != 0 ]]; then
-  ${BINARY_PATH}/gtests/libucxx/UCXX_TEST
+  # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
+  # `TIME_WAIT` timeout
+  UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/gtests/libucxx/UCXX_TEST
 fi
 if [[ $RUN_CPP_BENCH != 0 ]]; then
   # run_cpp_benchmark PROGRESS_MODE
@@ -180,14 +195,14 @@ if [[ $RUN_PY_TESTS != 0 ]]; then
 fi
 if [[ $RUN_PY_ASYNC_TESTS != 0 ]]; then
   # run_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
-  run_tests_async   polling         0                         0                    1    # Unstable
-  run_tests_async   polling         0                         1                    1    # Unstable
-  run_tests_async   polling         1                         0                    1    # Unstable
-  run_tests_async   polling         1                         1                    1    # Unstable
-  run_tests_async   thread-polling  0                         0                    1    # Unstable
-  run_tests_async   thread-polling  0                         1                    1    # Unstable
-  run_tests_async   thread-polling  1                         0                    1    # Unstable
-  run_tests_async   thread-polling  1                         1                    1    # Unstable
+  run_tests_async   polling         0                         0                    0
+  run_tests_async   polling         0                         1                    0
+  run_tests_async   polling         1                         0                    1    # Delayed submission can't be used with polling
+  run_tests_async   polling         1                         1                    1    # Delayed submission can't be used with polling
+  run_tests_async   thread-polling  0                         0                    0
+  run_tests_async   thread-polling  0                         1                    0
+  run_tests_async   thread-polling  1                         0                    0
+  run_tests_async   thread-polling  1                         1                    0
   run_tests_async   thread          0                         0                    0
   run_tests_async   thread          0                         1                    0
   run_tests_async   thread          1                         0                    0

@@ -23,13 +23,6 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
             enablePythonFuture),
     _length(length)
 {
-  auto worker = Endpoint::getWorker(endpoint->getParent());
-
-  // A delayed notification request is not populated immediately, instead it is
-  // delayed to allow the worker progress thread to set its status, and more
-  // importantly the Python future later on, so that we don't need the GIL here.
-  worker->registerDelayedSubmission(
-    std::bind(std::mem_fn(&Request::populateDelayedSubmission), this));
 }
 
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
@@ -38,8 +31,16 @@ std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> end
                                                    size_t length,
                                                    const bool enablePythonFuture = false)
 {
-  return std::shared_ptr<RequestStream>(
+  auto req = std::shared_ptr<RequestStream>(
     new RequestStream(endpoint, send, buffer, length, enablePythonFuture));
+
+  // A delayed notification request is not populated immediately, instead it is
+  // delayed to allow the worker progress thread to set its status, and more
+  // importantly the Python future later on, so that we don't need the GIL here.
+  req->_worker->registerDelayedSubmission(
+    req, std::bind(std::mem_fn(&Request::populateDelayedSubmission), req.get()));
+
+  return req;
 }
 
 void RequestStream::request()
@@ -49,25 +50,39 @@ void RequestStream::request()
                                                UCP_OP_ATTR_FIELD_USER_DATA,
                                .datatype  = ucp_dt_make_contig(1),
                                .user_data = this};
+  void* request             = nullptr;
 
   if (_delayedSubmission->_send) {
     param.cb.send = streamSendCallback;
-    _request      = ucp_stream_send_nbx(
+    request       = ucp_stream_send_nbx(
       _endpoint->getHandle(), _delayedSubmission->_buffer, _delayedSubmission->_length, &param);
   } else {
     param.op_attr_mask |= UCP_OP_ATTR_FIELD_FLAGS;
     param.flags          = UCP_STREAM_RECV_FLAG_WAITALL;
     param.cb.recv_stream = streamRecvCallback;
-    _request             = ucp_stream_recv_nbx(_endpoint->getHandle(),
-                                   _delayedSubmission->_buffer,
-                                   _delayedSubmission->_length,
-                                   &_delayedSubmission->_length,
-                                   &param);
+    request              = ucp_stream_recv_nbx(_endpoint->getHandle(),
+                                  _delayedSubmission->_buffer,
+                                  _delayedSubmission->_length,
+                                  &_delayedSubmission->_length,
+                                  &param);
   }
+
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  _request = request;
 }
 
 void RequestStream::populateDelayedSubmission()
 {
+  if (_delayedSubmission->_send && _endpoint->getHandle() == nullptr) {
+    ucxx_warn("Endpoint was closed before message could be sent");
+    Request::callback(this, UCS_ERR_CANCELED);
+    return;
+  } else if (!_delayedSubmission->_send && _worker->getHandle() == nullptr) {
+    ucxx_warn("Worker was closed before message could be received");
+    Request::callback(this, UCS_ERR_CANCELED);
+    return;
+  }
+
   request();
 
   if (_enablePythonFuture)
@@ -91,8 +106,7 @@ void RequestStream::populateDelayedSubmission()
 
 void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 {
-  status  = length == _length ? status : UCS_ERR_MESSAGE_TRUNCATED;
-  _status = status;
+  status = length == _length ? status : UCS_ERR_MESSAGE_TRUNCATED;
 
   if (status == UCS_ERR_MESSAGE_TRUNCATED) {
     const char* fmt = "length mismatch: %llu (got) != %llu (expected)";

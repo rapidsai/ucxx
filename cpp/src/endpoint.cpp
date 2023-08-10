@@ -14,27 +14,38 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
+#include <ucxx/request_am.h>
 #include <ucxx/request_stream.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/request_tag_multi.h>
 #include <ucxx/typedefs.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
 
-void EpParamsDeleter::operator()(ucp_ep_params_t* ptr)
+static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener)
 {
-  if (ptr != nullptr && ptr->field_mask & UCP_EP_PARAM_FIELD_SOCK_ADDR)
-    ucxx::utils::sockaddr_free(&ptr->sockaddr);
+  auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
+  if (worker == nullptr) {
+    auto listener = std::dynamic_pointer_cast<Listener>(workerOrListener);
+    if (listener == nullptr)
+      throw std::invalid_argument(
+        "Invalid object, it's not a shared_ptr to either ucxx::Worker nor ucxx::Listener");
+
+    worker = std::dynamic_pointer_cast<Worker>(listener->getParent());
+  }
+  return worker;
 }
 
 Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
-                   std::unique_ptr<ucp_ep_params_t, EpParamsDeleter> params,
+                   ucp_ep_params_t* params,
                    bool endpointErrorHandling)
   : _endpointErrorHandling{endpointErrorHandling}
 {
-  auto worker = Endpoint::getWorker(workerOrListener);
+  auto worker = ::ucxx::getWorker(workerOrListener);
 
   if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
@@ -49,8 +60,19 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.cb  = Endpoint::errorCallback;
   params->err_handler.arg = _callbackData.get();
 
-  utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params.get(), &_handle));
-  ucxx_trace("Endpoint created: %p", _handle);
+  if (worker->isProgressThreadRunning()) {
+    utils::CallbackNotifier callbackNotifier{UCS_INPROGRESS};
+    auto worker = ::ucxx::getWorker(_parent);
+    worker->registerGenericPre([this, &params, &callbackNotifier]() {
+      auto worker = ::ucxx::getWorker(_parent);
+      auto status = ucp_ep_create(worker->getHandle(), params, &_handle);
+      callbackNotifier.store(status);
+    });
+    auto status = callbackNotifier.wait([](auto status) { return status != UCS_INPROGRESS; });
+    utils::ucsErrorThrow(status);
+  } else {
+    utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
+  }
 }
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
@@ -61,18 +83,16 @@ std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> wor
   if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
 
-  auto params = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
-
-  struct hostent* hostname = gethostbyname(ipAddress.c_str());
-  if (hostname == nullptr) throw ucxx::Error(std::string("Invalid IP address or hostname"));
-
-  params->field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_SOCK_ADDR;
+  auto info              = ucxx::utils::get_addrinfo(ipAddress.c_str(), port);
+  ucp_ep_params_t params = {.field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_SOCK_ADDR,
+                            .flags      = UCP_EP_PARAMS_FLAGS_CLIENT_SERVER,
+                            .sockaddr   = {.addrlen = info->ai_addrlen, .addr = info->ai_addr}};
   if (endpointErrorHandling)
     params->field_mask |= UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
-  params->flags = UCP_EP_PARAMS_FLAGS_CLIENT_SERVER;
+
   if (ucxx::utils::sockaddr_set(&params->sockaddr, hostname->h_name, port)) throw std::bad_alloc();
 
-  return std::shared_ptr<Endpoint>(new Endpoint(worker, std::move(params), endpointErrorHandling));
+  return std::shared_ptr<Endpoint>(new Endpoint(worker, &params, endpointErrorHandling));
 }
 
 std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener> listener,
@@ -82,15 +102,14 @@ std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener
   if (listener == nullptr || listener->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
 
-  auto params        = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
-  params->field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_CONN_REQUEST;
+  ucp_ep_params_t params = {
+    .field_mask   = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_CONN_REQUEST,
+    .flags        = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK,
+    .conn_request = connRequest};
   if (endpointErrorHandling)
     params->field_mask |= UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
-  params->flags        = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK;
-  params->conn_request = connRequest;
 
-  return std::shared_ptr<Endpoint>(
-    new Endpoint(listener, std::move(params), endpointErrorHandling));
+  return std::shared_ptr<Endpoint>(new Endpoint(listener, &params, endpointErrorHandling));
 }
 
 std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker> worker,
@@ -102,13 +121,12 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
   if (address == nullptr || address->getHandle() == nullptr || address->getLength() == 0)
     throw ucxx::Error("Address not initialized");
 
-  auto params        = std::unique_ptr<ucp_ep_params_t, EpParamsDeleter>(new ucp_ep_params_t);
-  params->field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS;
+  ucp_ep_params_t params = {.field_mask = UCP_EP_PARAM_FIELD_REMOTE_ADDRESS,
+                            .address    = address->getHandle()};
   if (endpointErrorHandling)
     params->field_mask |= UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
-  params->address = address->getHandle();
 
-  return std::shared_ptr<Endpoint>(new Endpoint(worker, std::move(params), endpointErrorHandling));
+  return std::shared_ptr<Endpoint>(new Endpoint(worker, &params, endpointErrorHandling));
 }
 
 Endpoint::~Endpoint()
@@ -133,9 +151,9 @@ void Endpoint::close()
   }
   ucs_status_ptr_t status = ucp_ep_close_nb(_handle, closeMode);
   if (UCS_PTR_IS_PTR(status)) {
-    auto worker = Endpoint::getWorker(_parent);
+    auto worker = ::ucxx::getWorker(_parent);
     while (ucp_request_check_status(status) == UCS_INPROGRESS)
-      worker->progress();
+      if (!worker->isProgressThreadRunning()) worker->progress();
     ucp_request_free(status);
   } else if (UCS_PTR_STATUS(status) != UCS_OK) {
     ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
@@ -200,7 +218,48 @@ void Endpoint::removeInflightRequest(const Request* const request)
   _inflightRequests->remove(request);
 }
 
-size_t Endpoint::cancelInflightRequests() { return _inflightRequests->cancelAll(); }
+size_t Endpoint::cancelInflightRequests()
+{
+  auto worker     = ::ucxx::getWorker(this->_parent);
+  size_t canceled = 0;
+
+  if (worker->isProgressThreadRunning()) {
+    utils::CallbackNotifier callbackNotifierPre{false};
+    worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
+      canceled = _inflightRequests->cancelAll();
+      callbackNotifierPre.store(true);
+    });
+    callbackNotifierPre.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callbackNotifierPost{false};
+    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
+    callbackNotifierPost.wait([](auto flag) { return flag; });
+  } else {
+    canceled = _inflightRequests->cancelAll();
+  }
+
+  return canceled;
+}
+
+std::shared_ptr<Request> Endpoint::amSend(void* buffer,
+                                          size_t length,
+                                          ucs_memory_type_t memoryType,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(createRequestAmSend(
+    endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(
+    createRequestAmRecv(endpoint, enablePythonFuture, callbackFunction, callbackData));
+}
 
 std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
                                               size_t length,
@@ -220,58 +279,48 @@ std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
     createRequestStream(endpoint, false, buffer, length, enablePythonFuture));
 }
 
-std::shared_ptr<Request> Endpoint::tagSend(
-  void* buffer,
-  size_t length,
-  ucp_tag_t tag,
-  const bool enablePythonFuture,
-  std::function<void(std::shared_ptr<void>)> callbackFunction,
-  std::shared_ptr<void> callbackData)
+std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
+                                           size_t length,
+                                           ucp_tag_t tag,
+                                           const bool enablePythonFuture,
+                                           RequestCallbackUserFunction callbackFunction,
+                                           RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTag(
     endpoint, true, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
-std::shared_ptr<Request> Endpoint::tagRecv(
-  void* buffer,
-  size_t length,
-  ucp_tag_t tag,
-  const bool enablePythonFuture,
-  std::function<void(std::shared_ptr<void>)> callbackFunction,
-  std::shared_ptr<void> callbackData)
+std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
+                                           size_t length,
+                                           ucp_tag_t tag,
+                                           const bool enablePythonFuture,
+                                           RequestCallbackUserFunction callbackFunction,
+                                           RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTag(
     endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
-std::shared_ptr<RequestTagMulti> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
-                                                        const std::vector<size_t>& size,
-                                                        const std::vector<int>& isCUDA,
-                                                        const ucp_tag_t tag,
-                                                        const bool enablePythonFuture)
+std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
+                                                const std::vector<size_t>& size,
+                                                const std::vector<int>& isCUDA,
+                                                const ucp_tag_t tag,
+                                                const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture);
+  return registerInflightRequest(
+    createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
 }
 
-std::shared_ptr<RequestTagMulti> Endpoint::tagMultiRecv(const ucp_tag_t tag,
-                                                        const bool enablePythonFuture)
+std::shared_ptr<Request> Endpoint::tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return createRequestTagMultiRecv(endpoint, tag, enablePythonFuture);
+  return registerInflightRequest(createRequestTagMultiRecv(endpoint, tag, enablePythonFuture));
 }
 
-std::shared_ptr<Worker> Endpoint::getWorker(std::shared_ptr<Component> workerOrListener)
-{
-  auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
-  if (worker == nullptr) {
-    auto listener = std::dynamic_pointer_cast<Listener>(workerOrListener);
-    worker        = std::dynamic_pointer_cast<Worker>(listener->getParent());
-  }
-  return worker;
-}
+std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }
 
 void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {

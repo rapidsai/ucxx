@@ -11,10 +11,11 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
+set(libucxx_version 0.34.00)
 
 project(
-    UCXX
-  VERSION 0.0.1
+  UCXX
+  VERSION ${libucxx_version}
   LANGUAGES C CXX
 )
 
@@ -112,9 +113,11 @@ add_library(
   src/endpoint.cpp
   src/header.cpp
   src/inflight_requests.cpp
+  src/internal/request_am.cpp
   src/listener.cpp
   src/log.cpp
   src/request.cpp
+  src/request_am.cpp
   src/request_helper.cpp
   src/request_stream.cpp
   src/request_tag.cpp

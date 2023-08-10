@@ -10,11 +10,7 @@ import ucxx as ucxx
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("transfer_api", ["am", "tag"])
-@pytest.mark.xfail(reason="https://github.com/rapidsai/ucxx/issues/19")
 async def test_message_probe(transfer_api):
-    if transfer_api == "am":
-        pytest.skip("AM not implemented yet")
-
     msg = bytearray(b"0" * 10)
 
     async def server_node(ep):
@@ -25,13 +21,14 @@ async def test_message_probe(transfer_api):
 
         if transfer_api == "am":
             assert ep._ep.am_probe() is True
-            received = await ep.am_recv()
+            received = bytes(await ep.am_recv())
         else:
             assert ep._ctx.worker.tag_probe(ep._tags["msg_recv"]) is True
             received = bytearray(10)
             await ep.recv(received)
         assert received == msg
 
+        await ep.close()
         listener.close()
 
     async def client_node(port):
@@ -43,6 +40,7 @@ async def test_message_probe(transfer_api):
             await ep.am_send(msg)
         else:
             await ep.send(msg)
+        await ep.close()
 
     listener = ucxx.create_listener(
         server_node,
