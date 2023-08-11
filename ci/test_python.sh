@@ -23,7 +23,8 @@ rapids-print-env
 print_system_stats
 
 run_tests() {
-  rapids-logger "Running: timeout 2m pytest -vs python/ucxx/_lib/tests/"
+  CMD_LINE="timeout 2m pytest -vs python/ucxx/_lib/tests/"
+  log_command "${CMD_LINE}"
   timeout 2m pytest -vs python/ucxx/_lib/tests/
 }
 
@@ -36,9 +37,9 @@ run_tests_async() {
   CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 20m pytest -vs python/ucxx/_lib_async/tests/ --durations=50"
 
   if [ $SKIP -ne 0 ]; then
-    rapids-logger "Skipping unstable test: ${CMD_LINE}"
+    echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
   else
-    rapids-logger "Running: ${CMD_LINE}"
+    log_command "${CMD_LINE}"
     UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 20m pytest -vs python/ucxx/_lib_async/tests/ --durations=50
   fi
 }
@@ -63,9 +64,9 @@ run_py_benchmark() {
   # Workaround for https://github.com/rapidsai/ucxx/issues/15
   CMD_LINE="UCX_KEEPALIVE_INTERVAL=1ms ${CMD_LINE}"
 
-  rapids-logger "Running: ${CMD_LINE}"
+  log_command "${CMD_LINE}"
   if [ $SLOW -ne 0 ]; then
-    rapids-logger "SLOW BENCHMARK: it may seem like a deadlock but will eventually complete."
+    echo -e "\e[1;33mSLOW BENCHMARK: it may seem like a deadlock but will eventually complete.\e[0m"
   fi
 
   UCX_KEEPALIVE_INTERVAL=1ms UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 2m python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}
@@ -81,12 +82,15 @@ rapids-mamba-retry install \
 print_ucx_config
 
 rapids-logger "Run tests with conda package"
+rapids-logger "Python Core Tests"
 run_tests
 
+rapids-logger "Python Async Tests"
 # run_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
 run_tests_async   thread          0                         0                    0
 run_tests_async   thread          1                         1                    0
 
+rapids-logger "Python Benchmarks"
 # run_py_benchmark  BACKEND   PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
 run_py_benchmark    ucxx-core thread          0             0                         0                    1        0
 run_py_benchmark    ucxx-core thread          1             0                         0                    1        0
