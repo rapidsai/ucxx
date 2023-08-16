@@ -164,6 +164,9 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
         if (s != UCS_OK) break;
       }
     }
+    // Check the status of the current (and final) message as it may have completed before
+    // `_bufferRequests->request` was populated.
+    if (s == UCS_OK) s = status;
 
     setStatus(s);
   }
