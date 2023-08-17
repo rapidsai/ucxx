@@ -164,6 +164,9 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
         if (s != UCS_OK) break;
       }
     }
+    // Check the status of the current (and final) message as it may have completed before
+    // `_bufferRequests->request` was populated.
+    if (s == UCS_OK) s = status;
 
     setStatus(s);
   }
@@ -255,19 +258,19 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
   for (const auto& header : headers) {
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
     auto bufferRequest    = std::make_shared<BufferRequest>();
+    _bufferRequests.push_back(bufferRequest);
     bufferRequest->request =
       _endpoint->tagSend(&serializedHeader->front(), serializedHeader->size(), _tag, false);
     bufferRequest->stringBuffer = serializedHeader;
-    _bufferRequests.push_back(bufferRequest);
   }
 
   for (size_t i = 0; i < _totalFrames; ++i) {
-    auto bufferRequest     = std::make_shared<BufferRequest>();
+    auto bufferRequest = std::make_shared<BufferRequest>();
+    _bufferRequests.push_back(bufferRequest);
     bufferRequest->request = _endpoint->tagSend(
       buffer[i], size[i], _tag, false, [this](ucs_status_t status, RequestCallbackUserData arg) {
         return this->markCompleted(status, arg);
       });
-    _bufferRequests.push_back(bufferRequest);
   }
 
   _isFilled = true;
