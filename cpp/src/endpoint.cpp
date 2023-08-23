@@ -148,14 +148,42 @@ void Endpoint::close()
     // the endpoint status is not UCS_OK
     closeMode = UCP_EP_CLOSE_MODE_FORCE;
   }
-  ucs_status_ptr_t status = ucp_ep_close_nb(_handle, closeMode);
-  if (UCS_PTR_IS_PTR(status)) {
-    auto worker = ::ucxx::getWorker(_parent);
-    while (ucp_request_check_status(status) == UCS_INPROGRESS)
-      if (!worker->isProgressThreadRunning()) worker->progress();
-    ucp_request_free(status);
-  } else if (UCS_PTR_STATUS(status) != UCS_OK) {
-    ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
+
+  auto worker = ::ucxx::getWorker(_parent);
+  ucs_status_ptr_t status;
+
+  if (worker->isProgressThreadRunning()) {
+    utils::CallbackNotifier callbackNotifierPre{false};
+    worker->registerGenericPre([this, &callbackNotifierPre, &status, closeMode]() {
+      status = ucp_ep_close_nb(_handle, closeMode);
+      callbackNotifierPre.store(true);
+    });
+    callbackNotifierPre.wait([](auto flag) { return flag; });
+
+    while (UCS_PTR_STATUS(status) == UCS_INPROGRESS) {
+      utils::CallbackNotifier callbackNotifierPost{false};
+      worker->registerGenericPost([&callbackNotifierPost, &status]() {
+        if (UCS_PTR_IS_PTR(status)) {
+          auto s = ucp_request_check_status(status);
+          if (s != UCS_INPROGRESS) ucp_request_free(status);
+        }
+        if (UCS_PTR_STATUS(status) != UCS_OK) {
+          ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
+        }
+
+        callbackNotifierPost.store(true);
+      });
+      callbackNotifierPost.wait([](auto flag) { return flag; });
+    }
+  } else {
+    status = ucp_ep_close_nb(_handle, closeMode);
+    if (UCS_PTR_IS_PTR(status)) {
+      while (ucp_request_check_status(status) == UCS_INPROGRESS)
+        if (!worker->isProgressThreadRunning()) worker->progress();
+      ucp_request_free(status);
+    } else if (UCS_PTR_STATUS(status) != UCS_OK) {
+      ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
+    }
   }
   ucxx_trace("Endpoint closed: %p", _handle);
 
