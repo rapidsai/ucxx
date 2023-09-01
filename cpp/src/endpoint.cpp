@@ -160,15 +160,17 @@ void Endpoint::close()
     });
     callbackNotifierPre.wait([](auto flag) { return flag; });
 
-    while (UCS_PTR_STATUS(status) == UCS_INPROGRESS) {
+    while (UCS_PTR_IS_PTR(status)) {
       utils::CallbackNotifier callbackNotifierPost{false};
-      worker->registerGenericPost([&callbackNotifierPost, &status]() {
-        if (UCS_PTR_IS_PTR(status)) {
-          auto s = ucp_request_check_status(status);
-          if (s != UCS_INPROGRESS) ucp_request_free(status);
-        }
-        if (UCS_PTR_STATUS(status) != UCS_OK) {
-          ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
+      worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
+        ucs_status_t s = ucp_request_check_status(status);
+        if (UCS_PTR_STATUS(s) != UCS_INPROGRESS) {
+          ucp_request_free(status);
+          _callbackData->status = status = UCS_PTR_STATUS(s);
+          if (UCS_PTR_STATUS(status) != UCS_OK) {
+            ucxx_error("Error while closing endpoint: %s",
+                       ucs_status_string(UCS_PTR_STATUS(status)));
+          }
         }
 
         callbackNotifierPost.store(true);
@@ -178,9 +180,11 @@ void Endpoint::close()
   } else {
     status = ucp_ep_close_nb(_handle, closeMode);
     if (UCS_PTR_IS_PTR(status)) {
-      while (ucp_request_check_status(status) == UCS_INPROGRESS)
+      ucs_status_t s;
+      while ((s = ucp_request_check_status(status)) == UCS_INPROGRESS)
         if (!worker->isProgressThreadRunning()) worker->progress();
       ucp_request_free(status);
+      _callbackData->status = s;
     } else if (UCS_PTR_STATUS(status) != UCS_OK) {
       ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
     }
