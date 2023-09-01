@@ -182,7 +182,7 @@ void Endpoint::close()
     if (UCS_PTR_IS_PTR(status)) {
       ucs_status_t s;
       while ((s = ucp_request_check_status(status)) == UCS_INPROGRESS)
-        if (!worker->isProgressThreadRunning()) worker->progress();
+        worker->progress();
       ucp_request_free(status);
       _callbackData->status = s;
     } else if (UCS_PTR_STATUS(status) != UCS_OK) {
