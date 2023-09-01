@@ -166,7 +166,7 @@ void Endpoint::close()
         ucs_status_t s = ucp_request_check_status(status);
         if (UCS_PTR_STATUS(s) != UCS_INPROGRESS) {
           ucp_request_free(status);
-          _callbackData->status = status = UCS_PTR_STATUS(s);
+          _callbackData->status = UCS_PTR_STATUS(s);
           if (UCS_PTR_STATUS(status) != UCS_OK) {
             ucxx_error("Error while closing endpoint: %s",
                        ucs_status_string(UCS_PTR_STATUS(status)));
