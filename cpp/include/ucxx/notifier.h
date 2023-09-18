@@ -22,10 +22,10 @@ class Notifier {
   Notifier() = default;
 
  public:
-  Notifier(const Notifier&) = delete;
+  Notifier(const Notifier&)            = delete;
   Notifier& operator=(Notifier const&) = delete;
   Notifier(Notifier&& o)               = delete;
-  Notifier& operator=(Notifier&& o) = delete;
+  Notifier& operator=(Notifier&& o)    = delete;
 
   /**
    * @brief Virtual destructor.

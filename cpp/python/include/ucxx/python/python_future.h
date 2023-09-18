@@ -37,11 +37,11 @@ class Future : public ::ucxx::Future {
   explicit Future(std::shared_ptr<::ucxx::Notifier> notifier);
 
  public:
-  Future()              = delete;
-  Future(const Future&) = delete;
+  Future()                         = delete;
+  Future(const Future&)            = delete;
   Future& operator=(Future const&) = delete;
   Future(Future&& o)               = delete;
-  Future& operator=(Future&& o) = delete;
+  Future& operator=(Future&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::python::Future>`.

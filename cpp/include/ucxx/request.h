@@ -88,11 +88,11 @@ class Request : public Component {
   void setStatus(ucs_status_t status);
 
  public:
-  Request()               = delete;
-  Request(const Request&) = delete;
+  Request()                          = delete;
+  Request(const Request&)            = delete;
   Request& operator=(Request const&) = delete;
   Request(Request&& o)               = delete;
-  Request& operator=(Request&& o) = delete;
+  Request& operator=(Request&& o)    = delete;
 
   /**
    * @brief `ucxx::Request` destructor.

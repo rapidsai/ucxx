@@ -292,8 +292,8 @@ int main(int argc, char** argv)
 
   bool is_server = app_context.server_addr == NULL;
   auto tagMap    = std::make_shared<TagMap>(TagMap{
-    {SEND, is_server ? 0 : 1},
-    {RECV, is_server ? 1 : 0},
+       {SEND, is_server ? 0 : 1},
+       {RECV, is_server ? 1 : 0},
   });
 
   std::shared_ptr<ListenerContext> listener_ctx;
