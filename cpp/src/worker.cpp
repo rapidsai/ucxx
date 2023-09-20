@@ -199,7 +199,7 @@ void Worker::initBlockingProgressMode()
 
   epoll_event workerEvent = {.events = EPOLLIN,
                              .data   = {
-                               .fd = _workerFileDescriptor,
+                                 .fd = _workerFileDescriptor,
                              }};
 
   err = epoll_ctl(_epollFileDescriptor, EPOLL_CTL_ADD, _workerFileDescriptor, &workerEvent);

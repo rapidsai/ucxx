@@ -33,11 +33,11 @@ class RecvAmMessage {
     nullptr};  ///< Request which will later be notified/delivered to user
   std::shared_ptr<Buffer> _buffer{nullptr};  ///< Buffer containing the received data
 
-  RecvAmMessage()                     = delete;
-  RecvAmMessage(const RecvAmMessage&) = delete;
+  RecvAmMessage()                                = delete;
+  RecvAmMessage(const RecvAmMessage&)            = delete;
   RecvAmMessage& operator=(RecvAmMessage const&) = delete;
   RecvAmMessage(RecvAmMessage&& o)               = delete;
-  RecvAmMessage& operator=(RecvAmMessage&& o) = delete;
+  RecvAmMessage& operator=(RecvAmMessage&& o)    = delete;
 
   /**
    * @brief Constructor of `ucxx::RecvAmMessage`.
