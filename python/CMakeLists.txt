@@ -5,7 +5,7 @@
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
-set(ucxx_version 0.34.00)
+set(ucxx_version 0.35.00)
 
 include(../fetch_rapids.cmake)
 
