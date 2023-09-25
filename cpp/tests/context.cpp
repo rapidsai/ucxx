@@ -13,8 +13,7 @@ namespace {
 
 static std::vector<std::string> TlsConfig{"^tcp", "^tcp,sm", "tcp", "tcp,sm", "all"};
 
-class ContextTestCustomConfig : public testing::TestWithParam<std::string> {
-};
+class ContextTestCustomConfig : public testing::TestWithParam<std::string> {};
 
 TEST(ContextTest, HandleIsValid)
 {

@@ -81,11 +81,11 @@ class DelayedSubmissionCollection {
    */
   explicit DelayedSubmissionCollection(bool enableDelayedRequestSubmission = false);
 
-  DelayedSubmissionCollection()                                   = delete;
-  DelayedSubmissionCollection(const DelayedSubmissionCollection&) = delete;
+  DelayedSubmissionCollection()                                              = delete;
+  DelayedSubmissionCollection(const DelayedSubmissionCollection&)            = delete;
   DelayedSubmissionCollection& operator=(DelayedSubmissionCollection const&) = delete;
   DelayedSubmissionCollection(DelayedSubmissionCollection&& o)               = delete;
-  DelayedSubmissionCollection& operator=(DelayedSubmissionCollection&& o) = delete;
+  DelayedSubmissionCollection& operator=(DelayedSubmissionCollection&& o)    = delete;
 
   /**
    * @brief Process pending delayed request submission and generic-pre callback operations.

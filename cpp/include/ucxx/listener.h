@@ -40,11 +40,11 @@ class Listener : public Component {
            void* callbackArgs);
 
  public:
-  Listener()                = delete;
-  Listener(const Listener&) = delete;
+  Listener()                           = delete;
+  Listener(const Listener&)            = delete;
   Listener& operator=(Listener const&) = delete;
   Listener(Listener&& o)               = delete;
-  Listener& operator=(Listener&& o) = delete;
+  Listener& operator=(Listener&& o)    = delete;
 
   ~Listener();
 

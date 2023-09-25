@@ -42,11 +42,11 @@ class Context : public Component {
   static constexpr uint64_t defaultFeatureFlags =
     UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
 
-  Context()               = delete;
-  Context(const Context&) = delete;
+  Context()                          = delete;
+  Context(const Context&)            = delete;
   Context& operator=(Context const&) = delete;
   Context(Context&& o)               = delete;
-  Context& operator=(Context&& o) = delete;
+  Context& operator=(Context&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::Context>`.
