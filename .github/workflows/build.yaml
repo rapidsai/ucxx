@@ -34,7 +34,6 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-      matrix_filter: map(select(.ARCH != "arm64"))
   upload-conda:
     needs: [conda-cpp-build]
     secrets: inherit
