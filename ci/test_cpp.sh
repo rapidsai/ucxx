@@ -27,10 +27,10 @@ BINARY_PATH=${CONDA_PREFIX}/bin
 _SERVER_PORT=12345
 
 run_tests() {
-  CMD_LINE="UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
+  CMD_LINE="timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
 
   log_command "${CMD_LINE}"
-  ${CMD_LINE}
+  UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}
 }
 
 run_benchmark() {
