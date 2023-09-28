@@ -37,15 +37,15 @@ run_benchmark() {
   SERVER_PORT=$1
   PROGRESS_MODE=$2
 
-  CMD_LINE_SERVER="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} &"
+  CMD_LINE_SERVER="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
   CMD_LINE_CLIENT="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1"
 
   log_command "${CMD_LINE_SERVER}"
-  UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} &
+  UCX_TCP_CM_REUSEADDR=y ${CMD_LINE_SERVER} &
   sleep 1
 
   log_command "${CMD_LINE_CLIENT}"
-  timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1
+  ${CMD_LINE_CLIENT}
 }
 
 run_example() {
@@ -55,7 +55,7 @@ run_example() {
   CMD_LINE="timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
 
   log_command "${CMD_LINE}"
-  UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -p ${SERVER_PORT}
+  UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}
 }
 
 run_port_retry() {
