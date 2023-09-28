@@ -4,7 +4,7 @@
 import functools
 
 import pytest
-from utils import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 
