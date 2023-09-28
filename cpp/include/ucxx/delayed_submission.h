@@ -63,8 +63,10 @@ class DelayedSubmissionCollection {
   std::vector<DelayedSubmissionCallbackType>
     _genericPost{};  ///< The collection of all known generic post-progress operations.
   std::vector<std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>
-    _requests{};        ///< The collection of all known delayed request submission operations.
-  std::mutex _mutex{};  ///< Mutex to provide access to the collection.
+    _requests{};  ///< The collection of all known delayed request submission operations.
+  std::mutex _mutexRequests{};     ///< Mutex to provide access to `_requests`.
+  std::mutex _mutexGenericPre{};   ///< Mutex to provide access to `_genericPre`.
+  std::mutex _mutexGenericPost{};  ///< Mutex to provide access to `_genericPost`.
   bool _enableDelayedRequestSubmission{false};
 
  public:
