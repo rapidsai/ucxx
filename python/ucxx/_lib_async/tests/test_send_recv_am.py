@@ -3,7 +3,7 @@ from functools import partial
 
 import numpy as np
 import pytest
-from utils import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 

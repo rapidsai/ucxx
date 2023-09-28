@@ -5,7 +5,7 @@ import os
 from unittest.mock import patch
 
 import pytest
-from utils import captured_logger
+from ucxx._lib_async.utils_test import captured_logger
 
 import ucxx
 
