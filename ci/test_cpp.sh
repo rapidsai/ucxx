@@ -30,7 +30,7 @@ run_tests() {
   CMD_LINE="UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
 
   log_command "${CMD_LINE}"
-  UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST
+  ${CMD_LINE}
 }
 
 run_benchmark() {
