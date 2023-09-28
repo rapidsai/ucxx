@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -56,17 +57,135 @@ class DelayedSubmission {
                     const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_UNKNOWN);
 };
 
+template <typename T>
+class DelayedSubmissionCollectionTemplateSafe {
+ protected:
+  std::string_view _name{
+    "undefined"};                ///< The human-readable name of the collection, used for logging
+  std::vector<T> _collection{};  ///< The collection.
+  std::mutex _mutex{};           ///< Mutex to provide access to `_collection`.
+
+ public:
+  explicit DelayedSubmissionCollectionTemplateSafe(const std::string_view name) : _name{name} {}
+  DelayedSubmissionCollectionTemplateSafe()                                               = delete;
+  DelayedSubmissionCollectionTemplateSafe(const DelayedSubmissionCollectionTemplateSafe&) = delete;
+  DelayedSubmissionCollectionTemplateSafe& operator=(
+    DelayedSubmissionCollectionTemplateSafe const&)                                    = delete;
+  DelayedSubmissionCollectionTemplateSafe(DelayedSubmissionCollectionTemplateSafe&& o) = delete;
+  DelayedSubmissionCollectionTemplateSafe& operator=(DelayedSubmissionCollectionTemplateSafe&& o) =
+    delete;
+
+  /**
+   * @brief Register a callable or complex-type for delayed submission.
+   *
+   * Register a simple callback, or complex-type with a callback (requires specialization),
+   * for delayed submission that will be executed when the request is in fact submitted when
+   * `process()` is called.
+   *
+   * @throws std::runtime_error if delayed request submission was disabled at construction.
+   *
+   * @param[in] item      the callback that will be executed by `process()` when the
+   *                      operation is submitted.
+   */
+  virtual void schedule(T item, const bool contextInitialized)
+  {
+    if (!contextInitialized) throw std::runtime_error("Context not initialized");
+
+    {
+      std::lock_guard<std::mutex> lock(_mutex);
+      _collection.push_back(item);
+    }
+    scheduleLog(item);
+  }
+
+  /**
+   * @brief Process all pending callbacks.
+   *
+   * Process all pending generic. Generic callbacks are deemed completed when their
+   * execution completes.
+   */
+  void process()
+  {
+    decltype(_collection) itemsToProcess;
+    {
+      std::lock_guard<std::mutex> lock(_mutex);
+      // Move _collection to a local copy in order to to hold the lock for as
+      // short as possible
+      itemsToProcess = std::move(_collection);
+    }
+
+    if (itemsToProcess.size() > 0) {
+      ucxx_trace_req("Submitting %lu %s callbacks", itemsToProcess.size(), _name);
+      for (auto& item : itemsToProcess)
+        processItem(item);
+    }
+  }
+
+  /**
+   * @brief Log message during `schedule()`.
+   *
+   * Log a specialized message while `schedule()` is being executed.
+   *
+   * @param[in] item      the callback that was passed as argument to `schedule()`.
+   */
+  virtual void scheduleLog(T item) = 0;
+
+  /**
+   * @brief Process a single item during `process()`.
+   *
+   * Method called by `process()` to process a single item of the collection.
+   *
+   * @param[in] item      the callback that was passed as argument to `schedule()` when
+   *                      the first registered.
+   */
+  virtual void processItem(T item) = 0;
+};
+
+class DelayedSubmissionCollectionRequestSafe
+  : public DelayedSubmissionCollectionTemplateSafe<
+      std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>> {
+ public:
+  explicit DelayedSubmissionCollectionRequestSafe(const std::string_view name);
+  DelayedSubmissionCollectionRequestSafe()                                              = delete;
+  DelayedSubmissionCollectionRequestSafe(const DelayedSubmissionCollectionRequestSafe&) = delete;
+  DelayedSubmissionCollectionRequestSafe& operator=(DelayedSubmissionCollectionRequestSafe const&) =
+    delete;
+  DelayedSubmissionCollectionRequestSafe(DelayedSubmissionCollectionRequestSafe&& o) = delete;
+  DelayedSubmissionCollectionRequestSafe& operator=(DelayedSubmissionCollectionRequestSafe&& o) =
+    delete;
+
+  void scheduleLog(
+    std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
+
+  void processItem(
+    std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
+};
+
+class DelayedSubmissionCollectionGenericSafe
+  : public DelayedSubmissionCollectionTemplateSafe<DelayedSubmissionCallbackType> {
+ public:
+  explicit DelayedSubmissionCollectionGenericSafe(const std::string_view name);
+  DelayedSubmissionCollectionGenericSafe()                                              = delete;
+  DelayedSubmissionCollectionGenericSafe(const DelayedSubmissionCollectionGenericSafe&) = delete;
+  DelayedSubmissionCollectionGenericSafe& operator=(DelayedSubmissionCollectionGenericSafe const&) =
+    delete;
+  DelayedSubmissionCollectionGenericSafe(DelayedSubmissionCollectionGenericSafe&& o) = delete;
+  DelayedSubmissionCollectionGenericSafe& operator=(DelayedSubmissionCollectionGenericSafe&& o) =
+    delete;
+
+  void scheduleLog(DelayedSubmissionCallbackType item) override;
+
+  void processItem(DelayedSubmissionCallbackType callback) override;
+};
+
 class DelayedSubmissionCollection {
  private:
-  std::vector<DelayedSubmissionCallbackType>
-    _genericPre{};  ///< The collection of all known generic pre-progress operations.
-  std::vector<DelayedSubmissionCallbackType>
-    _genericPost{};  ///< The collection of all known generic post-progress operations.
-  std::vector<std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>
-    _requests{};  ///< The collection of all known delayed request submission operations.
-  std::mutex _mutexRequests{};     ///< Mutex to provide access to `_requests`.
-  std::mutex _mutexGenericPre{};   ///< Mutex to provide access to `_genericPre`.
-  std::mutex _mutexGenericPost{};  ///< Mutex to provide access to `_genericPost`.
+  DelayedSubmissionCollectionGenericSafe _genericPre{
+    "generic pre"};  ///< The collection of all known generic pre-progress operations.
+  DelayedSubmissionCollectionGenericSafe _genericPost{
+    "generic post"};  ///< The collection of all known generic post-progress operations.
+  DelayedSubmissionCollectionRequestSafe _requests{
+    "request"};  ///< The collection of all known delayed request submission operations.
   bool _enableDelayedRequestSubmission{false};
 
  public:
