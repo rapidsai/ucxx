@@ -65,6 +65,25 @@ class BaseDelayedSubmissionCollection {
   std::vector<T> _collection{};  ///< The collection.
   std::mutex _mutex{};           ///< Mutex to provide access to `_collection`.
 
+  /**
+   * @brief Log message during `schedule()`.
+   *
+   * Log a specialized message while `schedule()` is being executed.
+   *
+   * @param[in] item      the callback that was passed as argument to `schedule()`.
+   */
+  virtual void scheduleLog(T item) = 0;
+
+  /**
+   * @brief Process a single item during `process()`.
+   *
+   * Method called by `process()` to process a single item of the collection.
+   *
+   * @param[in] item      the callback that was passed as argument to `schedule()` when
+   *                      the first registered.
+   */
+  virtual void processItem(T item) = 0;
+
  public:
   /**
    * @brief Constructor for a thread-safe delayed submission collection.
@@ -129,30 +148,18 @@ class BaseDelayedSubmissionCollection {
         processItem(item);
     }
   }
-
-  /**
-   * @brief Log message during `schedule()`.
-   *
-   * Log a specialized message while `schedule()` is being executed.
-   *
-   * @param[in] item      the callback that was passed as argument to `schedule()`.
-   */
-  virtual void scheduleLog(T item) = 0;
-
-  /**
-   * @brief Process a single item during `process()`.
-   *
-   * Method called by `process()` to process a single item of the collection.
-   *
-   * @param[in] item      the callback that was passed as argument to `schedule()` when
-   *                      the first registered.
-   */
-  virtual void processItem(T item) = 0;
 };
 
 class RequestDelayedSubmissionCollection
   : public BaseDelayedSubmissionCollection<
       std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>> {
+ protected:
+  void scheduleLog(
+    std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
+
+  void processItem(
+    std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
+
  public:
   explicit RequestDelayedSubmissionCollection(const std::string_view name);
   RequestDelayedSubmissionCollection()                                                     = delete;
@@ -160,16 +167,15 @@ class RequestDelayedSubmissionCollection
   RequestDelayedSubmissionCollection& operator=(RequestDelayedSubmissionCollection const&) = delete;
   RequestDelayedSubmissionCollection(RequestDelayedSubmissionCollection&& o)               = delete;
   RequestDelayedSubmissionCollection& operator=(RequestDelayedSubmissionCollection&& o)    = delete;
-
-  void scheduleLog(
-    std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
-
-  void processItem(
-    std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
 };
 
 class GenericDelayedSubmissionCollection
   : public BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType> {
+ protected:
+  void scheduleLog(DelayedSubmissionCallbackType item) override;
+
+  void processItem(DelayedSubmissionCallbackType callback) override;
+
  public:
   explicit GenericDelayedSubmissionCollection(const std::string_view name);
   GenericDelayedSubmissionCollection()                                                     = delete;
@@ -177,10 +183,6 @@ class GenericDelayedSubmissionCollection
   GenericDelayedSubmissionCollection& operator=(GenericDelayedSubmissionCollection const&) = delete;
   GenericDelayedSubmissionCollection(GenericDelayedSubmissionCollection&& o)               = delete;
   GenericDelayedSubmissionCollection& operator=(GenericDelayedSubmissionCollection&& o)    = delete;
-
-  void scheduleLog(DelayedSubmissionCallbackType item) override;
-
-  void processItem(DelayedSubmissionCallbackType callback) override;
 };
 
 class DelayedSubmissionCollection {
