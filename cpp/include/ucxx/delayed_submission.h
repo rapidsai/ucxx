@@ -214,6 +214,10 @@ class DelayedSubmissionCollection {
    * operation, only that it has been submitted. The completion of each delayed request
    * submission is handled externally by the implementation of the object being processed,
    * for example by checking the result of `ucxx::Request::isCompleted()`.
+   *
+   * Generic callbacks may be used to to pass information between threads on the subject
+   * that requests have been in fact processed, therefore, requests are processed first,
+   * then generic callbacks are.
    */
   void processPre();
 
