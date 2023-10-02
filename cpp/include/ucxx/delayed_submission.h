@@ -162,11 +162,6 @@ class RequestDelayedSubmissionCollection
 
  public:
   explicit RequestDelayedSubmissionCollection(const std::string_view name);
-  RequestDelayedSubmissionCollection()                                                     = delete;
-  RequestDelayedSubmissionCollection(const RequestDelayedSubmissionCollection&)            = delete;
-  RequestDelayedSubmissionCollection& operator=(RequestDelayedSubmissionCollection const&) = delete;
-  RequestDelayedSubmissionCollection(RequestDelayedSubmissionCollection&& o)               = delete;
-  RequestDelayedSubmissionCollection& operator=(RequestDelayedSubmissionCollection&& o)    = delete;
 };
 
 class GenericDelayedSubmissionCollection
@@ -178,11 +173,6 @@ class GenericDelayedSubmissionCollection
 
  public:
   explicit GenericDelayedSubmissionCollection(const std::string_view name);
-  GenericDelayedSubmissionCollection()                                                     = delete;
-  GenericDelayedSubmissionCollection(const GenericDelayedSubmissionCollection&)            = delete;
-  GenericDelayedSubmissionCollection& operator=(GenericDelayedSubmissionCollection const&) = delete;
-  GenericDelayedSubmissionCollection(GenericDelayedSubmissionCollection&& o)               = delete;
-  GenericDelayedSubmissionCollection& operator=(GenericDelayedSubmissionCollection&& o)    = delete;
 };
 
 class DelayedSubmissionCollection {
