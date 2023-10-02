@@ -63,7 +63,8 @@ void GenericDelayedSubmissionCollection::processItem(DelayedSubmissionCallbackTy
 }
 
 DelayedSubmissionCollection::DelayedSubmissionCollection(bool enableDelayedRequestSubmission)
-  : _enableDelayedRequestSubmission(enableDelayedRequestSubmission)
+  : _enableDelayedRequestSubmission(enableDelayedRequestSubmission),
+    _requests(RequestDelayedSubmissionCollection{"request", false})
 {
 }
 

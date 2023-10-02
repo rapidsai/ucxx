@@ -61,7 +61,8 @@ template <typename T>
 class BaseDelayedSubmissionCollection {
  protected:
   std::string_view _name{
-    "undefined"};                ///< The human-readable name of the collection, used for logging
+    "undefined"};       ///< The human-readable name of the collection, used for logging
+  bool _enabled{true};  ///< Whether the resource required to process the collection is enabled.
   std::vector<T> _collection{};  ///< The collection.
   std::mutex _mutex{};           ///< Mutex to provide access to `_collection`.
 
@@ -95,7 +96,10 @@ class BaseDelayedSubmissionCollection {
    *
    * @param[in] name  human-readable name of the collection, used for logging.
    */
-  explicit BaseDelayedSubmissionCollection(const std::string_view name) : _name{name} {}
+  explicit BaseDelayedSubmissionCollection(const std::string_view name, const bool enabled)
+    : _name{name}, _enabled{enalbed}
+  {
+  }
 
   BaseDelayedSubmissionCollection()                                                  = delete;
   BaseDelayedSubmissionCollection(const BaseDelayedSubmissionCollection&)            = delete;
@@ -110,14 +114,17 @@ class BaseDelayedSubmissionCollection {
    * for delayed submission that will be executed when the request is in fact submitted when
    * `process()` is called.
    *
-   * @throws std::runtime_error if delayed request submission was disabled at construction.
+   * Raise an exception if `false` was specified as the `enabled` argument to the constructor.
    *
-   * @param[in] item      the callback that will be executed by `process()` when the
-   *                      operation is submitted.
+   * @throws std::runtime_error if `_enabled` is `false`.
+   *
+   * @param[in] item            the callback that will be executed by `process()` when the
+   *                            operation is submitted.
+   * @param[in] resourceEnabled whether the resource is enabled.
    */
-  virtual void schedule(T item, const bool contextInitialized)
+  virtual void schedule(T item)
   {
-    if (!contextInitialized) throw std::runtime_error("Context not initialized");
+    if (!_enabled) throw std::runtime_error("Resource is disabled.");
 
     {
       std::lock_guard<std::mutex> lock(_mutex);
@@ -178,11 +185,11 @@ class GenericDelayedSubmissionCollection
 class DelayedSubmissionCollection {
  private:
   GenericDelayedSubmissionCollection _genericPre{
-    "generic pre"};  ///< The collection of all known generic pre-progress operations.
+    "generic pre", true};  ///< The collection of all known generic pre-progress operations.
   GenericDelayedSubmissionCollection _genericPost{
-    "generic post"};  ///< The collection of all known generic post-progress operations.
+    "generic post", true};  ///< The collection of all known generic post-progress operations.
   RequestDelayedSubmissionCollection _requests{
-    "request"};  ///< The collection of all known delayed request submission operations.
+    "request", false};  ///< The collection of all known delayed request submission operations.
   bool _enableDelayedRequestSubmission{false};
 
  public:
