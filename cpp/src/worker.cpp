@@ -219,8 +219,6 @@ bool Worker::progressWorkerEvent(const int epollTimeout)
   int ret;
   epoll_event ev;
 
-  cancelInflightRequests();
-
   if (progress()) return true;
 
   if ((_epollFileDescriptor == -1) || !arm()) return false;
@@ -254,10 +252,17 @@ bool Worker::progressPending()
 
 bool Worker::progress()
 {
-  bool ret = progressPending();
+  bool ret                     = progressPending();
+  bool progressScheduledCancel = false;
 
-  // Before canceling requests scheduled for cancelation, attempt to let them complete.
-  if (_inflightRequestsToCancel > 0) ret |= progressPending();
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+
+    // Before canceling requests scheduled for cancelation, attempt to let them complete.
+    progressScheduledCancel =
+      _inflightRequestsToCancel != nullptr && _inflightRequestsToCancel->size() > 0;
+  }
+  if (progressScheduledCancel) ret |= progressPending();
 
   // Requests that were not completed now must be canceled.
   if (cancelInflightRequests() > 0) ret |= progressPending();
