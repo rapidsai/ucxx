@@ -66,6 +66,16 @@ class BaseDelayedSubmissionCollection {
   std::mutex _mutex{};           ///< Mutex to provide access to `_collection`.
 
  public:
+  /**
+   * @brief Constructor for a thread-safe delayed submission collection.
+   *
+   * Construct a thread-safe delayed submission collection. A delayed submission collection
+   * provides two operations: schedule and process. The `schedule()` method will push an
+   * operation into the collection, whereas the `process()` will invoke all callbacks that
+   * were previously pushed into the collection and clear the collection.
+   *
+   * @param[in] name  human-readable name of the collection, used for logging.
+   */
   explicit BaseDelayedSubmissionCollection(const std::string_view name) : _name{name} {}
 
   BaseDelayedSubmissionCollection()                                                  = delete;
