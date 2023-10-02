@@ -58,7 +58,7 @@ class DelayedSubmission {
 };
 
 template <typename T>
-class DelayedSubmissionCollectionTemplateSafe {
+class BaseDelayedSubmissionCollection {
  protected:
   std::string_view _name{
     "undefined"};                ///< The human-readable name of the collection, used for logging
@@ -66,14 +66,13 @@ class DelayedSubmissionCollectionTemplateSafe {
   std::mutex _mutex{};           ///< Mutex to provide access to `_collection`.
 
  public:
-  explicit DelayedSubmissionCollectionTemplateSafe(const std::string_view name) : _name{name} {}
-  DelayedSubmissionCollectionTemplateSafe()                                               = delete;
-  DelayedSubmissionCollectionTemplateSafe(const DelayedSubmissionCollectionTemplateSafe&) = delete;
-  DelayedSubmissionCollectionTemplateSafe& operator=(
-    DelayedSubmissionCollectionTemplateSafe const&)                                    = delete;
-  DelayedSubmissionCollectionTemplateSafe(DelayedSubmissionCollectionTemplateSafe&& o) = delete;
-  DelayedSubmissionCollectionTemplateSafe& operator=(DelayedSubmissionCollectionTemplateSafe&& o) =
-    delete;
+  explicit BaseDelayedSubmissionCollection(const std::string_view name) : _name{name} {}
+
+  BaseDelayedSubmissionCollection()                                                  = delete;
+  BaseDelayedSubmissionCollection(const BaseDelayedSubmissionCollection&)            = delete;
+  BaseDelayedSubmissionCollection& operator=(BaseDelayedSubmissionCollection const&) = delete;
+  BaseDelayedSubmissionCollection(BaseDelayedSubmissionCollection&& o)               = delete;
+  BaseDelayedSubmissionCollection& operator=(BaseDelayedSubmissionCollection&& o)    = delete;
 
   /**
    * @brief Register a callable or complex-type for delayed submission.
@@ -141,18 +140,16 @@ class DelayedSubmissionCollectionTemplateSafe {
   virtual void processItem(T item) = 0;
 };
 
-class DelayedSubmissionCollectionRequestSafe
-  : public DelayedSubmissionCollectionTemplateSafe<
+class RequestDelayedSubmissionCollection
+  : public BaseDelayedSubmissionCollection<
       std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>> {
  public:
-  explicit DelayedSubmissionCollectionRequestSafe(const std::string_view name);
-  DelayedSubmissionCollectionRequestSafe()                                              = delete;
-  DelayedSubmissionCollectionRequestSafe(const DelayedSubmissionCollectionRequestSafe&) = delete;
-  DelayedSubmissionCollectionRequestSafe& operator=(DelayedSubmissionCollectionRequestSafe const&) =
-    delete;
-  DelayedSubmissionCollectionRequestSafe(DelayedSubmissionCollectionRequestSafe&& o) = delete;
-  DelayedSubmissionCollectionRequestSafe& operator=(DelayedSubmissionCollectionRequestSafe&& o) =
-    delete;
+  explicit RequestDelayedSubmissionCollection(const std::string_view name);
+  RequestDelayedSubmissionCollection()                                                     = delete;
+  RequestDelayedSubmissionCollection(const RequestDelayedSubmissionCollection&)            = delete;
+  RequestDelayedSubmissionCollection& operator=(RequestDelayedSubmissionCollection const&) = delete;
+  RequestDelayedSubmissionCollection(RequestDelayedSubmissionCollection&& o)               = delete;
+  RequestDelayedSubmissionCollection& operator=(RequestDelayedSubmissionCollection&& o)    = delete;
 
   void scheduleLog(
     std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
@@ -161,17 +158,15 @@ class DelayedSubmissionCollectionRequestSafe
     std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
 };
 
-class DelayedSubmissionCollectionGenericSafe
-  : public DelayedSubmissionCollectionTemplateSafe<DelayedSubmissionCallbackType> {
+class GenericDelayedSubmissionCollection
+  : public BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType> {
  public:
-  explicit DelayedSubmissionCollectionGenericSafe(const std::string_view name);
-  DelayedSubmissionCollectionGenericSafe()                                              = delete;
-  DelayedSubmissionCollectionGenericSafe(const DelayedSubmissionCollectionGenericSafe&) = delete;
-  DelayedSubmissionCollectionGenericSafe& operator=(DelayedSubmissionCollectionGenericSafe const&) =
-    delete;
-  DelayedSubmissionCollectionGenericSafe(DelayedSubmissionCollectionGenericSafe&& o) = delete;
-  DelayedSubmissionCollectionGenericSafe& operator=(DelayedSubmissionCollectionGenericSafe&& o) =
-    delete;
+  explicit GenericDelayedSubmissionCollection(const std::string_view name);
+  GenericDelayedSubmissionCollection()                                                     = delete;
+  GenericDelayedSubmissionCollection(const GenericDelayedSubmissionCollection&)            = delete;
+  GenericDelayedSubmissionCollection& operator=(GenericDelayedSubmissionCollection const&) = delete;
+  GenericDelayedSubmissionCollection(GenericDelayedSubmissionCollection&& o)               = delete;
+  GenericDelayedSubmissionCollection& operator=(GenericDelayedSubmissionCollection&& o)    = delete;
 
   void scheduleLog(DelayedSubmissionCallbackType item) override;
 
@@ -180,11 +175,11 @@ class DelayedSubmissionCollectionGenericSafe
 
 class DelayedSubmissionCollection {
  private:
-  DelayedSubmissionCollectionGenericSafe _genericPre{
+  GenericDelayedSubmissionCollection _genericPre{
     "generic pre"};  ///< The collection of all known generic pre-progress operations.
-  DelayedSubmissionCollectionGenericSafe _genericPost{
+  GenericDelayedSubmissionCollection _genericPost{
     "generic post"};  ///< The collection of all known generic post-progress operations.
-  DelayedSubmissionCollectionRequestSafe _requests{
+  RequestDelayedSubmissionCollection _requests{
     "request"};  ///< The collection of all known delayed request submission operations.
   bool _enableDelayedRequestSubmission{false};
 

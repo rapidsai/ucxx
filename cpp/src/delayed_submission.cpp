@@ -22,20 +22,19 @@ DelayedSubmission::DelayedSubmission(const bool send,
 {
 }
 
-DelayedSubmissionCollectionRequestSafe::DelayedSubmissionCollectionRequestSafe(
-  const std::string_view name)
-  : DelayedSubmissionCollectionTemplateSafe<
+RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(const std::string_view name)
+  : BaseDelayedSubmissionCollection<
       std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>{name}
 {
 }
 
-void DelayedSubmissionCollectionRequestSafe::scheduleLog(
+void RequestDelayedSubmissionCollection::scheduleLog(
   std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
 {
   ucxx_trace_req("Registered %s: %p", _name, item.first.get());
 }
 
-void DelayedSubmissionCollectionRequestSafe::processItem(
+void RequestDelayedSubmissionCollection::processItem(
   std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
 {
   auto& req      = item.first;
@@ -46,18 +45,17 @@ void DelayedSubmissionCollectionRequestSafe::processItem(
   if (callback) callback();
 }
 
-DelayedSubmissionCollectionGenericSafe::DelayedSubmissionCollectionGenericSafe(
-  const std::string_view name)
-  : DelayedSubmissionCollectionTemplateSafe<DelayedSubmissionCallbackType>{name}
+GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(const std::string_view name)
+  : BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType>{name}
 {
 }
 
-void DelayedSubmissionCollectionGenericSafe::scheduleLog(DelayedSubmissionCallbackType item)
+void GenericDelayedSubmissionCollection::scheduleLog(DelayedSubmissionCallbackType item)
 {
   ucxx_trace_req("Registered %s", _name);
 }
 
-void DelayedSubmissionCollectionGenericSafe::processItem(DelayedSubmissionCallbackType callback)
+void GenericDelayedSubmissionCollection::processItem(DelayedSubmissionCallbackType callback)
 {
   ucxx_trace_req("Submitting %s callback", _name);
 
