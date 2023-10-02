@@ -61,14 +61,15 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.arg = _callbackData.get();
 
   if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifier{UCS_INPROGRESS};
+    utils::CallbackNotifier callbackNotifier{false};
     auto worker = ::ucxx::getWorker(_parent);
-    worker->registerGenericPre([this, &params, &callbackNotifier]() {
+    auto status = UCS_OK;
+    worker->registerGenericPre([this, &status, &params, &callbackNotifier]() {
       auto worker = ::ucxx::getWorker(_parent);
-      auto status = ucp_ep_create(worker->getHandle(), params, &_handle);
-      callbackNotifier.store(status);
+      status      = ucp_ep_create(worker->getHandle(), params, &_handle);
+      callbackNotifier.store(true);
     });
-    auto status = callbackNotifier.wait([](auto status) { return status != UCS_INPROGRESS; });
+    callbackNotifier.wait([](auto flag) { return flag; });
     utils::ucsErrorThrow(status);
   } else {
     utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
