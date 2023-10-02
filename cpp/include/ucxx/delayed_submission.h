@@ -97,7 +97,7 @@ class BaseDelayedSubmissionCollection {
    * @param[in] name  human-readable name of the collection, used for logging.
    */
   explicit BaseDelayedSubmissionCollection(const std::string_view name, const bool enabled)
-    : _name{name}, _enabled{enalbed}
+    : _name{name}, _enabled{enabled}
   {
   }
 
@@ -168,7 +168,7 @@ class RequestDelayedSubmissionCollection
     std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
 
  public:
-  explicit RequestDelayedSubmissionCollection(const std::string_view name);
+  explicit RequestDelayedSubmissionCollection(const std::string_view name, const bool enabled);
 };
 
 class GenericDelayedSubmissionCollection
@@ -185,9 +185,9 @@ class GenericDelayedSubmissionCollection
 class DelayedSubmissionCollection {
  private:
   GenericDelayedSubmissionCollection _genericPre{
-    "generic pre", true};  ///< The collection of all known generic pre-progress operations.
+    "generic pre"};  ///< The collection of all known generic pre-progress operations.
   GenericDelayedSubmissionCollection _genericPost{
-    "generic post", true};  ///< The collection of all known generic post-progress operations.
+    "generic post"};  ///< The collection of all known generic post-progress operations.
   RequestDelayedSubmissionCollection _requests{
     "request", false};  ///< The collection of all known delayed request submission operations.
   bool _enableDelayedRequestSubmission{false};

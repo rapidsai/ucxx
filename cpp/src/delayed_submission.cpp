@@ -22,9 +22,10 @@ DelayedSubmission::DelayedSubmission(const bool send,
 {
 }
 
-RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(const std::string_view name)
+RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(const std::string_view name,
+                                                                       const bool enabled)
   : BaseDelayedSubmissionCollection<
-      std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>{name}
+      std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>{name, enabled}
 {
 }
 
@@ -46,7 +47,7 @@ void RequestDelayedSubmissionCollection::processItem(
 }
 
 GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(const std::string_view name)
-  : BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType>{name}
+  : BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType>{name, true}
 {
 }
 
@@ -64,7 +65,7 @@ void GenericDelayedSubmissionCollection::processItem(DelayedSubmissionCallbackTy
 
 DelayedSubmissionCollection::DelayedSubmissionCollection(bool enableDelayedRequestSubmission)
   : _enableDelayedRequestSubmission(enableDelayedRequestSubmission),
-    _requests(RequestDelayedSubmissionCollection{"request", false})
+    _requests(RequestDelayedSubmissionCollection{"request", enableDelayedRequestSubmission})
 {
 }
 
@@ -85,17 +86,17 @@ void DelayedSubmissionCollection::processPost() { _genericPost.process(); }
 void DelayedSubmissionCollection::registerRequest(std::shared_ptr<Request> request,
                                                   DelayedSubmissionCallbackType callback)
 {
-  _requests.schedule({request, callback}, isDelayedRequestSubmissionEnabled());
+  _requests.schedule({request, callback});
 }
 
 void DelayedSubmissionCollection::registerGenericPre(DelayedSubmissionCallbackType callback)
 {
-  _genericPre.schedule({callback}, true);
+  _genericPre.schedule(callback);
 }
 
 void DelayedSubmissionCollection::registerGenericPost(DelayedSubmissionCallbackType callback)
 {
-  _genericPost.schedule({callback}, true);
+  _genericPost.schedule(callback);
 }
 
 }  // namespace ucxx
