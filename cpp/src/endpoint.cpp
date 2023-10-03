@@ -5,6 +5,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -255,7 +256,10 @@ size_t Endpoint::cancelInflightRequests()
   auto worker     = ::ucxx::getWorker(this->_parent);
   size_t canceled = 0;
 
-  if (worker->isProgressThreadRunning()) {
+  if (std::this_thread::get_id() == worker->getProgressThreadId()) {
+    canceled = _inflightRequests->cancelAll();
+    worker->progress();
+  } else if (worker->isProgressThreadRunning()) {
     utils::CallbackNotifier callbackNotifierPre{};
     worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
       canceled = _inflightRequests->cancelAll();

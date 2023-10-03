@@ -288,7 +288,7 @@ void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
 
 void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
 {
-  if (std::this_thread::get_id() == _progressThreadId) {
+  if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
      * If the method is called from within the progress thread (e.g., from the
      * listener callback), execute it immediately.
@@ -307,7 +307,7 @@ void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
 
 void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
 {
-  if (std::this_thread::get_id() == _progressThreadId) {
+  if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
      * If the method is called from within the progress thread (e.g., from the
      * listener callback), execute it immediately.
@@ -396,6 +396,8 @@ void Worker::stopProgressThread()
 
 bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
 
+std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
+
 size_t Worker::cancelInflightRequests()
 {
   size_t canceled = 0;
@@ -406,7 +408,10 @@ size_t Worker::cancelInflightRequests()
     std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
   }
 
-  if (isProgressThreadRunning()) {
+  if (std::this_thread::get_id() == getProgressThreadId()) {
+    canceled = inflightRequestsToCancel->cancelAll();
+    progressPending();
+  } else if (isProgressThreadRunning()) {
     utils::CallbackNotifier callbackNotifierPre{};
     registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
       canceled = inflightRequestsToCancel->cancelAll();
