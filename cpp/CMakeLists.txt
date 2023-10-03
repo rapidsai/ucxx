@@ -124,6 +124,7 @@ add_library(
   src/request_tag_multi.cpp
   src/worker.cpp
   src/worker_progress_thread.cpp
+  src/utils/callback_notifier.cpp
   src/utils/file_descriptor.cpp
   src/utils/python.cpp
   src/utils/sockaddr.cpp
