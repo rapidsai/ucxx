@@ -36,7 +36,7 @@ def _server_probe(queue, transfer_api):
         )
 
     listener = ucx_api.UCXListener.create(
-        worker=worker, port=0, cb_func=_listener_handler
+        worker=worker, port=0, endpoint_error_handling=True, cb_func=_listener_handler
     )
     queue.put(listener.port)
 

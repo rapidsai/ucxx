@@ -42,7 +42,7 @@ def _server(queue, server_close_callback):
         listener_finished[0] = True
 
     listener = ucx_api.UCXListener.create(
-        worker=worker, port=0, cb_func=_listener_handler
+        worker=worker, port=0, endpoint_error_handling=True, cb_func=_listener_handler
     )
     queue.put(listener.port)
 
