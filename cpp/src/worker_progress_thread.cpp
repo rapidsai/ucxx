@@ -56,19 +56,19 @@ WorkerProgressThread::~WorkerProgressThread()
     return;
   }
 
-  utils::CallbackNotifier callbackNotifierPre{false};
+  utils::CallbackNotifier callbackNotifierPre{};
   _delayedSubmissionCollection->registerGenericPre(
-    [&callbackNotifierPre]() { callbackNotifierPre.store(true); });
+    [&callbackNotifierPre]() { callbackNotifierPre.set(); });
   _signalWorkerFunction();
-  callbackNotifierPre.wait([](auto flag) { return flag; });
+  callbackNotifierPre.wait();
 
-  utils::CallbackNotifier callbackNotifierPost{false};
+  utils::CallbackNotifier callbackNotifierPost{};
   _delayedSubmissionCollection->registerGenericPost([this, &callbackNotifierPost]() {
     _stop = true;
-    callbackNotifierPost.store(true);
+    callbackNotifierPost.set();
   });
   _signalWorkerFunction();
-  callbackNotifierPost.wait([](auto flag) { return flag; });
+  callbackNotifierPost.wait();
 
   _thread.join();
 }
