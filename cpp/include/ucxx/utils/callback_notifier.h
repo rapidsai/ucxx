@@ -11,27 +11,26 @@ namespace utils {
 
 class CallbackNotifier {
  private:
-  std::atomic_bool _spinlock{};                  //< spinlock if we're not using condition variables
-  bool _flag{};                                  //< flag storing state
+  std::atomic_bool _flag{};                      //< flag storing state
   std::mutex _mutex{};                           //< lock to guard accesses
   std::condition_variable _conditionVariable{};  //< notification condition var
-  bool _use_spinlock{};                          //< should we use the spinlock?
-  bool use_spinlock();
 
  public:
   /**
-   * @brief Construct a thread-safe notification object with given initial value.
+   * @brief Construct a thread-safe notification object
    *
    * Construct a thread-safe notification object which can signal
    * release of some shared state with `set()` while other threads
    * block on `wait()` until the shared state is released.
    *
-   * If libc is glibc and the version is older than 2.25, this uses a
-   * spinlock otherwise it uses a condition variable,
+   * If libc is glibc and the version is older than 2.25, the
+   * implementation uses a spinlock otherwise it uses a condition
+   * variable.
    *
-   * @param[in] init  The initial flag value
+   * When C++-20 is the minimum supported version, it should use
+   * atomic.wait + notify_all.
    */
-  CallbackNotifier() : _flag{false}, _spinlock{false}, _use_spinlock{use_spinlock()} {};
+  CallbackNotifier() : _flag{false} {};
 
   ~CallbackNotifier() = default;
 
@@ -49,9 +48,9 @@ class CallbackNotifier {
   void set();
 
   /**
-   * @brief Wait until set has been called
+   * @brief Wait until `set()` has been called
    *
-   * See also `std::condition_variable::wait`
+   * See also `std::condition_variable::wait`.
    */
   void wait();
 };

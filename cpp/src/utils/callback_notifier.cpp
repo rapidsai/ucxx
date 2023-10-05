@@ -2,60 +2,61 @@
  * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include "ucxx/log.h"
+#include <atomic>
 #include <features.h>
-#include <iostream>
-#include <ucxx/utils/callback_notifier.h>
+
 #ifdef __GLIBC__
 #include <gnu/libc-version.h>
 #include <string>
 #endif
 
+#include <ucxx/log.h>
+#include <ucxx/utils/callback_notifier.h>
+
 namespace ucxx {
 namespace utils {
 
 #ifdef __GLIBC__
-bool CallbackNotifier::use_spinlock()
-{
-  static bool use_set = false;
-  static bool use     = false;
-  if (use_set) return use;
-  use_set           = true;
-  auto libc_version = std::string_view{gnu_get_libc_version()};
-  auto dot          = libc_version.find(".");
+static const bool _useSpinlock = []() {
+  auto const libcVersion = std::string_view{gnu_get_libc_version()};
+  auto const dot         = libcVersion.find(".");
   if (dot == std::string::npos) {
-    use = false;
+    return false;
   } else {
-    int glibc_major = std::stoi(libc_version.substr(0, dot).data());
-    int glibc_minor = std::stoi(libc_version.substr(dot + 1).data());
-    use             = glibc_major < 2 || (glibc_major == 2 && glibc_minor < 25);
-    ucxx_trace("glibc version %s detected, spinlock use is %d", libc_version.data(), use);
+    // See https://sourceware.org/bugzilla/show_bug.cgi?id=13165
+    auto const glibcMajor = std::stoi(libcVersion.substr(0, dot).data());
+    auto const glibcMinor = std::stoi(libcVersion.substr(dot + 1).data());
+    auto const use        = glibcMajor < 2 || (glibcMajor == 2 && glibcMinor < 25);
+    ucxx_debug("glibc version %s detected, spinlock use is %d", libcVersion.data(), use);
+    return use;
   }
-  return use;
-}
+}();
 #else
-bool CallbackNotifier::use_spinlock() { return false; }
+static constexpr bool _useSpinlock = false;
 #endif
 
 void CallbackNotifier::set()
 {
-  if (use_spinlock()) {
-    _spinlock.store(true, std::memory_order_release);
+  if (_useSpinlock) {
+    _flag.store(true, std::memory_order_release);
   } else {
     {
       std::lock_guard lock(_mutex);
-      _flag = true;
+      // This can be relaxed because the mutex is providing
+      // ordering.
+      _flag.store(true, std::memory_order_relaxed);
     }
     _conditionVariable.notify_all();
   }
 }
 void CallbackNotifier::wait()
 {
-  if (use_spinlock()) {
-    while (!_spinlock.load(std::memory_order_acquire)) {}
+  if (_useSpinlock) {
+    while (!_flag.load(std::memory_order_acquire)) {}
   } else {
     std::unique_lock lock(_mutex);
-    _conditionVariable.wait(lock, [this]() { return _flag; });
+    // Likewise here, the mutex provides ordering.
+    _conditionVariable.wait(lock, [this]() { return _flag.load(std::memory_order_relaxed); });
   }
 }
 
