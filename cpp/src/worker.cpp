@@ -20,7 +20,6 @@
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_tag.h>
-#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
@@ -412,16 +411,14 @@ size_t Worker::cancelInflightRequests()
     canceled = inflightRequestsToCancel->cancelAll();
     progressPending();
   } else if (isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{};
-    registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
+    auto notifier = cb_notifier();
+    registerGenericPre([&notifier, &canceled, &inflightRequestsToCancel]() {
       canceled = inflightRequestsToCancel->cancelAll();
-      callbackNotifierPre.set();
+      notifier->set();
     });
-    callbackNotifierPre.wait();
-
-    utils::CallbackNotifier callbackNotifierPost{};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    notifier->wait();
+    registerGenericPost([&notifier]() { notifier->set(); });
+    notifier->wait();
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
   }
@@ -467,12 +464,11 @@ bool Worker::tagProbe(const ucp_tag_t tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    utils::CallbackNotifier callbackNotifierPre{};
-    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.set(); });
-    callbackNotifierPre.wait();
-    utils::CallbackNotifier callbackNotifierPost{};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    auto notifier = cb_notifier();
+    registerGenericPre([&notifier]() { notifier->set(); });
+    notifier->wait();
+    registerGenericPost([&notifier]() { notifier->set(); });
+    notifier->wait();
   }
 
   ucp_tag_recv_info_t info;

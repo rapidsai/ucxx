@@ -63,14 +63,14 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
 
   if (worker->isProgressThreadRunning()) {
     ucs_status_t status = UCS_INPROGRESS;
-    utils::CallbackNotifier callbackNotifier{};
-    auto worker = ::ucxx::getWorker(_parent);
-    worker->registerGenericPre([this, &params, &callbackNotifier, &status]() {
+    auto worker         = ::ucxx::getWorker(_parent);
+    auto notifier       = worker->cb_notifier();
+    worker->registerGenericPre([this, &params, &status]() {
       auto worker = ::ucxx::getWorker(_parent);
       status      = ucp_ep_create(worker->getHandle(), params, &_handle);
-      callbackNotifier.set();
+      worker->cb_notifier()->set();
     });
-    callbackNotifier.wait();
+    notifier->wait();
     utils::ucsErrorThrow(status);
   } else {
     utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
@@ -155,16 +155,14 @@ void Endpoint::close()
   ucs_status_ptr_t status;
 
   if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{};
-    worker->registerGenericPre([this, &callbackNotifierPre, &status, closeMode]() {
+    auto notifier = worker->cb_notifier();
+    worker->registerGenericPre([this, &notifier, &status, closeMode]() {
       status = ucp_ep_close_nb(_handle, closeMode);
-      callbackNotifierPre.set();
+      notifier->set();
     });
-    callbackNotifierPre.wait();
-
+    notifier->wait();
     while (UCS_PTR_IS_PTR(status)) {
-      utils::CallbackNotifier callbackNotifierPost{};
-      worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
+      worker->registerGenericPost([this, &notifier, &status]() {
         ucs_status_t s = ucp_request_check_status(status);
         if (UCS_PTR_STATUS(s) != UCS_INPROGRESS) {
           ucp_request_free(status);
@@ -175,9 +173,9 @@ void Endpoint::close()
           }
         }
 
-        callbackNotifierPost.set();
+        notifier->set();
       });
-      callbackNotifierPost.wait();
+      notifier->wait();
     }
   } else {
     status = ucp_ep_close_nb(_handle, closeMode);
@@ -260,15 +258,14 @@ size_t Endpoint::cancelInflightRequests()
     canceled = _inflightRequests->cancelAll();
     worker->progress();
   } else if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{};
-    worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
+    auto notifier = worker->cb_notifier();
+    worker->registerGenericPre([this, &notifier, &canceled]() {
       canceled = _inflightRequests->cancelAll();
-      callbackNotifierPre.set();
+      notifier->set();
     });
-    callbackNotifierPre.wait();
-    utils::CallbackNotifier callbackNotifierPost{};
-    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    notifier->wait();
+    worker->registerGenericPost([&notifier]() { notifier->set(); });
+    notifier->wait();
   } else {
     canceled = _inflightRequests->cancelAll();
   }

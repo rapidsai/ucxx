@@ -9,7 +9,6 @@
 
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
-#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
@@ -51,16 +50,14 @@ Listener::~Listener()
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
   if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{};
-    worker->registerGenericPre([this, &callbackNotifierPre]() {
+    auto notifier = worker->cb_notifier();
+    worker->registerGenericPre([this, &notifier]() {
       ucp_listener_destroy(_handle);
-      callbackNotifierPre.set();
+      notifier->set();
     });
-    callbackNotifierPre.wait();
-
-    utils::CallbackNotifier callbackNotifierPost{};
-    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    notifier->wait();
+    worker->registerGenericPost([&notifier]() { notifier->set(); });
+    notifier->wait();
   } else {
     ucp_listener_destroy(this->_handle);
     worker->progress();

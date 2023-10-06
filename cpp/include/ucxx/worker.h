@@ -20,6 +20,7 @@
 #include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/notifier.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/worker_progress_thread.h>
 
 namespace ucxx {
@@ -54,6 +55,8 @@ class Worker : public Component {
     nullptr};  ///< The argument to be passed to the progress thread start callback
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
+
+  utils::CallbackNotifier _cb_notifier{};  ///< Notification object for cross-thread callbacks.
 
   friend std::shared_ptr<RequestAm> createRequestAmRecv(
     std::shared_ptr<Endpoint> endpoint,
@@ -155,6 +158,7 @@ class Worker : public Component {
   Worker(Worker&& o)               = delete;
   Worker& operator=(Worker&& o)    = delete;
 
+  utils::CallbackNotifier* cb_notifier() { return &_cb_notifier; }
   /**
    * @brief Constructor of `shared_ptr<ucxx::Worker>`.
    *
