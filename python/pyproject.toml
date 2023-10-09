@@ -15,7 +15,7 @@ requires = [
 
 [project]
 name = "ucxx"
-version = "0.34.00"
+version = "0.35.00"
 description = "Python Bindings for the Unified Communication X library (UCX)"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [

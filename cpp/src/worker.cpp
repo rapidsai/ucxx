@@ -219,8 +219,6 @@ bool Worker::progressWorkerEvent(const int epollTimeout)
   int ret;
   epoll_event ev;
 
-  cancelInflightRequests();
-
   if (progress()) return true;
 
   if ((_epollFileDescriptor == -1) || !arm()) return false;
@@ -254,10 +252,17 @@ bool Worker::progressPending()
 
 bool Worker::progress()
 {
-  bool ret = progressPending();
+  bool ret                     = progressPending();
+  bool progressScheduledCancel = false;
 
-  // Before canceling requests scheduled for cancelation, attempt to let them complete.
-  if (_inflightRequestsToCancel > 0) ret |= progressPending();
+  {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+
+    // Before canceling requests scheduled for cancelation, attempt to let them complete.
+    progressScheduledCancel =
+      _inflightRequestsToCancel != nullptr && _inflightRequestsToCancel->size() > 0;
+  }
+  if (progressScheduledCancel) ret |= progressPending();
 
   // Requests that were not completed now must be canceled.
   if (cancelInflightRequests() > 0) ret |= progressPending();
@@ -283,7 +288,7 @@ void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
 
 void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
 {
-  if (std::this_thread::get_id() == _progressThreadId) {
+  if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
      * If the method is called from within the progress thread (e.g., from the
      * listener callback), execute it immediately.
@@ -302,7 +307,7 @@ void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
 
 void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
 {
-  if (std::this_thread::get_id() == _progressThreadId) {
+  if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
      * If the method is called from within the progress thread (e.g., from the
      * listener callback), execute it immediately.
@@ -391,6 +396,8 @@ void Worker::stopProgressThread()
 
 bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
 
+std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
+
 size_t Worker::cancelInflightRequests()
 {
   size_t canceled = 0;
@@ -401,17 +408,20 @@ size_t Worker::cancelInflightRequests()
     std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
   }
 
-  if (isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{false};
+  if (std::this_thread::get_id() == getProgressThreadId()) {
+    canceled = inflightRequestsToCancel->cancelAll();
+    progressPending();
+  } else if (isProgressThreadRunning()) {
+    utils::CallbackNotifier callbackNotifierPre{};
     registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
       canceled = inflightRequestsToCancel->cancelAll();
-      callbackNotifierPre.store(true);
+      callbackNotifierPre.set();
     });
-    callbackNotifierPre.wait([](auto flag) { return flag; });
+    callbackNotifierPre.wait();
 
-    utils::CallbackNotifier callbackNotifierPost{false};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
-    callbackNotifierPost.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callbackNotifierPost{};
+    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+    callbackNotifierPost.wait();
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
   }
@@ -457,12 +467,12 @@ bool Worker::tagProbe(const ucp_tag_t tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    utils::CallbackNotifier callbackNotifierPre{false};
-    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.store(true); });
-    callbackNotifierPre.wait([](auto flag) { return flag; });
-    utils::CallbackNotifier callbackNotifierPost{false};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
-    callbackNotifierPost.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callbackNotifierPre{};
+    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.set(); });
+    callbackNotifierPre.wait();
+    utils::CallbackNotifier callbackNotifierPost{};
+    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+    callbackNotifierPost.wait();
   }
 
   ucp_tag_recv_info_t info;

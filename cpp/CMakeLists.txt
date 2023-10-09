@@ -11,7 +11,7 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
-set(libucxx_version 0.34.00)
+set(libucxx_version 0.35.00)
 
 project(
   UCXX
@@ -124,6 +124,7 @@ add_library(
   src/request_tag_multi.cpp
   src/worker.cpp
   src/worker_progress_thread.cpp
+  src/utils/callback_notifier.cpp
   src/utils/file_descriptor.cpp
   src/utils/python.cpp
   src/utils/sockaddr.cpp

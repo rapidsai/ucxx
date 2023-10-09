@@ -9,7 +9,14 @@ import random
 import numpy as np
 import pytest
 from ucxx._lib_async.utils import get_event_loop
-from utils import am_recv, am_send, get_cuda_devices, get_num_gpus, recv, send
+from ucxx._lib_async.utils_test import (
+    am_recv,
+    am_send,
+    get_cuda_devices,
+    get_num_gpus,
+    recv,
+    send,
+)
 
 import ucxx as ucxx
 

@@ -57,15 +57,14 @@ void InflightRequests::remove(const Request* const request)
 
 size_t InflightRequests::cancelAll()
 {
+  std::scoped_lock lock{_cancelMutex, _mutex};
+  size_t total = _inflightRequests->size();
+
   // Fast path when no requests have been registered or the map has been
   // previously released.
-  if (_inflightRequests->size() == 0) return 0;
+  if (total == 0) return 0;
 
-  ucxx_debug("Canceling %lu requests", _inflightRequests->size());
-
-  std::scoped_lock lock{_cancelMutex, _mutex};
-
-  size_t total = _inflightRequests->size();
+  ucxx_debug("Canceling %lu requests", total);
 
   for (auto& r : *_inflightRequests) {
     auto request = r.second;

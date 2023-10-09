@@ -559,6 +559,15 @@ class Worker : public Component {
   bool isProgressThreadRunning();
 
   /**
+   * @brief Get the progress thread ID.
+   *
+   * Get the progress thread ID, only valid if `startProgressThread()` was called.
+   *
+   * @returns the progress thread ID.
+   */
+  std::thread::id getProgressThreadId();
+
+  /**
    * @brief Cancel inflight requests.
    *
    * Cancel inflight requests, returning the total number of requests that were canceled.
