@@ -53,7 +53,8 @@ def get_data():
 
 def simple_server(size, recv):
     async def server(ep):
-        recv.append(await ep.am_recv())
+        recv = await ep.am_recv()
+        await ep.am_send(recv)
         await ep.close()
 
     return server
@@ -83,16 +84,14 @@ async def test_send_recv_am(size, recv_wait, data):
             # immediately as receive data is already available.
             await asyncio.sleep(1)
         await c.am_send(msg)
-
-    while len(recv) == 0:
-        await asyncio.sleep(0)
+        recv_msg = await c.am_recv()
 
     if data["memory_type"] == "cuda" and msg.nbytes < rndv_thresh:
         # Eager messages are always received on the host, if no custom host
         # allocator is registered, UCXX defaults to `np.array`.
-        np.testing.assert_equal(recv[0].view(np.int64), msg.get())
+        np.testing.assert_equal(recv_msg.view(np.int64), msg.get())
     else:
-        data["validator"](recv[0], msg)
+        data["validator"](recv_msg, msg)
 
     await asyncio.gather(*(c.close() for c in clients))
     await wait_listener_client_handlers(listener)
