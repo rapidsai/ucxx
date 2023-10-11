@@ -4,6 +4,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+log_command() {
+  CMD_LINE=$1
+  echo -e "\e[1mRunning: \n ${CMD_LINE}\e[0m"
+}
+
 print_system_stats() {
   rapids-logger "Check GPU usage"
   nvidia-smi

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 
@@ -17,6 +18,8 @@ async def test_get_ucp_worker():
     lt = ucxx.create_listener(server)
     ep = await ucxx.create_endpoint(ucxx.get_address(), lt.port)
     assert ep.get_ucp_worker() == worker
+    await ep.close()
+    await wait_listener_client_handlers(lt)
 
 
 @pytest.mark.asyncio
@@ -31,3 +34,5 @@ async def test_get_endpoint():
     ucp_ep = ep.get_ucp_endpoint()
     assert isinstance(ucp_ep, int)
     assert ucp_ep > 0
+    await ep.close()
+    await wait_listener_client_handlers(lt)

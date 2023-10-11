@@ -58,10 +58,10 @@ class Notifier : public ::ucxx::Notifier {
   RequestNotifierWaitState waitRequestNotifierWithTimeout(uint64_t period);
 
  public:
-  Notifier(const Notifier&) = delete;
+  Notifier(const Notifier&)            = delete;
   Notifier& operator=(Notifier const&) = delete;
   Notifier(Notifier&& o)               = delete;
-  Notifier& operator=(Notifier&& o) = delete;
+  Notifier& operator=(Notifier&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::python::Notifier>`.

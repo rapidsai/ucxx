@@ -24,38 +24,61 @@ print_system_stats
 
 BINARY_PATH=${CONDA_PREFIX}/bin
 
-NEXT_PORT=12345
-function get_next_port() {
-  echo ${NEXT_PORT}
-  NEXT_PORT=$((NEXT_PORT + 1))
-}
+_SERVER_PORT=12345
 
 run_tests() {
-  CMD_LINE="UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
+  CMD_LINE="timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
 
-  rapids-logger "Running: \n  - ${CMD_LINE}"
-
-  UCX_TCP_CM_REUSEADDR=y timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST
+  log_command "${CMD_LINE}"
+  UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}
 }
 
 run_benchmark() {
-  PROGRESS_MODE=$1
-
-  SERVER_PORT=$(get_next_port)    # Use different ports every time to prevent `Device is busy`
+  SERVER_PORT=$1
+  PROGRESS_MODE=$2
 
   CMD_LINE_SERVER="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
   CMD_LINE_CLIENT="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1"
 
-  rapids-logger "Running: \n  - ${CMD_LINE_SERVER}\n  - ${CMD_LINE_CLIENT}"
-  UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} &
+  log_command "${CMD_LINE_SERVER}"
+  UCX_TCP_CM_REUSEADDR=y ${CMD_LINE_SERVER} &
   sleep 1
 
-  MAX_ATTEMPTS=10
+  log_command "${CMD_LINE_CLIENT}"
+  ${CMD_LINE_CLIENT}
+}
+
+run_example() {
+  SERVER_PORT=$1
+  PROGRESS_MODE=$2
+
+  CMD_LINE="timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
+
+  log_command "${CMD_LINE}"
+  UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}
+}
+
+run_port_retry() {
+  MAX_ATTEMPTS=${1}
+  RUN_TYPE=${2}
+  PROGRESS_MODE=${3}
 
   set +e
   for attempt in $(seq 1 ${MAX_ATTEMPTS}); do
-    echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run client"
-    timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1
+    echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run ${RUN_TYPE}"
+
+    _SERVER_PORT=$((_SERVER_PORT + 1))    # Use different ports every time to prevent `Device is busy`
+
+    if [[ "${RUN_TYPE}" == "benchmark" ]]; then
+      run_benchmark ${_SERVER_PORT} ${PROGRESS_MODE}
+    elif [[ "${RUN_TYPE}" == "example" ]]; then
+      run_example ${_SERVER_PORT} ${PROGRESS_MODE}
+    else
+      set -e
+      echo "Unknown test type "${RUN_TYPE}""
+      exit 1
+    fi
+
     LAST_STATUS=$?
     if [ ${LAST_STATUS} -eq 0 ]; then
       break;
@@ -70,17 +93,6 @@ run_benchmark() {
   fi
 }
 
-run_example() {
-  PROGRESS_MODE=$1
-
-  SERVER_PORT=$(get_next_port)    # Use different ports every time to prevent `Device is busy`
-
-  CMD_LINE="timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
-
-  rapids-logger "Running: \n  - ${CMD_LINE}"
-  UCX_TCP_CM_REUSEADDR=y timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -p ${SERVER_PORT}
-}
-
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
@@ -91,18 +103,21 @@ rapids-mamba-retry install \
 print_ucx_config
 
 rapids-logger "Run tests with conda package"
+rapids-logger "C++ Tests"
 run_tests
 
-# run_cpp_benchmark PROGRESS_MODE
-run_benchmark   polling
-run_benchmark   blocking
-run_benchmark   thread-polling
-run_benchmark   thread-blocking
-run_benchmark   wait
+rapids-logger "C++ Benchmarks"
+# run_port_retry MAX_ATTEMPTS RUN_TYPE PROGRESS_MODE
+run_port_retry 10 "benchmark" "polling"
+run_port_retry 10 "benchmark" "blocking"
+run_port_retry 10 "benchmark" "thread-polling"
+run_port_retry 10 "benchmark" "thread-blocking"
+run_port_retry 10 "benchmark" "wait"
 
-# run_cpp_example PROGRESS_MODE
-run_example   polling
-run_example   blocking
-run_example   thread-polling
-run_example   thread-blocking
-run_example   wait
+rapids-logger "C++ Examples"
+# run_port_retry MAX_ATTEMPTS RUN_TYPE PROGRESS_MODE
+run_port_retry 10 "example" "polling"
+run_port_retry 10 "example" "blocking"
+run_port_retry 10 "example" "thread-polling"
+run_port_retry 10 "example" "thread-blocking"
+run_port_retry 10 "example" "wait"

@@ -7,7 +7,10 @@ import sys
 
 import numpy as np
 import pytest
-from utils import captured_logger, wait_listener_client_handlers
+from ucxx._lib_async.utils_test import (
+    captured_logger,
+    wait_listener_client_handlers,
+)
 
 import ucxx as ucxx
 

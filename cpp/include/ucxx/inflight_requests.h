@@ -30,10 +30,10 @@ class InflightRequests {
    */
   InflightRequests() = default;
 
-  InflightRequests(const InflightRequests&) = delete;
+  InflightRequests(const InflightRequests&)            = delete;
   InflightRequests& operator=(InflightRequests const&) = delete;
   InflightRequests(InflightRequests&& o)               = delete;
-  InflightRequests& operator=(InflightRequests&& o) = delete;
+  InflightRequests& operator=(InflightRequests&& o)    = delete;
 
   /**
    * @brief Destructor.

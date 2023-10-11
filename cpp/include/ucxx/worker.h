@@ -149,11 +149,11 @@ class Worker : public Component {
                   const bool enableFuture            = false);
 
  public:
-  Worker()              = delete;
-  Worker(const Worker&) = delete;
+  Worker()                         = delete;
+  Worker(const Worker&)            = delete;
   Worker& operator=(Worker const&) = delete;
   Worker(Worker&& o)               = delete;
-  Worker& operator=(Worker&& o) = delete;
+  Worker& operator=(Worker&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::Worker>`.

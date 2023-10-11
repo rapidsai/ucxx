@@ -38,11 +38,11 @@ class Buffer {
   Buffer(const BufferType bufferType, const size_t size);
 
  public:
-  Buffer()              = delete;
-  Buffer(const Buffer&) = delete;
+  Buffer()                         = delete;
+  Buffer(const Buffer&)            = delete;
   Buffer& operator=(Buffer const&) = delete;
   Buffer(Buffer&& o)               = delete;
-  Buffer& operator=(Buffer&& o) = delete;
+  Buffer& operator=(Buffer&& o)    = delete;
 
   /**
    * @brief Virtual destructor.
@@ -87,11 +87,11 @@ class HostBuffer : public Buffer {
   void* _buffer;  ///< Pointer to the allocated buffer
 
  public:
-  HostBuffer()                  = delete;
-  HostBuffer(const HostBuffer&) = delete;
+  HostBuffer()                             = delete;
+  HostBuffer(const HostBuffer&)            = delete;
   HostBuffer& operator=(HostBuffer const&) = delete;
   HostBuffer(HostBuffer&& o)               = delete;
-  HostBuffer& operator=(HostBuffer&& o) = delete;
+  HostBuffer& operator=(HostBuffer&& o)    = delete;
 
   /**
    * @brief Constructor of concrete type `HostBuffer`.
@@ -171,11 +171,11 @@ class RMMBuffer : public Buffer {
   std::unique_ptr<rmm::device_buffer> _buffer;  ///< RMM-allocated device buffer
 
  public:
-  RMMBuffer()                 = delete;
-  RMMBuffer(const RMMBuffer&) = delete;
+  RMMBuffer()                            = delete;
+  RMMBuffer(const RMMBuffer&)            = delete;
   RMMBuffer& operator=(RMMBuffer const&) = delete;
   RMMBuffer(RMMBuffer&& o)               = delete;
-  RMMBuffer& operator=(RMMBuffer&& o) = delete;
+  RMMBuffer& operator=(RMMBuffer&& o)    = delete;
 
   /**
    * @brief Constructor of concrete type `RMMBuffer`.

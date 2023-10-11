@@ -13,7 +13,7 @@ rapids-print-env
 
 rapids-logger "Begin C++ and Python builds"
 
-rapids-mamba-retry mambabuild \
+rapids-conda-retry mambabuild \
   conda/recipes/ucxx
 
 rapids-upload-conda-to-s3 cpp

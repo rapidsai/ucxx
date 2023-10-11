@@ -39,11 +39,11 @@ class Address : public Component {
   Address(std::shared_ptr<Worker> worker, ucp_address_t* address, size_t length);
 
  public:
-  Address()               = delete;
-  Address(const Address&) = delete;
+  Address()                          = delete;
+  Address(const Address&)            = delete;
   Address& operator=(Address const&) = delete;
   Address(Address&& o)               = delete;
-  Address& operator=(Address&& o) = delete;
+  Address& operator=(Address&& o)    = delete;
 
   ~Address();
 

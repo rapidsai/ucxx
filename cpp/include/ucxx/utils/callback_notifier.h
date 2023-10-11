@@ -33,10 +33,10 @@ class CallbackNotifier {
 
   ~CallbackNotifier() {}
 
-  CallbackNotifier(const CallbackNotifier&) = delete;
+  CallbackNotifier(const CallbackNotifier&)            = delete;
   CallbackNotifier& operator=(CallbackNotifier const&) = delete;
   CallbackNotifier(CallbackNotifier&& o)               = delete;
-  CallbackNotifier& operator=(CallbackNotifier&& o) = delete;
+  CallbackNotifier& operator=(CallbackNotifier&& o)    = delete;
 
   /**
    * @brief Store a new flag value and notify waiting threads.

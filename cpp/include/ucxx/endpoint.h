@@ -87,11 +87,11 @@ class Endpoint : public Component {
   std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
  public:
-  Endpoint()                = delete;
-  Endpoint(const Endpoint&) = delete;
+  Endpoint()                           = delete;
+  Endpoint(const Endpoint&)            = delete;
   Endpoint& operator=(Endpoint const&) = delete;
   Endpoint(Endpoint&& o)               = delete;
-  Endpoint& operator=(Endpoint&& o) = delete;
+  Endpoint& operator=(Endpoint&& o)    = delete;
 
   ~Endpoint();
 

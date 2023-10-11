@@ -51,7 +51,7 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - ucx
     - python
-    - librmm =23.08
+    - librmm =23.10
     - gtest
 
 outputs:
@@ -206,11 +206,11 @@ outputs:
         - cmake
         - scikit-build>=0.13.1
         - setuptools
-        - cython >=0.29,<0.30
+        - cython >=3.0.0
         - numpy 1.21
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
-        - rmm =23.08
+        - rmm =23.10
         {% if cuda_major != "11" %}
         - cuda-cudart-dev
         {% endif %}

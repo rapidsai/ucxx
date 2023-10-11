@@ -28,10 +28,10 @@ struct BufferRequest {
   BufferRequest();
   ~BufferRequest();
 
-  BufferRequest(const BufferRequest&) = delete;
+  BufferRequest(const BufferRequest&)            = delete;
   BufferRequest& operator=(BufferRequest const&) = delete;
   BufferRequest(BufferRequest&& o)               = delete;
-  BufferRequest& operator=(BufferRequest&& o) = delete;
+  BufferRequest& operator=(BufferRequest&& o)    = delete;
 };
 
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
@@ -50,11 +50,11 @@ class RequestTagMulti : public Request {
   bool _isFilled{false};                            ///< Whether the all requests have been posted
 
  private:
-  RequestTagMulti()                       = delete;
-  RequestTagMulti(const RequestTagMulti&) = delete;
+  RequestTagMulti()                                  = delete;
+  RequestTagMulti(const RequestTagMulti&)            = delete;
   RequestTagMulti& operator=(RequestTagMulti const&) = delete;
   RequestTagMulti(RequestTagMulti&& o)               = delete;
-  RequestTagMulti& operator=(RequestTagMulti&& o) = delete;
+  RequestTagMulti& operator=(RequestTagMulti&& o)    = delete;
 
   /**
    * @brief Protected constructor of a multi-buffer tag receive request.
