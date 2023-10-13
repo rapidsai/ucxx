@@ -75,6 +75,12 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   } else {
     utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
   }
+
+  ucxx_trace("Endpoint created: %p, UCP handle: %p, parent: %p, endpointErrorHandling: %d",
+             this,
+             _handle,
+             _parent.get(),
+             endpointErrorHandling);
 }
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
@@ -133,7 +139,7 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
 Endpoint::~Endpoint()
 {
   close();
-  ucxx_trace("Endpoint destroyed: %p", _originalHandle);
+  ucxx_trace("Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
 }
 
 void Endpoint::close()
@@ -191,7 +197,7 @@ void Endpoint::close()
       ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
     }
   }
-  ucxx_trace("Endpoint closed: %p", _handle);
+  ucxx_trace("Endpoint closed: %p, UCP handle: %p", this, _handle);
 
   if (_callbackData->closeCallback) {
     ucxx_debug("Calling user callback for endpoint %p", _handle);

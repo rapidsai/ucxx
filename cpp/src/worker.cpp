@@ -60,8 +60,9 @@ Worker::Worker(std::shared_ptr<Context> context,
     utils::ucsErrorThrow(ucp_worker_set_am_recv_handler(_handle, &am_handler_param));
   }
 
-  ucxx_trace("Worker created: %p, enableDelayedSubmission: %d, enableFuture: %d",
+  ucxx_trace("Worker created: %p, UCP handle: %p, enableDelayedSubmission: %d, enableFuture: %d",
              this,
+             _handle,
              enableDelayedSubmission,
              _enableFuture);
 
@@ -158,7 +159,7 @@ Worker::~Worker()
   drainWorkerTagRecv();
 
   ucp_worker_destroy(_handle);
-  ucxx_trace("Worker destroyed: %p", _handle);
+  ucxx_trace("Worker destroyed: %p, UCP handle: %p", this, _handle);
 
   if (_epollFileDescriptor >= 0) close(_epollFileDescriptor);
 }
