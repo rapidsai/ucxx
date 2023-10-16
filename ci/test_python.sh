@@ -18,6 +18,10 @@ rapids-dependency-file-generator \
 rapids-mamba-retry env create --force -f env.yaml -n test
 conda activate test
 
+rapids-logger "Install Dask and Distributed"
+pip install git+https://github.com/dask/dask@main
+pip install -e git+https://github.com/dask/distributed@main
+
 rapids-print-env
 
 print_system_stats
@@ -72,6 +76,19 @@ run_py_benchmark() {
   UCX_KEEPALIVE_INTERVAL=1ms UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 2m python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}
 }
 
+run_distributed_ucxx_tests() {
+  PROGRESS_MODE=$1
+  ENABLE_DELAYED_SUBMISSION=$2
+  ENABLE_PYTHON_FUTURE=$3
+
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -vs python/distributed-ucxx/distributed_ucxx/tests/"
+
+  # Workaround for https://github.com/rapidsai/ucxx/issues/15
+  # CMD_LINE="UCX_KEEPALIVE_INTERVAL=1ms ${CMD_LINE}"
+
+  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -vs python/distributed-ucxx/distributed_ucxx/tests/
+}
+
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
@@ -104,3 +121,11 @@ for nbuf in 1 8; do
     run_py_benchmark    ucxx-async  thread          0             1                         1                    ${nbuf}  0
   fi
 done
+
+rapids-logger "Distributed Tests"
+# run_py_benchmark  PROGRESS_MODE ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE
+run_py_benchmark    polling       0                         0
+run_py_benchmark    thread        0                         0
+run_py_benchmark    thread        0                         1
+run_py_benchmark    thread        1                         0
+run_py_benchmark    thread        1                         1
