@@ -47,7 +47,19 @@ void InflightRequests::remove(const Request* const request)
       return;
     } else if (result == -1) {
       auto search = _inflightRequests->find(request);
-      if (search != _inflightRequests->end()) _inflightRequests->erase(search);
+      decltype(search->second) tmpRequest;
+      if (search != _inflightRequests->end()) {
+        /**
+         * If this is the last request to hold `std::shared_ptr<ucxx::Endpoint>` erasing it
+         * may cause the `ucxx::Endpoint`s destructor and subsequently the `close()` method
+         * to be called which will in turn call `cancelAll()` and attempt to take the
+         * mutexes. For this reason we should make a temporary copy of the request being
+         * erased from `_inflightRequests` to allow unlocking the mutexes and only then
+         * destroy the object upon this method's return.
+         */
+        tmpRequest = search->second;
+        _inflightRequests->erase(search);
+      }
       _cancelMutex.unlock();
       _mutex.unlock();
       return;
