@@ -4,7 +4,8 @@ import pytest
 
 from distributed.comm import connect, listen, parse_address
 from distributed.comm.registry import backends
-from distributed.utils_test import gen_test
+
+from distributed_ucxx.utils_test import gen_test
 
 #
 # Test communications through the abstract API

@@ -2,8 +2,9 @@ import pytest
 
 from distributed import Client, Nanny
 from distributed.scheduler import Scheduler
-from distributed.utils_test import gen_test
 from distributed.worker import Worker
+
+from distributed_ucxx.utils_test import gen_test
 
 
 @pytest.mark.parametrize("Worker", [Worker, Nanny])

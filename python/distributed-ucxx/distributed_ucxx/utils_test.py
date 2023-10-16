@@ -6,7 +6,15 @@ import sys
 
 import pytest
 
-from distributed.utils_test import cleanup, loop, loop_in_thread  # noqa: F401
+from distributed.utils_test import (  # noqa: F401
+    check_thread_leak,
+    cleanup,
+    gen_test as distributed_gen_test,
+    loop,
+    loop_in_thread,
+)
+
+import ucxx
 
 try:
     from pytest_timeout import is_debugging
@@ -54,17 +62,29 @@ def ucxx_loop():
     closure), clean up tasks before closing the event loop to prevent unwanted
     errors from being raised.
     """
-    ucxx = pytest.importorskip("ucxx")
-
     event_loop = asyncio.new_event_loop()
     event_loop.set_exception_handler(ucxx_exception_handler)
-    ucxx.reset()
-    yield loop
-    ucxx.reset()
-    event_loop.close()
 
-    # Reset also Distributed's UCX initialization, i.e., revert the effects of
-    # `distributed.comm.ucx.init_once()`.
-    import distributed_ucxx
+    # Create and reset context before running. The first test that runs during the
+    # `pytest` process lifetime creates a `_DummyThread` instance which violates
+    # thread checking from `distributed.utils_test.check_thread_leak()`, if we
+    # instantiate a and reset a context before `yield loop`, that doesn't fail
+    # during the `check_thread_leak()` check below.
+    ucxx.core._get_ctx()
+    ucxx.reset()
 
-    distributed_ucxx.ucxx = None
+    with check_thread_leak():
+        yield loop
+        ucxx.reset()
+        event_loop.close()
+
+        # Reset also Distributed's UCX initialization, i.e., revert the effects of
+        # `distributed.comm.ucx.init_once()`.
+        import distributed_ucxx
+
+        distributed_ucxx.ucxx = None
+
+
+def gen_test(**kwargs):
+    assert "clean_kwargs" not in kwargs
+    return distributed_gen_test(clean_kwargs={"threads": False}, **kwargs)

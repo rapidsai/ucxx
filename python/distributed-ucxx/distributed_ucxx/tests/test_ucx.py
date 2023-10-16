@@ -20,11 +20,12 @@ from distributed.diagnostics.nvml import (
 )
 from distributed.protocol import to_serialize
 from distributed.utils import wait_for
-from distributed.utils_test import gen_test, inc
+from distributed.utils_test import inc
 
 import ucxx
 
 import distributed_ucxx  # noqa: E402
+from distributed_ucxx.utils_test import gen_test
 
 pytestmark = pytest.mark.gpu
 

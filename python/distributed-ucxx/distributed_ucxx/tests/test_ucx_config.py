@@ -8,9 +8,10 @@ import pytest
 import dask
 from distributed import Client
 from distributed.utils import get_ip, open_port
-from distributed.utils_test import gen_test, popen
+from distributed.utils_test import popen
 
 from distributed_ucxx.ucxx import _prepare_ucx_config
+from distributed_ucxx.utils_test import gen_test
 
 pytestmark = pytest.mark.gpu
 
@@ -108,7 +109,10 @@ async def test_ucx_config(ucxx_loop, cleanup):
         assert ucx_environment == {"UCX_MEMTRACK_DEST": "stdout"}
 
 
-# @pytest.mark.flaky(reruns=3, reruns_delay=5)
+@pytest.mark.skipif(
+    int(os.environ.get("UCXPY_ENABLE_PYTHON_FUTURE", "0")) != 0,
+    reason="Workers running without a `Nanny` can't be closed properly",
+)
 def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop):
     env = os.environ.copy()
     env["DASK_DISTRIBUTED__RMM__POOL_SIZE"] = "1000.00 MB"
