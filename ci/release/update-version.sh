@@ -42,13 +42,19 @@ sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/pyproject.t
 # bump RAPIDS libs
 sed_runner "/- librmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
 sed_runner "/- rmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
-for FILE in conda/environments/*.yaml dependencies.yaml; do
-  sed_runner "/- cuda==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- cudf==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- dask-cuda==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- dask-cudf==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- librmm==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- rmm==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
+
+DEPENDENCIES=(
+  cudf
+  dask-cuda
+  dask-cudf
+  librmm
+  rmm
+)
+for DEP in "${DEPENDENCIES[@]}"; do
+  for FILE in dependencies.yaml conda/environments/*.yaml; do
+    sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
+  done
+  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml;
 done
 
 # rapids-cmake version
