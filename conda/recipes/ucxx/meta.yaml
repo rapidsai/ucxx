@@ -216,7 +216,6 @@ outputs:
         - cuda-version {{ cuda_version }}
       run:
         - python * *_cpython
-        - packaging
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% endif %}

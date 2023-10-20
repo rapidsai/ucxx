@@ -3,6 +3,7 @@ files:
   all:
     output: none
     includes:
+      - build_cpp
       - build_python
       - checks
       - cudatoolkit
@@ -26,6 +27,28 @@ files:
     includes:
       - checks
       - py_version
+  py_build:
+    output: pyproject
+    pyproject_dir: python
+    extras:
+      table: build-system
+    includes:
+      - build_python
+  py_run:
+    output: pyproject
+    pyproject_dir: python
+    extras:
+      table: project
+    includes:
+      - run_python
+  py_test:
+    output: pyproject
+    pyproject_dir: python
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -33,21 +56,28 @@ channels:
   - conda-forge
   - nvidia
 dependencies:
-  build_python:
+  build_cpp:
     common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - &cmake_ver cmake>=3.26.4
-          - rmm==23.12.*
       - output_types: conda
         packages:
-          - cython>=3.0.0
+          - &cmake_ver cmake>=3.26.4
           - fmt>=9.1.0,<10
           - &gmock gmock>=1.13.0
           - &gtest gtest>=1.13.0
           - librmm==23.12.*
-          - &numpy numpy>=1.21
           - spdlog>=1.11.0,<1.12
+  build_python:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - *cmake_ver
+          - cython>=3.0.0
+          - ninja
+          - rmm==23.12.*
+          - scikit-build>=0.13.1
+          - setuptools
+          - tomli
+          - wheel
   checks:
     common:
       - output_types: [conda, requirements]
@@ -101,7 +131,10 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - *numpy
+          - numpy>=1.21
+          - pynvml>=11.4.1
+      - output_types: [conda]
+        packages:
           - ucx
   test_cpp:
     common:
@@ -112,13 +145,14 @@ dependencies:
           - *gmock
   test_python:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
+          - cloudpickle
           - cudf==23.12.*
           - cupy
           - dask>=2023.1.1
           - distributed>=2023.1.1
-          - numba>=0.57.0
+          - numba>=0.57.1
           - pytest
           - pytest-asyncio
           - pytest-rerunfailures
