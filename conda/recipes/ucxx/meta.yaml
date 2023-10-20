@@ -11,7 +11,7 @@ package:
   name: libucxx-split
 
 source:
-  git_url: ../../..
+  path: ../../..
 
 build:
   script_env:
@@ -203,7 +203,6 @@ outputs:
       host:
         - python
         - pip
-        - cmake
         - scikit-build>=0.13.1
         - setuptools
         - cython >=3.0.0
