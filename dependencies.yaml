@@ -1,12 +1,16 @@
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
 files:
   all:
-    output: none
+    output: conda
+    matrix:
+      cuda: ["11.8", "12.0"]
+      arch: [x86_64]
     includes:
       - build_cpp
       - build_python
       - checks
       - cudatoolkit
+      - dev
       - py_version
       - run_python
       - test_cpp
@@ -60,11 +64,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
+          - c-compiler
+          - cxx-compiler
           - &cmake_ver cmake>=3.26.4
           - fmt>=9.1.0,<10
           - &gmock gmock>=1.13.0
           - &gtest gtest>=1.13.0
           - librmm==23.12.*
+          - ninja
           - spdlog>=1.11.0,<1.12
   build_python:
     common:
@@ -112,6 +119,21 @@ dependencies:
             packages:
               - cuda-version=12.0
               - cuda-cudart-dev
+  dev:
+    common:
+      - output_types: [conda]
+        packages:
+          # These packages are useful for development but not otherwise required to build/run
+          # RAPIDS
+          - pip
+          - dask-cuda==23.12.*
+          - dask-cudf==23.12.*
+          # UCX Build
+          - libtool
+          - automake
+          - autoconf
+          # UCXX Build
+          - pkg-config
   py_version:
     specific:
       - output_types: conda
