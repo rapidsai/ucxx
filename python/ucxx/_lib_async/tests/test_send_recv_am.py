@@ -53,7 +53,8 @@ def get_data():
 
 def simple_server(size, recv):
     async def server(ep):
-        recv.append(await ep.am_recv())
+        recv = await ep.am_recv()
+        await ep.am_send(recv)
         await ep.close()
 
     return server
@@ -76,23 +77,21 @@ async def test_send_recv_am(size, recv_wait, data):
         await ucxx.create_endpoint(ucxx.get_address(), listener.port)
         for i in range(num_clients)
     ]
-    for c in clients:
-        if recv_wait:
-            # By sleeping here we ensure that the listener's
-            # ep.am_recv call will have to wait, rather than return
-            # immediately as receive data is already available.
-            await asyncio.sleep(1)
-        await c.am_send(msg)
+    if recv_wait:
+        # By sleeping here we ensure that the listener's
+        # ep.am_recv call will have to wait, rather than return
+        # immediately as receive data is already available.
+        await asyncio.sleep(1)
+    await asyncio.gather(*(c.am_send(msg) for c in clients))
+    recv_msgs = await asyncio.gather(*(c.am_recv() for c in clients))
 
-    while len(recv) == 0:
-        await asyncio.sleep(0)
-
-    if data["memory_type"] == "cuda" and msg.nbytes < rndv_thresh:
-        # Eager messages are always received on the host, if no custom host
-        # allocator is registered, UCXX defaults to `np.array`.
-        np.testing.assert_equal(recv[0].view(np.int64), msg.get())
-    else:
-        data["validator"](recv[0], msg)
+    for recv_msg in recv_msgs:
+        if data["memory_type"] == "cuda" and msg.nbytes < rndv_thresh:
+            # Eager messages are always received on the host, if no custom host
+            # allocator is registered, UCXX defaults to `np.array`.
+            np.testing.assert_equal(recv_msg.view(np.int64), msg.get())
+        else:
+            data["validator"](recv_msg, msg)
 
     await asyncio.gather(*(c.close() for c in clients))
     await wait_listener_client_handlers(listener)
