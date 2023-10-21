@@ -198,6 +198,9 @@ outputs:
         - cmake
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
+        {% if cuda_major != "11" %}
+        - {{ compiler('cuda') }}
+        {% endif %}
         - ninja
         - sysroot_{{ target_platform }}
       host:
