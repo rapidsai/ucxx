@@ -18,13 +18,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libucxx libucxx_python ucxx benchmarks tests examples -v -g -n -c --show_depr_warn -h"
-HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [examples] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
+VALIDARGS="clean libucxx libucxx_python ucxx distributed_ucxx benchmarks tests examples -v -g -n -c --show_depr_warn -h"
+HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [distributed_ucxx] [benchmarks] [tests] [examples] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
    libucxx                       - build the UCXX C++ module
    libucxx_python                - build the UCXX C++ Python support module
    ucxx                          - build the ucxx Python package
+   distributed_ucxx              - build the distributed_ucxx (Dask Distributed module) Python package
    benchmarks                    - build benchmarks
    tests                         - build tests
    examples                      - build examples
@@ -36,7 +37,7 @@ HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [benchmarks] [tests] [example
    --cmake-args=\\\"<args>\\\"   - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h | --h[elp]                 - print this text
 
-   default action (no args) is to build and install 'libucxx' and 'libucxx_python', and then 'ucxx' targets
+   default action (no args) is to build and install 'libucxx' and 'libucxx_python', then 'ucxx' targets, and finally 'distributed_ucxx'
 "
 LIB_BUILD_DIR=${LIB_BUILD_DIR:=${REPODIR}/cpp/build}
 UCXX_BUILD_DIR=${REPODIR}/python/build
@@ -221,5 +222,15 @@ if buildAll || hasArg ucxx; then
     python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_LIBRARY_PATH=${LIBUCXX_BUILD_DIR} -DCMAKE_CUDA_ARCHITECTURES=${UCXX_CMAKE_CUDA_ARCHITECTURES} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_LIBRARY_PATH=${LIBUCXX_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
+    fi
+fi
+
+# Build and install the distributed_ucxx Python package
+if buildAll || hasArg distributed_ucxx; then
+
+    cd ${REPODIR}/python/distributed-ucxx/
+    python setup.py build_ext --inplace
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        python setup.py install --single-version-externally-managed --record=record.txt
     fi
 fi
