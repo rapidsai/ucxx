@@ -172,8 +172,8 @@ dependencies:
           - cloudpickle
           - cudf==23.12.*
           - cupy
-          - dask>=2023.1.1
-          - distributed>=2023.1.1
+          - dask
+          - distributed
           - numba>=0.57.1
           - pytest
           - pytest-asyncio
