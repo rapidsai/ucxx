@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+import asyncio
 import logging
 import struct
 
@@ -12,7 +13,7 @@ from .utils import hash64bits
 logger = logging.getLogger("ucx")
 
 
-async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener):
+async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener, stream_timeout=5.0):
     """Help function that exchange endpoint information"""
 
     # Pack peer information incl. a checksum
@@ -26,14 +27,14 @@ async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener):
     # streaming calls (see <https://github.com/rapidsai/ucx-py/pull/509>)
     if listener is True:
         req = endpoint.stream_send(my_info_arr)
-        await req.wait()
+        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
         req = endpoint.stream_recv(peer_info_arr)
-        await req.wait()
+        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
     else:
         req = endpoint.stream_recv(peer_info_arr)
-        await req.wait()
+        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
         req = endpoint.stream_send(my_info_arr)
-        await req.wait()
+        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
 
     # Unpacking and sanity check of the peer information
     ret = {}

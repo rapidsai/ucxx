@@ -9,6 +9,7 @@ from queue import Queue
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
+from ucxx.exceptions import UCXMessageTruncatedError
 
 from .continuous_ucx_progress import PollingMode, ThreadMode
 from .endpoint import Endpoint
@@ -271,12 +272,18 @@ class ApplicationContext:
         seed = os.urandom(16)
         msg_tag = hash64bits("msg_tag", seed, ucx_ep.handle)
         ctrl_tag = hash64bits("ctrl_tag", seed, ucx_ep.handle)
-        peer_info = await exchange_peer_info(
-            endpoint=ucx_ep,
-            msg_tag=msg_tag,
-            ctrl_tag=ctrl_tag,
-            listener=False,
-        )
+        try:
+            peer_info = await exchange_peer_info(
+                endpoint=ucx_ep,
+                msg_tag=msg_tag,
+                ctrl_tag=ctrl_tag,
+                listener=False,
+            )
+        except UCXMessageTruncatedError:
+            # A truncated message occurs if the remote endpoint closed before
+            # exchanging peer info, in that case we should raise the endpoint
+            # error instead.
+            ucx_ep.raise_on_error()
         tags = {
             "msg_send": peer_info["msg_tag"],
             "msg_recv": msg_tag,
