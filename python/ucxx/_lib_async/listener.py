@@ -7,6 +7,7 @@ import os
 import threading
 
 import ucxx._lib.libucxx as ucx_api
+from ucxx.exceptions import UCXMessageTruncatedError
 
 from .endpoint import Endpoint
 from .exchange_peer_info import exchange_peer_info
@@ -132,12 +133,18 @@ async def _listener_handler_coroutine(
     msg_tag = hash64bits("msg_tag", seed, endpoint.handle)
     ctrl_tag = hash64bits("ctrl_tag", seed, endpoint.handle)
 
-    peer_info = await exchange_peer_info(
-        endpoint=endpoint,
-        msg_tag=msg_tag,
-        ctrl_tag=ctrl_tag,
-        listener=True,
-    )
+    try:
+        peer_info = await exchange_peer_info(
+            endpoint=endpoint,
+            msg_tag=msg_tag,
+            ctrl_tag=ctrl_tag,
+            listener=True,
+        )
+    except UCXMessageTruncatedError:
+        # A truncated message occurs if the remote endpoint closed before
+        # exchanging peer info, in that case we should raise the endpoint
+        # error instead.
+        endpoint.raise_on_error()
     tags = {
         "msg_send": peer_info["msg_tag"],
         "msg_recv": msg_tag,
