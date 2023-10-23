@@ -244,9 +244,38 @@ outputs:
         - test -f $PREFIX/include/ucxx/python/notifier.h
         - test -f $PREFIX/include/ucxx/python/python_future.h
         - test -f $PREFIX/include/ucxx/python/worker.h
+      imports:
+        - ucxx
     about:
       home: https://rapids.ai/
       license: BSD-3-Clause
       license_family: BSD
       license_file: ../../../LICENSE
       summary: UCX Python interface built on top of the libucxx C++ implementation
+
+
+  - name: distributed-ucxx
+    version: {{ version }}
+    script: build_and_install_distributed_ucxx.sh
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: py{{ python }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+    requirements:
+      host:
+        - python
+        - pip
+        - tomli
+      run:
+        - python * *_cpython
+        - dask
+        - distributed
+        - {{ pin_subpackage('ucxx', exact=True) }}
+    test:
+      imports:
+        - distributed_ucxx
+    about:
+      home: https://rapids.ai/
+      license: BSD-3-Clause
+      license_family: BSD
+      license_file: ../../../LICENSE
+      summary: UCX communication module for Dask Distributed
