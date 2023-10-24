@@ -18,9 +18,12 @@ rapids-dependency-file-generator \
 rapids-mamba-retry env create --force -f env.yaml -n test
 conda activate test
 
+# TODO: Perhaps install from conda? We need distributed installed in developer
+# mode to provide test utils, but that's probably not doable from conda packages.
 rapids-logger "Install Dask and Distributed"
 pip install git+https://github.com/dask/dask@main
-pip install -e git+https://github.com/dask/distributed@main
+git clone https://github.com/dask/distributed /tmp/distributed
+pip install -e /tmp/distributed
 
 rapids-print-env
 
