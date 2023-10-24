@@ -18,10 +18,10 @@ dependencies:
 - cupy
 - cxx-compiler
 - cython>=3.0.0
+- dask
 - dask-cuda==23.12.*
 - dask-cudf==23.12.*
-- dask>=2023.1.1
-- distributed>=2023.1.1
+- distributed
 - fmt>=9.1.0,<10
 - gmock>=1.13.0
 - gtest>=1.13.0
