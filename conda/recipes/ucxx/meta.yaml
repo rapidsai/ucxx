@@ -67,6 +67,7 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
         {% endif %}
+        - ucx
     requirements:
       build:
         - {{ compiler('c') }}
@@ -87,7 +88,7 @@ outputs:
         - cudatoolkit
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        - ucx
+        - ucx >=1.14.1,<1.16.0
     test:
       commands:
         - test -f $PREFIX/lib/libucxx.so
@@ -193,6 +194,8 @@ outputs:
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_py{{ python }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - ucx
     requirements:
       build:
         - cmake
@@ -223,7 +226,7 @@ outputs:
         - cudatoolkit
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        - ucx
+        - ucx >=1.14.1,<1.16.0
         - {{ pin_subpackage('libucxx', exact=True) }}
         - {{ pin_compatible('rmm', max_pin='x.x') }}
         - {{ pin_compatible('numpy') }}
