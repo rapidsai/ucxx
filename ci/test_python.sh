@@ -22,6 +22,7 @@ conda activate test
 # mode to provide test utils, but that's probably not doable from conda packages.
 rapids-logger "Install Dask and Distributed"
 pip install git+https://github.com/dask/dask@main
+rm -rf /tmp/distributed
 git clone https://github.com/dask/distributed /tmp/distributed
 pip install -e /tmp/distributed
 
@@ -84,12 +85,13 @@ run_distributed_ucxx_tests() {
   ENABLE_DELAYED_SUBMISSION=$2
   ENABLE_PYTHON_FUTURE=$3
 
-  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -vs python/distributed-ucxx/distributed_ucxx/tests/"
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/"
 
   # Workaround for https://github.com/rapidsai/ucxx/issues/15
   # CMD_LINE="UCX_KEEPALIVE_INTERVAL=1ms ${CMD_LINE}"
 
-  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -vs python/distributed-ucxx/distributed_ucxx/tests/
+  log_command "${CMD_LINE}"
+  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/
 }
 
 rapids-logger "Downloading artifacts from previous jobs"
@@ -97,7 +99,7 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  libucxx ucxx
+  libucxx ucxx distributed-ucxx
 
 print_ucx_config
 
@@ -126,9 +128,9 @@ for nbuf in 1 8; do
 done
 
 rapids-logger "Distributed Tests"
-# run_py_benchmark  PROGRESS_MODE ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE
-run_py_benchmark    polling       0                         0
-run_py_benchmark    thread        0                         0
-run_py_benchmark    thread        0                         1
-run_py_benchmark    thread        1                         0
-run_py_benchmark    thread        1                         1
+# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests      polling         0                           0
+run_distributed_ucxx_tests      thread          0                           0
+run_distributed_ucxx_tests      thread          0                           1
+run_distributed_ucxx_tests      thread          1                           0
+run_distributed_ucxx_tests      thread          1                           1
