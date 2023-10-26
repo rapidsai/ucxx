@@ -7,7 +7,10 @@ import sys
 
 import numpy as np
 import pytest
-from utils import captured_logger, wait_listener_client_handlers
+from ucxx._lib_async.utils_test import (
+    captured_logger,
+    wait_listener_client_handlers,
+)
 
 import ucxx as ucxx
 
@@ -30,7 +33,6 @@ async def _shutdown_recv(ep, message_type):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("message_type", ["tag", "am"])
-@pytest.mark.xfail(reason="https://github.com/rapidsai/ucxx/issues/19")
 async def test_server_shutdown(message_type):
     """The server calls shutdown"""
     if message_type == "am":
@@ -152,7 +154,6 @@ async def test_listener_del(message_type):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("message_type", ["tag", "am"])
-@pytest.mark.xfail(reason="https://github.com/rapidsai/ucxx/issues/19")
 async def test_close_after_n_recv(message_type):
     """The Endpoint.close_after_n_recv()"""
     if message_type == "am":

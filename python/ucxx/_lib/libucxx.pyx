@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
-# distutils: language = c++
-# cython: language_level=3
 
 import asyncio
 import enum
@@ -18,6 +16,7 @@ from libcpp.functional cimport function
 from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport (
     dynamic_pointer_cast,
+    make_shared,
     make_unique,
     shared_ptr,
     unique_ptr,
@@ -58,6 +57,11 @@ def _get_host_buffer(uintptr_t recv_buffer_ptr):
     cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
     cdef size_t size = host_buffer.getSize()
     return ptr_to_ndarray(host_buffer.release(), size)
+
+
+cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length):
+    cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
+    return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
 
 
 ###############################################################################
@@ -205,9 +209,9 @@ class Feature(enum.Enum):
 
 
 class PythonRequestNotifierWaitState(enum.Enum):
-    Ready = UcxxRequestNotifierWaitStateReady
-    Timeout = UcxxRequestNotifierWaitStateTimeout
-    Shutdown = UcxxRequestNotifierWaitStateShutdown
+    Ready = RequestNotifierWaitState.Ready
+    Timeout = RequestNotifierWaitState.Timeout
+    Shutdown = RequestNotifierWaitState.Shutdown
 
 
 ###############################################################################
@@ -288,6 +292,10 @@ cdef class UCXContext():
     @property
     def feature_flags(self):
         return int(self._context.get().getFeatureFlags())
+
+    @property
+    def cuda_support(self):
+        return bool(self._context.get().hasCudaSupport())
 
     @property
     def handle(self):
@@ -423,6 +431,7 @@ cdef class UCXWorker():
     cdef:
         shared_ptr[Worker] _worker
         dict _progress_thread_start_cb_data
+        bint _enable_delayed_submission
         bint _enable_python_future
         uint64_t _context_feature_flags
 
@@ -434,15 +443,22 @@ cdef class UCXWorker():
     ):
         cdef bint ucxx_enable_delayed_submission = enable_delayed_submission
         cdef bint ucxx_enable_python_future = enable_python_future
+        cdef AmAllocatorType rmm_am_allocator
+
+        self._context_feature_flags = <uint64_t>(context.feature_flags)
+
         with nogil:
             self._worker = createPythonWorker(
                 context._context,
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
+            self._enable_delayed_submission = self._worker.get().isDelayedRequestSubmissionEnabled()
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
-        self._context_feature_flags = <uint64_t>(context.feature_flags)
+            if self._context_feature_flags & UCP_FEATURE_AM:
+                rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
+                self._worker.get().registerAmAllocator(UCS_MEMORY_TYPE_CUDA, rmm_am_allocator)
 
     @property
     def handle(self):
@@ -576,6 +592,9 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().populateFuturesPool()
 
+    def is_delayed_submission_enabled(self):
+        return self._enable_delayed_submission
+
     def is_python_future_enabled(self):
         return self._enable_python_future
 
@@ -652,6 +671,22 @@ cdef class UCXRequest():
         else:
             await self.wait_yield()
 
+    def get_recv_buffer(self):
+        cdef shared_ptr[Buffer] buf
+        cdef BufferType bufType
+
+        with nogil:
+            buf = self._request.get().getRecvBuffer()
+            bufType = buf.get().getType() if buf != nullptr else BufferType.Invalid
+
+        # If buf == NULL, it's not allocated by the request but rather the user
+        if buf == NULL:
+            return None
+        elif bufType == BufferType.RMM:
+            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
+        elif bufType == BufferType.Host:
+            return _get_host_buffer(<uintptr_t><void*>buf.get())
+
 
 cdef class UCXBufferRequest:
     cdef:
@@ -669,18 +704,20 @@ cdef class UCXBufferRequest:
         )
 
     def get_py_buffer(self):
-        cdef Buffer* buf
+        cdef shared_ptr[Buffer] buf
+        cdef BufferType bufType
 
         with nogil:
             buf = self._buffer_request.get().buffer
+            bufType = buf.get().getType() if buf != nullptr else BufferType.Invalid
 
         # If buf == NULL, it holds a header
         if buf == NULL:
             return None
-        elif buf.getType() == BufferType.RMM:
-            return _get_rmm_buffer(<uintptr_t><void*>buf)
-        else:
-            return _get_host_buffer(<uintptr_t><void*>buf)
+        elif bufType == BufferType.RMM:
+            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
+        elif bufType == BufferType.Host:
+            return _get_host_buffer(<uintptr_t><void*>buf.get())
 
 
 cdef class UCXBufferRequests:
@@ -821,6 +858,7 @@ cdef class UCXEndpoint():
     cdef:
         shared_ptr[Endpoint] _endpoint
         uint64_t _context_feature_flags
+        bint _cuda_support
         bint _enable_python_future
         dict _close_cb_data
 
@@ -828,11 +866,13 @@ cdef class UCXEndpoint():
             self,
             uintptr_t shared_ptr_endpoint,
             bint enable_python_future,
-            uint64_t context_feature_flags
+            uint64_t context_feature_flags,
+            bint cuda_support,
     ):
         self._endpoint = deref(<shared_ptr[Endpoint] *> shared_ptr_endpoint)
         self._enable_python_future = enable_python_future
         self._context_feature_flags = context_feature_flags
+        self._cuda_support = cuda_support
 
     @classmethod
     def create(
@@ -846,6 +886,7 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Endpoint] endpoint
         cdef string addr = ip_address.encode("utf-8")
         cdef uint64_t context_feature_flags
+        cdef bint cuda_support
 
         with nogil:
             endpoint = worker._worker.get().createEndpointFromHostname(
@@ -855,11 +896,13 @@ cdef class UCXEndpoint():
                 worker._worker.get().getParent()
             )
             context_feature_flags = context.get().getFeatureFlags()
+            cuda_support = context.get().hasCudaSupport()
 
         return cls(
             <uintptr_t><void*>&endpoint,
             worker.is_python_future_enabled(),
-            context_feature_flags
+            context_feature_flags,
+            cuda_support,
         )
 
     @classmethod
@@ -873,6 +916,7 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Worker] worker
         cdef shared_ptr[Endpoint] endpoint
         cdef uint64_t context_feature_flags
+        cdef bint cuda_support
 
         with nogil:
             endpoint = listener._listener.get().createEndpointFromConnRequest(
@@ -883,11 +927,13 @@ cdef class UCXEndpoint():
             )
             context = dynamic_pointer_cast[Context, Component](worker.get().getParent())
             context_feature_flags = context.get().getFeatureFlags()
+            cuda_support = context.get().hasCudaSupport()
 
         return cls(
             <uintptr_t><void*>&endpoint,
             listener.is_python_future_enabled(),
-            context_feature_flags
+            context_feature_flags,
+            cuda_support,
         )
 
     @classmethod
@@ -901,6 +947,7 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Endpoint] endpoint
         cdef shared_ptr[Address] ucxx_address = address._address
         cdef uint64_t context_feature_flags
+        cdef bint cuda_support
 
         with nogil:
             endpoint = worker._worker.get().createEndpointFromWorkerAddress(
@@ -910,11 +957,13 @@ cdef class UCXEndpoint():
                 worker._worker.get().getParent()
             )
             context_feature_flags = context.get().getFeatureFlags()
+            cuda_support = context.get().hasCudaSupport()
 
         return cls(
             <uintptr_t><void*>&endpoint,
             worker.is_python_future_enabled(),
-            context_feature_flags
+            context_feature_flags,
+            cuda_support,
         )
 
     @property
@@ -930,6 +979,48 @@ cdef class UCXEndpoint():
         with nogil:
             self._endpoint.get().close()
 
+    def am_probe(self):
+        cdef ucp_ep_h handle
+        cdef shared_ptr[Worker] worker
+        cdef bint ep_matched
+
+        with nogil:
+            handle = self._endpoint.get().getHandle()
+            worker = self._endpoint.get().getWorker()
+            ep_matched = worker.get().amProbe(handle)
+
+        return ep_matched
+
+    def am_send(self, Array arr):
+        cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
+        cdef bint cuda_array = arr.cuda
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.AM.value:
+            raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        with nogil:
+            req = self._endpoint.get().amSend(
+                buf,
+                nbytes,
+                UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
+    def am_recv(self):
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.AM.value:
+            raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        with nogil:
+            req = self._endpoint.get().amRecv(self._enable_python_future)
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
     def stream_send(self, Array arr):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
@@ -937,6 +1028,13 @@ cdef class UCXEndpoint():
 
         if not self._context_feature_flags & Feature.STREAM.value:
             raise ValueError("UCXContext must be created with `Feature.STREAM`")
+        if arr.cuda and not self._cuda_support:
+            raise ValueError(
+                "UCX is not configured with CUDA support, please ensure that the "
+                "available UCX on your environment is built against CUDA and that "
+                "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                "the default `UCX_TLS=all`."
+            )
 
         with nogil:
             req = self._endpoint.get().streamSend(
@@ -954,6 +1052,13 @@ cdef class UCXEndpoint():
 
         if not self._context_feature_flags & Feature.STREAM.value:
             raise ValueError("UCXContext must be created with `Feature.STREAM`")
+        if arr.cuda and not self._cuda_support:
+            raise ValueError(
+                "UCX is not configured with CUDA support, please ensure that the "
+                "available UCX on your environment is built against CUDA and that "
+                "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                "the default `UCX_TLS=all`."
+            )
 
         with nogil:
             req = self._endpoint.get().streamRecv(
@@ -971,6 +1076,13 @@ cdef class UCXEndpoint():
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
+        if arr.cuda and not self._cuda_support:
+            raise ValueError(
+                "UCX is not configured with CUDA support, please ensure that the "
+                "available UCX on your environment is built against CUDA and that "
+                "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                "the default `UCX_TLS=all`."
+            )
 
         with nogil:
             req = self._endpoint.get().tagSend(
@@ -989,6 +1101,13 @@ cdef class UCXEndpoint():
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
+        if arr.cuda and not self._cuda_support:
+            raise ValueError(
+                "UCX is not configured with CUDA support, please ensure that the "
+                "available UCX on your environment is built against CUDA and that "
+                "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                "the default `UCX_TLS=all`."
+            )
 
         with nogil:
             req = self._endpoint.get().tagRecv(
@@ -1004,12 +1123,19 @@ cdef class UCXEndpoint():
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
-        cdef RequestTagMultiPtr ucxx_buffer_requests
+        cdef shared_ptr[Request] ucxx_buffer_requests
 
         for arr in arrays:
             if not isinstance(arr, Array):
                 raise ValueError(
                     "All elements of the `arrays` should be of `Array` type"
+                )
+            if arr.cuda and not self._cuda_support:
+                raise ValueError(
+                    "UCX is not configured with CUDA support, please ensure that the "
+                    "available UCX on your environment is built against CUDA and that "
+                    "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
+                    "the default `UCX_TLS=all`."
                 )
 
         for arr in arrays:
@@ -1031,7 +1157,7 @@ cdef class UCXEndpoint():
         )
 
     def tag_recv_multi(self, size_t tag):
-        cdef RequestTagMultiPtr ucxx_buffer_requests
+        cdef shared_ptr[Request] ucxx_buffer_requests
 
         with nogil:
             ucxx_buffer_requests = self._endpoint.get().tagMultiRecv(

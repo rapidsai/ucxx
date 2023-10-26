@@ -5,6 +5,7 @@ import asyncio
 
 import numpy as np
 import pytest
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 
@@ -33,6 +34,7 @@ async def server_node(ep):
 async def client_node(port):
     ep = await ucxx.create_endpoint(ucxx.get_address(), port)
     await hello(ep)
+    await ep.close()
     # assert isinstance(ep.ucx_info(), str)
 
 
@@ -54,3 +56,6 @@ async def test_many_servers_many_clients(num_servers, num_clients):
         for __ in range(i, min(i + somaxconn, num_clients * num_servers)):
             clients.append(client_node(listeners[__ % num_servers].port))
         await asyncio.gather(*clients)
+    await asyncio.gather(
+        *(wait_listener_client_handlers(listener) for listener in listeners)
+    )

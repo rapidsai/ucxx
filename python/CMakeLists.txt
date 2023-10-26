@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: BSD 3-Clause License
 # =================================================================================
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-set(ucxx_version 0.0.1)
+set(ucxx_version 0.35.00)
 
 include(../fetch_rapids.cmake)
 

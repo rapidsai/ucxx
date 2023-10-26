@@ -39,11 +39,11 @@ class Config {
   ConfigMap ucxConfigToMap();
 
  public:
-  Config()              = delete;
-  Config(const Config&) = delete;
+  Config()                         = delete;
+  Config(const Config&)            = delete;
   Config& operator=(Config const&) = delete;
   Config(Config&& o)               = delete;
-  Config& operator=(Config&& o) = delete;
+  Config& operator=(Config&& o)    = delete;
 
   /**
    * @brief Constructor that reads the UCX configuration and apply user options.

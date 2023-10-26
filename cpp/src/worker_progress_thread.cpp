@@ -5,6 +5,7 @@
 #include <memory>
 
 #include <ucxx/log.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/worker_progress_thread.h>
 
 namespace ucxx {
@@ -19,9 +20,11 @@ void WorkerProgressThread::progressUntilSync(
   if (startCallback) startCallback(startCallbackArg);
 
   while (!stop) {
-    if (delayedSubmissionCollection != nullptr) delayedSubmissionCollection->process();
+    delayedSubmissionCollection->processPre();
 
     progressFunction();
+
+    delayedSubmissionCollection->processPost();
   }
 }
 
@@ -35,14 +38,15 @@ WorkerProgressThread::WorkerProgressThread(
   : _pollingMode(pollingMode),
     _signalWorkerFunction(signalWorkerFunction),
     _startCallback(startCallback),
-    _startCallbackArg(startCallbackArg)
+    _startCallbackArg(startCallbackArg),
+    _delayedSubmissionCollection(delayedSubmissionCollection)
 {
   _thread = std::thread(WorkerProgressThread::progressUntilSync,
                         progressFunction,
                         std::ref(_stop),
                         _startCallback,
                         _startCallbackArg,
-                        delayedSubmissionCollection);
+                        _delayedSubmissionCollection);
 }
 
 WorkerProgressThread::~WorkerProgressThread()
@@ -52,11 +56,25 @@ WorkerProgressThread::~WorkerProgressThread()
     return;
   }
 
-  _stop = true;
+  utils::CallbackNotifier callbackNotifierPre{};
+  _delayedSubmissionCollection->registerGenericPre(
+    [&callbackNotifierPre]() { callbackNotifierPre.set(); });
   _signalWorkerFunction();
+  callbackNotifierPre.wait();
+
+  utils::CallbackNotifier callbackNotifierPost{};
+  _delayedSubmissionCollection->registerGenericPost([this, &callbackNotifierPost]() {
+    _stop = true;
+    callbackNotifierPost.set();
+  });
+  _signalWorkerFunction();
+  callbackNotifierPost.wait();
+
   _thread.join();
 }
 
 bool WorkerProgressThread::pollingMode() const { return _pollingMode; }
+
+std::thread::id WorkerProgressThread::getId() const { return _thread.get_id(); }
 
 }  // namespace ucxx

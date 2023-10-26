@@ -4,7 +4,7 @@
 import functools
 
 import pytest
-from utils import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 
@@ -120,6 +120,7 @@ async def test_send_recv_numba(size, dtype):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="See https://github.com/rapidsai/ucxx/issues/104")
 async def test_send_recv_error():
     async def say_hey_server(ep):
         await ep.send(bytearray(b"Hey"))

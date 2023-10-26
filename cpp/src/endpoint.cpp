@@ -5,6 +5,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -14,21 +15,38 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
+#include <ucxx/request_am.h>
 #include <ucxx/request_stream.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/request_tag_multi.h>
 #include <ucxx/typedefs.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
 
+static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener)
+{
+  auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
+  if (worker == nullptr) {
+    auto listener = std::dynamic_pointer_cast<Listener>(workerOrListener);
+    if (listener == nullptr)
+      throw std::invalid_argument(
+        "Invalid object, it's not a shared_ptr to either ucxx::Worker nor ucxx::Listener");
+
+    worker = std::dynamic_pointer_cast<Worker>(listener->getParent());
+  }
+  return worker;
+}
+
 Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
                    ucp_ep_params_t* params,
                    bool endpointErrorHandling)
   : _endpointErrorHandling{endpointErrorHandling}
 {
-  auto worker = Endpoint::getWorker(workerOrListener);
+  auto worker = ::ucxx::getWorker(workerOrListener);
 
   if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
@@ -43,8 +61,26 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.cb  = Endpoint::errorCallback;
   params->err_handler.arg = _callbackData.get();
 
-  utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
-  ucxx_trace("Endpoint created: %p", _handle);
+  if (worker->isProgressThreadRunning()) {
+    ucs_status_t status = UCS_INPROGRESS;
+    utils::CallbackNotifier callbackNotifier{};
+    auto worker = ::ucxx::getWorker(_parent);
+    worker->registerGenericPre([this, &params, &callbackNotifier, &status]() {
+      auto worker = ::ucxx::getWorker(_parent);
+      status      = ucp_ep_create(worker->getHandle(), params, &_handle);
+      callbackNotifier.set();
+    });
+    callbackNotifier.wait();
+    utils::ucsErrorThrow(status);
+  } else {
+    utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
+  }
+
+  ucxx_trace("Endpoint created: %p, UCP handle: %p, parent: %p, endpointErrorHandling: %d",
+             this,
+             _handle,
+             _parent.get(),
+             endpointErrorHandling);
 }
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
@@ -103,7 +139,7 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
 Endpoint::~Endpoint()
 {
   close();
-  ucxx_trace("Endpoint destroyed: %p", _originalHandle);
+  ucxx_trace("Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
 }
 
 void Endpoint::close()
@@ -120,16 +156,48 @@ void Endpoint::close()
     // the endpoint status is not UCS_OK
     closeMode = UCP_EP_CLOSE_MODE_FORCE;
   }
-  ucs_status_ptr_t status = ucp_ep_close_nb(_handle, closeMode);
-  if (UCS_PTR_IS_PTR(status)) {
-    auto worker = Endpoint::getWorker(_parent);
-    while (ucp_request_check_status(status) == UCS_INPROGRESS)
-      worker->progress();
-    ucp_request_free(status);
-  } else if (UCS_PTR_STATUS(status) != UCS_OK) {
-    ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
+
+  auto worker = ::ucxx::getWorker(_parent);
+  ucs_status_ptr_t status;
+
+  if (worker->isProgressThreadRunning()) {
+    utils::CallbackNotifier callbackNotifierPre{};
+    worker->registerGenericPre([this, &callbackNotifierPre, &status, closeMode]() {
+      status = ucp_ep_close_nb(_handle, closeMode);
+      callbackNotifierPre.set();
+    });
+    callbackNotifierPre.wait();
+
+    while (UCS_PTR_IS_PTR(status)) {
+      utils::CallbackNotifier callbackNotifierPost{};
+      worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
+        ucs_status_t s = ucp_request_check_status(status);
+        if (UCS_PTR_STATUS(s) != UCS_INPROGRESS) {
+          ucp_request_free(status);
+          _callbackData->status = UCS_PTR_STATUS(s);
+          if (UCS_PTR_STATUS(status) != UCS_OK) {
+            ucxx_error("Error while closing endpoint: %s",
+                       ucs_status_string(UCS_PTR_STATUS(status)));
+          }
+        }
+
+        callbackNotifierPost.set();
+      });
+      callbackNotifierPost.wait();
+    }
+  } else {
+    status = ucp_ep_close_nb(_handle, closeMode);
+    if (UCS_PTR_IS_PTR(status)) {
+      ucs_status_t s;
+      while ((s = ucp_request_check_status(status)) == UCS_INPROGRESS)
+        worker->progress();
+      ucp_request_free(status);
+      _callbackData->status = s;
+    } else if (UCS_PTR_STATUS(status) != UCS_OK) {
+      ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
+    }
   }
-  ucxx_trace("Endpoint closed: %p", _handle);
+  ucxx_trace("Endpoint closed: %p, UCP handle: %p", this, _handle);
 
   if (_callbackData->closeCallback) {
     ucxx_debug("Calling user callback for endpoint %p", _handle);
@@ -189,7 +257,51 @@ void Endpoint::removeInflightRequest(const Request* const request)
   _inflightRequests->remove(request);
 }
 
-size_t Endpoint::cancelInflightRequests() { return _inflightRequests->cancelAll(); }
+size_t Endpoint::cancelInflightRequests()
+{
+  auto worker     = ::ucxx::getWorker(this->_parent);
+  size_t canceled = 0;
+
+  if (std::this_thread::get_id() == worker->getProgressThreadId()) {
+    canceled = _inflightRequests->cancelAll();
+    worker->progress();
+  } else if (worker->isProgressThreadRunning()) {
+    utils::CallbackNotifier callbackNotifierPre{};
+    worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
+      canceled = _inflightRequests->cancelAll();
+      callbackNotifierPre.set();
+    });
+    callbackNotifierPre.wait();
+    utils::CallbackNotifier callbackNotifierPost{};
+    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+    callbackNotifierPost.wait();
+  } else {
+    canceled = _inflightRequests->cancelAll();
+  }
+
+  return canceled;
+}
+
+std::shared_ptr<Request> Endpoint::amSend(void* buffer,
+                                          size_t length,
+                                          ucs_memory_type_t memoryType,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(createRequestAmSend(
+    endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(
+    createRequestAmRecv(endpoint, enablePythonFuture, callbackFunction, callbackData));
+}
 
 std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
                                               size_t length,
@@ -233,32 +345,24 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
     endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
 }
 
-std::shared_ptr<RequestTagMulti> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
-                                                        const std::vector<size_t>& size,
-                                                        const std::vector<int>& isCUDA,
-                                                        const ucp_tag_t tag,
-                                                        const bool enablePythonFuture)
+std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
+                                                const std::vector<size_t>& size,
+                                                const std::vector<int>& isCUDA,
+                                                const ucp_tag_t tag,
+                                                const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture);
+  return registerInflightRequest(
+    createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
 }
 
-std::shared_ptr<RequestTagMulti> Endpoint::tagMultiRecv(const ucp_tag_t tag,
-                                                        const bool enablePythonFuture)
+std::shared_ptr<Request> Endpoint::tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return createRequestTagMultiRecv(endpoint, tag, enablePythonFuture);
+  return registerInflightRequest(createRequestTagMultiRecv(endpoint, tag, enablePythonFuture));
 }
 
-std::shared_ptr<Worker> Endpoint::getWorker(std::shared_ptr<Component> workerOrListener)
-{
-  auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
-  if (worker == nullptr) {
-    auto listener = std::dynamic_pointer_cast<Listener>(workerOrListener);
-    worker        = std::dynamic_pointer_cast<Worker>(listener->getParent());
-  }
-  return worker;
-}
+std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }
 
 void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {

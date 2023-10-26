@@ -42,11 +42,11 @@ class Context : public Component {
   static constexpr uint64_t defaultFeatureFlags =
     UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
 
-  Context()               = delete;
-  Context(const Context&) = delete;
+  Context()                          = delete;
+  Context(const Context&)            = delete;
   Context& operator=(Context const&) = delete;
   Context(Context&& o)               = delete;
-  Context& operator=(Context&& o) = delete;
+  Context& operator=(Context&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::Context>`.
@@ -136,6 +136,22 @@ class Context : public Component {
   uint64_t getFeatureFlags() const;
 
   /**
+   * @brief Query whether CUDA support is available.
+   *
+   * Query whether the UCP context has CUDA support available. This is a done through a
+   * combination of verifying whether CUDA memory support is available and `UCX_TLS` allows
+   * CUDA to be enabled, essentially `UCX_TLS` must explicitly be one of the following:
+   *
+   * 1. Exactly `all`;
+   * 2. Contain a field starting with `cuda`;
+   * 3. Start with `^` (disable all listed transports) and _NOT_ contain a field named
+   *    either `cuda` or `cuda_copy`.
+   *
+   * @return Whether CUDA support is availale.
+   */
+  bool hasCudaSupport() const;
+
+  /**
    * @brief Create a new `ucxx::Worker`.
    *
    * Create a new `ucxx::Worker` as a child of the current `ucxx::Context`.
@@ -149,9 +165,12 @@ class Context : public Component {
    *
    * @param[in] enableDelayedSubmission whether the worker should delay
    *                                    transfer requests to the worker thread.
+   * @param[in] enableFuture if `true`, notifies the future associated with each
+   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    * @return Shared pointer to the `ucxx::Worker` object.
    */
-  std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false);
+  std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
+                                       const bool enableFuture            = false);
 };
 
 }  // namespace ucxx

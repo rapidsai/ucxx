@@ -6,9 +6,11 @@
 #include <ios>
 #include <memory>
 #include <mutex>
+#include <sstream>
 
 #include <Python.h>
 
+#include <ucxx/internal/request_am.h>
 #include <ucxx/python/constructors.h>
 #include <ucxx/python/future.h>
 #include <ucxx/python/worker.h>
@@ -22,7 +24,7 @@ namespace python {
 Worker::Worker(std::shared_ptr<Context> context,
                const bool enableDelayedSubmission,
                const bool enableFuture)
-  : ::ucxx::Worker(context, enableDelayedSubmission)
+  : ::ucxx::Worker(context, enableDelayedSubmission, enableFuture)
 {
   if (_enableFuture) _notifier = createNotifier();
 }
@@ -31,8 +33,20 @@ std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
                                              const bool enableDelayedSubmission,
                                              const bool enableFuture)
 {
-  return std::shared_ptr<::ucxx::Worker>(
+  auto worker = std::shared_ptr<::ucxx::python::Worker>(
     new ::ucxx::python::Worker(context, enableDelayedSubmission, enableFuture));
+
+  // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
+  // been created, thus this cannot be in the constructor.
+  if (worker->_amData != nullptr) {
+    worker->_amData->_worker = worker;
+
+    std::stringstream ownerStream;
+    ownerStream << "worker " << worker->getHandle();
+    worker->_amData->_ownerString = ownerStream.str();
+  }
+
+  return worker;
 }
 
 void Worker::populateFuturesPool()

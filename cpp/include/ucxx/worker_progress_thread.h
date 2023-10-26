@@ -29,6 +29,8 @@ class WorkerProgressThread {
     nullptr};  ///< Callback to execute at start of the progress thread
   ProgressThreadStartCallbackArg _startCallbackArg{
     nullptr};  ///< Argument to pass to start callback
+  std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
+    nullptr};  ///< Collection of enqueued delayed submissions
 
   /**
    * @brief The function executed in the new thread.
@@ -63,6 +65,13 @@ class WorkerProgressThread {
    * The constructor for a `shared_ptr<ucxx::Worker>` object. The default constructor is
    * made private to ensure all UCXX objects are shared pointers for correct
    * lifetime management.
+   *
+   * This thread runs asynchronously with the main application thread. If you require
+   * cross-thread synchronization (for example when tearing down the thread or canceling
+   * requests), use the generic pre and post callbacks with a `CallbackNotifier` that
+   * synchronizes with the application thread. Since the worker progress itself may change
+   * state, it is usually the case that synchronization is needed in both pre and post
+   * callbacks.
    *
    * @code{.cpp}
    * // context is `std::shared_ptr<ucxx::Context>`
@@ -103,6 +112,8 @@ class WorkerProgressThread {
    * @returns Whether polling mode is enabled.
    */
   bool pollingMode() const;
+
+  std::thread::id getId() const;
 };
 
 }  // namespace ucxx

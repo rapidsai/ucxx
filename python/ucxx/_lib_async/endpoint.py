@@ -59,7 +59,7 @@ class Endpoint:
         To do that, use `Endpoint.close()`
         """
         if self._ep is not None:
-            logger.debug("Endpoint.abort(): %s" % hex(self.uid))
+            logger.debug("Endpoint.abort(): 0x%x" % self.uid)
             self._ep.close()
         self._ep = None
         self._ctx = None
@@ -81,9 +81,47 @@ class Endpoint:
         finally:
             if not self.closed():
                 # Give all current outstanding send() calls a chance to return
-                self._ctx.worker.progress()
+                if not self._ctx.progress_mode.startswith("thread"):
+                    self._ctx.worker.progress()
                 await asyncio.sleep(0)
                 self.abort()
+
+    async def am_send(self, buffer):
+        """Send `buffer` to connected peer via active messages.
+
+        Parameters
+        ----------
+        buffer: exposing the buffer protocol or array/cuda interface
+            The buffer to send. Raise ValueError if buffer is smaller
+            than nbytes.
+        """
+        self._ep.raise_on_error()
+        if self.closed():
+            raise UCXCloseError("Endpoint closed")
+        if not isinstance(buffer, Array):
+            buffer = Array(buffer)
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            nbytes = buffer.nbytes
+            log = "[AM Send #%03d] ep: 0x%x, nbytes: %d, type: %s" % (
+                self._send_count,
+                self.uid,
+                nbytes,
+                type(buffer.obj),
+            )
+            logger.debug(log)
+
+        self._send_count += 1
+
+        try:
+            request = self._ep.am_send(buffer)
+            return await request.wait()
+        except UCXCanceled as e:
+            # If self._ep has already been closed and destroyed, we reraise the
+            # UCXCanceled exception.
+            if self._ep is None:
+                raise e
 
     # @ucx_api.nvtx_annotate("UCXPY_SEND", color="green", domain="ucxpy")
     async def send(self, buffer, tag=None, force_tag=False):
@@ -94,7 +132,6 @@ class Endpoint:
         buffer: exposing the buffer protocol or array/cuda interface
             The buffer to send. Raise ValueError if buffer is smaller
             than nbytes.
-        tag: hashable, optional
         tag: hashable, optional
             Set a tag that the receiver must match. Currently the tag
             is hashed together with the internal Endpoint tag that is
@@ -118,10 +155,10 @@ class Endpoint:
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
             nbytes = buffer.nbytes
-            log = "[Send #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
+            log = "[Send #%03d] ep: 0x%x, tag: 0x%x, nbytes: %d, type: %s" % (
                 self._send_count,
-                hex(self.uid),
-                hex(tag),
+                self.uid,
+                tag,
                 nbytes,
                 type(buffer.obj),
             )
@@ -147,7 +184,6 @@ class Endpoint:
             The buffer to send. Raise ValueError if buffer is smaller
             than nbytes.
         tag: hashable, optional
-        tag: hashable, optional
             Set a tag that the receiver must match. Currently the tag
             is hashed together with the internal Endpoint tag that is
             agreed with the remote end at connection time. To enforce
@@ -170,10 +206,10 @@ class Endpoint:
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
-            log = "[Send Multi #%03d] ep: %s, tag: %s, nbytes: %s, type: %s" % (
+            log = "[Send Multi #%03d] ep: 0x%x, tag: 0x%x, nbytes: %s, type: %s" % (
                 self._send_count,
-                hex(self.uid),
-                hex(tag),
+                self.uid,
+                tag,
                 tuple([b.nbytes for b in buffers]),  # nbytes,
                 tuple([type(b.obj) for b in buffers]),
             )
@@ -214,6 +250,44 @@ class Endpoint:
         await self.send(nbytes, tag=tag)
         await self.send(obj, tag=tag)
 
+    async def am_recv(self):
+        """Receive from connected peer via active messages."""
+        if not self._ep.am_probe():
+            self._ep.raise_on_error()
+            if self.closed():
+                raise UCXCloseError("Endpoint closed")
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            log = "[AM Recv #%03d] ep: 0x%x" % (
+                self._recv_count,
+                self.uid,
+            )
+            logger.debug(log)
+
+        self._recv_count += 1
+
+        req = self._ep.am_recv()
+        await req.wait()
+        buffer = req.get_recv_buffer()
+
+        if logger.isEnabledFor(logging.DEBUG):
+            log = "[AM Recv Completed #%03d] ep: 0x%x, nbytes: %d, type: %s" % (
+                self._recv_count,
+                self.uid,
+                buffer.nbytes,
+                type(buffer),
+            )
+            logger.debug(log)
+
+        self._finished_recv_count += 1
+        if (
+            self._close_after_n_recv is not None
+            and self._finished_recv_count >= self._close_after_n_recv
+        ):
+            self.abort()
+        return buffer
+
     # @ucx_api.nvtx_annotate("UCXPY_RECV", color="red", domain="ucxpy")
     async def recv(self, buffer, tag=None, force_tag=False):
         """Receive from connected peer into `buffer`.
@@ -239,10 +313,15 @@ class Endpoint:
         elif not force_tag:
             tag = hash64bits(self._tags["msg_recv"], hash(tag))
 
-        if not self._ctx.worker.tag_probe(tag):
+        try:
             self._ep.raise_on_error()
             if self.closed():
                 raise UCXCloseError("Endpoint closed")
+        except Exception as e:
+            # Only probe the worker as last resort. To be reliable, probing for the tag
+            # requires progressing the worker, thus prevent that happening too often.
+            if not self._ctx.worker.tag_probe(tag):
+                raise e
 
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
@@ -250,10 +329,10 @@ class Endpoint:
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
             nbytes = buffer.nbytes
-            log = "[Recv #%03d] ep: %s, tag: %s, nbytes: %d, type: %s" % (
+            log = "[Recv #%03d] ep: 0x%x, tag: 0x%x, nbytes: %d, type: %s" % (
                 self._recv_count,
-                hex(self.uid),
-                hex(tag),
+                self.uid,
+                tag,
                 nbytes,
                 type(buffer.obj),
             )
@@ -293,17 +372,22 @@ class Endpoint:
         elif not force_tag:
             tag = hash64bits(self._tags["msg_recv"], hash(tag))
 
-        if not self._ctx.worker.tag_probe(tag):
+        try:
             self._ep.raise_on_error()
             if self.closed():
                 raise UCXCloseError("Endpoint closed")
+        except Exception as e:
+            # Only probe the worker as last resort. To be reliable, probing for the tag
+            # requires progressing the worker, thus prevent that happening too often.
+            if not self._ctx.worker.tag_probe(tag):
+                raise e
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
-            log = "[Recv Multi #%03d] ep: %s, tag: %s" % (
+            log = "[Recv Multi #%03d] ep: 0x%x, tag: 0x%x" % (
                 self._recv_count,
-                hex(self.uid),
-                hex(tag),
+                self.uid,
+                tag,
             )
             logger.debug(log)
 

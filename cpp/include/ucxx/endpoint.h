@@ -87,11 +87,11 @@ class Endpoint : public Component {
   std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
  public:
-  Endpoint()                = delete;
-  Endpoint(const Endpoint&) = delete;
+  Endpoint()                           = delete;
+  Endpoint(const Endpoint&)            = delete;
   Endpoint& operator=(Endpoint const&) = delete;
   Endpoint(Endpoint&& o)               = delete;
-  Endpoint& operator=(Endpoint&& o) = delete;
+  Endpoint& operator=(Endpoint&& o)    = delete;
 
   ~Endpoint();
 
@@ -254,6 +254,60 @@ class Endpoint : public Component {
   void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
 
   /**
+   * @brief Enqueue an active message send operation.
+   *
+   * Enqueue an active message send operation, returning a `std::shared_ptr<ucxx::Request>`
+   * that can be later awaited and checked for errors. This is a non-blocking operation, and
+   * the status of the transfer must be verified from the resulting request object before
+   * the data can be released.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] memoryType          the memory type of the buffer.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> amSend(void* buffer,
+                                  size_t length,
+                                  ucs_memory_type_t memoryType,
+                                  const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Enqueue an active message receive operation.
+   *
+   * Enqueue an active message receive operation, returning a
+   * `std::shared_ptr<ucxx::Request>` that can be later awaited and checked for errors,
+   * making data available via the return value's `getRecvBuffer()` method once the
+   * operation completes successfully. This is a non-blocking operation, and the status of
+   * the transfer must be verified from the resulting request object before the data can be
+   * consumed.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion state and data.
+   */
+  std::shared_ptr<Request> amRecv(const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
+  /**
    * @brief Enqueue a stream send operation.
    *
    * Enqueue a stream send operation, returning a `std::shared<ucxx::Request>` that can
@@ -391,11 +445,11 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<RequestTagMulti> tagMultiSend(const std::vector<void*>& buffer,
-                                                const std::vector<size_t>& size,
-                                                const std::vector<int>& isCUDA,
-                                                const ucp_tag_t tag,
-                                                const bool enablePythonFuture);
+  std::shared_ptr<Request> tagMultiSend(const std::vector<void*>& buffer,
+                                        const std::vector<size_t>& size,
+                                        const std::vector<int>& isCUDA,
+                                        const ucp_tag_t tag,
+                                        const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a multi-buffer tag receive operation.
@@ -418,23 +472,19 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<RequestTagMulti> tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture);
+  std::shared_ptr<Request> tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture);
 
   /**
-   * @brief Get `ucxx::Worker` component form a worker or listener object.
+   * @brief Get `ucxx::Worker` component from a worker or listener object.
    *
-   * A `ucxx::Endpoint` needs to be created and registered by and registered on
-   * `std::shared_ptr<ucxx::Worker>`, but the endpoint may be a child of a `ucxx::Listener`
-   * object. For convenience, this method can be used to derive the
-   * `std::shared_ptr<ucxx::Worker>` from either the `std::shared_ptr<ucxx::Worker>` itself
-   * or from a `std::shared_ptr<ucxx::Listener>`.
+   * A `std::shared_ptr<ucxx::Endpoint>` needs to be created and registered by
+   * `std::shared_ptr<ucxx::Worker>`, but the endpoint may be a child of a
+   * `std::shared_ptr<ucxx::Listener>` object. For convenience, this method can be used to
+   * get the `std::shared_ptr<ucxx::Worker>` which the endpoint is associated with.
    *
-   * @param[in] workerOrListener the `std::shared_ptr<ucxx::Worker>` or
-   *                             `std::shared_ptr<ucxx::Listener>` object.
-   *
-   * @returns The `std::shared_ptr<ucxx::Worker>` derived from `workerOrListener` argument.
+   * @returns The `std::shared_ptr<ucxx::Worker>` which the endpoint is associated with.
    */
-  static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener);
+  std::shared_ptr<Worker> getWorker();
 
   /**
    * @brief The error callback registered at endpoint creation time.

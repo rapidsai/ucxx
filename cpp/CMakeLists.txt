@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD 3-Clause License
 # =================================================================================
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../fetch_rapids.cmake)
 include(rapids-cmake)
@@ -11,10 +11,11 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
+set(libucxx_version 0.35.00)
 
 project(
-    UCXX
-  VERSION 0.0.1
+  UCXX
+  VERSION ${libucxx_version}
   LANGUAGES C CXX
 )
 
@@ -112,15 +113,18 @@ add_library(
   src/endpoint.cpp
   src/header.cpp
   src/inflight_requests.cpp
+  src/internal/request_am.cpp
   src/listener.cpp
   src/log.cpp
   src/request.cpp
+  src/request_am.cpp
   src/request_helper.cpp
   src/request_stream.cpp
   src/request_tag.cpp
   src/request_tag_multi.cpp
   src/worker.cpp
   src/worker_progress_thread.cpp
+  src/utils/callback_notifier.cpp
   src/utils/file_descriptor.cpp
   src/utils/python.cpp
   src/utils/sockaddr.cpp

@@ -23,12 +23,12 @@ namespace ucxx {
 
 class Request : public Component {
  protected:
-  std::atomic<ucs_status_t> _status{UCS_INPROGRESS};  ///< Requests status
-  std::string _status_msg{};                          ///< Human-readable status message
-  void* _request{nullptr};                            ///< Pointer to UCP request
-  std::shared_ptr<Future> _future{nullptr};           ///< Future to notify upon completion
-  RequestCallbackUserFunction _callback{nullptr};     ///< Completion callback
-  RequestCallbackUserData _callbackData{nullptr};     ///< Completion callback data
+  ucs_status_t _status{UCS_INPROGRESS};            ///< Requests status
+  std::string _status_msg{};                       ///< Human-readable status message
+  void* _request{nullptr};                         ///< Pointer to UCP request
+  std::shared_ptr<Future> _future{nullptr};        ///< Future to notify upon completion
+  RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
+  RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
   std::shared_ptr<Worker> _worker{
     nullptr};  ///< Worker that generated request (if not from endpoint)
   std::shared_ptr<Endpoint> _endpoint{
@@ -39,6 +39,7 @@ class Request : public Component {
     nullptr};  ///< The submission object that will dispatch the request
   std::string _operationName{
     "request_undefined"};          ///< Human-readable operation name, mostly used for log messages
+  std::recursive_mutex _mutex{};   ///< Mutex to prevent checking status while it's being set
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
 
   /**
@@ -87,11 +88,11 @@ class Request : public Component {
   void setStatus(ucs_status_t status);
 
  public:
-  Request()               = delete;
-  Request(const Request&) = delete;
+  Request()                          = delete;
+  Request(const Request&)            = delete;
   Request& operator=(Request const&) = delete;
   Request(Request&& o)               = delete;
-  Request& operator=(Request&& o) = delete;
+  Request& operator=(Request&& o)    = delete;
 
   /**
    * @brief `ucxx::Request` destructor.
@@ -107,7 +108,7 @@ class Request : public Component {
    * Cancel the request. Often called by the an error handler or parent's object
    * destructor but may be called by the user to cancel the request as well.
    */
-  void cancel();
+  virtual void cancel();
 
   /**
    * @brief Return the status of the request.
@@ -192,6 +193,20 @@ class Request : public Component {
    * @returns the formatted string containing the owner type and its handle.
    */
   const std::string& getOwnerString() const;
+
+  /**
+   * @brief Get the received buffer.
+   *
+   * This method is used to get the received buffer for applicable derived classes (e.g.,
+   * `RequestAm` receive operations), in all other cases this will return `nullptr`. Before
+   * getting the received buffer it's necessary to check that the request completed
+   * successfully either by validating `getStatus() == UCS_OK` or by checking the request
+   * completed with `isCompleted() == true` and that it did not error with `checkError()`,
+   * if any of those is unsuccessful this call returns `nullptr`.
+   *
+   * @return The received buffer (if applicable) or `nullptr`.
+   */
+  virtual std::shared_ptr<Buffer> getRecvBuffer();
 };
 
 }  // namespace ucxx

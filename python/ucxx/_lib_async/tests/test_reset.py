@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
-from utils import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 
@@ -46,16 +46,16 @@ async def test_lt_still_in_scope_error():
 
     lt = ucxx.create_listener(server)
     ep = await ucxx.create_endpoint(ucxx.get_address(), lt.port)
+    await wait_listener_client_handlers(lt)
+
     del ep
     with pytest.raises(
         ucxx.exceptions.UCXError,
         match="Trying to reset UCX but not all Endpoints and/or Listeners are closed()",
     ):
-        ucxx.reset()
+        reset()
 
-    await wait_listener_client_handlers(lt)
     lt.close()
-    ucxx.reset()
 
 
 @pytest.mark.asyncio
@@ -69,11 +69,12 @@ async def test_ep_still_in_scope_error():
     lt = ucxx.create_listener(server)
     ep = await ucxx.create_endpoint(ucxx.get_address(), lt.port)
     await wait_listener_client_handlers(lt)
+
     del lt
     with pytest.raises(
         ucxx.exceptions.UCXError,
         match="Trying to reset UCX but not all Endpoints and/or Listeners are closed()",
     ):
-        ucxx.reset()
+        reset()
+
     ep.abort()
-    ucxx.reset()

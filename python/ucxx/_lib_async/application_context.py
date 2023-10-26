@@ -9,6 +9,7 @@ from queue import Queue
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
+from ucxx.exceptions import UCXMessageTruncatedError
 
 from .continuous_ucx_progress import PollingMode, ThreadMode
 from .endpoint import Endpoint
@@ -41,7 +42,8 @@ class ApplicationContext:
         self.progress_mode = ApplicationContext._check_progress_mode(progress_mode)
 
         enable_delayed_submission = ApplicationContext._check_enable_delayed_submission(
-            enable_delayed_submission
+            enable_delayed_submission,
+            self.progress_mode,
         )
         enable_python_future = ApplicationContext._check_enable_python_future(
             enable_python_future, self.progress_mode
@@ -84,16 +86,29 @@ class ApplicationContext:
         return progress_mode
 
     @staticmethod
-    def _check_enable_delayed_submission(enable_delayed_submission):
+    def _check_enable_delayed_submission(enable_delayed_submission, progress_mode):
         if enable_delayed_submission is None:
             if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
-                enable_delayed_submission = (
+                explicit_enable_delayed_submission = (
                     False
                     if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0"
                     else True
                 )
             else:
-                enable_delayed_submission = True
+                explicit_enable_delayed_submission = progress_mode.startswith("thread")
+        else:
+            explicit_enable_delayed_submission = enable_delayed_submission
+
+        if (
+            not progress_mode.startswith("thread")
+            and explicit_enable_delayed_submission
+        ):
+            raise ValueError(
+                f"Delayed submission requested, but {progress_mode} does not "
+                "support it, 'thread' or 'thread-polling' progress mode required."
+            )
+
+        return explicit_enable_delayed_submission
 
     @staticmethod
     def _check_enable_python_future(enable_python_future, progress_mode):
@@ -247,7 +262,8 @@ class ApplicationContext:
         ucx_ep = ucx_api.UCXEndpoint.create(
             self.worker, ip_address, port, endpoint_error_handling
         )
-        self.worker.progress()
+        if not self.progress_mode.startswith("thread"):
+            self.worker.progress()
 
         # We create the Endpoint in three steps:
         #  1) Generate unique IDs to use as tags
@@ -256,12 +272,18 @@ class ApplicationContext:
         seed = os.urandom(16)
         msg_tag = hash64bits("msg_tag", seed, ucx_ep.handle)
         ctrl_tag = hash64bits("ctrl_tag", seed, ucx_ep.handle)
-        peer_info = await exchange_peer_info(
-            endpoint=ucx_ep,
-            msg_tag=msg_tag,
-            ctrl_tag=ctrl_tag,
-            listener=False,
-        )
+        try:
+            peer_info = await exchange_peer_info(
+                endpoint=ucx_ep,
+                msg_tag=msg_tag,
+                ctrl_tag=ctrl_tag,
+                listener=False,
+            )
+        except UCXMessageTruncatedError:
+            # A truncated message occurs if the remote endpoint closed before
+            # exchanging peer info, in that case we should raise the endpoint
+            # error instead.
+            ucx_ep.raise_on_error()
         tags = {
             "msg_send": peer_info["msg_tag"],
             "msg_recv": msg_tag,
@@ -314,7 +336,8 @@ class ApplicationContext:
             address,
             endpoint_error_handling,
         )
-        self.worker.progress()
+        if not self.progress_mode.startswith("thread"):
+            self.worker.progress()
 
         ep = Endpoint(endpoint=ucx_ep, ctx=self, tags=None)
 

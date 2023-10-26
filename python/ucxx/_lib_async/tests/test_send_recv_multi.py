@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
-from utils import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 
@@ -72,7 +72,7 @@ async def test_send_recv_numpy(size, multi_size, dtype):
 @pytest.mark.parametrize("size", msg_sizes)
 @pytest.mark.parametrize("multi_size", multi_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
-@pytest.mark.rerun_on_failure(3)
+@pytest.mark.flaky(reruns=3)
 async def test_send_recv_cupy(size, multi_size, dtype):
     cupy = pytest.importorskip("cupy")
 
@@ -91,7 +91,7 @@ async def test_send_recv_cupy(size, multi_size, dtype):
 @pytest.mark.parametrize("size", msg_sizes)
 @pytest.mark.parametrize("multi_size", multi_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
-@pytest.mark.rerun_on_failure(3)
+@pytest.mark.flaky(reruns=3)
 async def test_send_recv_numba(size, multi_size, dtype):
     cuda = pytest.importorskip("numba.cuda")
 

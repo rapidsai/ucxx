@@ -29,7 +29,13 @@ def _get_ctx():
 # The following functions initialize and use a single ApplicationContext instance
 
 
-def init(options={}, env_takes_precedence=False, progress_mode=None):
+def init(
+    options={},
+    env_takes_precedence=False,
+    progress_mode=None,
+    enable_delayed_submission=None,
+    enable_python_future=None,
+):
     """Initiate UCX.
 
     Usually this is done automatically at the first API call
@@ -47,6 +53,12 @@ def init(options={}, env_takes_precedence=False, progress_mode=None):
         If None, thread UCX progress mode is used unless the environment variable
         `UCXPY_PROGRESS_MODE` is defined. Otherwise the options are 'blocking',
         'polling', 'thread'.
+    enable_delayed_submission: boolean, optional
+        If None, delayed submission is disabled unless
+        `UCXPY_ENABLE_DELAYED_SUBMISSION` is defined with a value other than `0`.
+    enable_python_future: boolean, optional
+        If None, request notification via Python futures is disabled unless
+        `UCXPY_ENABLE_PYTHON_FUTURE` is defined with a value other than `0`.
     """
     global _ctx
     if _ctx is not None:
@@ -69,7 +81,12 @@ def init(options={}, env_takes_precedence=False, progress_mode=None):
                     f"Ignoring environment {env_k}={env_v}; using option {k}={v}"
                 )
 
-    _ctx = ApplicationContext(options, progress_mode=progress_mode)
+    _ctx = ApplicationContext(
+        options,
+        progress_mode=progress_mode,
+        enable_delayed_submission=enable_delayed_submission,
+        enable_python_future=enable_python_future,
+    )
 
 
 def reset():

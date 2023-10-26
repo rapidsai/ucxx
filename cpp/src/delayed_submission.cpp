@@ -16,44 +16,87 @@ namespace ucxx {
 DelayedSubmission::DelayedSubmission(const bool send,
                                      void* buffer,
                                      const size_t length,
-                                     const ucp_tag_t tag)
-  : _send(send), _buffer(buffer), _length(length), _tag(tag)
+                                     const ucp_tag_t tag,
+                                     const ucs_memory_type_t memoryType)
+  : _send(send), _buffer(buffer), _length(length), _tag(tag), _memoryType(memoryType)
 {
 }
 
-void DelayedSubmissionCollection::process()
+RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(const std::string_view name,
+                                                                       const bool enabled)
+  : BaseDelayedSubmissionCollection<
+      std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>{name, enabled}
 {
-  if (_collection.size() > 0) {
-    ucxx_trace_req("Submitting %lu requests", _collection.size());
-
-    // Move _collection to a local copy in order to to hold the lock for as
-    // short as possible
-    decltype(_collection) toProcess;
-    {
-      std::lock_guard<std::mutex> lock(_mutex);
-      toProcess = std::move(_collection);
-    }
-
-    for (auto& callbackPtr : toProcess) {
-      auto& callback = *callbackPtr;
-
-      ucxx_trace_req("Submitting request: %p", callback.target<void (*)(std::shared_ptr<void>)>());
-
-      if (callback) callback();
-    }
-  }
 }
 
-void DelayedSubmissionCollection::registerRequest(DelayedSubmissionCallbackType callback)
+void RequestDelayedSubmissionCollection::scheduleLog(
+  std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
 {
-  auto r = std::make_shared<DelayedSubmissionCallbackType>(callback);
+  ucxx_trace_req("Registered %s: %p", _name, item.first.get());
+}
 
-  {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _collection.push_back(r);
-  }
-  ucxx_trace_req("Registered submit request: %p",
-                 callback.target<void (*)(std::shared_ptr<void>)>());
+void RequestDelayedSubmissionCollection::processItem(
+  std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
+{
+  auto& req      = item.first;
+  auto& callback = item.second;
+
+  ucxx_trace_req("Submitting %s callbacks: %p", _name, req.get());
+
+  if (callback) callback();
+}
+
+GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(const std::string_view name)
+  : BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType>{name, true}
+{
+}
+
+void GenericDelayedSubmissionCollection::scheduleLog(DelayedSubmissionCallbackType item)
+{
+  ucxx_trace_req("Registered %s", _name);
+}
+
+void GenericDelayedSubmissionCollection::processItem(DelayedSubmissionCallbackType callback)
+{
+  ucxx_trace_req("Submitting %s callback", _name);
+
+  if (callback) callback();
+}
+
+DelayedSubmissionCollection::DelayedSubmissionCollection(bool enableDelayedRequestSubmission)
+  : _enableDelayedRequestSubmission(enableDelayedRequestSubmission),
+    _requests(RequestDelayedSubmissionCollection{"request", enableDelayedRequestSubmission})
+{
+}
+
+bool DelayedSubmissionCollection::isDelayedRequestSubmissionEnabled() const
+{
+  return _enableDelayedRequestSubmission;
+}
+
+void DelayedSubmissionCollection::processPre()
+{
+  _requests.process();
+
+  _genericPre.process();
+}
+
+void DelayedSubmissionCollection::processPost() { _genericPost.process(); }
+
+void DelayedSubmissionCollection::registerRequest(std::shared_ptr<Request> request,
+                                                  DelayedSubmissionCallbackType callback)
+{
+  _requests.schedule({request, callback});
+}
+
+void DelayedSubmissionCollection::registerGenericPre(DelayedSubmissionCallbackType callback)
+{
+  _genericPre.schedule(callback);
+}
+
+void DelayedSubmissionCollection::registerGenericPost(DelayedSubmissionCallbackType callback)
+{
+  _genericPost.schedule(callback);
 }
 
 }  // namespace ucxx

@@ -29,11 +29,11 @@ class Future : public std::enable_shared_from_this<Future> {
   explicit Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
 
  public:
-  Future()              = delete;
-  Future(const Future&) = delete;
+  Future()                         = delete;
+  Future(const Future&)            = delete;
   Future& operator=(Future const&) = delete;
   Future(Future&& o)               = delete;
-  Future& operator=(Future&& o) = delete;
+  Future& operator=(Future&& o)    = delete;
 
   /**
    * @brief Virtual destructor.

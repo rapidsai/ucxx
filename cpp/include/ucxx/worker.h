@@ -25,8 +25,14 @@
 namespace ucxx {
 
 class Address;
+class Buffer;
 class Endpoint;
 class Listener;
+class RequestAm;
+
+namespace internal {
+class AmData;
+}  // namespace internal
 
 class Worker : public Component {
  private:
@@ -41,12 +47,19 @@ class Worker : public Component {
   std::shared_ptr<InflightRequests> _inflightRequestsToCancel{
     std::make_shared<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};  ///< The progress thread object
+  std::thread::id _progressThreadId{};                             ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
     nullptr};  ///< The callback function to execute at progress thread start
   void* _progressThreadStartCallbackArg{
     nullptr};  ///< The argument to be passed to the progress thread start callback
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
+
+  friend std::shared_ptr<RequestAm> createRequestAmRecv(
+    std::shared_ptr<Endpoint> endpoint,
+    const bool enablePythonFuture,
+    RequestCallbackUserFunction callbackFunction,
+    RequestCallbackUserData callbackData);
 
  protected:
   bool _enableFuture{
@@ -55,6 +68,8 @@ class Worker : public Component {
   std::queue<std::shared_ptr<Future>>
     _futuresPool{};  ///< Futures pool to prevent running out of fresh futures
   std::shared_ptr<Notifier> _notifier{nullptr};  ///< Notifier object
+  std::shared_ptr<internal::AmData>
+    _amData;  ///< Worker data made available to Active Messages callback
 
  private:
   /**
@@ -64,6 +79,23 @@ class Worker : public Component {
    * not to generate UCX warnings.
    */
   void drainWorkerTagRecv();
+
+  /**
+   * @brief Get active message receive request.
+   *
+   * Returns an active message request from the pool if the worker has already begun
+   * handling a request with the active messages callback, otherwise creates a new request
+   * that is later populated with status and buffer by the active messages callback.
+   *
+   * @param[in] ep  the endpoint handle where receiving the message, the same handle that
+   *                will later be used to reply to the message.
+   * @param[in] createAmRecvRequestFunction function to create a new request if one is not
+   *                                        already availale in the pool.
+   *
+   * @returns Request to be subsequently checked for the completion state and data.
+   */
+  std::shared_ptr<RequestAm> getAmRecv(
+    ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction);
 
   /**
    * @brief Stop the progress thread if running without raising warnings.
@@ -80,8 +112,10 @@ class Worker : public Component {
    * be canceled when necessary.
    *
    * @param[in] request the request to register.
+   *
+   * @return the request that was registered (i.e., the `request` argument itself).
    */
-  void registerInflightRequest(std::shared_ptr<Request> request);
+  std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Progress the worker until all communication events are completed.
@@ -107,15 +141,19 @@ class Worker : public Component {
    *                                    submitted immediately, but instead delayed to
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
+   * @param[in] enableFuture if `true`, notifies the future associated with each
+   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    */
-  explicit Worker(std::shared_ptr<Context> context, const bool enableDelayedSubmission = false);
+  explicit Worker(std::shared_ptr<Context> context,
+                  const bool enableDelayedSubmission = false,
+                  const bool enableFuture            = false);
 
  public:
-  Worker()              = delete;
-  Worker(const Worker&) = delete;
+  Worker()                         = delete;
+  Worker(const Worker&)            = delete;
   Worker& operator=(Worker const&) = delete;
   Worker(Worker&& o)               = delete;
-  Worker& operator=(Worker&& o) = delete;
+  Worker& operator=(Worker&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::Worker>`.
@@ -137,10 +175,13 @@ class Worker : public Component {
    *                                    submitted immediately, but instead delayed to
    *                                    the progress thread. Requires use of the
    *                                    progress thread.
+   * @param[in] enableFuture if `true`, notifies the future associated with each
+   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    * @returns The `shared_ptr<ucxx::Worker>` object
    */
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                              const bool enableDelayedSubmission);
+                                              const bool enableDelayedSubmission,
+                                              const bool enableFuture);
 
   /**
    * @brief `ucxx::Worker` destructor.
@@ -338,7 +379,7 @@ class Worker : public Component {
   bool progress();
 
   /**
-   * @brief Register delayed submission.
+   * @brief Register delayed request submission.
    *
    * Register `ucxx::Request` for delayed submission. When the `ucxx::Worker` is created
    * with `enableDelayedSubmission=true`, calling actual UCX transfer routines will not
@@ -348,10 +389,55 @@ class Worker : public Component {
    * thread, thus decreasing computation on the caller thread, but potentially increasing
    * transfer latency.
    *
+   * @param[in] request  the request to which the callback belongs, ensuring it remains
+   *                     alive until the callback is invoked.
    * @param[in] callback the callback set to execute the UCP transfer routine during the
    *                     worker thread loop.
    */
-  void registerDelayedSubmission(DelayedSubmissionCallbackType callback);
+  void registerDelayedSubmission(std::shared_ptr<Request> request,
+                                 DelayedSubmissionCallbackType callback);
+
+  /**
+   * @brief Register callback to be executed in progress thread before progressing.
+   *
+   * Register callback to be executed in the current or next iteration of the progress
+   * thread before the worker is progressed. There is no guarantee that the callback will
+   * be executed in the current or next iteration, this depends on where the progress thread
+   * is in the current iteration when this callback is registered. The lifetime of the
+   * callback must be ensured by the caller.
+   *
+   * The purpose of this method is to schedule operations to be executed in the progress
+   * thread, such as endpoint creation and closing, so that progressing doesn't ever need
+   * to occur in the application thread when using a progress thread.
+   *
+   * @param[in] callback  the callback to execute before progressing the worker.
+   */
+  void registerGenericPre(DelayedSubmissionCallbackType callback);
+
+  /**
+   * @brief Register callback to be executed in progress thread after progressing.
+   *
+   * Register callback to be executed in the current or next iteration of the progress
+   * thread after the worker is progressed. There is no guarantee that the callback will
+   * be executed in the current or next iteration, this depends on where the progress thread
+   * is in the current iteration when this callback is registered. The lifetime of the
+   * callback must be ensured by the caller.
+   *
+   * The purpose of this method is to schedule operations to be executed in the progress
+   * thread, immediately after progressing the worker completes.
+   *
+   * @param[in] callback  the callback to execute after progressing the worker.
+   */
+  void registerGenericPost(DelayedSubmissionCallbackType callback);
+
+  /**
+   * @brief Inquire if worker has been created with delayed submission enabled.
+   *
+   * Check whether the worker has been created with delayed submission enabled.
+   *
+   * @returns `true` if delayed submission is enabled, `false` otherwise.
+   */
+  bool isDelayedRequestSubmissionEnabled() const;
 
   /**
    * @brief Inquire if worker has been created with future support.
@@ -464,6 +550,24 @@ class Worker : public Component {
   void stopProgressThread();
 
   /**
+   * @brief Inquire if worker has a progress thread running.
+   *
+   * Check whether the worker currently has a progress thread running.
+   *
+   * @returns `true` if a progress thread is running, `false` otherwise.
+   */
+  bool isProgressThreadRunning();
+
+  /**
+   * @brief Get the progress thread ID.
+   *
+   * Get the progress thread ID, only valid if `startProgressThread()` was called.
+   *
+   * @returns the progress thread ID.
+   */
+  std::thread::id getProgressThreadId();
+
+  /**
    * @brief Cancel inflight requests.
    *
    * Cancel inflight requests, returning the total number of requests that were canceled.
@@ -519,7 +623,7 @@ class Worker : public Component {
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
-  bool tagProbe(ucp_tag_t tag);
+  bool tagProbe(const ucp_tag_t tag);
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -643,6 +747,56 @@ class Worker : public Component {
   std::shared_ptr<Listener> createListener(uint16_t port,
                                            ucp_listener_conn_callback_t callback,
                                            void* callbackArgs);
+
+  /**
+   * @brief Register allocator for active messages.
+   *
+   * Register a new allocator for active messages. By default, only one allocator is defined
+   * for host memory (`UCS_MEMORY_TYPE_HOST`), and is used as a fallback when an allocator
+   * for the source's memory type is unavailable. In many circumstances relying exclusively
+   * on the host allocator is undesirable, for example when transferring CUDA buffers the
+   * destination is always going to be a host buffer and prevent the use of transports such
+   * as NVLink or InfiniBand+GPUDirectRDMA. For that reason it's important that the user
+   * defines those allocators that are important for the application.
+   *
+   * If the `memoryType` has already been registered, the previous allocator will be
+   * replaced by the new one. Be careful when doing this after transfers have started, there
+   * are no guarantees that inflight messages have not already been allocated with the old
+   * allocator for that type.
+   *
+   * @code{.cpp}
+   * // context is `std::shared_ptr<ucxx::Context>`
+   * auto worker = context->createWorker(false);
+   *
+   * worker->registerAmAllocator(`UCS_MEMORY_TYPE_CUDA`, ucxx::RMMBuffer);
+   * @endcode
+   *
+   * @param[in] memoryType  the memory type the allocator will be used for.
+   * @param[in] allocator   the allocator callable that will be used to allocate new
+   *                        active message buffers.
+   */
+  void registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator);
+
+  /**
+   * @brief Check for uncaught active messages.
+   *
+   * Checks the worker for any uncaught active messages. An uncaught active message is any
+   * active message that has been fully or partially received by the worker, but not matched
+   * by a corresponding `createRequestAmRecv()` call.
+   *
+   * @code{.cpp}
+   * // `worker` is `std::shared_ptr<ucxx::Worker>`
+   * // `ep` is a remote `std::shared_ptr<ucxx::Endpoint` to the local `worker`
+   * assert(!worker->amProbe(ep->getHandle()));
+   *
+   * ep->amSend(buffer, length);
+   *
+   * assert(worker->amProbe(0));
+   * @endcode
+   *
+   * @returns `true` if any uncaught messages were received, `false` otherwise.
+   */
+  bool amProbe(const ucp_ep_h endpointHandle) const;
 };
 
 }  // namespace ucxx

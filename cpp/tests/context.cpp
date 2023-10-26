@@ -13,8 +13,7 @@ namespace {
 
 static std::vector<std::string> TlsConfig{"^tcp", "^tcp,sm", "tcp", "tcp,sm", "all"};
 
-class ContextTestCustomConfig : public testing::TestWithParam<std::string> {
-};
+class ContextTestCustomConfig : public testing::TestWithParam<std::string> {};
 
 TEST(ContextTest, HandleIsValid)
 {
@@ -71,7 +70,7 @@ TEST(ContextTest, CreateWorker)
 {
   auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
 
-  auto worker1 = ucxx::createWorker(context, false);
+  auto worker1 = ucxx::createWorker(context, false, false);
   ASSERT_TRUE(worker1 != nullptr);
 
   auto worker2 = context->createWorker();
