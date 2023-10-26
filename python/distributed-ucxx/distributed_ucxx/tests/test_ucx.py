@@ -393,6 +393,10 @@ async def test_ucxx_protocol(ucxx_loop, cleanup, port):
 
 
 @gen_test()
+@pytest.mark.skipif(
+    int(os.environ.get("UCXPY_ENABLE_PYTHON_FUTURE", "1")) != 0,
+    reason="Segfaults when Python futures are enabled",
+)
 async def test_ucxx_unreachable(
     ucxx_loop,
 ):
