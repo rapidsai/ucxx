@@ -146,10 +146,10 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
       }
     });
   }
-  PythonFutureTask(const PythonFutureTask&) = delete;
+  PythonFutureTask(const PythonFutureTask&)            = delete;
   PythonFutureTask& operator=(PythonFutureTask const&) = delete;
   PythonFutureTask(PythonFutureTask&& o)               = delete;
-  PythonFutureTask& operator=(PythonFutureTask&& o) = delete;
+  PythonFutureTask& operator=(PythonFutureTask&& o)    = delete;
 
   /**
    * @brief Python future destructor.
