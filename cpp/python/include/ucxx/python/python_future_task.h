@@ -50,7 +50,8 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
     // PyLong_FromSize_t requires the GIL
     if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
     PyGILState_STATE state = PyGILState_Ensure();
-    ucxx::python::future_set_result(_asyncioEventLoop, _handle, _pythonConvert(result));
+    ucxx::python::future_set_result_with_event_loop(
+      _asyncioEventLoop, _handle, _pythonConvert(result));
     PyGILState_Release(state);
   }
 
@@ -66,7 +67,7 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
   void setPythonException(PyObject* pythonException, const std::string& message)
   {
     if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
-    ucxx::python::future_set_exception(
+    ucxx::python::future_set_exception_with_event_loop(
       _asyncioEventLoop, _handle, pythonException, message.c_str());
   }
 
@@ -132,14 +133,14 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
     : _task{std::move(task)},
       _pythonConvert(pythonConvert),
       _asyncioEventLoop(asyncioEventLoop),
-      _handle{ucxx::python::create_python_future(asyncioEventLoop)}
+      _handle{ucxx::python::create_python_future_with_event_loop(asyncioEventLoop)}
   {
     _future = std::async(launchPolicy, [this]() {
       std::future<ReturnType> result = this->_task.get_future();
       this->_task();
       try {
         const ReturnType r = result.get();
-        this->setException(r);
+        this->setResult(r);
         return r;
       } catch (std::exception& e) {
         this->setException(e);

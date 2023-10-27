@@ -13,6 +13,7 @@
 #include <queue>
 #include <sstream>
 #include <string>
+#include <time.h>
 #include <utility>
 #include <vector>
 
@@ -22,7 +23,7 @@ namespace ucxx {
 
 namespace python_future_task {
 
-typedef std::shared_ptr<PythonFutureTask<size_t>> PythonFutureTaskPtr;
+typedef std::shared_ptr<ucxx::python::PythonFutureTask<size_t>> PythonFutureTaskPtr;
 typedef std::vector<PythonFutureTaskPtr> FuturePool;
 typedef std::shared_ptr<FuturePool> FuturePoolPtr;
 
@@ -133,10 +134,12 @@ class Application {
   PyObject* submit(double duration = 1.0, size_t id = 0)
   {
     ucxx_warn("Submitting task with id: %llu, duration: %f", id, duration);
-    auto task = std::make_shared<PythonFutureTask<size_t>>(
+    auto task = std::make_shared<ucxx::python::PythonFutureTask<size_t>>(
       std::packaged_task<size_t()>([duration, id]() {
         ucxx_warn("Task with id %llu sleeping for %f", id, duration);
-        std::this_thread::sleep_for(std::chrono::duration<double>(duration));
+        // Seems like _GLIBCXX_NO_SLEEP or _GLIBCXX_USE_NANOSLEEP is defined
+        // std::this_thread::sleep_for(std::chrono::duration<double>(duration));
+        ::usleep(size_t(duration * 1e6));
         return id;
       }),
       PyLong_FromSize_t,
