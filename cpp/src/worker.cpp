@@ -355,7 +355,7 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
 void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
   if (_progressThread) {
-    ucxx_warn("Worker progress thread already running");
+    ucxx_debug("Worker progress thread already running");
     return;
   }
 
@@ -390,7 +390,7 @@ void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
 void Worker::stopProgressThread()
 {
   if (!_progressThread)
-    ucxx_warn("Worker progress thread not running or already stopped");
+    ucxx_debug("Worker progress thread not running or already stopped");
   else
     stopProgressThreadNoWarn();
 }

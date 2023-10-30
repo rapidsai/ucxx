@@ -32,6 +32,7 @@ class ApplicationContext:
         progress_mode=None,
         enable_delayed_submission=None,
         enable_python_future=None,
+        exchange_peer_info_timeout=10.0,
     ):
         self.progress_tasks = []
         self.notifier_thread_q = None
@@ -48,6 +49,8 @@ class ApplicationContext:
         enable_python_future = ApplicationContext._check_enable_python_future(
             enable_python_future, self.progress_mode
         )
+
+        self.exchange_peer_info_timeout = exchange_peer_info_timeout
 
         # For now, a application context only has one worker
         self.context = ucx_api.UCXContext(config_dict)
@@ -178,6 +181,7 @@ class ApplicationContext:
         callback_func,
         port=0,
         endpoint_error_handling=True,
+        exchange_peer_info_timeout=5.0,
     ):
         """Create and start a listener to accept incoming connections
 
@@ -201,6 +205,13 @@ class ApplicationContext:
             but prevents a process from terminating unexpectedly that may
             happen when disabled. If `False` endpoint endpoint error handling
             is disabled.
+        exchange_peer_info_timeout: float
+            Timeout in seconds for exchanging peer info. In some cases, exchanging
+            peer information may hang indefinitely, a timeout prevents that. If the
+            chosen value is too high it may cause the operation to be stuck for too
+            long rather than quickly raising a `TimeoutError` that may be recovered
+            from by the application, but under high-load a higher timeout may
+            be helpful to prevent exchanging peer info from failing too fast.
 
         Returns
         -------
@@ -226,6 +237,7 @@ class ApplicationContext:
                     callback_func,
                     self,
                     endpoint_error_handling,
+                    exchange_peer_info_timeout,
                     listener_id,
                     self._listener_active_clients,
                 ),
@@ -236,7 +248,13 @@ class ApplicationContext:
         )
         return ret
 
-    async def create_endpoint(self, ip_address, port, endpoint_error_handling=True):
+    async def create_endpoint(
+        self,
+        ip_address,
+        port,
+        endpoint_error_handling=True,
+        exchange_peer_info_timeout=5.0,
+    ):
         """Create a new endpoint to a server
 
         Parameters
@@ -251,6 +269,13 @@ class ApplicationContext:
             but prevents a process from terminating unexpectedly that may
             happen when disabled. If `False` endpoint endpoint error handling
             is disabled.
+        exchange_peer_info_timeout: float
+            Timeout in seconds for exchanging peer info. In some cases, exchanging
+            peer information may hang indefinitely, a timeout prevents that. If the
+            chosen value is too high it may cause the operation to be stuck for too
+            long rather than quickly raising a `TimeoutError` that may be recovered
+            from by the application, but under high-load a higher timeout may
+            be helpful to prevent exchanging peer info from failing too fast.
 
         Returns
         -------
@@ -278,6 +303,7 @@ class ApplicationContext:
                 msg_tag=msg_tag,
                 ctrl_tag=ctrl_tag,
                 listener=False,
+                stream_timeout=exchange_peer_info_timeout,
             )
         except UCXMessageTruncatedError:
             # A truncated message occurs if the remote endpoint closed before

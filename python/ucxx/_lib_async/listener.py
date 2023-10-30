@@ -115,7 +115,13 @@ class Listener:
 
 
 async def _listener_handler_coroutine(
-    conn_request, ctx, func, endpoint_error_handling, id, active_clients
+    conn_request,
+    ctx,
+    func,
+    endpoint_error_handling,
+    exchange_peer_info_timeout,
+    id,
+    active_clients,
 ):
     # def _listener_handler_coroutine(
     #     conn_request, ctx, func, endpoint_error_handling, id, active_clients
@@ -139,6 +145,7 @@ async def _listener_handler_coroutine(
             msg_tag=msg_tag,
             ctrl_tag=ctrl_tag,
             listener=True,
+            stream_timeout=exchange_peer_info_timeout,
         )
     except UCXMessageTruncatedError:
         # A truncated message occurs if the remote endpoint closed before
@@ -190,6 +197,7 @@ def _listener_handler(
     callback_func,
     ctx,
     endpoint_error_handling,
+    exchange_peer_info_timeout,
     id,
     active_clients,
 ):
@@ -199,6 +207,7 @@ def _listener_handler(
             ctx,
             callback_func,
             endpoint_error_handling,
+            exchange_peer_info_timeout,
             id,
             active_clients,
         ),
