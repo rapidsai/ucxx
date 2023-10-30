@@ -551,8 +551,8 @@ class UCXXListener(Listener):
         allow_offload: bool = True,
         **connection_args: Any,
     ):
-        if not address.startswith("ucxx"):
-            address = "ucxx://" + address
+        if not address.startswith(self.prefix):
+            address = f"{self.prefix}{address}"
         self.ip, self._input_port = parse_host_port(address, default_port=0)
         self.comm_handler = comm_handler
         self.deserialize = deserialize
@@ -567,7 +567,7 @@ class UCXXListener(Listener):
 
     @property
     def address(self):
-        return "ucxx://" + self.ip + ":" + str(self.port)
+        return f"{self.prefix}{self.ip}:{self.port}"
 
     async def start(self):
         async def serve_forever(client_ep):
