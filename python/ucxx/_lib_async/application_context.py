@@ -206,10 +206,10 @@ class ApplicationContext:
             happen when disabled. If `False` endpoint endpoint error handling
             is disabled.
         exchange_peer_info_timeout: float
-            Timeout for exchanging peer info. In some cases, exchanging peer
-            information may hang indefinitely, a timeout prevents that. If the
-            is too high it may cause the operation to be stuck for too long
-            other than quickly raising a `TimeoutError` that may be recovered
+            Timeout in seconds for exchanging peer info. In some cases, exchanging
+            peer information may hang indefinitely, a timeout prevents that. If the
+            chosen value is too high it may cause the operation to be stuck for too
+            long rather than quickly raising a `TimeoutError` that may be recovered
             from by the application, but under high-load a higher timeout may
             be helpful to prevent exchanging peer info from failing too fast.
 
@@ -270,10 +270,10 @@ class ApplicationContext:
             happen when disabled. If `False` endpoint endpoint error handling
             is disabled.
         exchange_peer_info_timeout: float
-            Timeout for exchanging peer info. In some cases, exchanging peer
-            information may hang indefinitely, a timeout prevents that. If the
-            is too high it may cause the operation to be stuck for too long
-            other than quickly raising a `TimeoutError` that may be recovered
+            Timeout in seconds for exchanging peer info. In some cases, exchanging
+            peer information may hang indefinitely, a timeout prevents that. If the
+            chosen value is too high it may cause the operation to be stuck for too
+            long rather than quickly raising a `TimeoutError` that may be recovered
             from by the application, but under high-load a higher timeout may
             be helpful to prevent exchanging peer info from failing too fast.
 
