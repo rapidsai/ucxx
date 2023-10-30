@@ -18,14 +18,6 @@ rapids-dependency-file-generator \
 rapids-mamba-retry env create --force -f env.yaml -n test
 conda activate test
 
-# TODO: Perhaps install from conda? We need distributed installed in developer
-# mode to provide test utils, but that's probably not doable from conda packages.
-rapids-logger "Install Dask and Distributed"
-pip install git+https://github.com/dask/dask@main
-rm -rf /tmp/distributed
-git clone https://github.com/dask/distributed /tmp/distributed
-pip install -e /tmp/distributed
-
 rapids-print-env
 
 print_system_stats
@@ -100,6 +92,12 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   libucxx ucxx distributed-ucxx
+
+# TODO: Perhaps install from conda? We need distributed installed in developer
+# mode to provide test utils, but that's probably not doable from conda packages.
+rapids-logger "Install Distributed in developer mode"
+git clone https://github.com/dask/distributed /tmp/distributed
+pip install -e /tmp/distributed
 
 print_ucx_config
 
