@@ -104,3 +104,6 @@ for nbuf in 1 8; do
     run_py_benchmark    ucxx-async  thread          0             1                         1                    ${nbuf}  0
   fi
 done
+
+rapids-logger "C++ future -> Python future notifier example"
+python -m ucxx.examples.python_future_task_example
