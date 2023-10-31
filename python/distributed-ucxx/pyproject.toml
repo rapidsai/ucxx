@@ -1,0 +1,117 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=64.0.0",
+    "tomli  ; python_version < '3.11'",
+]
+
+[project]
+name = "distributed-ucxx"
+version = "23.12.00"
+description = "UCX communication module for Dask Distributed"
+readme = { file = "README.md", content-type = "text/markdown" }
+authors = [
+    { name = "NVIDIA Corporation" },
+]
+license = { text = "Apache-2.0" }
+requires-python = ">=3.8"
+dependencies = [
+    "dask >=2023.1.1",
+    "distributed >=2023.1.1",
+    "numba >=0.54",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "sphinx-click>=2.7.1",
+    "sphinx-rtd-theme>=0.5.1",
+]
+test = [
+    "pytest",
+    "numpy",
+]
+
+[project.urls]
+Homepage = "https://github.com/rapidsai/ucxx"
+Documentation = "https://distributed.dask.org/"
+Source = "https://github.com/rapidsai/ucxx"
+
+[tool.coverage.run]
+disable_warnings = [
+    "include-ignored",
+]
+include = [
+    "distributed_ucxx/*",
+]
+omit = [
+    "distributed_ucxx/tests/*",
+]
+
+[tool.isort]
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
+order_by_type = true
+known_dask = [
+    "dask",
+    "distributed",
+]
+known_rapids = [
+    "rmm",
+    "cudf",
+    "ucxx",
+]
+known_first_party = [
+    "distributed_ucxx",
+]
+default_section = "THIRDPARTY"
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "THIRDPARTY",
+    "DASK",
+    "RAPIDS",
+    "FIRSTPARTY",
+    "LOCALFOLDER",
+]
+skip = [
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "build",
+    "dist",
+    "__init__.py",
+]
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+
+[tool.setuptools.packages.find]
+exclude = [
+    "docs",
+    "tests",
+    "docs.*",
+    "tests.*",
+]
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "distributed_ucxx/_version.py"
+versionfile_build = "distributed_ucxx/_version.py"
+tag_prefix = "v"
+parentdir_prefix = "distributed_ucxx-"

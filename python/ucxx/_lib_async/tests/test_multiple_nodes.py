@@ -32,7 +32,9 @@ async def server_node(ep):
 
 
 async def client_node(port):
-    ep = await ucxx.create_endpoint(ucxx.get_address(), port)
+    ep = await ucxx.create_endpoint(
+        ucxx.get_address(), port, exchange_peer_info_timeout=10.0
+    )
     await hello(ep)
     await ep.close()
     # assert isinstance(ep.ucx_info(), str)
@@ -47,7 +49,9 @@ async def test_many_servers_many_clients(num_servers, num_clients):
     listeners = []
 
     for _ in range(num_servers):
-        listeners.append(ucxx.create_listener(server_node))
+        listeners.append(
+            ucxx.create_listener(server_node, exchange_peer_info_timeout=10.0)
+        )
 
     # We ensure no more than `somaxconn` connections are submitted
     # at once. Doing otherwise can block and hang indefinitely.

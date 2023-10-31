@@ -52,7 +52,7 @@ WorkerProgressThread::WorkerProgressThread(
 WorkerProgressThread::~WorkerProgressThread()
 {
   if (!_thread.joinable()) {
-    ucxx_warn("Worker progress thread not running or already stopped");
+    ucxx_debug("Worker progress thread not running or already stopped");
     return;
   }
 

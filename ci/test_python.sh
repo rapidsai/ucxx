@@ -72,12 +72,32 @@ run_py_benchmark() {
   UCX_KEEPALIVE_INTERVAL=1ms UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 2m python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}
 }
 
+run_distributed_ucxx_tests() {
+  PROGRESS_MODE=$1
+  ENABLE_DELAYED_SUBMISSION=$2
+  ENABLE_PYTHON_FUTURE=$3
+
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/"
+
+  # Workaround for https://github.com/rapidsai/ucxx/issues/15
+  # CMD_LINE="UCX_KEEPALIVE_INTERVAL=1ms ${CMD_LINE}"
+
+  log_command "${CMD_LINE}"
+  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/
+}
+
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  libucxx ucxx
+  libucxx ucxx distributed-ucxx
+
+# TODO: Perhaps install from conda? We need distributed installed in developer
+# mode to provide test utils, but that's probably not doable from conda packages.
+rapids-logger "Install Distributed in developer mode"
+git clone https://github.com/dask/distributed /tmp/distributed
+pip install -e /tmp/distributed
 
 print_ucx_config
 
@@ -104,6 +124,14 @@ for nbuf in 1 8; do
     run_py_benchmark    ucxx-async  thread          0             1                         1                    ${nbuf}  0
   fi
 done
+
+rapids-logger "Distributed Tests"
+# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests      polling         0                           0
+run_distributed_ucxx_tests      thread          0                           0
+run_distributed_ucxx_tests      thread          0                           1
+run_distributed_ucxx_tests      thread          1                           0
+run_distributed_ucxx_tests      thread          1                           1
 
 rapids-logger "C++ future -> Python future notifier example"
 python -m ucxx.examples.python_future_task_example
