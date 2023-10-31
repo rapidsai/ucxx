@@ -269,7 +269,7 @@ outputs:
         - python * *_cpython
         - dask
         - distributed
-        - {{ pin_subpackage('ucxx', exact=True) }}
+        - {{ pin_subpackage('ucxx', max_pin='x.x') }}
     test:
       imports:
         - distributed_ucxx
