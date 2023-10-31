@@ -267,8 +267,8 @@ outputs:
         - tomli
       run:
         - python * *_cpython
-        - dask
-        - distributed
+        - dask >=2023.9.2
+        - distributed >=2023.9.2
         - {{ pin_subpackage('ucxx', max_pin='x.x') }}
     test:
       imports:
