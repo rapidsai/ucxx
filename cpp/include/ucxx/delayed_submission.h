@@ -7,7 +7,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <string_view>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -60,8 +60,7 @@ class DelayedSubmission {
 template <typename T>
 class BaseDelayedSubmissionCollection {
  protected:
-  std::string_view _name{
-    "undefined"};       ///< The human-readable name of the collection, used for logging
+  std::string _name{"undefined"};  ///< The human-readable name of the collection, used for logging
   bool _enabled{true};  ///< Whether the resource required to process the collection is enabled.
   std::vector<T> _collection{};  ///< The collection.
   std::mutex _mutex{};           ///< Mutex to provide access to `_collection`.
@@ -96,7 +95,7 @@ class BaseDelayedSubmissionCollection {
    *
    * @param[in] name  human-readable name of the collection, used for logging.
    */
-  explicit BaseDelayedSubmissionCollection(const std::string_view name, const bool enabled)
+  explicit BaseDelayedSubmissionCollection(const std::string name, const bool enabled)
     : _name{name}, _enabled{enabled}
   {
   }
@@ -150,7 +149,7 @@ class BaseDelayedSubmissionCollection {
     }
 
     if (itemsToProcess.size() > 0) {
-      ucxx_trace_req("Submitting %lu %s callbacks", itemsToProcess.size(), _name);
+      ucxx_trace_req("Submitting %lu %s callbacks", itemsToProcess.size(), _name.c_str());
       for (auto& item : itemsToProcess)
         processItem(item);
     }
@@ -168,7 +167,7 @@ class RequestDelayedSubmissionCollection
     std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
 
  public:
-  explicit RequestDelayedSubmissionCollection(const std::string_view name, const bool enabled);
+  explicit RequestDelayedSubmissionCollection(const std::string name, const bool enabled);
 };
 
 class GenericDelayedSubmissionCollection
@@ -179,7 +178,7 @@ class GenericDelayedSubmissionCollection
   void processItem(DelayedSubmissionCallbackType callback) override;
 
  public:
-  explicit GenericDelayedSubmissionCollection(const std::string_view name);
+  explicit GenericDelayedSubmissionCollection(const std::string name);
 };
 
 class DelayedSubmissionCollection {

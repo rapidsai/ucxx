@@ -18,7 +18,7 @@ namespace utils {
 
 #ifdef __GLIBC__
 static const bool _useSpinlock = []() {
-  auto const libcVersion = std::string_view{gnu_get_libc_version()};
+  auto const libcVersion = std::string{gnu_get_libc_version()};
   auto const dot         = libcVersion.find(".");
   if (dot == std::string::npos) {
     return false;
@@ -27,7 +27,7 @@ static const bool _useSpinlock = []() {
     auto const glibcMajor = std::stoi(libcVersion.substr(0, dot).data());
     auto const glibcMinor = std::stoi(libcVersion.substr(dot + 1).data());
     auto const use        = glibcMajor < 2 || (glibcMajor == 2 && glibcMinor < 25);
-    ucxx_debug("glibc version %s detected, spinlock use is %d", libcVersion.data(), use);
+    ucxx_debug("glibc version %s detected, spinlock use is %d", libcVersion.c_str(), use);
     return use;
   }
 }();
