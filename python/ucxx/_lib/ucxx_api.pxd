@@ -228,6 +228,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args
         ) except +raise_py_error
         void initBlockingProgressMode() except +raise_py_error
+        int getEpollFileDescriptor()
+        bint arm() except +raise_py_error
         void progress()
         bint progressOnce()
         void progressWorkerEvent(int epoll_timeout)

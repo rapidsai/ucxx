@@ -246,6 +246,23 @@ class Worker : public Component {
   void initBlockingProgressMode();
 
   /**
+   * @brief Get the epoll file descriptor associated with the worker.
+   *
+   * Get the epoll file descriptor associated with the worker when running in blocking mode.
+   * The worker only has an associated epoll file descriptor after
+   * `initBlockingProgressMode()` is executed.
+   *
+   * The file descriptor is destroyed as part of the `ucxx::Worker` destructor, thus any
+   * reference to it shall not be used after that.
+   *
+   * @throws std::runtime_error if `initBlockingProgressMode()` was not executed to run the
+   *                            worker in blocking progress mode.
+   *
+   * @returns the file descriptor.
+   */
+  int getEpollFileDescriptor();
+
+  /**
    * @brief Arm the UCP worker.
    *
    * Wrapper for `ucp_worker_arm`, checking its return status for errors and raising an

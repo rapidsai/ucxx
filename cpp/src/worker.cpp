@@ -207,6 +207,14 @@ void Worker::initBlockingProgressMode()
   if (err != 0) throw std::ios_base::failure(std::string("epoll_ctl() returned " + err));
 }
 
+int Worker::getEpollFileDescriptor()
+{
+  if (_epollFileDescriptor == 0)
+    throw std::runtime_error("Worker not running in blocking progress mode");
+
+  return _epollFileDescriptor;
+}
+
 bool Worker::arm()
 {
   ucs_status_t status = ucp_worker_arm(_handle);
