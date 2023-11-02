@@ -109,24 +109,28 @@ rapids-logger "Python Async Tests"
 # run_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
 run_tests_async   thread          0                         0                    0
 run_tests_async   thread          1                         1                    0
+run_tests_async   blocking        0                         1                    0
 
 rapids-logger "Python Benchmarks"
 # run_py_benchmark  BACKEND   PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
 run_py_benchmark    ucxx-core thread          0             0                         0                    1        0
 run_py_benchmark    ucxx-core thread          1             0                         0                    1        0
 
-for nbuf in 1 8; do
-  if [[ ! $RAPIDS_CUDA_VERSION =~ 11.2.* ]]; then
-    # run_py_benchmark  BACKEND     PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
-    run_py_benchmark    ucxx-async  thread          0             0                         0                    ${nbuf}  0
-    run_py_benchmark    ucxx-async  thread          0             0                         1                    ${nbuf}  0
-    run_py_benchmark    ucxx-async  thread          0             1                         0                    ${nbuf}  0
-    run_py_benchmark    ucxx-async  thread          0             1                         1                    ${nbuf}  0
-  fi
+for progress_mode in "blocking" "thread"; do
+  for nbuf in 1 8; do
+    if [[ ! $RAPIDS_CUDA_VERSION =~ 11.2.* ]]; then
+      # run_py_benchmark  BACKEND     PROGRESS_MODE     ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
+      run_py_benchmark    ucxx-async  ${progress_mode}  0             0                         0                    ${nbuf}  0
+      run_py_benchmark    ucxx-async  ${progress_mode}  0             0                         1                    ${nbuf}  0
+      run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         0                    ${nbuf}  0
+      run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         1                    ${nbuf}  0
+    fi
+  done
 done
 
 rapids-logger "Distributed Tests"
 # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests      blocking        0                           0
 run_distributed_ucxx_tests      polling         0                           0
 run_distributed_ucxx_tests      thread          0                           0
 run_distributed_ucxx_tests      thread          0                           1
