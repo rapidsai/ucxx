@@ -37,6 +37,8 @@ sed_runner 's/'"libucxx_version .*)"'/'"libucxx_version ${NEXT_FULL_TAG})"'/g' c
 sed_runner 's/'"ucxx_version .*)"'/'"ucxx_version ${NEXT_FULL_TAG})"'/g' python/CMakeLists.txt
 sed_runner "s/^__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/ucxx/__init__.py
 sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/pyproject.toml
+sed_runner "s/^__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/distributed-ucxx/distributed_ucxx/__init__.py
+sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/distributed-ucxx/pyproject.toml
 
 
 # bump RAPIDS libs
