@@ -4,6 +4,7 @@
 import logging
 import os
 import threading
+import warnings
 import weakref
 from queue import Queue
 
@@ -48,6 +49,12 @@ class ApplicationContext:
         )
         enable_python_future = ApplicationContext._check_enable_python_future(
             enable_python_future, self.progress_mode
+        )
+
+        logger.info(
+            f"Progress mode: {self.progress_mode}, "
+            f"delayed submission: {enable_delayed_submission}, "
+            f"Python future: {enable_python_future}"
         )
 
         self.exchange_peer_info_timeout = exchange_peer_info_timeout
@@ -126,7 +133,7 @@ class ApplicationContext:
             explicit_enable_python_future = enable_python_future
 
         if not progress_mode.startswith("thread") and explicit_enable_python_future:
-            logger.warning(
+            warnings.warn(
                 f"Notifier thread requested, but {progress_mode} does not "
                 "support it, using Python wait_yield()."
             )
