@@ -109,7 +109,7 @@ rapids-logger "Python Async Tests"
 # run_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
 run_tests_async   thread          0                         0                    0
 run_tests_async   thread          1                         1                    0
-run_tests_async   blocking        0                         1                    0
+run_tests_async   blocking        0                         0                    0
 
 rapids-logger "Python Benchmarks"
 # run_py_benchmark  BACKEND   PROGRESS_MODE   ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
