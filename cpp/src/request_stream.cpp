@@ -18,7 +18,12 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
                              size_t length,
                              const bool enablePythonFuture)
   : Request(endpoint,
-            std::make_shared<DelayedSubmission>(send, buffer, length),
+            std::make_shared<DelayedSubmission>(
+              send,
+              buffer,
+              length,
+              DelayedSubmissionData(
+                DelayedSubmissionOperationType::Stream, std::nullopt, std::nullopt, std::nullopt)),
             std::string(send ? "streamSend" : "streamRecv"),
             enablePythonFuture),
     _length(length)

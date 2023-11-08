@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include "ucxx/delayed_submission.h"
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -25,10 +26,16 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
                                  const bool send,
                                  const ucp_tag_t tag,
                                  const bool enablePythonFuture)
-  : Request(endpoint,
-            std::make_shared<DelayedSubmission>(!send, nullptr, 0, 0),
-            std::string(send ? "tagMultiSend" : "tagMultiRecv"),
-            enablePythonFuture),
+  : Request(
+      endpoint,
+      std::make_shared<DelayedSubmission>(
+        !send,
+        nullptr,
+        0,
+        DelayedSubmissionData(
+          DelayedSubmissionOperationType::TagMulti, std::nullopt, std::nullopt, std::nullopt)),
+      std::string(send ? "tagMultiSend" : "tagMultiRecv"),
+      enablePythonFuture),
     _send(send),
     _tag(tag)
 {

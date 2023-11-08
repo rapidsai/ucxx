@@ -60,7 +60,12 @@ RequestAm::RequestAm(std::shared_ptr<Endpoint> endpoint,
                      RequestCallbackUserFunction callbackFunction,
                      RequestCallbackUserData callbackData)
   : Request(endpoint,
-            std::make_shared<DelayedSubmission>(true, buffer, length, 0, memoryType),
+            std::make_shared<DelayedSubmission>(
+              true,
+              buffer,
+              length,
+              DelayedSubmissionData(
+                DelayedSubmissionOperationType::AM, memoryType, std::nullopt, std::nullopt)),
             std::string("amSend"),
             enablePythonFuture)
 {
@@ -243,7 +248,7 @@ void RequestAm::request()
                                .datatype  = ucp_dt_make_contig(1),
                                .user_data = this};
 
-  _sendHeader = _delayedSubmission->_memoryType;
+  _sendHeader = *_delayedSubmission->_data._memoryType;
 
   if (_delayedSubmission->_send) {
     param.cb.send = _amSendCallback;

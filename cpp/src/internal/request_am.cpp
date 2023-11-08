@@ -17,8 +17,12 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
                              std::shared_ptr<Buffer> buffer)
   : _amData(amData), _ep(ep), _request(request), _buffer(buffer)
 {
-  _request->_delayedSubmission =
-    std::make_shared<DelayedSubmission>(false, _buffer->data(), _buffer->getSize());
+  _request->_delayedSubmission = std::make_shared<DelayedSubmission>(
+    false,
+    _buffer->data(),
+    _buffer->getSize(),
+    DelayedSubmissionData(
+      DelayedSubmissionOperationType::AM, std::nullopt, std::nullopt, std::nullopt));
 }
 
 void RecvAmMessage::setUcpRequest(void* request) { _request->_request = request; }

@@ -13,12 +13,27 @@
 
 namespace ucxx {
 
+DelayedSubmissionData::DelayedSubmissionData(const DelayedSubmissionOperationType operationType,
+                                             const std::optional<ucs_memory_type_t> memoryType,
+                                             const std::optional<ucp_tag_t> tag,
+                                             const std::optional<ucp_tag_t> tagMask)
+  : _operationType(operationType), _memoryType(memoryType), _tag(tag), _tagMask(tagMask)
+{
+  if (_operationType != DelayedSubmissionOperationType::Tag &&
+      _operationType != DelayedSubmissionOperationType::TagMulti) {
+    if (_tag || _tagMask)
+      throw std::runtime_error(
+        "Specifying tag or tagMask values require either Tag or TagMulti operation.");
+  } else if (_operationType != DelayedSubmissionOperationType::AM) {
+    if (_memoryType) throw std::runtime_error("Specifying memoryType value requires AM operation.");
+  }
+}
+
 DelayedSubmission::DelayedSubmission(const bool send,
                                      void* buffer,
                                      const size_t length,
-                                     const ucp_tag_t tag,
-                                     const ucs_memory_type_t memoryType)
-  : _send(send), _buffer(buffer), _length(length), _tag(tag), _memoryType(memoryType)
+                                     const DelayedSubmissionData data)
+  : _send(send), _buffer(buffer), _length(length), _data(data)
 {
 }
 

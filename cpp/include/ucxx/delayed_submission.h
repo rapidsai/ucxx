@@ -7,7 +7,10 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <stdexcept>
 #include <string>
+#include <ucs/memory/memory_type.h>
 #include <utility>
 #include <vector>
 
@@ -19,13 +22,38 @@ namespace ucxx {
 
 typedef std::function<void()> DelayedSubmissionCallbackType;
 
+enum class DelayedSubmissionOperationType { Undefined = 0, AM, Stream, Tag, TagMulti };
+
+class DelayedSubmissionData {
+ public:
+  /**
+   * @brief Constructor for `DelayedSubmission` operation-specific data.
+   *
+   * Construct an object containing operation-specific data for `DelayedSubmission`.
+   *
+   * @param[in] operationType the type of operation the object refers.
+   * @param[in] memoryType    optional memoryType, only if operation type is AM.
+   * @param[in] tag           optional tag, only if operation type is Tag or TagMulti.
+   * @param[in] tagMask       optional tagMask, only if operation type is Tag or TagMulti.
+   */
+  explicit DelayedSubmissionData(const DelayedSubmissionOperationType operationType,
+                                 const std::optional<ucs_memory_type_t> memoryType,
+                                 const std::optional<ucp_tag_t> tag,
+                                 const std::optional<ucp_tag_t> tagMask);
+
+  const DelayedSubmissionOperationType _operationType{
+    DelayedSubmissionOperationType::Undefined};        ///< The operation type
+  const std::optional<ucs_memory_type_t> _memoryType;  ///< Memory type used on the operation
+  const std::optional<ucp_tag_t> _tag;                 ///< Tag to match
+  const std::optional<ucp_tag_t> _tagMask;             ///< Tag mask to use
+};
+
 class DelayedSubmission {
  public:
-  bool _send{false};       ///< Whether this is a send (`true`) operation or recv (`false`)
-  void* _buffer{nullptr};  ///< Raw pointer to data buffer
-  size_t _length{0};       ///< Length of the message in bytes
-  ucp_tag_t _tag{0};       ///< Tag to match
-  ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_UNKNOWN};  ///< Buffer memory type
+  bool _send{false};            ///< Whether this is a send (`true`) operation or recv (`false`)
+  void* _buffer{nullptr};       ///< Raw pointer to data buffer
+  size_t _length{0};            ///< Length of the message in bytes
+  DelayedSubmissionData _data;  ///< Operation type and operation-specific data
 
   DelayedSubmission() = delete;
 
@@ -46,15 +74,16 @@ class DelayedSubmission {
    * @param[in] send        whether this is a send (`true`) or receive (`false`) operation.
    * @param[in] buffer      a raw pointer to the data being transferred.
    * @param[in] length      the size in bytes of the message being transfer.
-   * @param[in] tag         tag to match for this operation (only applies for tag
+   * @param[in] tag         optional tag to match for this operation (only applies for tag
+   *                        operations).
+   * @param[in] tagMask     optional tag mask to use for this operation (only applies for tag
    *                        operations).
    * @param[in] memoryType  the memory type of the buffer.
    */
   DelayedSubmission(const bool send,
                     void* buffer,
                     const size_t length,
-                    const ucp_tag_t tag                = 0,
-                    const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_UNKNOWN);
+                    const DelayedSubmissionData);
 };
 
 template <typename T>
