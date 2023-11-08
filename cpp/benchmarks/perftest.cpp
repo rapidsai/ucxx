@@ -267,7 +267,7 @@ auto doTransfer(const app_context_t& app_context,
   auto start                                           = std::chrono::high_resolution_clock::now();
   std::vector<std::shared_ptr<ucxx::Request>> requests = {
     endpoint->tagSend((*bufferMap)[SEND].data(), app_context.message_size, (*tagMap)[SEND]),
-    endpoint->tagRecv((*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV])};
+    endpoint->tagRecv((*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV], -1)};
 
   // Wait for requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);
@@ -337,7 +337,8 @@ int main(int argc, char** argv)
                                        (*tagMap)[SEND]));
   requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
                                        (*wireupBufferMap)[RECV].size() * sizeof(int),
-                                       (*tagMap)[RECV]));
+                                       (*tagMap)[RECV],
+                                       -1));
 
   // Wait for wireup requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);

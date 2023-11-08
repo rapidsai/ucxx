@@ -112,15 +112,15 @@ TEST_F(ListenerTest, EndpointSendRecv)
   std::vector<int> client_buf{123};
   std::vector<int> server_buf{0};
   requests.push_back(ep->tagSend(client_buf.data(), client_buf.size() * sizeof(int), 0));
-  requests.push_back(
-    listenerContainer->endpoint->tagRecv(&server_buf.front(), server_buf.size() * sizeof(int), 0));
+  requests.push_back(listenerContainer->endpoint->tagRecv(
+    &server_buf.front(), server_buf.size() * sizeof(int), 0, -1));
   ::waitRequests(_worker, requests, progress);
 
   ASSERT_EQ(server_buf[0], client_buf[0]);
 
   requests.push_back(
     listenerContainer->endpoint->tagSend(&server_buf.front(), server_buf.size() * sizeof(int), 1));
-  requests.push_back(ep->tagRecv(client_buf.data(), client_buf.size() * sizeof(int), 1));
+  requests.push_back(ep->tagRecv(client_buf.data(), client_buf.size() * sizeof(int), 1, -1));
   ::waitRequests(_worker, requests, progress);
   ASSERT_EQ(client_buf[0], server_buf[0]);
 

@@ -330,19 +330,27 @@ std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTag(
-    endpoint, true, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
+    endpoint, true, buffer, length, tag, -1, enablePythonFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
                                            size_t length,
                                            ucp_tag_t tag,
+                                           ucp_tag_t tagMask,
                                            const bool enablePythonFuture,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestTag(
-    endpoint, false, buffer, length, tag, enablePythonFuture, callbackFunction, callbackData));
+  return registerInflightRequest(createRequestTag(endpoint,
+                                                  false,
+                                                  buffer,
+                                                  length,
+                                                  tag,
+                                                  tagMask,
+                                                  enablePythonFuture,
+                                                  callbackFunction,
+                                                  callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
@@ -356,10 +364,13 @@ std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer
     createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
 }
 
-std::shared_ptr<Request> Endpoint::tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture)
+std::shared_ptr<Request> Endpoint::tagMultiRecv(const ucp_tag_t tag,
+                                                const ucp_tag_t tagMask,
+                                                const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestTagMultiRecv(endpoint, tag, enablePythonFuture));
+  return registerInflightRequest(
+    createRequestTagMultiRecv(endpoint, tag, tagMask, enablePythonFuture));
 }
 
 std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }

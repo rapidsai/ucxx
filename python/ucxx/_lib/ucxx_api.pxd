@@ -247,7 +247,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void runRequestNotifier() except +raise_py_error
         void populateFuturesPool() except +raise_py_error
         shared_ptr[Request] tagRecv(
-            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
+            void* buffer,
+            size_t length,
+            ucp_tag_t tag,
+            ucp_tag_t tag_mask,
+            bint enable_python_future
         ) except +raise_py_error
         bint isDelayedRequestSubmissionEnabled() const
         bint isFutureEnabled() const
@@ -273,7 +277,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagRecv(
-            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
+            void* buffer,
+            size_t length,
+            ucp_tag_t tag,
+            ucp_tag_t tag_mask,
+            bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagMultiSend(
             const vector[void*]& buffer,
@@ -283,7 +291,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagMultiRecv(
-            ucp_tag_t tag, bint enable_python_future
+            ucp_tag_t tag, ucp_tag_t tagMask, bint enable_python_future
         ) except +raise_py_error
         bint isAlive()
         void raiseOnError() except +raise_py_error
@@ -327,7 +335,6 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         vector[BufferRequestPtr] _bufferRequests
         bint _isFilled
         shared_ptr[Endpoint] _endpoint
-        ucp_tag_t _tag
         bint _send
 
         cpp_bool isCompleted()

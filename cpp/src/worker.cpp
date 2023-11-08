@@ -485,13 +485,14 @@ bool Worker::tagProbe(const ucp_tag_t tag)
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                          size_t length,
                                          ucp_tag_t tag,
+                                         ucp_tag_t tagMask,
                                          const bool enableFuture,
                                          RequestCallbackUserFunction callbackFunction,
                                          RequestCallbackUserData callbackData)
 {
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
   return registerInflightRequest(createRequestTag(
-    worker, false, buffer, length, tag, enableFuture, callbackFunction, callbackData));
+    worker, false, buffer, length, tag, tagMask, enableFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<Address> Worker::getAddress()

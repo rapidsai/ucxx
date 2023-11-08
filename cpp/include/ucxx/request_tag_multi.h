@@ -70,12 +70,14 @@ class RequestTagMulti : public Request {
    * @param[in] send                whether this is a send (`true`) or receive (`false`)
    *                                tag request.
    * @param[in] tag                 the tag to match.
+   * @param[in] tag                 the tag mask to use (only used for receive operations).
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    */
   RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
                   const bool send,
                   const ucp_tag_t tag,
+                  const ucp_tag_t tagMask,
                   const bool enablePythonFuture);
 
   /**
@@ -174,13 +176,17 @@ class RequestTagMulti : public Request {
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
    * @param[in] tag                 the tag to match.
+   * @param[in] tagMask             the tag mask to use.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
   friend std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(
-    std::shared_ptr<Endpoint> endpoint, const ucp_tag_t tag, const bool enablePythonFuture);
+    std::shared_ptr<Endpoint> endpoint,
+    const ucp_tag_t tag,
+    const ucp_tag_t tagMask,
+    const bool enablePythonFuture);
 
   /**
    * @brief `ucxx::RequestTagMulti` destructor.

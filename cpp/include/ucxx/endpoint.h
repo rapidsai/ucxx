@@ -396,6 +396,7 @@ class Endpoint : public Component {
    *                                data will be stored.
    * @param[in] length              the size in bytes of the tag message to be received.
    * @param[in] tag                 the tag to match.
+   * @param[in] tagMask             the tag mask to use.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
@@ -406,6 +407,7 @@ class Endpoint : public Component {
   std::shared_ptr<Request> tagRecv(void* buffer,
                                    size_t length,
                                    ucp_tag_t tag,
+                                   ucp_tag_t tagMask,
                                    const bool enablePythonFuture                = false,
                                    RequestCallbackUserFunction callbackFunction = nullptr,
                                    RequestCallbackUserData callbackData         = nullptr);
@@ -467,12 +469,15 @@ class Endpoint : public Component {
    * ensure the transfer has completed. Requires UCXX Python support.
    *
    * @param[in] tag                 the tag to match.
+   * @param[in] tagMask             the tag mask to use.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagMultiRecv(const ucp_tag_t tag, const bool enablePythonFuture);
+  std::shared_ptr<Request> tagMultiRecv(const ucp_tag_t tag,
+                                        const ucp_tag_t tagMask,
+                                        const bool enablePythonFuture);
 
   /**
    * @brief Get `ucxx::Worker` component from a worker or listener object.

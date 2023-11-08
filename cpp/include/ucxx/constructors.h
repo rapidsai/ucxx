@@ -79,6 +79,7 @@ std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpoint
                                              void* buffer,
                                              size_t length,
                                              ucp_tag_t tag,
+                                             ucp_tag_t tagMask,
                                              const bool enablePythonFuture,
                                              RequestCallbackUserFunction callbackFunction,
                                              RequestCallbackUserData callbackData);
@@ -92,6 +93,7 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpo
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
                                                            const ucp_tag_t tag,
+                                                           const ucp_tag_t tagMask,
                                                            const bool enablePythonFuture);
 
 }  // namespace ucxx

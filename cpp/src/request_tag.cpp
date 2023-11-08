@@ -18,6 +18,7 @@ std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpoint
                                              void* buffer,
                                              size_t length,
                                              ucp_tag_t tag,
+                                             ucp_tag_t tagMask,
                                              const bool enablePythonFuture                = false,
                                              RequestCallbackUserFunction callbackFunction = nullptr,
                                              RequestCallbackUserData callbackData         = nullptr)
@@ -27,6 +28,7 @@ std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpoint
                                                         buffer,
                                                         length,
                                                         tag,
+                                                        tagMask,
                                                         enablePythonFuture,
                                                         callbackFunction,
                                                         callbackData));
@@ -45,17 +47,19 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                        void* buffer,
                        size_t length,
                        ucp_tag_t tag,
+                       ucp_tag_t tagMask,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)
-  : Request(endpointOrWorker,
-            std::make_shared<DelayedSubmission>(
-              send,
-              buffer,
-              length,
-              DelayedSubmissionData(DelayedSubmissionOperationType::Tag, std::nullopt, tag, -1)),
-            std::string(send ? "tagSend" : "tagRecv"),
-            enablePythonFuture),
+  : Request(
+      endpointOrWorker,
+      std::make_shared<DelayedSubmission>(
+        send,
+        buffer,
+        length,
+        DelayedSubmissionData(DelayedSubmissionOperationType::Tag, std::nullopt, tag, tagMask)),
+      std::string(send ? "tagSend" : "tagRecv"),
+      enablePythonFuture),
     _length(length)
 {
   if (send && _endpoint == nullptr)

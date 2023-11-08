@@ -170,7 +170,7 @@ TEST_P(WorkerProgressTest, ProgressTag)
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(ep->tagSend(send.data(), send.size() * sizeof(int), 0));
-  requests.push_back(ep->tagRecv(recv.data(), recv.size() * sizeof(int), 0));
+  requests.push_back(ep->tagRecv(recv.data(), recv.size() * sizeof(int), 0, -1));
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -194,7 +194,7 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(ep->tagMultiSend(multiBuffer, multiSize, multiIsCUDA, 0, false));
-  requests.push_back(ep->tagMultiRecv(0, false));
+  requests.push_back(ep->tagMultiRecv(0, -1, false));
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& br :

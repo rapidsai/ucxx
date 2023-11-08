@@ -43,6 +43,7 @@ class RequestTag : public Request {
    * @param[in] buffer              a raw pointer to the data to be transferred.
    * @param[in] length              the size in bytes of the tag message to be transferred.
    * @param[in] tag                 the tag to match.
+   * @param[in] tagMask             the tag mask to use (only used for receive operations).
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
@@ -53,6 +54,7 @@ class RequestTag : public Request {
              void* buffer,
              size_t length,
              ucp_tag_t tag,
+             ucp_tag_t tagMask,
              const bool enablePythonFuture                = false,
              RequestCallbackUserFunction callbackFunction = nullptr,
              RequestCallbackUserData callbackData         = nullptr);
@@ -78,6 +80,7 @@ class RequestTag : public Request {
    * @param[in] buffer              a raw pointer to the data to be transferred.
    * @param[in] length              the size in bytes of the tag message to be transferred.
    * @param[in] tag                 the tag to match.
+   * @param[in] tagMask             the tag mask to use (only used for receive operations).
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
@@ -90,6 +93,7 @@ class RequestTag : public Request {
                                                       void* buffer,
                                                       size_t length,
                                                       ucp_tag_t tag,
+                                                      ucp_tag_t tagMask,
                                                       const bool enablePythonFuture,
                                                       RequestCallbackUserFunction callbackFunction,
                                                       RequestCallbackUserData callbackData);

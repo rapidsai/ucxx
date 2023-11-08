@@ -212,7 +212,7 @@ TEST_P(RequestTest, ProgressTag)
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, 0));
-  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, 0));
+  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, 0, -1));
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();
@@ -239,7 +239,7 @@ TEST_P(RequestTest, ProgressTagMulti)
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->tagMultiSend(_sendPtr, multiSize, multiIsCUDA, 0, false));
-  requests.push_back(_ep->tagMultiRecv(0, false));
+  requests.push_back(_ep->tagMultiRecv(0, -1, false));
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvRequest = requests[1];
@@ -287,7 +287,7 @@ TEST_P(RequestTest, TagUserCallback)
 
   // Submit and wait for transfers to complete
   requests[0] = _ep->tagSend(_sendPtr[0], _messageSize, 0, false, checkStatus, sendIndex);
-  requests[1] = _ep->tagRecv(_recvPtr[0], _messageSize, 0, false, checkStatus, recvIndex);
+  requests[1] = _ep->tagRecv(_recvPtr[0], _messageSize, 0, -1, false, checkStatus, recvIndex);
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();

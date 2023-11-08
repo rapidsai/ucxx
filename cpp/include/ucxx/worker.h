@@ -641,6 +641,7 @@ class Worker : public Component {
    *                              data will be stored.
    * @param[in] length            the size in bytes of the tag message to be received.
    * @param[in] tag               the tag to match.
+   * @param[in] tagMask           the tag mask to use.
    * @param[in] enableFuture      whether a future should be created and subsequently
    *                              notified.
    * @param[in] callbackFunction  user-defined callback function to call upon completion.
@@ -651,6 +652,7 @@ class Worker : public Component {
   std::shared_ptr<Request> tagRecv(void* buffer,
                                    size_t length,
                                    ucp_tag_t tag,
+                                   ucp_tag_t tagMask,
                                    const bool enableFuture                      = false,
                                    RequestCallbackUserFunction callbackFunction = nullptr,
                                    RequestCallbackUserData callbackData         = nullptr);
