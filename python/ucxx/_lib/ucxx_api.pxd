@@ -179,6 +179,8 @@ cdef extern from "<ucxx/notifier.h>" namespace "ucxx" nogil:
 
 
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
+    ucp_tag_t TagMaskFull
+
     # Using function[Buffer] here doesn't seem possible due to Cython bugs/limitations. The
     # workaround is to use a raw C function pointer and let it be parsed by the compiler.
     # See https://github.com/cython/cython/issues/2041 and

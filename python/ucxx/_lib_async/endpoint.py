@@ -340,7 +340,7 @@ class Endpoint:
 
         self._recv_count += 1
 
-        req = self._ep.tag_recv(buffer, tag, -1)
+        req = self._ep.tag_recv(buffer, tag, ucx_api.UCXXTagMaskFull)
         ret = await req.wait()
 
         self._finished_recv_count += 1
@@ -393,7 +393,7 @@ class Endpoint:
 
         self._recv_count += 1
 
-        buffer_requests = self._ep.tag_recv_multi(tag, -1)
+        buffer_requests = self._ep.tag_recv_multi(tag, ucx_api.UCXXTagMaskFull)
         await buffer_requests.wait()
         buffer_requests.check_error()
         for r in buffer_requests.get_requests():

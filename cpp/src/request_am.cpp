@@ -239,8 +239,6 @@ std::shared_ptr<Buffer> RequestAm::getRecvBuffer() { return _buffer; }
 
 void RequestAm::request()
 {
-  static const ucp_tag_t tagMask = -1;
-
   ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                UCP_OP_ATTR_FIELD_FLAGS |
                                                UCP_OP_ATTR_FIELD_USER_DATA,

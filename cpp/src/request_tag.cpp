@@ -101,8 +101,6 @@ void RequestTag::tagRecvCallback(void* request,
 
 void RequestTag::request()
 {
-  static const ucp_tag_t tagMask = -1;
-
   ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                UCP_OP_ATTR_FIELD_DATATYPE |
                                                UCP_OP_ATTR_FIELD_USER_DATA,

@@ -215,6 +215,12 @@ class PythonRequestNotifierWaitState(enum.Enum):
 
 
 ###############################################################################
+#                                  Constants                                  #
+###############################################################################
+
+UCXXTagMaskFull = TagMaskFull
+
+###############################################################################
 #                                   Classes                                   #
 ###############################################################################
 
@@ -598,7 +604,7 @@ cdef class UCXWorker():
     def is_python_future_enabled(self):
         return self._enable_python_future
 
-    def tag_recv(self, Array arr, size_t tag, size_t tag_mask=-1):
+    def tag_recv(self, Array arr, size_t tag, size_t tag_mask=TagMaskFull):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
@@ -1095,7 +1101,7 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_recv(self, Array arr, size_t tag, size_t tag_mask=-1):
+    def tag_recv(self, Array arr, size_t tag, size_t tag_mask=TagMaskFull):
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
@@ -1158,7 +1164,7 @@ cdef class UCXEndpoint():
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
         )
 
-    def tag_recv_multi(self, size_t tag, size_t tag_mask=-1):
+    def tag_recv_multi(self, size_t tag, size_t tag_mask=TagMaskFull):
         cdef shared_ptr[Request] ucxx_buffer_requests
 
         with nogil:
