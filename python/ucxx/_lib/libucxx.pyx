@@ -468,6 +468,16 @@ cdef class UCXWorker():
             handle = self._worker.get().getHandle()
 
         return int(<uintptr_t>handle)
+    
+    @property
+    def ucxx_ptr(self):
+        cdef Worker* worker
+
+        with nogil:
+            worker = self._worker.get()
+
+        return int(<uintptr_t>worker)
+        # return int(<uintptr_t><void*>&self._worker)
 
     @property
     def info(self):
@@ -974,6 +984,34 @@ cdef class UCXEndpoint():
             handle = self._endpoint.get().getHandle()
 
         return int(<uintptr_t>handle)
+    
+    @property
+    def ucxx_ptr(self):
+        cdef Endpoint* endpoint
+
+        with nogil:
+            endpoint = self._endpoint.get()
+
+        return int(<uintptr_t>endpoint)
+        # return int(<uintptr_t><void*>&self._endpoint)
+            
+    @property
+    def worker_handle(self):
+        cdef ucp_worker_h handle
+
+        with nogil:
+            handle = self._endpoint.get().getWorker().get().getHandle()
+
+        return int(<uintptr_t>handle)
+    
+    @property
+    def ucxx_worker_ptr(self):
+        cdef Worker* worker
+
+        with nogil:
+            worker = self._endpoint.get().getWorker().get()
+
+        return int(<uintptr_t>worker)
 
     def close(self):
         with nogil:
