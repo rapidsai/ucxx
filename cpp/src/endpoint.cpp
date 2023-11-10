@@ -138,11 +138,11 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
 
 Endpoint::~Endpoint()
 {
-  close();
+  close(10000000);
   ucxx_trace("Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
 }
 
-void Endpoint::close()
+void Endpoint::close(uint64_t period, uint64_t maxAttempts)
 {
   if (_handle == nullptr) return;
 
@@ -161,29 +161,39 @@ void Endpoint::close()
   ucs_status_ptr_t status;
 
   if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{};
-    worker->registerGenericPre([this, &callbackNotifierPre, &status, closeMode]() {
-      status = ucp_ep_close_nb(_handle, closeMode);
-      callbackNotifierPre.set();
-    });
-    callbackNotifierPre.wait();
-
-    while (UCS_PTR_IS_PTR(status)) {
-      utils::CallbackNotifier callbackNotifierPost{};
-      worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
-        ucs_status_t s = ucp_request_check_status(status);
-        if (UCS_PTR_STATUS(s) != UCS_INPROGRESS) {
-          ucp_request_free(status);
-          _callbackData->status = UCS_PTR_STATUS(s);
-          if (UCS_PTR_STATUS(status) != UCS_OK) {
-            ucxx_error("Error while closing endpoint: %s",
-                       ucs_status_string(UCS_PTR_STATUS(status)));
-          }
-        }
-
-        callbackNotifierPost.set();
+    bool closeSuccess = false;
+    for (uint64_t i = 0; i < maxAttempts; ++i) {
+      utils::CallbackNotifier callbackNotifierPre{};
+      worker->registerGenericPre([this, &callbackNotifierPre, &status, closeMode]() {
+        status = ucp_ep_close_nb(_handle, closeMode);
+        callbackNotifierPre.set();
       });
-      callbackNotifierPost.wait();
+      if (!callbackNotifierPre.wait(period)) continue;
+
+      while (UCS_PTR_IS_PTR(status)) {
+        utils::CallbackNotifier callbackNotifierPost{};
+        worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
+          ucs_status_t s = ucp_request_check_status(status);
+          if (UCS_PTR_STATUS(s) != UCS_INPROGRESS) {
+            ucp_request_free(status);
+            _callbackData->status = UCS_PTR_STATUS(s);
+            if (UCS_PTR_STATUS(status) != UCS_OK) {
+              ucxx_error("Error while closing endpoint: %s",
+                         ucs_status_string(UCS_PTR_STATUS(status)));
+            }
+          }
+
+          callbackNotifierPost.set();
+        });
+        if (!callbackNotifierPost.wait(period)) continue;
+      }
+
+      closeSuccess = true;
+    }
+
+    if (!closeSuccess) {
+      _callbackData->status = UCS_ERR_ENDPOINT_TIMEOUT;
+      ucxx_error("All attempts to close timed out on endpoint: %p, UCP handle: %p", this, _handle);
     }
   } else {
     status = ucp_ep_close_nb(_handle, closeMode);

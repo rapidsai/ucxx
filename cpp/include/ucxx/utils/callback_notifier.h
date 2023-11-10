@@ -48,11 +48,18 @@ class CallbackNotifier {
   void set();
 
   /**
-   * @brief Wait until `set()` has been called
+   * @brief Wait until `set()` has been called or period has elapsed.
+   *
+   * Wait until `set()` has been called, or period (in nanoseconds) has elapsed (only
+   * applicable if using glibc 2.25 and higher).
    *
    * See also `std::condition_variable::wait`.
+   *
+   * @param[in] period  maximum period in nanoseconds to wait for or `0` to wait forever.
+   *
+   * @return  `true` if waiting finished or `false` if a timeout occurred.
    */
-  void wait();
+  bool wait(uint64_t period = 0);
 };
 
 }  // namespace utils
