@@ -23,8 +23,8 @@ namespace ucxx {
 
 namespace python_future_task {
 
-typedef std::shared_ptr<ucxx::python::PythonFutureTask<size_t>> PythonFutureTaskPtr;
-typedef std::vector<PythonFutureTaskPtr> FuturePool;
+typedef ucxx::python::PythonFutureTask<size_t> PythonFutureTask;
+typedef std::vector<PythonFutureTask> FuturePool;
 typedef std::shared_ptr<FuturePool> FuturePoolPtr;
 
 class ApplicationThread {
@@ -67,7 +67,7 @@ class ApplicationThread {
     std::lock_guard<std::mutex> lock(*incomingPoolMutex);
     for (auto it = incomingPool->begin(); it != incomingPool->end();) {
       auto& task = *it;
-      processingPool->push_back(task);
+      processingPool->push_back(std::move(task));
       it = incomingPool->erase(it);
     }
   }
@@ -78,13 +78,13 @@ class ApplicationThread {
     while (!processingPool->empty()) {
       for (auto it = processingPool->begin(); it != processingPool->end();) {
         auto& task   = *it;
-        auto& future = task->getFuture();
+        auto& future = task.getFuture();
 
         // 10 ms
         std::future_status status = future.wait_for(std::chrono::duration<double>(0.01));
         if (status == std::future_status::ready) {
           ucxx_warn("Task %llu ready", future.get());
-          readyPool->push_back(task);
+          readyPool->push_back(std::move(task));
           it = processingPool->erase(it);
           continue;
         }
@@ -134,7 +134,7 @@ class Application {
   PyObject* submit(double duration = 1.0, size_t id = 0)
   {
     ucxx_warn("Submitting task with id: %llu, duration: %f", id, duration);
-    auto task = std::make_shared<ucxx::python::PythonFutureTask<size_t>>(
+    auto task = ucxx::python::PythonFutureTask<size_t>(
       std::packaged_task<size_t()>([duration, id]() {
         ucxx_warn("Task with id %llu sleeping for %f", id, duration);
         // Seems like _GLIBCXX_NO_SLEEP or _GLIBCXX_USE_NANOSLEEP is defined
@@ -147,13 +147,13 @@ class Application {
 
     {
       std::lock_guard<std::mutex> lock(*_incomingPoolMutex);
-      _incomingPool->push_back(task);
+      auto handle = task.getHandle();
+      _incomingPool->push_back(std::move(task));
+      return handle;
     }
-
-    return task->getHandle();
   }
 };
 
 }  // namespace python_future_task
-//
+
 }  // namespace ucxx
