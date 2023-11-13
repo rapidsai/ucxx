@@ -118,6 +118,9 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
    * runs asynchronously using an internal `std::async` that ultimately notifies a Python
    * future that can be awaited in Python code.
    *
+   * Note that this call will take the Python GIL and requires that the current thread have
+   * an asynchronous event loop set.
+   *
    * @param[in] task the user-defined C++ task.
    * @param[in] pythonConvert C-Python function to convert a C object into a `PyObject*`
    *                          representing the result of the task.
