@@ -52,6 +52,7 @@ struct PythonFutureTask {
   {
     // PyLong_FromSize_t requires the GIL
     if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
+
     PyGILState_STATE state = PyGILState_Ensure();
     ucxx::python::future_set_result_with_event_loop(
       _asyncioEventLoop, _handle, _pythonConvert(result));
@@ -70,8 +71,11 @@ struct PythonFutureTask {
   void setPythonException(PyObject* pythonException, const std::string& message)
   {
     if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
+
+    PyGILState_STATE state = PyGILState_Ensure();
     ucxx::python::future_set_exception_with_event_loop(
       _asyncioEventLoop, _handle, pythonException, message.c_str());
+    PyGILState_Release(state);
   }
 
   /**
@@ -241,13 +245,6 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
   PythonFutureTask& operator=(PythonFutureTask const&) = delete;
   PythonFutureTask(PythonFutureTask&& o)               = default;
   PythonFutureTask& operator=(PythonFutureTask&& o)    = default;
-
-  /**
-   * @brief Python future destructor.
-   *
-   * Decrement the reference count of the underlying Python future.
-   */
-  ~PythonFutureTask() {}
 
   /**
    * @brief Get the C++ future.
