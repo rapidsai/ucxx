@@ -217,6 +217,7 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop, PyObject* futu
   if (PyErr_Occurred()) {
     ucxx_trace_req("Error getting future `set_result` method.");
     PyErr_Print();
+    goto finish;
   }
   if (!PyCallable_Check(set_result_callable)) {
     PyErr_Format(PyExc_RuntimeError,
@@ -261,6 +262,7 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
   if (PyErr_Occurred()) {
     ucxx_trace_req("Error getting future `set_exception` method.");
     PyErr_Print();
+    goto finish;
   }
   if (!PyCallable_Check(set_exception_callable)) {
     PyErr_Format(PyExc_RuntimeError,

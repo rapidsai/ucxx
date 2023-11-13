@@ -169,7 +169,11 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
    *
    * @returns The underlying C++ future.
    */
-  std::future<ReturnType>& getFuture() { return _future; }
+  std::future<ReturnType>& getFuture() { 
+    if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
+    
+    return _future; 
+  }
 
   /**
    * @brief Get the underlying future `PyObject*` handle but does not release ownership.
