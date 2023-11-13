@@ -138,7 +138,7 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
 
 Endpoint::~Endpoint()
 {
-  close(10000000);
+  close(10000000000 /* 10s */);
   ucxx_trace("Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
 }
 
@@ -146,7 +146,7 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
 {
   if (_handle == nullptr) return;
 
-  size_t canceled = cancelInflightRequests();
+  size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
   ucxx_debug("Endpoint %p canceled %lu requests", _handle, canceled);
 
   // Close the endpoint
@@ -267,7 +267,7 @@ void Endpoint::removeInflightRequest(const Request* const request)
   _inflightRequests->remove(request);
 }
 
-size_t Endpoint::cancelInflightRequests()
+size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 {
   auto worker     = ::ucxx::getWorker(this->_parent);
   size_t canceled = 0;
@@ -276,15 +276,25 @@ size_t Endpoint::cancelInflightRequests()
     canceled = _inflightRequests->cancelAll();
     worker->progress();
   } else if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{};
-    worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
-      canceled = _inflightRequests->cancelAll();
-      callbackNotifierPre.set();
-    });
-    callbackNotifierPre.wait();
-    utils::CallbackNotifier callbackNotifierPost{};
-    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    bool cancelSuccess = false;
+    for (uint64_t i = 0; i < maxAttempts; ++i) {
+      utils::CallbackNotifier callbackNotifierPre{};
+      worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
+        canceled = _inflightRequests->cancelAll();
+        callbackNotifierPre.set();
+      });
+      if (!callbackNotifierPre.wait(period)) continue;
+
+      utils::CallbackNotifier callbackNotifierPost{};
+      worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+      if (!callbackNotifierPost.wait(period)) continue;
+
+      cancelSuccess = true;
+    }
+    if (!cancelSuccess)
+      ucxx_error("All attempts to cancel inflight requests failed on endpoint: %p, UCP handle: %p",
+                 this,
+                 _handle);
   } else {
     canceled = _inflightRequests->cancelAll();
   }

@@ -150,7 +150,7 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
 Worker::~Worker()
 {
-  size_t canceled = cancelInflightRequests();
+  size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
   ucxx_debug("Worker %p canceled %lu requests", _handle, canceled);
 
   stopProgressThreadNoWarn();
@@ -266,7 +266,7 @@ bool Worker::progress()
   if (progressScheduledCancel) ret |= progressPending();
 
   // Requests that were not completed now must be canceled.
-  if (cancelInflightRequests() > 0) ret |= progressPending();
+  if (cancelInflightRequests(3000000000 /* 3s */, 3) > 0) ret |= progressPending();
 
   return ret;
 }
@@ -399,7 +399,7 @@ bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
 
 std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
 
-size_t Worker::cancelInflightRequests()
+size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 {
   size_t canceled = 0;
 
@@ -413,16 +413,26 @@ size_t Worker::cancelInflightRequests()
     canceled = inflightRequestsToCancel->cancelAll();
     progressPending();
   } else if (isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{};
-    registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
-      canceled = inflightRequestsToCancel->cancelAll();
-      callbackNotifierPre.set();
-    });
-    callbackNotifierPre.wait();
+    bool cancelSuccess = false;
+    for (uint64_t i = 0; i < maxAttempts; ++i) {
+      utils::CallbackNotifier callbackNotifierPre{};
+      registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
+        canceled = inflightRequestsToCancel->cancelAll();
+        callbackNotifierPre.set();
+      });
+      if (!callbackNotifierPre.wait(period)) continue;
 
-    utils::CallbackNotifier callbackNotifierPost{};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+      utils::CallbackNotifier callbackNotifierPost{};
+      registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+      if (!callbackNotifierPost.wait(period)) continue;
+
+      cancelSuccess = true;
+    }
+
+    if (!cancelSuccess)
+      ucxx_error("All attempts to cancel inflight requests failed on worker: %p, UCP handle: %p",
+                 this,
+                 _handle);
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
   }
