@@ -21,7 +21,7 @@ namespace python {
  *
  * @returns The Python asyncio future object.
  */
-PyObject* create_python_future();
+PyObject* create_python_future() noexcept;
 
 /**
  * @brief Set the result of a Python future.
@@ -37,7 +37,7 @@ PyObject* create_python_future();
  *
  * @returns The result of the call to `_asyncio.Future.set_result()`.
  */
-PyObject* future_set_result(PyObject* future, PyObject* value);
+PyObject* future_set_result(PyObject* future, PyObject* value) noexcept;
 
 /**
  * @brief Set the exception of a Python future.
@@ -53,7 +53,7 @@ PyObject* future_set_result(PyObject* future, PyObject* value);
  *
  * @returns The result of the call to `_asyncio.Future.set_result()`.
  */
-PyObject* future_set_exception(PyObject* future, PyObject* exception, const char* message);
+PyObject* future_set_exception(PyObject* future, PyObject* exception, const char* message) noexcept;
 
 /**
  * @brief Create a Python asyncio future with associated event loop.
@@ -68,7 +68,7 @@ PyObject* future_set_exception(PyObject* future, PyObject* exception, const char
  *
  * @returns The Python asyncio future object.
  */
-PyObject* create_python_future_with_event_loop(PyObject* event_loop);
+PyObject* create_python_future_with_event_loop(PyObject* event_loop) noexcept;
 
 /**
  * @brief Set the result of a Python future with associated event loop.
@@ -87,7 +87,7 @@ PyObject* create_python_future_with_event_loop(PyObject* event_loop);
  */
 PyObject* future_set_result_with_event_loop(PyObject* event_loop,
                                             PyObject* future,
-                                            PyObject* value);
+                                            PyObject* value) noexcept;
 
 /**
  * @brief Set the exception of a Python future with associated event loop.
@@ -107,7 +107,7 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop,
 PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
                                                PyObject* future,
                                                PyObject* exception,
-                                               const char* message);
+                                               const char* message) noexcept;
 
 }  // namespace python
 
