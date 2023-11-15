@@ -142,7 +142,9 @@ class UCXPyCoreServer(BaseServer):
 
         def _listener_handler(conn_request):
             global ep
-            ep = listener.create_endpoint_from_conn_request(conn_request, True)
+            ep = listener.create_endpoint_from_conn_request(
+                conn_request, endpoint_error_handling=self.args.error_handling
+            )
 
         listener = ucx_api.UCXListener.create(
             worker=worker, port=self.args.port or 0, cb_func=_listener_handler
@@ -236,7 +238,7 @@ class UCXPyCoreClient(BaseClient):
             worker,
             self.server_address,
             self.port,
-            endpoint_error_handling=True,
+            endpoint_error_handling=self.args.error_handling,
         )
 
         # Wireup before starting to transfer data
