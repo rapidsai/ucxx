@@ -162,7 +162,7 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
 
   if (worker->isProgressThreadRunning()) {
     bool closeSuccess = false;
-    for (uint64_t i = 0; i < maxAttempts; ++i) {
+    for (uint64_t i = 0; i < maxAttempts && !closeSuccess; ++i) {
       utils::CallbackNotifier callbackNotifierPre{};
       worker->registerGenericPre([this, &callbackNotifierPre, &status, closeMode]() {
         status = ucp_ep_close_nb(_handle, closeMode);
@@ -277,7 +277,7 @@ size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
     worker->progress();
   } else if (worker->isProgressThreadRunning()) {
     bool cancelSuccess = false;
-    for (uint64_t i = 0; i < maxAttempts; ++i) {
+    for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
       utils::CallbackNotifier callbackNotifierPre{};
       worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
         canceled = _inflightRequests->cancelAll();
