@@ -477,7 +477,6 @@ cdef class UCXWorker():
             worker = self._worker.get()
 
         return int(<uintptr_t>worker)
-        # return int(<uintptr_t><void*>&self._worker)
 
     @property
     def info(self):
@@ -993,7 +992,6 @@ cdef class UCXEndpoint():
             endpoint = self._endpoint.get()
 
         return int(<uintptr_t>endpoint)
-        # return int(<uintptr_t><void*>&self._endpoint)
             
     @property
     def worker_handle(self):
