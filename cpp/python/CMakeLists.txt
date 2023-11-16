@@ -77,5 +77,5 @@ install(DIRECTORY ${UCXX_SOURCE_DIR}/python/include/ucxx
 
 include("${rapids-cmake-dir}/export/find_package_root.cmake")
 rapids_export_find_package_root(
-  BUILD Python3 [=[${CMAKE_CURRENT_LIST_DIR}]=] ucxx-python-exports
+  BUILD Python3 [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET ucxx-python-exports
 )
