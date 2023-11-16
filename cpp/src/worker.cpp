@@ -414,7 +414,7 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
     progressPending();
   } else if (isProgressThreadRunning()) {
     bool cancelSuccess = false;
-    for (uint64_t i = 0; i < maxAttempts; ++i) {
+    for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
       utils::CallbackNotifier callbackNotifierPre{};
       registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
         canceled = inflightRequestsToCancel->cancelAll();
