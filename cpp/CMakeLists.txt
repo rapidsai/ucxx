@@ -11,7 +11,7 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
-set(libucxx_version 0.35.00)
+set(libucxx_version 0.36.00)
 
 project(
   UCXX
