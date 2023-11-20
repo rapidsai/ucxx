@@ -56,11 +56,11 @@ Listener::~Listener()
       ucp_listener_destroy(_handle);
       callbackNotifierPre.set();
     });
-    callbackNotifierPre.wait();
+    callbackNotifierPre.wait(10000000000 /* 10s */);
 
     utils::CallbackNotifier callbackNotifierPost{};
     worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    callbackNotifierPost.wait(10000000000 /* 10s */);
   } else {
     ucp_listener_destroy(_handle);
     worker->progress();
