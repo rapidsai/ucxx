@@ -232,7 +232,7 @@ cdef class UCXConfig():
 
     def __dealloc__(self):
         with nogil:
-            self._config.reset(nullptr)
+            self._config.reset()
 
     def get(self):
         cdef ConfigMap config_map = self._config.get().get()
