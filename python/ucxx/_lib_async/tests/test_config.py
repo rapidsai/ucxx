@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import contextlib
 import os
 from unittest.mock import patch
 
@@ -91,3 +92,73 @@ def test_logging():
         ucxx.init(options)
 
     assert len(foreign_log.getvalue()) == 0
+
+
+@pytest.mark.parametrize(
+    "progress_mode", ["blocking", "polling", "thread", "thread-polling"]
+)
+@pytest.mark.asyncio
+async def test_python_future_warnings_env(progress_mode):
+    with patch.dict(
+        os.environ,
+        {"UCXPY_PROGRESS_MODE": progress_mode, "UCXPY_ENABLE_PYTHON_FUTURE": "1"},
+    ):
+        ctx = (
+            contextlib.nullcontext()
+            if progress_mode.startswith("thread")
+            else pytest.warns(
+                UserWarning,
+                match=f"Notifier thread requested, but {progress_mode} does "
+                "not support it, using Python wait_yield().",
+            )
+        )
+        with ctx:
+            ucxx.init()
+
+
+@pytest.mark.parametrize(
+    "progress_mode", ["blocking", "polling", "thread", "thread-polling"]
+)
+@pytest.mark.asyncio
+async def test_python_future_warnings_init_options(progress_mode):
+    ctx = (
+        contextlib.nullcontext()
+        if progress_mode.startswith("thread")
+        else pytest.warns(
+            UserWarning,
+            match=f"Notifier thread requested, but {progress_mode} does "
+            "not support it, using Python wait_yield().",
+        )
+    )
+    with ctx:
+        ucxx.init(progress_mode=progress_mode, enable_python_future=True)
+
+
+@pytest.mark.parametrize(
+    "progress_mode", ["blocking", "polling", "thread", "thread-polling"]
+)
+@pytest.mark.asyncio
+async def test_python_future_warnings_init_options_and_env(progress_mode):
+    # Environment variables have higher priority. To test that we're getting the
+    # proper warnings (or not getting them), we use reverse conditions here as to
+    # what should trigger them with environment variables.
+    kwargs = {
+        "progress_mode": "blocking" if progress_mode.startswith("thread") else "thread",
+        "enable_python_future": False,
+    }
+
+    with patch.dict(
+        os.environ,
+        {"UCXPY_PROGRESS_MODE": progress_mode, "UCXPY_ENABLE_PYTHON_FUTURE": "1"},
+    ):
+        ctx = (
+            contextlib.nullcontext()
+            if progress_mode.startswith("thread")
+            else pytest.warns(
+                UserWarning,
+                match=f"Notifier thread requested, but {progress_mode} does "
+                "not support it, using Python wait_yield().",
+            )
+        )
+        with ctx:
+            ucxx.init(**kwargs)

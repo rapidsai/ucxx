@@ -4,6 +4,7 @@
 import logging
 import os
 import threading
+import warnings
 import weakref
 from queue import Queue
 
@@ -50,6 +51,12 @@ class ApplicationContext:
             enable_python_future, self.progress_mode
         )
 
+        logger.info(
+            f"Progress mode: {self.progress_mode}, "
+            f"delayed submission: {enable_delayed_submission}, "
+            f"Python future: {enable_python_future}"
+        )
+
         self.exchange_peer_info_timeout = exchange_peer_info_timeout
 
         # For now, a application context only has one worker
@@ -71,11 +78,10 @@ class ApplicationContext:
 
     @staticmethod
     def _check_progress_mode(progress_mode):
-        if progress_mode is None:
-            if "UCXPY_PROGRESS_MODE" in os.environ:
-                progress_mode = os.environ["UCXPY_PROGRESS_MODE"]
-            else:
-                progress_mode = "thread"
+        if "UCXPY_PROGRESS_MODE" in os.environ:
+            progress_mode = os.environ["UCXPY_PROGRESS_MODE"]
+        elif progress_mode is None:
+            progress_mode = "thread"
 
         valid_progress_modes = ["polling", "thread", "thread-polling"]
         if not isinstance(progress_mode, str) or not any(
@@ -90,15 +96,12 @@ class ApplicationContext:
 
     @staticmethod
     def _check_enable_delayed_submission(enable_delayed_submission, progress_mode):
-        if enable_delayed_submission is None:
-            if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
-                explicit_enable_delayed_submission = (
-                    False
-                    if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0"
-                    else True
-                )
-            else:
-                explicit_enable_delayed_submission = progress_mode.startswith("thread")
+        if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
+            explicit_enable_delayed_submission = (
+                False if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0" else True
+            )
+        elif enable_delayed_submission is None:
+            explicit_enable_delayed_submission = progress_mode.startswith("thread")
         else:
             explicit_enable_delayed_submission = enable_delayed_submission
 
@@ -115,18 +118,17 @@ class ApplicationContext:
 
     @staticmethod
     def _check_enable_python_future(enable_python_future, progress_mode):
-        if enable_python_future is None:
-            if "UCXPY_ENABLE_PYTHON_FUTURE" in os.environ:
-                explicit_enable_python_future = (
-                    os.environ["UCXPY_ENABLE_PYTHON_FUTURE"] != "0"
-                )
-            else:
-                explicit_enable_python_future = False
+        if "UCXPY_ENABLE_PYTHON_FUTURE" in os.environ:
+            explicit_enable_python_future = (
+                os.environ["UCXPY_ENABLE_PYTHON_FUTURE"] != "0"
+            )
+        elif enable_python_future is None:
+            explicit_enable_python_future = False
         else:
             explicit_enable_python_future = enable_python_future
 
         if not progress_mode.startswith("thread") and explicit_enable_python_future:
-            logger.warning(
+            warnings.warn(
                 f"Notifier thread requested, but {progress_mode} does not "
                 "support it, using Python wait_yield()."
             )
