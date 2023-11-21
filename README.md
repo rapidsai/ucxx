@@ -24,9 +24,11 @@ $ conda install -c conda-forge mamba
 After that, one can proceed as before, but simply replacing `conda` with `mamba` in the environment creation command:
 
 ```
-$ mamba env create -n ucxx -f conda/environments/ucxx-cuda118_arch-x86_64.yml
-$ conda activate ucxx
+$ mamba env create -n ucxx -f conda/environments/all_cuda-118_arch-x86_64.yaml
+$ conda activate all_cuda-118_arch-x86_64
 ```
+
+The environment above will install CUDA 11.8 dependencies, with another file `all_cuda-120_arch-x86_64.yaml` for CUDA 12.0. There are also two other files if you don't need CUDA: `cpp.yaml` (C++-only build dependencies) and `all.yaml` (C++ and Python build dependencies).
 
 ### Convenience Script
 
