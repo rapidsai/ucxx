@@ -230,6 +230,10 @@ cdef class UCXConfig():
         # in `__init__`.
         self._config = move(make_unique[Config](user_options))
 
+    def __dealloc__(self):
+        with nogil:
+            self._config.reset()
+
     def get(self):
         cdef ConfigMap config_map = self._config.get().get()
         return {
@@ -286,6 +290,10 @@ cdef class UCXContext():
         for k, v in self._config.items():
             logger.info(f"  {k}, {v}")
 
+    def __dealloc__(self):
+        with nogil:
+            self._context.reset()
+
     cpdef dict get_config(self):
         return self._config
 
@@ -332,6 +340,11 @@ cdef class UCXAddress():
             self._handle = self._address.get().getHandle()
             self._length = self._address.get().getLength()
             self._string = self._address.get().getString()
+
+    def __dealloc__(self):
+        with nogil:
+            self._handle = NULL
+            self._address.reset()
 
     @classmethod
     def create_from_worker(cls, UCXWorker worker):
@@ -459,6 +472,10 @@ cdef class UCXWorker():
             if self._context_feature_flags & UCP_FEATURE_AM:
                 rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
                 self._worker.get().registerAmAllocator(UCS_MEMORY_TYPE_CUDA, rmm_am_allocator)
+
+    def __dealloc__(self):
+        with nogil:
+            self._worker.reset()
 
     @property
     def handle(self):
@@ -628,6 +645,10 @@ cdef class UCXRequest():
         self._enable_python_future = enable_python_future
         self._is_completed = False
 
+    def __dealloc__(self):
+        with nogil:
+            self._request.reset()
+
     def is_completed(self):
         cdef bint is_completed
 
@@ -697,6 +718,10 @@ cdef class UCXBufferRequest:
         self._buffer_request = deref(<BufferRequestPtr *> shared_ptr_buffer_request)
         self._enable_python_future = enable_python_future
 
+    def __dealloc__(self):
+        with nogil:
+            self._buffer_request.reset()
+
     def get_request(self):
         return UCXRequest(
             <uintptr_t><void*>&self._buffer_request.get().request,
@@ -737,6 +762,10 @@ cdef class UCXBufferRequests:
         self._ucxx_request_tag_multi = (
             deref(<RequestTagMultiPtr *> unique_ptr_buffer_requests)
         )
+
+    def __dealloc__(self):
+        with nogil:
+            self._ucxx_request_tag_multi.reset()
 
     def _populate_requests(self):
         cdef vector[BufferRequestPtr] requests
@@ -873,6 +902,10 @@ cdef class UCXEndpoint():
         self._enable_python_future = enable_python_future
         self._context_feature_flags = context_feature_flags
         self._cuda_support = cuda_support
+
+    def __dealloc__(self):
+        with nogil:
+            self._endpoint.reset()
 
     @classmethod
     def create(
@@ -1236,6 +1269,10 @@ cdef class UCXListener():
         self._listener = deref(<shared_ptr[Listener] *> shared_ptr_listener)
         self._cb_data = cb_data
         self._enable_python_future = enable_python_future
+
+    def __dealloc__(self):
+        with nogil:
+            self._listener.reset()
 
     @classmethod
     def create(
