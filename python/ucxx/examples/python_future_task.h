@@ -35,15 +35,13 @@ class ApplicationThread {
  public:
   ApplicationThread(PyObject* asyncioEventLoop,
                     std::shared_ptr<std::mutex> incomingPoolMutex,
-                    FuturePoolPtr incomingPool,
-                    FuturePoolPtr readyPool)
+                    FuturePoolPtr incomingPool)
   {
     ucxx_warn("Starting application thread");
     _thread = std::thread(ApplicationThread::progressUntilSync,
                           asyncioEventLoop,
                           incomingPoolMutex,
                           incomingPool,
-                          readyPool,
                           std::ref(_stop));
   }
 
@@ -72,7 +70,7 @@ class ApplicationThread {
     }
   }
 
-  static void processLoop(FuturePoolPtr processingPool, FuturePoolPtr readyPool)
+  static void processLoop(FuturePoolPtr processingPool)
   {
     // ucxx_warn("Processing %lu tasks", processingPool->size());
     while (!processingPool->empty()) {
@@ -84,7 +82,6 @@ class ApplicationThread {
         std::future_status status = future.wait_for(std::chrono::duration<double>(0.01));
         if (status == std::future_status::ready) {
           ucxx_warn("Task %llu ready", future.get());
-          readyPool->push_back(std::move(task));
           it = processingPool->erase(it);
           continue;
         }
@@ -97,7 +94,6 @@ class ApplicationThread {
   static void progressUntilSync(PyObject* asyncioEventLoop,
                                 std::shared_ptr<std::mutex> incomingPoolMutex,
                                 FuturePoolPtr incomingPool,
-                                FuturePoolPtr readyPool,
                                 const bool& stop)
   {
     ucxx_warn("Application thread started");
@@ -105,7 +101,7 @@ class ApplicationThread {
     while (!stop) {
       // ucxx_warn("Application thread loop");
       ApplicationThread::submit(incomingPoolMutex, incomingPool, processingPool);
-      ApplicationThread::processLoop(processingPool, readyPool);
+      ApplicationThread::processLoop(processingPool);
     }
   }
 };
@@ -116,8 +112,6 @@ class Application {
   std::shared_ptr<std::mutex> _incomingPoolMutex{
     std::make_shared<std::mutex>()};  ///< Mutex to access the Python futures pool
   FuturePoolPtr _incomingPool{std::make_shared<FuturePool>()};  ///< Incoming task pool
-  FuturePoolPtr _readyPool{
-    std::make_shared<FuturePool>()};  ///< Ready task pool, only to ensure task lifetime
   PyObject* _asyncioEventLoop{nullptr};
 
  public:
@@ -127,8 +121,8 @@ class Application {
 
     ucxx_warn("Launching application");
 
-    _thread = std::make_unique<ApplicationThread>(
-      _asyncioEventLoop, _incomingPoolMutex, _incomingPool, _readyPool);
+    _thread =
+      std::make_unique<ApplicationThread>(_asyncioEventLoop, _incomingPoolMutex, _incomingPool);
   }
 
   PyObject* submit(double duration = 1.0, size_t id = 0)
