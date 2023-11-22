@@ -49,15 +49,24 @@ void CallbackNotifier::set()
     _conditionVariable.notify_all();
   }
 }
-void CallbackNotifier::wait()
+
+bool CallbackNotifier::wait(uint64_t period)
 {
   if (_useSpinlock) {
     while (!_flag.load(std::memory_order_acquire)) {}
   } else {
     std::unique_lock lock(_mutex);
     // Likewise here, the mutex provides ordering.
-    _conditionVariable.wait(lock, [this]() { return _flag.load(std::memory_order_relaxed); });
+    if (period > 0) {
+      return _conditionVariable.wait_for(
+        lock, std::chrono::duration<uint64_t, std::nano>(period), [this]() {
+          return _flag.load(std::memory_order_relaxed);
+        });
+    } else {
+      _conditionVariable.wait(lock, [this]() { return _flag.load(std::memory_order_relaxed); });
+    }
   }
+  return true;
 }
 
 }  // namespace utils
