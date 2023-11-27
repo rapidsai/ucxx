@@ -7,6 +7,7 @@
 #include <chrono>
 #include <future>
 #include <memory>
+#include <mutex>
 #include <queue>
 #include <sstream>
 #include <string>
@@ -19,6 +20,7 @@
 
 #include <ucxx/log.h>
 #include <ucxx/python/future.h>
+#include <ucxx/python/python_future_task_collector.h>
 
 namespace ucxx {
 
@@ -148,9 +150,14 @@ struct PythonFutureTask {
   /**
    * @brief Python future destructor.
    *
-   * Decrement the reference count of the underlying Python future.
+   * Register the handle for future garbage collection. It is unsafe to require the GIL here
+   * since the exact time the destructor is called may be unpredictable w.r.t. the Python
+   * application, and thus requiring the GIL here may result in deadlocks. The application
+   * is thus responsible to ensure `PythonFutureTaskCollector::push()` is regularly called
+   * and ultimately responsible for cleaning up before terminating, otherwise a resource
+   * leakage may occur.
    */
-  ~PythonFutureTask() { Py_XDECREF(_handle); }
+  ~PythonFutureTask() { ucxx::python::PythonFutureTaskCollector::get().push(_handle); }
 
   /**
    * @brief Get the C++ future.
