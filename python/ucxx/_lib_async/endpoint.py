@@ -68,8 +68,9 @@ class Endpoint:
         Parameters
         ----------
         period: int
-            maximum period to wait for a generic pre/post progress thread
-            operation will wait for.
+            maximum period to wait (in ns) for internal endpoint operations
+            to complete, usually two operations (pre and post) are involved
+            thus the maximum perceived timeout should be multiplied by two.
         max_attempts: int
             maximum number of attempts to close endpoint, only applicable
             if worker is running a progress thread and `period > 0`.
@@ -81,7 +82,7 @@ class Endpoint:
         self._ep = None
         self._ctx = None
 
-    async def close(self, period=0, max_attempts=1):
+    async def close(self, period=int(1e9), max_attempts=1):
         """Close the endpoint cleanly.
         This will attempt to flush outgoing buffers before actually
         closing the underlying UCX endpoint.
@@ -93,8 +94,9 @@ class Endpoint:
         Parameters
         ----------
         period: int
-            maximum period to wait for a generic pre/post progress thread
-            operation will wait for.
+            maximum period to wait (in ns) for internal endpoint operations
+            to complete, usually two operations (pre and post) are involved
+            thus the maximum perceived timeout should be multiplied by two.
         max_attempts: int
             maximum number of attempts to close endpoint, only applicable
             if worker is running a progress thread and `period > 0`.
