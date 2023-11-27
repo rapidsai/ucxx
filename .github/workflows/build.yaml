@@ -22,13 +22,13 @@ on:
         default: nightly
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
   conda-cpp-build:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.12
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-24.02
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -37,7 +37,7 @@ jobs:
   upload-conda:
     needs: [conda-cpp-build]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@branch-23.12
+    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@branch-24.02
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
