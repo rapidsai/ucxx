@@ -6,6 +6,7 @@
 
 #include <ucxx/log.h>
 #include <ucxx/python/python_future_task.h>
+#include <ucxx/python/python_future_task_collector.h>
 
 #include <chrono>
 #include <future>
@@ -124,6 +125,8 @@ class Application {
     _thread =
       std::make_unique<ApplicationThread>(_asyncioEventLoop, _incomingPoolMutex, _incomingPool);
   }
+
+  ~Application() { ucxx::python::PythonFutureTaskCollector::get().collect(); }
 
   PyObject* submit(double duration = 1.0, size_t id = 0)
   {
