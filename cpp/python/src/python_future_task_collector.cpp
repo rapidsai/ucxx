@@ -45,8 +45,13 @@ PythonFutureTaskCollector::PythonFutureTaskCollector() {}
 
 PythonFutureTaskCollector::~PythonFutureTaskCollector()
 {
-  if (_toCollect.size() > 0)
-    ucxx_warn("Destroying PythonFutureTaskCollector with %lu uncollected tasks", _toCollect.size());
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    if (_toCollect.size() > 0)
+      ucxx_warn("Destroying PythonFutureTaskCollector with %lu uncollected tasks",
+                _toCollect.size());
+  }
 }
 
 }  // namespace python
