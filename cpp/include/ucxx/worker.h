@@ -573,9 +573,21 @@ class Worker : public Component {
    * Cancel inflight requests, returning the total number of requests that were canceled.
    * This is usually executed during the progress loop.
    *
+   * If the parent worker is running a progress thread, a maximum timeout may be specified
+   * for which the close operation will wait. This can be particularly important for cases
+   * where the progress thread might be attempting to acquire a resource (e.g., the Python
+   * GIL) while the current thread owns that resource. In particular for Python, the
+   * `~Worker()` will call this method for which we can't release the GIL when the garbage
+   * collector runs and destroys the object.
+   *
+   * @param[in] period      maximum period to wait for a generic pre/post progress thread
+   *                        operation will wait for.
+   * @param[in] maxAttempts maximum number of attempts to close endpoint, only applicable
+   *                         if worker is running a progress thread and `period > 0`.
+   *
    * @returns Number of requests that were canceled.
    */
-  size_t cancelInflightRequests();
+  size_t cancelInflightRequests(uint64_t period = 0, uint64_t maxAttempts = 1);
 
   /**
    * @brief Schedule cancelation of inflight requests.
