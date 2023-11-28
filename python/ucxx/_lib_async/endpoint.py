@@ -51,7 +51,7 @@ class Endpoint:
         """Is this endpoint closed?"""
         return self._ep is None or not self._ep.is_alive()
 
-    def abort(self, period=int(10e9), max_attempts=1):
+    def abort(self, period=10**10, max_attempts=1):
         """Close the communication immediately and abruptly.
         Useful in destructors or generators' ``finally`` blocks.
 
@@ -82,7 +82,7 @@ class Endpoint:
         self._ep = None
         self._ctx = None
 
-    async def close(self, period=int(1e9), max_attempts=1):
+    async def close(self, period=10**9, max_attempts=1):
         """Close the endpoint cleanly.
         This will attempt to flush outgoing buffers before actually
         closing the underlying UCX endpoint.
