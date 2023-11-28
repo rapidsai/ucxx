@@ -409,6 +409,12 @@ class ApplicationContext:
         """
         return self.worker.handle
 
+    def get_ucxx_worker(self):
+        """Returns the underlying UCXX worker pointer (ucxx::Worker*)
+        as a Python integer.
+        """
+        return self.worker.ucxx_ptr
+
     def get_config(self):
         """Returns all UCX configuration options as a dict.
 

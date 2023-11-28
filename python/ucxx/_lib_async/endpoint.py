@@ -445,11 +445,23 @@ class Endpoint:
         """
         return self._ctx.worker.handle
 
+    def get_ucxx_worker(self):
+        """Returns the underlying UCXX worker pointer (ucxx::Worker*)
+        as a Python integer.
+        """
+        return self._ctx.worker.ucxx_ptr
+
     def get_ucp_endpoint(self):
         """Returns the underlying UCP endpoint handle (ucp_ep_h)
         as a Python integer.
         """
         return self._ep.handle
+
+    def get_ucxx_endpoint(self):
+        """Returns the underlying UCXX endpoint pointer (ucxx::Endpoint*)
+        as a Python integer.
+        """
+        return self._ep.ucxx_ptr
 
     def close_after_n_recv(self, n, count_from_ep_creation=False):
         """Close the endpoint after `n` received messages.
