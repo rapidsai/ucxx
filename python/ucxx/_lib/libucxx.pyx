@@ -558,11 +558,15 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().stopProgressThread()
 
-    def cancel_inflight_requests(self):
+    def cancel_inflight_requests(self, period=0, max_attempts=1):
+        cdef uint64_t c_period = period
+        cdef uint64_t c_max_attempts = max_attempts
         cdef size_t num_canceled
 
         with nogil:
-            num_canceled = self._worker.get().cancelInflightRequests()
+            num_canceled = self._worker.get().cancelInflightRequests(
+                c_period, c_max_attempts
+            )
 
         return num_canceled
 
@@ -1044,9 +1048,12 @@ cdef class UCXEndpoint():
 
         return int(<uintptr_t>worker)
 
-    def close(self):
+    def close(self, period=0, max_attempts=1):
+        cdef uint64_t c_period = period
+        cdef uint64_t c_max_attempts = max_attempts
+
         with nogil:
-            self._endpoint.get().close()
+            self._endpoint.get().close(c_period, c_max_attempts)
 
     def am_probe(self):
         cdef ucp_ep_h handle
