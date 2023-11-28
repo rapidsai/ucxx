@@ -77,12 +77,12 @@ class Endpoint:
         """
         if self._ep is not None:
             logger.debug("Endpoint.abort(): 0x%x" % self.uid)
-            # Wait for a maximum of 10s
+            # Wait for a maximum of `period` ns
             self._ep.close(period=period, max_attempts=max_attempts)
         self._ep = None
         self._ctx = None
 
-    async def close(self, period=10**9, max_attempts=1):
+    async def close(self, period=10**10, max_attempts=1):
         """Close the endpoint cleanly.
         This will attempt to flush outgoing buffers before actually
         closing the underlying UCX endpoint.
