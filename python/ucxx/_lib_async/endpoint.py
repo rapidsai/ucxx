@@ -51,26 +51,58 @@ class Endpoint:
         """Is this endpoint closed?"""
         return self._ep is None or not self._ep.is_alive()
 
-    def abort(self):
+    def abort(self, period=10**10, max_attempts=1):
         """Close the communication immediately and abruptly.
         Useful in destructors or generators' ``finally`` blocks.
 
+        Despite the attempt to close communication immediately, in some
+        circumstances, notably when the parent worker is running a progress
+        thread, a maximum timeout may be specified for which the close operation
+        will wait. This can be particularly important for cases where the progress
+        thread might be attempting to acquire the GIL while the current
+        thread owns that resource.
+
         Notice, this functions doesn't signal the connected peer to close.
-        To do that, use `Endpoint.close()`
+        To do that, use `Endpoint.close()`.
+
+        Parameters
+        ----------
+        period: int
+            maximum period to wait (in ns) for internal endpoint operations
+            to complete, usually two operations (pre and post) are involved
+            thus the maximum perceived timeout should be multiplied by two.
+        max_attempts: int
+            maximum number of attempts to close endpoint, only applicable
+            if worker is running a progress thread and `period > 0`.
         """
         if self._ep is not None:
             logger.debug("Endpoint.abort(): 0x%x" % self.uid)
-            self._ep.close()
+            # Wait for a maximum of `period` ns
+            self._ep.close(period=period, max_attempts=max_attempts)
         self._ep = None
         self._ctx = None
 
-    async def close(self):
+    async def close(self, period=10**10, max_attempts=1):
         """Close the endpoint cleanly.
         This will attempt to flush outgoing buffers before actually
         closing the underlying UCX endpoint.
+
+        A maximum timeout and number of attempts may be specified to prevent the
+        underlying `Endpoint` object from failing to acquire the GIL, see `abort()`
+        for details.
+
+        Parameters
+        ----------
+        period: int
+            maximum period to wait (in ns) for internal endpoint operations
+            to complete, usually two operations (pre and post) are involved
+            thus the maximum perceived timeout should be multiplied by two.
+        max_attempts: int
+            maximum number of attempts to close endpoint, only applicable
+            if worker is running a progress thread and `period > 0`.
         """
         if self.closed():
-            self.abort()
+            self.abort(period=period, max_attempts=max_attempts)
             return
         try:
             # Making sure we only tell peer to shutdown once
@@ -84,7 +116,7 @@ class Endpoint:
                 if not self._ctx.progress_mode.startswith("thread"):
                     self._ctx.worker.progress()
                 await asyncio.sleep(0)
-                self.abort()
+                self.abort(period=period, max_attempts=max_attempts)
 
     async def am_send(self, buffer):
         """Send `buffer` to connected peer via active messages.
@@ -445,11 +477,23 @@ class Endpoint:
         """
         return self._ctx.worker.handle
 
+    def get_ucxx_worker(self):
+        """Returns the underlying UCXX worker pointer (ucxx::Worker*)
+        as a Python integer.
+        """
+        return self._ctx.worker.ucxx_ptr
+
     def get_ucp_endpoint(self):
         """Returns the underlying UCP endpoint handle (ucp_ep_h)
         as a Python integer.
         """
         return self._ep.handle
+
+    def get_ucxx_endpoint(self):
+        """Returns the underlying UCXX endpoint pointer (ucxx::Endpoint*)
+        as a Python integer.
+        """
+        return self._ep.ucxx_ptr
 
     def close_after_n_recv(self, n, count_from_ep_creation=False):
         """Close the endpoint after `n` received messages.

@@ -237,7 +237,9 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             bint pollingMode, int epoll_timeout
         ) except +raise_py_error
         void stopProgressThread() except +raise_py_error
-        size_t cancelInflightRequests() except +raise_py_error
+        size_t cancelInflightRequests(
+            uint64_t period, uint64_t maxAttempts
+        ) except +raise_py_error
         bint tagProbe(const ucp_tag_t) const
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callbackArg
@@ -262,7 +264,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
-        void close()
+        void close(uint64_t period, uint64_t maxAttempts)
         shared_ptr[Request] amSend(
             void* buffer, size_t length, ucs_memory_type_t memory_type, bint enable_python_future
         ) except +raise_py_error

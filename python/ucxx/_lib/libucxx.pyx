@@ -491,6 +491,15 @@ cdef class UCXWorker():
             handle = self._worker.get().getHandle()
 
         return int(<uintptr_t>handle)
+    
+    @property
+    def ucxx_ptr(self):
+        cdef Worker* worker
+
+        with nogil:
+            worker = self._worker.get()
+
+        return int(<uintptr_t>worker)
 
     @property
     def info(self):
@@ -555,11 +564,15 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().stopProgressThread()
 
-    def cancel_inflight_requests(self):
+    def cancel_inflight_requests(self, period=0, max_attempts=1):
+        cdef uint64_t c_period = period
+        cdef uint64_t c_max_attempts = max_attempts
         cdef size_t num_canceled
 
         with nogil:
-            num_canceled = self._worker.get().cancelInflightRequests()
+            num_canceled = self._worker.get().cancelInflightRequests(
+                c_period, c_max_attempts
+            )
 
         return num_canceled
 
@@ -1014,10 +1027,40 @@ cdef class UCXEndpoint():
             handle = self._endpoint.get().getHandle()
 
         return int(<uintptr_t>handle)
+    
+    @property
+    def ucxx_ptr(self):
+        cdef Endpoint* endpoint
 
-    def close(self):
         with nogil:
-            self._endpoint.get().close()
+            endpoint = self._endpoint.get()
+
+        return int(<uintptr_t>endpoint)
+            
+    @property
+    def worker_handle(self):
+        cdef ucp_worker_h handle
+
+        with nogil:
+            handle = self._endpoint.get().getWorker().get().getHandle()
+
+        return int(<uintptr_t>handle)
+    
+    @property
+    def ucxx_worker_ptr(self):
+        cdef Worker* worker
+
+        with nogil:
+            worker = self._endpoint.get().getWorker().get()
+
+        return int(<uintptr_t>worker)
+
+    def close(self, period=0, max_attempts=1):
+        cdef uint64_t c_period = period
+        cdef uint64_t c_max_attempts = max_attempts
+
+        with nogil:
+            self._endpoint.get().close(c_period, c_max_attempts)
 
     def am_probe(self):
         cdef ucp_ep_h handle
