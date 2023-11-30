@@ -23,7 +23,7 @@ async def test_get_ucp_worker():
 
 
 @pytest.mark.asyncio
-async def test_get_endpoint():
+async def test_get_ucp_endpoint():
     async def server(ep):
         ucp_ep = ep.get_ucp_endpoint()
         assert isinstance(ucp_ep, int)
@@ -34,5 +34,36 @@ async def test_get_endpoint():
     ucp_ep = ep.get_ucp_endpoint()
     assert isinstance(ucp_ep, int)
     assert ucp_ep > 0
+    await ep.close()
+    await wait_listener_client_handlers(lt)
+
+
+@pytest.mark.asyncio
+async def test_get_ucxx_worker():
+    worker = ucxx.get_ucxx_worker()
+    assert isinstance(worker, int)
+
+    async def server(ep):
+        assert ep.get_ucxx_worker() == worker
+
+    lt = ucxx.create_listener(server)
+    ep = await ucxx.create_endpoint(ucxx.get_address(), lt.port)
+    assert ep.get_ucxx_worker() == worker
+    await ep.close()
+    await wait_listener_client_handlers(lt)
+
+
+@pytest.mark.asyncio
+async def test_get_ucxx_endpoint():
+    async def server(ep):
+        ucxx_ep = ep.get_ucxx_endpoint()
+        assert isinstance(ucxx_ep, int)
+        assert ucxx_ep > 0
+
+    lt = ucxx.create_listener(server)
+    ep = await ucxx.create_endpoint(ucxx.get_address(), lt.port)
+    ucxx_ep = ep.get_ucxx_endpoint()
+    assert isinstance(ucxx_ep, int)
+    assert ucxx_ep > 0
     await ep.close()
     await wait_listener_client_handlers(lt)
