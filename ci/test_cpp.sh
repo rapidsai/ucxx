@@ -96,13 +96,8 @@ run_port_retry() {
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
-LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1374 cpp)
-RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1374 python)
-
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  --channel "${LIBRMM_CHANNEL}" \
-  --channel "${RMM_CHANNEL}" \
   libucxx libucxx-examples libucxx-tests
 
 print_ucx_config

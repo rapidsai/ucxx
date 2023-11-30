@@ -89,17 +89,8 @@ run_distributed_ucxx_tests() {
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
-LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1374 cpp)
-RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1374 python)
-LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 14355 cpp)
-CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 14355 python)
-
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  --channel "${LIBRMM_CHANNEL}" \
-  --channel "${RMM_CHANNEL}" \
-  --channel "${LIBCUDF_CHANNEL}" \
-  --channel "${CUDF_CHANNEL}" \
   libucxx ucxx distributed-ucxx
 
 # TODO: Perhaps install from conda? We need distributed installed in developer
