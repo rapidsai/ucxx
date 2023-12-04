@@ -16,6 +16,13 @@ import ucxx
 os.environ["RAPIDS_NO_INITIALIZE"] = "True"
 
 
+@pytest.fixture(autouse=True)
+def collect_garbage():
+    import gc
+
+    gc.collect()
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--runslow", action="store_true", default=False, help="run slow tests"
