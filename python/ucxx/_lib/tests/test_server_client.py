@@ -97,6 +97,9 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
         else:
             break
 
+    if progress_mode == "thread":
+        worker.stop_progress_thread()
+
 
 def _echo_client(transfer_api, msg_size, progress_mode, port):
     feature_flags = [ucx_api.Feature.WAKEUP]
@@ -143,6 +146,9 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
         assert bytes(recv_msg) == send_msg
     else:
         assert recv_msg == send_msg
+
+    if progress_mode == "thread":
+        worker.stop_progress_thread()
 
 
 @pytest.mark.parametrize("transfer_api", ["am", "stream", "tag"])

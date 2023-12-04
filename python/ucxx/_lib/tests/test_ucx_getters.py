@@ -43,6 +43,9 @@ def _init_and_get_objects(progress_mode):
         if progress_mode == "blocking":
             worker.progress()
 
+    if progress_mode == "thread":
+        worker.stop_progress_thread()
+
     return (worker, client_ep, listener_ep[0])
 
 
