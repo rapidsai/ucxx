@@ -435,6 +435,7 @@ cdef void _generic_callback(void *args) with gil:
             *cb_data['cb_args'],
             **cb_data['cb_kwargs']
         )
+        cb_data.clear()
     except Exception as e:
         pass
 
@@ -892,6 +893,7 @@ cdef void _endpoint_close_callback(void *args) with gil:
             *cb_data['cb_args'],
             **cb_data['cb_kwargs']
         )
+        cb_data.clear()
     except Exception as e:
         logger.error(f"{type(e)} when calling endpoint close callback: {e}")
 
@@ -1293,6 +1295,7 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
             *cb_data['cb_args'],
             **cb_data['cb_kwargs']
         )
+        cb_data.clear()
     except Exception as e:
         logger.error(f"{type(e)} when calling listener callback: {e}")
 
