@@ -19,8 +19,6 @@ os.environ["RAPIDS_NO_INITIALIZE"] = "True"
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_teardown(item, nextitem):
-    yield
-
     gc.collect()
 
 
