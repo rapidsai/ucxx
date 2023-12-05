@@ -6,6 +6,7 @@ import asyncio
 import enum
 import functools
 import logging
+import weakref
 
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
@@ -1293,7 +1294,7 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
     try:
         cb_data['cb_func'](
             (
-                cb_data['listener'].create_endpoint_from_conn_request(
+                cb_data['listener']().create_endpoint_from_conn_request(
                     int(<uintptr_t>conn_request), True
                 ) if 'listener' in cb_data else
                 int(<uintptr_t>conn_request)
@@ -1310,6 +1311,7 @@ cdef class UCXListener():
         shared_ptr[Listener] _listener
         bint _enable_python_future
         dict _cb_data
+        object __weakref__
 
     def __init__(
             self,
@@ -1361,7 +1363,7 @@ cdef class UCXListener():
             worker.is_python_future_enabled(),
         )
         if deliver_endpoint is True:
-            cb_data["listener"] = listener
+            cb_data["listener"] = weakref.ref(listener)
         return listener
 
     @property
