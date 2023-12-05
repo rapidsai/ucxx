@@ -19,6 +19,9 @@ namespace python {
 
 std::shared_ptr<::ucxx::Future> createFuture(std::shared_ptr<::ucxx::Notifier> notifier);
 
+std::shared_ptr<::ucxx::Future> createFutureWithEventLoop(
+  PyObject* asyncioEventLoop, std::shared_ptr<::ucxx::Notifier> notifier);
+
 std::shared_ptr<::ucxx::Notifier> createNotifier();
 
 std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<ucxx::Context> context,

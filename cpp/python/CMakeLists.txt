@@ -18,6 +18,7 @@ add_library(
   src/future.cpp
   src/notifier.cpp
   src/python_future.cpp
+  src/python_future_task_collector.cpp
   src/worker.cpp
 )
 

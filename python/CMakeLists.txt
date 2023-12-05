@@ -48,6 +48,7 @@ endif()
 
 rapids_cython_init()
 
+add_subdirectory(ucxx/examples)
 add_subdirectory(ucxx/_lib)
 
 if(DEFINED cython_lib_dir)

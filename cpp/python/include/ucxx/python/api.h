@@ -8,4 +8,5 @@
 #include <ucxx/python/exception.h>
 #include <ucxx/python/notifier.h>
 #include <ucxx/python/python_future.h>
+#include <ucxx/python/python_future_task_collector.h>
 #include <ucxx/python/worker.h>
