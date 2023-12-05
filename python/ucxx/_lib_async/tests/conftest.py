@@ -17,7 +17,7 @@ import ucxx
 os.environ["RAPIDS_NO_INITIALIZE"] = "True"
 
 
-@pytest.hookimpl(hookwrapper=True)
+@pytest.hookimpl()
 def pytest_runtest_teardown(item, nextitem):
     gc.collect()
 
