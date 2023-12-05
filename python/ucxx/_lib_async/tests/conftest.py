@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import gc
 import os
 
 import pytest
@@ -16,9 +17,9 @@ import ucxx
 os.environ["RAPIDS_NO_INITIALIZE"] = "True"
 
 
-@pytest.fixture(autouse=True)
-def collect_garbage():
-    import gc
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    yield
 
     gc.collect()
 

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import gc
 import os
 
 import pytest
@@ -13,8 +14,8 @@ import pytest
 os.environ["RAPIDS_NO_INITIALIZE"] = "True"
 
 
-@pytest.fixture(autouse=True)
-def collect_garbage():
-    import gc
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    yield
 
     gc.collect()
