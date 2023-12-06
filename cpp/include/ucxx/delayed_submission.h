@@ -41,8 +41,8 @@ class DelayedSubmissionAm {
 
 class DelayedSubmissionTag {
  public:
-  const Tag _tag;          ///< Tag to match
-  const TagMask _tagMask;  ///< Tag mask to use
+  const Tag _tag;                         ///< Tag to match
+  const std::optional<TagMask> _tagMask;  ///< Tag mask to use
 
   /**
    * @brief Constructor for `DelayedSubmission` tag/multi-buffer tag-specific data.
@@ -60,19 +60,25 @@ class DelayedSubmissionData {
  public:
   const DelayedSubmissionOperationType _operationType{
     DelayedSubmissionOperationType::Undefined};  ///< The operation type
+  const TransferDirection _transferDirection{
+    TransferDirection::Undefined};  ///< The direction of the transfer.
   const std::variant<std::monostate, DelayedSubmissionAm, DelayedSubmissionTag>
     _data;  ///< Data used on the operation
 
   /**
    * @brief Constructor for `DelayedSubmission` operation-specific data.
    *
-   * Construct an object containing operation-specific data for `DelayedSubmission`.
+   * Construct an object containing operation-specific data for `DelayedSubmission`, which
+   * may also vary depending on the direction of the transfer.
    *
-   * @param[in] operationType the type of operation the object refers.
-   * @param[in] data          data for the delayed submission, required for Active Message,
-   *                          tag and multi-buffer tag, or `std::monostate` otherwise.
+   * @param[in] operationType     the type of operation the object refers.
+   * @param[in] transferDirection the direction of the transfer.
+   * @param[in] data              data for the delayed submission, required for Active
+   *                              Message, tag and multi-buffer tag, or `std::monostate`
+   *                              otherwise.
    */
   explicit DelayedSubmissionData(const decltype(_operationType) operationType,
+                                 const decltype(_transferDirection) transferDirection,
                                  const decltype(_data) data);
 
   /**

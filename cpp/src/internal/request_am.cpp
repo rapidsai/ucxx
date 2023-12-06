@@ -21,7 +21,8 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
     false,
     _buffer->data(),
     _buffer->getSize(),
-    DelayedSubmissionData(DelayedSubmissionOperationType::Am, std::monostate{}));
+    DelayedSubmissionData(
+      DelayedSubmissionOperationType::Am, TransferDirection::Receive, std::monostate{}));
 }
 
 void RecvAmMessage::setUcpRequest(void* request) { _request->_request = request; }

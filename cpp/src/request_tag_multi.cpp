@@ -33,7 +33,9 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
               nullptr,
               0,
               DelayedSubmissionData(DelayedSubmissionOperationType::TagMulti,
-                                    DelayedSubmissionTag(tag, tagMask))),
+                                    send ? TransferDirection::Send : TransferDirection::Receive,
+                                    send ? DelayedSubmissionTag(tag, std::nullopt)
+                                         : DelayedSubmissionTag(tag, tagMask))),
             std::string(send ? "tagMultiSend" : "tagMultiRecv"),
             enablePythonFuture),
     _send(send)
@@ -127,7 +129,7 @@ void RequestTagMulti::recvFrames()
         buf->data(),
         buf->getSize(),
         _delayedSubmission->_data.getTag()._tag,
-        _delayedSubmission->_data.getTag()._tagMask,
+        *_delayedSubmission->_data.getTag()._tagMask,
         false,
         [this](ucs_status_t status, RequestCallbackUserData arg) {
           return this->markCompleted(status, arg);
@@ -212,7 +214,7 @@ void RequestTagMulti::recvHeader()
     _endpoint->tagRecv(&bufferRequest->stringBuffer->front(),
                        bufferRequest->stringBuffer->size(),
                        _delayedSubmission->_data.getTag()._tag,
-                       _delayedSubmission->_data.getTag()._tagMask,
+                       *_delayedSubmission->_data.getTag()._tagMask,
                        false,
                        [this](ucs_status_t status, RequestCallbackUserData arg) {
                          return this->recvCallback(status);

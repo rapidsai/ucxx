@@ -57,7 +57,9 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
               buffer,
               length,
               DelayedSubmissionData(DelayedSubmissionOperationType::Tag,
-                                    DelayedSubmissionTag(tag, tagMask))),
+                                    send ? TransferDirection::Send : TransferDirection::Receive,
+                                    send ? DelayedSubmissionTag(tag, std::nullopt)
+                                         : DelayedSubmissionTag(tag, tagMask))),
             std::string(send ? "tagSend" : "tagRecv"),
             enablePythonFuture),
     _length(length)
@@ -121,7 +123,7 @@ void RequestTag::request()
                                _delayedSubmission->_buffer,
                                _delayedSubmission->_length,
                                _delayedSubmission->_data.getTag()._tag,
-                               _delayedSubmission->_data.getTag()._tagMask,
+                               *_delayedSubmission->_data.getTag()._tagMask,
                                &param);
   }
 

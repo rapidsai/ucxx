@@ -61,11 +61,12 @@ RequestAm::RequestAm(std::shared_ptr<Endpoint> endpoint,
                      RequestCallbackUserData callbackData)
   : Request(
       endpoint,
-      std::make_shared<DelayedSubmission>(
-        true,
-        buffer,
-        length,
-        DelayedSubmissionData(DelayedSubmissionOperationType::Am, DelayedSubmissionAm(memoryType))),
+      std::make_shared<DelayedSubmission>(true,
+                                          buffer,
+                                          length,
+                                          DelayedSubmissionData(DelayedSubmissionOperationType::Am,
+                                                                TransferDirection::Send,
+                                                                DelayedSubmissionAm(memoryType))),
       std::string("amSend"),
       enablePythonFuture)
 {
