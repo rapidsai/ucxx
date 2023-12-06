@@ -94,7 +94,6 @@ def reset():
 
     The library is initiated at next API call.
     """
-    stop_notifier_thread()
     global _ctx
     if _ctx is not None:
         weakref_ctx = weakref.ref(_ctx)
@@ -104,19 +103,11 @@ def reset():
             msg = (
                 "Trying to reset UCX but not all Endpoints and/or Listeners "
                 "are closed(). The following objects are still referencing "
-                "ApplicationContext: "
+                f"the global ApplicationContext {weakref_ctx()}: "
             )
             for o in gc.get_referrers(weakref_ctx()):
                 msg += "\n  %s" % str(o)
             raise UCXError(msg)
-
-
-def stop_notifier_thread():
-    global _ctx
-    if _ctx:
-        _ctx.stop_notifier_thread()
-    else:
-        logger.debug("UCX is not initialized.")
 
 
 def get_ucx_version():
@@ -248,4 +239,3 @@ create_listener.__doc__ = ApplicationContext.create_listener.__doc__
 create_endpoint.__doc__ = ApplicationContext.create_endpoint.__doc__
 continuous_ucx_progress.__doc__ = ApplicationContext.continuous_ucx_progress.__doc__
 get_ucp_worker.__doc__ = ApplicationContext.get_ucp_worker.__doc__
-stop_notifier_thread.__doc__ = ApplicationContext.stop_notifier_thread.__doc__
