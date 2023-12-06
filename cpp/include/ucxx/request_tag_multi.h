@@ -76,8 +76,8 @@ class RequestTagMulti : public Request {
    */
   RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
                   const bool send,
-                  const ucp_tag_t tag,
-                  const ucp_tag_t tagMask,
+                  const Tag tag,
+                  const TagMask tagMask,
                   const bool enablePythonFuture);
 
   /**
@@ -155,7 +155,7 @@ class RequestTagMulti : public Request {
     const std::vector<void*>& buffer,
     const std::vector<size_t>& size,
     const std::vector<int>& isCUDA,
-    const ucp_tag_t tag,
+    const Tag tag,
     const bool enablePythonFuture);
 
   /**
@@ -184,8 +184,8 @@ class RequestTagMulti : public Request {
    */
   friend std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(
     std::shared_ptr<Endpoint> endpoint,
-    const ucp_tag_t tag,
-    const ucp_tag_t tagMask,
+    const Tag tag,
+    const TagMask tagMask,
     const bool enablePythonFuture);
 
   /**

@@ -21,8 +21,6 @@
 
 namespace ucxx {
 
-static constexpr ucp_tag_t TagMaskFull = UINT64_MAX;
-
 class Request : public Component {
  protected:
   ucs_status_t _status{UCS_INPROGRESS};            ///< Requests status

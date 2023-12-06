@@ -38,14 +38,14 @@ class DelayedSubmissionData {
    */
   explicit DelayedSubmissionData(const DelayedSubmissionOperationType operationType,
                                  const std::optional<ucs_memory_type_t> memoryType,
-                                 const std::optional<ucp_tag_t> tag,
-                                 const std::optional<ucp_tag_t> tagMask);
+                                 const std::optional<Tag> tag,
+                                 const std::optional<TagMask> tagMask);
 
   const DelayedSubmissionOperationType _operationType{
     DelayedSubmissionOperationType::Undefined};        ///< The operation type
   const std::optional<ucs_memory_type_t> _memoryType;  ///< Memory type used on the operation
-  const std::optional<ucp_tag_t> _tag;                 ///< Tag to match
-  const std::optional<ucp_tag_t> _tagMask;             ///< Tag mask to use
+  const std::optional<Tag> _tag;                       ///< Tag to match
+  const std::optional<TagMask> _tagMask;               ///< Tag mask to use
 };
 
 class DelayedSubmission {

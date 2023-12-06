@@ -387,7 +387,7 @@ class Endpoint : public Component {
    */
   std::shared_ptr<Request> tagSend(void* buffer,
                                    size_t length,
-                                   ucp_tag_t tag,
+                                   Tag tag,
                                    const bool enablePythonFuture                = false,
                                    RequestCallbackUserFunction callbackFunction = nullptr,
                                    RequestCallbackUserData callbackData         = nullptr);
@@ -418,8 +418,8 @@ class Endpoint : public Component {
    */
   std::shared_ptr<Request> tagRecv(void* buffer,
                                    size_t length,
-                                   ucp_tag_t tag,
-                                   ucp_tag_t tagMask,
+                                   Tag tag,
+                                   TagMask tagMask,
                                    const bool enablePythonFuture                = false,
                                    RequestCallbackUserFunction callbackFunction = nullptr,
                                    RequestCallbackUserData callbackData         = nullptr);
@@ -462,7 +462,7 @@ class Endpoint : public Component {
   std::shared_ptr<Request> tagMultiSend(const std::vector<void*>& buffer,
                                         const std::vector<size_t>& size,
                                         const std::vector<int>& isCUDA,
-                                        const ucp_tag_t tag,
+                                        const Tag tag,
                                         const bool enablePythonFuture);
 
   /**
@@ -487,8 +487,8 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagMultiRecv(const ucp_tag_t tag,
-                                        const ucp_tag_t tagMask,
+  std::shared_ptr<Request> tagMultiRecv(const Tag tag,
+                                        const TagMask tagMask,
                                         const bool enablePythonFuture);
 
   /**

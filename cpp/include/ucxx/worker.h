@@ -635,7 +635,7 @@ class Worker : public Component {
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
-  bool tagProbe(const ucp_tag_t tag);
+  bool tagProbe(const Tag tag);
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -663,8 +663,8 @@ class Worker : public Component {
    */
   std::shared_ptr<Request> tagRecv(void* buffer,
                                    size_t length,
-                                   ucp_tag_t tag,
-                                   ucp_tag_t tagMask,
+                                   Tag tag,
+                                   TagMask tagMask,
                                    const bool enableFuture                      = false,
                                    RequestCallbackUserFunction callbackFunction = nullptr,
                                    RequestCallbackUserData callbackData         = nullptr);

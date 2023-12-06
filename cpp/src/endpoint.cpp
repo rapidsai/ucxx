@@ -343,20 +343,27 @@ std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
 
 std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
                                            size_t length,
-                                           ucp_tag_t tag,
+                                           Tag tag,
                                            const bool enablePythonFuture,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestTag(
-    endpoint, true, buffer, length, tag, -1, enablePythonFuture, callbackFunction, callbackData));
+  return registerInflightRequest(createRequestTag(endpoint,
+                                                  true,
+                                                  buffer,
+                                                  length,
+                                                  tag,
+                                                  TagMaskFull,
+                                                  enablePythonFuture,
+                                                  callbackFunction,
+                                                  callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
                                            size_t length,
-                                           ucp_tag_t tag,
-                                           ucp_tag_t tagMask,
+                                           Tag tag,
+                                           TagMask tagMask,
                                            const bool enablePythonFuture,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
@@ -376,7 +383,7 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
 std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
                                                 const std::vector<size_t>& size,
                                                 const std::vector<int>& isCUDA,
-                                                const ucp_tag_t tag,
+                                                const Tag tag,
                                                 const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
@@ -384,8 +391,8 @@ std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer
     createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
 }
 
-std::shared_ptr<Request> Endpoint::tagMultiRecv(const ucp_tag_t tag,
-                                                const ucp_tag_t tagMask,
+std::shared_ptr<Request> Endpoint::tagMultiRecv(const Tag tag,
+                                                const TagMask tagMask,
                                                 const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());

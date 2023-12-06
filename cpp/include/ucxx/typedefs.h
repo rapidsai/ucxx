@@ -9,6 +9,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <ucp/api/ucp.h>
+
 namespace ucxx {
 
 class Buffer;
@@ -31,6 +33,11 @@ typedef enum {
   UCXX_LOG_LEVEL_LAST,
   UCXX_LOG_LEVEL_PRINT /* Temporary output */
 } ucxx_log_level_t;
+
+enum Tag : ucp_tag_t {};
+enum TagMask : ucp_tag_t {};
+
+static constexpr TagMask TagMaskFull{UINT64_MAX};
 
 typedef std::unordered_map<std::string, std::string> ConfigMap;
 

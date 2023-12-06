@@ -24,8 +24,8 @@ BufferRequest::~BufferRequest() { ucxx_trace("BufferRequest destroyed: %p", this
 
 RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
                                  const bool send,
-                                 const ucp_tag_t tag,
-                                 const ucp_tag_t tagMask,
+                                 const Tag tag,
+                                 const TagMask tagMask,
                                  const bool enablePythonFuture)
   : Request(endpoint,
             std::make_shared<DelayedSubmission>(
@@ -64,11 +64,11 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpo
                                                            const std::vector<void*>& buffer,
                                                            const std::vector<size_t>& size,
                                                            const std::vector<int>& isCUDA,
-                                                           const ucp_tag_t tag,
+                                                           const Tag tag,
                                                            const bool enablePythonFuture)
 {
   auto ret = std::shared_ptr<RequestTagMulti>(
-    new RequestTagMulti(endpoint, true, tag, -1, enablePythonFuture));
+    new RequestTagMulti(endpoint, true, tag, TagMaskFull, enablePythonFuture));
 
   if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
     throw std::runtime_error("All input vectors should be of equal size");
@@ -79,8 +79,8 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpo
 }
 
 std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
-                                                           const ucp_tag_t tag,
-                                                           const ucp_tag_t tagMask,
+                                                           const Tag tag,
+                                                           const TagMask tagMask,
                                                            const bool enablePythonFuture)
 {
   auto ret = std::shared_ptr<RequestTagMulti>(

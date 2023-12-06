@@ -467,7 +467,7 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(const ucp_tag_t tag)
+bool Worker::tagProbe(const Tag tag)
 {
   if (!isProgressThreadRunning()) {
     progress();
@@ -494,8 +494,8 @@ bool Worker::tagProbe(const ucp_tag_t tag)
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                          size_t length,
-                                         ucp_tag_t tag,
-                                         ucp_tag_t tagMask,
+                                         Tag tag,
+                                         TagMask tagMask,
                                          const bool enableFuture,
                                          RequestCallbackUserFunction callbackFunction,
                                          RequestCallbackUserData callbackData)

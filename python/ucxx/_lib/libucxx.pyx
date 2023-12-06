@@ -581,7 +581,7 @@ cdef class UCXWorker():
         cdef bint tag_matched
 
         with nogil:
-            tag_matched = self._worker.get().tagProbe(tag)
+            tag_matched = self._worker.get().tagProbe(<Tag>tag)
 
         return tag_matched
 
@@ -647,8 +647,8 @@ cdef class UCXWorker():
             req = self._worker.get().tagRecv(
                 buf,
                 nbytes,
-                tag,
-                tag_mask,
+                <Tag>tag,
+                <TagMask>tag_mask,
                 self._enable_python_future
             )
 
@@ -1172,7 +1172,7 @@ cdef class UCXEndpoint():
             req = self._endpoint.get().tagSend(
                 buf,
                 nbytes,
-                tag,
+                <Tag>tag,
                 self._enable_python_future
             )
 
@@ -1197,8 +1197,8 @@ cdef class UCXEndpoint():
             req = self._endpoint.get().tagRecv(
                 buf,
                 nbytes,
-                tag,
-                tag_mask,
+                <Tag>tag,
+                <TagMask>tag_mask,
                 self._enable_python_future
             )
 
@@ -1233,7 +1233,7 @@ cdef class UCXEndpoint():
                 v_buffer,
                 v_size,
                 v_is_cuda,
-                tag,
+                <Tag>tag,
                 self._enable_python_future,
             )
 
@@ -1246,7 +1246,7 @@ cdef class UCXEndpoint():
 
         with nogil:
             ucxx_buffer_requests = self._endpoint.get().tagMultiRecv(
-                tag, tag_mask, self._enable_python_future
+                <Tag>tag, <TagMask>tag_mask, self._enable_python_future
             )
 
         return UCXBufferRequests(

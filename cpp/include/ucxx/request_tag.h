@@ -53,8 +53,8 @@ class RequestTag : public Request {
              bool send,
              void* buffer,
              size_t length,
-             ucp_tag_t tag,
-             ucp_tag_t tagMask,
+             Tag tag,
+             TagMask tagMask,
              const bool enablePythonFuture                = false,
              RequestCallbackUserFunction callbackFunction = nullptr,
              RequestCallbackUserData callbackData         = nullptr);
@@ -92,8 +92,8 @@ class RequestTag : public Request {
                                                       bool send,
                                                       void* buffer,
                                                       size_t length,
-                                                      ucp_tag_t tag,
-                                                      ucp_tag_t tagMask,
+                                                      Tag tag,
+                                                      TagMask tagMask,
                                                       const bool enablePythonFuture,
                                                       RequestCallbackUserFunction callbackFunction,
                                                       RequestCallbackUserData callbackData);

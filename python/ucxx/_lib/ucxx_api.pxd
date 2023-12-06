@@ -179,7 +179,10 @@ cdef extern from "<ucxx/notifier.h>" namespace "ucxx" nogil:
 
 
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
-    ucp_tag_t TagMaskFull
+    ctypedef ucp_tag_t Tag
+    ctypedef ucp_tag_t TagMask
+
+    TagMask TagMaskFull
 
     # Using function[Buffer] here doesn't seem possible due to Cython bugs/limitations. The
     # workaround is to use a raw C function pointer and let it be parsed by the compiler.
@@ -240,7 +243,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         size_t cancelInflightRequests(
             uint64_t period, uint64_t maxAttempts
         ) except +raise_py_error
-        bint tagProbe(const ucp_tag_t) const
+        bint tagProbe(const Tag) const
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callbackArg
         )
@@ -253,8 +256,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] tagRecv(
             void* buffer,
             size_t length,
-            ucp_tag_t tag,
-            ucp_tag_t tag_mask,
+            Tag tag,
+            TagMask tag_mask,
             bint enable_python_future
         ) except +raise_py_error
         bint isDelayedRequestSubmissionEnabled() const
@@ -278,24 +281,24 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             void* buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagSend(
-            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
+            void* buffer, size_t length, Tag tag, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagRecv(
             void* buffer,
             size_t length,
-            ucp_tag_t tag,
-            ucp_tag_t tag_mask,
+            Tag tag,
+            TagMask tag_mask,
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagMultiSend(
             const vector[void*]& buffer,
             const vector[size_t]& length,
             const vector[int]& isCUDA,
-            ucp_tag_t tag,
+            Tag tag,
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagMultiRecv(
-            ucp_tag_t tag, ucp_tag_t tagMask, bint enable_python_future
+            Tag tag, TagMask tagMask, bint enable_python_future
         ) except +raise_py_error
         bint isAlive()
         void raiseOnError() except +raise_py_error

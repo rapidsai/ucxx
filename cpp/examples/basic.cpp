@@ -202,25 +202,27 @@ int main(int argc, char** argv)
 
   // Schedule small wireup messages to let UCX identify capabilities between endpoints
   requests.push_back(listener_ctx->getEndpoint()->tagSend(
-    sendWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0));
-  requests.push_back(
-    endpoint->tagRecv(recvWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), 0, -1));
+    sendWireupBuffer.data(), sendWireupBuffer.size() * sizeof(int), ucxx::Tag{0}));
+  requests.push_back(endpoint->tagRecv(recvWireupBuffer.data(),
+                                       sendWireupBuffer.size() * sizeof(int),
+                                       ucxx::Tag{0},
+                                       ucxx::TagMaskFull));
   ::waitRequests(progress_mode, worker, requests);
   requests.clear();
 
   // Schedule send and recv messages on different tags and different ordering
   requests.push_back(listener_ctx->getEndpoint()->tagSend(
-    sendBuffers[0].data(), sendBuffers[0].size() * sizeof(int), 0));
+    sendBuffers[0].data(), sendBuffers[0].size() * sizeof(int), ucxx::Tag{0}));
   requests.push_back(listener_ctx->getEndpoint()->tagRecv(
-    recvBuffers[1].data(), recvBuffers[1].size() * sizeof(int), 1, -1));
+    recvBuffers[1].data(), recvBuffers[1].size() * sizeof(int), ucxx::Tag{1}, ucxx::TagMaskFull));
   requests.push_back(listener_ctx->getEndpoint()->tagSend(
-    sendBuffers[2].data(), sendBuffers[2].size() * sizeof(int), 2, -1));
+    sendBuffers[2].data(), sendBuffers[2].size() * sizeof(int), ucxx::Tag{2}, ucxx::TagMaskFull));
+  requests.push_back(endpoint->tagRecv(
+    recvBuffers[2].data(), recvBuffers[2].size() * sizeof(int), ucxx::Tag{2}, ucxx::TagMaskFull));
   requests.push_back(
-    endpoint->tagRecv(recvBuffers[2].data(), recvBuffers[2].size() * sizeof(int), 2, -1));
-  requests.push_back(
-    endpoint->tagSend(sendBuffers[1].data(), sendBuffers[1].size() * sizeof(int), 1));
-  requests.push_back(
-    endpoint->tagRecv(recvBuffers[0].data(), recvBuffers[0].size() * sizeof(int), 0, -1));
+    endpoint->tagSend(sendBuffers[1].data(), sendBuffers[1].size() * sizeof(int), ucxx::Tag{1}));
+  requests.push_back(endpoint->tagRecv(
+    recvBuffers[0].data(), recvBuffers[0].size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
 
   // Wait for requests to be set, i.e., transfers complete
   ::waitRequests(progress_mode, worker, requests);

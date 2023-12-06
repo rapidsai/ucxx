@@ -30,7 +30,7 @@ enum class ProgressMode {
 enum transfer_type_t { SEND, RECV };
 
 typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
-typedef std::unordered_map<transfer_type_t, ucp_tag_t> TagMap;
+typedef std::unordered_map<transfer_type_t, ucxx::Tag> TagMap;
 
 typedef std::shared_ptr<BufferMap> BufferMapPtr;
 typedef std::shared_ptr<TagMap> TagMapPtr;
@@ -267,7 +267,8 @@ auto doTransfer(const app_context_t& app_context,
   auto start                                           = std::chrono::high_resolution_clock::now();
   std::vector<std::shared_ptr<ucxx::Request>> requests = {
     endpoint->tagSend((*bufferMap)[SEND].data(), app_context.message_size, (*tagMap)[SEND]),
-    endpoint->tagRecv((*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV], -1)};
+    endpoint->tagRecv(
+      (*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
 
   // Wait for requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);
@@ -292,8 +293,8 @@ int main(int argc, char** argv)
 
   bool is_server = app_context.server_addr == NULL;
   auto tagMap    = std::make_shared<TagMap>(TagMap{
-       {SEND, is_server ? 0 : 1},
-       {RECV, is_server ? 1 : 0},
+       {SEND, is_server ? ucxx::Tag{0} : ucxx::Tag{1}},
+       {RECV, is_server ? ucxx::Tag{1} : ucxx::Tag{0}},
   });
 
   std::shared_ptr<ListenerContext> listener_ctx;
@@ -338,7 +339,7 @@ int main(int argc, char** argv)
   requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
                                        (*wireupBufferMap)[RECV].size() * sizeof(int),
                                        (*tagMap)[RECV],
-                                       -1));
+                                       ucxx::TagMaskFull));
 
   // Wait for wireup requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);

@@ -15,8 +15,8 @@ namespace ucxx {
 
 DelayedSubmissionData::DelayedSubmissionData(const DelayedSubmissionOperationType operationType,
                                              const std::optional<ucs_memory_type_t> memoryType,
-                                             const std::optional<ucp_tag_t> tag,
-                                             const std::optional<ucp_tag_t> tagMask)
+                                             const std::optional<Tag> tag,
+                                             const std::optional<TagMask> tagMask)
   : _operationType(operationType), _memoryType(memoryType), _tag(tag), _tagMask(tagMask)
 {
   if (_operationType != DelayedSubmissionOperationType::Tag &&
