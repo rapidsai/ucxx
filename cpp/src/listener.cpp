@@ -31,7 +31,7 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   params.sockaddr.addrlen = info->ai_addrlen;
 
   utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &_handle));
-  ucxx_trace("Listener created: %p", _handle);
+  ucxx_trace("Listener created: %p, UCP handle: %p", this, _handle);
 
   ucp_listener_attr_t attr = {.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR};
   utils::ucsErrorThrow(ucp_listener_query(_handle, &attr));
@@ -51,22 +51,22 @@ Listener::~Listener()
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
   if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{false};
+    utils::CallbackNotifier callbackNotifierPre{};
     worker->registerGenericPre([this, &callbackNotifierPre]() {
       ucp_listener_destroy(_handle);
-      callbackNotifierPre.store(true);
+      callbackNotifierPre.set();
     });
-    callbackNotifierPre.wait([](auto flag) { return flag; });
+    callbackNotifierPre.wait(10000000000 /* 10s */);
 
-    utils::CallbackNotifier callbackNotifierPost{false};
-    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
-    callbackNotifierPost.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callbackNotifierPost{};
+    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+    callbackNotifierPost.wait(10000000000 /* 10s */);
   } else {
-    ucp_listener_destroy(this->_handle);
+    ucp_listener_destroy(_handle);
     worker->progress();
   }
 
-  ucxx_trace("Listener destroyed: %p", this->_handle);
+  ucxx_trace("Listener destroyed: %p, UCP handle: %p", this, _handle);
 }
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,

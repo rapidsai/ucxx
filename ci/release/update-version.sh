@@ -37,23 +37,31 @@ sed_runner 's/'"libucxx_version .*)"'/'"libucxx_version ${NEXT_FULL_TAG})"'/g' c
 sed_runner 's/'"ucxx_version .*)"'/'"ucxx_version ${NEXT_FULL_TAG})"'/g' python/CMakeLists.txt
 sed_runner "s/^__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/ucxx/__init__.py
 sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/pyproject.toml
+sed_runner "s/^__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/distributed-ucxx/distributed_ucxx/__init__.py
+sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/distributed-ucxx/pyproject.toml
 
 
 # bump RAPIDS libs
 sed_runner "/- librmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
 sed_runner "/- rmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
-for FILE in conda/environments/*.yaml dependencies.yaml; do
-  sed_runner "/- cuda==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- cudf==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- dask-cuda==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- dask-cudf==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- librmm==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
-  sed_runner "/- rmm==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
+
+DEPENDENCIES=(
+  cudf
+  dask-cuda
+  dask-cudf
+  librmm
+  rmm
+)
+for DEP in "${DEPENDENCIES[@]}"; do
+  for FILE in dependencies.yaml conda/environments/*.yaml; do
+    sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
+  done
+  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml;
 done
 
 # rapids-cmake version
 sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_RAPIDS_VERSION}\/RAPIDS.cmake"'/g' fetch_rapids.cmake
 
 for FILE in .github/workflows/*.yaml; do
-  sed_runner "/shared-action-workflows/ s/@.*/@branch-${NEXT_RAPIDS_VERSION}/g" "${FILE}"
+  sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_RAPIDS_VERSION}/g" "${FILE}"
 done

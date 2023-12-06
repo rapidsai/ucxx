@@ -47,7 +47,19 @@ void InflightRequests::remove(const Request* const request)
       return;
     } else if (result == -1) {
       auto search = _inflightRequests->find(request);
-      if (search != _inflightRequests->end()) _inflightRequests->erase(search);
+      decltype(search->second) tmpRequest;
+      if (search != _inflightRequests->end()) {
+        /**
+         * If this is the last request to hold `std::shared_ptr<ucxx::Endpoint>` erasing it
+         * may cause the `ucxx::Endpoint`s destructor and subsequently the `close()` method
+         * to be called which will in turn call `cancelAll()` and attempt to take the
+         * mutexes. For this reason we should make a temporary copy of the request being
+         * erased from `_inflightRequests` to allow unlocking the mutexes and only then
+         * destroy the object upon this method's return.
+         */
+        tmpRequest = search->second;
+        _inflightRequests->erase(search);
+      }
       _cancelMutex.unlock();
       _mutex.unlock();
       return;
@@ -57,21 +69,26 @@ void InflightRequests::remove(const Request* const request)
 
 size_t InflightRequests::cancelAll()
 {
-  // Fast path when no requests have been registered or the map has been
-  // previously released.
-  if (_inflightRequests->size() == 0) return 0;
+  decltype(_inflightRequests) toCancel;
+  size_t total;
+  {
+    std::scoped_lock lock{_cancelMutex, _mutex};
+    total = _inflightRequests->size();
 
-  ucxx_debug("Canceling %lu requests", _inflightRequests->size());
+    // Fast path when no requests have been registered or the map has been
+    // previously released.
+    if (total == 0) return 0;
 
-  std::scoped_lock lock{_cancelMutex, _mutex};
+    toCancel = std::exchange(_inflightRequests, std::make_unique<InflightRequestsMap>());
+  }
 
-  size_t total = _inflightRequests->size();
+  ucxx_debug("Canceling %lu requests", total);
 
-  for (auto& r : *_inflightRequests) {
+  for (auto& r : *toCancel) {
     auto request = r.second;
     if (request != nullptr) { request->cancel(); }
   }
-  _inflightRequests->clear();
+  toCancel->clear();
 
   return total;
 }

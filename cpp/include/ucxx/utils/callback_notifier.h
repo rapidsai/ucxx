@@ -2,36 +2,37 @@
  * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <atomic>
 #include <condition_variable>
-#include <functional>
-#include <memory>
 #include <mutex>
-#include <utility>
-
 namespace ucxx {
 
 namespace utils {
 
-template <typename Flag>
 class CallbackNotifier {
  private:
-  Flag _flag{};                                  //< flag storing state
+  std::atomic_bool _flag{};                      //< flag storing state
   std::mutex _mutex{};                           //< lock to guard accesses
   std::condition_variable _conditionVariable{};  //< notification condition var
 
  public:
   /**
-   * @brief Construct a thread-safe notification object with given initial value.
+   * @brief Construct a thread-safe notification object
    *
-   * Construct a thread-safe notification object with a given initial value which may be
-   * later set via `store()` in one thread and block other threads running `wait()` while
-   * the new value is not set.
+   * Construct a thread-safe notification object which can signal
+   * release of some shared state with `set()` while other threads
+   * block on `wait()` until the shared state is released.
    *
-   * @param[in] init  The initial flag value
+   * If libc is glibc and the version is older than 2.25, the
+   * implementation uses a spinlock otherwise it uses a condition
+   * variable.
+   *
+   * When C++-20 is the minimum supported version, it should use
+   * atomic.wait + notify_all.
    */
-  explicit CallbackNotifier(Flag flag) : _flag{flag} {}
+  CallbackNotifier() : _flag{false} {};
 
-  ~CallbackNotifier() {}
+  ~CallbackNotifier() = default;
 
   CallbackNotifier(const CallbackNotifier&)            = delete;
   CallbackNotifier& operator=(CallbackNotifier const&) = delete;
@@ -39,42 +40,27 @@ class CallbackNotifier {
   CallbackNotifier& operator=(CallbackNotifier&& o)    = delete;
 
   /**
-   * @brief Store a new flag value and notify waiting threads.
+   * @brief Notify waiting threads that we are done and they can proceed
    *
-   * Store a new flag value and notify others threads blocked by a call to `wait()`.
+   * Set the flag to true and notify others threads blocked by a call to `wait()`.
    * See also `std::condition_variable::notify_all`.
-   *
-   * @param[in] flag  The new flag value.
    */
-  void store(Flag flag)
-  {
-    {
-      std::lock_guard lock(_mutex);
-      _flag = flag;
-    }
-    _conditionVariable.notify_all();
-  }
+  void set();
 
   /**
-   * @brief Wait while predicate is not true for the flag value to change.
+   * @brief Wait until `set()` has been called or period has elapsed.
    *
-   * Wait while predicate is not true which should be satisfied by a change in the flag's
-   * value by a `store()` call on a different thread.
+   * Wait until `set()` has been called, or period (in nanoseconds) has elapsed (only
+   * applicable if using glibc 2.25 and higher).
    *
-   * @param[in] compare Function of type `T -> bool` called with the flag value. This
-   *                    function loops until the predicate is satisfied. See also
-   *                    `std::condition_variable::wait`.
-   * @param[out]        The new flag value.
+   * See also `std::condition_variable::wait`.
+   *
+   * @param[in] period  maximum period in nanoseconds to wait for or `0` to wait forever.
+   *
+   * @return  `true` if waiting finished or `false` if a timeout occurred.
    */
-  template <typename Compare>
-  Flag wait(Compare compare)
-  {
-    std::unique_lock lock(_mutex);
-    _conditionVariable.wait(lock, [this, &compare]() { return compare(_flag); });
-    return std::move(_flag);
-  }
+  bool wait(uint64_t period = 0);
 };
 
 }  // namespace utils
-//
 }  // namespace ucxx

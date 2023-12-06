@@ -12,7 +12,7 @@ logger = logging.getLogger("ucx")
 
 
 async def _run_request_notifier(worker):
-    worker.run_request_notifier()
+    return worker.run_request_notifier()
 
 
 async def _notifier_coroutine(worker):
@@ -58,4 +58,7 @@ def _notifierThread(event_loop, worker, q):
         try:
             task.result(0.01)
         except TimeoutError:
+            task.cancel()
             logger.debug("Notifier Thread Result Timeout")
+        except Exception as e:
+            logger.debug(f"Notifier Thread Result Exception: {e}")

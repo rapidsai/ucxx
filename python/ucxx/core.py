@@ -160,19 +160,28 @@ def get_config():
         return _get_ctx().get_config()
 
 
-def create_listener(callback_func, port=None, endpoint_error_handling=True):
+def create_listener(
+    callback_func,
+    port=None,
+    endpoint_error_handling=True,
+    exchange_peer_info_timeout=5.0,
+):
     return _get_ctx().create_listener(
         callback_func,
         port,
         endpoint_error_handling=endpoint_error_handling,
+        exchange_peer_info_timeout=exchange_peer_info_timeout,
     )
 
 
-async def create_endpoint(ip_address, port, endpoint_error_handling=True):
+async def create_endpoint(
+    ip_address, port, endpoint_error_handling=True, exchange_peer_info_timeout=5.0
+):
     return await _get_ctx().create_endpoint(
         ip_address,
         port,
         endpoint_error_handling=endpoint_error_handling,
+        exchange_peer_info_timeout=exchange_peer_info_timeout,
     )
 
 

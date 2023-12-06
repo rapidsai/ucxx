@@ -120,6 +120,7 @@ async def test_send_recv_numba(size, dtype):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="See https://github.com/rapidsai/ucxx/issues/104")
 async def test_send_recv_error():
     async def say_hey_server(ep):
         await ep.send(bytearray(b"Hey"))

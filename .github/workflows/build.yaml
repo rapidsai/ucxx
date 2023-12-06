@@ -22,23 +22,22 @@ on:
         default: nightly
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
   conda-cpp-build:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.10
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.12
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-      matrix_filter: map(select(.ARCH != "arm64"))
   upload-conda:
     needs: [conda-cpp-build]
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-upload-packages.yaml@branch-23.10
+    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@branch-23.12
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}

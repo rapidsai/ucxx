@@ -22,8 +22,8 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
   // UCP
   ucp_params_t params = {.field_mask = UCP_PARAM_FIELD_FEATURES, .features = featureFlags};
 
-  utils::ucsErrorThrow(ucp_init(&params, this->_config.getHandle(), &this->_handle));
-  ucxx_trace("Context created: %p", this->_handle);
+  utils::ucsErrorThrow(ucp_init(&params, _config.getHandle(), &_handle));
+  ucxx_trace("Context created: %p, UCP handle: %p", this, _handle);
 
   ucp_context_attr_t attr = {.field_mask = UCP_ATTR_FIELD_MEMORY_TYPES};
   ucp_context_query(_handle, &attr);
@@ -33,7 +33,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
   // "cuda_copy", "cuda_ipc"} is in the active transports.
   // If the transport list is negated ("^" at start), then it is to be
   // interpreted as all \ given
-  auto configMap = this->_config.get();
+  auto configMap = _config.get();
   auto tls       = configMap.find("TLS");
   if (_cudaSupport) {
     if (tls != configMap.end()) {
@@ -72,18 +72,18 @@ std::shared_ptr<Context> createContext(const ConfigMap ucxConfig, const uint64_t
 
 Context::~Context()
 {
-  if (this->_handle != nullptr) ucp_cleanup(this->_handle);
-  ucxx_trace("Context destroyed: %p", this->_handle);
+  if (_handle != nullptr) ucp_cleanup(_handle);
+  ucxx_trace("Context destroyed: %p, UCP handle: %p", this, _handle);
 }
 
-ConfigMap Context::getConfig() { return this->_config.get(); }
+ConfigMap Context::getConfig() { return _config.get(); }
 
-ucp_context_h Context::getHandle() { return this->_handle; }
+ucp_context_h Context::getHandle() { return _handle; }
 
 std::string Context::getInfo()
 {
   FILE* TextFileDescriptor = utils::createTextFileDescriptor();
-  ucp_context_print_info(this->_handle, TextFileDescriptor);
+  ucp_context_print_info(_handle, TextFileDescriptor);
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 

@@ -60,8 +60,9 @@ Worker::Worker(std::shared_ptr<Context> context,
     utils::ucsErrorThrow(ucp_worker_set_am_recv_handler(_handle, &am_handler_param));
   }
 
-  ucxx_trace("Worker created: %p, enableDelayedSubmission: %d, enableFuture: %d",
+  ucxx_trace("Worker created: %p, UCP handle: %p, enableDelayedSubmission: %d, enableFuture: %d",
              this,
+             _handle,
              enableDelayedSubmission,
              _enableFuture);
 
@@ -149,7 +150,7 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
 Worker::~Worker()
 {
-  size_t canceled = cancelInflightRequests();
+  size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
   ucxx_debug("Worker %p canceled %lu requests", _handle, canceled);
 
   stopProgressThreadNoWarn();
@@ -158,7 +159,7 @@ Worker::~Worker()
   drainWorkerTagRecv();
 
   ucp_worker_destroy(_handle);
-  ucxx_trace("Worker destroyed: %p", _handle);
+  ucxx_trace("Worker destroyed: %p, UCP handle: %p", this, _handle);
 
   if (_epollFileDescriptor >= 0) close(_epollFileDescriptor);
 }
@@ -265,7 +266,7 @@ bool Worker::progress()
   if (progressScheduledCancel) ret |= progressPending();
 
   // Requests that were not completed now must be canceled.
-  if (cancelInflightRequests() > 0) ret |= progressPending();
+  if (cancelInflightRequests(3000000000 /* 3s */, 3) > 0) ret |= progressPending();
 
   return ret;
 }
@@ -288,7 +289,7 @@ void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
 
 void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
 {
-  if (std::this_thread::get_id() == _progressThreadId) {
+  if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
      * If the method is called from within the progress thread (e.g., from the
      * listener callback), execute it immediately.
@@ -307,7 +308,7 @@ void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
 
 void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
 {
-  if (std::this_thread::get_id() == _progressThreadId) {
+  if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
      * If the method is called from within the progress thread (e.g., from the
      * listener callback), execute it immediately.
@@ -354,7 +355,7 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
 void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
   if (_progressThread) {
-    ucxx_warn("Worker progress thread already running");
+    ucxx_debug("Worker progress thread already running");
     return;
   }
 
@@ -389,14 +390,16 @@ void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
 void Worker::stopProgressThread()
 {
   if (!_progressThread)
-    ucxx_warn("Worker progress thread not running or already stopped");
+    ucxx_debug("Worker progress thread not running or already stopped");
   else
     stopProgressThreadNoWarn();
 }
 
 bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
 
-size_t Worker::cancelInflightRequests()
+std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
+
+size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 {
   size_t canceled = 0;
 
@@ -406,17 +409,30 @@ size_t Worker::cancelInflightRequests()
     std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
   }
 
-  if (isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{false};
-    registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
-      canceled = inflightRequestsToCancel->cancelAll();
-      callbackNotifierPre.store(true);
-    });
-    callbackNotifierPre.wait([](auto flag) { return flag; });
+  if (std::this_thread::get_id() == getProgressThreadId()) {
+    canceled = inflightRequestsToCancel->cancelAll();
+    progressPending();
+  } else if (isProgressThreadRunning()) {
+    bool cancelSuccess = false;
+    for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
+      utils::CallbackNotifier callbackNotifierPre{};
+      registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
+        canceled = inflightRequestsToCancel->cancelAll();
+        callbackNotifierPre.set();
+      });
+      if (!callbackNotifierPre.wait(period)) continue;
 
-    utils::CallbackNotifier callbackNotifierPost{false};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
-    callbackNotifierPost.wait([](auto flag) { return flag; });
+      utils::CallbackNotifier callbackNotifierPost{};
+      registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+      if (!callbackNotifierPost.wait(period)) continue;
+
+      cancelSuccess = true;
+    }
+
+    if (!cancelSuccess)
+      ucxx_error("All attempts to cancel inflight requests failed on worker: %p, UCP handle: %p",
+                 this,
+                 _handle);
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
   }
@@ -462,12 +478,12 @@ bool Worker::tagProbe(const ucp_tag_t tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    utils::CallbackNotifier callbackNotifierPre{false};
-    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.store(true); });
-    callbackNotifierPre.wait([](auto flag) { return flag; });
-    utils::CallbackNotifier callbackNotifierPost{false};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
-    callbackNotifierPost.wait([](auto flag) { return flag; });
+    utils::CallbackNotifier callbackNotifierPre{};
+    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.set(); });
+    callbackNotifierPre.wait();
+    utils::CallbackNotifier callbackNotifierPost{};
+    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+    callbackNotifierPost.wait();
   }
 
   ucp_tag_recv_info_t info;

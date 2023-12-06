@@ -5,6 +5,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -61,18 +62,25 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   params->err_handler.arg = _callbackData.get();
 
   if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifier{UCS_INPROGRESS};
+    ucs_status_t status = UCS_INPROGRESS;
+    utils::CallbackNotifier callbackNotifier{};
     auto worker = ::ucxx::getWorker(_parent);
-    worker->registerGenericPre([this, &params, &callbackNotifier]() {
+    worker->registerGenericPre([this, &params, &callbackNotifier, &status]() {
       auto worker = ::ucxx::getWorker(_parent);
-      auto status = ucp_ep_create(worker->getHandle(), params, &_handle);
-      callbackNotifier.store(status);
+      status      = ucp_ep_create(worker->getHandle(), params, &_handle);
+      callbackNotifier.set();
     });
-    auto status = callbackNotifier.wait([](auto status) { return status != UCS_INPROGRESS; });
+    callbackNotifier.wait();
     utils::ucsErrorThrow(status);
   } else {
     utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
   }
+
+  ucxx_trace("Endpoint created: %p, UCP handle: %p, parent: %p, endpointErrorHandling: %d",
+             this,
+             _handle,
+             _parent.get(),
+             endpointErrorHandling);
 }
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
@@ -130,15 +138,15 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
 
 Endpoint::~Endpoint()
 {
-  close();
-  ucxx_trace("Endpoint destroyed: %p", _originalHandle);
+  close(10000000000 /* 10s */);
+  ucxx_trace("Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
 }
 
-void Endpoint::close()
+void Endpoint::close(uint64_t period, uint64_t maxAttempts)
 {
   if (_handle == nullptr) return;
 
-  size_t canceled = cancelInflightRequests();
+  size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
   ucxx_debug("Endpoint %p canceled %lu requests", _handle, canceled);
 
   // Close the endpoint
@@ -153,29 +161,39 @@ void Endpoint::close()
   ucs_status_ptr_t status;
 
   if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{false};
-    worker->registerGenericPre([this, &callbackNotifierPre, &status, closeMode]() {
-      status = ucp_ep_close_nb(_handle, closeMode);
-      callbackNotifierPre.store(true);
-    });
-    callbackNotifierPre.wait([](auto flag) { return flag; });
-
-    while (UCS_PTR_IS_PTR(status)) {
-      utils::CallbackNotifier callbackNotifierPost{false};
-      worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
-        ucs_status_t s = ucp_request_check_status(status);
-        if (UCS_PTR_STATUS(s) != UCS_INPROGRESS) {
-          ucp_request_free(status);
-          _callbackData->status = UCS_PTR_STATUS(s);
-          if (UCS_PTR_STATUS(status) != UCS_OK) {
-            ucxx_error("Error while closing endpoint: %s",
-                       ucs_status_string(UCS_PTR_STATUS(status)));
-          }
-        }
-
-        callbackNotifierPost.store(true);
+    bool closeSuccess = false;
+    for (uint64_t i = 0; i < maxAttempts && !closeSuccess; ++i) {
+      utils::CallbackNotifier callbackNotifierPre{};
+      worker->registerGenericPre([this, &callbackNotifierPre, &status, closeMode]() {
+        status = ucp_ep_close_nb(_handle, closeMode);
+        callbackNotifierPre.set();
       });
-      callbackNotifierPost.wait([](auto flag) { return flag; });
+      if (!callbackNotifierPre.wait(period)) continue;
+
+      while (UCS_PTR_IS_PTR(status)) {
+        utils::CallbackNotifier callbackNotifierPost{};
+        worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
+          ucs_status_t s = ucp_request_check_status(status);
+          if (UCS_PTR_STATUS(s) != UCS_INPROGRESS) {
+            ucp_request_free(status);
+            _callbackData->status = UCS_PTR_STATUS(s);
+            if (UCS_PTR_STATUS(status) != UCS_OK) {
+              ucxx_error("Error while closing endpoint: %s",
+                         ucs_status_string(UCS_PTR_STATUS(status)));
+            }
+          }
+
+          callbackNotifierPost.set();
+        });
+        if (!callbackNotifierPost.wait(period)) continue;
+      }
+
+      closeSuccess = true;
+    }
+
+    if (!closeSuccess) {
+      _callbackData->status = UCS_ERR_ENDPOINT_TIMEOUT;
+      ucxx_error("All attempts to close timed out on endpoint: %p, UCP handle: %p", this, _handle);
     }
   } else {
     status = ucp_ep_close_nb(_handle, closeMode);
@@ -189,7 +207,7 @@ void Endpoint::close()
       ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
     }
   }
-  ucxx_trace("Endpoint closed: %p", _handle);
+  ucxx_trace("Endpoint closed: %p, UCP handle: %p", this, _handle);
 
   if (_callbackData->closeCallback) {
     ucxx_debug("Calling user callback for endpoint %p", _handle);
@@ -249,21 +267,34 @@ void Endpoint::removeInflightRequest(const Request* const request)
   _inflightRequests->remove(request);
 }
 
-size_t Endpoint::cancelInflightRequests()
+size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 {
   auto worker     = ::ucxx::getWorker(this->_parent);
   size_t canceled = 0;
 
-  if (worker->isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{false};
-    worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
-      canceled = _inflightRequests->cancelAll();
-      callbackNotifierPre.store(true);
-    });
-    callbackNotifierPre.wait([](auto flag) { return flag; });
-    utils::CallbackNotifier callbackNotifierPost{false};
-    worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.store(true); });
-    callbackNotifierPost.wait([](auto flag) { return flag; });
+  if (std::this_thread::get_id() == worker->getProgressThreadId()) {
+    canceled = _inflightRequests->cancelAll();
+    worker->progress();
+  } else if (worker->isProgressThreadRunning()) {
+    bool cancelSuccess = false;
+    for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
+      utils::CallbackNotifier callbackNotifierPre{};
+      worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
+        canceled = _inflightRequests->cancelAll();
+        callbackNotifierPre.set();
+      });
+      if (!callbackNotifierPre.wait(period)) continue;
+
+      utils::CallbackNotifier callbackNotifierPost{};
+      worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+      if (!callbackNotifierPost.wait(period)) continue;
+
+      cancelSuccess = true;
+    }
+    if (!cancelSuccess)
+      ucxx_error("All attempts to cancel inflight requests failed on endpoint: %p, UCP handle: %p",
+                 this,
+                 _handle);
   } else {
     canceled = _inflightRequests->cancelAll();
   }
