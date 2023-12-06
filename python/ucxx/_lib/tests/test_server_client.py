@@ -22,7 +22,7 @@ def _send(ep, api, message):
     elif api == "stream":
         return ep.stream_send(message)
     else:
-        return ep.tag_send(message, tag=0)
+        return ep.tag_send(message, tag=ucx_api.UCXXTag(0))
 
 
 def _recv(ep, api, message):
@@ -31,7 +31,7 @@ def _recv(ep, api, message):
     elif api == "stream":
         return ep.stream_recv(message)
     else:
-        return ep.tag_recv(message, tag=0)
+        return ep.tag_recv(message, tag=ucx_api.UCXXTag(0))
 
 
 def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
