@@ -157,16 +157,24 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
   if (_finalStatus == UCS_OK && status != UCS_OK) _finalStatus = status;
 
   if (++_completedRequests == _totalFrames) {
-    auto s = UCS_OK;
-
     setStatus(_finalStatus);
-  }
 
-  ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
-                 this,
-                 _tag,
-                 _completedRequests,
-                 _totalFrames);
+    ucxx_trace_req(
+      "RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu, final status: %d "
+      "(%s)",
+      this,
+      _tag,
+      _completedRequests,
+      _totalFrames,
+      _finalStatus,
+      ucs_status_string(_finalStatus));
+  } else {
+    ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
+                   this,
+                   _tag,
+                   _completedRequests,
+                   _totalFrames);
+  }
 }
 
 void RequestTagMulti::recvHeader()
