@@ -566,24 +566,27 @@ class UCXXListener(Listener):
         return f"{self.prefix}{self.ip}:{self.port}"
 
     async def start(self):
-        async def serve_forever(client_ep):
-            ucx = self.comm_class(
+        async def serve_forever(client_ep, *, selfref):
+            ucx = selfref().comm_class(
                 client_ep,
-                local_addr=self.address,
-                peer_addr=self.address,
-                deserialize=self.deserialize,
+                local_addr=selfref().address,
+                peer_addr=selfref().address,
+                deserialize=selfref().deserialize,
             )
-            ucx.allow_offload = self.allow_offload
+            ucx.allow_offload = selfref().allow_offload
             try:
-                await self.on_connection(ucx)
+                await selfref().on_connection(ucx)
             except CommClosedError:
                 logger.debug("Connection closed before handshake completed")
                 return
-            if self.comm_handler:
-                await self.comm_handler(ucx)
+            if selfref().comm_handler:
+                await selfref().comm_handler(ucx)
 
         init_once()
-        self.ucxx_server = ucxx.create_listener(serve_forever, port=self._input_port)
+        self.ucxx_server = ucxx.create_listener(
+            functools.partial(serve_forever, selfref=weakref.ref(self)),
+            port=self._input_port,
+        )
 
     def stop(self):
         self.ucxx_server = None
