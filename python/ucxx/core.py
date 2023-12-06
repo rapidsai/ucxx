@@ -110,6 +110,14 @@ def reset():
             raise UCXError(msg)
 
 
+def stop_notifier_thread():
+    global _ctx
+    if _ctx and _ctx.notifier_thread is not None:
+        _ctx.stop_notifier_thread(_ctx.notifier_thread_q, _ctx.notifier_thread)
+    else:
+        logger.debug("UCX is not initialized.")
+
+
 def get_ucx_version():
     """Return the version of the underlying UCX installation
 
@@ -239,3 +247,4 @@ create_listener.__doc__ = ApplicationContext.create_listener.__doc__
 create_endpoint.__doc__ = ApplicationContext.create_endpoint.__doc__
 continuous_ucx_progress.__doc__ = ApplicationContext.continuous_ucx_progress.__doc__
 get_ucp_worker.__doc__ = ApplicationContext.get_ucp_worker.__doc__
+stop_notifier_thread.__doc__ = ApplicationContext.stop_notifier_thread.__doc__
