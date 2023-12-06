@@ -10,11 +10,12 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include <ucs/memory/memory_type.h>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <ucp/api/ucp.h>
+#include <ucs/memory/memory_type.h>
 
 #include <ucxx/log.h>
 
@@ -22,30 +23,83 @@ namespace ucxx {
 
 typedef std::function<void()> DelayedSubmissionCallbackType;
 
-enum class DelayedSubmissionOperationType { Undefined = 0, AM, Stream, Tag, TagMulti };
+enum class DelayedSubmissionOperationType { Undefined = 0, Am, Stream, Tag, TagMulti };
+
+class DelayedSubmissionAm {
+ public:
+  const ucs_memory_type_t _memoryType;  ///< Memory type used on the operation
+
+  /**
+   * @brief Constructor for `DelayedSubmission` Active Message-specific data.
+   *
+   * Construct an object containing Active Message-specific data for `DelayedSubmission`.
+   *
+   * @param[in] memoryType  the memory type of the buffer.
+   */
+  explicit DelayedSubmissionAm(const decltype(_memoryType) memoryType);
+};
+
+class DelayedSubmissionTag {
+ public:
+  const Tag _tag;          ///< Tag to match
+  const TagMask _tagMask;  ///< Tag mask to use
+
+  /**
+   * @brief Constructor for `DelayedSubmission` tag/multi-buffer tag-specific data.
+   *
+   * Construct an object containing tag/multi-buffer tag-specific data for
+   * `DelayedSubmission`.
+   *
+   * @param[in] tag     the tag to match.
+   * @param[in] tagMask the tag mask to use (only used for receive operations).
+   */
+  explicit DelayedSubmissionTag(const decltype(_tag) tag, const decltype(_tagMask) tagMask);
+};
 
 class DelayedSubmissionData {
  public:
+  const DelayedSubmissionOperationType _operationType{
+    DelayedSubmissionOperationType::Undefined};  ///< The operation type
+  const std::variant<std::monostate, DelayedSubmissionAm, DelayedSubmissionTag>
+    _data;  ///< Data used on the operation
+
   /**
    * @brief Constructor for `DelayedSubmission` operation-specific data.
    *
    * Construct an object containing operation-specific data for `DelayedSubmission`.
    *
    * @param[in] operationType the type of operation the object refers.
-   * @param[in] memoryType    optional memoryType, only if operation type is AM.
-   * @param[in] tag           optional tag, only if operation type is Tag or TagMulti.
-   * @param[in] tagMask       optional tagMask, only if operation type is Tag or TagMulti.
+   * @param[in] data          data for the delayed submission, required for Active Message,
+   *                          tag and multi-buffer tag, or `std::monostate` otherwise.
    */
-  explicit DelayedSubmissionData(const DelayedSubmissionOperationType operationType,
-                                 const std::optional<ucs_memory_type_t> memoryType,
-                                 const std::optional<Tag> tag,
-                                 const std::optional<TagMask> tagMask);
+  explicit DelayedSubmissionData(const decltype(_operationType) operationType,
+                                 const decltype(_data) data);
 
-  const DelayedSubmissionOperationType _operationType{
-    DelayedSubmissionOperationType::Undefined};        ///< The operation type
-  const std::optional<ucs_memory_type_t> _memoryType;  ///< Memory type used on the operation
-  const std::optional<Tag> _tag;                       ///< Tag to match
-  const std::optional<TagMask> _tagMask;               ///< Tag mask to use
+  /**
+   * @brief Get the Active Message data.
+   *
+   * Get the Active Message data if the object was constructed from it, or throws
+   * `std::bad_variant` if constructed with different data type.
+   *
+   * @throws std::bad_variant if the object was constructed for a type other than Active
+   *                          Message.
+   *
+   * @returns the Active Message data.
+   */
+  DelayedSubmissionAm getAm();
+
+  /**
+   * @brief Get the tag or multi-buffer tag data.
+   *
+   * Get the tag or multi-buffer tag data if the object was constructed from it, or throws
+   * `std::bad_variant` if constructed with different data type.
+   *
+   * @throws std::bad_variant if the object was constructed for a type other than tag or
+   *                          multi-buffer tag.
+   *
+   * @returns the tag or multi-buffer tag data.
+   */
+  DelayedSubmissionTag getTag();
 };
 
 class DelayedSubmission {

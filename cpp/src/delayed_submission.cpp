@@ -13,20 +13,39 @@
 
 namespace ucxx {
 
-DelayedSubmissionData::DelayedSubmissionData(const DelayedSubmissionOperationType operationType,
-                                             const std::optional<ucs_memory_type_t> memoryType,
-                                             const std::optional<Tag> tag,
-                                             const std::optional<TagMask> tagMask)
-  : _operationType(operationType), _memoryType(memoryType), _tag(tag), _tagMask(tagMask)
+DelayedSubmissionAm::DelayedSubmissionAm(const ucs_memory_type memoryType) : _memoryType(memoryType)
 {
-  if (_operationType != DelayedSubmissionOperationType::Tag &&
-      _operationType != DelayedSubmissionOperationType::TagMulti) {
-    if (_tag || _tagMask)
+}
+
+DelayedSubmissionTag::DelayedSubmissionTag(const Tag tag, const TagMask tagMask)
+  : _tag(tag), _tagMask(tagMask)
+{
+}
+
+DelayedSubmissionData::DelayedSubmissionData(
+  const DelayedSubmissionOperationType operationType,
+  const std::variant<std::monostate, DelayedSubmissionAm, DelayedSubmissionTag> data)
+  : _operationType(operationType), _data(data)
+{
+  if (_operationType == DelayedSubmissionOperationType::Am) {
+    if (!std::holds_alternative<DelayedSubmissionAm>(data))
+      throw std::runtime_error("Operation Am requires data to be of type `DelayedSubmissionAm`.");
+  } else if (_operationType == DelayedSubmissionOperationType::Tag ||
+             _operationType == DelayedSubmissionOperationType::TagMulti) {
+    if (!std::holds_alternative<DelayedSubmissionTag>(data))
       throw std::runtime_error(
-        "Specifying tag or tagMask values require either Tag or TagMulti operation.");
-  } else if (_operationType != DelayedSubmissionOperationType::AM) {
-    if (_memoryType) throw std::runtime_error("Specifying memoryType value requires AM operation.");
+        "Operations Tag and TagMulti require data to be of type `DelayedSubmissionTag`.");
+  } else {
+    if (!std::holds_alternative<std::monostate>(data))
+      throw std::runtime_error("Type does not support data value other than `std::monostate`.");
   }
+}
+
+DelayedSubmissionAm DelayedSubmissionData::getAm() { return std::get<DelayedSubmissionAm>(_data); }
+
+DelayedSubmissionTag DelayedSubmissionData::getTag()
+{
+  return std::get<DelayedSubmissionTag>(_data);
 }
 
 DelayedSubmission::DelayedSubmission(const bool send,

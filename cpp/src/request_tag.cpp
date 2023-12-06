@@ -51,15 +51,15 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)
-  : Request(
-      endpointOrWorker,
-      std::make_shared<DelayedSubmission>(
-        send,
-        buffer,
-        length,
-        DelayedSubmissionData(DelayedSubmissionOperationType::Tag, std::nullopt, tag, tagMask)),
-      std::string(send ? "tagSend" : "tagRecv"),
-      enablePythonFuture),
+  : Request(endpointOrWorker,
+            std::make_shared<DelayedSubmission>(
+              send,
+              buffer,
+              length,
+              DelayedSubmissionData(DelayedSubmissionOperationType::Tag,
+                                    DelayedSubmissionTag(tag, tagMask))),
+            std::string(send ? "tagSend" : "tagRecv"),
+            enablePythonFuture),
     _length(length)
 {
   if (send && _endpoint == nullptr)
@@ -113,15 +113,15 @@ void RequestTag::request()
     request       = ucp_tag_send_nbx(_endpoint->getHandle(),
                                _delayedSubmission->_buffer,
                                _delayedSubmission->_length,
-                               *_delayedSubmission->_data._tag,
+                               _delayedSubmission->_data.getTag()._tag,
                                &param);
   } else {
     param.cb.recv = tagRecvCallback;
     request       = ucp_tag_recv_nbx(_worker->getHandle(),
                                _delayedSubmission->_buffer,
                                _delayedSubmission->_length,
-                               *_delayedSubmission->_data._tag,
-                               *_delayedSubmission->_data._tagMask,
+                               _delayedSubmission->_data.getTag()._tag,
+                               _delayedSubmission->_data.getTag()._tagMask,
                                &param);
   }
 
@@ -149,8 +149,8 @@ void RequestTag::populateDelayedSubmission()
                      _operationName.c_str(),
                      "tag 0x%lx, tagMask: 0x%lx, buffer %p, size %lu, future %p, future handle %p, "
                      "populateDelayedSubmission",
-                     *_delayedSubmission->_data._tag,
-                     *_delayedSubmission->_data._tagMask,
+                     _delayedSubmission->_data.getTag()._tag,
+                     _delayedSubmission->_data.getTag()._tagMask,
                      _delayedSubmission->_buffer,
                      _delayedSubmission->_length,
                      _future.get(),
@@ -160,7 +160,7 @@ void RequestTag::populateDelayedSubmission()
                      _request,
                      _operationName.c_str(),
                      "tag 0x%lx, buffer %p, size %lu, populateDelayedSubmission",
-                     *_delayedSubmission->_data._tag,
+                     _delayedSubmission->_data.getTag()._tag,
                      _delayedSubmission->_buffer,
                      _delayedSubmission->_length);
 

@@ -32,8 +32,8 @@ RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
               !send,
               nullptr,
               0,
-              DelayedSubmissionData(
-                DelayedSubmissionOperationType::TagMulti, std::nullopt, tag, tagMask)),
+              DelayedSubmissionData(DelayedSubmissionOperationType::TagMulti,
+                                    DelayedSubmissionTag(tag, tagMask))),
             std::string(send ? "tagMultiSend" : "tagMultiRecv"),
             enablePythonFuture),
     _send(send)
@@ -101,8 +101,8 @@ void RequestTagMulti::recvFrames()
     "RequestTagMulti::recvFrames request: %p, tag: 0x%lx, tagMask: 0x%lx, _bufferRequests.size(): "
     "%lu",
     this,
-    *_delayedSubmission->_data._tag,
-    *_delayedSubmission->_data._tagMask,
+    _delayedSubmission->_data.getTag()._tag,
+    _delayedSubmission->_data.getTag()._tagMask,
     _bufferRequests.size());
 
   for (auto& br : _bufferRequests) {
@@ -110,8 +110,8 @@ void RequestTagMulti::recvFrames()
       "RequestTagMulti::recvFrames request: %p, tag: 0x%lx, tagMask: 0x%lx, "
       "*br->stringBuffer.size(): %lu",
       this,
-      *_delayedSubmission->_data._tag,
-      *_delayedSubmission->_data._tagMask,
+      _delayedSubmission->_data.getTag()._tag,
+      _delayedSubmission->_data.getTag()._tagMask,
       br->stringBuffer->size());
     headers.push_back(Header(*br->stringBuffer));
   }
@@ -126,8 +126,8 @@ void RequestTagMulti::recvFrames()
       bufferRequest->request = _endpoint->tagRecv(
         buf->data(),
         buf->getSize(),
-        *_delayedSubmission->_data._tag,
-        *_delayedSubmission->_data._tagMask,
+        _delayedSubmission->_data.getTag()._tag,
+        _delayedSubmission->_data.getTag()._tagMask,
         false,
         [this](ucs_status_t status, RequestCallbackUserData arg) {
           return this->markCompleted(status, arg);
@@ -137,8 +137,8 @@ void RequestTagMulti::recvFrames()
       ucxx_trace_req(
         "RequestTagMulti::recvFrames request: %p, tag: 0x%lx, tagMask: 0x%lx, buffer: %p",
         this,
-        *_delayedSubmission->_data._tag,
-        *_delayedSubmission->_data._tagMask,
+        _delayedSubmission->_data.getTag()._tag,
+        _delayedSubmission->_data.getTag()._tagMask,
         bufferRequest->buffer.get());
     }
   }
@@ -147,8 +147,8 @@ void RequestTagMulti::recvFrames()
   ucxx_trace_req(
     "RequestTagMulti::recvFrames request: %p, tag: 0x%lx, tagMask: 0x%lx, size: %lu, isFilled: %d",
     this,
-    *_delayedSubmission->_data._tag,
-    *_delayedSubmission->_data._tagMask,
+    _delayedSubmission->_data.getTag()._tag,
+    _delayedSubmission->_data.getTag()._tagMask,
     _bufferRequests.size(),
     _isFilled);
 };
@@ -168,8 +168,9 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
     return;
   }
 
-  ucxx_trace_req(
-    "RequestTagMulti::markCompleted request: %p, tag: %lx", this, *_delayedSubmission->_data._tag);
+  ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx",
+                 this,
+                 _delayedSubmission->_data.getTag()._tag);
   std::lock_guard<std::mutex> lock(_completedRequestsMutex);
 
   if (++_completedRequests == _totalFrames) {
@@ -191,7 +192,7 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
 
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
                  this,
-                 *_delayedSubmission->_data._tag,
+                 _delayedSubmission->_data.getTag()._tag,
                  _completedRequests,
                  _totalFrames);
 }
@@ -202,7 +203,7 @@ void RequestTagMulti::recvHeader()
 
   ucxx_trace_req("RequestTagMulti::recvHeader entering, request: %p, tag: %lx",
                  this,
-                 *_delayedSubmission->_data._tag);
+                 _delayedSubmission->_data.getTag()._tag);
 
   auto bufferRequest = std::make_shared<BufferRequest>();
   _bufferRequests.push_back(bufferRequest);
@@ -210,8 +211,8 @@ void RequestTagMulti::recvHeader()
   bufferRequest->request =
     _endpoint->tagRecv(&bufferRequest->stringBuffer->front(),
                        bufferRequest->stringBuffer->size(),
-                       *_delayedSubmission->_data._tag,
-                       *_delayedSubmission->_data._tagMask,
+                       _delayedSubmission->_data.getTag()._tag,
+                       _delayedSubmission->_data.getTag()._tagMask,
                        false,
                        [this](ucs_status_t status, RequestCallbackUserData arg) {
                          return this->recvCallback(status);
@@ -224,7 +225,7 @@ void RequestTagMulti::recvHeader()
 
   ucxx_trace_req("RequestTagMulti::recvHeader exiting, request: %p, tag: %lx, empty: %d",
                  this,
-                 *_delayedSubmission->_data._tag,
+                 _delayedSubmission->_data.getTag()._tag,
                  _bufferRequests.empty());
 }
 
@@ -232,8 +233,9 @@ void RequestTagMulti::recvCallback(ucs_status_t status)
 {
   if (_send) throw std::runtime_error("Send requests cannot call recvCallback()");
 
-  ucxx_trace_req(
-    "RequestTagMulti::recvCallback request: %p, tag: %lx", this, *_delayedSubmission->_data._tag);
+  ucxx_trace_req("RequestTagMulti::recvCallback request: %p, tag: %lx",
+                 this,
+                 _delayedSubmission->_data.getTag()._tag);
 
   if (_bufferRequests.empty()) {
     recvHeader();
@@ -241,7 +243,7 @@ void RequestTagMulti::recvCallback(ucs_status_t status)
     if (status == UCS_OK) {
       ucxx_trace_req("RequestTagMulti::recvCallback header received, multi request: %p, tag: %lx",
                      this,
-                     *_delayedSubmission->_data._tag);
+                     _delayedSubmission->_data.getTag()._tag);
     } else {
       ucxx_trace_req(
         "RequestTagMulti::recvCallback failed receiving header with status %d (%s), multi request: "
@@ -250,7 +252,7 @@ void RequestTagMulti::recvCallback(ucs_status_t status)
         status,
         ucs_status_string(status),
         this,
-        *_delayedSubmission->_data._tag);
+        _delayedSubmission->_data.getTag()._tag);
 
       _status = status;
       if (_future) _future->notify(status);
@@ -282,8 +284,10 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
     auto serializedHeader = std::make_shared<std::string>(header.serialize());
     auto bufferRequest    = std::make_shared<BufferRequest>();
     _bufferRequests.push_back(bufferRequest);
-    bufferRequest->request = _endpoint->tagSend(
-      &serializedHeader->front(), serializedHeader->size(), *_delayedSubmission->_data._tag, false);
+    bufferRequest->request      = _endpoint->tagSend(&serializedHeader->front(),
+                                                serializedHeader->size(),
+                                                _delayedSubmission->_data.getTag()._tag,
+                                                false);
     bufferRequest->stringBuffer = serializedHeader;
   }
 
@@ -293,7 +297,7 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
     bufferRequest->request =
       _endpoint->tagSend(buffer[i],
                          size[i],
-                         *_delayedSubmission->_data._tag,
+                         _delayedSubmission->_data.getTag()._tag,
                          false,
                          [this](ucs_status_t status, RequestCallbackUserData arg) {
                            return this->markCompleted(status, arg);
@@ -303,7 +307,7 @@ void RequestTagMulti::send(const std::vector<void*>& buffer,
   _isFilled = true;
   ucxx_trace_req("RequestTagMulti::send request: %p, tag: %lx, isFilled: %d",
                  this,
-                 *_delayedSubmission->_data._tag,
+                 _delayedSubmission->_data.getTag()._tag,
                  _isFilled);
 }
 
