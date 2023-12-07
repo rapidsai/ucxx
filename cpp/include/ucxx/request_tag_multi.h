@@ -43,6 +43,8 @@ class RequestTagMulti : public Request {
   std::mutex
     _completedRequestsMutex{};   ///< Mutex to control access to completed requests container
   size_t _completedRequests{0};  ///< Count requests that already completed
+  ucs_status_t _finalStatus{
+    UCS_OK};  ///< Shortcut to the final status, a.k.a. the first error to occur
 
  public:
   std::vector<BufferRequestPtr> _bufferRequests{};  ///< Container of all requests posted

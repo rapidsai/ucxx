@@ -179,28 +179,27 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
                  _delayedSubmission->_data.getTag()._tag);
   std::lock_guard<std::mutex> lock(_completedRequestsMutex);
 
+  if (_finalStatus == UCS_OK && status != UCS_OK) _finalStatus = status;
+
   if (++_completedRequests == _totalFrames) {
-    auto s = UCS_OK;
+    setStatus(_finalStatus);
 
-    // Get the first non-UCS_OK status and set that as complete status
-    for (const auto& br : _bufferRequests) {
-      if (br->request) {
-        s = br->request->getStatus();
-        if (s != UCS_OK) break;
-      }
-    }
-    // Check the status of the current (and final) message as it may have completed before
-    // `_bufferRequests->request` was populated.
-    if (s == UCS_OK) s = status;
-
-    setStatus(s);
+    ucxx_trace_req(
+      "RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu, final status: %d "
+      "(%s)",
+      this,
+      _delayedSubmission->_data.getTag()._tag,
+      _completedRequests,
+      _totalFrames,
+      _finalStatus,
+      ucs_status_string(_finalStatus));
+  } else {
+    ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
+                   this,
+                   _delayedSubmission->_data.getTag()._tag,
+                   _completedRequests,
+                   _totalFrames);
   }
-
-  ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: %lx, completed: %lu/%lu",
-                 this,
-                 _delayedSubmission->_data.getTag()._tag,
-                 _completedRequests,
-                 _totalFrames);
 }
 
 void RequestTagMulti::recvHeader()
