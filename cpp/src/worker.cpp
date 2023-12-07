@@ -502,11 +502,7 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
 {
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
   return registerInflightRequest(createRequestTag(worker,
-                                                  TransferDirection::Receive,
-                                                  buffer,
-                                                  length,
-                                                  tag,
-                                                  tagMask,
+                                                  data::TagReceive(buffer, length, tag, tagMask),
                                                   enableFuture,
                                                   callbackFunction,
                                                   callbackData));

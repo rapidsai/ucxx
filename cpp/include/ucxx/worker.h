@@ -55,11 +55,11 @@ class Worker : public Component {
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
 
-  friend std::shared_ptr<RequestAm> createRequestAmRecv(
-    std::shared_ptr<Endpoint> endpoint,
-    const bool enablePythonFuture,
-    RequestCallbackUserFunction callbackFunction,
-    RequestCallbackUserData callbackData);
+  friend std::shared_ptr<RequestAm> createRequestAm(std::shared_ptr<Endpoint> endpoint,
+                                                    const data::RequestData requestData,
+                                                    const bool enablePythonFuture,
+                                                    RequestCallbackUserFunction callbackFunction,
+                                                    RequestCallbackUserData callbackData);
 
  protected:
   bool _enableFuture{

@@ -4,19 +4,19 @@
  */
 #pragma once
 #include <memory>
+#include <string>
 
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
+#include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
 
 class RequestStream : public Request {
  private:
-  size_t _length{0};  ///< The stream request length in bytes
-
   /**
    * @brief Private constructor of `ucxx::RequestStream`.
    *
@@ -31,17 +31,16 @@ class RequestStream : public Request {
    * - `ucxx::createRequestStream()`
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] transferDirection   the direction of transfer.
-   * @param[in] buffer              a raw pointer to the data to be transferred.
-   * @param[in] length              the size in bytes of the stream message to be
-   *                                transferred.
+   * @param[in] requestData         container of the specified message type, including all
+   *                                type-specific data.
+   * @param[in] operationName       a human-readable operation name to help identifying
+   *                                requests by their types when UCXX logging is enabled.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    */
   RequestStream(std::shared_ptr<Endpoint> endpoint,
-                TransferDirection transferDirection,
-                void* buffer,
-                size_t length,
+                const data::RequestData requestData,
+                const std::string operationName,
                 const bool enablePythonFuture = false);
 
  public:
@@ -55,19 +54,15 @@ class RequestStream : public Request {
    * released (for a send operation) or consumed (for a receive operation).
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] transferDirection   the direction of transfer.
-   * @param[in] buffer              a raw pointer to the data to be transferred.
-   * @param[in] length              the size in bytes of the stream message to be
-   *                                transferred.
+   * @param[in] requestData         container of the specified message type, including all
+   *                                type-specific data.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    *
    * @returns The `shared_ptr<ucxx::RequestStream>` object
    */
   friend std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
-                                                            TransferDirection transferDirection,
-                                                            void* buffer,
-                                                            size_t length,
+                                                            const data::RequestData requestData,
                                                             const bool enablePythonFuture);
 
   virtual void populateDelayedSubmission();

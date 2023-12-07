@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -55,45 +56,24 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableFuture);
 
 // Transfers
-std::shared_ptr<RequestAm> createRequestAmSend(std::shared_ptr<Endpoint> endpoint,
-                                               void* buffer,
-                                               size_t length,
-                                               ucs_memory_type_t memoryType,
-                                               const bool enablePythonFuture,
-                                               RequestCallbackUserFunction callbackFunction,
-                                               RequestCallbackUserData callbackData);
-
-std::shared_ptr<RequestAm> createRequestAmRecv(std::shared_ptr<Endpoint> endpoint,
-                                               const bool enablePythonFuture,
-                                               RequestCallbackUserFunction callbackFunction,
-                                               RequestCallbackUserData callbackData);
+std::shared_ptr<RequestAm> createRequestAm(std::shared_ptr<Endpoint> endpoint,
+                                           const data::RequestData requestData,
+                                           const bool enablePythonFuture,
+                                           RequestCallbackUserFunction callbackFunction,
+                                           RequestCallbackUserData callbackData);
 
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
-                                                   TransferDirection transferDirection,
-                                                   void* buffer,
-                                                   size_t length,
+                                                   const data::RequestData requestData,
                                                    const bool enablePythonFuture);
 
 std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
-                                             TransferDirection transferDirection,
-                                             void* buffer,
-                                             size_t length,
-                                             Tag tag,
-                                             TagMask tagMask,
+                                             const data::RequestData requestData,
                                              const bool enablePythonFuture,
                                              RequestCallbackUserFunction callbackFunction,
                                              RequestCallbackUserData callbackData);
 
-std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                                           const std::vector<void*>& buffer,
-                                                           const std::vector<size_t>& size,
-                                                           const std::vector<int>& isCUDA,
-                                                           const Tag tag,
-                                                           const bool enablePythonFuture);
-
-std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
-                                                           const Tag tag,
-                                                           const TagMask tagMask,
-                                                           const bool enablePythonFuture);
+std::shared_ptr<RequestTagMulti> createRequestTagMulti(std::shared_ptr<Endpoint> endpoint,
+                                                       const data::RequestData requestData,
+                                                       const bool enablePythonFuture);
 
 }  // namespace ucxx

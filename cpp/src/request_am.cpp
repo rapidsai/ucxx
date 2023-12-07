@@ -16,70 +16,67 @@
 
 namespace ucxx {
 
-std::shared_ptr<RequestAm> createRequestAmSend(
-  std::shared_ptr<Endpoint> endpoint,
-  void* buffer,
-  size_t length,
-  ucs_memory_type_t memoryType                 = UCS_MEMORY_TYPE_HOST,
-  const bool enablePythonFuture                = false,
-  RequestCallbackUserFunction callbackFunction = nullptr,
-  RequestCallbackUserData callbackData         = nullptr)
+std::shared_ptr<RequestAm> createRequestAm(std::shared_ptr<Endpoint> endpoint,
+                                           const data::RequestData requestData,
+                                           const bool enablePythonFuture                = false,
+                                           RequestCallbackUserFunction callbackFunction = nullptr,
+                                           RequestCallbackUserData callbackData         = nullptr)
 {
-  auto req = std::shared_ptr<RequestAm>(new RequestAm(
-    endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
+  std::shared_ptr<RequestAm> req = std::visit(
+    data::dispatch{
+      [endpoint, enablePythonFuture, callbackFunction, callbackData](data::AmSend amSend) {
+        auto req = std::shared_ptr<RequestAm>(new RequestAm(
+          endpoint, amSend, "amSend", enablePythonFuture, callbackFunction, callbackData));
 
-  // A delayed notification request is not populated immediately, instead it is
-  // delayed to allow the worker progress thread to set its status, and more
-  // importantly the Python future later on, so that we don't need the GIL here.
-  req->_worker->registerDelayedSubmission(
-    req, std::bind(std::mem_fn(&Request::populateDelayedSubmission), req.get()));
+        // A delayed notification request is not populated immediately, instead it is
+        // delayed to allow the worker progress thread to set its status, and more
+        // importantly the Python future later on, so that we don't need the GIL here.
+        req->_worker->registerDelayedSubmission(
+          req, std::bind(std::mem_fn(&Request::populateDelayedSubmission), req.get()));
+
+        return req;
+      },
+      [endpoint, enablePythonFuture, callbackFunction, callbackData](data::AmReceive amReceive) {
+        auto worker = endpoint->getWorker();
+
+        auto createRequest = [endpoint,
+                              amReceive,
+                              enablePythonFuture,
+                              callbackFunction,
+                              callbackData]() {
+          return std::shared_ptr<RequestAm>(new RequestAm(
+            endpoint, amReceive, "amReceive", enablePythonFuture, callbackFunction, callbackData));
+        };
+        return worker->getAmRecv(endpoint->getHandle(), createRequest);
+      },
+      [](auto arg) {
+        throw std::runtime_error("Unreachable");
+        return std::shared_ptr<RequestAm>(nullptr);
+      },
+    },
+    requestData);
 
   return req;
 }
 
-std::shared_ptr<RequestAm> createRequestAmRecv(
-  std::shared_ptr<Endpoint> endpoint,
-  const bool enablePythonFuture                = false,
-  RequestCallbackUserFunction callbackFunction = nullptr,
-  RequestCallbackUserData callbackData         = nullptr)
-{
-  auto worker = endpoint->getWorker();
-
-  auto createRequest = [endpoint, enablePythonFuture, callbackFunction, callbackData]() {
-    return std::shared_ptr<RequestAm>(
-      new RequestAm(endpoint, enablePythonFuture, callbackFunction, callbackData));
-  };
-  return worker->getAmRecv(endpoint->getHandle(), createRequest);
-}
-
-RequestAm::RequestAm(std::shared_ptr<Endpoint> endpoint,
-                     void* buffer,
-                     size_t length,
-                     ucs_memory_type_t memoryType,
-                     const bool enablePythonFuture,
-                     RequestCallbackUserFunction callbackFunction,
-                     RequestCallbackUserData callbackData)
-  : Request(
-      endpoint,
-      std::make_shared<DelayedSubmission>(TransferDirection::Send,
-                                          buffer,
-                                          length,
-                                          DelayedSubmissionData(DelayedSubmissionOperationType::Am,
-                                                                TransferDirection::Send,
-                                                                DelayedSubmissionAm(memoryType))),
-      std::string("amSend"),
-      enablePythonFuture)
-{
-  _callback     = callbackFunction;
-  _callbackData = callbackData;
-}
-
 RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
+                     const data::RequestData requestData,
+                     const std::string operationName,
                      const bool enablePythonFuture,
                      RequestCallbackUserFunction callbackFunction,
                      RequestCallbackUserData callbackData)
-  : Request(endpointOrWorker, nullptr, std::string("amRecv"), enablePythonFuture)
+  : Request(endpointOrWorker, requestData, operationName, enablePythonFuture)
 {
+  std::visit(data::dispatch{
+               [this](data::AmSend amSend) {
+                 if (_endpoint == nullptr)
+                   throw ucxx::Error("An endpoint is required to send active messages");
+               },
+               [](data::AmReceive amReceive) {},
+               [](auto arg) { throw std::runtime_error("Unreachable"); },
+             },
+             requestData);
+
   _callback     = callbackFunction;
   _callbackData = callbackData;
 }
@@ -136,8 +133,8 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       reqs->second.pop();
       ucxx_trace_req("amRecv recvWait: %p", req.get());
     } else {
-      req = std::shared_ptr<RequestAm>(
-        new RequestAm(worker, worker->isFutureEnabled(), nullptr, nullptr));
+      req             = std::shared_ptr<RequestAm>(new RequestAm(
+        worker, data::AmReceive(), "amReceive", worker->isFutureEnabled(), nullptr, nullptr));
       auto [queue, _] = recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
       queue->second.push(req);
       ucxx_trace_req("amRecv recvPool: %p", req.get());
@@ -236,57 +233,91 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   }
 }
 
-std::shared_ptr<Buffer> RequestAm::getRecvBuffer() { return _buffer; }
+std::shared_ptr<Buffer> RequestAm::getRecvBuffer()
+{
+  return std::visit(data::dispatch{
+                      [](data::AmReceive amReceive) { return amReceive._buffer; },
+                      [](auto arg) {
+                        throw std::runtime_error("Unreachable");
+                        return decltype(data::AmReceive::_buffer){nullptr};
+                      },
+                    },
+                    _requestData);
+}
 
 void RequestAm::request()
 {
-  ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                                               UCP_OP_ATTR_FIELD_FLAGS |
-                                               UCP_OP_ATTR_FIELD_USER_DATA,
-                               .flags     = UCP_AM_SEND_FLAG_REPLY,
-                               .datatype  = ucp_dt_make_contig(1),
-                               .user_data = this};
+  std::visit(data::dispatch{
+               [this](data::AmSend amSend) {
+                 ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                                                              UCP_OP_ATTR_FIELD_FLAGS |
+                                                              UCP_OP_ATTR_FIELD_USER_DATA,
+                                              .flags     = UCP_AM_SEND_FLAG_REPLY,
+                                              .datatype  = ucp_dt_make_contig(1),
+                                              .user_data = this};
 
-  _sendHeader = _delayedSubmission->_data.getAm()._memoryType;
+                 param.cb.send = _amSendCallback;
+                 void* request = ucp_am_send_nbx(_endpoint->getHandle(),
+                                                 0,
+                                                 &amSend._memoryType,
+                                                 sizeof(amSend._memoryType),
+                                                 amSend._buffer,
+                                                 amSend._length,
+                                                 &param);
 
-  if (_delayedSubmission->_transferDirection == TransferDirection::Send) {
-    param.cb.send = _amSendCallback;
-    void* request = ucp_am_send_nbx(_endpoint->getHandle(),
-                                    0,
-                                    &_sendHeader,
-                                    sizeof(_sendHeader),
-                                    _delayedSubmission->_buffer,
-                                    _delayedSubmission->_length,
-                                    &param);
-
-    std::lock_guard<std::recursive_mutex> lock(_mutex);
-    _request = request;
-  } else {
-    throw ucxx::UnsupportedError(
-      "Receiving active messages must be handled by the worker's callback");
-  }
+                 std::lock_guard<std::recursive_mutex> lock(_mutex);
+                 _request = request;
+               },
+               [](auto arg) {
+                 throw ucxx::UnsupportedError("Only send active messages can call request()");
+               },
+             },
+             _requestData);
 }
 
 void RequestAm::populateDelayedSubmission()
 {
+  bool terminate = false;
+  std::visit(data::dispatch{
+               [this, &terminate](data::AmSend amSend) {
+                 if (_endpoint->getHandle() == nullptr) {
+                   ucxx_warn("Endpoint was closed before message could be sent");
+                   Request::callback(this, UCS_ERR_CANCELED);
+                   terminate = true;
+                 }
+               },
+               [](auto arg) { throw std::runtime_error("Unreachable"); },
+             },
+             _requestData);
+  if (terminate) return;
+
   request();
 
-  if (_enablePythonFuture)
-    ucxx_trace_req_f(_ownerString.c_str(),
-                     _request,
-                     _operationName.c_str(),
-                     "buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
-                     _delayedSubmission->_buffer,
-                     _delayedSubmission->_length,
-                     _future.get(),
-                     _future->getHandle());
-  else
-    ucxx_trace_req_f(_ownerString.c_str(),
-                     _request,
-                     _operationName.c_str(),
-                     "buffer %p, size %lu, populateDelayedSubmission",
-                     _delayedSubmission->_buffer,
-                     _delayedSubmission->_length);
+  auto log = [this](const void* buffer, const size_t length) {
+    if (_enablePythonFuture)
+      ucxx_trace_req_f(
+        _ownerString.c_str(),
+        _request,
+        _operationName.c_str(),
+        "buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
+        buffer,
+        length,
+        _future.get(),
+        _future->getHandle());
+    else
+      ucxx_trace_req_f(_ownerString.c_str(),
+                       _request,
+                       _operationName.c_str(),
+                       "buffer %p, size %lu, populateDelayedSubmission",
+                       buffer,
+                       length);
+  };
+
+  std::visit(data::dispatch{
+               [this, &log](data::AmSend amSend) { log(amSend._buffer, amSend._length); },
+               [](auto arg) { throw std::runtime_error("Unreachable"); },
+             },
+             _requestData);
 
   process();
 }

@@ -1,4 +1,4 @@
-/**
+/**:
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,62 +12,6 @@
 #include <ucxx/log.h>
 
 namespace ucxx {
-
-DelayedSubmissionAm::DelayedSubmissionAm(const ucs_memory_type memoryType) : _memoryType(memoryType)
-{
-}
-
-DelayedSubmissionTag::DelayedSubmissionTag(const Tag tag, const std::optional<TagMask> tagMask)
-  : _tag(tag), _tagMask(tagMask)
-{
-}
-
-DelayedSubmissionData::DelayedSubmissionData(
-  const DelayedSubmissionOperationType operationType,
-  const TransferDirection transferDirection,
-  const std::variant<std::monostate, DelayedSubmissionAm, DelayedSubmissionTag> data)
-  : _operationType(operationType), _transferDirection(transferDirection), _data(data)
-{
-  if (_operationType == DelayedSubmissionOperationType::Am) {
-    if (transferDirection == TransferDirection::Send &&
-        !std::holds_alternative<DelayedSubmissionAm>(data))
-      throw std::runtime_error(
-        "Send Am operations require data to be of type `DelayedSubmissionAm`.");
-    if (transferDirection == TransferDirection::Receive &&
-        !std::holds_alternative<std::monostate>(data))
-      throw std::runtime_error(
-        "Receive Am operations do not support data value other than `std::monostate`.");
-  } else if (_operationType == DelayedSubmissionOperationType::Tag ||
-             _operationType == DelayedSubmissionOperationType::TagMulti) {
-    if (!std::holds_alternative<DelayedSubmissionTag>(data))
-      throw std::runtime_error(
-        "Operations Tag and TagMulti require data to be of type `DelayedSubmissionTag`.");
-    if (transferDirection == TransferDirection::Send &&
-        std::get<DelayedSubmissionTag>(data)._tagMask)
-      throw std::runtime_error("Send Tag and TagMulti operations do not take a tag mask.");
-    else if (transferDirection == TransferDirection::Receive &&
-             !std::get<DelayedSubmissionTag>(data)._tagMask)
-      throw std::runtime_error("Receive Tag and TagMulti operations require a tag mask.");
-  } else {
-    if (!std::holds_alternative<std::monostate>(data))
-      throw std::runtime_error("Type does not support data value other than `std::monostate`.");
-  }
-}
-
-DelayedSubmissionAm DelayedSubmissionData::getAm() { return std::get<DelayedSubmissionAm>(_data); }
-
-DelayedSubmissionTag DelayedSubmissionData::getTag()
-{
-  return std::get<DelayedSubmissionTag>(_data);
-}
-
-DelayedSubmission::DelayedSubmission(const TransferDirection transferDirection,
-                                     void* buffer,
-                                     const size_t length,
-                                     const DelayedSubmissionData data)
-  : _transferDirection(transferDirection), _buffer(buffer), _length(length), _data(data)
-{
-}
 
 RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(const std::string name,
                                                                        const bool enabled)

@@ -16,6 +16,7 @@
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
 #include <ucxx/request_am.h>
+#include <ucxx/request_data.h>
 #include <ucxx/request_stream.h>
 #include <ucxx/request_tag.h>
 #include <ucxx/request_tag_multi.h>
@@ -310,8 +311,11 @@ std::shared_ptr<Request> Endpoint::amSend(void* buffer,
                                           RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestAmSend(
-    endpoint, buffer, length, memoryType, enablePythonFuture, callbackFunction, callbackData));
+  return registerInflightRequest(createRequestAm(endpoint,
+                                                 data::AmSend(buffer, length, memoryType),
+                                                 enablePythonFuture,
+                                                 callbackFunction,
+                                                 callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,
@@ -319,8 +323,8 @@ std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,
                                           RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(
-    createRequestAmRecv(endpoint, enablePythonFuture, callbackFunction, callbackData));
+  return registerInflightRequest(createRequestAm(
+    endpoint, data::AmReceive(), enablePythonFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
@@ -329,7 +333,7 @@ std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
-    createRequestStream(endpoint, TransferDirection::Send, buffer, length, enablePythonFuture));
+    createRequestStream(endpoint, data::StreamSend(buffer, length), enablePythonFuture));
 }
 
 std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
@@ -338,7 +342,7 @@ std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
-    createRequestStream(endpoint, TransferDirection::Receive, buffer, length, enablePythonFuture));
+    createRequestStream(endpoint, data::StreamReceive(buffer, length), enablePythonFuture));
 }
 
 std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
@@ -350,11 +354,7 @@ std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTag(endpoint,
-                                                  TransferDirection::Send,
-                                                  buffer,
-                                                  length,
-                                                  tag,
-                                                  TagMaskFull,
+                                                  data::TagSend(buffer, length, tag),
                                                   enablePythonFuture,
                                                   callbackFunction,
                                                   callbackData));
@@ -370,11 +370,7 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTag(endpoint,
-                                                  TransferDirection::Receive,
-                                                  buffer,
-                                                  length,
-                                                  tag,
-                                                  tagMask,
+                                                  data::TagReceive(buffer, length, tag, tagMask),
                                                   enablePythonFuture,
                                                   callbackFunction,
                                                   callbackData));
@@ -387,8 +383,8 @@ std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer
                                                 const bool enablePythonFuture)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(
-    createRequestTagMultiSend(endpoint, buffer, size, isCUDA, tag, enablePythonFuture));
+  return registerInflightRequest(createRequestTagMulti(
+    endpoint, data::TagMultiSend(buffer, size, isCUDA, tag), enablePythonFuture));
 }
 
 std::shared_ptr<Request> Endpoint::tagMultiRecv(const Tag tag,
@@ -397,7 +393,7 @@ std::shared_ptr<Request> Endpoint::tagMultiRecv(const Tag tag,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
-    createRequestTagMultiRecv(endpoint, tag, tagMask, enablePythonFuture));
+    createRequestTagMulti(endpoint, data::TagMultiReceive(tag, tagMask), enablePythonFuture));
 }
 
 std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }

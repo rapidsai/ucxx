@@ -15,26 +15,30 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
                              ucp_ep_h ep,
                              std::shared_ptr<RequestAm> request,
                              std::shared_ptr<Buffer> buffer)
-  : _amData(amData), _ep(ep), _request(request), _buffer(buffer)
+  : _amData(amData), _ep(ep), _request(request)
 {
-  _request->_delayedSubmission = std::make_shared<DelayedSubmission>(
-    TransferDirection::Receive,
-    _buffer->data(),
-    _buffer->getSize(),
-    DelayedSubmissionData(
-      DelayedSubmissionOperationType::Am, TransferDirection::Receive, std::monostate{}));
+  std::visit(data::dispatch{
+               [this, buffer](data::AmReceive& amReceive) { amReceive._buffer = buffer; },
+               [](auto arg) { throw std::runtime_error("Unreachable"); },
+             },
+             _request->_requestData);
 }
 
 void RecvAmMessage::setUcpRequest(void* request) { _request->_request = request; }
 
 void RecvAmMessage::callback(void* request, ucs_status_t status)
 {
-  _request->_buffer = _buffer;
-  _request->callback(request, status);
-  {
-    std::lock_guard<std::mutex> lock(_amData->_mutex);
-    _amData->_recvAmMessageMap.erase(_request.get());
-  }
+  std::visit(data::dispatch{
+               [this, request, status](data::AmReceive amReceive) {
+                 _request->callback(request, status);
+                 {
+                   std::lock_guard<std::mutex> lock(_amData->_mutex);
+                   _amData->_recvAmMessageMap.erase(_request.get());
+                 }
+               },
+               [](auto arg) { throw std::runtime_error("Unreachable"); },
+             },
+             _request->_requestData);
 }
 
 }  // namespace internal

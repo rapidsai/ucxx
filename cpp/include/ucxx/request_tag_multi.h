@@ -38,8 +38,7 @@ typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
 
 class RequestTagMulti : public Request {
  private:
-  TransferDirection _transferDirection{};  ///< The direction of transfer.
-  size_t _totalFrames{0};                  ///< The total number of frames handled by this request
+  size_t _totalFrames{0};  ///< The total number of frames handled by this request
   std::mutex
     _completedRequestsMutex{};   ///< Mutex to control access to completed requests container
   size_t _completedRequests{0};  ///< Count requests that already completed
@@ -69,16 +68,16 @@ class RequestTagMulti : public Request {
    * the first request to receive a header.
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] transferDirection   the direction of transfer.
-   * @param[in] tag                 the tag to match.
-   * @param[in] tag                 the tag mask to use (only used for receive operations).
+   * @param[in] requestData         container of the specified message type, including all
+   *                                type-specific data.
+   * @param[in] operationName       a human-readable operation name to help identifying
+   *                                requests by their types when UCXX logging is enabled.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    */
   RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                  const TransferDirection transferDirection,
-                  const Tag tag,
-                  const TagMask tagMask,
+                  const data::RequestData requestData,
+                  const std::string operationName,
                   const bool enablePythonFuture);
 
   /**
@@ -111,22 +110,23 @@ class RequestTagMulti : public Request {
    * @brief Send all header(s) and frame(s).
    *
    * Build header request(s) and send them, followed by requests to send all frame(s).
-   *
-   * @throws std::length_error  if the lengths of `buffer`, `size` and `isCUDA` do not
-   *                            match.
    */
-  void send(const std::vector<void*>& buffer,
-            const std::vector<size_t>& size,
-            const std::vector<int>& isCUDA);
+  void send();
 
  public:
   /**
    * @brief Enqueue a multi-buffer tag send operation.
    *
-   * Initiate a multi-buffer tag send operation, returning a
-   * `std::shared<ucxx::RequestTagMulti>` that can be later awaited and checked for errors.
-   * This is a non-blocking operation, and the status of the transfer must be verified from
-   * the resulting request object before the data can be released.
+   * Initiate a multi-buffer tag operation, returning a `std::shared<ucxx::RequestTagMulti>`
+   * that can be later awaited and checked for errors.
+   *
+   * This is a non-blocking operation, and the status of a send transfer must be verified
+   * from the resulting request object before the data can be released. If this is a receive
+   * transfer and because the receiver has no a priori knowledge of the data being received,
+   * memory allocations are automatically handled internally.  The receiver must have the
+   * same capabilities of the sender, so that if the sender is compiled with RMM support to
+   * allow for CUDA transfers, the receiver must have the ability to understand and allocate
+   * CUDA memory.
    *
    * The primary use of multi-buffer transfers is in Python where we want to reduce the
    * amount of futures needed to watch for, thus reducing Python overhead. However, this
@@ -143,7 +143,8 @@ class RequestTagMulti : public Request {
    * @throws  std::runtime_error  if sizes of `buffer`, `size` and `isCUDA` do not match.
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] tag                 the tag to match.
+   * @param[in] requestData         container of the specified message type, including all
+   *                                type-specific data.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
@@ -151,43 +152,9 @@ class RequestTagMulti : public Request {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  friend std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(
-    std::shared_ptr<Endpoint> endpoint,
-    const std::vector<void*>& buffer,
-    const std::vector<size_t>& size,
-    const std::vector<int>& isCUDA,
-    const Tag tag,
-    const bool enablePythonFuture);
-
-  /**
-   * @brief Enqueue a multi-buffer tag receive operation.
-   *
-   * Enqueue a multi-buffer tag receive operation, returning a
-   * `std::shared<ucxx::RequestTagMulti>` that can be later awaited and checked for errors.
-   * This is a non-blocking operation, and because the receiver has no a priori knowledge
-   * of the data being received, memory allocations are automatically handled internally.
-   * The receiver must have the same capabilities of the sender, so that if the sender is
-   * compiled with RMM support to allow for CUDA transfers, the receiver must have the
-   * ability to understand and allocate CUDA memory.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] tag                 the tag to match.
-   * @param[in] tagMask             the tag mask to use.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   *
-   * @returns Request to be subsequently checked for the completion and its state.
-   */
-  friend std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(
-    std::shared_ptr<Endpoint> endpoint,
-    const Tag tag,
-    const TagMask tagMask,
-    const bool enablePythonFuture);
+  friend std::shared_ptr<RequestTagMulti> createRequestTagMulti(std::shared_ptr<Endpoint> endpoint,
+                                                                const data::RequestData requestData,
+                                                                const bool enablePythonFuture);
 
   /**
    * @brief `ucxx::RequestTagMulti` destructor.

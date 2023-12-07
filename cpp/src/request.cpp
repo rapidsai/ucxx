@@ -17,10 +17,10 @@
 namespace ucxx {
 
 Request::Request(std::shared_ptr<Component> endpointOrWorker,
-                 std::shared_ptr<DelayedSubmission> delayedSubmission,
+                 const data::RequestData requestData,
                  const std::string operationName,
                  const bool enablePythonFuture)
-  : _delayedSubmission(delayedSubmission),
+  : _requestData(requestData),
     _operationName(operationName),
     _enablePythonFuture(enablePythonFuture)
 {
@@ -190,7 +190,14 @@ void Request::setStatus(ucs_status_t status)
                      status,
                      ucs_status_string(status));
 
-    if (_status != UCS_INPROGRESS) ucxx_error("setStatus called but the status was already set");
+    if (_status != UCS_INPROGRESS)
+      ucxx_error(
+        "setStatus called on request: %p with status: %d (%s) but status: %d (%s) was already set",
+        this,
+        status,
+        ucs_status_string(status),
+        _status,
+        ucs_status_string(_status));
     _status = status;
 
     if (_enablePythonFuture) {

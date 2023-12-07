@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <memory>
+#include <string>
 #include <utility>
 
 #include <ucp/api/ucp.h>
@@ -16,8 +17,6 @@ namespace ucxx {
 
 class RequestTag : public Request {
  private:
-  size_t _length{0};  ///< The tag message length in bytes
-
   /**
    * @brief Private constructor of `ucxx::RequestTag`.
    *
@@ -38,22 +37,18 @@ class RequestTag : public Request {
    * @param[in] endpointOrWorker    the parent component, which may either be a
    *                                `std::shared_ptr<Endpoint>` or
    *                                `std::shared_ptr<Worker>`.
-   * @param[in] transferDirection   the direction of transfer.
-   * @param[in] buffer              a raw pointer to the data to be transferred.
-   * @param[in] length              the size in bytes of the tag message to be transferred.
-   * @param[in] tag                 the tag to match.
-   * @param[in] tagMask             the tag mask to use (only used for receive operations).
+   * @param[in] requestData         container of the specified message type, including all
+   *                                type-specific data.
+   * @param[in] operationName       a human-readable operation name to help identifying
+   *                                requests by their types when UCXX logging is enabled.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   RequestTag(std::shared_ptr<Component> endpointOrWorker,
-             TransferDirection transferDirection,
-             void* buffer,
-             size_t length,
-             Tag tag,
-             TagMask tagMask,
+             const data::RequestData requestData,
+             const std::string operationName,
              const bool enablePythonFuture                = false,
              RequestCallbackUserFunction callbackFunction = nullptr,
              RequestCallbackUserData callbackData         = nullptr);
@@ -74,11 +69,8 @@ class RequestTag : public Request {
    * @param[in] endpointOrWorker    the parent component, which may either be a
    *                                `std::shared_ptr<Endpoint>` or
    *                                `std::shared_ptr<Worker>`.
-   * @param[in] transferDirection   the direction of transfer.
-   * @param[in] buffer              a raw pointer to the data to be transferred.
-   * @param[in] length              the size in bytes of the tag message to be transferred.
-   * @param[in] tag                 the tag to match.
-   * @param[in] tagMask             the tag mask to use (only used for receive operations).
+   * @param[in] requestData         container of the specified message type, including all
+   *                                type-specific data.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
@@ -87,11 +79,7 @@ class RequestTag : public Request {
    * @returns The `shared_ptr<ucxx::RequestTag>` object
    */
   friend std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
-                                                      TransferDirection transferDirection,
-                                                      void* buffer,
-                                                      size_t length,
-                                                      Tag tag,
-                                                      TagMask tagMask,
+                                                      const data::RequestData requestData,
                                                       const bool enablePythonFuture,
                                                       RequestCallbackUserFunction callbackFunction,
                                                       RequestCallbackUserData callbackData);
