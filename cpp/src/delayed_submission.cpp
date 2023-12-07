@@ -45,8 +45,8 @@ DelayedSubmissionData::DelayedSubmissionData(
     if (transferDirection == TransferDirection::Send &&
         std::get<DelayedSubmissionTag>(data)._tagMask)
       throw std::runtime_error("Send Tag and TagMulti operations do not take a tag mask.");
-    if (transferDirection == TransferDirection::Send &&
-        !std::get<DelayedSubmissionTag>(data)._tagMask)
+    else if (transferDirection == TransferDirection::Receive &&
+             !std::get<DelayedSubmissionTag>(data)._tagMask)
       throw std::runtime_error("Receive Tag and TagMulti operations require a tag mask.");
   } else {
     if (!std::holds_alternative<std::monostate>(data))
