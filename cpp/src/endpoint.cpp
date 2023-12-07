@@ -329,7 +329,7 @@ std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
-    createRequestStream(endpoint, true, buffer, length, enablePythonFuture));
+    createRequestStream(endpoint, TransferDirection::Send, buffer, length, enablePythonFuture));
 }
 
 std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
@@ -338,7 +338,7 @@ std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
-    createRequestStream(endpoint, false, buffer, length, enablePythonFuture));
+    createRequestStream(endpoint, TransferDirection::Receive, buffer, length, enablePythonFuture));
 }
 
 std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
@@ -350,7 +350,7 @@ std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTag(endpoint,
-                                                  true,
+                                                  TransferDirection::Send,
                                                   buffer,
                                                   length,
                                                   tag,
@@ -370,7 +370,7 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTag(endpoint,
-                                                  false,
+                                                  TransferDirection::Receive,
                                                   buffer,
                                                   length,
                                                   tag,

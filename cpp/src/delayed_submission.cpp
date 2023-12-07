@@ -61,11 +61,11 @@ DelayedSubmissionTag DelayedSubmissionData::getTag()
   return std::get<DelayedSubmissionTag>(_data);
 }
 
-DelayedSubmission::DelayedSubmission(const bool send,
+DelayedSubmission::DelayedSubmission(const TransferDirection transferDirection,
                                      void* buffer,
                                      const size_t length,
                                      const DelayedSubmissionData data)
-  : _send(send), _buffer(buffer), _length(length), _data(data)
+  : _transferDirection(transferDirection), _buffer(buffer), _length(length), _data(data)
 {
 }
 

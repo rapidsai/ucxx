@@ -18,7 +18,7 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
   : _amData(amData), _ep(ep), _request(request), _buffer(buffer)
 {
   _request->_delayedSubmission = std::make_shared<DelayedSubmission>(
-    false,
+    TransferDirection::Receive,
     _buffer->data(),
     _buffer->getSize(),
     DelayedSubmissionData(

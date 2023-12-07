@@ -14,7 +14,7 @@
 namespace ucxx {
 
 std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
-                                             bool send,
+                                             TransferDirection transferDirection,
                                              void* buffer,
                                              size_t length,
                                              Tag tag,
@@ -24,7 +24,7 @@ std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpoint
                                              RequestCallbackUserData callbackData         = nullptr)
 {
   auto req = std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
-                                                        send,
+                                                        transferDirection,
                                                         buffer,
                                                         length,
                                                         tag,
@@ -43,7 +43,7 @@ std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpoint
 }
 
 RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
-                       bool send,
+                       TransferDirection transferDirection,
                        void* buffer,
                        size_t length,
                        Tag tag,
@@ -53,18 +53,19 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                        RequestCallbackUserData callbackData)
   : Request(endpointOrWorker,
             std::make_shared<DelayedSubmission>(
-              send,
+              transferDirection,
               buffer,
               length,
               DelayedSubmissionData(DelayedSubmissionOperationType::Tag,
-                                    send ? TransferDirection::Send : TransferDirection::Receive,
-                                    send ? DelayedSubmissionTag(tag, std::nullopt)
-                                         : DelayedSubmissionTag(tag, tagMask))),
-            std::string(send ? "tagSend" : "tagRecv"),
+                                    transferDirection,
+                                    transferDirection == TransferDirection::Send
+                                      ? DelayedSubmissionTag(tag, std::nullopt)
+                                      : DelayedSubmissionTag(tag, tagMask))),
+            std::string(transferDirection == TransferDirection::Send ? "tagSend" : "tagRecv"),
             enablePythonFuture),
     _length(length)
 {
-  if (send && _endpoint == nullptr)
+  if (transferDirection == TransferDirection::Send && _endpoint == nullptr)
     throw ucxx::Error("An endpoint is required to send tag messages");
   _callback     = callbackFunction;
   _callbackData = callbackData;
@@ -110,7 +111,7 @@ void RequestTag::request()
                                .user_data = this};
   void* request             = nullptr;
 
-  if (_delayedSubmission->_send) {
+  if (_delayedSubmission->_transferDirection == TransferDirection::Send) {
     param.cb.send = tagSendCallback;
     request       = ucp_tag_send_nbx(_endpoint->getHandle(),
                                _delayedSubmission->_buffer,
@@ -133,11 +134,13 @@ void RequestTag::request()
 
 void RequestTag::populateDelayedSubmission()
 {
-  if (_delayedSubmission->_send && _endpoint->getHandle() == nullptr) {
+  if (_delayedSubmission->_transferDirection == TransferDirection::Send &&
+      _endpoint->getHandle() == nullptr) {
     ucxx_warn("Endpoint was closed before message could be sent");
     Request::callback(this, UCS_ERR_CANCELED);
     return;
-  } else if (!_delayedSubmission->_send && _worker->getHandle() == nullptr) {
+  } else if (_delayedSubmission->_transferDirection == TransferDirection::Receive &&
+             _worker->getHandle() == nullptr) {
     ucxx_warn("Worker was closed before message could be received");
     Request::callback(this, UCS_ERR_CANCELED);
     return;

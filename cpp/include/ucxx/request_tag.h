@@ -38,8 +38,7 @@ class RequestTag : public Request {
    * @param[in] endpointOrWorker    the parent component, which may either be a
    *                                `std::shared_ptr<Endpoint>` or
    *                                `std::shared_ptr<Worker>`.
-   * @param[in] send                whether this is a send (`true`) or receive (`false`)
-   *                                tag request.
+   * @param[in] transferDirection   the direction of transfer.
    * @param[in] buffer              a raw pointer to the data to be transferred.
    * @param[in] length              the size in bytes of the tag message to be transferred.
    * @param[in] tag                 the tag to match.
@@ -50,7 +49,7 @@ class RequestTag : public Request {
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   RequestTag(std::shared_ptr<Component> endpointOrWorker,
-             bool send,
+             TransferDirection transferDirection,
              void* buffer,
              size_t length,
              Tag tag,
@@ -75,8 +74,7 @@ class RequestTag : public Request {
    * @param[in] endpointOrWorker    the parent component, which may either be a
    *                                `std::shared_ptr<Endpoint>` or
    *                                `std::shared_ptr<Worker>`.
-   * @param[in] send                whether this is a send (`true`) or receive (`false`)
-   *                                tag request.
+   * @param[in] transferDirection   the direction of transfer.
    * @param[in] buffer              a raw pointer to the data to be transferred.
    * @param[in] length              the size in bytes of the tag message to be transferred.
    * @param[in] tag                 the tag to match.
@@ -89,7 +87,7 @@ class RequestTag : public Request {
    * @returns The `shared_ptr<ucxx::RequestTag>` object
    */
   friend std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
-                                                      bool send,
+                                                      TransferDirection transferDirection,
                                                       void* buffer,
                                                       size_t length,
                                                       Tag tag,

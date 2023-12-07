@@ -69,13 +69,13 @@ std::shared_ptr<RequestAm> createRequestAmRecv(std::shared_ptr<Endpoint> endpoin
                                                RequestCallbackUserData callbackData);
 
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
-                                                   bool send,
+                                                   TransferDirection transferDirection,
                                                    void* buffer,
                                                    size_t length,
                                                    const bool enablePythonFuture);
 
 std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
-                                             bool send,
+                                             TransferDirection transferDirection,
                                              void* buffer,
                                              size_t length,
                                              Tag tag,

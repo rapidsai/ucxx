@@ -60,8 +60,7 @@ class DelayedSubmissionData {
  public:
   const DelayedSubmissionOperationType _operationType{
     DelayedSubmissionOperationType::Undefined};  ///< The operation type
-  const TransferDirection _transferDirection{
-    TransferDirection::Undefined};  ///< The direction of the transfer.
+  const TransferDirection _transferDirection{};  ///< The direction of the transfer.
   const std::variant<std::monostate, DelayedSubmissionAm, DelayedSubmissionTag>
     _data;  ///< Data used on the operation
 
@@ -110,10 +109,10 @@ class DelayedSubmissionData {
 
 class DelayedSubmission {
  public:
-  bool _send{false};            ///< Whether this is a send (`true`) operation or recv (`false`)
-  void* _buffer{nullptr};       ///< Raw pointer to data buffer
-  size_t _length{0};            ///< Length of the message in bytes
-  DelayedSubmissionData _data;  ///< Operation type and operation-specific data
+  TransferDirection _transferDirection{};  ///< The direction of transfer.
+  void* _buffer{nullptr};                  ///< Raw pointer to data buffer
+  size_t _length{0};                       ///< Length of the message in bytes
+  DelayedSubmissionData _data;             ///< Operation type and operation-specific data
 
   DelayedSubmission() = delete;
 
@@ -131,16 +130,16 @@ class DelayedSubmission {
    * a multi-threaded application for blocking while waiting for the UCX spinlock, since
    * all transfer operations may be pushed to the worker progress thread.
    *
-   * @param[in] send        whether this is a send (`true`) or receive (`false`) operation.
-   * @param[in] buffer      a raw pointer to the data being transferred.
-   * @param[in] length      the size in bytes of the message being transfer.
-   * @param[in] tag         optional tag to match for this operation (only applies for tag
-   *                        operations).
-   * @param[in] tagMask     optional tag mask to use for this operation (only applies for tag
-   *                        operations).
-   * @param[in] memoryType  the memory type of the buffer.
+   * @param[in] transferDirection the direction of transfer.
+   * @param[in] buffer            a raw pointer to the data being transferred.
+   * @param[in] length            the size in bytes of the message being transfer.
+   * @param[in] tag               optional tag to match for this operation (only applies
+   *                              for tag operations).
+   * @param[in] tagMask           optional tag mask to use for this operation (only applies
+   *                              for tag operations).
+   * @param[in] memoryType        the memory type of the buffer.
    */
-  DelayedSubmission(const bool send,
+  DelayedSubmission(const TransferDirection transferDirection,
                     void* buffer,
                     const size_t length,
                     const DelayedSubmissionData);

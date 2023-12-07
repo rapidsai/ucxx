@@ -31,8 +31,7 @@ class RequestStream : public Request {
    * - `ucxx::createRequestStream()`
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] send                whether this is a send (`true`) or receive (`false`)
-   *                                stream request.
+   * @param[in] transferDirection   the direction of transfer.
    * @param[in] buffer              a raw pointer to the data to be transferred.
    * @param[in] length              the size in bytes of the stream message to be
    *                                transferred.
@@ -40,7 +39,7 @@ class RequestStream : public Request {
    *                                subsequently notified.
    */
   RequestStream(std::shared_ptr<Endpoint> endpoint,
-                bool send,
+                TransferDirection transferDirection,
                 void* buffer,
                 size_t length,
                 const bool enablePythonFuture = false);
@@ -56,8 +55,7 @@ class RequestStream : public Request {
    * released (for a send operation) or consumed (for a receive operation).
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] send                whether this is a send (`true`) or receive (`false`)
-   *                                stream request.
+   * @param[in] transferDirection   the direction of transfer.
    * @param[in] buffer              a raw pointer to the data to be transferred.
    * @param[in] length              the size in bytes of the stream message to be
    *                                transferred.
@@ -67,7 +65,7 @@ class RequestStream : public Request {
    * @returns The `shared_ptr<ucxx::RequestStream>` object
    */
   friend std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
-                                                            bool send,
+                                                            TransferDirection transferDirection,
                                                             void* buffer,
                                                             size_t length,
                                                             const bool enablePythonFuture);

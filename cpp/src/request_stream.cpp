@@ -13,32 +13,31 @@
 namespace ucxx {
 
 RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
-                             bool send,
+                             TransferDirection transferDirection,
                              void* buffer,
                              size_t length,
                              const bool enablePythonFuture)
   : Request(endpoint,
             std::make_shared<DelayedSubmission>(
-              send,
+              transferDirection,
               buffer,
               length,
-              DelayedSubmissionData(DelayedSubmissionOperationType::Stream,
-                                    send ? TransferDirection::Send : TransferDirection::Receive,
-                                    std::monostate{})),
-            std::string(send ? "streamSend" : "streamRecv"),
+              DelayedSubmissionData(
+                DelayedSubmissionOperationType::Stream, transferDirection, std::monostate{})),
+            std::string(transferDirection == TransferDirection::Send ? "streamSend" : "streamRecv"),
             enablePythonFuture),
     _length(length)
 {
 }
 
 std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
-                                                   bool send,
+                                                   TransferDirection transferDirection,
                                                    void* buffer,
                                                    size_t length,
                                                    const bool enablePythonFuture = false)
 {
   auto req = std::shared_ptr<RequestStream>(
-    new RequestStream(endpoint, send, buffer, length, enablePythonFuture));
+    new RequestStream(endpoint, transferDirection, buffer, length, enablePythonFuture));
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
@@ -58,7 +57,7 @@ void RequestStream::request()
                                .user_data = this};
   void* request             = nullptr;
 
-  if (_delayedSubmission->_send) {
+  if (_delayedSubmission->_transferDirection == TransferDirection::Send) {
     param.cb.send = streamSendCallback;
     request       = ucp_stream_send_nbx(
       _endpoint->getHandle(), _delayedSubmission->_buffer, _delayedSubmission->_length, &param);
@@ -79,11 +78,13 @@ void RequestStream::request()
 
 void RequestStream::populateDelayedSubmission()
 {
-  if (_delayedSubmission->_send && _endpoint->getHandle() == nullptr) {
+  if (_delayedSubmission->_transferDirection == TransferDirection::Send &&
+      _endpoint->getHandle() == nullptr) {
     ucxx_warn("Endpoint was closed before message could be sent");
     Request::callback(this, UCS_ERR_CANCELED);
     return;
-  } else if (!_delayedSubmission->_send && _worker->getHandle() == nullptr) {
+  } else if (_delayedSubmission->_transferDirection == TransferDirection::Receive &&
+             _worker->getHandle() == nullptr) {
     ucxx_warn("Worker was closed before message could be received");
     Request::callback(this, UCS_ERR_CANCELED);
     return;

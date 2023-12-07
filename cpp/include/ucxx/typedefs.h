@@ -34,7 +34,7 @@ typedef enum {
   UCXX_LOG_LEVEL_PRINT /* Temporary output */
 } ucxx_log_level_t;
 
-enum class TransferDirection { Undefined = 0, Send, Receive };
+enum class TransferDirection { Send = 0, Receive };
 
 enum Tag : ucp_tag_t {};
 enum TagMask : ucp_tag_t {};

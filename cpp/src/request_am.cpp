@@ -61,7 +61,7 @@ RequestAm::RequestAm(std::shared_ptr<Endpoint> endpoint,
                      RequestCallbackUserData callbackData)
   : Request(
       endpoint,
-      std::make_shared<DelayedSubmission>(true,
+      std::make_shared<DelayedSubmission>(TransferDirection::Send,
                                           buffer,
                                           length,
                                           DelayedSubmissionData(DelayedSubmissionOperationType::Am,
@@ -249,7 +249,7 @@ void RequestAm::request()
 
   _sendHeader = _delayedSubmission->_data.getAm()._memoryType;
 
-  if (_delayedSubmission->_send) {
+  if (_delayedSubmission->_transferDirection == TransferDirection::Send) {
     param.cb.send = _amSendCallback;
     void* request = ucp_am_send_nbx(_endpoint->getHandle(),
                                     0,

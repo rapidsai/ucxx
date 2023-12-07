@@ -23,22 +23,25 @@ BufferRequest::BufferRequest() { ucxx_trace("BufferRequest created: %p", this); 
 BufferRequest::~BufferRequest() { ucxx_trace("BufferRequest destroyed: %p", this); }
 
 RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                                 const bool send,
+                                 const TransferDirection transferDirection,
                                  const Tag tag,
                                  const TagMask tagMask,
                                  const bool enablePythonFuture)
-  : Request(endpoint,
-            std::make_shared<DelayedSubmission>(
-              !send,
-              nullptr,
-              0,
-              DelayedSubmissionData(DelayedSubmissionOperationType::TagMulti,
-                                    send ? TransferDirection::Send : TransferDirection::Receive,
-                                    send ? DelayedSubmissionTag(tag, std::nullopt)
-                                         : DelayedSubmissionTag(tag, tagMask))),
-            std::string(send ? "tagMultiSend" : "tagMultiRecv"),
-            enablePythonFuture),
-    _send(send)
+  : Request(
+      endpoint,
+      std::make_shared<DelayedSubmission>(
+        transferDirection == TransferDirection::Send ? TransferDirection::Receive
+                                                     : TransferDirection::Send,
+        nullptr,
+        0,
+        DelayedSubmissionData(DelayedSubmissionOperationType::TagMulti,
+                              transferDirection,
+                              transferDirection == TransferDirection::Send
+                                ? DelayedSubmissionTag(tag, std::nullopt)
+                                : DelayedSubmissionTag(tag, tagMask))),
+      std::string(transferDirection == TransferDirection::Send ? "tagMultiSend" : "tagMultiRecv"),
+      enablePythonFuture),
+    _transferDirection(transferDirection)
 {
   auto worker = endpoint->getWorker();
   if (enablePythonFuture) _future = worker->getFuture();
@@ -70,7 +73,7 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpo
                                                            const bool enablePythonFuture)
 {
   auto ret = std::shared_ptr<RequestTagMulti>(
-    new RequestTagMulti(endpoint, true, tag, TagMaskFull, enablePythonFuture));
+    new RequestTagMulti(endpoint, TransferDirection::Send, tag, TagMaskFull, enablePythonFuture));
 
   if (size.size() != buffer.size() || isCUDA.size() != buffer.size())
     throw std::runtime_error("All input vectors should be of equal size");
@@ -86,7 +89,7 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpo
                                                            const bool enablePythonFuture)
 {
   auto ret = std::shared_ptr<RequestTagMulti>(
-    new RequestTagMulti(endpoint, false, tag, tagMask, enablePythonFuture));
+    new RequestTagMulti(endpoint, TransferDirection::Receive, tag, tagMask, enablePythonFuture));
 
   ret->recvCallback(UCS_OK);
 
@@ -95,7 +98,8 @@ std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpo
 
 void RequestTagMulti::recvFrames()
 {
-  if (_send) throw std::runtime_error("Send requests cannot call recvFrames()");
+  if (_transferDirection == TransferDirection::Send)
+    throw std::runtime_error("Send requests cannot call recvFrames()");
 
   std::vector<Header> headers;
 
@@ -201,7 +205,8 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
 
 void RequestTagMulti::recvHeader()
 {
-  if (_send) throw std::runtime_error("Send requests cannot call recvHeader()");
+  if (_transferDirection == TransferDirection::Send)
+    throw std::runtime_error("Send requests cannot call recvHeader()");
 
   ucxx_trace_req("RequestTagMulti::recvHeader entering, request: %p, tag: %lx",
                  this,
@@ -233,7 +238,8 @@ void RequestTagMulti::recvHeader()
 
 void RequestTagMulti::recvCallback(ucs_status_t status)
 {
-  if (_send) throw std::runtime_error("Send requests cannot call recvCallback()");
+  if (_transferDirection == TransferDirection::Send)
+    throw std::runtime_error("Send requests cannot call recvCallback()");
 
   ucxx_trace_req("RequestTagMulti::recvCallback request: %p, tag: %lx",
                  this,

@@ -38,8 +38,8 @@ typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
 
 class RequestTagMulti : public Request {
  private:
-  bool _send{false};       ///< Whether this is a send (`true`) operation or recv (`false`)
-  size_t _totalFrames{0};  ///< The total number of frames handled by this request
+  TransferDirection _transferDirection{};  ///< The direction of transfer.
+  size_t _totalFrames{0};                  ///< The total number of frames handled by this request
   std::mutex
     _completedRequestsMutex{};   ///< Mutex to control access to completed requests container
   size_t _completedRequests{0};  ///< Count requests that already completed
@@ -67,15 +67,14 @@ class RequestTagMulti : public Request {
    * the first request to receive a header.
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] send                whether this is a send (`true`) or receive (`false`)
-   *                                tag request.
+   * @param[in] transferDirection   the direction of transfer.
    * @param[in] tag                 the tag to match.
    * @param[in] tag                 the tag mask to use (only used for receive operations).
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    */
   RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                  const bool send,
+                  const TransferDirection transferDirection,
                   const Tag tag,
                   const TagMask tagMask,
                   const bool enablePythonFuture);
