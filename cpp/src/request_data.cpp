@@ -6,8 +6,8 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
-#include <ucxx/typedefs_data.h>
 
 namespace ucxx {
 
