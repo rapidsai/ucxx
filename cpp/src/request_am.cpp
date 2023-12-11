@@ -149,7 +149,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       // recvAmMessage.callback(nullptr, UCS_ERR_UNSUPPORTED);
       // return UCS_ERR_UNSUPPORTED;
 
-      ucxx_trace_req("No allocator registered for memory type %d, falling back to host memory.",
+      ucxx_trace_req("No allocator registered for memory type %lu, falling back to host memory.",
                      allocatorType);
       allocatorType = UCS_MEMORY_TYPE_HOST;
     }
@@ -248,7 +248,7 @@ std::shared_ptr<Buffer> RequestAm::getRecvBuffer()
 void RequestAm::request()
 {
   std::visit(data::dispatch{
-               [this](data::AmSend amSend) {
+               [this](const data::AmSend& amSend) {
                  ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                               UCP_OP_ATTR_FIELD_FLAGS |
                                                               UCP_OP_ATTR_FIELD_USER_DATA,
@@ -293,28 +293,32 @@ void RequestAm::populateDelayedSubmission()
 
   request();
 
-  auto log = [this](const void* buffer, const size_t length) {
+  auto log = [this](const void* buffer, const size_t length, const ucs_memory_type_t memoryType) {
     if (_enablePythonFuture)
-      ucxx_trace_req_f(
-        _ownerString.c_str(),
-        _request,
-        _operationName.c_str(),
-        "buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
-        buffer,
-        length,
-        _future.get(),
-        _future->getHandle());
+      ucxx_trace_req_f(_ownerString.c_str(),
+                       _request,
+                       _operationName.c_str(),
+                       "buffer %p, size %lu, memoryType: %lu, future %p, future handle %p, "
+                       "populateDelayedSubmission",
+                       buffer,
+                       length,
+                       memoryType,
+                       _future.get(),
+                       _future->getHandle());
     else
       ucxx_trace_req_f(_ownerString.c_str(),
                        _request,
                        _operationName.c_str(),
-                       "buffer %p, size %lu, populateDelayedSubmission",
+                       "buffer %p, size %lu, memoryType: %lu, populateDelayedSubmission",
                        buffer,
-                       length);
+                       length,
+                       memoryType);
   };
 
   std::visit(data::dispatch{
-               [this, &log](data::AmSend amSend) { log(amSend._buffer, amSend._length); },
+               [this, &log](data::AmSend amSend) {
+                 log(amSend._buffer, amSend._length, amSend._memoryType);
+               },
                [](auto arg) { throw std::runtime_error("Unreachable"); },
              },
              _requestData);
