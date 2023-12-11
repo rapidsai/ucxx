@@ -40,10 +40,7 @@ std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpoint
                                                                      callbackFunction,
                                                                      callbackData));
                  },
-                 [](auto arg) {
-                   throw std::runtime_error("Unreachable");
-                   return std::shared_ptr<RequestTag>(nullptr);
-                 },
+                 [](auto) -> decltype(req) { throw std::runtime_error("Unreachable"); },
                },
                requestData);
 
@@ -70,7 +67,7 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                    throw ucxx::Error("An endpoint is required to send tag messages");
                },
                [](data::TagReceive tagReceive) {},
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              requestData);
 
@@ -133,7 +130,7 @@ void RequestTag::request()
                                             tagReceive._tagMask,
                                             &param);
                },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _requestData);
 
@@ -163,7 +160,7 @@ void RequestTag::populateDelayedSubmission()
                    }
                    return false;
                  },
-                 [](auto arg) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
+                 [](auto) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
                },
                _requestData);
   if (terminate) return;
@@ -203,7 +200,7 @@ void RequestTag::populateDelayedSubmission()
                [this, &log](data::TagReceive tagReceive) {
                  log(tagReceive._buffer, tagReceive._length, tagReceive._tag, tagReceive._tagMask);
                },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _requestData);
 

@@ -26,7 +26,7 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
                  if (_endpoint == nullptr)
                    throw ucxx::Error("A valid endpoint is required to receive stream messages.");
                },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              requestData);
 }
@@ -45,10 +45,7 @@ std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> end
                    return std::shared_ptr<RequestStream>(new RequestStream(
                      endpoint, streamReceive, "streamReceive", enablePythonFuture));
                  },
-                 [](auto arg) {
-                   throw std::runtime_error("Unreachable");
-                   return std::shared_ptr<RequestStream>(nullptr);
-                 },
+                 [](auto) -> decltype(req) { throw std::runtime_error("Unreachable"); },
                },
                requestData);
 
@@ -86,7 +83,7 @@ void RequestStream::request()
                                                &streamReceive._lengthReceived,
                                                &param);
                },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _requestData);
 
@@ -114,7 +111,7 @@ void RequestStream::populateDelayedSubmission()
                    }
                    return false;
                  },
-                 [](auto arg) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
+                 [](auto) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
                },
                _requestData);
   if (terminate) return;
@@ -147,7 +144,7 @@ void RequestStream::populateDelayedSubmission()
       [this, &log](data::StreamReceive streamReceive) {
         log(streamReceive._buffer, streamReceive._length);
       },
-      [](auto arg) { throw std::runtime_error("Unreachable"); },
+      [](auto) { throw std::runtime_error("Unreachable"); },
     },
     _requestData);
 
@@ -170,7 +167,7 @@ void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 
                  Request::callback(request, status);
                },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _requestData);
 }

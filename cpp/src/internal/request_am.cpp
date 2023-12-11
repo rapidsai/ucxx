@@ -19,7 +19,7 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
 {
   std::visit(data::dispatch{
                [this, buffer](data::AmReceive& amReceive) { amReceive._buffer = buffer; },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _request->_requestData);
 }
@@ -36,7 +36,7 @@ void RecvAmMessage::callback(void* request, ucs_status_t status)
                    _amData->_recvAmMessageMap.erase(_request.get());
                  }
                },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _request->_requestData);
 }

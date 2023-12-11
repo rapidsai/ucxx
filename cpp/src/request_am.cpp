@@ -49,10 +49,7 @@ std::shared_ptr<RequestAm> createRequestAm(std::shared_ptr<Endpoint> endpoint,
         };
         return worker->getAmRecv(endpoint->getHandle(), createRequest);
       },
-      [](auto arg) {
-        throw std::runtime_error("Unreachable");
-        return std::shared_ptr<RequestAm>(nullptr);
-      },
+      [](auto) -> decltype(req) { throw std::runtime_error("Unreachable"); },
     },
     requestData);
 
@@ -73,7 +70,7 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
                    throw ucxx::Error("An endpoint is required to send active messages");
                },
                [](data::AmReceive amReceive) {},
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              requestData);
 
@@ -235,44 +232,41 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 
 std::shared_ptr<Buffer> RequestAm::getRecvBuffer()
 {
-  return std::visit(data::dispatch{
-                      [](data::AmReceive amReceive) { return amReceive._buffer; },
-                      [](auto arg) {
-                        throw std::runtime_error("Unreachable");
-                        return decltype(data::AmReceive::_buffer){nullptr};
-                      },
-                    },
-                    _requestData);
+  return std::visit(
+    data::dispatch{
+      [](data::AmReceive amReceive) { return amReceive._buffer; },
+      [](auto) -> std::shared_ptr<Buffer> { throw std::runtime_error("Unreachable"); },
+    },
+    _requestData);
 }
 
 void RequestAm::request()
 {
-  std::visit(data::dispatch{
-               [this](data::AmSend amSend) {
-                 ucp_request_param_t param = {
-                   .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_FLAGS |
-                                   UCP_OP_ATTR_FIELD_USER_DATA,
-                   .flags     = UCP_AM_SEND_FLAG_REPLY | UCP_AM_SEND_FLAG_COPY_HEADER,
-                   .datatype  = ucp_dt_make_contig(1),
-                   .user_data = this};
+  std::visit(
+    data::dispatch{
+      [this](data::AmSend amSend) {
+        ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                                                     UCP_OP_ATTR_FIELD_FLAGS |
+                                                     UCP_OP_ATTR_FIELD_USER_DATA,
+                                     .flags = UCP_AM_SEND_FLAG_REPLY | UCP_AM_SEND_FLAG_COPY_HEADER,
+                                     .datatype  = ucp_dt_make_contig(1),
+                                     .user_data = this};
 
-                 param.cb.send = _amSendCallback;
-                 void* request = ucp_am_send_nbx(_endpoint->getHandle(),
-                                                 0,
-                                                 &amSend._memoryType,
-                                                 sizeof(amSend._memoryType),
-                                                 amSend._buffer,
-                                                 amSend._length,
-                                                 &param);
+        param.cb.send = _amSendCallback;
+        void* request = ucp_am_send_nbx(_endpoint->getHandle(),
+                                        0,
+                                        &amSend._memoryType,
+                                        sizeof(amSend._memoryType),
+                                        amSend._buffer,
+                                        amSend._length,
+                                        &param);
 
-                 std::lock_guard<std::recursive_mutex> lock(_mutex);
-                 _request = request;
-               },
-               [](auto arg) {
-                 throw ucxx::UnsupportedError("Only send active messages can call request()");
-               },
-             },
-             _requestData);
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        _request = request;
+      },
+      [](auto) { throw ucxx::UnsupportedError("Only send active messages can call request()"); },
+    },
+    _requestData);
 }
 
 void RequestAm::populateDelayedSubmission()
@@ -287,7 +281,7 @@ void RequestAm::populateDelayedSubmission()
                    }
                    return false;
                  },
-                 [](auto arg) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
+                 [](auto) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
                },
                _requestData);
   if (terminate) return;
@@ -320,7 +314,7 @@ void RequestAm::populateDelayedSubmission()
                [this, &log](data::AmSend amSend) {
                  log(amSend._buffer, amSend._length, amSend._memoryType);
                },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
+               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _requestData);
 

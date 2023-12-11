@@ -71,10 +71,7 @@ std::shared_ptr<RequestTagMulti> createRequestTagMulti(std::shared_ptr<Endpoint>
                    req->recvCallback(UCS_OK);
                    return req;
                  },
-                 [](auto arg) {
-                   throw std::runtime_error("Unreachable");
-                   return std::shared_ptr<RequestTagMulti>(nullptr);
-                 },
+                 [](auto) -> decltype(req) { throw std::runtime_error("Unreachable"); },
                },
                requestData);
 
@@ -89,7 +86,7 @@ static TagPair checkAndGetTagPair(const data::RequestData& requestData,
       [](data::TagMultiReceive tagMultiReceive) {
         return TagPair{tagMultiReceive._tag, tagMultiReceive._tagMask};
       },
-      [&methodName](auto arg) -> TagPair {
+      [&methodName](auto) -> TagPair {
         throw std::runtime_error(methodName + "() can only be called by a receive request.");
       },
     },
@@ -173,17 +170,16 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
     return;
   }
 
-  TagPair tagPair =
-    std::visit(data::dispatch{
-                 [](data::TagMultiSend tagMultiSend) {
-                   return TagPair{tagMultiSend._tag, TagMaskFull};
-                 },
-                 [](data::TagMultiReceive tagMultiReceive) {
-                   return TagPair{tagMultiReceive._tag, tagMultiReceive._tagMask};
-                 },
-                 [](auto arg) -> TagPair { throw std::runtime_error("Unreachable"); },
-               },
-               _requestData);
+  TagPair tagPair = std::visit(data::dispatch{
+                                 [](data::TagMultiSend tagMultiSend) {
+                                   return TagPair{tagMultiSend._tag, TagMaskFull};
+                                 },
+                                 [](data::TagMultiReceive tagMultiReceive) {
+                                   return TagPair{tagMultiReceive._tag, tagMultiReceive._tagMask};
+                                 },
+                                 [](auto) -> TagPair { throw std::runtime_error("Unreachable"); },
+                               },
+                               _requestData);
 
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: 0x%lx, tagMask: 0x%lx",
                  this,
@@ -336,7 +332,7 @@ void RequestTagMulti::send()
                        tagMultiSend._tag,
                        _isFilled);
       },
-      [](auto arg) { throw std::runtime_error("send() can only be called by a sendrequest."); },
+      [](auto) { throw std::runtime_error("send() can only be called by a sendrequest."); },
     },
     _requestData);
 }
