@@ -52,7 +52,7 @@ class RequestAm : public Request {
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   RequestAm(std::shared_ptr<Component> endpointOrWorker,
-            const data::RequestData requestData,
+            const std::variant<data::AmSend, data::AmReceive> requestData,
             const std::string operationName,
             const bool enablePythonFuture                = false,
             RequestCallbackUserFunction callbackFunction = nullptr,
@@ -83,11 +83,12 @@ class RequestAm : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
-  friend std::shared_ptr<RequestAm> createRequestAm(std::shared_ptr<Endpoint> endpoint,
-                                                    const data::RequestData requestData,
-                                                    const bool enablePythonFuture,
-                                                    RequestCallbackUserFunction callbackFunction,
-                                                    RequestCallbackUserData callbackData);
+  friend std::shared_ptr<RequestAm> createRequestAm(
+    std::shared_ptr<Endpoint> endpoint,
+    const std::variant<data::AmSend, data::AmReceive> requestData,
+    const bool enablePythonFuture,
+    RequestCallbackUserFunction callbackFunction,
+    RequestCallbackUserData callbackData);
 
   virtual void populateDelayedSubmission();
 

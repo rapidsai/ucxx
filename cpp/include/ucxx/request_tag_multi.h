@@ -76,7 +76,7 @@ class RequestTagMulti : public Request {
    *                                subsequently notified.
    */
   RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                  const data::RequestData requestData,
+                  const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
                   const std::string operationName,
                   const bool enablePythonFuture);
 
@@ -152,9 +152,10 @@ class RequestTagMulti : public Request {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  friend std::shared_ptr<RequestTagMulti> createRequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                                                                const data::RequestData requestData,
-                                                                const bool enablePythonFuture);
+  friend std::shared_ptr<RequestTagMulti> createRequestTagMulti(
+    std::shared_ptr<Endpoint> endpoint,
+    const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
+    const bool enablePythonFuture);
 
   /**
    * @brief `ucxx::RequestTagMulti` destructor.

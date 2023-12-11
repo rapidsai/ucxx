@@ -12,10 +12,10 @@
 
 namespace ucxx {
 RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
-                             const data::RequestData requestData,
+                             const std::variant<data::StreamSend, data::StreamReceive> requestData,
                              const std::string operationName,
                              const bool enablePythonFuture)
-  : Request(endpoint, requestData, operationName, enablePythonFuture)
+  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
 {
   std::visit(data::dispatch{
                [this](data::StreamSend streamSend) {
@@ -31,9 +31,10 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
              requestData);
 }
 
-std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
-                                                   const data::RequestData requestData,
-                                                   const bool enablePythonFuture = false)
+std::shared_ptr<RequestStream> createRequestStream(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::StreamSend, data::StreamReceive> requestData,
+  const bool enablePythonFuture = false)
 {
   std::shared_ptr<RequestStream> req =
     std::visit(data::dispatch{

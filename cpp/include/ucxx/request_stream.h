@@ -39,7 +39,7 @@ class RequestStream : public Request {
    *                                subsequently notified.
    */
   RequestStream(std::shared_ptr<Endpoint> endpoint,
-                const data::RequestData requestData,
+                const std::variant<data::StreamSend, data::StreamReceive> requestData,
                 const std::string operationName,
                 const bool enablePythonFuture = false);
 
@@ -61,9 +61,10 @@ class RequestStream : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestStream>` object
    */
-  friend std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
-                                                            const data::RequestData requestData,
-                                                            const bool enablePythonFuture);
+  friend std::shared_ptr<RequestStream> createRequestStream(
+    std::shared_ptr<Endpoint> endpoint,
+    const std::variant<data::StreamSend, data::StreamReceive> requestData,
+    const bool enablePythonFuture);
 
   virtual void populateDelayedSubmission();
 

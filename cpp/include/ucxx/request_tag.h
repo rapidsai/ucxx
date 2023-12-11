@@ -47,7 +47,7 @@ class RequestTag : public Request {
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   RequestTag(std::shared_ptr<Component> endpointOrWorker,
-             const data::RequestData requestData,
+             const std::variant<data::TagSend, data::TagReceive> requestData,
              const std::string operationName,
              const bool enablePythonFuture                = false,
              RequestCallbackUserFunction callbackFunction = nullptr,
@@ -78,11 +78,12 @@ class RequestTag : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestTag>` object
    */
-  friend std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
-                                                      const data::RequestData requestData,
-                                                      const bool enablePythonFuture,
-                                                      RequestCallbackUserFunction callbackFunction,
-                                                      RequestCallbackUserData callbackData);
+  friend std::shared_ptr<RequestTag> createRequestTag(
+    std::shared_ptr<Component> endpointOrWorker,
+    const std::variant<data::TagSend, data::TagReceive> requestData,
+    const bool enablePythonFuture,
+    RequestCallbackUserFunction callbackFunction,
+    RequestCallbackUserData callbackData);
 
   virtual void populateDelayedSubmission();
 

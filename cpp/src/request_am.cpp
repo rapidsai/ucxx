@@ -16,11 +16,12 @@
 
 namespace ucxx {
 
-std::shared_ptr<RequestAm> createRequestAm(std::shared_ptr<Endpoint> endpoint,
-                                           const data::RequestData requestData,
-                                           const bool enablePythonFuture                = false,
-                                           RequestCallbackUserFunction callbackFunction = nullptr,
-                                           RequestCallbackUserData callbackData         = nullptr)
+std::shared_ptr<RequestAm> createRequestAm(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::AmSend, data::AmReceive> requestData,
+  const bool enablePythonFuture                = false,
+  RequestCallbackUserFunction callbackFunction = nullptr,
+  RequestCallbackUserData callbackData         = nullptr)
 {
   std::shared_ptr<RequestAm> req = std::visit(
     data::dispatch{
@@ -49,7 +50,6 @@ std::shared_ptr<RequestAm> createRequestAm(std::shared_ptr<Endpoint> endpoint,
         };
         return worker->getAmRecv(endpoint->getHandle(), createRequest);
       },
-      [](auto) -> decltype(req) { throw std::runtime_error("Unreachable"); },
     },
     requestData);
 
@@ -57,12 +57,12 @@ std::shared_ptr<RequestAm> createRequestAm(std::shared_ptr<Endpoint> endpoint,
 }
 
 RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
-                     const data::RequestData requestData,
+                     const std::variant<data::AmSend, data::AmReceive> requestData,
                      const std::string operationName,
                      const bool enablePythonFuture,
                      RequestCallbackUserFunction callbackFunction,
                      RequestCallbackUserData callbackData)
-  : Request(endpointOrWorker, requestData, operationName, enablePythonFuture)
+  : Request(endpointOrWorker, data::getRequestData(requestData), operationName, enablePythonFuture)
 {
   std::visit(data::dispatch{
                [this](data::AmSend amSend) {
@@ -70,7 +70,6 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
                    throw ucxx::Error("An endpoint is required to send active messages");
                },
                [](data::AmReceive amReceive) {},
-               [](auto) { throw std::runtime_error("Unreachable"); },
              },
              requestData);
 

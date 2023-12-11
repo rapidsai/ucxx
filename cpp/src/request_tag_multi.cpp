@@ -25,11 +25,12 @@ BufferRequest::BufferRequest() { ucxx_trace("BufferRequest created: %p", this); 
 
 BufferRequest::~BufferRequest() { ucxx_trace("BufferRequest destroyed: %p", this); }
 
-RequestTagMulti::RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                                 const data::RequestData requestData,
-                                 const std::string operationName,
-                                 const bool enablePythonFuture)
-  : Request(endpoint, requestData, operationName, enablePythonFuture)
+RequestTagMulti::RequestTagMulti(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
+  const std::string operationName,
+  const bool enablePythonFuture)
+  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
 {
   auto worker = endpoint->getWorker();
   if (enablePythonFuture) _future = worker->getFuture();
@@ -53,9 +54,10 @@ RequestTagMulti::~RequestTagMulti()
   }
 }
 
-std::shared_ptr<RequestTagMulti> createRequestTagMulti(std::shared_ptr<Endpoint> endpoint,
-                                                       const data::RequestData requestData,
-                                                       const bool enablePythonFuture)
+std::shared_ptr<RequestTagMulti> createRequestTagMulti(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
+  const bool enablePythonFuture)
 {
   std::shared_ptr<RequestTagMulti> req =
     std::visit(data::dispatch{
@@ -71,7 +73,6 @@ std::shared_ptr<RequestTagMulti> createRequestTagMulti(std::shared_ptr<Endpoint>
                    req->recvCallback(UCS_OK);
                    return req;
                  },
-                 [](auto) -> decltype(req) { throw std::runtime_error("Unreachable"); },
                },
                requestData);
 

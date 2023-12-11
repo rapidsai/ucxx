@@ -197,6 +197,12 @@ dispatch(Ts...) -> dispatch<Ts...>;
 template <class... Ts>
 dispatch(Ts&...) -> dispatch<Ts...>;
 
+template <class T>
+RequestData getRequestData(T t)
+{
+  return std::visit([](auto arg) -> RequestData { return arg; }, t);
+}
+
 }  // namespace data
 
 }  // namespace ucxx
