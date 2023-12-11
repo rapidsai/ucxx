@@ -145,25 +145,27 @@ static void logPopulateDelayedSubmission() {}
 
 void RequestTag::populateDelayedSubmission()
 {
-  bool terminate = false;
-  std::visit(data::dispatch{
-               [this, &terminate](data::TagSend tagSend) {
-                 if (_endpoint->getHandle() == nullptr) {
-                   ucxx_warn("Endpoint was closed before message could be sent");
-                   Request::callback(this, UCS_ERR_CANCELED);
-                   terminate = true;
-                 }
+  bool terminate =
+    std::visit(data::dispatch{
+                 [this](data::TagSend tagSend) {
+                   if (_endpoint->getHandle() == nullptr) {
+                     ucxx_warn("Endpoint was closed before message could be sent");
+                     Request::callback(this, UCS_ERR_CANCELED);
+                     return true;
+                   }
+                   return false;
+                 },
+                 [this](data::TagReceive tagReceive) {
+                   if (_worker->getHandle() == nullptr) {
+                     ucxx_warn("Worker was closed before message could be received");
+                     Request::callback(this, UCS_ERR_CANCELED);
+                     return true;
+                   }
+                   return false;
+                 },
+                 [](auto arg) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
                },
-               [this, &terminate](data::TagReceive tagReceive) {
-                 if (_worker->getHandle() == nullptr) {
-                   ucxx_warn("Worker was closed before message could be received");
-                   Request::callback(this, UCS_ERR_CANCELED);
-                   terminate = true;
-                 }
-               },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
-             },
-             _requestData);
+               _requestData);
   if (terminate) return;
 
   request();

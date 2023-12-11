@@ -277,18 +277,19 @@ void RequestAm::request()
 
 void RequestAm::populateDelayedSubmission()
 {
-  bool terminate = false;
-  std::visit(data::dispatch{
-               [this, &terminate](data::AmSend amSend) {
-                 if (_endpoint->getHandle() == nullptr) {
-                   ucxx_warn("Endpoint was closed before message could be sent");
-                   Request::callback(this, UCS_ERR_CANCELED);
-                   terminate = true;
-                 }
+  bool terminate =
+    std::visit(data::dispatch{
+                 [this](data::AmSend amSend) {
+                   if (_endpoint->getHandle() == nullptr) {
+                     ucxx_warn("Endpoint was closed before message could be sent");
+                     Request::callback(this, UCS_ERR_CANCELED);
+                     return true;
+                   }
+                   return false;
+                 },
+                 [](auto arg) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
                },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
-             },
-             _requestData);
+               _requestData);
   if (terminate) return;
 
   request();
