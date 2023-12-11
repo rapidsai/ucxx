@@ -16,20 +16,26 @@ namespace data {
 AmSend::AmSend(const void* buffer, const size_t length, const ucs_memory_type memoryType)
   : _buffer(buffer), _length(length), _memoryType(memoryType)
 {
-  if (buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
-  if (length == 0) throw std::runtime_error("Length has to be a positive value.");
 }
 
 AmReceive::AmReceive() {}
 
 StreamSend::StreamSend(const void* buffer, const size_t length) : _buffer(buffer), _length(length)
 {
+  /**
+   * Stream API does not support zero-sized messages. See
+   * https://github.com/openucx/ucx/blob/6b45097e32c75c9b5d17f4770923204d568548d0/src/ucp/stream/stream_recv.c#L501
+   */
   if (buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
   if (length == 0) throw std::runtime_error("Length has to be a positive value.");
 }
 
 StreamReceive::StreamReceive(void* buffer, const size_t length) : _buffer(buffer), _length(length)
 {
+  /**
+   * Stream API does not support zero-sized messages. See
+   * https://github.com/openucx/ucx/blob/6b45097e32c75c9b5d17f4770923204d568548d0/src/ucp/stream/stream_recv.c#L501
+   */
   if (buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
   if (length == 0) throw std::runtime_error("Length has to be a positive value.");
 }
@@ -37,8 +43,6 @@ StreamReceive::StreamReceive(void* buffer, const size_t length) : _buffer(buffer
 TagSend::TagSend(const void* buffer, const size_t length, const ::ucxx::Tag tag)
   : _buffer(buffer), _length(length), _tag(tag)
 {
-  if (buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
-  if (length == 0) throw std::runtime_error("Length has to be a positive value.");
 }
 
 TagReceive::TagReceive(void* buffer,
@@ -47,8 +51,6 @@ TagReceive::TagReceive(void* buffer,
                        const ::ucxx::TagMask tagMask)
   : _buffer(buffer), _length(length), _tag(tag), _tagMask(tagMask)
 {
-  if (buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
-  if (length == 0) throw std::runtime_error("Length has to be a positive value.");
 }
 
 TagMultiSend::TagMultiSend(const std::vector<void*>& buffer,
