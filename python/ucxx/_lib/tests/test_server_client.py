@@ -80,6 +80,13 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
 
     msg = Array(bytearray(msg_size))
 
+    if transfer_api == "stream" and msg_size == 0:
+        with pytest.raises(RuntimeError):
+            _recv(ep[0], transfer_api, msg)
+        with pytest.raises(RuntimeError):
+            _send(ep[0], transfer_api, msg)
+        return
+
     # We reuse the message buffer, so we must receive, wait, and then send
     # it back again.
     requests = [_recv(ep[0], transfer_api, msg)]
@@ -131,6 +138,14 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
 
     send_msg = bytes(os.urandom(msg_size))
     recv_msg = bytearray(msg_size)
+
+    if transfer_api == "stream" and msg_size == 0:
+        with pytest.raises(RuntimeError):
+            _send(ep, transfer_api, Array(send_msg))
+        with pytest.raises(RuntimeError):
+            _recv(ep, transfer_api, Array(recv_msg))
+        return
+
     requests = [
         _send(ep, transfer_api, Array(send_msg)),
         _recv(ep, transfer_api, Array(recv_msg)),
@@ -146,7 +161,7 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
 
 
 @pytest.mark.parametrize("transfer_api", ["am", "stream", "tag"])
-@pytest.mark.parametrize("msg_size", [10, 2**24])
+@pytest.mark.parametrize("msg_size", [0, 10, 2**24])
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
 def test_server_client(transfer_api, msg_size, progress_mode):
     put_queue, get_queue = mp.Queue(), mp.Queue()
