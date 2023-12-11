@@ -19,6 +19,8 @@
 
 namespace ucxx {
 
+typedef std::pair<Tag, TagMask> TagPair;
+
 BufferRequest::BufferRequest() { ucxx_trace("BufferRequest created: %p", this); }
 
 BufferRequest::~BufferRequest() { ucxx_trace("BufferRequest destroyed: %p", this); }
@@ -79,23 +81,19 @@ std::shared_ptr<RequestTagMulti> createRequestTagMulti(std::shared_ptr<Endpoint>
   return req;
 }
 
-static std::pair<Tag, TagMask> checkAndGetTagPair(const data::RequestData& requestData,
-                                                  const std::string methodName)
+static TagPair checkAndGetTagPair(const data::RequestData& requestData,
+                                  const std::string methodName)
 {
-  std::pair<Tag, TagMask> tagPair;
-
-  std::visit(
+  return std::visit(
     data::dispatch{
-      [&tagPair](data::TagMultiReceive tagMultiReceive) {
-        tagPair = std::make_pair(tagMultiReceive._tag, tagMultiReceive._tagMask);
+      [](data::TagMultiReceive tagMultiReceive) {
+        return TagPair{tagMultiReceive._tag, tagMultiReceive._tagMask};
       },
-      [&methodName](auto arg) {
+      [&methodName](auto arg) -> TagPair {
         throw std::runtime_error(methodName + "() can only be called by a receive request.");
       },
     },
     requestData);
-
-  return tagPair;
 }
 
 void RequestTagMulti::recvFrames()
@@ -175,17 +173,17 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
     return;
   }
 
-  std::pair<Tag, TagMask> tagPair;
-  std::visit(data::dispatch{
-               [&tagPair](data::TagMultiSend tagMultiSend) {
-                 tagPair = std::make_pair(tagMultiSend._tag, TagMaskFull);
+  TagPair tagPair =
+    std::visit(data::dispatch{
+                 [](data::TagMultiSend tagMultiSend) {
+                   return TagPair{tagMultiSend._tag, TagMaskFull};
+                 },
+                 [](data::TagMultiReceive tagMultiReceive) {
+                   return TagPair{tagMultiReceive._tag, tagMultiReceive._tagMask};
+                 },
+                 [](auto arg) -> TagPair { throw std::runtime_error("Unreachable"); },
                },
-               [&tagPair](data::TagMultiReceive tagMultiReceive) {
-                 tagPair = std::make_pair(tagMultiReceive._tag, tagMultiReceive._tagMask);
-               },
-               [](auto arg) { throw std::runtime_error("Unreachable"); },
-             },
-             _requestData);
+               _requestData);
 
   ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: 0x%lx, tagMask: 0x%lx",
                  this,
