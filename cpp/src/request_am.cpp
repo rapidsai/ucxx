@@ -248,13 +248,13 @@ std::shared_ptr<Buffer> RequestAm::getRecvBuffer()
 void RequestAm::request()
 {
   std::visit(data::dispatch{
-               [this](const data::AmSend& amSend) {
-                 ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                                                              UCP_OP_ATTR_FIELD_FLAGS |
-                                                              UCP_OP_ATTR_FIELD_USER_DATA,
-                                              .flags     = UCP_AM_SEND_FLAG_REPLY,
-                                              .datatype  = ucp_dt_make_contig(1),
-                                              .user_data = this};
+               [this](data::AmSend amSend) {
+                 ucp_request_param_t param = {
+                   .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_FLAGS |
+                                   UCP_OP_ATTR_FIELD_USER_DATA,
+                   .flags     = UCP_AM_SEND_FLAG_REPLY | UCP_AM_SEND_FLAG_COPY_HEADER,
+                   .datatype  = ucp_dt_make_contig(1),
+                   .user_data = this};
 
                  param.cb.send = _amSendCallback;
                  void* request = ucp_am_send_nbx(_endpoint->getHandle(),
