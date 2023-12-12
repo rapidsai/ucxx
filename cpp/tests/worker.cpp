@@ -84,19 +84,19 @@ TEST_F(WorkerTest, TagProbe)
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
   auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
 
-  ASSERT_FALSE(_worker->tagProbe(0));
+  ASSERT_FALSE(_worker->tagProbe(ucxx::Tag{0}));
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagSend(buf.data(), buf.size() * sizeof(int), 0));
+  requests.push_back(ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}));
   waitRequests(_worker, requests, progressWorker);
 
   // Attempt to progress worker 10 times (arbitrarily defined).
   // TODO: Maybe a timeout would fit best.
-  for (size_t i = 0; i < 10 && !_worker->tagProbe(0); ++i)
+  for (size_t i = 0; i < 10 && !_worker->tagProbe(ucxx::Tag{0}); ++i)
     progressWorker();
 
-  ASSERT_TRUE(_worker->tagProbe(0));
+  ASSERT_TRUE(_worker->tagProbe(ucxx::Tag{0}));
 }
 
 TEST_F(WorkerTest, AmProbe)
@@ -113,7 +113,7 @@ TEST_F(WorkerTest, AmProbe)
 
   // Attempt to progress worker 10 times (arbitrarily defined).
   // TODO: Maybe a timeout would fit best.
-  for (size_t i = 0; i < 10 && !_worker->tagProbe(0); ++i)
+  for (size_t i = 0; i < 10 && !_worker->tagProbe(ucxx::Tag{0}); ++i)
     progressWorker();
 
   ASSERT_TRUE(_worker->amProbe(ep->getHandle()));
@@ -169,8 +169,9 @@ TEST_P(WorkerProgressTest, ProgressTag)
   std::vector<int> recv(1);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagSend(send.data(), send.size() * sizeof(int), 0));
-  requests.push_back(ep->tagRecv(recv.data(), recv.size() * sizeof(int), 0));
+  requests.push_back(ep->tagSend(send.data(), send.size() * sizeof(int), ucxx::Tag{0}));
+  requests.push_back(
+    ep->tagRecv(recv.data(), recv.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -193,8 +194,8 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
   std::vector<int> multiIsCUDA(numMulti, false);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagMultiSend(multiBuffer, multiSize, multiIsCUDA, 0, false));
-  requests.push_back(ep->tagMultiRecv(0, false));
+  requests.push_back(ep->tagMultiSend(multiBuffer, multiSize, multiIsCUDA, ucxx::Tag{0}, false));
+  requests.push_back(ep->tagMultiRecv(ucxx::Tag{0}, ucxx::TagMaskFull, false));
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& br :

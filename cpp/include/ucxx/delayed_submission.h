@@ -7,55 +7,22 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <ucp/api/ucp.h>
+#include <ucs/memory/memory_type.h>
 
 #include <ucxx/log.h>
+#include <ucxx/request_data.h>
 
 namespace ucxx {
 
 typedef std::function<void()> DelayedSubmissionCallbackType;
-
-class DelayedSubmission {
- public:
-  bool _send{false};       ///< Whether this is a send (`true`) operation or recv (`false`)
-  void* _buffer{nullptr};  ///< Raw pointer to data buffer
-  size_t _length{0};       ///< Length of the message in bytes
-  ucp_tag_t _tag{0};       ///< Tag to match
-  ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_UNKNOWN};  ///< Buffer memory type
-
-  DelayedSubmission() = delete;
-
-  /**
-   * @brief Constructor for a delayed submission operation.
-   *
-   * Construct a delayed submission operation. Delayed submission means that a transfer
-   * operation will not be submitted immediately, but will rather be delayed for the next
-   * progress iteration.
-   *
-   * This may be useful to avoid any transfer operations to be executed directly in the
-   * application thread, delaying all of them for the worker progress thread when enabled.
-   * With this approach any perceived overhead will be removed from the application thread,
-   * and thus provide some speedup in certain situations. It may be also useful to prevent
-   * a multi-threaded application for blocking while waiting for the UCX spinlock, since
-   * all transfer operations may be pushed to the worker progress thread.
-   *
-   * @param[in] send        whether this is a send (`true`) or receive (`false`) operation.
-   * @param[in] buffer      a raw pointer to the data being transferred.
-   * @param[in] length      the size in bytes of the message being transfer.
-   * @param[in] tag         tag to match for this operation (only applies for tag
-   *                        operations).
-   * @param[in] memoryType  the memory type of the buffer.
-   */
-  DelayedSubmission(const bool send,
-                    void* buffer,
-                    const size_t length,
-                    const ucp_tag_t tag                = 0,
-                    const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_UNKNOWN);
-};
 
 template <typename T>
 class BaseDelayedSubmissionCollection {

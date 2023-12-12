@@ -179,6 +179,13 @@ cdef extern from "<ucxx/notifier.h>" namespace "ucxx" nogil:
 
 
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
+    cdef enum Tag:
+        pass
+    cdef enum TagMask:
+        pass
+    # ctypedef Tag CppTag
+    # ctypedef TagMask CppTagMask
+
     # Using function[Buffer] here doesn't seem possible due to Cython bugs/limitations. The
     # workaround is to use a raw C function pointer and let it be parsed by the compiler.
     # See https://github.com/cython/cython/issues/2041 and
@@ -238,7 +245,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         size_t cancelInflightRequests(
             uint64_t period, uint64_t maxAttempts
         ) except +raise_py_error
-        bint tagProbe(const ucp_tag_t) const
+        bint tagProbe(const Tag) const
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callbackArg
         )
@@ -249,7 +256,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void runRequestNotifier() except +raise_py_error
         void populateFuturesPool() except +raise_py_error
         shared_ptr[Request] tagRecv(
-            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
+            void* buffer,
+            size_t length,
+            Tag tag,
+            TagMask tag_mask,
+            bint enable_python_future
         ) except +raise_py_error
         bint isDelayedRequestSubmissionEnabled() const
         bint isFutureEnabled() const
@@ -272,20 +283,24 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             void* buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagSend(
-            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
+            void* buffer, size_t length, Tag tag, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagRecv(
-            void* buffer, size_t length, ucp_tag_t tag, bint enable_python_future
+            void* buffer,
+            size_t length,
+            Tag tag,
+            TagMask tag_mask,
+            bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagMultiSend(
             const vector[void*]& buffer,
             const vector[size_t]& length,
             const vector[int]& isCUDA,
-            ucp_tag_t tag,
+            Tag tag,
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagMultiRecv(
-            ucp_tag_t tag, bint enable_python_future
+            Tag tag, TagMask tagMask, bint enable_python_future
         ) except +raise_py_error
         bint isAlive()
         void raiseOnError() except +raise_py_error
@@ -329,7 +344,6 @@ cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:
         vector[BufferRequestPtr] _bufferRequests
         bint _isFilled
         shared_ptr[Endpoint] _endpoint
-        ucp_tag_t _tag
         bint _send
 
         cpp_bool isCompleted()

@@ -72,11 +72,11 @@ def test_feature_flags_mismatch(feature_flag):
         with pytest.raises(
             ValueError, match="UCXContext must be created with `Feature.TAG`"
         ):
-            ep.tag_send(msg, 0)
+            ep.tag_send(msg, tag=ucx_api.UCXXTag(0))
         with pytest.raises(
             ValueError, match="UCXContext must be created with `Feature.TAG`"
         ):
-            ep.tag_recv(msg, 0)
+            ep.tag_recv(msg, tag=ucx_api.UCXXTag(0))
     if feature_flag != ucx_api.Feature.STREAM:
         with pytest.raises(
             ValueError, match="UCXContext must be created with `Feature.STREAM`"

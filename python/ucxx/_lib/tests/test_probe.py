@@ -52,7 +52,13 @@ def _server_probe(queue, transfer_api):
         wireup = bytes(wireup_req.get_recv_buffer())
     else:
         wireup = bytearray(len(WireupMessage))
-        wait_requests(worker, "blocking", ep.tag_recv(Array(wireup), tag=0))
+        wait_requests(
+            worker,
+            "blocking",
+            ep.tag_recv(
+                Array(wireup), tag=ucx_api.UCXXTag(0), tag_mask=ucx_api.UCXXTagMaskFull
+            ),
+        )
     queue.put("wireup completed")
 
     # Ensure client has disconnected -- endpoint is not alive anymore
@@ -67,10 +73,18 @@ def _server_probe(queue, transfer_api):
         wait_requests(worker, "blocking", recv_req)
         received = bytes(recv_req.get_recv_buffer())
     else:
-        while worker.tag_probe(0) is False:
+        while worker.tag_probe(ucx_api.UCXXTag(0)) is False:
             worker.progress()
         received = bytearray(len(DataMessage))
-        wait_requests(worker, "blocking", ep.tag_recv(Array(received), tag=0))
+        wait_requests(
+            worker,
+            "blocking",
+            ep.tag_recv(
+                Array(received),
+                tag=ucx_api.UCXXTag(0),
+                tag_mask=ucx_api.UCXXTagMaskFull,
+            ),
+        )
 
     assert wireup == WireupMessage
     assert received == DataMessage
@@ -97,8 +111,8 @@ def _client_probe(queue, transfer_api):
         ]
     else:
         requests = [
-            ep.tag_send(Array(WireupMessage), tag=0),
-            ep.tag_send(Array(DataMessage), tag=0),
+            ep.tag_send(Array(WireupMessage), tag=ucx_api.UCXXTag(0)),
+            ep.tag_send(Array(DataMessage), tag=ucx_api.UCXXTag(0)),
         ]
     wait_requests(worker, "blocking", requests)
 

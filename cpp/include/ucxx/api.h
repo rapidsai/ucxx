@@ -19,4 +19,5 @@
 #include <ucxx/request.h>
 #include <ucxx/request_tag_multi.h>
 #include <ucxx/typedefs.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/worker.h>

@@ -5,9 +5,12 @@
 #pragma once
 
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
+
+#include <ucp/api/ucp.h>
 
 namespace ucxx {
 
@@ -31,6 +34,13 @@ typedef enum {
   UCXX_LOG_LEVEL_LAST,
   UCXX_LOG_LEVEL_PRINT /* Temporary output */
 } ucxx_log_level_t;
+
+enum class TransferDirection { Send = 0, Receive };
+
+enum Tag : ucp_tag_t {};
+enum TagMask : ucp_tag_t {};
+
+static constexpr TagMask TagMaskFull{std::numeric_limits<std::underlying_type_t<TagMask>>::max()};
 
 typedef std::unordered_map<std::string, std::string> ConfigMap;
 
