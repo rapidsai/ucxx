@@ -12,11 +12,7 @@ include(../fetch_rapids.cmake)
 project(
   ucxx-python
   VERSION ${ucxx_version}
-  LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
-            # language to be enabled here. The test project that is built in scikit-build to verify
-            # various linking options for the python library is hardcoded to build with C, so until
-            # that is fixed we need to keep C.
-            C CXX
+  LANGUAGES CXX
 )
 
 option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulting to local files"
@@ -30,7 +26,7 @@ else()
   set(ucxx_FOUND OFF)
 endif()
 
-include(rapids-cython)
+include(rapids-cython-core)
 
 if(NOT ucxx_FOUND)
   set(BUILD_TESTS OFF)

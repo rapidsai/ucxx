@@ -209,8 +209,7 @@ outputs:
       host:
         - python
         - pip
-        - scikit-build>=0.13.1
-        - setuptools
+        - scikit-build-core>=0.7.0
         - cython >=3.0.0
         - numpy 1.21
         - {{ pin_subpackage('libucxx', exact=True) }}
@@ -264,6 +263,8 @@ outputs:
       host:
         - python
         - pip
+        - setuptools
+        - wheel
         - tomli
       run:
         - python * *_cpython
