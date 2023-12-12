@@ -194,8 +194,6 @@ struct dispatch : Ts... {
 };
 template <class... Ts>
 dispatch(Ts...) -> dispatch<Ts...>;
-template <class... Ts>
-dispatch(Ts&...) -> dispatch<Ts...>;
 
 template <class T>
 RequestData getRequestData(T t)
