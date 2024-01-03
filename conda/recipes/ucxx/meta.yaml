@@ -67,6 +67,7 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - ucx
     requirements:
       build:
@@ -165,6 +166,7 @@ outputs:
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - sysroot_{{ target_platform }}
         - cmake
         - ninja
@@ -204,6 +206,7 @@ outputs:
         {% if cuda_major != "11" %}
         - {{ compiler('cuda') }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - ninja
         - sysroot_{{ target_platform }}
       host:
