@@ -81,10 +81,12 @@ dependencies:
           - cython>=3.0.0
           - ninja
           - rmm==24.2.*
-          - scikit-build>=0.13.1
-          - setuptools
-          - tomli
-          - wheel
+      - output_types: conda
+        packages:
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
   checks:
     common:
       - output_types: [conda, requirements]
