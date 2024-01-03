@@ -91,10 +91,10 @@ TEST_F(WorkerTest, TagProbe)
   requests.push_back(ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}));
   waitRequests(_worker, requests, progressWorker);
 
-  // Attempt to progress worker 10 times (arbitrarily defined).
-  // TODO: Maybe a timeout would fit best.
-  for (size_t i = 0; i < 10 && !_worker->tagProbe(ucxx::Tag{0}); ++i)
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
     progressWorker();
+    return _worker->tagProbe(ucxx::Tag{0});
+  });
 
   ASSERT_TRUE(_worker->tagProbe(ucxx::Tag{0}));
 }
@@ -111,10 +111,10 @@ TEST_F(WorkerTest, AmProbe)
   requests.push_back(ep->amSend(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
   waitRequests(_worker, requests, progressWorker);
 
-  // Attempt to progress worker 10 times (arbitrarily defined).
-  // TODO: Maybe a timeout would fit best.
-  for (size_t i = 0; i < 10 && !_worker->tagProbe(ucxx::Tag{0}); ++i)
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker, ep]() {
     progressWorker();
+    return _worker->amProbe(ep->getHandle());
+  });
 
   ASSERT_TRUE(_worker->amProbe(ep->getHandle()));
 }
