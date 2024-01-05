@@ -178,8 +178,8 @@ def main():
             worker.progress_worker_event()
 
     wireup_requests = [
-        ep.tag_send(Array(wireup_send_buf), tag=0),
-        listener_ep.tag_recv(Array(wireup_recv_buf), tag=0),
+        ep.tag_send(Array(wireup_send_buf), tag=ucx_api.UCXXTag(0)),
+        listener_ep.tag_recv(Array(wireup_recv_buf), tag=ucx_api.UCXXTag(0)),
     ]
     _wait_requests(worker, args.progress_mode, wireup_requests)
 
@@ -201,7 +201,9 @@ def main():
         #     data_ptrs, sizes, is_cuda, tag=0
         # )
 
-        send_buffer_requests = listener_ep.tag_send_multi(frames, tag=0)
+        send_buffer_requests = listener_ep.tag_send_multi(
+            frames, tag=ucx_api.UCXXTag(0)
+        )
         recv_buffer_requests = ep.tag_recv_multi(0)
 
         requests = [send_buffer_requests, recv_buffer_requests]
@@ -225,12 +227,12 @@ def main():
         recv_bufs = recv_buffer_requests.get_py_buffers()
     else:
         requests = [
-            listener_ep.tag_send(Array(send_bufs[0]), tag=0),
-            listener_ep.tag_send(Array(send_bufs[1]), tag=1),
-            listener_ep.tag_send(Array(send_bufs[2]), tag=2),
-            ep.tag_recv(Array(recv_bufs[0]), tag=0),
-            ep.tag_recv(Array(recv_bufs[1]), tag=1),
-            ep.tag_recv(Array(recv_bufs[2]), tag=2),
+            listener_ep.tag_send(Array(send_bufs[0]), tag=ucx_api.UCXTag(0)),
+            listener_ep.tag_send(Array(send_bufs[1]), tag=ucx_api.UCXTag(1)),
+            listener_ep.tag_send(Array(send_bufs[2]), tag=ucx_api.UCXTag(2)),
+            ep.tag_recv(Array(recv_bufs[0]), tag=ucx_api.UCXTag(0)),
+            ep.tag_recv(Array(recv_bufs[1]), tag=ucx_api.UCXTag(1)),
+            ep.tag_recv(Array(recv_bufs[2]), tag=ucx_api.UCXTag(2)),
         ]
 
         if args.asyncio_wait_future:

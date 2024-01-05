@@ -10,6 +10,7 @@ from queue import Queue
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
 from ucxx.exceptions import UCXMessageTruncatedError
+from ucxx.types import Tag
 
 from .continuous_ucx_progress import PollingMode, ThreadMode
 from .endpoint import Endpoint
@@ -450,10 +451,12 @@ class ApplicationContext:
         """
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
         nbytes = buffer.nbytes
         log = "[Worker Recv] worker: %s, tag: %s, nbytes: %d, type: %s" % (
             hex(self.worker.handle),
-            hex(tag),
+            hex(tag.value),
             nbytes,
             type(buffer.obj),
         )

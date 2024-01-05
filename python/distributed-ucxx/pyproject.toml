@@ -29,6 +29,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 
+[project.entry-points."distributed.comm.backends"]
+ucxx = "distributed_ucxx:UCXXBackend"
+
 [project.optional-dependencies]
 docs = [
     "sphinx",

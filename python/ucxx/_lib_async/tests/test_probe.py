@@ -4,8 +4,9 @@
 import asyncio
 
 import pytest
+from ucxx.types import Tag
 
-import ucxx as ucxx
+import ucxx
 
 
 @pytest.mark.asyncio
@@ -23,7 +24,7 @@ async def test_message_probe(transfer_api):
             assert ep._ep.am_probe() is True
             received = bytes(await ep.am_recv())
         else:
-            assert ep._ctx.worker.tag_probe(ep._tags["msg_recv"]) is True
+            assert ep._ctx.worker.tag_probe(Tag(ep._tags["msg_recv"])) is True
             received = bytearray(10)
             await ep.recv(received)
         assert received == msg

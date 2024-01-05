@@ -9,27 +9,40 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
+#include <ucxx/request_data.h>
 #include <ucxx/request_tag.h>
 
 namespace ucxx {
 
-std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
-                                             bool send,
-                                             void* buffer,
-                                             size_t length,
-                                             ucp_tag_t tag,
-                                             const bool enablePythonFuture                = false,
-                                             RequestCallbackUserFunction callbackFunction = nullptr,
-                                             RequestCallbackUserData callbackData         = nullptr)
+std::shared_ptr<RequestTag> createRequestTag(
+  std::shared_ptr<Component> endpointOrWorker,
+  const std::variant<data::TagSend, data::TagReceive> requestData,
+  const bool enablePythonFuture                = false,
+  RequestCallbackUserFunction callbackFunction = nullptr,
+  RequestCallbackUserData callbackData         = nullptr)
 {
-  auto req = std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
-                                                        send,
-                                                        buffer,
-                                                        length,
-                                                        tag,
-                                                        enablePythonFuture,
-                                                        callbackFunction,
-                                                        callbackData));
+  std::shared_ptr<RequestTag> req =
+    std::visit(data::dispatch{
+                 [&endpointOrWorker, &enablePythonFuture, &callbackFunction, &callbackData](
+                   data::TagSend tagSend) {
+                   return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
+                                                                     tagSend,
+                                                                     "tagSend",
+                                                                     enablePythonFuture,
+                                                                     callbackFunction,
+                                                                     callbackData));
+                 },
+                 [&endpointOrWorker, &enablePythonFuture, &callbackFunction, &callbackData](
+                   data::TagReceive tagReceive) {
+                   return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
+                                                                     tagReceive,
+                                                                     "tagRecv",
+                                                                     enablePythonFuture,
+                                                                     callbackFunction,
+                                                                     callbackData));
+                 },
+               },
+               requestData);
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
@@ -41,21 +54,22 @@ std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpoint
 }
 
 RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
-                       bool send,
-                       void* buffer,
-                       size_t length,
-                       ucp_tag_t tag,
+                       const std::variant<data::TagSend, data::TagReceive> requestData,
+                       const std::string operationName,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)
-  : Request(endpointOrWorker,
-            std::make_shared<DelayedSubmission>(send, buffer, length, tag),
-            std::string(send ? "tagSend" : "tagRecv"),
-            enablePythonFuture),
-    _length(length)
+  : Request(endpointOrWorker, data::getRequestData(requestData), operationName, enablePythonFuture)
 {
-  if (send && _endpoint == nullptr)
-    throw ucxx::Error("An endpoint is required to send tag messages");
+  std::visit(data::dispatch{
+               [this](data::TagSend tagSend) {
+                 if (_endpoint == nullptr)
+                   throw ucxx::Error("An endpoint is required to send tag messages");
+               },
+               [](data::TagReceive tagReceive) {},
+             },
+             requestData);
+
   _callback     = callbackFunction;
   _callbackData = callbackData;
 }
@@ -93,8 +107,6 @@ void RequestTag::tagRecvCallback(void* request,
 
 void RequestTag::request()
 {
-  static const ucp_tag_t tagMask = -1;
-
   ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                UCP_OP_ATTR_FIELD_DATATYPE |
                                                UCP_OP_ATTR_FIELD_USER_DATA,
@@ -102,60 +114,94 @@ void RequestTag::request()
                                .user_data = this};
   void* request             = nullptr;
 
-  if (_delayedSubmission->_send) {
-    param.cb.send = tagSendCallback;
-    request       = ucp_tag_send_nbx(_endpoint->getHandle(),
-                               _delayedSubmission->_buffer,
-                               _delayedSubmission->_length,
-                               _delayedSubmission->_tag,
-                               &param);
-  } else {
-    param.cb.recv = tagRecvCallback;
-    request       = ucp_tag_recv_nbx(_worker->getHandle(),
-                               _delayedSubmission->_buffer,
-                               _delayedSubmission->_length,
-                               _delayedSubmission->_tag,
-                               tagMask,
-                               &param);
-  }
+  std::visit(data::dispatch{
+               [this, &request, &param](data::TagSend tagSend) {
+                 param.cb.send = tagSendCallback;
+                 request       = ucp_tag_send_nbx(
+                   _endpoint->getHandle(), tagSend._buffer, tagSend._length, tagSend._tag, &param);
+               },
+               [this, &request, &param](data::TagReceive tagReceive) {
+                 param.cb.recv = tagRecvCallback;
+                 request       = ucp_tag_recv_nbx(_worker->getHandle(),
+                                            tagReceive._buffer,
+                                            tagReceive._length,
+                                            tagReceive._tag,
+                                            tagReceive._tagMask,
+                                            &param);
+               },
+               [](auto) { throw std::runtime_error("Unreachable"); },
+             },
+             _requestData);
 
   std::lock_guard<std::recursive_mutex> lock(_mutex);
   _request = request;
 }
 
+static void logPopulateDelayedSubmission() {}
+
 void RequestTag::populateDelayedSubmission()
 {
-  if (_delayedSubmission->_send && _endpoint->getHandle() == nullptr) {
-    ucxx_warn("Endpoint was closed before message could be sent");
-    Request::callback(this, UCS_ERR_CANCELED);
-    return;
-  } else if (!_delayedSubmission->_send && _worker->getHandle() == nullptr) {
-    ucxx_warn("Worker was closed before message could be received");
-    Request::callback(this, UCS_ERR_CANCELED);
-    return;
-  }
+  bool terminate =
+    std::visit(data::dispatch{
+                 [this](data::TagSend tagSend) {
+                   if (_endpoint->getHandle() == nullptr) {
+                     ucxx_warn("Endpoint was closed before message could be sent");
+                     Request::callback(this, UCS_ERR_CANCELED);
+                     return true;
+                   }
+                   return false;
+                 },
+                 [this](data::TagReceive tagReceive) {
+                   if (_worker->getHandle() == nullptr) {
+                     ucxx_warn("Worker was closed before message could be received");
+                     Request::callback(this, UCS_ERR_CANCELED);
+                     return true;
+                   }
+                   return false;
+                 },
+                 [](auto) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
+               },
+               _requestData);
+  if (terminate) return;
 
   request();
 
-  if (_enablePythonFuture)
-    ucxx_trace_req_f(
-      _ownerString.c_str(),
-      _request,
-      _operationName.c_str(),
-      "tag 0x%lx, buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
-      _delayedSubmission->_tag,
-      _delayedSubmission->_buffer,
-      _delayedSubmission->_length,
-      _future.get(),
-      _future->getHandle());
-  else
-    ucxx_trace_req_f(_ownerString.c_str(),
-                     _request,
-                     _operationName.c_str(),
-                     "tag 0x%lx, buffer %p, size %lu, populateDelayedSubmission",
-                     _delayedSubmission->_tag,
-                     _delayedSubmission->_buffer,
-                     _delayedSubmission->_length);
+  auto log = [this](const void* buffer, const size_t length, const Tag tag, const TagMask tagMask) {
+    if (_enablePythonFuture)
+      ucxx_trace_req_f(
+        _ownerString.c_str(),
+        _request,
+        _operationName.c_str(),
+        "buffer: %p, size: %lu, tag 0x%lx, tagMask: 0x%lx, future %p, future handle %p, "
+        "populateDelayedSubmission",
+        buffer,
+        length,
+        tag,
+        tagMask,
+        _future.get(),
+        _future->getHandle());
+    else
+      ucxx_trace_req_f(
+        _ownerString.c_str(),
+        _request,
+        _operationName.c_str(),
+        "buffer: %p, size: %lu, tag 0x%lx, tagMask: 0x%lx, populateDelayedSubmission",
+        buffer,
+        length,
+        tag,
+        tagMask);
+  };
+
+  std::visit(data::dispatch{
+               [this, &log](data::TagSend tagSend) {
+                 log(tagSend._buffer, tagSend._length, tagSend._tag, TagMaskFull);
+               },
+               [this, &log](data::TagReceive tagReceive) {
+                 log(tagReceive._buffer, tagReceive._length, tagReceive._tag, tagReceive._tagMask);
+               },
+               [](auto) { throw std::runtime_error("Unreachable"); },
+             },
+             _requestData);
 
   process();
 }

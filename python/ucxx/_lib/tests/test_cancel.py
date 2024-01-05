@@ -55,7 +55,7 @@ def _client_cancel(queue):
     assert ep.is_alive()
 
     msg = Array(bytearray(1))
-    request = ep.tag_recv(msg, tag=0)
+    request = ep.tag_recv(msg, tag=ucx_api.UCXXTag(0))
 
     while not request.is_completed():
         worker.progress()

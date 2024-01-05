@@ -25,11 +25,11 @@ def _init_and_get_objects(progress_mode):
     # callback even after it has terminated.
     listener_ep = [None]
 
-    def _listener_handler(conn_request):
-        listener_ep[0] = listener.create_endpoint_from_conn_request(conn_request, True)
+    def _listener_handler(ep):
+        listener_ep[0] = ep
 
     listener = ucx_api.UCXListener.create(
-        worker=worker, port=0, cb_func=_listener_handler
+        worker=worker, port=0, cb_func=_listener_handler, deliver_endpoint=True
     )
 
     client_ep = ucx_api.UCXEndpoint.create(

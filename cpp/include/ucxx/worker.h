@@ -55,8 +55,9 @@ class Worker : public Component {
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
 
-  friend std::shared_ptr<RequestAm> createRequestAmRecv(
+  friend std::shared_ptr<RequestAm> createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
+    const std::variant<data::AmSend, data::AmReceive> requestData,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
@@ -635,7 +636,7 @@ class Worker : public Component {
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
-  bool tagProbe(const ucp_tag_t tag);
+  bool tagProbe(const Tag tag);
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -653,6 +654,7 @@ class Worker : public Component {
    *                              data will be stored.
    * @param[in] length            the size in bytes of the tag message to be received.
    * @param[in] tag               the tag to match.
+   * @param[in] tagMask           the tag mask to use.
    * @param[in] enableFuture      whether a future should be created and subsequently
    *                              notified.
    * @param[in] callbackFunction  user-defined callback function to call upon completion.
@@ -662,7 +664,8 @@ class Worker : public Component {
    */
   std::shared_ptr<Request> tagRecv(void* buffer,
                                    size_t length,
-                                   ucp_tag_t tag,
+                                   Tag tag,
+                                   TagMask tagMask,
                                    const bool enableFuture                      = false,
                                    RequestCallbackUserFunction callbackFunction = nullptr,
                                    RequestCallbackUserData callbackData         = nullptr);

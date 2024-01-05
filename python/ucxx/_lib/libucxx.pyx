@@ -6,6 +6,7 @@ import asyncio
 import enum
 import functools
 import logging
+import weakref
 
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
@@ -213,6 +214,26 @@ class PythonRequestNotifierWaitState(enum.Enum):
     Timeout = RequestNotifierWaitState.Timeout
     Shutdown = RequestNotifierWaitState.Shutdown
 
+
+class UCXXTag():
+    def __init__(self, tag: int) -> None:
+        if (tag.bit_length() > 64):
+            raise ValueError("`tag` must be a 64-bit integer")
+        self.value = tag
+
+
+class UCXXTagMask():
+    def __init__(self, tag_mask: int) -> None:
+        if (tag_mask.bit_length() > 64):
+            raise ValueError("`tag_mask` must be a 64-bit integer")
+        self.value = tag_mask
+
+
+###############################################################################
+#                                  Constants                                  #
+###############################################################################
+
+UCXXTagMaskFull = UCXXTagMask(2 ** 64 - 1)
 
 ###############################################################################
 #                                   Classes                                   #
@@ -485,7 +506,7 @@ cdef class UCXWorker():
             handle = self._worker.get().getHandle()
 
         return int(<uintptr_t>handle)
-    
+
     @property
     def ucxx_ptr(self):
         cdef Worker* worker
@@ -570,11 +591,14 @@ cdef class UCXWorker():
 
         return num_canceled
 
-    def tag_probe(self, size_t tag):
+    def tag_probe(self, tag: UCXXTag):
+        if not isinstance(tag, UCXXTag):
+            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
         cdef bint tag_matched
+        cdef Tag cpp_tag = <Tag><size_t>tag.value
 
         with nogil:
-            tag_matched = self._worker.get().tagProbe(tag)
+            tag_matched = self._worker.get().tagProbe(cpp_tag)
 
         return tag_matched
 
@@ -628,10 +652,16 @@ cdef class UCXWorker():
     def is_python_future_enabled(self):
         return self._enable_python_future
 
-    def tag_recv(self, Array arr, size_t tag):
+    def tag_recv(self, Array arr, tag: UCXXTagMask, tag_mask: UCXXTagMask = UCXXTagMaskFull):
+        if not isinstance(tag, UCXXTag):
+            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
+        if not isinstance(tag_mask, UCXXTagMask):
+            raise TypeError(f"The `tag_mask` object must be of type {UCXXTagMask}")
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+        cdef Tag cpp_tag = <Tag><size_t>tag.value
+        cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
@@ -640,7 +670,8 @@ cdef class UCXWorker():
             req = self._worker.get().tagRecv(
                 buf,
                 nbytes,
-                tag,
+                cpp_tag,
+                cpp_tag_mask,
                 self._enable_python_future
             )
 
@@ -1145,10 +1176,13 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_send(self, Array arr, size_t tag):
+    def tag_send(self, Array arr, tag: UCXXTagMask):
+        if not isinstance(tag, UCXXTag):
+            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+        cdef Tag cpp_tag = <Tag><size_t>tag.value
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
@@ -1164,16 +1198,22 @@ cdef class UCXEndpoint():
             req = self._endpoint.get().tagSend(
                 buf,
                 nbytes,
-                tag,
+                cpp_tag,
                 self._enable_python_future
             )
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_recv(self, Array arr, size_t tag):
+    def tag_recv(self, Array arr, tag: UCXXTagMask, tag_mask: UCXXTagMask=UCXXTagMaskFull):
+        if not isinstance(tag, UCXXTag):
+            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
+        if not isinstance(tag_mask, UCXXTagMask):
+            raise TypeError(f"The `tag_mask` object must be of type {UCXXTagMask}")
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+        cdef Tag cpp_tag = <Tag><size_t>tag.value
+        cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
@@ -1189,17 +1229,21 @@ cdef class UCXEndpoint():
             req = self._endpoint.get().tagRecv(
                 buf,
                 nbytes,
-                tag,
+                cpp_tag,
+                cpp_tag_mask,
                 self._enable_python_future
             )
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_send_multi(self, tuple arrays, size_t tag):
+    def tag_send_multi(self, tuple arrays, tag: UCXXTagMask):
+        if not isinstance(tag, UCXXTag):
+            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
         cdef shared_ptr[Request] ucxx_buffer_requests
+        cdef Tag cpp_tag = <Tag><size_t>tag.value
 
         for arr in arrays:
             if not isinstance(arr, Array):
@@ -1224,7 +1268,7 @@ cdef class UCXEndpoint():
                 v_buffer,
                 v_size,
                 v_is_cuda,
-                tag,
+                cpp_tag,
                 self._enable_python_future,
             )
 
@@ -1232,12 +1276,18 @@ cdef class UCXEndpoint():
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
         )
 
-    def tag_recv_multi(self, size_t tag):
+    def tag_recv_multi(self, tag: UCXXTagMask, tag_mask: UCXXTagMask=UCXXTagMaskFull):
+        if not isinstance(tag, UCXXTag):
+            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
+        if not isinstance(tag_mask, UCXXTagMask):
+            raise TypeError(f"The `tag_mask` object must be of type {UCXXTagMask}")
         cdef shared_ptr[Request] ucxx_buffer_requests
+        cdef Tag cpp_tag = <Tag><size_t>tag.value
+        cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
 
         with nogil:
             ucxx_buffer_requests = self._endpoint.get().tagMultiRecv(
-                tag, self._enable_python_future
+                cpp_tag, cpp_tag_mask, self._enable_python_future
             )
 
         return UCXBufferRequests(
@@ -1285,7 +1335,7 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
     try:
         cb_data['cb_func'](
             (
-                cb_data['listener'].create_endpoint_from_conn_request(
+                cb_data['listener']().create_endpoint_from_conn_request(
                     int(<uintptr_t>conn_request), True
                 ) if 'listener' in cb_data else
                 int(<uintptr_t>conn_request)
@@ -1302,6 +1352,7 @@ cdef class UCXListener():
         shared_ptr[Listener] _listener
         bint _enable_python_future
         dict _cb_data
+        object __weakref__
 
     def __init__(
             self,
@@ -1353,7 +1404,7 @@ cdef class UCXListener():
             worker.is_python_future_enabled(),
         )
         if deliver_endpoint is True:
-            cb_data["listener"] = listener
+            cb_data["listener"] = weakref.ref(listener)
         return listener
 
     @property

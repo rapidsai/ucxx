@@ -118,6 +118,7 @@ add_library(
   src/log.cpp
   src/request.cpp
   src/request_am.cpp
+  src/request_data.cpp
   src/request_helper.cpp
   src/request_stream.cpp
   src/request_tag.cpp
