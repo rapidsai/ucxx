@@ -55,7 +55,9 @@ RequestMem::RequestMem(std::shared_ptr<Endpoint> endpoint,
   : Request(endpoint,
             std::make_shared<DelayedSubmission>(send, buffer, length, 0),
             std::string(send ? "memSend" : "memRecv"),
-            enablePythonFuture)
+            enablePythonFuture),
+    _remote_addr(remote_addr),
+    _rkey(rkey)
 {
   if (_endpoint == nullptr)
     throw ucxx::Error("An endpoint is required to perform remote memory put/get messages");
