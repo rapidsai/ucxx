@@ -275,22 +275,24 @@ size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 
   if (std::this_thread::get_id() == worker->getProgressThreadId()) {
     canceled = _inflightRequests->cancelAll();
-    worker->progress();
+    for (uint64_t i = 0; i < maxAttempts && _inflightRequests->getCancelingCount() > 0; ++i)
+      worker->progress();
   } else if (worker->isProgressThreadRunning()) {
     bool cancelSuccess = false;
     for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
       utils::CallbackNotifier callbackNotifierPre{};
       worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
-        canceled = _inflightRequests->cancelAll();
+        canceled += _inflightRequests->cancelAll();
         callbackNotifierPre.set();
       });
       if (!callbackNotifierPre.wait(period)) continue;
 
       utils::CallbackNotifier callbackNotifierPost{};
-      worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+      worker->registerGenericPost([this, &callbackNotifierPost, &cancelSuccess]() {
+        cancelSuccess = _inflightRequests->getCancelingCount() == 0;
+        callbackNotifierPost.set();
+      });
       if (!callbackNotifierPost.wait(period)) continue;
-
-      cancelSuccess = true;
     }
     if (!cancelSuccess)
       ucxx_error("All attempts to cancel inflight requests failed on endpoint: %p, UCP handle: %p",

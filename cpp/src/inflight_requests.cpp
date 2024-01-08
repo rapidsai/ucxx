@@ -21,11 +21,16 @@ void InflightRequests::insert(std::shared_ptr<Request> request)
   _inflightRequests->insert({request.get(), request});
 }
 
-void InflightRequests::merge(InflightRequestsMapPtr inflightRequestsMap)
+void InflightRequests::merge(InflightRequestsMapPtrPair inflightRequestsMapPtrPair)
 {
-  std::lock_guard<std::mutex> lock(_mutex);
-
-  _inflightRequests->merge(*inflightRequestsMap);
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _inflightRequests->merge(*(inflightRequestsMapPtrPair.first));
+  }
+  {
+    std::lock_guard<std::mutex> lock(_cancelMutex);
+    _cancelingRequests->merge(*(inflightRequestsMapPtrPair.second));
+  }
 }
 
 void InflightRequests::remove(const Request* const request)
@@ -67,6 +72,38 @@ void InflightRequests::remove(const Request* const request)
   } while (true);
 }
 
+size_t InflightRequests::dropCanceled()
+{
+  size_t removed = 0;
+
+  {
+    std::scoped_lock lock{_cancelMutex};
+    for (auto it = _cancelingRequests->begin(); it != _cancelingRequests->end();) {
+      auto request = it->second;
+      if (request != nullptr && request->getStatus() != UCS_INPROGRESS) {
+        it = _cancelingRequests->erase(it);
+        ++removed;
+      } else {
+        ++it;
+      }
+    }
+  }
+
+  return removed;
+}
+
+size_t InflightRequests::getCancelingCount()
+{
+  dropCanceled();
+  size_t cancelingCount = 0;
+  {
+    std::scoped_lock lock{_cancelMutex};
+    cancelingCount = _cancelingRequests->size();
+  }
+
+  return cancelingCount;
+}
+
 size_t InflightRequests::cancelAll()
 {
   decltype(_inflightRequests) toCancel;
@@ -88,16 +125,22 @@ size_t InflightRequests::cancelAll()
     auto request = r.second;
     if (request != nullptr) { request->cancel(); }
   }
-  toCancel->clear();
+
+  {
+    std::scoped_lock lock{_cancelMutex, _mutex};
+    _cancelingRequests->merge(*toCancel);
+  }
+  dropCanceled();
 
   return total;
 }
 
-InflightRequestsMapPtr InflightRequests::release()
+InflightRequestsMapPtrPair InflightRequests::release()
 {
-  std::lock_guard<std::mutex> lock(_mutex);
+  std::scoped_lock lock{_cancelMutex, _mutex};
 
-  return std::exchange(_inflightRequests, std::make_unique<InflightRequestsMap>());
+  return {std::exchange(_inflightRequests, std::make_unique<InflightRequestsMap>()),
+          std::exchange(_cancelingRequests, std::make_unique<InflightRequestsMap>())};
 }
 
 }  // namespace ucxx

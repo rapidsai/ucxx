@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 namespace ucxx {
 
@@ -14,15 +15,29 @@ class Request;
 
 typedef std::map<const Request* const, std::shared_ptr<Request>> InflightRequestsMap;
 typedef std::unique_ptr<InflightRequestsMap> InflightRequestsMapPtr;
+typedef std::pair<InflightRequestsMapPtr, InflightRequestsMapPtr> InflightRequestsMapPtrPair;
 
 class InflightRequests {
  private:
   InflightRequestsMapPtr _inflightRequests{
     std::make_unique<InflightRequestsMap>()};  ///< Container storing pointers to all inflight
                                                ///< requests known to the owner of this object
+  InflightRequestsMapPtr _cancelingRequests{
+    std::make_unique<InflightRequestsMap>()};  ///< Container storing pointers to all requests
+                                               ///< known to the owner of this object in
+                                               ///< process of cancelation
   std::mutex _mutex{};  ///< Mutex to control access to inflight requests container
   std::mutex
     _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
+
+  /**
+   * @brief Drop references to requests that completed cancelation.
+   *
+   * Drops references to requests that completed cancelation and stop tracking them.
+   *
+   * @returns The number of requests that have completed cancelation since last call.
+   */
+  size_t dropCanceled();
 
  public:
   /**
@@ -57,15 +72,15 @@ class InflightRequests {
   void insert(std::shared_ptr<Request> request);
 
   /**
-   * @brief Merge a container of inflight requests with the internal container.
+   * @brief Merge containers of inflight requests with the internal containers.
    *
-   * Merge a container of inflight requests obtained from `InflightRequests::release()` of
-   * another object with the internal container.
+   * Merge containers of inflight requests obtained from `InflightRequests::release()` of
+   * another object with the internal containers.
    *
-   * @param[in] inflightRequestsMap container of inflight requests to merge with the
-   *                                internal container.
+   * @param[in] inflightRequestsMapPair containers of inflight requests to merge with the
+   *                                    internal containers.
    */
-  void merge(InflightRequestsMapPtr inflightRequestsMap);
+  void merge(InflightRequestsMapPtrPair inflightRequestsMapPtrPair);
 
   /**
    * @brief Remove an inflight request from the internal container.
@@ -92,15 +107,27 @@ class InflightRequests {
   size_t cancelAll();
 
   /**
-   * @brief Releases the internal container.
+   * @brief Releases the internal containers.
    *
-   * Releases the internal container that can be merged into another `InflightRequests`
+   * Releases the internal containers that can be merged into another `InflightRequests`
    * object with `InflightRequests::release()`. Effectively leaves the internal state as a
    * clean, new object.
    *
-   * @returns The internal container.
+   * @returns The internal containers.
    */
-  InflightRequestsMapPtr release();
+  InflightRequestsMapPtrPair release();
+
+  /**
+   * @brief Get count of requests in process of cancelation.
+   *
+   * After `cancelAll()` is called the requests are scheduled for cancelation but may not
+   * complete immediately, therefore they are tracked until cancelation is completed. This
+   * method returns the count of requests in process of cancelation and drops references
+   * to those that have completed.
+   *
+   * @returns The count of requests that are in process of cancelation.
+   */
+  size_t getCancelingCount();
 };
 
 }  // namespace ucxx

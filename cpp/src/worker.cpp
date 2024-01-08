@@ -411,22 +411,25 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 
   if (std::this_thread::get_id() == getProgressThreadId()) {
     canceled = inflightRequestsToCancel->cancelAll();
-    progressPending();
+    for (uint64_t i = 0; i < maxAttempts && inflightRequestsToCancel->getCancelingCount() > 0; ++i)
+      progressPending();
   } else if (isProgressThreadRunning()) {
     bool cancelSuccess = false;
     for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
       utils::CallbackNotifier callbackNotifierPre{};
       registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
-        canceled = inflightRequestsToCancel->cancelAll();
+        canceled += inflightRequestsToCancel->cancelAll();
         callbackNotifierPre.set();
       });
       if (!callbackNotifierPre.wait(period)) continue;
 
       utils::CallbackNotifier callbackNotifierPost{};
-      registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+      registerGenericPost(
+        [this, &callbackNotifierPost, inflightRequestsToCancel, &cancelSuccess]() {
+          cancelSuccess = inflightRequestsToCancel->getCancelingCount() == 0;
+          callbackNotifierPost.set();
+        });
       if (!callbackNotifierPost.wait(period)) continue;
-
-      cancelSuccess = true;
     }
 
     if (!cancelSuccess)
@@ -435,6 +438,11 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
                  _handle);
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
+  }
+
+  if (inflightRequestsToCancel->getCancelingCount() > 0) {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    _inflightRequestsToCancel->merge(inflightRequestsToCancel->release());
   }
 
   return canceled;
