@@ -205,9 +205,7 @@ void Worker::initBlockingProgressMode()
 
   err = epoll_ctl(_epollFileDescriptor, EPOLL_CTL_ADD, _workerFileDescriptor, &workerEvent);
   if (err != 0) {
-    std::stringstream ss;
-    ss << "epoll_ctl() returned " << err;
-    throw std::ios_base::failure(ss.str());
+    throw std::ios_base::failure(std::string("epoll_ctl() returned ") + std::to_string(err));
   }
 }
 
