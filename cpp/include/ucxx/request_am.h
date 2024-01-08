@@ -90,7 +90,7 @@ class RequestAm : public Request {
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
 
-  virtual void populateDelayedSubmission();
+  void populateDelayedSubmission() override;
 
   /**
    * @brief Create and submit an active message send request.

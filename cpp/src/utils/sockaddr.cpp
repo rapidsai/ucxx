@@ -56,8 +56,8 @@ void sockaddr_get_ip_port_str(const struct sockaddr_storage* sockaddr,
       inet_ntop(AF_INET6, &addr_in6->sin6_addr, ip_str, max_str_size);
       snprintf(port_str, max_str_size, "%u", ntohs(addr_in6->sin6_port));
     default:
-      ip_str   = const_cast<char*>(reinterpret_cast<const char*>("Invalid address family"));
-      port_str = const_cast<char*>(reinterpret_cast<const char*>("Invalid address family"));
+      snprintf(ip_str, max_str_size, "Invalid address family");
+      snprintf(port_str, max_str_size, "Invalid address family");
   }
 }
 

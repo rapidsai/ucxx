@@ -273,8 +273,8 @@ void RequestTagMulti::recvCallback(ucs_status_t status)
       ucxx_trace_req(
         "RequestTagMulti::recvCallback failed receiving header with status %d (%s), multi request: "
         "%p, "
-        "tag: 0x%lx",
-        "tagMask: 0x%lx",
+        "tag: 0x%lx, "
+        "tagMask: 0x%lx,",
         status,
         ucs_status_string(status),
         this,
