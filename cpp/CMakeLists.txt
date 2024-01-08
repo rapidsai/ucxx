@@ -77,6 +77,7 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 # * compiler options ------------------------------------------------------------------------------
 rapids_find_package(
   ucx REQUIRED
+  GLOBAL_TARGETS ucx::ucp ucx::ucs ucx::uct
   BUILD_EXPORT_SET ucxx-exports
   INSTALL_EXPORT_SET ucxx-exports
 )
@@ -119,6 +120,7 @@ add_library(
   src/request.cpp
   src/request_am.cpp
   src/request_helper.cpp
+  src/request_mem.cpp
   src/request_stream.cpp
   src/request_tag.cpp
   src/request_tag_multi.cpp
@@ -149,9 +151,9 @@ target_compile_options(
 # Specify include paths for the current target and dependents
 target_include_directories(
   ucxx
-  PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
+  PUBLIC "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
          "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
-  PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
+  PRIVATE "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 

@@ -265,6 +265,22 @@ class Endpoint : public Component {
    */
   void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
 
+  std::shared_ptr<Request> memGet(void* buffer,
+                                  size_t length,
+                                  uint64_t remote_addr,
+                                  ucp_rkey_h rkey,
+                                  const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
+  std::shared_ptr<Request> memPut(void* buffer,
+                                  size_t length,
+                                  uint64_t remote_addr,
+                                  ucp_rkey_h rkey,
+                                  const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
   /**
    * @brief Enqueue an active message send operation.
    *

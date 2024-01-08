@@ -16,6 +16,7 @@
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
 #include <ucxx/request_am.h>
+#include <ucxx/request_mem.h>
 #include <ucxx/request_stream.h>
 #include <ucxx/request_tag.h>
 #include <ucxx/request_tag_multi.h>
@@ -300,6 +301,46 @@ size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
   }
 
   return canceled;
+}
+
+std::shared_ptr<Request> Endpoint::memGet(void* buffer,
+                                          size_t length,
+                                          uint64_t remote_addr,
+                                          ucp_rkey_h rkey,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(createRequestMem(endpoint,
+                                                  false,
+                                                  buffer,
+                                                  length,
+                                                  remote_addr,
+                                                  rkey,
+                                                  enablePythonFuture,
+                                                  callbackFunction,
+                                                  callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::memPut(void* buffer,
+                                          size_t length,
+                                          uint64_t remote_addr,
+                                          ucp_rkey_h rkey,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(createRequestMem(endpoint,
+                                                  true,
+                                                  buffer,
+                                                  length,
+                                                  remote_addr,
+                                                  rkey,
+                                                  enablePythonFuture,
+                                                  callbackFunction,
+                                                  callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::amSend(void* buffer,

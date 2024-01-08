@@ -20,6 +20,7 @@ class Listener;
 class Notifier;
 class Request;
 class RequestAm;
+class RequestMem;
 class RequestStream;
 class RequestTag;
 class RequestTagMulti;
@@ -73,6 +74,16 @@ std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> end
                                                    void* buffer,
                                                    size_t length,
                                                    const bool enablePythonFuture);
+
+std::shared_ptr<RequestMem> createRequestMem(std::shared_ptr<Endpoint> endpoint,
+                                             bool send,
+                                             void* buffer,
+                                             size_t length,
+                                             uint64_t remote_addr,
+                                             ucp_rkey_h rkey,
+                                             const bool enablePythonFuture,
+                                             RequestCallbackUserFunction callbackFunction,
+                                             RequestCallbackUserData callbackData);
 
 std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
                                              bool send,
