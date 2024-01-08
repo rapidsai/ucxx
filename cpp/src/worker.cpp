@@ -403,7 +403,7 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 {
   size_t canceled = 0;
 
-  auto inflightRequestsToCancel = std::make_shared<InflightRequests>();
+  auto inflightRequestsToCancel = std::make_unique<InflightRequests>();
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
     std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
@@ -425,7 +425,7 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 
       utils::CallbackNotifier callbackNotifierPost{};
       registerGenericPost(
-        [this, &callbackNotifierPost, inflightRequestsToCancel, &cancelSuccess]() {
+        [this, &callbackNotifierPost, &inflightRequestsToCancel, &cancelSuccess]() {
           cancelSuccess = inflightRequestsToCancel->getCancelingCount() == 0;
           callbackNotifierPost.set();
         });
@@ -448,12 +448,14 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
   return canceled;
 }
 
-void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests)
+void Worker::scheduleRequestCancel(InflightRequestsMapPtrPair inflightRequestsMapPtrPair)
 {
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
-    ucxx_debug("Scheduling cancelation of %lu requests", inflightRequests->size());
-    _inflightRequestsToCancel->merge(inflightRequests->release());
+    ucxx_debug(
+      "Scheduling cancelation of %lu requests",
+      inflightRequestsMapPtrPair.first->size() + inflightRequestsMapPtrPair.second->size());
+    _inflightRequestsToCancel->merge(std::move(inflightRequestsMapPtrPair));
   }
 }
 

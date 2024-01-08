@@ -258,7 +258,7 @@ std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Reque
    * for cancelation, including the present one.
    */
   if (_callbackData->status != UCS_OK)
-    _callbackData->worker->scheduleRequestCancel(_inflightRequests);
+    _callbackData->worker->scheduleRequestCancel(_inflightRequests->release());
 
   return request;
 }
@@ -404,7 +404,7 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
   ErrorCallbackData* data = reinterpret_cast<ErrorCallbackData*>(arg);
   data->status            = status;
-  data->worker->scheduleRequestCancel(data->inflightRequests);
+  data->worker->scheduleRequestCancel(data->inflightRequests->release());
   if (data->closeCallback) {
     ucxx_debug("Calling user callback for endpoint %p", ep);
     data->closeCallback(data->closeCallbackArg);
