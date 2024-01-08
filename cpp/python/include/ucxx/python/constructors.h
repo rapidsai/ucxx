@@ -1,10 +1,12 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2024, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <memory>
+
+#include <Python.h>
 
 #include <ucxx/buffer.h>
 
