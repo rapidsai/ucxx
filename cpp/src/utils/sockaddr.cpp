@@ -51,13 +51,16 @@ void sockaddr_get_ip_port_str(const struct sockaddr_storage* sockaddr,
       addr_in = reinterpret_cast<decltype(addr_in)>(sockaddr);
       inet_ntop(AF_INET, &addr_in->sin_addr, ip_str, max_str_size);
       snprintf(port_str, max_str_size, "%u", ntohs(addr_in->sin_port));
+      break;
     case AF_INET6:
       addr_in6 = reinterpret_cast<decltype(addr_in6)>(sockaddr);
       inet_ntop(AF_INET6, &addr_in6->sin6_addr, ip_str, max_str_size);
       snprintf(port_str, max_str_size, "%u", ntohs(addr_in6->sin6_port));
+      break;
     default:
       snprintf(ip_str, max_str_size, "Invalid address family");
       snprintf(port_str, max_str_size, "Invalid address family");
+      break;
   }
 }
 
