@@ -327,6 +327,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void checkError() except +raise_py_error
         void* getFuture() except +raise_py_error
         shared_ptr[Buffer] getRecvBuffer() except +raise_py_error
+        void cancel()
 
 
 cdef extern from "<ucxx/request_tag_multi.h>" namespace "ucxx" nogil:

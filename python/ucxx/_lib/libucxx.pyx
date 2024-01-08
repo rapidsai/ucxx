@@ -691,6 +691,7 @@ cdef class UCXRequest():
 
     def __dealloc__(self):
         with nogil:
+            self._request.get().cancel()
             self._request.reset()
 
     def is_completed(self):
