@@ -448,14 +448,13 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
   return canceled;
 }
 
-void Worker::scheduleRequestCancel(InflightRequestsMapPtrPair inflightRequestsMapPtrPair)
+void Worker::scheduleRequestCancel(TrackedRequestsPtr trackedRequests)
 {
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
-    ucxx_debug(
-      "Scheduling cancelation of %lu requests",
-      inflightRequestsMapPtrPair.first->size() + inflightRequestsMapPtrPair.second->size());
-    _inflightRequestsToCancel->merge(std::move(inflightRequestsMapPtrPair));
+    ucxx_debug("Scheduling cancelation of %lu requests",
+               trackedRequests->_inflight->size() + trackedRequests->_canceling->size());
+    _inflightRequestsToCancel->merge(std::move(trackedRequests));
   }
 }
 

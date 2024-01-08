@@ -601,7 +601,7 @@ class Worker : public Component {
    *
    * @param[in] inflight requests object that implements the `cancelAll()` method.
    */
-  void scheduleRequestCancel(InflightRequestsMapPtrPair inflightRequests);
+  void scheduleRequestCancel(TrackedRequestsPtr trackedRequests);
 
   /**
    * @brief Remove reference to request from internal container.

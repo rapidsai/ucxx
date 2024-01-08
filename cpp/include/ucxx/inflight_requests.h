@@ -15,17 +15,24 @@ class Request;
 
 typedef std::map<const Request* const, std::shared_ptr<Request>> InflightRequestsMap;
 typedef std::unique_ptr<InflightRequestsMap> InflightRequestsMapPtr;
-typedef std::pair<InflightRequestsMapPtr, InflightRequestsMapPtr> InflightRequestsMapPtrPair;
+typedef struct TrackedRequests {
+  InflightRequestsMapPtr _inflight;
+  InflightRequestsMapPtr _canceling;
+
+  TrackedRequests()
+    : _inflight(std::make_unique<InflightRequestsMap>()),
+      _canceling(std::make_unique<InflightRequestsMap>())
+  {
+  }
+} TrackedRequests;
+typedef std::unique_ptr<TrackedRequests> TrackedRequestsPtr;
 
 class InflightRequests {
  private:
-  InflightRequestsMapPtr _inflightRequests{
-    std::make_unique<InflightRequestsMap>()};  ///< Container storing pointers to all inflight
-                                               ///< requests known to the owner of this object
-  InflightRequestsMapPtr _cancelingRequests{
-    std::make_unique<InflightRequestsMap>()};  ///< Container storing pointers to all requests
-                                               ///< known to the owner of this object in
-                                               ///< process of cancelation
+  TrackedRequestsPtr _trackedRequests{
+    std::make_unique<TrackedRequests>()};  ///< Container storing pointers to all inflight
+                                           ///< and in cancelation process requests known to
+                                           ///< the owner of this object
   std::mutex _mutex{};  ///< Mutex to control access to inflight requests container
   std::mutex
     _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
@@ -77,10 +84,10 @@ class InflightRequests {
    * Merge containers of inflight requests obtained from `InflightRequests::release()` of
    * another object with the internal containers.
    *
-   * @param[in] inflightRequestsMapPair containers of inflight requests to merge with the
-   *                                    internal containers.
+   * @param[in] trackedRequestsPtr containers of tracked inflight requests to merge with the
+   *                               internal tracked inflight requests.
    */
-  void merge(InflightRequestsMapPtrPair inflightRequestsMapPtrPair);
+  void merge(TrackedRequestsPtr trackedRequests);
 
   /**
    * @brief Remove an inflight request from the internal container.
@@ -107,15 +114,15 @@ class InflightRequests {
   size_t cancelAll();
 
   /**
-   * @brief Releases the internal containers.
+   * @brief Releases the internally-tracked containers.
    *
-   * Releases the internal containers that can be merged into another `InflightRequests`
-   * object with `InflightRequests::release()`. Effectively leaves the internal state as a
-   * clean, new object.
+   * Releases the internally-tracked containers that can be merged into another
+   * `InflightRequests` object with `InflightRequests::merge()`. Effectively leaves the
+   * internal state as a clean, new object.
    *
-   * @returns The internal containers.
+   * @returns The internally-tracked containers.
    */
-  InflightRequestsMapPtrPair release();
+  TrackedRequestsPtr release();
 
   /**
    * @brief Get count of requests in process of cancelation.
