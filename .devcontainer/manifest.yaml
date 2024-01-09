@@ -1,0 +1,35 @@
+x-git-defaults: &git_defaults
+    host: github
+    tag: branch-24.02
+    upstream: rapidsai
+
+repos:
+
+- name: rmm
+  path: rmm
+  cpp:
+    - name: rmm
+      sub_dir: ""
+      depends: []
+  python:
+    - name: rmm
+      sub_dir: python
+      depends: []
+  git:
+    repo: rmm
+    <<: *git_defaults
+
+- name: ucxx
+  path: ucxx
+  git:
+    repo: ucxx
+    <<: *git_defaults
+    tag: branch-0.36
+  cpp:
+    - name: ucxx
+      sub_dir: "cpp"
+      depends: []
+  python:
+    - name: ucxx
+      sub_dir: "python"
+      depends: []
