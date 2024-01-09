@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -145,7 +145,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       // recvAmMessage.callback(nullptr, UCS_ERR_UNSUPPORTED);
       // return UCS_ERR_UNSUPPORTED;
 
-      ucxx_trace_req("No allocator registered for memory type %lu, falling back to host memory.",
+      ucxx_trace_req("No allocator registered for memory type %u, falling back to host memory.",
                      allocatorType);
       allocatorType = UCS_MEMORY_TYPE_HOST;
     }
@@ -292,7 +292,7 @@ void RequestAm::populateDelayedSubmission()
       ucxx_trace_req_f(_ownerString.c_str(),
                        _request,
                        _operationName.c_str(),
-                       "buffer %p, size %lu, memoryType: %lu, future %p, future handle %p, "
+                       "buffer %p, size %lu, memoryType: %u, future %p, future handle %p, "
                        "populateDelayedSubmission",
                        buffer,
                        length,
@@ -303,7 +303,7 @@ void RequestAm::populateDelayedSubmission()
       ucxx_trace_req_f(_ownerString.c_str(),
                        _request,
                        _operationName.c_str(),
-                       "buffer %p, size %lu, memoryType: %lu, populateDelayedSubmission",
+                       "buffer %p, size %lu, memoryType: %u, populateDelayedSubmission",
                        buffer,
                        length,
                        memoryType);

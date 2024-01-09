@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -90,7 +90,7 @@ class RequestAm : public Request {
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
 
-  virtual void populateDelayedSubmission();
+  void populateDelayedSubmission() override;
 
   /**
    * @brief Create and submit an active message send request.

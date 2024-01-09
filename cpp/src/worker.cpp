@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <functional>
@@ -204,7 +204,9 @@ void Worker::initBlockingProgressMode()
                              }};
 
   err = epoll_ctl(_epollFileDescriptor, EPOLL_CTL_ADD, _workerFileDescriptor, &workerEvent);
-  if (err != 0) throw std::ios_base::failure(std::string("epoll_ctl() returned " + err));
+  if (err != 0) {
+    throw std::ios_base::failure(std::string("epoll_ctl() returned ") + std::to_string(err));
+  }
 }
 
 bool Worker::arm()

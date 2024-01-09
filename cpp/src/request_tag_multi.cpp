@@ -1,9 +1,7 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include "ucxx/delayed_submission.h"
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -273,7 +271,7 @@ void RequestTagMulti::recvCallback(ucs_status_t status)
       ucxx_trace_req(
         "RequestTagMulti::recvCallback failed receiving header with status %d (%s), multi request: "
         "%p, "
-        "tag: 0x%lx",
+        "tag: 0x%lx, "
         "tagMask: 0x%lx",
         status,
         ucs_status_string(status),
