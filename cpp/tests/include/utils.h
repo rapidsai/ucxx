@@ -42,3 +42,5 @@ inline void waitRequests(std::shared_ptr<ucxx::Worker> worker,
 
 std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
                                           ProgressMode progressMode);
+
+bool loopWithTimeout(std::chrono::milliseconds timeout, std::function<bool()> f);

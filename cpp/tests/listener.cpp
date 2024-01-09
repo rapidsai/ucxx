@@ -13,9 +13,6 @@
 
 namespace {
 
-constexpr size_t MaxProgressAttempts = 50;
-constexpr size_t MaxFlakyAttempts    = 3;
-
 struct ListenerContainer {
   ucs_status_t status{UCS_OK};
   std::shared_ptr<ucxx::Worker> worker{nullptr};
@@ -146,43 +143,38 @@ TEST_F(ListenerTest, IsAlive)
     _worker->progress();
 
   listenerContainer->endpoint = nullptr;
-  for (size_t attempt = 0; attempt < MaxProgressAttempts && ep->isAlive(); ++attempt)
+
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, ep]() {
     _worker->progress();
+    return !ep->isAlive();
+  });
+
   ASSERT_FALSE(ep->isAlive());
 }
 
 TEST_F(ListenerTest, RaiseOnError)
 {
-  auto run = [this](bool lastAttempt) {
-    auto listenerContainer = createListenerContainer();
-    auto listener          = createListener(listenerContainer);
+  auto listenerContainer = createListenerContainer();
+  auto listener          = createListener(listenerContainer);
+  _worker->progress();
+
+  auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
+  while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
-    auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
-    while (listenerContainer->endpoint == nullptr)
+  listenerContainer->endpoint = nullptr;
+
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, ep]() {
+    try {
       _worker->progress();
-
-    listenerContainer->endpoint = nullptr;
-    bool success                = false;
-    for (size_t attempt = 0; attempt < MaxProgressAttempts; ++attempt) {
-      try {
-        _worker->progress();
-        ep->raiseOnError();
-      } catch (ucxx::Error) {
-        success = true;
-        break;
-      }
+      ep->raiseOnError();
+    } catch (ucxx::Error) {
+      return true;
     }
+    return false;
+  });
 
-    if (!success && !lastAttempt) return false;
-
-    EXPECT_THROW(ep->raiseOnError(), ucxx::Error);
-    return true;
-  };
-
-  for (size_t flakyAttempt = 0; flakyAttempt < MaxFlakyAttempts; ++flakyAttempt) {
-    if (run(flakyAttempt == MaxFlakyAttempts - 1)) break;
-  }
+  EXPECT_THROW(ep->raiseOnError(), ucxx::Error);
 }
 
 TEST_F(ListenerTest, CloseCallback)
@@ -203,8 +195,11 @@ TEST_F(ListenerTest, CloseCallback)
   ASSERT_FALSE(isClosed);
 
   listenerContainer->endpoint = nullptr;
-  for (size_t attempt = 0; attempt < MaxProgressAttempts && !isClosed; ++attempt)
+
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, &isClosed]() {
     _worker->progress();
+    return isClosed;
+  });
 
   ASSERT_TRUE(isClosed);
 }
