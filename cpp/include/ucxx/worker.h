@@ -40,12 +40,12 @@ class Worker : public Component {
   int _epollFileDescriptor{-1};         ///< The epoll file descriptor
   int _workerFileDescriptor{-1};        ///< The worker file descriptor
   std::mutex _inflightRequestsMutex{};  ///< Mutex to access the inflight requests pool
-  std::shared_ptr<InflightRequests> _inflightRequests{
-    std::make_shared<InflightRequests>()};  ///< The inflight requests
+  std::unique_ptr<InflightRequests> _inflightRequests{
+    std::make_unique<InflightRequests>()};  ///< The inflight requests
   std::mutex
     _inflightRequestsToCancelMutex{};  ///< Mutex to access the inflight requests to cancel pool
-  std::shared_ptr<InflightRequests> _inflightRequestsToCancel{
-    std::make_shared<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
+  std::unique_ptr<InflightRequests> _inflightRequestsToCancel{
+    std::make_unique<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
   std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};  ///< The progress thread object
   std::thread::id _progressThreadId{};                             ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
@@ -601,7 +601,7 @@ class Worker : public Component {
    *
    * @param[in] inflight requests object that implements the `cancelAll()` method.
    */
-  void scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests);
+  void scheduleRequestCancel(TrackedRequestsPtr trackedRequests);
 
   /**
    * @brief Remove reference to request from internal container.
