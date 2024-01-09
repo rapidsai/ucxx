@@ -126,7 +126,7 @@ void RequestStream::populateDelayedSubmission()
         this,
         _request,
         _operationName.c_str(),
-        "buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
+        "populateDelayedSubmission, buffer %p, size %lu, future %p, future handle %p",
         buffer,
         length,
         _future.get(),
@@ -136,7 +136,7 @@ void RequestStream::populateDelayedSubmission()
                        this,
                        _request,
                        _operationName.c_str(),
-                       "buffer %p, size %lu, populateDelayedSubmission",
+                       "populateDelayedSubmission, buffer %p, size %lu",
                        buffer,
                        length);
   };

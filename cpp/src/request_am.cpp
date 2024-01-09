@@ -130,13 +130,13 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     if (reqs != recvWait.end() && !reqs->second.empty()) {
       req = reqs->second.front();
       reqs->second.pop();
-      ucxx_trace_req("amRecv recvWait: %p", req.get());
+      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
     } else {
       req             = std::shared_ptr<RequestAm>(new RequestAm(
         worker, data::AmReceive(), "amReceive", worker->isFutureEnabled(), nullptr, nullptr));
       auto [queue, _] = recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
       queue->second.push(req);
-      ucxx_trace_req("amRecv recvPool: %p", req.get());
+      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvPool");
     }
   }
 
@@ -168,10 +168,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 
     if (req->_enablePythonFuture)
       ucxx_trace_req_f(ownerString.c_str(),
-                       this,
+                       req.get(),
                        status,
                        "amRecv rndv",
-                       "ep %p, buffer %p, size %lu, future %p, future handle %p, recvCallback",
+                       "recvCallback, ep: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                        ep,
                        buf->data(),
                        length,
@@ -179,10 +179,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        req->_future->getHandle());
     else
       ucxx_trace_req_f(ownerString.c_str(),
-                       this,
+                       req.get(),
                        status,
                        "amRecv rndv",
-                       "ep %p, buffer %p, size %lu, recvCallback",
+                       "recvCallback, ep: %p, buffer: %p, size: %lu",
                        ep,
                        buf->data(),
                        length);
@@ -211,10 +211,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 
     if (req->_enablePythonFuture)
       ucxx_trace_req_f(ownerString.c_str(),
-                       this,
+                       req.get(),
                        nullptr,
                        "amRecv eager",
-                       "ep: %p, buffer %p, size %lu, future %p, future handle %p, recvCallback",
+                       "recvCallback, ep: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                        ep,
                        buf->data(),
                        length,
@@ -222,10 +222,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        req->_future->getHandle());
     else
       ucxx_trace_req_f(ownerString.c_str(),
-                       this,
+                       req.get(),
                        nullptr,
                        "amRecv eager",
-                       "ep: %p, buffer %p, size %lu, recvCallback",
+                       "recvCallback, ep: %p, buffer: %p, size: %lu",
                        ep,
                        buf->data(),
                        length);
@@ -300,8 +300,8 @@ void RequestAm::populateDelayedSubmission()
                        this,
                        _request,
                        _operationName.c_str(),
-                       "buffer %p, size %lu, memoryType: %u, future %p, future handle %p, "
-                       "populateDelayedSubmission",
+                       "populateDelayedSubmission, buffer %p, size %lu, memoryType: %u, future %p, "
+                       "future handle %p, ",
                        buffer,
                        length,
                        memoryType,
@@ -312,7 +312,7 @@ void RequestAm::populateDelayedSubmission()
                        this,
                        _request,
                        _operationName.c_str(),
-                       "buffer %p, size %lu, memoryType: %u, populateDelayedSubmission",
+                       "populateDelayedSubmission, buffer %p, size %lu, memoryType: %u",
                        buffer,
                        length,
                        memoryType);

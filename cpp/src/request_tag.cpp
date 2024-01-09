@@ -168,26 +168,25 @@ void RequestTag::populateDelayedSubmission()
 
   auto log = [this](const void* buffer, const size_t length, const Tag tag, const TagMask tagMask) {
     if (_enablePythonFuture)
-      ucxx_trace_req_f(
-        _ownerString.c_str(),
-        this,
-        _request,
-        _operationName.c_str(),
-        "buffer: %p, size: %lu, tag 0x%lx, tagMask: 0x%lx, future %p, future handle %p, "
-        "populateDelayedSubmission",
-        buffer,
-        length,
-        tag,
-        tagMask,
-        _future.get(),
-        _future->getHandle());
+      ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
+                       _request,
+                       _operationName.c_str(),
+                       "populateDelayedSubmission, buffer: %p, size: %lu, tag 0x%lx, tagMask: "
+                       "0x%lx, future %p, future handle %p",
+                       buffer,
+                       length,
+                       tag,
+                       tagMask,
+                       _future.get(),
+                       _future->getHandle());
     else
       ucxx_trace_req_f(
         _ownerString.c_str(),
         this,
         _request,
         _operationName.c_str(),
-        "buffer: %p, size: %lu, tag 0x%lx, tagMask: 0x%lx, populateDelayedSubmission",
+        "populateDelayedSubmission, buffer: %p, size: %lu, tag 0x%lx, tagMask: 0x%lx",
         buffer,
         length,
         tag,
