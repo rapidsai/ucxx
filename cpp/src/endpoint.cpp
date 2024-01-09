@@ -194,7 +194,7 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
 
     if (!closeSuccess) {
       _callbackData->status = UCS_ERR_ENDPOINT_TIMEOUT;
-      ucxx_error("All attempts to close timed out on endpoint: %p, UCP handle: %p", this, _handle);
+      ucxx_debug("All attempts to close timed out on endpoint: %p, UCP handle: %p", this, _handle);
     }
   } else {
     status = ucp_ep_close_nb(_handle, closeMode);
@@ -295,7 +295,7 @@ size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
       if (!callbackNotifierPost.wait(period)) continue;
     }
     if (!cancelSuccess)
-      ucxx_error("All attempts to cancel inflight requests failed on endpoint: %p, UCP handle: %p",
+      ucxx_debug("All attempts to cancel inflight requests failed on endpoint: %p, UCP handle: %p",
                  this,
                  _handle);
   } else {

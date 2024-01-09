@@ -435,7 +435,7 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
     }
 
     if (!cancelSuccess)
-      ucxx_error("All attempts to cancel inflight requests failed on worker: %p, UCP handle: %p",
+      ucxx_debug("All attempts to cancel inflight requests failed on worker: %p, UCP handle: %p",
                  this,
                  _handle);
   } else {
