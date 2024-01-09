@@ -93,16 +93,16 @@ size_t InflightRequests::dropCanceled()
   return removed;
 }
 
-size_t InflightRequests::getCancelingCount()
+size_t InflightRequests::getCancelingSize()
 {
   dropCanceled();
-  size_t cancelingCount = 0;
+  size_t cancelingSize = 0;
   {
     std::scoped_lock lock{_cancelMutex};
-    cancelingCount = _trackedRequests->_canceling->size();
+    cancelingSize = _trackedRequests->_canceling->size();
   }
 
-  return cancelingCount;
+  return cancelingSize;
 }
 
 size_t InflightRequests::cancelAll()

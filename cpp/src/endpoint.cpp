@@ -275,7 +275,7 @@ size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 
   if (std::this_thread::get_id() == worker->getProgressThreadId()) {
     canceled = _inflightRequests->cancelAll();
-    for (uint64_t i = 0; i < maxAttempts && _inflightRequests->getCancelingCount() > 0; ++i)
+    for (uint64_t i = 0; i < maxAttempts && _inflightRequests->getCancelingSize() > 0; ++i)
       worker->progress();
   } else if (worker->isProgressThreadRunning()) {
     bool cancelSuccess = false;
@@ -289,7 +289,7 @@ size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 
       utils::CallbackNotifier callbackNotifierPost{};
       worker->registerGenericPost([this, &callbackNotifierPost, &cancelSuccess]() {
-        cancelSuccess = _inflightRequests->getCancelingCount() == 0;
+        cancelSuccess = _inflightRequests->getCancelingSize() == 0;
         callbackNotifierPost.set();
       });
       if (!callbackNotifierPost.wait(period)) continue;

@@ -134,7 +134,7 @@ class InflightRequests {
    *
    * @returns The count of requests that are in process of cancelation.
    */
-  size_t getCancelingCount();
+  size_t getCancelingSize();
 };
 
 }  // namespace ucxx
