@@ -1,7 +1,7 @@
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
 files:
   all:
-    output: conda
+    output: [conda, pyproject]
     matrix:
       cuda: ["11.8", "12.0"]
       arch: [x86_64]
@@ -70,7 +70,7 @@ dependencies:
           - fmt>=10.1.1,<11
           - &gmock gmock>=1.13.0
           - &gtest gtest>=1.13.0
-          - librmm==24.2.*
+          - librmm==24.02.*
           - ninja
           - spdlog>=1.12.0,<1.13
   build_python:
@@ -80,13 +80,35 @@ dependencies:
           - *cmake_ver
           - cython>=3.0.0
           - ninja
-          - rmm==24.2.*
       - output_types: conda
         packages:
           - scikit-build-core>=0.7.0
+          - rmm==24.2.*
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for rmm.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+          # we need --pre for rmm 24.2, as all current versions are pre-release (alpha)
+          - --pre
+
+    # requires https://github.com/rapidsai/dependency-file-generator/pull/48
+    # specific:
+    #   - output_types: [requirements, pyproject]
+    #     matrices:
+    #       - matrix: {cuda: "12.*"}
+    #         packages:
+    #           - rmm-cu12==24.2.*
+    #       - matrix: {cuda: "11.*"}
+    #         packages:
+    #           - rmm-cu11==24.2.*
+    #       - matrix: null
+    #         packages: null
+
   checks:
     common:
       - output_types: [conda, requirements]
@@ -160,7 +182,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.21
+          - numpy>=1.21,<1.25
           - pynvml>=11.4.1
       - output_types: [conda]
         packages:
@@ -177,11 +199,36 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - cudf==24.2.*
-          - cupy
           - dask
           - distributed
           - numba>=0.57.1
           - pytest
           - pytest-asyncio
           - pytest-rerunfailures
+      - output_types: [conda]
+        packages:
+          - cudf==24.2.*
+          - cupy
+      - output_types: [requirements]
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for cudf.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+          # we need --pre for rmm 24.2, as all current versions are pre-release (alpha)
+          - --pre
+
+    # requires https://github.com/rapidsai/dependency-file-generator/pull/48
+    # specific:
+    #   - output_types: [requirements, pyproject]
+    #     matrices:
+    #       - matrix: {cuda: "12.*"}
+    #         packages:
+    #           - cudf-cu12==24.2.*
+    #           - cupy-cuda12x
+    #       - matrix: {cuda: "11.*"}
+    #         packages:
+    #           - cudf-cu11==24.2.*
+    #           - cupy-cuda11x
+    #       - matrix: null
+    #         packages: null
