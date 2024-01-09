@@ -17,8 +17,13 @@
 #include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
 
-#define ucxx_trace_req_f(_owner, _req, _name, _message, ...) \
-  ucxx_trace_req("%s, req %p, op %s: " _message, (_owner), (_req), (_name), ##__VA_ARGS__)
+#define ucxx_trace_req_f(_owner, _req, _handle, _name, _message, ...)          \
+  ucxx_trace_req("ucxx::Request: %p on %s, UCP handle: %p, op: %s, " _message, \
+                 (_req),                                                       \
+                 (_owner),                                                     \
+                 (_handle),                                                    \
+                 (_name),                                                      \
+                 ##__VA_ARGS__)
 
 namespace ucxx {
 

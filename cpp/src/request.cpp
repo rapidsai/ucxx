@@ -63,17 +63,19 @@ void Request::cancel()
     if (UCS_PTR_IS_ERR(_request)) {
       ucs_status_t status = UCS_PTR_STATUS(_request);
       ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
                        _request,
                        _operationName.c_str(),
                        "unprocessed request during cancelation contains error: %d (%s)",
                        status,
                        ucs_status_string(status));
     } else {
-      ucxx_trace_req_f(_ownerString.c_str(), _request, _operationName.c_str(), "canceling");
+      ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "canceling");
       if (_request != nullptr) ucp_request_cancel(_worker->getHandle(), _request);
     }
   } else {
     ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
                      _request,
                      _operationName.c_str(),
                      "already completed with status: %d (%s)",
@@ -147,6 +149,7 @@ void Request::process()
   } else if (UCS_PTR_IS_PTR(_request)) {
     // Completion will be handled by callback
     ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
                      _request,
                      _operationName.c_str(),
                      "completion will be handled by callback");
@@ -158,6 +161,7 @@ void Request::process()
   }
 
   ucxx_trace_req_f(_ownerString.c_str(),
+                   this,
                    _request,
                    _operationName.c_str(),
                    "status %d (%s)",
@@ -169,7 +173,7 @@ void Request::process()
       "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
   } else {
     ucxx_trace_req_f(
-      _ownerString.c_str(), _request, _operationName.c_str(), "completed immediately");
+      _ownerString.c_str(), this, _request, _operationName.c_str(), "completed immediately");
   }
 
   setStatus(status);
@@ -184,6 +188,7 @@ void Request::setStatus(ucs_status_t status)
     _worker->removeInflightRequest(this);
 
     ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
                      _request,
                      _operationName.c_str(),
                      "callback called with status %d (%s)",
@@ -206,6 +211,7 @@ void Request::setStatus(ucs_status_t status)
     }
 
     ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
                      _request,
                      _operationName.c_str(),
                      "callback %p",

@@ -80,7 +80,7 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
 static void _amSendCallback(void* request, ucs_status_t status, void* user_data)
 {
   Request* req = reinterpret_cast<Request*>(user_data);
-  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "amSend", "_amSendCallback");
+  ucxx_trace_req_f(req->getOwnerString().c_str(), nullptr, request, "amSend", "_amSendCallback");
   req->callback(request, status);
 }
 
@@ -90,8 +90,11 @@ static void _recvCompletedCallback(void* request,
                                    void* user_data)
 {
   internal::RecvAmMessage* recvAmMessage = static_cast<internal::RecvAmMessage*>(user_data);
-  ucxx_trace_req_f(
-    recvAmMessage->_request->getOwnerString().c_str(), request, "amRecv", "amRecvCallback");
+  ucxx_trace_req_f(recvAmMessage->_request->getOwnerString().c_str(),
+                   nullptr,
+                   request,
+                   "amRecv",
+                   "amRecvCallback");
   recvAmMessage->callback(request, status);
 }
 
@@ -165,6 +168,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 
     if (req->_enablePythonFuture)
       ucxx_trace_req_f(ownerString.c_str(),
+                       this,
                        status,
                        "amRecv rndv",
                        "ep %p, buffer %p, size %lu, future %p, future handle %p, recvCallback",
@@ -175,6 +179,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        req->_future->getHandle());
     else
       ucxx_trace_req_f(ownerString.c_str(),
+                       this,
                        status,
                        "amRecv rndv",
                        "ep %p, buffer %p, size %lu, recvCallback",
@@ -206,6 +211,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 
     if (req->_enablePythonFuture)
       ucxx_trace_req_f(ownerString.c_str(),
+                       this,
                        nullptr,
                        "amRecv eager",
                        "ep: %p, buffer %p, size %lu, future %p, future handle %p, recvCallback",
@@ -216,6 +222,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        req->_future->getHandle());
     else
       ucxx_trace_req_f(ownerString.c_str(),
+                       this,
                        nullptr,
                        "amRecv eager",
                        "ep: %p, buffer %p, size %lu, recvCallback",
@@ -290,6 +297,7 @@ void RequestAm::populateDelayedSubmission()
   auto log = [this](const void* buffer, const size_t length, const ucs_memory_type_t memoryType) {
     if (_enablePythonFuture)
       ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
                        _request,
                        _operationName.c_str(),
                        "buffer %p, size %lu, memoryType: %u, future %p, future handle %p, "
@@ -301,6 +309,7 @@ void RequestAm::populateDelayedSubmission()
                        _future->getHandle());
     else
       ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
                        _request,
                        _operationName.c_str(),
                        "buffer %p, size %lu, memoryType: %u, populateDelayedSubmission",
