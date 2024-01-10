@@ -858,13 +858,15 @@ cdef class UCXBufferRequest:
         with nogil:
             self._buffer_request.reset()
 
-    def get_request(self):
+    @property
+    def request(self):
         return UCXRequest(
             <uintptr_t><void*>&self._buffer_request.get().request,
             self._enable_python_future,
         )
 
-    def get_py_buffer(self):
+    @property
+    def py_buffer(self):
         cdef shared_ptr[Buffer] buf
         cdef BufferType bufType
 
@@ -879,6 +881,24 @@ cdef class UCXBufferRequest:
             return _get_rmm_buffer(<uintptr_t><void*>buf.get())
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
+
+    def get_request(self):
+        warnings.warn(
+            "UCXBufferRequest.get_request() is deprecated and will soon be removed, "
+            "use the UCXBufferRequest.request property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.request
+
+    def get_py_buffer(self):
+        warnings.warn(
+            "UCXBufferRequest.get_py_buffer() is deprecated and will soon be removed, "
+            "use the UCXBufferRequest.py_buffer property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.py_buffer
 
 
 cdef class UCXBufferRequests:
@@ -916,7 +936,7 @@ cdef class UCXBufferRequests:
                 for i in range(total_requests)
             ])
 
-            self._requests = tuple([br.get_request() for br in self._buffer_requests])
+            self._requests = tuple([br.request for br in self._buffer_requests])
 
     def is_completed_all(self):
         if self._is_completed is False:
@@ -1001,7 +1021,7 @@ cdef class UCXBufferRequests:
 
         self._populate_requests()
 
-        py_buffers = [br.get_py_buffer() for br in self._buffer_requests]
+        py_buffers = [br.py_buffer for br in self._buffer_requests]
         # PyBuffers that are None are headers
         return [b for b in py_buffers if b is not None]
 
