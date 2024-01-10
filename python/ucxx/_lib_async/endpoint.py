@@ -437,9 +437,9 @@ class Endpoint:
         buffer_requests = self._ep.tag_recv_multi(tag, TagMaskFull)
         await buffer_requests.wait()
         buffer_requests.check_error()
-        for r in buffer_requests.get_requests():
+        for r in buffer_requests.requests:
             r.check_error()
-        buffers = buffer_requests.get_py_buffers()
+        buffers = buffer_requests.py_buffer
 
         self._finished_recv_count += 1
         if (

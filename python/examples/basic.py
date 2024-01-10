@@ -218,13 +218,10 @@ def main():
             _wait_requests(worker, args.progress_mode, requests)
 
             # Check results, raises an exception if any of them failed
-            for r in (
-                send_buffer_requests.get_requests()
-                + recv_buffer_requests.get_requests()
-            ):
+            for r in send_buffer_requests.requests + recv_buffer_requests.requests:
                 r.check_error()
 
-        recv_bufs = recv_buffer_requests.get_py_buffers()
+        recv_bufs = recv_buffer_requests.py_buffers
     else:
         requests = [
             listener_ep.tag_send(Array(send_bufs[0]), tag=ucx_api.UCXTag(0)),
