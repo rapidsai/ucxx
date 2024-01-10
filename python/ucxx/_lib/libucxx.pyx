@@ -1164,7 +1164,7 @@ cdef class UCXEndpoint():
 
         return cls(
             <uintptr_t><void*>&endpoint,
-            listener.is_python_future_enabled(),
+            listener.enable_python_future,
             context_feature_flags,
             cuda_support,
         )
@@ -1591,6 +1591,9 @@ cdef class UCXListener():
 
         return ip.decode("utf-8")
 
+    def enable_python_future(self):
+        return self._enable_python_future
+
     def create_endpoint_from_conn_request(
             self,
             uintptr_t conn_request,
@@ -1601,7 +1604,13 @@ cdef class UCXListener():
         )
 
     def is_python_future_enabled(self):
-        return self._enable_python_future
+        warnings.warn(
+            "UCXListener.is_python_future_enabled() is deprecated and will soon be removed, "
+            "use the UCXListener.enable_python_future property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.enable_python_future
 
 
 def get_current_options():
