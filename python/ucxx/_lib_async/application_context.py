@@ -424,7 +424,7 @@ class ApplicationContext:
         dict
             The current UCX configuration options
         """
-        return self.context.get_config()
+        return self.context.config
 
     def ucp_context_info(self):
         """Return low-level UCX info about this endpoint as a string"""

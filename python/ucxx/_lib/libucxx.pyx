@@ -326,7 +326,8 @@ cdef class UCXContext():
         with nogil:
             self._context.reset()
 
-    cpdef dict get_config(self):
+    @property
+    def config(self) -> dict:
         return self._config
 
     @property
@@ -356,6 +357,15 @@ cdef class UCXContext():
             info = ucxx_context.getInfo()
 
         return info.decode("utf-8")
+
+    cpdef dict get_config(self):
+        warnings.warn(
+            "UCXContext.get_config() is deprecated and will soon be removed, "
+            "use the UCXContext.config property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.config
 
 
 cdef class UCXAddress():
