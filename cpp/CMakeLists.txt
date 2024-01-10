@@ -65,10 +65,6 @@ set_property(
 )
 message(VERBOSE "UCXX: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
-if(NOT UCXX_GENERATED_INCLUDE_DIR)
-    set(UCXX_GENERATED_INCLUDE_DIR ${UCXX_BINARY_DIR})
-endif()
-
 # ##################################################################################################
 # * conda environment -----------------------------------------------------------------------------
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
@@ -151,7 +147,6 @@ target_compile_options(
 target_include_directories(
   ucxx
   PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
-         "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
   PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
