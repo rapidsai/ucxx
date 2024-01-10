@@ -5,14 +5,13 @@ from argparse import Namespace
 from queue import Queue
 from time import monotonic, sleep
 
+import ucxx
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
 from ucxx._lib_async.utils import get_event_loop
 from ucxx.benchmarks.backends.base import BaseClient, BaseServer
 from ucxx.benchmarks.utils import get_allocator
 from ucxx.utils import print_key_value
-
-import ucxx
 
 WireupMessage = bytearray(b"wireup")
 
@@ -52,7 +51,7 @@ async def _wait_requests_async(worker, requests):
 
 
 def _wait_requests(worker, progress_mode, requests):
-    while not all([r.is_completed() for r in requests]):
+    while not all([r.completed for r in requests]):
         if progress_mode == "blocking":
             worker.progress_worker_event()
         if progress_mode == "polling":

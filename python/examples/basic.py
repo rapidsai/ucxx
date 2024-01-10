@@ -30,7 +30,7 @@ async def _progress_coroutine(worker):
 async def _wait_requests_async_future(loop, worker, requests):
     progress_task = loop.create_task(_progress_coroutine(worker))
 
-    await asyncio.gather(*[r.get_future() for r in requests])
+    await asyncio.gather(*[r.future for r in requests])
 
     progress_task.cancel()
 
@@ -44,7 +44,7 @@ async def _wait_requests_async_yield(loop, worker, requests):
 
 
 def _wait_requests(worker, progress_mode, requests):
-    while not all([r.is_completed() for r in requests]):
+    while not all([r.completed for r in requests]):
         if progress_mode == "blocking":
             worker.progress_worker_event()
 
@@ -56,7 +56,7 @@ def parse_args():
         default=False,
         action="store_true",
         help="Wait for transfer requests with Python's asyncio using futures "
-        "(`UCXRequest.get_future()`), requires `--progress-mode blocking`. "
+        "(`UCXRequest.future`), requires `--progress-mode blocking`. "
         "(default: disabled)",
     )
     parser.add_argument(

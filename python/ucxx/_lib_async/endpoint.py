@@ -306,7 +306,7 @@ class Endpoint:
 
         req = self._ep.am_recv()
         await req.wait()
-        buffer = req.get_recv_buffer()
+        buffer = req.recv_buffer
 
         if logger.isEnabledFor(logging.DEBUG):
             log = "[AM Recv Completed #%03d] ep: 0x%x, nbytes: %d, type: %s" % (

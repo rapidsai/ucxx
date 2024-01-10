@@ -733,30 +733,32 @@ cdef class UCXRequest():
     cdef:
         shared_ptr[Request] _request
         bint _enable_python_future
-        bint _is_completed
+        bint _completed
 
     def __init__(self, uintptr_t shared_ptr_request, bint enable_python_future):
         self._request = deref(<shared_ptr[Request] *> shared_ptr_request)
         self._enable_python_future = enable_python_future
-        self._is_completed = False
+        self._completed = False
 
     def __dealloc__(self):
         with nogil:
             self._request.get().cancel()
             self._request.reset()
 
-    def is_completed(self):
-        cdef bint is_completed
+    @property
+    def completed(self):
+        cdef bint completed
 
-        if self._is_completed is True:
+        if self._completed is True:
             return True
 
         with nogil:
-            is_completed = self._request.get().isCompleted()
+            completed = self._request.get().isCompleted()
 
-        return is_completed
+        return completed
 
-    def get_status(self):
+    @property
+    def status(self):
         cdef ucs_status_t status
 
         with nogil:
@@ -764,17 +766,8 @@ cdef class UCXRequest():
 
         return status
 
-    def check_error(self):
-        with nogil:
-            self._request.get().checkError()
-
-    async def wait_yield(self):
-        while True:
-            if self.is_completed():
-                return self.check_error()
-            await asyncio.sleep(0)
-
-    def get_future(self):
+    @property
+    def future(self):
         cdef PyObject* future_ptr
 
         with nogil:
@@ -782,13 +775,8 @@ cdef class UCXRequest():
 
         return <object>future_ptr
 
-    async def wait(self):
-        if self._enable_python_future:
-            await self.get_future()
-        else:
-            await self.wait_yield()
-
-    def get_recv_buffer(self):
+    @property
+    def recv_buffer(self):
         cdef shared_ptr[Buffer] buf
         cdef BufferType bufType
 
@@ -803,6 +791,58 @@ cdef class UCXRequest():
             return _get_rmm_buffer(<uintptr_t><void*>buf.get())
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
+
+    def is_completed(self):
+        warnings.warn(
+            "UCXRequest.is_completed() is deprecated and will soon be removed, "
+            "use the UCXRequest.completed property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.completed
+
+    def get_status(self):
+        warnings.warn(
+            "UCXRequest.get_status() is deprecated and will soon be removed, "
+            "use the UCXRequest.status property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.status
+
+    def check_error(self):
+        with nogil:
+            self._request.get().checkError()
+
+    async def wait_yield(self):
+        while True:
+            if self.completed:
+                return self.check_error()
+            await asyncio.sleep(0)
+
+    def get_future(self):
+        warnings.warn(
+            "UCXRequest.get_future() is deprecated and will soon be removed, "
+            "use the UCXRequest.future property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.future
+
+    async def wait(self):
+        if self._enable_python_future:
+            await self.future
+        else:
+            await self.wait_yield()
+
+    def get_recv_buffer(self):
+        warnings.warn(
+            "UCXRequest.get_recv_buffer() is deprecated and will soon be removed, "
+            "use the UCXRequest.recv_buffer property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.recv_buffer
 
 
 cdef class UCXBufferRequest:
@@ -886,7 +926,7 @@ cdef class UCXBufferRequests:
             self._populate_requests()
 
             self._is_completed = all(
-                [r.is_completed() for r in self._requests]
+                [r.completed for r in self._requests]
             )
 
         return self._is_completed
@@ -928,7 +968,7 @@ cdef class UCXBufferRequests:
 
             self._populate_requests()
 
-            futures = [r.get_future() for r in self._requests]
+            futures = [r.future for r in self._requests]
             await asyncio.gather(*futures)
             self._is_completed = True
 

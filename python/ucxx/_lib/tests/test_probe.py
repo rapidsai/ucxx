@@ -49,7 +49,7 @@ def _server_probe(queue, transfer_api):
     if transfer_api == "am":
         wireup_req = ep.am_recv()
         wait_requests(worker, "blocking", wireup_req)
-        wireup = bytes(wireup_req.get_recv_buffer())
+        wireup = bytes(wireup_req.recv_buffer)
     else:
         wireup = bytearray(len(WireupMessage))
         wait_requests(
@@ -71,7 +71,7 @@ def _server_probe(queue, transfer_api):
             worker.progress()
         recv_req = ep.am_recv()
         wait_requests(worker, "blocking", recv_req)
-        received = bytes(recv_req.get_recv_buffer())
+        received = bytes(recv_req.recv_buffer)
     else:
         while worker.tag_probe(ucx_api.UCXXTag(0)) is False:
             worker.progress()

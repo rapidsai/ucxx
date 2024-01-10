@@ -92,7 +92,7 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
     requests = [_recv(ep[0], transfer_api, msg)]
     wait_requests(worker, progress_mode, requests)
     if transfer_api == "am":
-        msg = Array(requests[0].get_recv_buffer())
+        msg = Array(requests[0].recv_buffer)
     requests = [_send(ep[0], transfer_api, msg)]
     wait_requests(worker, progress_mode, requests)
 
@@ -156,7 +156,7 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
     wait_requests(worker, progress_mode, requests)
 
     if transfer_api == "am":
-        recv_msg = requests[1].get_recv_buffer()
+        recv_msg = requests[1].recv_buffer
 
         assert bytes(recv_msg) == send_msg
     else:

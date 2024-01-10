@@ -57,7 +57,7 @@ def _client_cancel(queue):
     msg = Array(bytearray(1))
     request = ep.tag_recv(msg, tag=ucx_api.UCXXTag(0))
 
-    while not request.is_completed():
+    while not request.completed:
         worker.progress()
 
     with pytest.raises(ucx_api.UCXCanceledError):
