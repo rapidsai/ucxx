@@ -9,9 +9,8 @@ from queue import Empty
 
 import numpy as np
 import pytest
-from ucxx._lib_async.utils import get_event_loop
-
 import ucxx
+from ucxx._lib_async.utils import get_event_loop
 
 mp = mp.get_context("spawn")
 
@@ -43,7 +42,7 @@ def _test_shutdown_unexpected_closed_peer_server(
                 # At this point, the client should have died and the endpoint
                 # is not alive anymore. `True` only when endpoint error
                 # handling is enabled.
-                ep_is_alive = ep._ep.is_alive()
+                ep_is_alive = ep.is_alive()
 
                 await ep.close()
             finally:

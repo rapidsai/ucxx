@@ -9,9 +9,8 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from ucxx._lib_async.utils import get_event_loop
-
 import ucxx
+from ucxx._lib_async.utils import get_event_loop
 
 mp = mp.get_context("spawn")
 
@@ -83,7 +82,7 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                 q2.put("ready")
 
                 # Wait for remote endpoint to disconnect
-                while ep._ep.is_alive():
+                while ep.is_alive():
                     await asyncio.sleep(0)
                     if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
                         ucxx.progress()
@@ -121,7 +120,7 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
 
                     q2.put("ready")
 
-                    while ep._ep.is_alive():
+                    while ep.is_alive():
                         await asyncio.sleep(0)
                         if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
                             ucxx.progress()

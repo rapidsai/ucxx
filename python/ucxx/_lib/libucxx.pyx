@@ -1207,7 +1207,7 @@ cdef class UCXEndpoint():
             handle = self._endpoint.get().getHandle()
 
         return int(<uintptr_t>handle)
-    
+
     @property
     def ucxx_ptr(self):
         cdef Endpoint* endpoint
@@ -1216,7 +1216,7 @@ cdef class UCXEndpoint():
             endpoint = self._endpoint.get()
 
         return int(<uintptr_t>endpoint)
-            
+
     @property
     def worker_handle(self):
         cdef ucp_worker_h handle
@@ -1225,7 +1225,7 @@ cdef class UCXEndpoint():
             handle = self._endpoint.get().getWorker().get().getHandle()
 
         return int(<uintptr_t>handle)
-    
+
     @property
     def ucxx_worker_ptr(self):
         cdef Worker* worker
@@ -1234,6 +1234,15 @@ cdef class UCXEndpoint():
             worker = self._endpoint.get().getWorker().get()
 
         return int(<uintptr_t>worker)
+
+    @property
+    def alive(self):
+        cdef bint alive
+
+        with nogil:
+            alive = self._endpoint.get().isAlive()
+
+        return alive
 
     def close(self, period=0, max_attempts=1):
         cdef uint64_t c_period = period
@@ -1451,12 +1460,13 @@ cdef class UCXEndpoint():
         )
 
     def is_alive(self):
-        cdef bint is_alive
-
-        with nogil:
-            is_alive = self._endpoint.get().isAlive()
-
-        return is_alive
+        warnings.warn(
+            "UCXEndpoint.is_alive() is deprecated and will soon be removed, "
+            "use the UCXEndpoint.alive property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.alive
 
     def raise_on_error(self):
         with nogil:

@@ -50,7 +50,7 @@ class Endpoint:
 
     def closed(self):
         """Is this endpoint closed?"""
-        return self._ep is None or not self._ep.is_alive()
+        return self._ep is None or not self.is_alive()
 
     def abort(self, period=10**10, max_attempts=1):
         """Close the communication immediately and abruptly.
@@ -561,4 +561,4 @@ class Endpoint:
         self._ep.set_close_callback(callback_func, cb_args, cb_kwargs)
 
     def is_alive(self):
-        return self._ep.is_alive()
+        return self._ep.alive

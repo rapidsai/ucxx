@@ -62,7 +62,7 @@ def _server_probe(queue, transfer_api):
     queue.put("wireup completed")
 
     # Ensure client has disconnected -- endpoint is not alive anymore
-    while ep.is_alive() is True:
+    while ep.alive is True:
         worker.progress()
 
     # Probe/receive message even after the remote endpoint has disconnected
