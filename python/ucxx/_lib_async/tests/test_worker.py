@@ -5,7 +5,6 @@ import os
 from unittest.mock import patch
 
 import pytest
-
 import ucxx
 
 
@@ -31,11 +30,11 @@ async def test_worker_capabilities_args(
 
         worker = ucxx.core._get_ctx().worker
 
-        assert worker.is_delayed_submission_enabled() is enable_delayed_submission
+        assert worker.enable_delayed_submission is enable_delayed_submission
         if progress_mode.startswith("thread"):
-            assert worker.is_python_future_enabled() is enable_python_future
+            assert worker.enable_python_future is enable_python_future
         else:
-            assert worker.is_python_future_enabled() is False
+            assert worker.enable_python_future is False
 
 
 @pytest.mark.asyncio
@@ -61,8 +60,8 @@ async def test_worker_capabilities_env(enable_delayed_submission, enable_python_
 
             worker = ucxx.core._get_ctx().worker
 
-            assert worker.is_delayed_submission_enabled() is enable_delayed_submission
+            assert worker.enable_delayed_submission is enable_delayed_submission
             if progress_mode.startswith("thread"):
-                assert worker.is_python_future_enabled() is enable_python_future
+                assert worker.enable_python_future is enable_python_future
             else:
-                assert worker.is_python_future_enabled() is False
+                assert worker.enable_python_future is False

@@ -548,8 +548,26 @@ cdef class UCXWorker():
 
         return info.decode("utf-8")
 
-    def get_address(self):
+    @property
+    def address(self):
         return UCXAddress.create_from_worker(self)
+
+    @property
+    def enable_delayed_submission(self):
+        return self._enable_delayed_submission
+
+    @property
+    def enable_python_future(self):
+        return self._enable_python_future
+
+    def get_address(self):
+        warnings.warn(
+            "UCXWorker.get_address() is deprecated and will soon be removed, "
+            "use the UCXWorker.address property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.address
 
     def create_endpoint_from_hostname(
             self,
@@ -668,10 +686,22 @@ cdef class UCXWorker():
             self._worker.get().populateFuturesPool()
 
     def is_delayed_submission_enabled(self):
-        return self._enable_delayed_submission
+        warnings.warn(
+            "UCXWorker.is_delayed_submission_enabled() is deprecated and will soon "
+            "be removed, use the UCXWorker.enable_delayed_submission property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.enable_delayed_submission
 
     def is_python_future_enabled(self):
-        return self._enable_python_future
+        warnings.warn(
+            "UCXWorker.is_python_future_enabled() is deprecated and will soon be removed, "
+            "use the UCXWorker.enable_python_future property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.enable_python_future
 
     def tag_recv(self, Array arr, tag: UCXXTagMask, tag_mask: UCXXTagMask = UCXXTagMaskFull):
         if not isinstance(tag, UCXXTag):
@@ -999,7 +1029,7 @@ cdef class UCXEndpoint():
 
         return cls(
             <uintptr_t><void*>&endpoint,
-            worker.is_python_future_enabled(),
+            worker.enable_python_future,
             context_feature_flags,
             cuda_support,
         )
@@ -1060,7 +1090,7 @@ cdef class UCXEndpoint():
 
         return cls(
             <uintptr_t><void*>&endpoint,
-            worker.is_python_future_enabled(),
+            worker.enable_python_future,
             context_feature_flags,
             cuda_support,
         )
@@ -1423,7 +1453,7 @@ cdef class UCXListener():
         listener = cls(
             <uintptr_t><void*>&ucxx_listener,
             cb_data,
-            worker.is_python_future_enabled(),
+            worker.enable_python_future,
         )
         if deliver_endpoint is True:
             cb_data["listener"] = weakref.ref(listener)

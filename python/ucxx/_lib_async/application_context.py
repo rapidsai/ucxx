@@ -135,7 +135,7 @@ class ApplicationContext:
         return explicit_enable_python_future
 
     def start_notifier_thread(self):
-        if self.worker.is_python_future_enabled():
+        if self.worker.enable_python_future:
             logger.debug("UCXX_ENABLE_PYTHON available, enabling notifier thread")
             loop = get_event_loop()
             self.notifier_thread_q = Queue()
@@ -435,7 +435,7 @@ class ApplicationContext:
         return self.worker.info
 
     def get_worker_address(self):
-        return self.worker.get_address()
+        return self.worker.address
 
     # @ucx_api.nvtx_annotate("UCXPY_WORKER_RECV", color="red", domain="ucxpy")
     async def recv(self, buffer, tag):
