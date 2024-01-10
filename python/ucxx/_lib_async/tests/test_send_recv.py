@@ -4,9 +4,8 @@
 import functools
 
 import pytest
-from ucxx._lib_async.utils_test import wait_listener_client_handlers
-
 import ucxx
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 np = pytest.importorskip("numpy")
 

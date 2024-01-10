@@ -11,9 +11,8 @@ import threading
 from types import ModuleType
 
 import numpy as np
-from ucxx.utils import get_address
-
 import ucxx
+from ucxx.utils import get_address
 
 logger = logging.getLogger("ucx")
 

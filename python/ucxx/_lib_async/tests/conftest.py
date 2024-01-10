@@ -6,7 +6,6 @@ import gc
 import os
 
 import pytest
-
 import ucxx
 
 # Prevent calls such as `cudf = pytest.importorskip("cudf")` from initializing

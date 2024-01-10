@@ -9,7 +9,6 @@ from contextlib import contextmanager
 
 import numpy as np
 import pytest
-
 import ucxx
 
 normal_env = {

@@ -4,7 +4,6 @@
 import asyncio
 
 import pytest
-
 import ucxx as ucxx
 
 

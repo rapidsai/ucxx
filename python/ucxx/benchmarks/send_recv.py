@@ -7,6 +7,7 @@ import multiprocessing as mp
 import os
 
 import numpy as np
+import ucxx
 from ucxx._lib_async.utils import get_event_loop
 from ucxx.benchmarks.backends.ucxx_async import (
     UCXPyAsyncClient,
@@ -19,8 +20,6 @@ from ucxx.utils import (
     print_key_value,
     print_separator,
 )
-
-import ucxx
 
 mp = mp.get_context("spawn")
 

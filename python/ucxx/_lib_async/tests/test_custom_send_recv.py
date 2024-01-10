@@ -6,7 +6,6 @@ import pickle
 
 import numpy as np
 import pytest
-
 import ucxx
 
 cudf = pytest.importorskip("cudf")

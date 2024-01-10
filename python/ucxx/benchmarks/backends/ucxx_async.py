@@ -6,12 +6,11 @@ from argparse import Namespace
 from queue import Queue
 from time import monotonic
 
+import ucxx
 from ucxx._lib.arr import Array
 from ucxx.benchmarks.backends.base import BaseClient, BaseServer
 from ucxx.benchmarks.utils import get_allocator
 from ucxx.utils import print_key_value
-
-import ucxx
 
 
 def register_am_allocators(args: Namespace):
