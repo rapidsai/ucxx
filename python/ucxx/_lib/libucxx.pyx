@@ -6,6 +6,7 @@ import asyncio
 import enum
 import functools
 import logging
+import warnings
 import weakref
 
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
@@ -255,12 +256,22 @@ cdef class UCXConfig():
         with nogil:
             self._config.reset()
 
-    def get(self):
+    @property
+    def config(self):
         cdef ConfigMap config_map = self._config.get().get()
         return {
             item.first.decode("utf-8"): item.second.decode("utf-8")
             for item in config_map
         }
+
+    def get(self):
+        warnings.warn(
+            "UCXConfig.get() is deprecated and will soon be removed, "
+            "use the UCXConfig.config property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.config
 
 
 cdef class UCXContext():
@@ -1444,7 +1455,7 @@ def get_current_options():
     Returns the current UCX options
     if UCX were to be initialized now.
     """
-    return UCXConfig().get()
+    return UCXConfig().config
 
 
 def get_ucx_version():
