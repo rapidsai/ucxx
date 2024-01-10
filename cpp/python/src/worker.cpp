@@ -52,7 +52,9 @@ std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
 void Worker::populateFuturesPool()
 {
   if (_enableFuture) {
-    ucxx_trace_req("populateFuturesPool: %p %p", this, shared_from_this().get());
+    ucxx_trace_req("ucxx::python::Worker::populateFuturesPool, Worker: %p, populateFuturesPool: %p",
+                   this,
+                   shared_from_this().get());
     // If the pool goes under half expected size, fill it up again.
     if (_futuresPool.size() < 50) {
       std::lock_guard<std::mutex> lock(_futuresPoolMutex);
