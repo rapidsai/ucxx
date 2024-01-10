@@ -120,7 +120,7 @@ size_t InflightRequests::cancelAll()
     toCancel = std::exchange(_trackedRequests->_inflight, std::make_unique<InflightRequestsMap>());
   }
 
-  ucxx_debug("Canceling %lu requests", total);
+  ucxx_debug("ucxx::InflightRequests::cancelAll, canceling %lu requests", total);
 
   for (auto& r : *toCancel) {
     auto request = r.second;

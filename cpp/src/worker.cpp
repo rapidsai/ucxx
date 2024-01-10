@@ -60,11 +60,12 @@ Worker::Worker(std::shared_ptr<Context> context,
     utils::ucsErrorThrow(ucp_worker_set_am_recv_handler(_handle, &am_handler_param));
   }
 
-  ucxx_trace("Worker created: %p, UCP handle: %p, enableDelayedSubmission: %d, enableFuture: %d",
-             this,
-             _handle,
-             enableDelayedSubmission,
-             _enableFuture);
+  ucxx_trace(
+    "ucxx::Worker created: %p, UCP handle: %p, enableDelayedSubmission: %d, enableFuture: %d",
+    this,
+    _handle,
+    enableDelayedSubmission,
+    _enableFuture);
 
   setParent(std::dynamic_pointer_cast<Component>(context));
 }
@@ -86,10 +87,13 @@ void Worker::drainWorkerTagRecv()
   ucp_tag_recv_info_t info;
 
   while ((message = ucp_tag_probe_nb(_handle, 0, 0, 1, &info)) != NULL) {
-    ucxx_debug("Draining tag receive messages, worker: %p, tag: 0x%lx, length: %lu",
-               _handle,
-               info.sender_tag,
-               info.length);
+    ucxx_debug(
+      "ucxx::Worker::draingWorkerTagRecv, Worker: %p, UCP handle: %p, tag: 0x%lx, length: %lu, "
+      "draining tag receive messages",
+      this,
+      _handle,
+      info.sender_tag,
+      info.length);
 
     std::vector<char> buf(info.length);
 
@@ -151,7 +155,10 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 Worker::~Worker()
 {
   size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
-  ucxx_debug("Worker %p canceled %lu requests", _handle, canceled);
+  ucxx_debug("ucxx::Worker::~Worker, Worker: %p, UCP handle: %p, canceled %lu requests",
+             this,
+             _handle,
+             canceled);
 
   stopProgressThreadNoWarn();
   if (_notifier) _notifier->stopRequestNotifierThread();
@@ -357,7 +364,11 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
 void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
   if (_progressThread) {
-    ucxx_debug("Worker progress thread already running");
+    ucxx_debug(
+      "ucxx::Worker::startProgressThread, Worker: %p, UCP handle: %p, worker progress thread "
+      "already running",
+      this,
+      _handle);
     return;
   }
 
@@ -392,7 +403,11 @@ void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
 void Worker::stopProgressThread()
 {
   if (!_progressThread)
-    ucxx_debug("Worker progress thread not running or already stopped");
+    ucxx_debug(
+      "ucxx::Worker::stopProgressThread, Worker: %p, UCP handle: %p, worker progress thread not "
+      "running or already stopped",
+      this,
+      _handle);
   else
     stopProgressThreadNoWarn();
 }
@@ -435,9 +450,11 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
     }
 
     if (!cancelSuccess)
-      ucxx_debug("All attempts to cancel inflight requests failed on worker: %p, UCP handle: %p",
-                 this,
-                 _handle);
+      ucxx_debug(
+        "ucxx::Worker::cancelInflightRequests, Worker: %p, UCP handle: %p, all attempts to cancel "
+        "inflight requests failed",
+        this,
+        _handle);
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
   }
@@ -454,8 +471,12 @@ void Worker::scheduleRequestCancel(TrackedRequestsPtr trackedRequests)
 {
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
-    ucxx_debug("Scheduling cancelation of %lu requests",
-               trackedRequests->_inflight->size() + trackedRequests->_canceling->size());
+    ucxx_debug(
+      "ucxx::Worker::scheduleRequestCancel, Worker: %p, UCP handle: %p, scheduling cancelation of "
+      "%lu requests",
+      this,
+      _handle,
+      trackedRequests->_inflight->size() + trackedRequests->_canceling->size());
     _inflightRequestsToCancel->merge(std::move(trackedRequests));
   }
 }
