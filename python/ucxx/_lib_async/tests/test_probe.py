@@ -4,8 +4,9 @@
 import asyncio
 
 import pytest
-import ucxx
 from ucxx.types import Tag
+
+import ucxx
 
 
 @pytest.mark.asyncio

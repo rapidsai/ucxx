@@ -7,11 +7,12 @@ import sys
 
 import numpy as np
 import pytest
-import ucxx as ucxx
 from ucxx._lib_async.utils_test import (
     captured_logger,
     wait_listener_client_handlers,
 )
+
+import ucxx as ucxx
 
 
 async def _shutdown_send(ep, message_type):

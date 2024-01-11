@@ -3,8 +3,9 @@ from functools import partial
 
 import numpy as np
 import pytest
-import ucxx
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
+
+import ucxx
 
 msg_sizes = [0] + [2**i for i in range(0, 25, 4)]
 

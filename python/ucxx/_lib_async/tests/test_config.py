@@ -5,8 +5,9 @@ import os
 from unittest.mock import patch
 
 import pytest
-import ucxx
 from ucxx._lib_async.utils_test import captured_logger
+
+import ucxx
 
 
 def test_get_config():
