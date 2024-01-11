@@ -1591,6 +1591,7 @@ cdef class UCXListener():
 
         return ip.decode("utf-8")
 
+    @property
     def enable_python_future(self):
         return self._enable_python_future
 
