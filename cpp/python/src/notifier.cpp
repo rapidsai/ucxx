@@ -33,7 +33,7 @@ void Notifier::scheduleFutureNotify(std::shared_ptr<::ucxx::Future> future, ucs_
     _notifierThreadFutureStatusReady = true;
   }
   _notifierThreadConditionVariable.notify_one();
-  ucxx_trace_req("ucxx::python::Notifier::scheduleFutureNotify, notified: future: %p, handle: %p",
+  ucxx_trace_req("ucxx::python::Notifier::scheduleFutureNotify, notified future: %p, handle: %p",
                  future.get(),
                  future->getHandle());
 }
