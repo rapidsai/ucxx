@@ -439,7 +439,7 @@ class Endpoint:
         buffer_requests.check_error()
         for r in buffer_requests.requests:
             r.check_error()
-        buffers = buffer_requests.py_buffer
+        buffers = buffer_requests.py_buffers
 
         self._finished_recv_count += 1
         if (
