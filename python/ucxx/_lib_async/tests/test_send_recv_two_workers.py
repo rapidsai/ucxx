@@ -8,7 +8,6 @@ import random
 
 import numpy as np
 import pytest
-import ucxx as ucxx
 from ucxx._lib_async.utils import get_event_loop
 from ucxx._lib_async.utils_test import (
     am_recv,
@@ -18,6 +17,8 @@ from ucxx._lib_async.utils_test import (
     recv,
     send,
 )
+
+import ucxx as ucxx
 
 cupy = pytest.importorskip("cupy")
 rmm = pytest.importorskip("rmm")

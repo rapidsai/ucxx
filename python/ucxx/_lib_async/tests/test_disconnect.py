@@ -9,8 +9,9 @@ from queue import Empty
 
 import numpy as np
 import pytest
-import ucxx
 from ucxx._lib_async.utils import get_event_loop
+
+import ucxx
 
 mp = mp.get_context("spawn")
 
