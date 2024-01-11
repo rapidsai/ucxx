@@ -88,8 +88,9 @@ void Worker::drainWorkerTagRecv()
 
   while ((message = ucp_tag_probe_nb(_handle, 0, 0, 1, &info)) != NULL) {
     ucxx_debug(
-      "ucxx::Worker::draingWorkerTagRecv, Worker: %p, UCP handle: %p, tag: 0x%lx, length: %lu, "
+      "ucxx::Worker::%s, Worker: %p, UCP handle: %p, tag: 0x%lx, length: %lu, "
       "draining tag receive messages",
+      __func__,
       this,
       _handle,
       info.sender_tag,
@@ -155,7 +156,8 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 Worker::~Worker()
 {
   size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
-  ucxx_debug("ucxx::Worker::~Worker, Worker: %p, UCP handle: %p, canceled %lu requests",
+  ucxx_debug("ucxx::Worker::%s, Worker: %p, UCP handle: %p, canceled %lu requests",
+             __func__,
              this,
              _handle,
              canceled);
@@ -365,8 +367,9 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
   if (_progressThread) {
     ucxx_debug(
-      "ucxx::Worker::startProgressThread, Worker: %p, UCP handle: %p, worker progress thread "
+      "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread "
       "already running",
+      __func__,
       this,
       _handle);
     return;
@@ -404,8 +407,9 @@ void Worker::stopProgressThread()
 {
   if (!_progressThread)
     ucxx_debug(
-      "ucxx::Worker::stopProgressThread, Worker: %p, UCP handle: %p, worker progress thread not "
+      "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread not "
       "running or already stopped",
+      __func__,
       this,
       _handle);
   else
@@ -451,8 +455,9 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 
     if (!cancelSuccess)
       ucxx_debug(
-        "ucxx::Worker::cancelInflightRequests, Worker: %p, UCP handle: %p, all attempts to cancel "
+        "ucxx::Worker::%s, Worker: %p, UCP handle: %p, all attempts to cancel "
         "inflight requests failed",
+        __func__,
         this,
         _handle);
   } else {
@@ -472,8 +477,9 @@ void Worker::scheduleRequestCancel(TrackedRequestsPtr trackedRequests)
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
     ucxx_debug(
-      "ucxx::Worker::scheduleRequestCancel, Worker: %p, UCP handle: %p, scheduling cancelation of "
+      "ucxx::Worker::%s, Worker: %p, UCP handle: %p, scheduling cancelation of "
       "%lu requests",
+      __func__,
       this,
       _handle,
       trackedRequests->_inflight->size() + trackedRequests->_canceling->size());

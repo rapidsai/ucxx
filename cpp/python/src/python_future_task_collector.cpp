@@ -34,7 +34,8 @@ void PythonFutureTaskCollector::collect()
     std::lock_guard<std::mutex> lock(_mutex);
     for (auto& handle : _toCollect)
       Py_XDECREF(handle);
-    ucxx_trace("ucxx::python::PythonFutureTaskCollector::collect, collected %lu PythonFutureTasks",
+    ucxx_trace("ucxx::python::PythonFutureTaskCollector::%s, collected %lu PythonFutureTasks",
+               __func__,
                _toCollect.size());
     _toCollect.clear();
   }

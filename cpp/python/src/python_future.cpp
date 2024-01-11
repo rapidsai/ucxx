@@ -52,7 +52,8 @@ void Future::set(ucs_status_t status)
 {
   if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
 
-  ucxx_trace_req("ucxx::python::Future::set, Future: %p, _handle: %p, status: %s",
+  ucxx_trace_req("ucxx::python::Future::%s, Future: %p, _handle: %p, status: %s",
+                 __func__,
                  this,
                  _handle,
                  ucs_status_string(status));
@@ -79,12 +80,12 @@ void Future::notify(ucs_status_t status)
 
   auto s = shared_from_this();
 
-  ucxx_trace_req(
-    "ucxx::python::Future::notify, Future: %p, shared.get(): %p, handle: %p, notifier: %p",
-    this,
-    s.get(),
-    _handle,
-    _notifier.get());
+  ucxx_trace_req("ucxx::python::Future::%s, Future: %p, shared.get(): %p, handle: %p, notifier: %p",
+                 __func__,
+                 this,
+                 s.get(),
+                 _handle,
+                 _notifier.get());
   _notifier->scheduleFutureNotify(shared_from_this(), status);
 }
 

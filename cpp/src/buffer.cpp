@@ -37,7 +37,7 @@ HostBuffer::~HostBuffer()
 
 void* HostBuffer::release()
 {
-  ucxx_trace_data("ucxx::HostBuffer::release, HostBuffer: %p, buffer: %p", this, _buffer);
+  ucxx_trace_data("ucxx::HostBuffer::%s, HostBuffer: %p, buffer: %p", __func__, this, _buffer);
   if (!_buffer) throw std::runtime_error("Invalid object or already released");
 
   _bufferType = ucxx::BufferType::Invalid;
@@ -48,7 +48,7 @@ void* HostBuffer::release()
 
 void* HostBuffer::data()
 {
-  ucxx_trace_data("ucxx::HostBuffer::data, HostBuffer: %p, buffer: %p", this, _buffer);
+  ucxx_trace_data("ucxx::HostBuffer::%s, HostBuffer: %p, buffer: %p", __func__, this, _buffer);
   if (!_buffer) throw std::runtime_error("Invalid object or already released");
 
   return _buffer;
@@ -64,7 +64,7 @@ RMMBuffer::RMMBuffer(const size_t size)
 
 std::unique_ptr<rmm::device_buffer> RMMBuffer::release()
 {
-  ucxx_trace_data("ucxx::RMMBuffer::release, RMMBuffer: %p, _buffer: %p", this, _buffer.get());
+  ucxx_trace_data("ucxx::RMMBuffer::%s, RMMBuffer: %p, _buffer: %p", __func__, this, _buffer.get());
   if (!_buffer) throw std::runtime_error("Invalid object or already released");
 
   _bufferType = ucxx::BufferType::Invalid;
@@ -75,7 +75,7 @@ std::unique_ptr<rmm::device_buffer> RMMBuffer::release()
 
 void* RMMBuffer::data()
 {
-  ucxx_trace_data("ucxx::RMMBuffer::data, RMMBuffer: %p, buffer: %p", this, _buffer.get());
+  ucxx_trace_data("ucxx::RMMBuffer::%s, RMMBuffer: %p, buffer: %p", __func__, this, _buffer.get());
   if (!_buffer) throw std::runtime_error("Invalid object or already released");
 
   return _buffer->data();

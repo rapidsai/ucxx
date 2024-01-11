@@ -148,7 +148,8 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
   if (_handle == nullptr) return;
 
   size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
-  ucxx_debug("ucxx::Endpoint::close, Endpoint: %p, UCP handle: %p, canceled %lu requests",
+  ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
+             __func__,
              this,
              _handle,
              canceled);
@@ -183,8 +184,9 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
             _callbackData->status = UCS_PTR_STATUS(s);
             if (UCS_PTR_STATUS(status) != UCS_OK) {
               ucxx_error(
-                "ucxx::Endpoint::close, Endpoint: %p, UCP handle: %p, error while closing "
+                "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, error while closing "
                 "endpoint: %s",
+                __func__,
                 this,
                 _handle,
                 ucs_status_string(UCS_PTR_STATUS(status)));
@@ -202,7 +204,8 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
     if (!closeSuccess) {
       _callbackData->status = UCS_ERR_ENDPOINT_TIMEOUT;
       ucxx_debug(
-        "ucxx::Endpoint::close, Endpoint: %p, UCP handle: %p, all attempts to close timed out",
+        "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, all attempts to close timed out",
+        __func__,
         this,
         _handle);
     }
@@ -216,16 +219,18 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
       _callbackData->status = s;
     } else if (UCS_PTR_STATUS(status) != UCS_OK) {
       ucxx_error(
-        "ucxx::Endpoint::close, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
+        "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
+        __func__,
         this,
         _handle,
         ucs_status_string(UCS_PTR_STATUS(status)));
     }
   }
-  ucxx_trace("ucxx::Endpoint::close, Endpoint: %p, UCP handle: %p, closed", this, _handle);
+  ucxx_trace("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _handle);
 
   if (_callbackData->closeCallback) {
-    ucxx_debug("ucxx::Endpoint::close, Endpoint: %p, UCP handle: %p, calling user close callback",
+    ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, calling user close callback",
+               __func__,
                this,
                _handle);
     _callbackData->closeCallback(_callbackData->closeCallbackArg);
@@ -312,8 +317,9 @@ size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
     }
     if (!cancelSuccess)
       ucxx_debug(
-        "ucxx::Endpoint::cancelInflightRequests, Endpoint: %p, UCP handle: %p, all attempts to "
+        "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, all attempts to "
         "cancel inflight requests failed",
+        __func__,
         this,
         _handle);
   } else {
@@ -424,7 +430,7 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   data->status            = status;
   data->worker->scheduleRequestCancel(data->inflightRequests->release());
   if (data->closeCallback) {
-    ucxx_debug("ucxx::Endpoint::errorCallback, UCP handle: %p, calling user close callback", ep);
+    ucxx_debug("ucxx::Endpoint::%s, UCP handle: %p, calling user close callback", __func__, ep);
     data->closeCallback(data->closeCallbackArg);
     data->closeCallback    = nullptr;
     data->closeCallbackArg = nullptr;
@@ -433,17 +439,17 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   // Connection reset and timeout often represent just a normal remote
   // endpoint disconnect, log only in debug mode.
   if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
-    ucxx_debug(
-      "ucxx::Endpoint::errorCallback, UCP handle: %p, error callback called with status %d: %s",
-      ep,
-      status,
-      ucs_status_string(status));
+    ucxx_debug("ucxx::Endpoint::%s, UCP handle: %p, error callback called with status %d: %s",
+               __func__,
+               ep,
+               status,
+               ucs_status_string(status));
   else
-    ucxx_error(
-      "ucxx::Endpoint::errorCallback, UCP handle: %p, error callback called with status %d: %s",
-      ep,
-      status,
-      ucs_status_string(status));
+    ucxx_error("ucxx::Endpoint::%s, UCP handle: %p, error callback called with status %d: %s",
+               __func__,
+               ep,
+               status,
+               ucs_status_string(status));
 }
 
 }  // namespace ucxx
