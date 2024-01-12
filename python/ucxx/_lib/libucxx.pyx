@@ -268,7 +268,7 @@ cdef class UCXConfig():
         warnings.warn(
             "UCXConfig.get() is deprecated and will soon be removed, "
             "use the UCXConfig.config property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.config
@@ -362,7 +362,7 @@ cdef class UCXContext():
         warnings.warn(
             "UCXContext.get_config() is deprecated and will soon be removed, "
             "use the UCXContext.config property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.config
@@ -564,7 +564,7 @@ cdef class UCXWorker():
         warnings.warn(
             "UCXWorker.get_address() is deprecated and will soon be removed, "
             "use the UCXWorker.address property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.address
@@ -689,7 +689,7 @@ cdef class UCXWorker():
         warnings.warn(
             "UCXWorker.is_delayed_submission_enabled() is deprecated and will soon "
             "be removed, use the UCXWorker.enable_delayed_submission property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.enable_delayed_submission
@@ -698,7 +698,7 @@ cdef class UCXWorker():
         warnings.warn(
             "UCXWorker.is_python_future_enabled() is deprecated and will soon be removed, "
             "use the UCXWorker.enable_python_future property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.enable_python_future
@@ -796,7 +796,7 @@ cdef class UCXRequest():
         warnings.warn(
             "UCXRequest.is_completed() is deprecated and will soon be removed, "
             "use the UCXRequest.completed property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.completed
@@ -805,7 +805,7 @@ cdef class UCXRequest():
         warnings.warn(
             "UCXRequest.get_status() is deprecated and will soon be removed, "
             "use the UCXRequest.status property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.status
@@ -824,7 +824,7 @@ cdef class UCXRequest():
         warnings.warn(
             "UCXRequest.get_future() is deprecated and will soon be removed, "
             "use the UCXRequest.future property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.future
@@ -839,7 +839,7 @@ cdef class UCXRequest():
         warnings.warn(
             "UCXRequest.get_recv_buffer() is deprecated and will soon be removed, "
             "use the UCXRequest.recv_buffer property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.recv_buffer
@@ -886,7 +886,7 @@ cdef class UCXBufferRequest:
         warnings.warn(
             "UCXBufferRequest.get_request() is deprecated and will soon be removed, "
             "use the UCXBufferRequest.request property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.request
@@ -895,7 +895,7 @@ cdef class UCXBufferRequest:
         warnings.warn(
             "UCXBufferRequest.get_py_buffer() is deprecated and will soon be removed, "
             "use the UCXBufferRequest.py_buffer property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.py_buffer
@@ -1001,7 +1001,7 @@ cdef class UCXBufferRequests:
         warnings.warn(
             "UCXBufferRequests.is_completed() is deprecated and will soon be removed, "
             "use the UCXBufferRequests.completed property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.completed
@@ -1010,7 +1010,7 @@ cdef class UCXBufferRequests:
         warnings.warn(
             "UCXBufferRequests.is_completed_all() is deprecated and will soon be removed, "
             "use the UCXBufferRequests.all_completed property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.all_completed
@@ -1023,7 +1023,7 @@ cdef class UCXBufferRequests:
         warnings.warn(
             "UCXBufferRequests.get_status() is deprecated and will soon be removed, "
             "use the UCXBufferRequests.status property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.status
@@ -1040,7 +1040,7 @@ cdef class UCXBufferRequests:
         warnings.warn(
             "UCXBufferRequests.get_future() is deprecated and will soon be removed, "
             "use the UCXBufferRequests.future property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.future
@@ -1055,7 +1055,7 @@ cdef class UCXBufferRequests:
         warnings.warn(
             "UCXBufferRequests.get_requests() is deprecated and will soon be removed, "
             "use the UCXBufferRequests.requests property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.requests
@@ -1064,7 +1064,7 @@ cdef class UCXBufferRequests:
         warnings.warn(
             "UCXBufferRequests.get_py_buffers() is deprecated and will soon be removed, "
             "use the UCXBufferRequests.py_buffers property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.py_buffers
@@ -1463,7 +1463,7 @@ cdef class UCXEndpoint():
         warnings.warn(
             "UCXEndpoint.is_alive() is deprecated and will soon be removed, "
             "use the UCXEndpoint.alive property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.alive
@@ -1608,7 +1608,7 @@ cdef class UCXListener():
         warnings.warn(
             "UCXListener.is_python_future_enabled() is deprecated and will soon be removed, "
             "use the UCXListener.enable_python_future property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.enable_python_future
