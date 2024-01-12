@@ -171,7 +171,7 @@ async def test_close_after_n_recv(message_type):
         ep.close_after_n_recv(10)
         for _ in range(10):
             await _shutdown_recv(ep, message_type)
-        assert ep.closed()
+        assert ep.closed
 
         ep = await ucxx.create_endpoint(
             ucxx.get_address(),
@@ -182,7 +182,7 @@ async def test_close_after_n_recv(message_type):
         ep.close_after_n_recv(5)
         for _ in range(5):
             await _shutdown_recv(ep, message_type)
-        assert ep.closed()
+        assert ep.closed
 
         ep = await ucxx.create_endpoint(
             ucxx.get_address(),
@@ -193,7 +193,7 @@ async def test_close_after_n_recv(message_type):
         ep.close_after_n_recv(10, count_from_ep_creation=True)
         for _ in range(5):
             await _shutdown_recv(ep, message_type)
-        assert ep.closed()
+        assert ep.closed
 
         ep = await ucxx.create_endpoint(
             ucxx.get_address(),

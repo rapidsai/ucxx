@@ -5,6 +5,7 @@
 import array
 import asyncio
 import logging
+import warnings
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
@@ -44,13 +45,42 @@ class Endpoint:
         self.abort()
 
     @property
+    def alive(self):
+        return self._ep.alive
+
+    @property
+    def closed(self):
+        """Is this endpoint closed?"""
+        return self._ep is None or not self.alive
+
+    @property
+    def ucp_endpoint(self):
+        """The underlying UCP endpoint handle (ucp_ep_h) as a Python integer."""
+        return self._ep.handle
+
+    @property
+    def ucp_worker(self):
+        """The underlying UCP worker handle (ucp_worker_h) as a Python integer."""
+        return self._ctx.worker.handle
+
+    @property
+    def ucxx_endpoint(self):
+        """The underlying UCXX endpoint pointer (ucxx::Endpoint*) as a Python
+        integer.
+        """
+        return self._ep.ucxx_ptr
+
+    @property
+    def ucxx_worker(self):
+        """Returns the underlying UCXX worker pointer (ucxx::Worker*)
+        as a Python integer.
+        """
+        return self._ctx.worker.ucxx_ptr
+
+    @property
     def uid(self):
         """The unique ID of the underlying UCX endpoint"""
         return self._ep.handle
-
-    def closed(self):
-        """Is this endpoint closed?"""
-        return self._ep is None or not self.is_alive()
 
     def abort(self, period=10**10, max_attempts=1):
         """Close the communication immediately and abruptly.
@@ -102,7 +132,7 @@ class Endpoint:
             maximum number of attempts to close endpoint, only applicable
             if worker is running a progress thread and `period > 0`.
         """
-        if self.closed():
+        if self.closed:
             self.abort(period=period, max_attempts=max_attempts)
             return
         try:
@@ -112,7 +142,7 @@ class Endpoint:
             self._shutting_down_peer = True
 
         finally:
-            if not self.closed():
+            if not self.closed:
                 # Give all current outstanding send() calls a chance to return
                 if not self._ctx.progress_mode.startswith("thread"):
                     self._ctx.worker.progress()
@@ -129,7 +159,7 @@ class Endpoint:
             than nbytes.
         """
         self._ep.raise_on_error()
-        if self.closed():
+        if self.closed:
             raise UCXCloseError("Endpoint closed")
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
@@ -176,7 +206,7 @@ class Endpoint:
             internal Endpoint tag.
         """
         self._ep.raise_on_error()
-        if self.closed():
+        if self.closed:
             raise UCXCloseError("Endpoint closed")
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
@@ -229,7 +259,7 @@ class Endpoint:
             internal Endpoint tag.
         """
         self._ep.raise_on_error()
-        if self.closed():
+        if self.closed:
             raise UCXCloseError("Endpoint closed")
         if not (isinstance(buffers, list) or isinstance(buffers, tuple)):
             raise ValueError("The `buffers` argument must be a `list` or `tuple`")
@@ -291,7 +321,7 @@ class Endpoint:
         """Receive from connected peer via active messages."""
         if not self._ep.am_probe():
             self._ep.raise_on_error()
-            if self.closed():
+            if self.closed:
                 raise UCXCloseError("Endpoint closed")
 
         # Optimization to eliminate producing logger string overhead
@@ -354,7 +384,7 @@ class Endpoint:
 
         try:
             self._ep.raise_on_error()
-            if self.closed():
+            if self.closed:
                 raise UCXCloseError("Endpoint closed")
         except Exception as e:
             # Only probe the worker as last resort. To be reliable, probing for the tag
@@ -415,7 +445,7 @@ class Endpoint:
 
         try:
             self._ep.raise_on_error()
-            if self.closed():
+            if self.closed:
                 raise UCXCloseError("Endpoint closed")
         except Exception as e:
             # Only probe the worker as last resort. To be reliable, probing for the tag
@@ -484,25 +514,49 @@ class Endpoint:
         """Returns the underlying UCP worker handle (ucp_worker_h)
         as a Python integer.
         """
-        return self._ctx.worker.handle
+        warnings.warn(
+            "Endpoint.get_ucp_worker() is deprecated and will soon be removed, "
+            "use the Endpoint.ucp_worker property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.ucp_worker
 
     def get_ucxx_worker(self):
         """Returns the underlying UCXX worker pointer (ucxx::Worker*)
         as a Python integer.
         """
-        return self._ctx.worker.ucxx_ptr
+        warnings.warn(
+            "Endpoint.get_ucxx_worker() is deprecated and will soon be removed, "
+            "use the Endpoint.ucxx_worker property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.ucxx_worker
 
     def get_ucp_endpoint(self):
         """Returns the underlying UCP endpoint handle (ucp_ep_h)
         as a Python integer.
         """
-        return self._ep.handle
+        warnings.warn(
+            "Endpoint.get_ucp_endpoint() is deprecated and will soon be removed, "
+            "use the Endpoint.ucp_endpoint property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.ucp_endpoint
 
     def get_ucxx_endpoint(self):
         """Returns the underlying UCXX endpoint pointer (ucxx::Endpoint*)
         as a Python integer.
         """
-        return self._ep.ucxx_ptr
+        warnings.warn(
+            "Endpoint.get_ucxx_endpoint() is deprecated and will soon be removed, "
+            "use the Endpoint.ucxx_endpoint property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.ucxx_endpoint
 
     def close_after_n_recv(self, n, count_from_ep_creation=False):
         """Close the endpoint after `n` received messages.
@@ -561,4 +615,10 @@ class Endpoint:
         self._ep.set_close_callback(callback_func, cb_args, cb_kwargs)
 
     def is_alive(self):
-        return self._ep.alive
+        warnings.warn(
+            "Endpoint.is_alive() is deprecated and will soon be removed, "
+            "use the Endpoint.alive property instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.alive

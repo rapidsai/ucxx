@@ -17,7 +17,7 @@ async def test_message_probe(transfer_api):
     async def server_node(ep):
         # Wait for remote endpoint to close before probing the endpoint for
         # in-transit message and receiving it.
-        while not ep.closed():
+        while not ep.closed:
             await asyncio.sleep(0)  # Yield task
 
         if transfer_api == "am":
