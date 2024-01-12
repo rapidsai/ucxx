@@ -470,7 +470,7 @@ class ApplicationContext:
         warnings.warn(
             "ApplicationContext.get_ucp_worker() is deprecated and will soon "
             "be removed, use the ApplicationContext.ucp_worker property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.ucp_worker
@@ -482,7 +482,7 @@ class ApplicationContext:
         warnings.warn(
             "ApplicationContext.get_ucxx_worker() is deprecated and will soon "
             "be removed, use the ApplicationContext.ucxx_worker property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.ucxx_worker
@@ -498,7 +498,7 @@ class ApplicationContext:
         warnings.warn(
             "ApplicationContext.get_config() is deprecated and will soon "
             "be removed, use the ApplicationContext.config property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.config
@@ -507,7 +507,7 @@ class ApplicationContext:
         warnings.warn(
             "ApplicationContext.get_worker_address() is deprecated and will soon "
             "be removed, use the ApplicationContext.worker_address property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.worker.address

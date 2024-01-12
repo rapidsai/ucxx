@@ -517,7 +517,7 @@ class Endpoint:
         warnings.warn(
             "Endpoint.get_ucp_worker() is deprecated and will soon be removed, "
             "use the Endpoint.ucp_worker property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.ucp_worker
@@ -529,7 +529,7 @@ class Endpoint:
         warnings.warn(
             "Endpoint.get_ucxx_worker() is deprecated and will soon be removed, "
             "use the Endpoint.ucxx_worker property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.ucxx_worker
@@ -541,7 +541,7 @@ class Endpoint:
         warnings.warn(
             "Endpoint.get_ucp_endpoint() is deprecated and will soon be removed, "
             "use the Endpoint.ucp_endpoint property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.ucp_endpoint
@@ -553,7 +553,7 @@ class Endpoint:
         warnings.warn(
             "Endpoint.get_ucxx_endpoint() is deprecated and will soon be removed, "
             "use the Endpoint.ucxx_endpoint property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.ucxx_endpoint
@@ -618,7 +618,7 @@ class Endpoint:
         warnings.warn(
             "Endpoint.is_alive() is deprecated and will soon be removed, "
             "use the Endpoint.alive property instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return self.alive
