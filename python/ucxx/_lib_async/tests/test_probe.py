@@ -48,5 +48,5 @@ async def test_message_probe(transfer_api):
     )
     await client_node(listener.port)
 
-    while not listener.closed():
+    while not listener.closed:
         await asyncio.sleep(0.01)

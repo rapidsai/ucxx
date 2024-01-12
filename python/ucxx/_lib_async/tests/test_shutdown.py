@@ -106,9 +106,9 @@ async def test_listener_close(message_type):
         )
         await _shutdown_recv(ep, message_type)
         await _shutdown_recv(ep, message_type)
-        assert listener.closed() is False
+        assert listener.closed is False
         listener.close()
-        assert listener.closed() is True
+        assert listener.closed is True
 
     async def server_node(ep):
         await _shutdown_send(ep, message_type)
@@ -141,7 +141,7 @@ async def test_listener_del(message_type):
     )
     await _shutdown_recv(ep, message_type)
 
-    assert listener.closed() is False
+    assert listener.closed is False
     root = logging.getLogger("ucx")
     with captured_logger(root, level=logging.WARN) as log:
         # Deleting the listener without waiting for all client handlers to complete

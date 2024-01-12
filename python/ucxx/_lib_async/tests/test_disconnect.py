@@ -52,7 +52,7 @@ def _test_shutdown_unexpected_closed_peer_server(
             server_node, endpoint_error_handling=endpoint_error_handling
         )
         client_queue.put(listener.port)
-        while not listener.closed():
+        while not listener.closed:
             await asyncio.sleep(0.1)
 
     log_stream = StringIO()
