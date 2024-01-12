@@ -147,8 +147,6 @@ class RequestTagMulti : public Request {
    *                                type-specific data.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */

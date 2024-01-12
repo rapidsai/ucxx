@@ -60,7 +60,7 @@ class Notifier {
    *
    * @param[in] period the time in nanoseconds to wait for an event before unblocking.
    */
-  virtual RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs) = 0;
+  virtual RequestNotifierWaitState waitRequestNotifier(uint64_t period) = 0;
 
   /**
    * @brief Notify event loop of all pending completed futures.

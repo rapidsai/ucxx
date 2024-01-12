@@ -55,7 +55,7 @@ class Request : public Component {
    * @param[in] endpointOrWorker    the parent component, which may either be a
    *                                `std::shared_ptr<Endpoint>` or
    *                                `std::shared_ptr<Worker>`.
-   * @param[in] delayedSubmission   the object to manage request submission.
+   * @param[in] requestData         the operation-specific data to be used in the request.
    * @param[in] operationName       a human-readable operation name to help identifying
    *                                requests by their types when UCXX logging is enabled.
    * @param[in] enablePythonFuture  whether a python future should be created and

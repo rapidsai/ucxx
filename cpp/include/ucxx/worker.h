@@ -599,7 +599,8 @@ class Worker : public Component {
    * inflight requests for that endpoint will not be completed successfully and should be
    * canceled.
    *
-   * @param[in] inflight requests object that implements the `cancelAll()` method.
+   * @param[in] trackedRequests the requests tracked by a child of this class to be
+   *                            scheduled for cancelation.
    */
   void scheduleRequestCancel(TrackedRequestsPtr trackedRequests);
 
@@ -755,7 +756,7 @@ class Worker : public Component {
    *
    * @param[in] port port number where to listen at.
    * @param[in] callback to handle each incoming connection.
-   * @param[in] callback_args pointer to argument to pass to the callback.
+   * @param[in] callbackArgs pointer to argument to pass to the callback.
    *
    * @returns The `shared_ptr<ucxx::Listener>` object
    */

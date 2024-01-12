@@ -45,9 +45,9 @@ class AmReceive {
   /**
    * @brief Constructor for Active Message-specific receive data.
    *
-   * Construct an object containing Active Message-specific receive data.
-   *
-   * @param[in] memoryType  the memory type of the buffer.
+   * Construct an object containing Active Message-specific receive data. Currently no
+   * specific data to receive Active Message is supported, but this class exists to act as
+   * an operation identifier, providing interface compatibility.
    */
   AmReceive();
 };

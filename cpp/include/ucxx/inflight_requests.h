@@ -84,8 +84,8 @@ class InflightRequests {
    * Merge containers of inflight requests obtained from `InflightRequests::release()` of
    * another object with the internal containers.
    *
-   * @param[in] trackedRequestsPtr containers of tracked inflight requests to merge with the
-   *                               internal tracked inflight requests.
+   * @param[in] trackedRequests containers of tracked inflight requests to merge with the
+   *                            internal tracked inflight requests.
    */
   void merge(TrackedRequestsPtr trackedRequests);
 

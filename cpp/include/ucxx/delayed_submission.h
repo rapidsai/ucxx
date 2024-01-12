@@ -60,7 +60,11 @@ class BaseDelayedSubmissionCollection {
    * operation into the collection, whereas the `process()` will invoke all callbacks that
    * were previously pushed into the collection and clear the collection.
    *
-   * @param[in] name  human-readable name of the collection, used for logging.
+   * @param[in] name    human-readable name of the collection, used for logging.
+   * @param[in] enabled whether the resource is enabled, if `false` an exception is raised
+   *                    when attempting to schedule a callable. Disabled instances of this
+   *                    class should only be used to provide a consistent interface among
+   *                    implementations.
    */
   explicit BaseDelayedSubmissionCollection(const std::string name, const bool enabled)
     : _name{name}, _enabled{enabled}
@@ -86,7 +90,6 @@ class BaseDelayedSubmissionCollection {
    *
    * @param[in] item            the callback that will be executed by `process()` when the
    *                            operation is submitted.
-   * @param[in] resourceEnabled whether the resource is enabled.
    */
   virtual void schedule(T item)
   {
