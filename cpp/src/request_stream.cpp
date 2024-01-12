@@ -123,18 +123,20 @@ void RequestStream::populateDelayedSubmission()
     if (_enablePythonFuture)
       ucxx_trace_req_f(
         _ownerString.c_str(),
+        this,
         _request,
         _operationName.c_str(),
-        "buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
+        "populateDelayedSubmission, buffer %p, size %lu, future %p, future handle %p",
         buffer,
         length,
         _future.get(),
         _future->getHandle());
     else
       ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
                        _request,
                        _operationName.c_str(),
-                       "buffer %p, size %lu, populateDelayedSubmission",
+                       "populateDelayedSubmission, buffer %p, size %lu",
                        buffer,
                        length);
   };
@@ -176,14 +178,16 @@ void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 void RequestStream::streamSendCallback(void* request, ucs_status_t status, void* arg)
 {
   Request* req = reinterpret_cast<Request*>(arg);
-  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "streamSend", "streamSendCallback");
+  ucxx_trace_req_f(
+    req->getOwnerString().c_str(), nullptr, request, "streamSend", "streamSendCallback");
   return req->callback(request, status);
 }
 
 void RequestStream::streamRecvCallback(void* request, ucs_status_t status, size_t length, void* arg)
 {
   RequestStream* req = reinterpret_cast<RequestStream*>(arg);
-  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "streamRecv", "streamRecvCallback");
+  ucxx_trace_req_f(
+    req->getOwnerString().c_str(), nullptr, request, "streamRecv", "streamRecvCallback");
   return req->callback(request, status, length);
 }
 
