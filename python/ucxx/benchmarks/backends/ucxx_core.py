@@ -52,7 +52,7 @@ async def _wait_requests_async(worker, requests):
 
 
 def _wait_requests(worker, progress_mode, requests):
-    while not all([r.is_completed() for r in requests]):
+    while not all([r.completed for r in requests]):
         if progress_mode == "blocking":
             worker.progress_worker_event()
         if progress_mode == "polling":

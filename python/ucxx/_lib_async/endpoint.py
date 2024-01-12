@@ -50,7 +50,7 @@ class Endpoint:
 
     def closed(self):
         """Is this endpoint closed?"""
-        return self._ep is None or not self._ep.is_alive()
+        return self._ep is None or not self.is_alive()
 
     def abort(self, period=10**10, max_attempts=1):
         """Close the communication immediately and abruptly.
@@ -306,7 +306,7 @@ class Endpoint:
 
         req = self._ep.am_recv()
         await req.wait()
-        buffer = req.get_recv_buffer()
+        buffer = req.recv_buffer
 
         if logger.isEnabledFor(logging.DEBUG):
             log = "[AM Recv Completed #%03d] ep: 0x%x, nbytes: %d, type: %s" % (
@@ -437,9 +437,9 @@ class Endpoint:
         buffer_requests = self._ep.tag_recv_multi(tag, TagMaskFull)
         await buffer_requests.wait()
         buffer_requests.check_error()
-        for r in buffer_requests.get_requests():
+        for r in buffer_requests.requests:
             r.check_error()
-        buffers = buffer_requests.get_py_buffers()
+        buffers = buffer_requests.py_buffers
 
         self._finished_recv_count += 1
         if (
@@ -561,4 +561,4 @@ class Endpoint:
         self._ep.set_close_callback(callback_func, cb_args, cb_kwargs)
 
     def is_alive(self):
-        return self._ep.is_alive()
+        return self._ep.alive
