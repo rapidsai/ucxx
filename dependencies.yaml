@@ -141,6 +141,13 @@ dependencies:
           - autoconf
           # UCXX Build
           - pkg-config
+          # Docs Build
+          - &doxygen doxygen=1.9.1 # pre-commit hook needs a specific version.
+  docs:
+    common:
+      - output_types: [conda]
+        packages:
+          - *doxygen
   py_version:
     specific:
       - output_types: conda

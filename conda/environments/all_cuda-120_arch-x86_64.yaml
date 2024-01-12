@@ -22,6 +22,7 @@ dependencies:
 - dask-cuda==24.2.*
 - dask-cudf==24.2.*
 - distributed
+- doxygen=1.9.1
 - fmt>=10.1.1,<11
 - gmock>=1.13.0
 - gtest>=1.13.0
