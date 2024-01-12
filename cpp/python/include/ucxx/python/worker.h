@@ -20,6 +20,12 @@ namespace ucxx {
 
 namespace python {
 
+/**
+ * @brief Specialized Python implementation of a `ucxx::Worker`.
+ *
+ * Specialized Python implemenation of a `ucxx::Worker`, providing Python-specific
+ * functionality, such as notification of Python futures.
+ */
 class Worker : public ::ucxx::Worker {
  private:
   /**

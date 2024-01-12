@@ -17,6 +17,12 @@ namespace ucxx {
 
 namespace python {
 
+/**
+ * @brief Specialized Python implementation of a `ucxx::Notifier`.
+ *
+ * Specialized Python implemenation of a `ucxx::Notifier`, providing support for notifying
+ * Python futures.
+ */
 class Notifier : public ::ucxx::Notifier {
  private:
   std::mutex _notifierThreadMutex{};  ///< Mutex to access thread's resources

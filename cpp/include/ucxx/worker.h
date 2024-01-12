@@ -34,6 +34,12 @@ namespace internal {
 class AmData;
 }  // namespace internal
 
+/**
+ * @brief Component encapsulating a UCP worker.
+ *
+ * The UCP layer provides a handle to access workers in form of `ucp_worker_h` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Worker : public Component {
  private:
   ucp_worker_h _handle{nullptr};        ///< The UCP worker handle

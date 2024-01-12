@@ -24,10 +24,29 @@
 
 namespace ucxx {
 
+/**
+ * @brief Deleter for a endpoint parameters object.
+ *
+ * Deleter used during allocation of a `ucp_ep_params_t*` to handle automated deletion of
+ * the object when its reference count goes to zero.
+ */
 struct EpParamsDeleter {
+  /**
+   * @brief Execute the deletion.
+   *
+   * Execute the deletion of the `ucp_ep_params_t*` object.
+   *
+   * param[in] ptr  the point to the object to be deleted.
+   */
   void operator()(ucp_ep_params_t* ptr);
 };
 
+/**
+ * @brief The endpoint data that is accessible by the error callback.
+ *
+ * The `ucxx::Endpoint` data that is accessible by the asynchronous UCP endpoint error
+ * callback to modify the `ucxx::Endpoint` with information relevant to the error occurred.
+ */
 struct ErrorCallbackData {
   ucs_status_t status;                                 ///< Endpoint status
   std::shared_ptr<InflightRequests> inflightRequests;  ///< Endpoint inflight requests
@@ -36,6 +55,12 @@ struct ErrorCallbackData {
   std::shared_ptr<Worker> worker;  ///< Worker the endpoint has been created from
 };
 
+/**
+ * @brief Component encapsulating a UCP endpoint.
+ *
+ * The UCP layer provides a handle to access endpoints in form of `ucp_ep_h` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Endpoint : public Component {
  private:
   ucp_ep_h _handle{nullptr};          ///< Handle to the UCP endpoint
@@ -260,8 +285,6 @@ class Endpoint : public Component {
    * @param[in] closeCallback     `std::function` to a function definition return `void` and
    *                              receiving a single opaque pointer.
    * @param[in] closeCallbackArg  pointer to optional user-allocated callback argument.
-   *
-   * @returns Number of requests that were canceled.
    */
   void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
 

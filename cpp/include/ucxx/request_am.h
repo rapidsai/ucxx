@@ -21,6 +21,12 @@ namespace internal {
 class RecvAmMessage;
 }  // namespace internal
 
+/**
+ * @brief Send or receive a message with the UCX Active Message API.
+ *
+ * Send or receive a message with the UCX Active Message API, using non-blocking UCP calls
+ * `ucp_am_send_nbx` or `ucp_am_recv_data_nbx`.
+ */
 class RequestAm : public Request {
  private:
   friend class internal::RecvAmMessage;

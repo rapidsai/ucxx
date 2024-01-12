@@ -11,12 +11,30 @@
 
 namespace ucxx {
 
+/**
+ * @brief The state of the notifier thread.
+ *
+ * The current state of the notifier thread.
+ */
 enum class RequestNotifierThreadState { NotRunning = 0, Running, Stopping };
 
+/**
+ * @brief The state with which a wait operation completed.
+ *
+ * The state with which a blocking call to wait for the request notifier completed.
+ */
 enum class RequestNotifierWaitState { Ready = 0, Timeout, Shutdown };
 
 class Future;
 
+/**
+ * @brief Notifier for status of futures.
+ *
+ * A notifier used to delay notification of futures to a more appropriate stage of the
+ * program execution, such as when it will be less resource intensive or free of risks of
+ * effects such as deadlocks, for example when notifying Python futures where the GIL is
+ * required.
+ */
 class Notifier {
  protected:
   Notifier() = default;

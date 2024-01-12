@@ -22,6 +22,14 @@
 
 namespace ucxx {
 
+/**
+ * @brief Base type for a UCXX transfer request.
+ *
+ * Base type for one of the multiple UCXX transfer requests. Encapsulates information such
+ * as the UCP request pointer, the current status, a future to notify and a callback to
+ * execute upon completion, as well operation-specific data and to maintain a reference to
+ * its parent until completion.
+ */
 class Request : public Component {
  protected:
   ucs_status_t _status{UCS_INPROGRESS};            ///< Requests status

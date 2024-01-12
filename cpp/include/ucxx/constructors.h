@@ -27,7 +27,7 @@ class RequestTagMulti;
 class Worker;
 
 // Components
-std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<ucxx::Worker> worker);
+std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
 
 std::shared_ptr<Address> createAddressFromString(std::string addressString);
 

@@ -20,6 +20,13 @@ namespace ucxx {
 
 class RequestTagMulti;
 
+/**
+ * @brief Container for data required by a `ucxx::RequestTagMulti`.
+ *
+ * Container for the data required by a `ucxx::RequestTagMulti`, such as the
+ * `ucxx::RequestTag` that is doing the operation, as well as buffers to send from or
+ * receive at.
+ */
 struct BufferRequest {
   std::shared_ptr<Request> request{nullptr};  ///< The `ucxx::RequestTag` of a header or frame
   std::shared_ptr<std::string> stringBuffer{nullptr};  ///< Serialized `Header`
@@ -34,8 +41,22 @@ struct BufferRequest {
   BufferRequest& operator=(BufferRequest&& o)    = delete;
 };
 
+/**
+ * @brief Pre-defined type for a pointer to an `ucxx::BufferRequest`.
+ *
+ * A pre-defined type for a pointer to a `ucxx::BufferRequest`, used as a convenience type.
+ */
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
 
+/**
+ * @brief Send or receive multiple messages with the UCX Tag API.
+ *
+ * Send or receive multiple messages with the UCX Tag API. This is done combining multiple
+ * messages with `ucxx::RequestTag`, first sending/receiving a header, followed by
+ * sending/receiving the user messages. Intended primarily for use with Python, such that
+ * the program can then only wait for the completion of one future and thus reduce
+ * potentially expensive iterations over multiple futures.
+ */
 class RequestTagMulti : public Request {
  private:
   size_t _totalFrames{0};  ///< The total number of frames handled by this request
@@ -204,6 +225,11 @@ class RequestTagMulti : public Request {
   void cancel() override;
 };
 
+/**
+ * @brief Pre-defined type for a pointer to an `ucxx::RequestTagMulti`.
+ *
+ * A pre-defined type for a pointer to a `ucxx::RequestTagMulti`, used as a convenience type.
+ */
 typedef std::shared_ptr<RequestTagMulti> RequestTagMultiPtr;
 
 }  // namespace ucxx
