@@ -149,7 +149,7 @@ dependencies:
           # UCXX Build
           - pkg-config
           # Docs Build
-          - &doxygen doxygen=1.9.1 # pre-commit hook needs a specific version.
+          - &doxygen doxygen=1.10.0 # pre-commit hook needs a specific version.
   docs:
     common:
       - output_types: [conda]
