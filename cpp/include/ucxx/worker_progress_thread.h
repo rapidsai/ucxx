@@ -128,7 +128,7 @@ class WorkerProgressThread {
                        std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection);
 
   /**
-   * @brief `ucxx::WorkerProgressThread destructor.
+   * @brief `ucxx::WorkerProgressThread` destructor.
    *
    * Raises the stop signal and joins the thread.
    */
