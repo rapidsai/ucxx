@@ -375,13 +375,8 @@ cdef class UCXAddress():
         ucp_address_t *_handle
         string _string
 
-    def __init__(self, uintptr_t shared_ptr_address):
-        self._address = deref(<shared_ptr[Address] *> shared_ptr_address)
-
-        with nogil:
-            self._handle = self._address.get().getHandle()
-            self._length = self._address.get().getLength()
-            self._string = self._address.get().getString()
+    def __init__(self):
+        raise TypeError("UCXListener cannot be instantiated directly.")
 
     def __dealloc__(self):
         with nogil:
@@ -390,25 +385,31 @@ cdef class UCXAddress():
 
     @classmethod
     def create_from_worker(cls, UCXWorker worker):
-        cdef shared_ptr[Address] address
+        cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
 
         with nogil:
-            address = worker._worker.get().getAddress()
+            address._address = worker._worker.get().getAddress()
+            address._handle = address._address.get().getHandle()
+            address._length = address._address.get().getLength()
+            address._string = address._address.get().getString()
 
-        return cls(<uintptr_t><void*>&address)
+        return address
 
     @classmethod
-    def create_from_string(cls, address_str):
-        cdef shared_ptr[Address] address
+    def create_from_string(cls, string address_str):
+        cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
         cdef string cpp_address_str = address_str
 
         with nogil:
-            address = createAddressFromString(cpp_address_str)
+            address._address = createAddressFromString(cpp_address_str)
+            address._handle = address._address.get().getHandle()
+            address._length = address._address.get().getLength()
+            address._string = address._address.get().getString()
 
-        return cls(<uintptr_t><void*>&address)
+        return address
 
     @classmethod
-    def create_from_buffer(cls, buffer):
+    def create_from_buffer(cls, bytes buffer):
         cdef string address_str
 
         buf = Array(buffer)
@@ -421,6 +422,7 @@ cdef class UCXAddress():
     # For old UCX-Py API compatibility
     @classmethod
     def from_worker(cls, UCXWorker worker):
+        cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
         return cls.create_from_worker(worker)
 
     @property
@@ -1091,17 +1093,8 @@ cdef class UCXEndpoint():
         bint _enable_python_future
         dict _close_cb_data
 
-    def __init__(
-            self,
-            uintptr_t shared_ptr_endpoint,
-            bint enable_python_future,
-            uint64_t context_feature_flags,
-            bint cuda_support,
-    ):
-        self._endpoint = deref(<shared_ptr[Endpoint] *> shared_ptr_endpoint)
-        self._enable_python_future = enable_python_future
-        self._context_feature_flags = context_feature_flags
-        self._cuda_support = cuda_support
+    def __init__(self):
+        raise TypeError("UCXListener cannot be instantiated directly.")
 
     def __dealloc__(self):
         with nogil:
@@ -1115,28 +1108,24 @@ cdef class UCXEndpoint():
             uint16_t port,
             bint endpoint_error_handling
     ):
-        cdef shared_ptr[Context] context
-        cdef shared_ptr[Endpoint] endpoint
+        cdef UCXEndpoint endpoint = UCXEndpoint.__new__(UCXEndpoint)
+        cdef shared_ptr[Context] ucxx_context
         cdef string addr = ip_address.encode("utf-8")
-        cdef uint64_t context_feature_flags
-        cdef bint cuda_support
+
+        endpoint._enable_python_future = worker.enable_python_future
 
         with nogil:
-            endpoint = worker._worker.get().createEndpointFromHostname(
-                addr, port, endpoint_error_handling
-            )
-            context = dynamic_pointer_cast[Context, Component](
+            ucxx_context = dynamic_pointer_cast[Context, Component](
                 worker._worker.get().getParent()
             )
-            context_feature_flags = context.get().getFeatureFlags()
-            cuda_support = context.get().hasCudaSupport()
 
-        return cls(
-            <uintptr_t><void*>&endpoint,
-            worker.enable_python_future,
-            context_feature_flags,
-            cuda_support,
-        )
+            endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
+            endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
+            endpoint._endpoint = worker._worker.get().createEndpointFromHostname(
+                addr, port, endpoint_error_handling
+            )
+
+        return endpoint
 
     @classmethod
     def create_from_conn_request(
@@ -1145,29 +1134,25 @@ cdef class UCXEndpoint():
             uintptr_t conn_request,
             bint endpoint_error_handling
     ):
-        cdef shared_ptr[Context] context
-        cdef shared_ptr[Worker] worker
-        cdef shared_ptr[Endpoint] endpoint
-        cdef uint64_t context_feature_flags
-        cdef bint cuda_support
+        cdef UCXEndpoint endpoint = UCXEndpoint.__new__(UCXEndpoint)
+        cdef shared_ptr[Context] ucxx_context
+        cdef shared_ptr[Worker] ucxx_worker
+
+        endpoint._enable_python_future = listener.enable_python_future
 
         with nogil:
-            endpoint = listener._listener.get().createEndpointFromConnRequest(
-                <ucp_conn_request_h>conn_request, endpoint_error_handling
-            )
-            worker = dynamic_pointer_cast[Worker, Component](
+            ucxx_worker = dynamic_pointer_cast[Worker, Component](
                 listener._listener.get().getParent()
             )
-            context = dynamic_pointer_cast[Context, Component](worker.get().getParent())
-            context_feature_flags = context.get().getFeatureFlags()
-            cuda_support = context.get().hasCudaSupport()
+            ucxx_context = dynamic_pointer_cast[Context, Component](ucxx_worker.get().getParent())
 
-        return cls(
-            <uintptr_t><void*>&endpoint,
-            listener.enable_python_future,
-            context_feature_flags,
-            cuda_support,
-        )
+            endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
+            endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
+            endpoint._endpoint = listener._listener.get().createEndpointFromConnRequest(
+                <ucp_conn_request_h>conn_request, endpoint_error_handling
+            )
+
+        return endpoint
 
     @classmethod
     def create_from_worker_address(
@@ -1176,28 +1161,24 @@ cdef class UCXEndpoint():
             UCXAddress address,
             bint endpoint_error_handling
     ):
-        cdef shared_ptr[Context] context
-        cdef shared_ptr[Endpoint] endpoint
+        cdef UCXEndpoint endpoint = UCXEndpoint.__new__(UCXEndpoint)
+        cdef shared_ptr[Context] ucxx_context
         cdef shared_ptr[Address] ucxx_address = address._address
-        cdef uint64_t context_feature_flags
-        cdef bint cuda_support
+
+        endpoint._enable_python_future = worker.enable_python_future
 
         with nogil:
-            endpoint = worker._worker.get().createEndpointFromWorkerAddress(
-                ucxx_address, endpoint_error_handling
-            )
-            context = dynamic_pointer_cast[Context, Component](
+            ucxx_context = dynamic_pointer_cast[Context, Component](
                 worker._worker.get().getParent()
             )
-            context_feature_flags = context.get().getFeatureFlags()
-            cuda_support = context.get().hasCudaSupport()
 
-        return cls(
-            <uintptr_t><void*>&endpoint,
-            worker.enable_python_future,
-            context_feature_flags,
-            cuda_support,
-        )
+            endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
+            endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
+            endpoint._endpoint = worker._worker.get().createEndpointFromWorkerAddress(
+                ucxx_address, endpoint_error_handling
+            )
+
+        return endpoint
 
     @property
     def handle(self):
@@ -1520,15 +1501,8 @@ cdef class UCXListener():
         dict _cb_data
         object __weakref__
 
-    def __init__(
-            self,
-            uintptr_t shared_ptr_listener,
-            dict cb_data,
-            bint enable_python_future,
-    ):
-        self._listener = deref(<shared_ptr[Listener] *> shared_ptr_listener)
-        self._cb_data = cb_data
-        self._enable_python_future = enable_python_future
+    def __init__(self):
+        raise TypeError("UCXListener cannot be instantiated directly.")
 
     def __dealloc__(self):
         with nogil:
@@ -1549,6 +1523,7 @@ cdef class UCXListener():
         if cb_kwargs is None:
             cb_kwargs = {}
 
+        cdef UCXListener listener = UCXListener.__new__(UCXListener)
         cdef shared_ptr[Listener] ucxx_listener
         cdef ucp_listener_conn_callback_t listener_cb = (
             <ucp_listener_conn_callback_t>_listener_callback
@@ -1558,19 +1533,17 @@ cdef class UCXListener():
             "cb_args": cb_args,
             "cb_kwargs": cb_kwargs,
         }
-
-        with nogil:
-            ucxx_listener = worker._worker.get().createListener(
-                port, listener_cb, <void*>cb_data
-            )
-
-        listener = cls(
-            <uintptr_t><void*>&ucxx_listener,
-            cb_data,
-            worker.enable_python_future,
-        )
         if deliver_endpoint is True:
             cb_data["listener"] = weakref.ref(listener)
+
+        listener._cb_data = cb_data
+        listener._enable_python_future = worker.enable_python_future
+
+        with nogil:
+            listener._listener = worker._worker.get().createListener(
+                port, listener_cb, <void*>listener._cb_data
+            )
+
         return listener
 
     @property
