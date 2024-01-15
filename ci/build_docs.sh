@@ -25,7 +25,7 @@ PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
-  libcudf cudf dask-cudf
+  libucxx
 
 export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
