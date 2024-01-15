@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <functional>
@@ -60,11 +60,12 @@ Worker::Worker(std::shared_ptr<Context> context,
     utils::ucsErrorThrow(ucp_worker_set_am_recv_handler(_handle, &am_handler_param));
   }
 
-  ucxx_trace("Worker created: %p, UCP handle: %p, enableDelayedSubmission: %d, enableFuture: %d",
-             this,
-             _handle,
-             enableDelayedSubmission,
-             _enableFuture);
+  ucxx_trace(
+    "ucxx::Worker created: %p, UCP handle: %p, enableDelayedSubmission: %d, enableFuture: %d",
+    this,
+    _handle,
+    enableDelayedSubmission,
+    _enableFuture);
 
   setParent(std::dynamic_pointer_cast<Component>(context));
 }
@@ -86,10 +87,14 @@ void Worker::drainWorkerTagRecv()
   ucp_tag_recv_info_t info;
 
   while ((message = ucp_tag_probe_nb(_handle, 0, 0, 1, &info)) != NULL) {
-    ucxx_debug("Draining tag receive messages, worker: %p, tag: 0x%lx, length: %lu",
-               _handle,
-               info.sender_tag,
-               info.length);
+    ucxx_debug(
+      "ucxx::Worker::%s, Worker: %p, UCP handle: %p, tag: 0x%lx, length: %lu, "
+      "draining tag receive messages",
+      __func__,
+      this,
+      _handle,
+      info.sender_tag,
+      info.length);
 
     std::vector<char> buf(info.length);
 
@@ -150,8 +155,12 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 
 Worker::~Worker()
 {
-  size_t canceled = cancelInflightRequests();
-  ucxx_debug("Worker %p canceled %lu requests", _handle, canceled);
+  size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
+  ucxx_debug("ucxx::Worker::%s, Worker: %p, UCP handle: %p, canceled %lu requests",
+             __func__,
+             this,
+             _handle,
+             canceled);
 
   stopProgressThreadNoWarn();
   if (_notifier) _notifier->stopRequestNotifierThread();
@@ -204,7 +213,9 @@ void Worker::initBlockingProgressMode()
                              }};
 
   err = epoll_ctl(_epollFileDescriptor, EPOLL_CTL_ADD, _workerFileDescriptor, &workerEvent);
-  if (err != 0) throw std::ios_base::failure(std::string("epoll_ctl() returned " + err));
+  if (err != 0) {
+    throw std::ios_base::failure(std::string("epoll_ctl() returned ") + std::to_string(err));
+  }
 }
 
 int Worker::getEpollFileDescriptor()
@@ -274,7 +285,7 @@ bool Worker::progress()
   if (progressScheduledCancel) ret |= progressPending();
 
   // Requests that were not completed now must be canceled.
-  if (cancelInflightRequests() > 0) ret |= progressPending();
+  if (cancelInflightRequests(3000000000 /* 3s */, 3) > 0) ret |= progressPending();
 
   return ret;
 }
@@ -363,7 +374,12 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
 void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
   if (_progressThread) {
-    ucxx_debug("Worker progress thread already running");
+    ucxx_debug(
+      "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread "
+      "already running",
+      __func__,
+      this,
+      _handle);
     return;
   }
 
@@ -398,7 +414,12 @@ void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
 void Worker::stopProgressThread()
 {
   if (!_progressThread)
-    ucxx_debug("Worker progress thread not running or already stopped");
+    ucxx_debug(
+      "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread not "
+      "running or already stopped",
+      __func__,
+      this,
+      _handle);
   else
     stopProgressThreadNoWarn();
 }
@@ -407,11 +428,11 @@ bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
 
 std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
 
-size_t Worker::cancelInflightRequests()
+size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 {
   size_t canceled = 0;
 
-  auto inflightRequestsToCancel = std::make_shared<InflightRequests>();
+  auto inflightRequestsToCancel = std::make_unique<InflightRequests>();
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
     std::swap(_inflightRequestsToCancel, inflightRequestsToCancel);
@@ -419,31 +440,58 @@ size_t Worker::cancelInflightRequests()
 
   if (std::this_thread::get_id() == getProgressThreadId()) {
     canceled = inflightRequestsToCancel->cancelAll();
-    progressPending();
+    for (uint64_t i = 0; i < maxAttempts && inflightRequestsToCancel->getCancelingSize() > 0; ++i)
+      progressPending();
   } else if (isProgressThreadRunning()) {
-    utils::CallbackNotifier callbackNotifierPre{};
-    registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
-      canceled = inflightRequestsToCancel->cancelAll();
-      callbackNotifierPre.set();
-    });
-    callbackNotifierPre.wait();
+    bool cancelSuccess = false;
+    for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
+      utils::CallbackNotifier callbackNotifierPre{};
+      registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
+        canceled += inflightRequestsToCancel->cancelAll();
+        callbackNotifierPre.set();
+      });
+      if (!callbackNotifierPre.wait(period)) continue;
 
-    utils::CallbackNotifier callbackNotifierPost{};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+      utils::CallbackNotifier callbackNotifierPost{};
+      registerGenericPost(
+        [this, &callbackNotifierPost, &inflightRequestsToCancel, &cancelSuccess]() {
+          cancelSuccess = inflightRequestsToCancel->getCancelingSize() == 0;
+          callbackNotifierPost.set();
+        });
+      if (!callbackNotifierPost.wait(period)) continue;
+    }
+
+    if (!cancelSuccess)
+      ucxx_debug(
+        "ucxx::Worker::%s, Worker: %p, UCP handle: %p, all attempts to cancel "
+        "inflight requests failed",
+        __func__,
+        this,
+        _handle);
   } else {
     canceled = inflightRequestsToCancel->cancelAll();
+  }
+
+  if (inflightRequestsToCancel->getCancelingSize() > 0) {
+    std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
+    _inflightRequestsToCancel->merge(inflightRequestsToCancel->release());
   }
 
   return canceled;
 }
 
-void Worker::scheduleRequestCancel(std::shared_ptr<InflightRequests> inflightRequests)
+void Worker::scheduleRequestCancel(TrackedRequestsPtr trackedRequests)
 {
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
-    ucxx_debug("Scheduling cancelation of %lu requests", inflightRequests->size());
-    _inflightRequestsToCancel->merge(inflightRequests->release());
+    ucxx_debug(
+      "ucxx::Worker::%s, Worker: %p, UCP handle: %p, scheduling cancelation of "
+      "%lu requests",
+      __func__,
+      this,
+      _handle,
+      trackedRequests->_inflight->size() + trackedRequests->_canceling->size());
+    _inflightRequestsToCancel->merge(std::move(trackedRequests));
   }
 }
 
@@ -465,7 +513,7 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(const ucp_tag_t tag)
+bool Worker::tagProbe(const Tag tag)
 {
   if (!isProgressThreadRunning()) {
     progress();
@@ -492,14 +540,18 @@ bool Worker::tagProbe(const ucp_tag_t tag)
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                          size_t length,
-                                         ucp_tag_t tag,
+                                         Tag tag,
+                                         TagMask tagMask,
                                          const bool enableFuture,
                                          RequestCallbackUserFunction callbackFunction,
                                          RequestCallbackUserData callbackData)
 {
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(createRequestTag(
-    worker, false, buffer, length, tag, enableFuture, callbackFunction, callbackData));
+  return registerInflightRequest(createRequestTag(worker,
+                                                  data::TagReceive(buffer, length, tag, tagMask),
+                                                  enableFuture,
+                                                  callbackFunction,
+                                                  callbackData));
 }
 
 std::shared_ptr<Address> Worker::getAddress()

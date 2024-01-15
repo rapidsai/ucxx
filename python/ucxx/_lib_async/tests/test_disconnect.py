@@ -43,7 +43,7 @@ def _test_shutdown_unexpected_closed_peer_server(
                 # At this point, the client should have died and the endpoint
                 # is not alive anymore. `True` only when endpoint error
                 # handling is enabled.
-                ep_is_alive = ep._ep.is_alive()
+                ep_is_alive = ep.is_alive()
 
                 await ep.close()
             finally:

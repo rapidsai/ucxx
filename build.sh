@@ -215,22 +215,20 @@ if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_UCXX_CPP"* ]]; then
     EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_UCXX_CPP=ON"
 fi
 
+# Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
+SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
+
 # Build and install the UCXX Python package
 if buildAll || hasArg ucxx; then
 
     cd ${REPODIR}/python/
-    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_LIBRARY_PATH=${LIBUCXX_BUILD_DIR} -DCMAKE_CUDA_ARCHITECTURES=${UCXX_CMAKE_CUDA_ARCHITECTURES} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
-    if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_LIBRARY_PATH=${LIBUCXX_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
-    fi
+    SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
+        python -m pip install --no-build-isolation --no-deps .
 fi
 
 # Build and install the distributed_ucxx Python package
 if buildAll || hasArg distributed_ucxx; then
 
     cd ${REPODIR}/python/distributed-ucxx/
-    python setup.py build_ext --inplace
-    if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt
-    fi
+    python -m pip install --no-build-isolation --no-deps .
 fi

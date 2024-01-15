@@ -227,6 +227,10 @@ def get_ucp_worker():
     return _get_ctx().get_ucp_worker()
 
 
+def get_ucxx_worker():
+    return _get_ctx().get_ucxx_worker()
+
+
 def get_worker_address():
     return _get_ctx().get_worker_address()
 

@@ -180,7 +180,7 @@ async def test_ucxx_deserialize(ucxx_loop):
     [
         lambda cudf: cudf.Series([1, 2, 3]),
         lambda cudf: cudf.Series([], dtype=object),
-        lambda cudf: cudf.DataFrame([]),
+        lambda cudf: cudf.DataFrame([], dtype=object),
         lambda cudf: cudf.DataFrame([1]).head(0),
         lambda cudf: cudf.DataFrame([1.0]).head(0),
         lambda cudf: cudf.DataFrame({"a": []}),
@@ -393,10 +393,6 @@ async def test_ucxx_protocol(ucxx_loop, cleanup, port):
 
 
 @gen_test()
-@pytest.mark.skipif(
-    int(os.environ.get("UCXPY_ENABLE_PYTHON_FUTURE", "1")) != 0,
-    reason="Segfaults when Python futures are enabled",
-)
 async def test_ucxx_unreachable(
     ucxx_loop,
 ):

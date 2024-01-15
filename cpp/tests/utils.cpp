@@ -25,3 +25,14 @@ std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
   else
     return std::function<void()>();
 }
+
+bool loopWithTimeout(std::chrono::milliseconds timeout, std::function<bool()> f)
+{
+  auto startTime = std::chrono::system_clock::now();
+  auto endTime   = startTime + std::chrono::milliseconds(timeout);
+
+  while (std::chrono::system_clock::now() < endTime) {
+    if (f()) return true;
+  }
+  return false;
+}

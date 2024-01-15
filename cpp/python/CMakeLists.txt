@@ -18,6 +18,7 @@ add_library(
   src/future.cpp
   src/notifier.cpp
   src/python_future.cpp
+  src/python_future_task_collector.cpp
   src/worker.cpp
 )
 
@@ -42,8 +43,6 @@ target_include_directories(
   ucxx_python
   PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
          "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/python/include>"
-         "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
-         "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/python/include>"
   PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
@@ -77,5 +76,5 @@ install(DIRECTORY ${UCXX_SOURCE_DIR}/python/include/ucxx
 
 include("${rapids-cmake-dir}/export/find_package_root.cmake")
 rapids_export_find_package_root(
-  BUILD Python3 [=[${CMAKE_CURRENT_LIST_DIR}]=] ucxx-python-exports
+  BUILD Python3 [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET ucxx-python-exports
 )

@@ -23,8 +23,10 @@ Notifier::~Notifier() {}
 
 void Notifier::scheduleFutureNotify(std::shared_ptr<::ucxx::Future> future, ucs_status_t status)
 {
-  ucxx_trace_req(
-    "Notifier::scheduleFutureNotify(): future: %p, handle: %p", future.get(), future->getHandle());
+  ucxx_trace_req("ucxx::python::Notifier::%s, future: %p, handle: %p",
+                 __func__,
+                 future.get(),
+                 future->getHandle());
   auto p = std::make_pair(future, status);
   {
     std::lock_guard<std::mutex> lock(_notifierThreadMutex);
@@ -32,7 +34,8 @@ void Notifier::scheduleFutureNotify(std::shared_ptr<::ucxx::Future> future, ucs_
     _notifierThreadFutureStatusReady = true;
   }
   _notifierThreadConditionVariable.notify_one();
-  ucxx_trace_req("Notifier::scheduleFutureNotify() notified: future: %p, handle: %p",
+  ucxx_trace_req("ucxx::python::Notifier::%s, notified future: %p, handle: %p",
+                 __func__,
                  future.get(),
                  future->getHandle());
 }
@@ -45,11 +48,13 @@ void Notifier::runRequestNotifier()
     notifierThreadFutureStatus = std::move(_notifierThreadFutureStatus);
   }
 
-  ucxx_trace_req("Notifier::runRequestNotifier() notifying %lu", notifierThreadFutureStatus.size());
+  ucxx_trace_req(
+    "ucxx::python::Notifier::%s, notifying %lu", __func__, notifierThreadFutureStatus.size());
   for (auto& p : notifierThreadFutureStatus) {
     // r->future_set_result;
     p.first->set(p.second);
-    ucxx_trace_req("Notifier::runRequestNotifier() notified future: %p, handle: %p",
+    ucxx_trace_req("ucxx::python::Notifier::%s, notified future: %p, handle: %p",
+                   __func__,
                    p.first.get(),
                    p.first->getHandle());
   }
@@ -57,7 +62,7 @@ void Notifier::runRequestNotifier()
 
 RequestNotifierWaitState Notifier::waitRequestNotifierWithoutTimeout()
 {
-  ucxx_trace_req("Notifier::waitRequestNotifierWithoutTimeout()");
+  ucxx_trace_req("ucxx::python::Notifier::%s", __func__);
 
   std::unique_lock<std::mutex> lock(_notifierThreadMutex);
   _notifierThreadConditionVariable.wait(lock, [this] {
@@ -68,7 +73,7 @@ RequestNotifierWaitState Notifier::waitRequestNotifierWithoutTimeout()
   auto state = _notifierThreadFutureStatusReady ? RequestNotifierWaitState::Ready
                                                 : RequestNotifierWaitState::Shutdown;
 
-  ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d", static_cast<int>(state));
+  ucxx_trace_req("ucxx::python::Notifier::%s, unlock: %d", __func__, static_cast<int>(state));
   _notifierThreadFutureStatusReady = false;
 
   return state;
@@ -76,7 +81,7 @@ RequestNotifierWaitState Notifier::waitRequestNotifierWithoutTimeout()
 
 RequestNotifierWaitState Notifier::waitRequestNotifierWithTimeout(uint64_t period)
 {
-  ucxx_trace_req("Notifier::waitRequestNotifierWithTimeout()");
+  ucxx_trace_req("ucxx::python::Notifier::%s", __func__);
 
   std::unique_lock<std::mutex> lock(_notifierThreadMutex);
   bool condition = _notifierThreadConditionVariable.wait_for(
@@ -89,7 +94,7 @@ RequestNotifierWaitState Notifier::waitRequestNotifierWithTimeout(uint64_t perio
                                                               : RequestNotifierWaitState::Shutdown)
                           : RequestNotifierWaitState::Timeout);
 
-  ucxx_trace_req("Notifier::waitRequestNotifier() unlock: %d", static_cast<int>(state));
+  ucxx_trace_req("ucxx::python::Notifier::%s, unlock: %d", __func__, static_cast<int>(state));
   if (state == RequestNotifierWaitState::Ready) _notifierThreadFutureStatusReady = false;
 
   return state;
@@ -97,7 +102,7 @@ RequestNotifierWaitState Notifier::waitRequestNotifierWithTimeout(uint64_t perio
 
 RequestNotifierWaitState Notifier::waitRequestNotifier(uint64_t period)
 {
-  ucxx_trace_req("Notifier::waitRequestNotifier()");
+  ucxx_trace_req("ucxx::python::Notifier::%s", __func__);
 
   if (_notifierThreadFutureStatusFinished == RequestNotifierThreadState::Stopping) {
     _notifierThreadFutureStatusFinished = RequestNotifierThreadState::Running;

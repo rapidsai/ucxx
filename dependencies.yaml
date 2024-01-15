@@ -9,7 +9,8 @@ files:
       - build_cpp
       - build_python
       - checks
-      - cudatoolkit
+      - cuda
+      - cuda_version
       - dev
       - py_version
       - run_python
@@ -18,12 +19,12 @@ files:
   test_cpp:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - test_cpp
   test_python:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - py_version
       - test_python
   checks:
@@ -67,12 +68,12 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - &cmake_ver cmake>=3.26.4
-          - fmt>=9.1.0,<10
+          - fmt>=10.1.1,<11
           - &gmock gmock>=1.13.0
           - &gtest gtest>=1.13.0
-          - librmm==23.12.*
+          - librmm==24.2.*
           - ninja
-          - spdlog>=1.11.0,<1.12
+          - spdlog>=1.12.0,<1.13
   build_python:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -80,17 +81,19 @@ dependencies:
           - *cmake_ver
           - cython>=3.0.0
           - ninja
-          - rmm==23.12.*
-          - scikit-build>=0.13.1
-          - setuptools
-          - tomli
-          - wheel
+          - rmm==24.2.*
+      - output_types: conda
+        packages:
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
   checks:
     common:
       - output_types: [conda, requirements]
         packages:
           - pre-commit
-  cudatoolkit:
+  cuda_version:
     specific:
       - output_types: conda
         matrices:
@@ -98,26 +101,33 @@ dependencies:
               cuda: "11.2"
             packages:
               - cuda-version=11.2
-              - cudatoolkit
           - matrix:
               cuda: "11.4"
             packages:
               - cuda-version=11.4
-              - cudatoolkit
           - matrix:
               cuda: "11.5"
             packages:
               - cuda-version=11.5
-              - cudatoolkit
           - matrix:
               cuda: "11.8"
             packages:
               - cuda-version=11.8
-              - cudatoolkit
           - matrix:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+  cuda:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              cuda: "11.*"
+            packages:
+              - cudatoolkit
+          - matrix:
+              cuda: "12.*"
+            packages:
               - cuda-cudart-dev
   dev:
     common:
@@ -126,8 +136,8 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==23.12.*
-          - dask-cudf==23.12.*
+          - dask-cuda==24.2.*
+          - dask-cudf==24.2.*
           # UCX Build
           - libtool
           - automake
@@ -170,7 +180,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - cudf==23.12.*
+          - cudf==24.2.*
           - cupy
           - dask
           - distributed

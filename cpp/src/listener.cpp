@@ -31,7 +31,7 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   params.sockaddr.addrlen = info->ai_addrlen;
 
   utils::ucsErrorThrow(ucp_listener_create(worker->getHandle(), &params, &_handle));
-  ucxx_trace("Listener created: %p, UCP handle: %p", this, _handle);
+  ucxx_trace("ucxx::Listener created: %p, UCP handle: %p", this, _handle);
 
   ucp_listener_attr_t attr = {.field_mask = UCP_LISTENER_ATTR_FIELD_SOCKADDR};
   utils::ucsErrorThrow(ucp_listener_query(_handle, &attr));
@@ -56,17 +56,17 @@ Listener::~Listener()
       ucp_listener_destroy(_handle);
       callbackNotifierPre.set();
     });
-    callbackNotifierPre.wait();
+    callbackNotifierPre.wait(10000000000 /* 10s */);
 
     utils::CallbackNotifier callbackNotifierPost{};
     worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    callbackNotifierPost.wait(10000000000 /* 10s */);
   } else {
     ucp_listener_destroy(_handle);
     worker->progress();
   }
 
-  ucxx_trace("Listener destroyed: %p, UCP handle: %p", this, _handle);
+  ucxx_trace("ucxx::Listener destroyed: %p, UCP handle: %p", this, _handle);
 }
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,

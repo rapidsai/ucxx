@@ -34,14 +34,14 @@ def _transfer_wireup(ep, server):
     if server:
         message = Array(message)
         return [
-            ep.tag_recv(message, tag=1),
-            ep.tag_send(message, tag=0),
+            ep.tag_recv(message, tag=ucx_api.UCXXTag(1)),
+            ep.tag_send(message, tag=ucx_api.UCXXTag(0)),
         ]
     else:
         message = Array(np.zeros_like(message))
         return [
-            ep.tag_send(message, tag=1),
-            ep.tag_recv(message, tag=0),
+            ep.tag_send(message, tag=ucx_api.UCXXTag(1)),
+            ep.tag_recv(message, tag=ucx_api.UCXXTag(0)),
         ]
 
 
@@ -52,7 +52,7 @@ async def _wait_requests_async(worker, requests):
 
 
 def _wait_requests(worker, progress_mode, requests):
-    while not all([r.is_completed() for r in requests]):
+    while not all([r.completed for r in requests]):
         if progress_mode == "blocking":
             worker.progress_worker_event()
         if progress_mode == "polling":
@@ -142,7 +142,9 @@ class UCXPyCoreServer(BaseServer):
 
         def _listener_handler(conn_request):
             global ep
-            ep = listener.create_endpoint_from_conn_request(conn_request, True)
+            ep = listener.create_endpoint_from_conn_request(
+                conn_request, endpoint_error_handling=self.args.error_handling
+            )
 
         listener = ucx_api.UCXListener.create(
             worker=worker, port=self.args.port or 0, cb_func=_listener_handler
@@ -172,8 +174,8 @@ class UCXPyCoreServer(BaseServer):
                     recv_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
 
                 requests = [
-                    ep.tag_recv(recv_msg, tag=1),
-                    ep.tag_send(recv_msg, tag=0),
+                    ep.tag_recv(recv_msg, tag=ucx_api.UCXXTag(1)),
+                    ep.tag_send(recv_msg, tag=ucx_api.UCXXTag(0)),
                 ]
 
                 if self.args.asyncio_wait:
@@ -236,7 +238,7 @@ class UCXPyCoreClient(BaseClient):
             worker,
             self.server_address,
             self.port,
-            endpoint_error_handling=True,
+            endpoint_error_handling=self.args.error_handling,
         )
 
         # Wireup before starting to transfer data
@@ -259,8 +261,8 @@ class UCXPyCoreClient(BaseClient):
                     recv_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
 
                 requests = [
-                    ep.tag_send(send_msg, tag=1),
-                    ep.tag_recv(recv_msg, tag=0),
+                    ep.tag_send(send_msg, tag=ucx_api.UCXXTag(1)),
+                    ep.tag_recv(recv_msg, tag=ucx_api.UCXXTag(0)),
                 ]
 
                 if self.args.asyncio_wait:
