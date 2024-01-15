@@ -48,7 +48,7 @@ class ApplicationContext:
 
         self.progress_mode = progress_mode
         self.enable_delayed_submission = enable_delayed_submission
-        self.enable_python_future = enable_delayed_submission
+        self.enable_python_future = enable_python_future
 
         self.exchange_peer_info_timeout = exchange_peer_info_timeout
 
