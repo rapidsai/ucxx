@@ -11,6 +11,7 @@ files:
       - checks
       - cudatoolkit
       - dev
+      - docs
       - py_version
       - run_python
       - test_cpp
@@ -30,6 +31,12 @@ files:
     output: none
     includes:
       - checks
+      - py_version
+  docs:
+    output: none
+    includes:
+      - cudatoolkit
+      - docs
       - py_version
   py_build:
     output: pyproject
