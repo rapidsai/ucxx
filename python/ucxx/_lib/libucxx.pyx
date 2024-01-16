@@ -36,6 +36,8 @@ from . cimport ucxx_api
 from .arr cimport Array
 from .ucxx_api cimport *
 
+include "tag.pyx"
+
 logger = logging.getLogger("ucx")
 
 
@@ -215,26 +217,6 @@ class PythonRequestNotifierWaitState(enum.Enum):
     Timeout = RequestNotifierWaitState.Timeout
     Shutdown = RequestNotifierWaitState.Shutdown
 
-
-class UCXXTag():
-    def __init__(self, uint64_t tag) -> None:
-        if (tag.bit_length() > 64):
-            raise ValueError("`tag` must be a 64-bit integer")
-        self.value = tag
-
-
-class UCXXTagMask():
-    def __init__(self, uint64_t tag_mask) -> None:
-        if (tag_mask.bit_length() > 64):
-            raise ValueError("`tag_mask` must be a 64-bit integer")
-        self.value = tag_mask
-
-
-###############################################################################
-#                                  Constants                                  #
-###############################################################################
-
-UCXXTagMaskFull = UCXXTagMask(2 ** 64 - 1)
 
 ###############################################################################
 #                                   Classes                                   #
@@ -640,9 +622,7 @@ cdef class UCXWorker():
 
         return num_canceled
 
-    def tag_probe(self, tag: UCXXTag) -> bool:
-        if not isinstance(tag, UCXXTag):
-            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
+    def tag_probe(self, UCXXTag tag) -> bool:
         cdef bint tag_matched
         cdef Tag cpp_tag = <Tag><size_t>tag.value
 
@@ -721,12 +701,8 @@ cdef class UCXWorker():
             self,
             Array arr,
             tag: UCXXTagMask,
-            tag_mask: UCXXTagMask = UCXXTagMaskFull
+            tag_mask: UCXXTagMask=UCXXTagMaskFull,
     ) -> UCXRequest:
-        if not isinstance(tag, UCXXTag):
-            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
-        if not isinstance(tag_mask, UCXXTagMask):
-            raise TypeError(f"The `tag_mask` object must be of type {UCXXTagMask}")
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
@@ -1347,9 +1323,7 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_send(self, Array arr, tag: UCXXTagMask) -> UCXRequest:
-        if not isinstance(tag, UCXXTag):
-            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
+    def tag_send(self, Array arr, UCXXTag tag) -> UCXRequest:
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
@@ -1378,13 +1352,9 @@ cdef class UCXEndpoint():
     def tag_recv(
             self,
             Array arr,
-            tag: UCXXTagMask,
-            tag_mask: UCXXTagMask=UCXXTagMaskFull
+            UCXXTag tag,
+            UCXXTagMask tag_mask=UCXXTagMaskFull
     ) -> UCXRequest:
-        if not isinstance(tag, UCXXTag):
-            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
-        if not isinstance(tag_mask, UCXXTagMask):
-            raise TypeError(f"The `tag_mask` object must be of type {UCXXTagMask}")
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
@@ -1412,9 +1382,7 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_send_multi(self, tuple arrays, tag: UCXXTagMask) -> UCXRequest:
-        if not isinstance(tag, UCXXTag):
-            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
+    def tag_send_multi(self, tuple arrays, UCXXTag tag) -> UCXRequest:
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
@@ -1454,13 +1422,9 @@ cdef class UCXEndpoint():
 
     def tag_recv_multi(
             self,
-            tag: UCXXTagMask,
-            tag_mask: UCXXTagMask=UCXXTagMaskFull
+            UCXXTag tag,
+            UCXXTagMask tag_mask=UCXXTagMaskFull,
     ) -> UCXRequest:
-        if not isinstance(tag, UCXXTag):
-            raise TypeError(f"The `tag` object must be of type {UCXXTag}")
-        if not isinstance(tag_mask, UCXXTagMask):
-            raise TypeError(f"The `tag_mask` object must be of type {UCXXTagMask}")
         cdef shared_ptr[Request] ucxx_buffer_requests
         cdef Tag cpp_tag = <Tag><size_t>tag.value
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
