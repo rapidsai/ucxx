@@ -423,6 +423,14 @@ cdef class UCXAddress():
     @classmethod
     def from_worker(cls, UCXWorker worker) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
+
+        warnings.warn(
+            "UCXAddress.from_worker() is deprecated and will soon be removed, "
+            "use UCXWorker.create_from_worker() instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+
         return cls.create_from_worker(worker)
 
     @property
