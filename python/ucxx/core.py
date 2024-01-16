@@ -236,7 +236,7 @@ def get_worker_address():
 
 
 def get_ucx_address_from_buffer(buffer):
-    return ucx_api.UCXAddress.create_from_buffer(buffer)
+    return ucx_api.UCXAddress.create_from_buffer(bytes(buffer))
 
 
 async def recv(buffer, tag):
