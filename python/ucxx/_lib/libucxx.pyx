@@ -700,8 +700,8 @@ cdef class UCXWorker():
     def tag_recv(
             self,
             Array arr,
-            tag: UCXXTagMask,
-            tag_mask: UCXXTagMask=UCXXTagMaskFull,
+            UCXXTag tag,
+            UCXXTagMask tag_mask=UCXXTagMaskFull,
     ) -> UCXRequest:
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
