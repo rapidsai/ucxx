@@ -15,7 +15,6 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport nullptr
 from libcpp.functional cimport function
-from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport (
     dynamic_pointer_cast,
     make_shared,
@@ -24,7 +23,6 @@ from libcpp.memory cimport (
     unique_ptr,
 )
 from libcpp.string cimport string
-from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
@@ -32,7 +30,6 @@ import numpy as np
 
 from rmm._lib.device_buffer cimport DeviceBuffer
 
-from . cimport ucxx_api
 from .arr cimport Array
 from .ucxx_api cimport *
 
@@ -290,7 +287,7 @@ cdef class UCXContext():
 
     def __init__(
         self,
-        config_dict={},
+        config_dict=None,
         feature_flags=(
             Feature.TAG,
             Feature.WAKEUP,
@@ -301,6 +298,9 @@ cdef class UCXContext():
     ):
         cdef ConfigMap cpp_config_in, cpp_config_out
         cdef dict context_config
+
+        if config_dict is None:
+            config_dict = {}
 
         for k, v in config_dict.items():
             cpp_config_in[k.encode("utf-8")] = v.encode("utf-8")
@@ -436,8 +436,6 @@ cdef class UCXAddress():
         return bytes(self._string)
 
     def __getbuffer__(self, Py_buffer *buffer, int flags):
-        cdef Address* address_ptr = self._address.get()
-
         if bool(flags & PyBUF_WRITABLE):
             raise BufferError("Requested writable view on readonly data")
         buffer.buf = self._handle
@@ -508,12 +506,16 @@ cdef class UCXWorker():
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
-            self._enable_delayed_submission = self._worker.get().isDelayedRequestSubmissionEnabled()
+            self._enable_delayed_submission = (
+                self._worker.get().isDelayedRequestSubmissionEnabled()
+            )
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
             if self._context_feature_flags & UCP_FEATURE_AM:
                 rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
-                self._worker.get().registerAmAllocator(UCS_MEMORY_TYPE_CUDA, rmm_am_allocator)
+                self._worker.get().registerAmAllocator(
+                    UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
+                )
 
     def __dealloc__(self):
         with nogil:
@@ -612,7 +614,9 @@ cdef class UCXWorker():
         cdef int ucxx_epoll_timeout = epoll_timeout
 
         with nogil:
-            self._worker.get().startProgressThread(polling_mode, epoll_timeout=ucxx_epoll_timeout)
+            self._worker.get().startProgressThread(
+                polling_mode, epoll_timeout=ucxx_epoll_timeout
+            )
 
     def stop_progress_thread(self):
         with nogil:
@@ -696,14 +700,19 @@ cdef class UCXWorker():
 
     def is_python_future_enabled(self):
         warnings.warn(
-            "UCXWorker.is_python_future_enabled() is deprecated and will soon be removed, "
-            "use the UCXWorker.enable_python_future property instead",
+            "UCXWorker.is_python_future_enabled() is deprecated and will soon be "
+            "removed, use the UCXWorker.enable_python_future property instead",
             FutureWarning,
             stacklevel=2,
         )
         return self.enable_python_future
 
-    def tag_recv(self, Array arr, tag: UCXXTagMask, tag_mask: UCXXTagMask = UCXXTagMaskFull):
+    def tag_recv(
+        self,
+        Array arr,
+        tag: UCXXTagMask,
+        tag_mask: UCXXTagMask = UCXXTagMaskFull
+    ):
         if not isinstance(tag, UCXXTag):
             raise TypeError(f"The `tag` object must be of type {UCXXTag}")
         if not isinstance(tag_mask, UCXXTagMask):
@@ -910,7 +919,6 @@ cdef class UCXBufferRequests:
         tuple _requests
 
     def __init__(self, uintptr_t unique_ptr_buffer_requests, bint enable_python_future):
-        cdef RequestTagMulti ucxx_buffer_requests
         self._enable_python_future = enable_python_future
         self._completed = False
         self._requests = tuple()
@@ -1008,8 +1016,8 @@ cdef class UCXBufferRequests:
 
     def is_completed_all(self):
         warnings.warn(
-            "UCXBufferRequests.is_completed_all() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.all_completed property instead",
+            "UCXBufferRequests.is_completed_all() is deprecated and will soon be "
+            "removed, use the UCXBufferRequests.all_completed property instead",
             FutureWarning,
             stacklevel=2,
         )
@@ -1062,8 +1070,8 @@ cdef class UCXBufferRequests:
 
     def get_py_buffers(self):
         warnings.warn(
-            "UCXBufferRequests.get_py_buffers() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.py_buffers property instead",
+            "UCXBufferRequests.get_py_buffers() is deprecated and will soon be "
+            "removed, use the UCXBufferRequests.py_buffers property instead",
             FutureWarning,
             stacklevel=2,
         )
@@ -1369,7 +1377,12 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_recv(self, Array arr, tag: UCXXTagMask, tag_mask: UCXXTagMask=UCXXTagMaskFull):
+    def tag_recv(
+        self,
+        Array arr,
+        tag: UCXXTagMask,
+        tag_mask: UCXXTagMask = UCXXTagMaskFull
+    ):
         if not isinstance(tag, UCXXTag):
             raise TypeError(f"The `tag` object must be of type {UCXXTag}")
         if not isinstance(tag_mask, UCXXTagMask):
@@ -1419,8 +1432,8 @@ cdef class UCXEndpoint():
                 raise ValueError(
                     "UCX is not configured with CUDA support, please ensure that the "
                     "available UCX on your environment is built against CUDA and that "
-                    "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
-                    "the default `UCX_TLS=all`."
+                    "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is "
+                    "using the default `UCX_TLS=all`."
                 )
 
         for arr in arrays:
@@ -1441,7 +1454,7 @@ cdef class UCXEndpoint():
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
         )
 
-    def tag_recv_multi(self, tag: UCXXTagMask, tag_mask: UCXXTagMask=UCXXTagMaskFull):
+    def tag_recv_multi(self, tag: UCXXTagMask, tag_mask: UCXXTagMask = UCXXTagMaskFull):
         if not isinstance(tag, UCXXTag):
             raise TypeError(f"The `tag` object must be of type {UCXXTag}")
         if not isinstance(tag_mask, UCXXTagMask):
@@ -1606,8 +1619,8 @@ cdef class UCXListener():
 
     def is_python_future_enabled(self):
         warnings.warn(
-            "UCXListener.is_python_future_enabled() is deprecated and will soon be removed, "
-            "use the UCXListener.enable_python_future property instead",
+            "UCXListener.is_python_future_enabled() is deprecated and will soon be "
+            "removed, use the UCXListener.enable_python_future property instead",
             FutureWarning,
             stacklevel=2,
         )
