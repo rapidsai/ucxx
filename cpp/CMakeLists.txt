@@ -92,7 +92,9 @@ rapids_cpm_init()
 # find rmm
 include(cmake/thirdparty/get_rmm.cmake)
 # find or install GoogleTest
-include(cmake/thirdparty/get_gtest.cmake)
+if(BUILD_TESTS)
+  include(cmake/thirdparty/get_gtest.cmake)
+endif()
 
 # ##################################################################################################
 # * library targets -------------------------------------------------------------------------------
