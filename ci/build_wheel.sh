@@ -39,7 +39,7 @@ sed -r -i "s/rmm(.*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject
 
 cd "${package_dir}"
 
-SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_PYTHON=ON -DUCXX_ENABLE_RMM=ON" \
+SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_PYTHON=ON;-DUCXX_ENABLE_RMM=ON" \
     python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
 python -m auditwheel repair -w ${package_dir}/final_dist ${package_dir}/dist/*
