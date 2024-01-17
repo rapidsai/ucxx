@@ -22,7 +22,7 @@ namespace python {
 /**
  * @brief Specialized Python implementation of a `ucxx::Future`.
  *
- * Specialized Python implemenation of a `ucxx::Future`, where the future being handled is
+ * Specialized Python implementation of a `ucxx::Future`, where the future being handled is
  * an instance of `asyncio.Future`.
  */
 class Future : public ::ucxx::Future {

@@ -95,7 +95,7 @@ async def test_ucxx_specific(ucxx_loop):
     """
     # TODO:
     # 1. ensure exceptions in handle_comm fail the test
-    # 2. Use dict in read / write, put seralization there.
+    # 2. Use dict in read / write, put serialization there.
     # 3. Test peer_address
     # 4. Test cleanup
     address = f"ucxx://{HOST}:{0}"

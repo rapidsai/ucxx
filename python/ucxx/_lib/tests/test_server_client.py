@@ -38,7 +38,7 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
     """Server that send received message back to the client
 
     Notice, since it is illegal to call progress() in call-back functions,
-    we keep a reference to the listener's endpoint and execute tranfers
+    we keep a reference to the listener's endpoint and execute transfers
     outside of the callback function.
     """
     feature_flags = [ucx_api.Feature.WAKEUP]

@@ -154,7 +154,7 @@ class Context : public Component {
    * 3. Start with `^` (disable all listed transports) and _NOT_ contain a field named
    *    either `cuda` or `cuda_copy`.
    *
-   * @return Whether CUDA support is availale.
+   * @return Whether CUDA support is available.
    */
   bool hasCudaSupport() const;
 

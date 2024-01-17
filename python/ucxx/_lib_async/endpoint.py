@@ -456,7 +456,7 @@ class Endpoint:
         Data is received into a buffer allocated by `allocator`.
 
         The transfer includes an extra message containing the size of `obj`,
-        which increses the overhead slightly.
+        which increases the overhead slightly.
 
         Parameters
         ----------

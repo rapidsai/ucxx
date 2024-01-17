@@ -83,7 +83,7 @@ class RequestTagMulti : public Request {
    * Construct multi-buffer tag receive request, registering the request to the
    * `std::shared_ptr<Endpoint>` parent so that it may be canceled if necessary. This
    * constructor is responsible for creating a Python future that can be later awaited
-   * in Python asynchronous code, which is indenpendent of the Python futures used by
+   * in Python asynchronous code, which is independent of the Python futures used by
    * the underlying `ucxx::RequestTag` object, which will be invisible to the user. Once
    * the initial setup is complete, `callback()` is called to initiate receiving by posting
    * the first request to receive a header.

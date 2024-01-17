@@ -97,7 +97,7 @@ class Worker : public Component {
    * @param[in] ep  the endpoint handle where receiving the message, the same handle that
    *                will later be used to reply to the message.
    * @param[in] createAmRecvRequestFunction function to create a new request if one is not
-   *                                        already availale in the pool.
+   *                                        already available in the pool.
    *
    * @returns Request to be subsequently checked for the completion state and data.
    */

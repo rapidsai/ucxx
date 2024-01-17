@@ -12,7 +12,7 @@ namespace ucxx {
  * @brief A UCXX component class to prevent early destruction of parent object.
  *
  * A UCXX component class storing a pointer of its parent to prevent it from being
- * destroyed while child is stil alive.
+ * destroyed while child is still alive.
  */
 class Component : public std::enable_shared_from_this<Component> {
  protected:
