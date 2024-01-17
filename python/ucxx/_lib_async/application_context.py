@@ -10,6 +10,7 @@ from queue import Queue
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
 from ucxx.exceptions import UCXMessageTruncatedError
+from ucxx.types import Tag
 
 from .continuous_ucx_progress import PollingMode, ThreadMode
 from .endpoint import Endpoint
@@ -134,7 +135,7 @@ class ApplicationContext:
         return explicit_enable_python_future
 
     def start_notifier_thread(self):
-        if self.worker.is_python_future_enabled():
+        if self.worker.enable_python_future:
             logger.debug("UCXX_ENABLE_PYTHON available, enabling notifier thread")
             loop = get_event_loop()
             self.notifier_thread_q = Queue()
@@ -423,7 +424,7 @@ class ApplicationContext:
         dict
             The current UCX configuration options
         """
-        return self.context.get_config()
+        return self.context.config
 
     def ucp_context_info(self):
         """Return low-level UCX info about this endpoint as a string"""
@@ -434,7 +435,7 @@ class ApplicationContext:
         return self.worker.info
 
     def get_worker_address(self):
-        return self.worker.get_address()
+        return self.worker.address
 
     # @ucx_api.nvtx_annotate("UCXPY_WORKER_RECV", color="red", domain="ucxpy")
     async def recv(self, buffer, tag):
@@ -450,10 +451,12 @@ class ApplicationContext:
         """
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
         nbytes = buffer.nbytes
         log = "[Worker Recv] worker: %s, tag: %s, nbytes: %d, type: %s" % (
             hex(self.worker.handle),
-            hex(tag),
+            hex(tag.value),
             nbytes,
             type(buffer.obj),
         )

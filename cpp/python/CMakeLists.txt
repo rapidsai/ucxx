@@ -18,6 +18,7 @@ add_library(
   src/future.cpp
   src/notifier.cpp
   src/python_future.cpp
+  src/python_future_task_collector.cpp
   src/worker.cpp
 )
 
@@ -42,8 +43,6 @@ target_include_directories(
   ucxx_python
   PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
          "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/python/include>"
-         "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/include>"
-         "$<BUILD_INTERFACE:${UCXX_GENERATED_INCLUDE_DIR}/python/include>"
   PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )

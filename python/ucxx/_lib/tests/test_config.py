@@ -10,14 +10,14 @@ from ucxx._lib.arr import Array
 from ucxx._lib.libucxx import UCXInvalidParamError
 
 
-def test_get_config():
+def test_config_property():
     # Cache user-defined UCX_TLS and unset it to test default value
     tls = os.environ.get("UCX_TLS", None)
     if tls is not None:
         del os.environ["UCX_TLS"]
 
     ctx = ucx_api.UCXContext()
-    config = ctx.get_config()
+    config = ctx.config
     assert isinstance(config, dict)
     assert config["TLS"] == "all"
 
@@ -29,7 +29,7 @@ def test_get_config():
 def test_set_env():
     os.environ["UCX_SEG_SIZE"] = "2M"
     ctx = ucx_api.UCXContext()
-    config = ctx.get_config()
+    config = ctx.config
     assert config["SEG_SIZE"] == os.environ["UCX_SEG_SIZE"]
 
 
@@ -37,7 +37,7 @@ def test_init_options():
     os.environ["UCX_SEG_SIZE"] = "2M"  # Should be ignored
     options = {"SEG_SIZE": "3M"}
     ctx = ucx_api.UCXContext(options)
-    config = ctx.get_config()
+    config = ctx.config
     assert config["SEG_SIZE"] == options["SEG_SIZE"]
 
 
@@ -63,7 +63,7 @@ def test_init_invalid_option():
 def test_feature_flags_mismatch(feature_flag):
     ctx = ucx_api.UCXContext(feature_flags=(feature_flag,))
     worker = ucx_api.UCXWorker(ctx)
-    addr = worker.get_address()
+    addr = worker.address
     ep = ucx_api.UCXEndpoint.create_from_worker_address(
         worker, addr, endpoint_error_handling=False
     )
@@ -72,11 +72,11 @@ def test_feature_flags_mismatch(feature_flag):
         with pytest.raises(
             ValueError, match="UCXContext must be created with `Feature.TAG`"
         ):
-            ep.tag_send(msg, 0)
+            ep.tag_send(msg, tag=ucx_api.UCXXTag(0))
         with pytest.raises(
             ValueError, match="UCXContext must be created with `Feature.TAG`"
         ):
-            ep.tag_recv(msg, 0)
+            ep.tag_recv(msg, tag=ucx_api.UCXXTag(0))
     if feature_flag != ucx_api.Feature.STREAM:
         with pytest.raises(
             ValueError, match="UCXContext must be created with `Feature.STREAM`"

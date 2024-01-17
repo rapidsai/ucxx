@@ -46,7 +46,7 @@ void CallbackNotifier::set()
       // ordering.
       _flag.store(true, std::memory_order_relaxed);
     }
-    _conditionVariable.notify_all();
+    _conditionVariable.notify_one();
   }
 }
 

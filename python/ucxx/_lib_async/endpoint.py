@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.)
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -9,6 +9,7 @@ import logging
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
 from ucxx._lib.libucxx import UCXCanceled, UCXCloseError, UCXError
+from ucxx.types import Tag, TagMaskFull
 
 from .utils import hash64bits
 
@@ -49,7 +50,7 @@ class Endpoint:
 
     def closed(self):
         """Is this endpoint closed?"""
-        return self._ep is None or not self._ep.is_alive()
+        return self._ep is None or not self.is_alive()
 
     def abort(self, period=10**10, max_attempts=1):
         """Close the communication immediately and abruptly.
@@ -183,6 +184,8 @@ class Endpoint:
             tag = self._tags["msg_send"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_send"], hash(tag))
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
@@ -190,7 +193,7 @@ class Endpoint:
             log = "[Send #%03d] ep: 0x%x, tag: 0x%x, nbytes: %d, type: %s" % (
                 self._send_count,
                 self.uid,
-                tag,
+                tag.value,
                 nbytes,
                 type(buffer.obj),
             )
@@ -235,13 +238,15 @@ class Endpoint:
             tag = self._tags["msg_send"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_send"], hash(tag))
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
             log = "[Send Multi #%03d] ep: 0x%x, tag: 0x%x, nbytes: %s, type: %s" % (
                 self._send_count,
                 self.uid,
-                tag,
+                tag.value,
                 tuple([b.nbytes for b in buffers]),  # nbytes,
                 tuple([type(b.obj) for b in buffers]),
             )
@@ -301,7 +306,7 @@ class Endpoint:
 
         req = self._ep.am_recv()
         await req.wait()
-        buffer = req.get_recv_buffer()
+        buffer = req.recv_buffer
 
         if logger.isEnabledFor(logging.DEBUG):
             log = "[AM Recv Completed #%03d] ep: 0x%x, nbytes: %d, type: %s" % (
@@ -344,6 +349,8 @@ class Endpoint:
             tag = self._tags["msg_recv"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_recv"], hash(tag))
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
 
         try:
             self._ep.raise_on_error()
@@ -364,7 +371,7 @@ class Endpoint:
             log = "[Recv #%03d] ep: 0x%x, tag: 0x%x, nbytes: %d, type: %s" % (
                 self._recv_count,
                 self.uid,
-                tag,
+                tag.value,
                 nbytes,
                 type(buffer.obj),
             )
@@ -372,7 +379,7 @@ class Endpoint:
 
         self._recv_count += 1
 
-        req = self._ep.tag_recv(buffer, tag)
+        req = self._ep.tag_recv(buffer, tag, TagMaskFull)
         ret = await req.wait()
 
         self._finished_recv_count += 1
@@ -403,6 +410,8 @@ class Endpoint:
             tag = self._tags["msg_recv"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_recv"], hash(tag))
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
 
         try:
             self._ep.raise_on_error()
@@ -419,18 +428,18 @@ class Endpoint:
             log = "[Recv Multi #%03d] ep: 0x%x, tag: 0x%x" % (
                 self._recv_count,
                 self.uid,
-                tag,
+                tag.value,
             )
             logger.debug(log)
 
         self._recv_count += 1
 
-        buffer_requests = self._ep.tag_recv_multi(tag)
+        buffer_requests = self._ep.tag_recv_multi(tag, TagMaskFull)
         await buffer_requests.wait()
         buffer_requests.check_error()
-        for r in buffer_requests.get_requests():
+        for r in buffer_requests.requests:
             r.check_error()
-        buffers = buffer_requests.get_py_buffers()
+        buffers = buffer_requests.py_buffers
 
         self._finished_recv_count += 1
         if (
@@ -552,4 +561,4 @@ class Endpoint:
         self._ep.set_close_callback(callback_func, cb_args, cb_kwargs)
 
     def is_alive(self):
-        return self._ep.is_alive()
+        return self._ep.alive

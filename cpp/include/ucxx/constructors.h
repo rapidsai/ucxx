@@ -1,13 +1,14 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <memory>
 #include <string>
-#include <vector>
 
+#include <ucxx/component.h>
+#include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -55,43 +56,28 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableFuture);
 
 // Transfers
-std::shared_ptr<RequestAm> createRequestAmSend(std::shared_ptr<Endpoint> endpoint,
-                                               void* buffer,
-                                               size_t length,
-                                               ucs_memory_type_t memoryType,
-                                               const bool enablePythonFuture,
-                                               RequestCallbackUserFunction callbackFunction,
-                                               RequestCallbackUserData callbackData);
+std::shared_ptr<RequestAm> createRequestAm(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::AmSend, data::AmReceive> requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
 
-std::shared_ptr<RequestAm> createRequestAmRecv(std::shared_ptr<Endpoint> endpoint,
-                                               const bool enablePythonFuture,
-                                               RequestCallbackUserFunction callbackFunction,
-                                               RequestCallbackUserData callbackData);
+std::shared_ptr<RequestStream> createRequestStream(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::StreamSend, data::StreamReceive> requestData,
+  const bool enablePythonFuture);
 
-std::shared_ptr<RequestStream> createRequestStream(std::shared_ptr<Endpoint> endpoint,
-                                                   bool send,
-                                                   void* buffer,
-                                                   size_t length,
-                                                   const bool enablePythonFuture);
+std::shared_ptr<RequestTag> createRequestTag(
+  std::shared_ptr<Component> endpointOrWorker,
+  const std::variant<data::TagSend, data::TagReceive> requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
 
-std::shared_ptr<RequestTag> createRequestTag(std::shared_ptr<Component> endpointOrWorker,
-                                             bool send,
-                                             void* buffer,
-                                             size_t length,
-                                             ucp_tag_t tag,
-                                             const bool enablePythonFuture,
-                                             RequestCallbackUserFunction callbackFunction,
-                                             RequestCallbackUserData callbackData);
-
-std::shared_ptr<RequestTagMulti> createRequestTagMultiSend(std::shared_ptr<Endpoint> endpoint,
-                                                           const std::vector<void*>& buffer,
-                                                           const std::vector<size_t>& size,
-                                                           const std::vector<int>& isCUDA,
-                                                           const ucp_tag_t tag,
-                                                           const bool enablePythonFuture);
-
-std::shared_ptr<RequestTagMulti> createRequestTagMultiRecv(std::shared_ptr<Endpoint> endpoint,
-                                                           const ucp_tag_t tag,
-                                                           const bool enablePythonFuture);
+std::shared_ptr<RequestTagMulti> createRequestTagMulti(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
+  const bool enablePythonFuture);
 
 }  // namespace ucxx

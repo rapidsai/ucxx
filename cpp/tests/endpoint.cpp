@@ -46,7 +46,7 @@ TEST_F(EndpointTest, IsAlive)
   ASSERT_TRUE(ep->isAlive());
 
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), 0);
+  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
   while (!send_req->isCompleted())
     _worker->progress();
 

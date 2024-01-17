@@ -14,10 +14,16 @@
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/future.h>
+#include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
 
-#define ucxx_trace_req_f(_owner, _req, _name, _message, ...) \
-  ucxx_trace_req("%s, req %p, op %s: " _message, (_owner), (_req), (_name), ##__VA_ARGS__)
+#define ucxx_trace_req_f(_owner, _req, _handle, _name, _message, ...)          \
+  ucxx_trace_req("ucxx::Request: %p on %s, UCP handle: %p, op: %s, " _message, \
+                 (_req),                                                       \
+                 (_owner),                                                     \
+                 (_handle),                                                    \
+                 (_name),                                                      \
+                 ##__VA_ARGS__)
 
 namespace ucxx {
 
@@ -34,9 +40,8 @@ class Request : public Component {
   std::shared_ptr<Endpoint> _endpoint{
     nullptr};  ///< Endpoint that generated request (if not from worker)
   std::string _ownerString{
-    "undetermined owner"};  ///< String to print owner (endpoint or worker) when logging
-  std::shared_ptr<DelayedSubmission> _delayedSubmission{
-    nullptr};  ///< The submission object that will dispatch the request
+    "undetermined owner"};           ///< String to print owner (endpoint or worker) when logging
+  data::RequestData _requestData{};  ///< The operation-specific data to be used in the request
   std::string _operationName{
     "request_undefined"};          ///< Human-readable operation name, mostly used for log messages
   std::recursive_mutex _mutex{};   ///< Mutex to prevent checking status while it's being set
@@ -62,7 +67,7 @@ class Request : public Component {
    *                                subsequently notified.
    */
   Request(std::shared_ptr<Component> endpointOrWorker,
-          std::shared_ptr<DelayedSubmission> delayedSubmission,
+          const data::RequestData requestData,
           const std::string operationName,
           const bool enablePythonFuture = false);
 
