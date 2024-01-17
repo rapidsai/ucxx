@@ -15,4 +15,4 @@
 import importlib.resources
 
 __version__ = importlib.resources.files("ucxx").joinpath("VERSION").read_text().strip()
-__git_commit__ = "28afe764fa8cdab9e622d1d7b0c61166887e985d"
+__git_commit__ = ""
