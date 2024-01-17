@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD 3-Clause License
 # =================================================================================
 
+find_package(Python3 REQUIRED)
+
 set(cython_sources python_future_task_app.pyx)
 set(linked_libraries ucxx::ucxx ucxx::python Python3::Python)
 
