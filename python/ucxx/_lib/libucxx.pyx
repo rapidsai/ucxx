@@ -1382,7 +1382,7 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_send_multi(self, tuple arrays, UCXXTag tag) -> UCXRequest:
+    def tag_send_multi(self, tuple arrays, UCXXTag tag) -> UCXBufferRequests:
         cdef vector[void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
@@ -1424,7 +1424,7 @@ cdef class UCXEndpoint():
             self,
             UCXXTag tag,
             UCXXTagMask tag_mask=UCXXTagMaskFull,
-    ) -> UCXRequest:
+    ) -> UCXBufferRequests:
         cdef shared_ptr[Request] ucxx_buffer_requests
         cdef Tag cpp_tag = <Tag><size_t>tag.value
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
