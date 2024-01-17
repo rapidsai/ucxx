@@ -44,6 +44,9 @@ endif()
 
 rapids_cython_init()
 
+rapids_find_package(
+  Python3 REQUIRED COMPONENTS Development.Embed
+)
 add_subdirectory(ucxx/examples)
 add_subdirectory(ucxx/_lib)
 
