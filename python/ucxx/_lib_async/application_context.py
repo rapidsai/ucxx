@@ -405,7 +405,7 @@ class ApplicationContext:
         elif self.progress_mode == "polling":
             task = PollingMode(self.worker, loop)
         elif self.progress_mode == "blocking":
-            task = BlockingMode(self.worker, loop, self.worker.epoll_file_descriptor)
+            task = BlockingMode(self.worker, loop)
 
         self.progress_tasks.append(task)
 
