@@ -31,6 +31,7 @@ include(rapids-cython-core)
 if(NOT ucxx_FOUND)
   set(BUILD_TESTS OFF)
   set(BUILD_BENCHMARKS OFF)
+  set(UCXX_ENABLE_PYTHON ON)
 
   set(_exclude_from_all "")
 
