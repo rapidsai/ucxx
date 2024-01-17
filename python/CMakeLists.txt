@@ -40,6 +40,7 @@ if(NOT ucxx_FOUND)
   # and modify the rpaths appropriately.
   set(cython_lib_dir ucxx)
   install(TARGETS ucxx DESTINATION ${cython_lib_dir})
+  install(TARGETS ucxx_python DESTINATION ${cython_lib_dir})
 endif()
 
 rapids_cython_init()
