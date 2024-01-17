@@ -100,3 +100,6 @@ cmake.minimum-version = "3.26.4"
 ninja.make-fallback = true
 sdist.reproducible = true
 wheel.packages = ["ucxx"]
+
+[tool.codespell]
+ignore-words-list = "cancelation,inflight"
