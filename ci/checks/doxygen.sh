@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright (c) 2022-2024, NVIDIA CORPORATION.
 ###############################
-# cuDF doxygen warnings check #
+# UCXX doxygen warnings check #
 ###############################
 
 # skip if doxygen is not installed
