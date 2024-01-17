@@ -87,6 +87,10 @@ dependencies:
           - scikit-build-core>=0.7.0
       - output_types: [requirements, pyproject]
         packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for rmm.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
           - scikit-build-core[pyproject]>=0.7.0
   checks:
     common:
