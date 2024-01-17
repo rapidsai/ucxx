@@ -51,7 +51,7 @@ async def test_lt_still_in_scope_error():
     del ep
     with pytest.raises(
         ucxx.exceptions.UCXError,
-        match="Trying to reset UCX but not all Endpoints and/or Listeners are closed()",
+        match="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
     ):
         reset()
 
@@ -73,7 +73,7 @@ async def test_ep_still_in_scope_error():
     del lt
     with pytest.raises(
         ucxx.exceptions.UCXError,
-        match="Trying to reset UCX but not all Endpoints and/or Listeners are closed()",
+        match="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
     ):
         reset()
 

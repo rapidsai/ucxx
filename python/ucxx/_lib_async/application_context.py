@@ -4,6 +4,7 @@
 import logging
 import os
 import threading
+import warnings
 import weakref
 from queue import Queue
 
@@ -27,6 +28,10 @@ class ApplicationContext:
     The context of the Asyncio interface of UCX.
     """
 
+    _progress_mode = None
+    _enable_delayed_submission = None
+    _enable_python_future = None
+
     def __init__(
         self,
         config_dict={},
@@ -41,15 +46,9 @@ class ApplicationContext:
         self._listener_active_clients = ActiveClients()
         self._next_listener_id = 0
 
-        self.progress_mode = ApplicationContext._check_progress_mode(progress_mode)
-
-        enable_delayed_submission = ApplicationContext._check_enable_delayed_submission(
-            enable_delayed_submission,
-            self.progress_mode,
-        )
-        enable_python_future = ApplicationContext._check_enable_python_future(
-            enable_python_future, self.progress_mode
-        )
+        self.progress_mode = progress_mode
+        self.enable_delayed_submission = enable_delayed_submission
+        self.enable_python_future = enable_python_future
 
         self.exchange_peer_info_timeout = exchange_peer_info_timeout
 
@@ -57,8 +56,8 @@ class ApplicationContext:
         self.context = ucx_api.UCXContext(config_dict)
         self.worker = ucx_api.UCXWorker(
             self.context,
-            enable_delayed_submission=enable_delayed_submission,
-            enable_python_future=enable_python_future,
+            enable_delayed_submission=self._enable_delayed_submission,
+            enable_python_future=self._enable_python_future,
         )
 
         self.start_notifier_thread()
@@ -70,69 +69,129 @@ class ApplicationContext:
         # connected with `create_endpoint_from_worker_address`.
         self.continuous_ucx_progress()
 
-    @staticmethod
-    def _check_progress_mode(progress_mode):
-        if progress_mode is None:
-            if "UCXPY_PROGRESS_MODE" in os.environ:
-                progress_mode = os.environ["UCXPY_PROGRESS_MODE"]
-            else:
-                progress_mode = "thread"
+    @property
+    def progress_mode(self):
+        return self._progress_mode
 
-        valid_progress_modes = ["polling", "thread", "thread-polling"]
-        if not isinstance(progress_mode, str) or not any(
-            progress_mode == m for m in valid_progress_modes
-        ):
-            raise ValueError(
-                f"Unknown progress mode {progress_mode}, "
-                "valid modes are: 'blocking', 'polling', 'thread' or 'thread-polling'"
-            )
+    @progress_mode.setter
+    def progress_mode(self, progress_mode):
+        if self._progress_mode is None:
+            if progress_mode is None:
+                if "UCXPY_PROGRESS_MODE" in os.environ:
+                    progress_mode = os.environ["UCXPY_PROGRESS_MODE"]
+                else:
+                    progress_mode = "thread"
 
-        return progress_mode
-
-    @staticmethod
-    def _check_enable_delayed_submission(enable_delayed_submission, progress_mode):
-        if enable_delayed_submission is None:
-            if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
-                explicit_enable_delayed_submission = (
-                    False
-                    if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0"
-                    else True
+            valid_progress_modes = ["polling", "thread", "thread-polling"]
+            if not isinstance(progress_mode, str) or not any(
+                progress_mode == m for m in valid_progress_modes
+            ):
+                raise ValueError(
+                    f"Unknown progress mode {progress_mode}, valid modes are: "
+                    "'blocking', 'polling', 'thread' or 'thread-polling'"
                 )
-            else:
-                explicit_enable_delayed_submission = progress_mode.startswith("thread")
+
+            self._progress_mode = progress_mode
         else:
-            explicit_enable_delayed_submission = enable_delayed_submission
+            raise RuntimeError("Progress mode already set, modifying not allowed")
 
-        if (
-            not progress_mode.startswith("thread")
-            and explicit_enable_delayed_submission
-        ):
-            raise ValueError(
-                f"Delayed submission requested, but {progress_mode} does not "
-                "support it, 'thread' or 'thread-polling' progress mode required."
+    @property
+    def enable_delayed_submission(self):
+        return self._enable_delayed_submission
+
+    @enable_delayed_submission.setter
+    def enable_delayed_submission(self, enable_delayed_submission):
+        if self._enable_delayed_submission is None:
+            if enable_delayed_submission is None:
+                if "UCXPY_ENABLE_DELAYED_SUBMISSION" in os.environ:
+                    explicit_enable_delayed_submission = (
+                        False
+                        if os.environ["UCXPY_ENABLE_DELAYED_SUBMISSION"] == "0"
+                        else True
+                    )
+                else:
+                    explicit_enable_delayed_submission = self.progress_mode.startswith(
+                        "thread"
+                    )
+            else:
+                explicit_enable_delayed_submission = enable_delayed_submission
+
+            if (
+                not self.progress_mode.startswith("thread")
+                and explicit_enable_delayed_submission
+            ):
+                raise ValueError(
+                    f"Delayed submission requested, but {self.progress_mode} does not "
+                    "support it, 'thread' or 'thread-polling' progress mode required."
+                )
+
+            self._enable_delayed_submission = explicit_enable_delayed_submission
+        else:
+            raise RuntimeError(
+                "Enable delayed submission already set, modifying not allowed"
             )
 
-        return explicit_enable_delayed_submission
+    @property
+    def enable_python_future(self):
+        return self._enable_python_future
 
-    @staticmethod
-    def _check_enable_python_future(enable_python_future, progress_mode):
-        if enable_python_future is None:
-            if "UCXPY_ENABLE_PYTHON_FUTURE" in os.environ:
-                explicit_enable_python_future = (
-                    os.environ["UCXPY_ENABLE_PYTHON_FUTURE"] != "0"
-                )
+    @enable_python_future.setter
+    def enable_python_future(self, enable_python_future):
+        if self._enable_python_future is None:
+            if enable_python_future is None:
+                if "UCXPY_ENABLE_PYTHON_FUTURE" in os.environ:
+                    explicit_enable_python_future = (
+                        os.environ["UCXPY_ENABLE_PYTHON_FUTURE"] != "0"
+                    )
+                else:
+                    explicit_enable_python_future = False
             else:
+                explicit_enable_python_future = enable_python_future
+
+            if (
+                not self.progress_mode.startswith("thread")
+                and explicit_enable_python_future
+            ):
+                logger.warning(
+                    f"Notifier thread requested, but {self.progress_mode} does not "
+                    "support it, using Python wait_yield()."
+                )
                 explicit_enable_python_future = False
-        else:
-            explicit_enable_python_future = enable_python_future
 
-        if not progress_mode.startswith("thread") and explicit_enable_python_future:
-            logger.warning(
-                f"Notifier thread requested, but {progress_mode} does not "
-                "support it, using Python wait_yield()."
+            self._enable_python_future = explicit_enable_python_future
+        else:
+            raise RuntimeError(
+                "Enable Python future already set, modifying not allowed"
             )
-            explicit_enable_python_future = False
-        return explicit_enable_python_future
+
+    @property
+    def config(self):
+        """UCX configuration options as a dict."""
+        return self.context.config
+
+    @property
+    def ucp_context_info(self):
+        """Low-level UCX info about this endpoint as a string."""
+        return self.context.info
+
+    @property
+    def ucp_worker(self):
+        """The underlying UCP worker handle (ucp_worker_h) as a Python integer."""
+        return self.worker.handle
+
+    @property
+    def ucxx_worker(self):
+        """The underlying UCXX worker pointer (ucxx::Worker*) as a Python integer."""
+        return self.worker.ucxx_ptr
+
+    @property
+    def ucp_worker_info(self):
+        """Return low-level UCX info about this endpoint as a string."""
+        return self.worker.info
+
+    @property
+    def worker_address(self):
+        return self.worker.address
 
     def start_notifier_thread(self):
         if self.worker.enable_python_future:
@@ -408,13 +467,25 @@ class ApplicationContext:
         """Returns the underlying UCP worker handle (ucp_worker_h)
         as a Python integer.
         """
-        return self.worker.handle
+        warnings.warn(
+            "ApplicationContext.get_ucp_worker() is deprecated and will soon "
+            "be removed, use the ApplicationContext.ucp_worker property instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.ucp_worker
 
     def get_ucxx_worker(self):
         """Returns the underlying UCXX worker pointer (ucxx::Worker*)
         as a Python integer.
         """
-        return self.worker.ucxx_ptr
+        warnings.warn(
+            "ApplicationContext.get_ucxx_worker() is deprecated and will soon "
+            "be removed, use the ApplicationContext.ucxx_worker property instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.ucxx_worker
 
     def get_config(self):
         """Returns all UCX configuration options as a dict.
@@ -424,17 +495,21 @@ class ApplicationContext:
         dict
             The current UCX configuration options
         """
-        return self.context.config
-
-    def ucp_context_info(self):
-        """Return low-level UCX info about this endpoint as a string"""
-        return self.context.info
-
-    def ucp_worker_info(self):
-        """Return low-level UCX info about this endpoint as a string"""
-        return self.worker.info
+        warnings.warn(
+            "ApplicationContext.get_config() is deprecated and will soon "
+            "be removed, use the ApplicationContext.config property instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.config
 
     def get_worker_address(self):
+        warnings.warn(
+            "ApplicationContext.get_worker_address() is deprecated and will soon "
+            "be removed, use the ApplicationContext.worker_address property instead",
+            FutureWarning,
+            stacklevel=2,
+        )
         return self.worker.address
 
     # @ucx_api.nvtx_annotate("UCXPY_WORKER_RECV", color="red", domain="ucxpy")
