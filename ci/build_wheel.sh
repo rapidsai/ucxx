@@ -34,12 +34,8 @@ if ! rapids-is-release-build; then
     alpha_spec=',>=0.0.0a0'
 fi
 
-# add or replace -cuXX to package name. Determine if this is a package mention based
-# on whether it has any sort of pinning. There's a usage of "rmm" in known_rapids that
-# should not get this -cuXX tacked on.
-sed -r -i -E "s/rmm(-cu[0-9]+|)([\=\<\>\!].*)/rmm${PACKAGE_CUDA_SUFFIX}\2/g" ${pyproject_file}
-# Capture the pin and add the alpha spec to it as needed
-sed -r -i -E "/${alpha_spec}\"(,|)$/! s/rmm-cu[0-9]+([\=\<\>\!].*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
+# Add -cuXX to package name
+sed -r -i "s/rmm(.*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
 
 cd "${package_dir}"
 
