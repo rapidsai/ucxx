@@ -271,7 +271,7 @@ outputs:
         - tomli
       run:
         - python * *_cpython
-        - rapids-dask-dependency ={{ minor_version }}
+        - rapids-dask-dependency =24.02
         - {{ pin_subpackage('ucxx', max_pin='x.x') }}
     test:
       imports:
