@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-export PROJECT_NAME="ucxx"
+PROJECT_NAME="ucxx"
 
 source "$(dirname "$0")/test_utils.sh"
 source "$(dirname "$0")/test_common.sh"
