@@ -20,9 +20,11 @@ print_system_stats() {
 
 print_ucx_config() {
   rapids-logger "UCX Version and Build Configuration"
-  if [ $(which ucx_info) == "" ]; then
-    echo "ucx_info not found"
-  else
+
+  which ucx_info > /dev/null
+  if [ $? -eq 0 ]; then
     ucx_info -v
+  else
+    echo "ucx_info not found"
   fi
 }
