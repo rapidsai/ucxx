@@ -406,7 +406,7 @@ cdef class UCXAddress():
     def from_worker(cls, UCXWorker worker) -> UCXAddress:
         warnings.warn(
             "UCXAddress.from_worker() is deprecated and will soon be removed, "
-            "use UCXWorker.create_from_worker() instead",
+            "use UCXAddress.create_from_worker() instead",
             FutureWarning,
             stacklevel=2,
         )
