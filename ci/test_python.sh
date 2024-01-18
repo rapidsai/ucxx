@@ -122,8 +122,12 @@ for progress_mode in "blocking" "thread"; do
       # run_py_benchmark  BACKEND     PROGRESS_MODE     ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
       run_py_benchmark    ucxx-async  ${progress_mode}  0             0                         0                    ${nbuf}  0
       run_py_benchmark    ucxx-async  ${progress_mode}  0             0                         1                    ${nbuf}  0
-      run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         0                    ${nbuf}  0
-      run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         1                    ${nbuf}  0
+      if [[ ${progress_mode} != "blocking" ]]; then
+        # Delayed submission isn't support by blocking progress mode
+        # run_py_benchmark  BACKEND     PROGRESS_MODE     ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
+        run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         0                    ${nbuf}  0
+        run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         1                    ${nbuf}  0
+      fi
     fi
   done
 done
