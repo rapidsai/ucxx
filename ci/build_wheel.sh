@@ -136,3 +136,4 @@ elif [[ ${package_name} == "ucxx" ]]; then
 else
   echo "Unknown package '${package_name}'"
   exit 1
+fi
