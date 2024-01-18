@@ -157,7 +157,7 @@ def get_config():
     if _ctx is None:
         return ucx_api.get_current_options()
     else:
-        return _get_ctx().get_config()
+        return _get_ctx().config
 
 
 def create_listener(
@@ -199,14 +199,14 @@ def get_ucp_context_info():
     """Gets information on the current UCX context, obtained from
     `ucp_context_print_info`.
     """
-    return _get_ctx().ucp_context_info()
+    return _get_ctx().ucp_context_info
 
 
 def get_ucp_worker_info():
     """Gets information on the current UCX worker, obtained from
     `ucp_worker_print_info`.
     """
-    return _get_ctx().ucp_worker_info()
+    return _get_ctx().ucp_worker_info
 
 
 def get_active_transports():
@@ -224,19 +224,19 @@ def continuous_ucx_progress(event_loop=None):
 
 
 def get_ucp_worker():
-    return _get_ctx().get_ucp_worker()
+    return _get_ctx().ucp_worker
 
 
 def get_ucxx_worker():
-    return _get_ctx().get_ucxx_worker()
+    return _get_ctx().ucxx_worker
 
 
 def get_worker_address():
-    return _get_ctx().get_worker_address()
+    return _get_ctx().worker_address
 
 
 def get_ucx_address_from_buffer(buffer):
-    return ucx_api.UCXAddress.create_from_buffer(buffer)
+    return ucx_api.UCXAddress.create_from_buffer(bytes(buffer))
 
 
 async def recv(buffer, tag):

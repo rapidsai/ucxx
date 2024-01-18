@@ -60,13 +60,18 @@ static PyObject* get_asyncio_future_object()
   }
 
   asyncio_module = PyImport_Import(asyncio_str);
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
+  if (PyErr_Occurred()) {
+    ucxx_trace_req("ucxx::python::%s, error importing asyncio", __func__);
+    PyErr_Print();
+  }
   if (PyErr_Occurred()) PyErr_Print();
   if (asyncio_module == NULL) goto finish;
 
   asyncio_future_object = PyObject_GetAttr(asyncio_module, future_str);
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
-  if (PyErr_Occurred()) PyErr_Print();
+  if (PyErr_Occurred()) {
+    ucxx_trace_req("ucxx::python::%s, error getting asyncio.Future method", __func__);
+    PyErr_Print();
+  }
   Py_DECREF(asyncio_module);
   if (asyncio_future_object == NULL) { goto finish; }
 
@@ -98,8 +103,10 @@ PyObject* create_python_future()
   }
 
   result = PyObject_CallFunctionObjArgs(future_object, NULL);
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
-  if (PyErr_Occurred()) PyErr_Print();
+  if (PyErr_Occurred()) {
+    ucxx_trace_req("ucxx::python::%s, error creating asyncio.Future", __func__);
+    PyErr_Print();
+  }
 
 finish:
   PyGILState_Release(state);
@@ -113,8 +120,10 @@ static PyCFunction get_future_method(const char* method_name)
   PyGILState_STATE state = PyGILState_Ensure();
 
   PyObject* future_object = get_asyncio_future_object();
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
-  if (PyErr_Occurred()) PyErr_Print();
+  if (PyErr_Occurred()) {
+    ucxx_trace_req("ucxx::python::%s, error getting asyncio.Future method object", __func__);
+    PyErr_Print();
+  }
   PyMethodDef* m = reinterpret_cast<PyTypeObject*>(future_object)->tp_methods;
 
   for (; m != NULL; ++m) {
@@ -139,8 +148,11 @@ PyObject* future_set_result(PyObject* future, PyObject* value)
 
   PyCFunction f = get_future_method("set_result");
   result        = f(future, value);
-  if (PyErr_Occurred()) ucxx_trace_req("Python error here");
-  if (PyErr_Occurred()) PyErr_Print();
+  if (PyErr_Occurred()) {
+    ucxx_trace_req("ucxx::python::%s, error calling `set_result()` from `asyncio.Future` object",
+                   __func__);
+    PyErr_Print();
+  }
 
   PyGILState_Release(state);
 
@@ -192,7 +204,8 @@ PyObject* create_python_future_with_event_loop(PyObject* event_loop)
 
   result = PyObject_CallMethodObjArgs(event_loop, create_future_str, NULL);
   if (PyErr_Occurred()) {
-    ucxx_trace_req("Error calling event loop `create_future`.");
+    ucxx_trace_req("ucxx::python::%s, error calling `create_future` from event loop object",
+                   __func__);
     PyErr_Print();
   }
 
@@ -215,7 +228,8 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop, PyObject* futu
 
   set_result_callable = PyObject_GetAttr(future, set_result_str);
   if (PyErr_Occurred()) {
-    ucxx_trace_req("Error getting future `set_result` method.");
+    ucxx_trace_req(
+      "ucxx::python::%s, error getting `set_result` method from `asyncio.Future` object", __func__);
     PyErr_Print();
     goto finish;
   }
@@ -230,7 +244,10 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop, PyObject* futu
   result = PyObject_CallMethodObjArgs(
     event_loop, call_soon_threadsafe_str, set_result_callable, value, NULL);
   if (PyErr_Occurred()) {
-    ucxx_trace_req("Error calling `call_soon_threadsafe` to set future result.");
+    ucxx_trace_req(
+      "ucxx::python::%s, error calling `call_soon_threadsafe` from event loop object to set future "
+      "result",
+      __func__);
     PyErr_Print();
   }
 
@@ -260,7 +277,9 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
 
   set_exception_callable = PyObject_GetAttr(future, set_exception_str);
   if (PyErr_Occurred()) {
-    ucxx_trace_req("Error getting future `set_exception` method.");
+    ucxx_trace_req(
+      "ucxx::python::%s, Error getting `set_exception` method from `asyncio.Future` object",
+      __func__);
     PyErr_Print();
     goto finish;
   }
@@ -282,7 +301,10 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
   result = PyObject_CallMethodObjArgs(
     event_loop, call_soon_threadsafe_str, set_exception_callable, formed_exception, NULL);
   if (PyErr_Occurred()) {
-    ucxx_trace_req("Error calling `call_soon_threadsafe` to set future exception.");
+    ucxx_trace_req(
+      "ucxx::python::%s, Error calling `call_soon_threadsafe` from event loop object to set future "
+      "exception",
+      __func__);
     PyErr_Print();
   }
   goto finish;

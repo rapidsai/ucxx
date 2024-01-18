@@ -30,7 +30,7 @@ async def _progress_coroutine(worker):
 async def _wait_requests_async_future(loop, worker, requests):
     progress_task = loop.create_task(_progress_coroutine(worker))
 
-    await asyncio.gather(*[r.get_future() for r in requests])
+    await asyncio.gather(*[r.future for r in requests])
 
     progress_task.cancel()
 
@@ -44,7 +44,7 @@ async def _wait_requests_async_yield(loop, worker, requests):
 
 
 def _wait_requests(worker, progress_mode, requests):
-    while not all([r.is_completed() for r in requests]):
+    while not all([r.completed for r in requests]):
         if progress_mode == "blocking":
             worker.progress_worker_event()
 
@@ -56,7 +56,7 @@ def parse_args():
         default=False,
         action="store_true",
         help="Wait for transfer requests with Python's asyncio using futures "
-        "(`UCXRequest.get_future()`), requires `--progress-mode blocking`. "
+        "(`UCXRequest.future`), requires `--progress-mode blocking`. "
         "(default: disabled)",
     )
     parser.add_argument(
@@ -218,13 +218,10 @@ def main():
             _wait_requests(worker, args.progress_mode, requests)
 
             # Check results, raises an exception if any of them failed
-            for r in (
-                send_buffer_requests.get_requests()
-                + recv_buffer_requests.get_requests()
-            ):
+            for r in send_buffer_requests.requests + recv_buffer_requests.requests:
                 r.check_error()
 
-        recv_bufs = recv_buffer_requests.get_py_buffers()
+        recv_bufs = recv_buffer_requests.py_buffers
     else:
         requests = [
             listener_ep.tag_send(Array(send_bufs[0]), tag=ucx_api.UCXTag(0)),
