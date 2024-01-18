@@ -22,11 +22,6 @@ print_ucx_config() {
   rapids-logger "UCX Version and Build Configuration"
 
   set +e
-  which ucx_info > /dev/null
+  ucx_info -v
   set -e
-  if [ $? -eq 0 ]; then
-    ucx_info -v
-  else
-    echo "ucx_info not found"
-  fi
 }
