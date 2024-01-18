@@ -99,3 +99,16 @@ cmake.minimum-version = "3.26.4"
 ninja.make-fallback = true
 sdist.reproducible = true
 wheel.packages = ["ucxx"]
+
+[tool.ruff]
+select = ["E", "F", "W"]
+ignore = [
+    # whitespace before :
+    "E203",
+]
+fixable = ["ALL"]
+exclude = [
+    # TODO: Remove this in a follow-up where we fix __all__.
+    "__init__.py",
+]
+line-length = 88
