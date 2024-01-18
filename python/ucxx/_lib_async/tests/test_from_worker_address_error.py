@@ -83,7 +83,7 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                 q2.put("ready")
 
                 # Wait for remote endpoint to disconnect
-                while ep._ep.is_alive():
+                while ep.alive:
                     await asyncio.sleep(0)
                     if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
                         ucxx.progress()
@@ -121,7 +121,7 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
 
                     q2.put("ready")
 
-                    while ep._ep.is_alive():
+                    while ep.alive:
                         await asyncio.sleep(0)
                         if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
                             ucxx.progress()

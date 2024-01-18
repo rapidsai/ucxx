@@ -9,7 +9,8 @@ files:
       - build_cpp
       - build_python
       - checks
-      - cudatoolkit
+      - cuda
+      - cuda_version
       - dev
       - docs
       - py_version
@@ -19,12 +20,12 @@ files:
   test_cpp:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - test_cpp
   test_python:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - py_version
       - test_python
   checks:
@@ -99,7 +100,7 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - pre-commit
-  cudatoolkit:
+  cuda_version:
     specific:
       - output_types: conda
         matrices:
@@ -123,6 +124,8 @@ dependencies:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+  cuda:
+    specific:
       - output_types: conda
         matrices:
           - matrix:

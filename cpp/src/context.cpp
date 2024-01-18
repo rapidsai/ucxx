@@ -23,7 +23,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
   ucp_params_t params = {.field_mask = UCP_PARAM_FIELD_FEATURES, .features = featureFlags};
 
   utils::ucsErrorThrow(ucp_init(&params, _config.getHandle(), &_handle));
-  ucxx_trace("Context created: %p, UCP handle: %p", this, _handle);
+  ucxx_trace("ucxx::Context created: %p, UCP handle: %p", this, _handle);
 
   ucp_context_attr_t attr = {.field_mask = UCP_ATTR_FIELD_MEMORY_TYPES};
   ucp_context_query(_handle, &attr);
@@ -60,7 +60,7 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
     }
   }
 
-  ucxx_info("UCP initiated using config: ");
+  ucxx_info("UCP initialized using config: ");
   for (const auto& kv : configMap)
     ucxx_info("  %s: %s", kv.first.c_str(), kv.second.c_str());
 }
@@ -73,7 +73,7 @@ std::shared_ptr<Context> createContext(const ConfigMap ucxConfig, const uint64_t
 Context::~Context()
 {
   if (_handle != nullptr) ucp_cleanup(_handle);
-  ucxx_trace("Context destroyed: %p, UCP handle: %p", this, _handle);
+  ucxx_trace("ucxx::Context destroyed: %p, UCP handle: %p", this, _handle);
 }
 
 ConfigMap Context::getConfig() { return _config.get(); }

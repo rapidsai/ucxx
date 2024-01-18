@@ -91,6 +91,7 @@ class Listener:
                 "was prematurely destroyed."
             )
 
+    @property
     def closed(self):
         """Is the listener closed?"""
         return self._listener is None
