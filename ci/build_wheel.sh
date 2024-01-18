@@ -3,8 +3,6 @@
 
 set -euo pipefail
 
-# package_name="ucxx"
-# package_dir="python"
 package_name=$1
 package_dir=$2
 

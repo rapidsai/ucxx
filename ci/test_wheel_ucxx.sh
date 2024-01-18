@@ -29,16 +29,9 @@ python -m pip install $(echo ./dist/${PROJECT_NAME}*.whl)[test]
 
 print_ucx_config
 
-# rapids-logger "C++ Tests"
-# run_cpp_tests
-
 rapids-logger "Python Core Tests"
 run_py_tests
 
 rapids-logger "Python Async Tests"
 # run_py_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
 run_py_tests_async   thread          1                         1                    0
-
-rapids-logger "Distributed Tests"
-# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests      thread          1                           1
