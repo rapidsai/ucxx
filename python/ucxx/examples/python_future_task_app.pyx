@@ -8,7 +8,6 @@ from cpython.ref cimport PyObject
 from libcpp.memory cimport make_unique, unique_ptr
 from libcpp.utility cimport move
 
-from . cimport python_future_task_api
 from .python_future_task_api cimport *
 
 
