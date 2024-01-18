@@ -47,7 +47,7 @@ class RequestAm : public Request {
    *
    * @throws ucxx::Error  if `endpoint` is not a valid `std::shared_ptr<ucxx::Endpoint>`.
    *
-   * @param[in] endpoint            the parent endpoint.
+   * @param[in] endpointOrWorker    the parent endpoint or worker.
    * @param[in] requestData         container of the specified message type, including all
    *                                type-specific data.
    * @param[in] operationName       a human-readable operation name to help identifying
