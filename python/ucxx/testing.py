@@ -50,7 +50,7 @@ def wait_requests(worker, progress_mode, requests):
     if not isinstance(requests, list):
         requests = [requests]
 
-    while not all([r.is_completed() for r in requests]):
+    while not all([r.completed for r in requests]):
         if progress_mode == "blocking":
             worker.progress_worker_event()
 

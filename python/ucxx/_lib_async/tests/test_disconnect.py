@@ -28,13 +28,13 @@ async def mp_queue_get_nowait(queue):
 def _test_shutdown_unexpected_closed_peer_server(
     client_queue, server_queue, endpoint_error_handling
 ):
-    global ep_is_alive
-    ep_is_alive = None
+    global ep_alive
+    ep_alive = None
 
     async def run():
         async def server_node(ep):
             try:
-                global ep_is_alive
+                global ep_alive
 
                 await ep.send(np.arange(100, dtype=np.int64))
                 # Waiting for signal to close the endpoint
@@ -43,7 +43,7 @@ def _test_shutdown_unexpected_closed_peer_server(
                 # At this point, the client should have died and the endpoint
                 # is not alive anymore. `True` only when endpoint error
                 # handling is enabled.
-                ep_is_alive = ep._ep.is_alive()
+                ep_alive = ep.alive
 
                 await ep.close()
             finally:
@@ -53,7 +53,7 @@ def _test_shutdown_unexpected_closed_peer_server(
             server_node, endpoint_error_handling=endpoint_error_handling
         )
         client_queue.put(listener.port)
-        while not listener.closed():
+        while not listener.closed:
             await asyncio.sleep(0.1)
 
     log_stream = StringIO()
@@ -62,9 +62,9 @@ def _test_shutdown_unexpected_closed_peer_server(
     log = log_stream.getvalue()
 
     if endpoint_error_handling is True:
-        assert ep_is_alive is False
+        assert ep_alive is False
     else:
-        assert ep_is_alive
+        assert ep_alive
         assert log.find("""UCXError('<[Send shutdown]""") != -1
 
     ucxx.stop_notifier_thread()

@@ -19,9 +19,9 @@ namespace ucxx {
 
 typedef std::pair<Tag, TagMask> TagPair;
 
-BufferRequest::BufferRequest() { ucxx_trace("BufferRequest created: %p", this); }
+BufferRequest::BufferRequest() { ucxx_trace_req("ucxx::BufferRequest created: %p", this); }
 
-BufferRequest::~BufferRequest() { ucxx_trace("BufferRequest destroyed: %p", this); }
+BufferRequest::~BufferRequest() { ucxx_trace_req("ucxx::BufferRequest destroyed: %p", this); }
 
 RequestTagMulti::RequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
@@ -39,7 +39,12 @@ RequestTagMulti::~RequestTagMulti()
   for (auto& br : _bufferRequests) {
     const auto& ptr = br->request.get();
     if (ptr != nullptr)
-      ucxx_trace("RequestTagMulti destroying BufferRequest: %p", br->request.get());
+      ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
+                       _request,
+                       _operationName.c_str(),
+                       "destroying BufferRequest: %p",
+                       br->request.get());
 
     /**
      * FIXME: The `BufferRequest`s destructor should be doing this, but it seems a
@@ -98,22 +103,26 @@ void RequestTagMulti::recvFrames()
 
   std::vector<Header> headers;
 
-  ucxx_trace_req(
-    "RequestTagMulti::recvFrames request: %p, tag: 0x%lx, tagMask: 0x%lx, _bufferRequests.size(): "
-    "%lu",
-    this,
-    tagPair.first,
-    tagPair.second,
-    _bufferRequests.size());
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   this,
+                   _request,
+                   _operationName.c_str(),
+                   "recvFrames, tag: 0x%lx, tagMask: 0x%lx, _bufferRequests.size(): "
+                   "%lu",
+                   tagPair.first,
+                   tagPair.second,
+                   _bufferRequests.size());
 
   for (auto& br : _bufferRequests) {
-    ucxx_trace_req(
-      "RequestTagMulti::recvFrames request: %p, tag: 0x%lx, tagMask: 0x%lx, "
-      "*br->stringBuffer.size(): %lu",
-      this,
-      tagPair.first,
-      tagPair.second,
-      br->stringBuffer->size());
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
+                     _request,
+                     _operationName.c_str(),
+                     "recvFrames, tag: 0x%lx, tagMask: 0x%lx, "
+                     "*br->stringBuffer.size(): %lu",
+                     tagPair.first,
+                     tagPair.second,
+                     br->stringBuffer->size());
     headers.push_back(Header(*br->stringBuffer));
   }
 
@@ -135,23 +144,27 @@ void RequestTagMulti::recvFrames()
         },
         bufferRequest);
       bufferRequest->buffer = buf;
-      ucxx_trace_req(
-        "RequestTagMulti::recvFrames request: %p, tag: 0x%lx, tagMask: 0x%lx, buffer: %p",
-        this,
-        tagPair.first,
-        tagPair.second,
-        bufferRequest->buffer.get());
+      ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
+                       _request,
+                       _operationName.c_str(),
+                       "recvFrames, tag: 0x%lx, tagMask: 0x%lx, buffer: %p",
+                       tagPair.first,
+                       tagPair.second,
+                       bufferRequest->buffer.get());
     }
   }
 
   _isFilled = true;
-  ucxx_trace_req(
-    "RequestTagMulti::recvFrames request: %p, tag: 0x%lx, tagMask: 0x%lx, size: %lu, isFilled: %d",
-    this,
-    tagPair.first,
-    tagPair.second,
-    _bufferRequests.size(),
-    _isFilled);
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   this,
+                   _request,
+                   _operationName.c_str(),
+                   "recvFrames, tag: 0x%lx, tagMask: 0x%lx, size: %lu, isFilled: %d",
+                   tagPair.first,
+                   tagPair.second,
+                   _bufferRequests.size(),
+                   _isFilled);
 };
 
 void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData request)
@@ -164,8 +177,9 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
   try {
     selfReference = shared_from_this();
   } catch (std::bad_weak_ptr& exception) {
-    ucxx_debug("RequestTagMulti %p destroyed before all markCompleted() callbacks were executed",
-               this);
+    ucxx_debug(
+      "ucxx::RequestTagMulti: %p destroyed before all markCompleted() callbacks were executed",
+      this);
     return;
   }
 
@@ -180,10 +194,14 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
                                },
                                _requestData);
 
-  ucxx_trace_req("RequestTagMulti::markCompleted request: %p, tag: 0x%lx, tagMask: 0x%lx",
-                 this,
-                 tagPair.first,
-                 tagPair.second);
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   this,
+                   _request,
+                   _operationName.c_str(),
+                   "markCompleted, tag: 0x%lx, tagMask: 0x%lx",
+                   tagPair.first,
+                   tagPair.second);
+
   std::lock_guard<std::mutex> lock(_completedRequestsMutex);
 
   if (_finalStatus == UCS_OK && status != UCS_OK) _finalStatus = status;
@@ -191,25 +209,29 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
   if (++_completedRequests == _totalFrames) {
     setStatus(_finalStatus);
 
-    ucxx_trace_req(
-      "RequestTagMulti::markCompleted request: %p, tag: 0x%lx, tagMask: 0x%lx, completed: %lu/%lu, "
-      "final status: %d "
-      "(%s)",
-      this,
-      tagPair.first,
-      tagPair.second,
-      _completedRequests,
-      _totalFrames,
-      _finalStatus,
-      ucs_status_string(_finalStatus));
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
+                     _request,
+                     _operationName.c_str(),
+                     "markCompleted, tag: 0x%lx, tagMask: 0x%lx, completed: %lu/%lu, "
+                     "final status: %d "
+                     "(%s)",
+                     tagPair.first,
+                     tagPair.second,
+                     _completedRequests,
+                     _totalFrames,
+                     _finalStatus,
+                     ucs_status_string(_finalStatus));
   } else {
-    ucxx_trace_req(
-      "RequestTagMulti::markCompleted request: %p, tag: 0x%lx, tagMask: 0x%lx, completed: %lu/%lu",
-      this,
-      tagPair.first,
-      tagPair.second,
-      _completedRequests,
-      _totalFrames);
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
+                     _request,
+                     _operationName.c_str(),
+                     "markCompleted, tag: 0x%lx, tagMask: 0x%lx, completed: %lu/%lu",
+                     tagPair.first,
+                     tagPair.second,
+                     _completedRequests,
+                     _totalFrames);
   }
 }
 
@@ -217,10 +239,13 @@ void RequestTagMulti::recvHeader()
 {
   auto tagPair = checkAndGetTagPair(_requestData, std::string("recvHeader"));
 
-  ucxx_trace_req("RequestTagMulti::recvHeader entering, request: %p, tag: 0x%lx, tagMask: 0x%lx",
-                 this,
-                 tagPair.first,
-                 tagPair.second);
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   this,
+                   _request,
+                   _operationName.c_str(),
+                   "recvHeader entering, tag: 0x%lx, tagMask: 0x%lx",
+                   tagPair.first,
+                   tagPair.second);
 
   auto bufferRequest = std::make_shared<BufferRequest>();
   _bufferRequests.push_back(bufferRequest);
@@ -240,44 +265,52 @@ void RequestTagMulti::recvHeader()
     bufferRequest->request->checkError();
   }
 
-  ucxx_trace_req(
-    "RequestTagMulti::recvHeader exiting, request: %p, tag: 0x%lx, tagMask: 0x%lx, empty: %d",
-    this,
-    tagPair.first,
-    tagPair.second,
-    _bufferRequests.empty());
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   this,
+                   _request,
+                   _operationName.c_str(),
+                   "recvHeader exiting, tag: 0x%lx, tagMask: 0x%lx, empty: %d",
+                   tagPair.first,
+                   tagPair.second,
+                   _bufferRequests.empty());
 }
 
 void RequestTagMulti::recvCallback(ucs_status_t status)
 {
   auto tagPair = checkAndGetTagPair(_requestData, std::string("recvCallback"));
 
-  ucxx_trace_req("RequestTagMulti::recvCallback request: %p, tag: 0x%lx, tagMask: 0x%lx",
-                 this,
-                 tagPair.first,
-                 tagPair.second);
+  ucxx_trace_req_f(_ownerString.c_str(),
+                   this,
+                   _request,
+                   _operationName.c_str(),
+                   "recvCallback, tag: 0x%lx, tagMask: 0x%lx",
+                   tagPair.first,
+                   tagPair.second);
 
   if (_bufferRequests.empty()) {
     recvHeader();
   } else {
     if (status == UCS_OK) {
-      ucxx_trace_req(
-        "RequestTagMulti::recvCallback header received, multi request: %p, tag: 0x%lx, tagMask: "
-        "0x%lx",
-        this,
-        tagPair.first,
-        tagPair.second);
+      ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
+                       _request,
+                       _operationName.c_str(),
+                       "recvCallback header received, tag: 0x%lx, tagMask: "
+                       "0x%lx",
+                       tagPair.first,
+                       tagPair.second);
     } else {
-      ucxx_trace_req(
-        "RequestTagMulti::recvCallback failed receiving header with status %d (%s), multi request: "
-        "%p, "
-        "tag: 0x%lx, "
-        "tagMask: 0x%lx",
-        status,
-        ucs_status_string(status),
-        this,
-        tagPair.first,
-        tagPair.second);
+      ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
+                       _request,
+                       _operationName.c_str(),
+                       "recvCallback failed receiving header with status %d (%s), "
+                       "tag: 0x%lx, "
+                       "tagMask: 0x%lx",
+                       status,
+                       ucs_status_string(status),
+                       tagPair.first,
+                       tagPair.second);
 
       _status = status;
       if (_future) _future->notify(status);
@@ -326,10 +359,13 @@ void RequestTagMulti::send()
         }
 
         _isFilled = true;
-        ucxx_trace_req("RequestTagMulti::send request: %p, tag: 0x%lx, isFilled: %d",
-                       this,
-                       tagMultiSend._tag,
-                       _isFilled);
+        ucxx_trace_req_f(_ownerString.c_str(),
+                         this,
+                         _request,
+                         _operationName.c_str(),
+                         "send, tag: 0x%lx, isFilled: %d",
+                         tagMultiSend._tag,
+                         _isFilled);
       },
       [](auto) { throw std::runtime_error("send() can only be called by a sendrequest."); },
     },

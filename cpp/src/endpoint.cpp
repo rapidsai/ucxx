@@ -77,7 +77,7 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
     utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
   }
 
-  ucxx_trace("Endpoint created: %p, UCP handle: %p, parent: %p, endpointErrorHandling: %d",
+  ucxx_trace("ucxx::Endpoint created: %p, UCP handle: %p, parent: %p, endpointErrorHandling: %d",
              this,
              _handle,
              _parent.get(),
@@ -140,7 +140,7 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
 Endpoint::~Endpoint()
 {
   close(10000000000 /* 10s */);
-  ucxx_trace("Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
+  ucxx_trace("ucxx::Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
 }
 
 void Endpoint::close(uint64_t period, uint64_t maxAttempts)
@@ -148,7 +148,11 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
   if (_handle == nullptr) return;
 
   size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
-  ucxx_debug("Endpoint %p canceled %lu requests", _handle, canceled);
+  ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
+             __func__,
+             this,
+             _handle,
+             canceled);
 
   // Close the endpoint
   unsigned closeMode = UCP_EP_CLOSE_MODE_FORCE;
@@ -179,8 +183,13 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
             ucp_request_free(status);
             _callbackData->status = UCS_PTR_STATUS(s);
             if (UCS_PTR_STATUS(status) != UCS_OK) {
-              ucxx_error("Error while closing endpoint: %s",
-                         ucs_status_string(UCS_PTR_STATUS(status)));
+              ucxx_error(
+                "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, error while closing "
+                "endpoint: %s",
+                __func__,
+                this,
+                _handle,
+                ucs_status_string(UCS_PTR_STATUS(status)));
             }
           }
 
@@ -194,7 +203,11 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
 
     if (!closeSuccess) {
       _callbackData->status = UCS_ERR_ENDPOINT_TIMEOUT;
-      ucxx_error("All attempts to close timed out on endpoint: %p, UCP handle: %p", this, _handle);
+      ucxx_debug(
+        "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, all attempts to close timed out",
+        __func__,
+        this,
+        _handle);
     }
   } else {
     status = ucp_ep_close_nb(_handle, closeMode);
@@ -205,13 +218,21 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
       ucp_request_free(status);
       _callbackData->status = s;
     } else if (UCS_PTR_STATUS(status) != UCS_OK) {
-      ucxx_error("Error while closing endpoint: %s", ucs_status_string(UCS_PTR_STATUS(status)));
+      ucxx_error(
+        "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
+        __func__,
+        this,
+        _handle,
+        ucs_status_string(UCS_PTR_STATUS(status)));
     }
   }
-  ucxx_trace("Endpoint closed: %p, UCP handle: %p", this, _handle);
+  ucxx_trace("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _handle);
 
   if (_callbackData->closeCallback) {
-    ucxx_debug("Calling user callback for endpoint %p", _handle);
+    ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, calling user close callback",
+               __func__,
+               this,
+               _handle);
     _callbackData->closeCallback(_callbackData->closeCallbackArg);
     _callbackData->closeCallback    = nullptr;
     _callbackData->closeCallbackArg = nullptr;
@@ -295,9 +316,12 @@ size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
       if (!callbackNotifierPost.wait(period)) continue;
     }
     if (!cancelSuccess)
-      ucxx_error("All attempts to cancel inflight requests failed on endpoint: %p, UCP handle: %p",
-                 this,
-                 _handle);
+      ucxx_debug(
+        "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, all attempts to "
+        "cancel inflight requests failed",
+        __func__,
+        this,
+        _handle);
   } else {
     canceled = _inflightRequests->cancelAll();
   }
@@ -406,7 +430,7 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   data->status            = status;
   data->worker->scheduleRequestCancel(data->inflightRequests->release());
   if (data->closeCallback) {
-    ucxx_debug("Calling user callback for endpoint %p", ep);
+    ucxx_debug("ucxx::Endpoint::%s, UCP handle: %p, calling user close callback", __func__, ep);
     data->closeCallback(data->closeCallbackArg);
     data->closeCallback    = nullptr;
     data->closeCallbackArg = nullptr;
@@ -415,12 +439,14 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   // Connection reset and timeout often represent just a normal remote
   // endpoint disconnect, log only in debug mode.
   if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
-    ucxx_debug("Error callback for endpoint %p called with status %d: %s",
+    ucxx_debug("ucxx::Endpoint::%s, UCP handle: %p, error callback called with status %d: %s",
+               __func__,
                ep,
                status,
                ucs_status_string(status));
   else
-    ucxx_error("Error callback for endpoint %p called with status %d: %s",
+    ucxx_error("ucxx::Endpoint::%s, UCP handle: %p, error callback called with status %d: %s",
+               __func__,
                ep,
                status,
                ucs_status_string(status));

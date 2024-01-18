@@ -80,7 +80,7 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
 static void _amSendCallback(void* request, ucs_status_t status, void* user_data)
 {
   Request* req = reinterpret_cast<Request*>(user_data);
-  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "amSend", "_amSendCallback");
+  ucxx_trace_req_f(req->getOwnerString().c_str(), nullptr, request, "amSend", "_amSendCallback");
   req->callback(request, status);
 }
 
@@ -90,8 +90,11 @@ static void _recvCompletedCallback(void* request,
                                    void* user_data)
 {
   internal::RecvAmMessage* recvAmMessage = static_cast<internal::RecvAmMessage*>(user_data);
-  ucxx_trace_req_f(
-    recvAmMessage->_request->getOwnerString().c_str(), request, "amRecv", "amRecvCallback");
+  ucxx_trace_req_f(recvAmMessage->_request->getOwnerString().c_str(),
+                   nullptr,
+                   request,
+                   "amRecv",
+                   "amRecvCallback");
   recvAmMessage->callback(request, status);
 }
 
@@ -127,13 +130,13 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     if (reqs != recvWait.end() && !reqs->second.empty()) {
       req = reqs->second.front();
       reqs->second.pop();
-      ucxx_trace_req("amRecv recvWait: %p", req.get());
+      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
     } else {
       req             = std::shared_ptr<RequestAm>(new RequestAm(
         worker, data::AmReceive(), "amReceive", worker->isFutureEnabled(), nullptr, nullptr));
       auto [queue, _] = recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
       queue->second.push(req);
-      ucxx_trace_req("amRecv recvPool: %p", req.get());
+      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvPool");
     }
   }
 
@@ -165,9 +168,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 
     if (req->_enablePythonFuture)
       ucxx_trace_req_f(ownerString.c_str(),
+                       req.get(),
                        status,
                        "amRecv rndv",
-                       "ep %p, buffer %p, size %lu, future %p, future handle %p, recvCallback",
+                       "recvCallback, ep: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                        ep,
                        buf->data(),
                        length,
@@ -175,9 +179,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        req->_future->getHandle());
     else
       ucxx_trace_req_f(ownerString.c_str(),
+                       req.get(),
                        status,
                        "amRecv rndv",
-                       "ep %p, buffer %p, size %lu, recvCallback",
+                       "recvCallback, ep: %p, buffer: %p, size: %lu",
                        ep,
                        buf->data(),
                        length);
@@ -206,9 +211,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 
     if (req->_enablePythonFuture)
       ucxx_trace_req_f(ownerString.c_str(),
+                       req.get(),
                        nullptr,
                        "amRecv eager",
-                       "ep: %p, buffer %p, size %lu, future %p, future handle %p, recvCallback",
+                       "recvCallback, ep: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
                        ep,
                        buf->data(),
                        length,
@@ -216,9 +222,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        req->_future->getHandle());
     else
       ucxx_trace_req_f(ownerString.c_str(),
+                       req.get(),
                        nullptr,
                        "amRecv eager",
-                       "ep: %p, buffer %p, size %lu, recvCallback",
+                       "recvCallback, ep: %p, buffer: %p, size: %lu",
                        ep,
                        buf->data(),
                        length);
@@ -290,10 +297,11 @@ void RequestAm::populateDelayedSubmission()
   auto log = [this](const void* buffer, const size_t length, const ucs_memory_type_t memoryType) {
     if (_enablePythonFuture)
       ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
                        _request,
                        _operationName.c_str(),
-                       "buffer %p, size %lu, memoryType: %u, future %p, future handle %p, "
-                       "populateDelayedSubmission",
+                       "populateDelayedSubmission, buffer %p, size %lu, memoryType: %u, future %p, "
+                       "future handle %p, ",
                        buffer,
                        length,
                        memoryType,
@@ -301,9 +309,10 @@ void RequestAm::populateDelayedSubmission()
                        _future->getHandle());
     else
       ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
                        _request,
                        _operationName.c_str(),
-                       "buffer %p, size %lu, memoryType: %u, populateDelayedSubmission",
+                       "populateDelayedSubmission, buffer %p, size %lu, memoryType: %u",
                        buffer,
                        length,
                        memoryType);
