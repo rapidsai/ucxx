@@ -5,6 +5,9 @@ set -euo pipefail
 
 export PROJECT_NAME="ucxx"
 
+source "$(dirname "$0")/test_utils.sh"
+source "$(dirname "$0")/test_common.sh"
+
 mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="${PROJECT_NAME}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
@@ -24,5 +27,18 @@ python -m pip install $(echo ./dist/${PROJECT_NAME}*.whl)[test]
 #     python -m pytest ./python/${PROJECT_NAME}/tests -k 'not test_sparse_pca_inputs' -n 4 --ignore=python/cuml/tests/dask && python -m pytest ./python/${PROJECT_NAME}/tests -k 'test_sparse_pca_inputs' && python -m pytest ./python/cuml/tests/dask
 # fi
 
-echo "Please add meaningful tests here. This file was copied from CuML and needs to be adapted to UCXX's needs."
-exit 1
+print_ucx_config
+
+rapids-logger "C++ Tests"
+run_cpp_tests
+
+rapids-logger "Python Core Tests"
+run_py_tests
+
+rapids-logger "Python Async Tests"
+# run_py_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
+run_py_tests_async   thread          1                         1                    0
+
+rapids-logger "Distributed Tests"
+# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests      thread          1                           1
