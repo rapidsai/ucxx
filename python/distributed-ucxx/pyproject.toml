@@ -109,11 +109,3 @@ exclude = [
     "docs.*",
     "tests.*",
 ]
-
-[tool.versioneer]
-VCS = "git"
-style = "pep440"
-versionfile_source = "distributed_ucxx/_version.py"
-versionfile_build = "distributed_ucxx/_version.py"
-tag_prefix = "v"
-parentdir_prefix = "distributed_ucxx-"
