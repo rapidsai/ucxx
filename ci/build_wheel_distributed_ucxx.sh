@@ -5,7 +5,7 @@ set -euo pipefail
 
 package_dir="python/distributed-ucxx"
 
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+export RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
 ./ci/build_wheel.sh distributed-ucxx ${package_dir}
 
