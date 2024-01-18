@@ -36,7 +36,6 @@ files:
   docs:
     output: none
     includes:
-      - cudatoolkit
       - docs
       - py_version
   py_build:
