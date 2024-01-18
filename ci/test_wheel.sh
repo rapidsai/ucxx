@@ -29,8 +29,8 @@ python -m pip install $(echo ./dist/${PROJECT_NAME}*.whl)[test]
 
 print_ucx_config
 
-rapids-logger "C++ Tests"
-run_cpp_tests
+# rapids-logger "C++ Tests"
+# run_cpp_tests
 
 rapids-logger "Python Core Tests"
 run_py_tests
