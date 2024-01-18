@@ -7,13 +7,14 @@ set -euo pipefail
 
 source "$(dirname "$0")/test_utils.sh"
 
-BINARY_PATH=${CONDA_PREFIX}/bin
-
 
 ##################################### C++ ######################################
 _SERVER_PORT=12345
 
 run_cpp_tests() {
+  RUNTIME_PATH=${CONDA_PREFIX:-./}
+  BINARY_PATH=${RUNTIME_PATH}/bin
+
   CMD_LINE="timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
 
   log_command "${CMD_LINE}"
@@ -23,6 +24,9 @@ run_cpp_tests() {
 run_cpp_benchmark() {
   SERVER_PORT=$1
   PROGRESS_MODE=$2
+
+  RUNTIME_PATH=${CONDA_PREFIX:-./}
+  BINARY_PATH=${RUNTIME_PATH}/bin
 
   CMD_LINE_SERVER="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
   CMD_LINE_CLIENT="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1"
@@ -38,6 +42,9 @@ run_cpp_benchmark() {
 run_cpp_example() {
   SERVER_PORT=$1
   PROGRESS_MODE=$2
+
+  RUNTIME_PATH=${CONDA_PREFIX:-./}
+  BINARY_PATH=${RUNTIME_PATH}/bin
 
   CMD_LINE="timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
 
