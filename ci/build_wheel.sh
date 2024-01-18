@@ -34,6 +34,10 @@ fi
 
 if [[ ${package_name} == "distributed-ucxx" ]]; then
     sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
+
+    cd "${package_dir}"
+
+    python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 elif [[ ${package_name} == "ucxx" ]]; then
     # Add -cuXX to package name
     sed -r -i "s/rmm(.*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
