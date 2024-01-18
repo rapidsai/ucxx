@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-package_dir="python/distributed_ucxx"
+package_dir="python/distributed-ucxx"
 
 ./ci/build_wheel.sh distributed-ucxx ${package_dir}
 
