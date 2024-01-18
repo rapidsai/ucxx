@@ -36,6 +36,7 @@ fi
 
 # Add -cuXX to package name
 sed -r -i "s/rmm(.*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
+sed -r -i "s/cudf(.*)\"/cudf${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
 
 SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON" \
     python -m pip wheel "${package_dir}"/ -w "${package_dir}"/dist -vvv --no-deps --disable-pip-version-check
