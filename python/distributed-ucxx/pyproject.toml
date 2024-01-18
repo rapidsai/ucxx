@@ -16,8 +16,8 @@ authors = [
 license = { text = "Apache-2.0" }
 requires-python = ">=3.8"
 dependencies = [
-    "rapids-dask-dependency==24.2.*"
     "numba >=0.54",
+    "rapids-dask-dependency==24.2.*"
 ]
 classifiers = [
     "Intended Audience :: Developers",
