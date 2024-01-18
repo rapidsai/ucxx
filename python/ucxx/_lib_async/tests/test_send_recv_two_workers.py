@@ -151,7 +151,7 @@ def server(port, func, comm_api):
 
         lf = ucxx.create_listener(write, port=listener_port)
         try:
-            while not lf.closed():
+            while not lf.closed:
                 await asyncio.sleep(0.1)
         # except ucxx.UCXCloseError:
         #     pass

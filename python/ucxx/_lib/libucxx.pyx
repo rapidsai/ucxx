@@ -15,7 +15,6 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport nullptr
 from libcpp.functional cimport function
-from libcpp.map cimport map as cpp_map
 from libcpp.memory cimport (
     dynamic_pointer_cast,
     make_shared,
@@ -24,7 +23,6 @@ from libcpp.memory cimport (
     unique_ptr,
 )
 from libcpp.string cimport string
-from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
@@ -32,7 +30,6 @@ import numpy as np
 
 from rmm._lib.device_buffer cimport DeviceBuffer
 
-from . cimport ucxx_api
 from .arr cimport Array
 from .ucxx_api cimport *
 
@@ -272,7 +269,7 @@ cdef class UCXContext():
 
     def __init__(
         self,
-        dict config_dict={},
+        dict config_dict=None,
         tuple feature_flags=(
             Feature.TAG,
             Feature.WAKEUP,
@@ -283,6 +280,9 @@ cdef class UCXContext():
     ) -> None:
         cdef ConfigMap cpp_config_in, cpp_config_out
         cdef dict context_config
+
+        if config_dict is None:
+            config_dict = {}
 
         for k, v in config_dict.items():
             cpp_config_in[k.encode("utf-8")] = v.encode("utf-8")
@@ -404,8 +404,6 @@ cdef class UCXAddress():
     # For old UCX-Py API compatibility
     @classmethod
     def from_worker(cls, UCXWorker worker) -> UCXAddress:
-        cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
-
         warnings.warn(
             "UCXAddress.from_worker() is deprecated and will soon be removed, "
             "use UCXWorker.create_from_worker() instead",
@@ -428,8 +426,6 @@ cdef class UCXAddress():
         return bytes(self._string)
 
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
-        cdef Address* address_ptr = self._address.get()
-
         if bool(flags & PyBUF_WRITABLE):
             raise BufferError("Requested writable view on readonly data")
         buffer.buf = self._handle
@@ -500,12 +496,16 @@ cdef class UCXWorker():
                 ucxx_enable_delayed_submission,
                 ucxx_enable_python_future,
             )
-            self._enable_delayed_submission = self._worker.get().isDelayedRequestSubmissionEnabled()
+            self._enable_delayed_submission = (
+                self._worker.get().isDelayedRequestSubmissionEnabled()
+            )
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
             if self._context_feature_flags & UCP_FEATURE_AM:
                 rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
-                self._worker.get().registerAmAllocator(UCS_MEMORY_TYPE_CUDA, rmm_am_allocator)
+                self._worker.get().registerAmAllocator(
+                    UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
+                )
 
     def __dealloc__(self) -> None:
         with nogil:
@@ -600,17 +600,27 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().progressWorkerEvent(ucxx_epoll_timeout)
 
-    def start_progress_thread(self, bint polling_mode=False, int epoll_timeout=-1) -> None:
+    def start_progress_thread(
+        self,
+        bint polling_mode=False,
+        int epoll_timeout=-1
+    ) -> None:
         cdef int ucxx_epoll_timeout = epoll_timeout
 
         with nogil:
-            self._worker.get().startProgressThread(polling_mode, epoll_timeout=ucxx_epoll_timeout)
+            self._worker.get().startProgressThread(
+                polling_mode, epoll_timeout=ucxx_epoll_timeout
+            )
 
     def stop_progress_thread(self) -> None:
         with nogil:
             self._worker.get().stopProgressThread()
 
-    def cancel_inflight_requests(self, uint64_t period=0, uint64_t max_attempts=1) -> int:
+    def cancel_inflight_requests(
+        self,
+        uint64_t period=0,
+        uint64_t max_attempts=1
+    ) -> int:
         cdef uint64_t c_period = period
         cdef uint64_t c_max_attempts = max_attempts
         cdef size_t num_canceled
@@ -690,18 +700,18 @@ cdef class UCXWorker():
 
     def is_python_future_enabled(self) -> bool:
         warnings.warn(
-            "UCXWorker.is_python_future_enabled() is deprecated and will soon be removed, "
-            "use the UCXWorker.enable_python_future property instead",
+            "UCXWorker.is_python_future_enabled() is deprecated and will soon be "
+            "removed, use the UCXWorker.enable_python_future property instead",
             FutureWarning,
             stacklevel=2,
         )
         return self.enable_python_future
 
     def tag_recv(
-            self,
-            Array arr,
-            UCXXTag tag,
-            UCXXTagMask tag_mask=UCXXTagMaskFull,
+        self,
+        Array arr,
+        UCXXTag tag,
+        UCXXTagMask tag_mask = UCXXTagMaskFull
     ) -> UCXRequest:
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
@@ -909,11 +919,10 @@ cdef class UCXBufferRequests:
         tuple _requests
 
     def __init__(
-            self,
-            uintptr_t unique_ptr_buffer_requests,
-            bint enable_python_future
+        self,
+        uintptr_t unique_ptr_buffer_requests,
+        bint enable_python_future
     ) -> None:
-        cdef RequestTagMulti ucxx_buffer_requests
         self._enable_python_future = enable_python_future
         self._completed = False
         self._requests = tuple()
@@ -1011,8 +1020,8 @@ cdef class UCXBufferRequests:
 
     def is_completed_all(self) -> bool:
         warnings.warn(
-            "UCXBufferRequests.is_completed_all() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.all_completed property instead",
+            "UCXBufferRequests.is_completed_all() is deprecated and will soon be "
+            "removed, use the UCXBufferRequests.all_completed property instead",
             FutureWarning,
             stacklevel=2,
         )
@@ -1065,8 +1074,8 @@ cdef class UCXBufferRequests:
 
     def get_py_buffers(self) -> tuple[None|np.ndarray|DeviceBuffer, ...]:
         warnings.warn(
-            "UCXBufferRequests.get_py_buffers() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.py_buffers property instead",
+            "UCXBufferRequests.get_py_buffers() is deprecated and will soon be "
+            "removed, use the UCXBufferRequests.py_buffers property instead",
             FutureWarning,
             stacklevel=2,
         )
@@ -1145,7 +1154,9 @@ cdef class UCXEndpoint():
             ucxx_worker = dynamic_pointer_cast[Worker, Component](
                 listener._listener.get().getParent()
             )
-            ucxx_context = dynamic_pointer_cast[Context, Component](ucxx_worker.get().getParent())
+            ucxx_context = dynamic_pointer_cast[Context, Component](
+                ucxx_worker.get().getParent()
+            )
 
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
@@ -1350,10 +1361,10 @@ cdef class UCXEndpoint():
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
     def tag_recv(
-            self,
-            Array arr,
-            UCXXTag tag,
-            UCXXTagMask tag_mask=UCXXTagMaskFull
+        self,
+        Array arr,
+        UCXXTag tag,
+        UCXXTagMask tag_mask=UCXXTagMaskFull
     ) -> UCXRequest:
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
@@ -1398,8 +1409,8 @@ cdef class UCXEndpoint():
                 raise ValueError(
                     "UCX is not configured with CUDA support, please ensure that the "
                     "available UCX on your environment is built against CUDA and that "
-                    "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is using "
-                    "the default `UCX_TLS=all`."
+                    "`cuda` or `cuda_copy` are present in `UCX_TLS` or that it is "
+                    "using the default `UCX_TLS=all`."
                 )
 
         for arr in arrays:
@@ -1421,9 +1432,9 @@ cdef class UCXEndpoint():
         )
 
     def tag_recv_multi(
-            self,
-            UCXXTag tag,
-            UCXXTagMask tag_mask=UCXXTagMaskFull,
+        self,
+        UCXXTag tag,
+        UCXXTagMask tag_mask = UCXXTagMaskFull,
     ) -> UCXBufferRequests:
         cdef shared_ptr[Request] ucxx_buffer_requests
         cdef Tag cpp_tag = <Tag><size_t>tag.value
@@ -1527,7 +1538,6 @@ cdef class UCXListener():
             cb_kwargs = {}
 
         cdef UCXListener listener = UCXListener.__new__(UCXListener)
-        cdef shared_ptr[Listener] ucxx_listener
         cdef ucp_listener_conn_callback_t listener_cb = (
             <ucp_listener_conn_callback_t>_listener_callback
         )
@@ -1582,8 +1592,8 @@ cdef class UCXListener():
 
     def is_python_future_enabled(self) -> bool:
         warnings.warn(
-            "UCXListener.is_python_future_enabled() is deprecated and will soon be removed, "
-            "use the UCXListener.enable_python_future property instead",
+            "UCXListener.is_python_future_enabled() is deprecated and will soon be "
+            "removed, use the UCXListener.enable_python_future property instead",
             FutureWarning,
             stacklevel=2,
         )
