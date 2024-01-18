@@ -18,10 +18,8 @@ dependencies:
 - cupy>=12.0.0
 - cxx-compiler
 - cython>=3.0.0
-- dask
 - dask-cuda==24.2.*
 - dask-cudf==24.2.*
-- distributed
 - fmt>=10.1.1,<11
 - gmock>=1.13.0
 - gtest>=1.13.0
@@ -38,6 +36,7 @@ dependencies:
 - pytest-asyncio
 - pytest-rerunfailures
 - python>=3.9,<3.11
+- rapids-dask-dependency==24.2.*
 - rmm==24.2.*
 - scikit-build-core>=0.7.0
 - spdlog>=1.12.0,<1.13

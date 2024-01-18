@@ -50,6 +50,7 @@ DEPENDENCIES=(
   dask-cuda
   dask-cudf
   librmm
+  rapids-dask-dependency
   rmm
 )
 for DEP in "${DEPENDENCIES[@]}"; do
@@ -57,6 +58,7 @@ for DEP in "${DEPENDENCIES[@]}"; do
     sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
   done
   sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml;
+  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/distributed-ucxx/pyproject.toml;
 done
 
 # rapids-cmake version
