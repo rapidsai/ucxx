@@ -105,10 +105,7 @@ dependencies:
           - matrix: {cuda: "11.*"}
             packages:
               - rmm-cu11==24.2.*
-          - {matrix: null, packages: null }
-      - output_types: pyproject
-        matrices:
-          - {matrix: null, packages: [*rmm_conda] }
+          - {matrix: null, packages: [*rmm_conda]}
   checks:
     common:
       - output_types: [conda, requirements]
