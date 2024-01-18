@@ -71,7 +71,7 @@ dependencies:
           - fmt>=10.1.1,<11
           - &gmock gmock>=1.13.0
           - &gtest gtest>=1.13.0
-          - librmm==24.2.*
+          - librmm==24.4.*
           - ninja
           - spdlog>=1.12.0,<1.13
   build_python:
@@ -81,7 +81,7 @@ dependencies:
           - *cmake_ver
           - cython>=3.0.0
           - ninja
-          - rmm==24.2.*
+          - rmm==24.4.*
       - output_types: conda
         packages:
           - scikit-build-core>=0.7.0
@@ -136,8 +136,8 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==24.2.*
-          - dask-cudf==24.2.*
+          - dask-cuda==24.4.*
+          - dask-cudf==24.4.*
           # UCX Build
           - libtool
           - automake
@@ -180,7 +180,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - cudf==24.2.*
+          - cudf==24.4.*
           - cupy
           - dask
           - distributed
