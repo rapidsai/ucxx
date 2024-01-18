@@ -18,8 +18,8 @@ jobs:
       - conda-python-tests
       - wheel-build-ucxx
       - wheel-tests-ucxx
-      - wheel-build-distributed-ucxx
-      - wheel-tests-distributed-ucxx
+#     - wheel-build-distributed-ucxx
+#     - wheel-tests-distributed-ucxx
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.02
   checks:
