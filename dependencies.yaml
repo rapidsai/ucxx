@@ -12,6 +12,7 @@ files:
       - cuda
       - cuda_version
       - dev
+      - docs
       - py_version
       - run_python
       - test_cpp
@@ -35,6 +36,11 @@ files:
     output: none
     includes:
       - checks
+      - py_version
+  docs:
+    output: none
+    includes:
+      - docs
       - py_version
   py_build:
     output: pyproject
@@ -162,6 +168,13 @@ dependencies:
           - autoconf
           # UCXX Build
           - pkg-config
+          # Docs Build
+          - &doxygen doxygen=1.10.0 # pre-commit hook needs a specific version.
+  docs:
+    common:
+      - output_types: [conda]
+        packages:
+          - *doxygen
   py_version:
     specific:
       - output_types: conda
