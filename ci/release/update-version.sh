@@ -20,8 +20,9 @@ NEXT_SHORT_TAG=${NEXT_MAJOR}.${NEXT_MINOR}
 NEXT_RAPIDS_VERSION="$(curl -sL https://version.gpuci.io/ucx-py/${NEXT_SHORT_TAG})"
 
 # Need to distutils-normalize the versions for some use cases
-NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_RAPIDS_VERSION}'))")
-echo "Next tag is ${NEXT_SHORT_TAG_PEP440}"
+NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
+NEXT_RAPIDS_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_RAPIDS_VERSION}'))")
+echo "Next tag is ${NEXT_RAPIDS_SHORT_TAG_PEP440}"
 
 echo "Preparing release: $NEXT_FULL_TAG"
 
@@ -56,6 +57,18 @@ DEPENDENCIES=(
 )
 for DEP in "${DEPENDENCIES[@]}"; do
   for FILE in dependencies.yaml conda/environments/*.yaml; do
+    sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*/g" ${FILE};
+  done
+  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml;
+  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/g" python/distributed-ucxx/pyproject.toml;
+done
+
+UCXX_DEPENDENCIES=(
+  ucxx
+  distributed-ucxx
+)
+for DEP in "${UCXX_DEPENDENCIES[@]}"; do
+  for FILE in dependencies.yaml; do
     sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
   done
   sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml;
