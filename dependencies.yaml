@@ -16,6 +16,9 @@ files:
       - run_python
       - test_cpp
       - test_python
+      - depends_on_cupy
+      - depends_on_rmm
+      - depends_on_cudf
   test_cpp:
     output: none
     includes:
@@ -27,6 +30,8 @@ files:
       - cuda_version
       - py_version
       - test_python
+      - depends_on_cupy
+      - depends_on_cudf
   checks:
     output: none
     includes:
@@ -39,6 +44,7 @@ files:
       table: build-system
     includes:
       - build_python
+      - depends_on_rmm
   py_run:
     output: pyproject
     pyproject_dir: python
@@ -54,6 +60,8 @@ files:
       key: test
     includes:
       - test_python
+      - depends_on_cupy
+      - depends_on_cudf
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -81,19 +89,12 @@ dependencies:
           - *cmake_ver
           - cython>=3.0.0
           - ninja
-          - rmm==24.2.*
       - output_types: conda
         packages:
           - scikit-build-core>=0.7.0
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          # This index is needed for rmm.
-          - --extra-index-url=https://pypi.nvidia.com
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
   checks:
     common:
       - output_types: [conda, requirements]
@@ -191,28 +192,62 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - cudf==24.2.*
           - numba>=0.57.1
           - pytest
           - pytest-asyncio
           - pytest-rerunfailures
+  depends_on_cupy:
+    common:
       - output_types: conda
         packages:
           - cupy>=12.0.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          # All CUDA 12 versions
-          - matrix: {cuda: "12.2"}
-            packages: &cupy_packages_cu12
+          - matrix: {cuda: "12.*"}
+            packages:
               - cupy-cuda12x>=12.0.0
-          - {matrix: {cuda: "12.1"}, packages: *cupy_packages_cu12}
-          - {matrix: {cuda: "12.0"}, packages: *cupy_packages_cu12}
-          # All CUDA 11 versions
-          - matrix: {cuda: "11.8"}
-            packages: &cupy_packages_cu11
+          - matrix: {cuda: "11.*"}
+            packages:
               - cupy-cuda11x>=12.0.0
-          - {matrix: {cuda: "11.5"}, packages: *cupy_packages_cu11}
-          - {matrix: {cuda: "11.4"}, packages: *cupy_packages_cu11}
-          - {matrix: {cuda: "11.2"}, packages: *cupy_packages_cu11}
-          - {matrix: null, packages: *cupy_packages_cu11}
+          - {matrix: null, packages: [cupy-cuda11x>=12.0.0]}
+  depends_on_rmm:
+    common:
+      - output_types: conda
+        packages:
+          - &rmm_conda rmm==24.2.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - rmm-cu12==24.2.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - rmm-cu11==24.2.*
+          - {matrix: null, packages: [*rmm_conda]}
+  depends_on_cudf:
+    common:
+      - output_types: conda
+        packages:
+          - &cudf_conda cudf==24.2.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - cudf-cu12==24.2.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - cudf-cu11==24.2.*
+          - {matrix: null, packages: [*cudf_conda]}
