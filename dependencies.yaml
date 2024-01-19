@@ -32,7 +32,8 @@ files:
     includes:
       - cuda_version
       - py_version
-      - test_python
+      - test_python_ucxx
+      - test_python_distributed_ucxx
       - depends_on_cupy
       - depends_on_cudf
   checks:
