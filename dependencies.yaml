@@ -80,6 +80,7 @@ files:
       table: project
     includes:
       - run_python_distributed_ucxx
+      - depends_on_ucxx
   py_test_distributed_ucxx:
     output: pyproject
     pyproject_dir: python/distributed-ucxx
@@ -290,3 +291,23 @@ dependencies:
             packages:
               - cudf-cu11==24.4.*
           - {matrix: null, packages: [*cudf_conda]}
+  depends_on_ucxx:
+    common:
+      - output_types: conda
+        packages:
+          - &ucxx_conda ucxx==0.37.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - ucxx-cu12==0.37.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - ucxx-cu11==0.37.*
+          - {matrix: null, packages: [*ucxx_conda]}
