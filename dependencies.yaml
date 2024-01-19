@@ -79,7 +79,7 @@ dependencies:
           - fmt>=10.1.1,<11
           - &gmock gmock>=1.13.0
           - &gtest gtest>=1.13.0
-          - librmm==24.2.*
+          - librmm==24.4.*
           - ninja
           - spdlog>=1.12.0,<1.13
   build_python:
@@ -143,8 +143,8 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==24.2.*
-          - dask-cudf==24.2.*
+          - dask-cuda==24.4.*
+          - dask-cudf==24.4.*
           # UCX Build
           - libtool
           - automake
@@ -188,7 +188,7 @@ dependencies:
         packages:
           # TODO: Split dependency lists for ucxx and distributed-ucxx. This is
           # a workaround as we currently only test distributed-ucxx with conda.
-          - rapids-dask-dependency==24.2.*
+          - rapids-dask-dependency==24.4.*
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
@@ -215,7 +215,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &rmm_conda rmm==24.2.*
+          - &rmm_conda rmm==24.4.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -226,16 +226,16 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - rmm-cu12==24.2.*
+              - rmm-cu12==24.4.*
           - matrix: {cuda: "11.*"}
             packages:
-              - rmm-cu11==24.2.*
+              - rmm-cu11==24.4.*
           - {matrix: null, packages: [*rmm_conda]}
   depends_on_cudf:
     common:
       - output_types: conda
         packages:
-          - &cudf_conda cudf==24.2.*
+          - &cudf_conda cudf==24.4.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -246,8 +246,8 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - cudf-cu12==24.2.*
+              - cudf-cu12==24.4.*
           - matrix: {cuda: "11.*"}
             packages:
-              - cudf-cu11==24.2.*
+              - cudf-cu11==24.4.*
           - {matrix: null, packages: [*cudf_conda]}
