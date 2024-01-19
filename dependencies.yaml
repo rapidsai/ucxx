@@ -8,14 +8,17 @@ files:
     includes:
       - build_cpp
       - build_python_ucxx
+      - build_python_distributed_ucxx
       - checks
       - cuda
       - cuda_version
       - dev
       - py_version
       - run_python_ucxx
+      - run_python_distributed_ucxx
       - test_cpp
       - test_python_ucxx
+      - test_python_distributed_ucxx
       - depends_on_cupy
       - depends_on_rmm
       - depends_on_cudf
@@ -62,6 +65,28 @@ files:
       - test_python_ucxx
       - depends_on_cupy
       - depends_on_cudf
+  py_build_distributed_ucxx:
+    output: pyproject
+    pyproject_dir: python/distributed-ucxx
+    extras:
+      table: build-system
+    includes:
+      - build_python_distributed_ucxx
+  py_run_distributed_ucxx:
+    output: pyproject
+    pyproject_dir: python/distributed-ucxx
+    extras:
+      table: project
+    includes:
+      - run_python_distributed_ucxx
+  py_test_distributed_ucxx:
+    output: pyproject
+    pyproject_dir: python/distributed-ucxx
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python_distributed_ucxx
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -95,6 +120,12 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
+  build_python_distributed_ucxx:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - setuptools>=64.0.0
+          - tomli
   checks:
     common:
       - output_types: [conda, requirements]
@@ -175,6 +206,12 @@ dependencies:
       - output_types: [conda]
         packages:
           - ucx
+  run_python_distributed_ucxx:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - numba >=0.54
+          - rapids-dask-dependency==24.4.*
   test_cpp:
     common:
       - output_types: conda
@@ -184,11 +221,6 @@ dependencies:
           - *gmock
   test_python_ucxx:
     common:
-      - output_types: [conda]
-        packages:
-          # TODO: Split dependency lists for ucxx and distributed-ucxx. This is
-          # a workaround as we currently only test distributed-ucxx with conda.
-          - rapids-dask-dependency==24.4.*
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
@@ -196,6 +228,12 @@ dependencies:
           - pytest
           - pytest-asyncio
           - pytest-rerunfailures
+  test_python_distributed_ucxx:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - numpy
+          - pytest
   depends_on_cupy:
     common:
       - output_types: conda
