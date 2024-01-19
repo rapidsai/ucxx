@@ -40,6 +40,7 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_wheel_ucxx.sh
   # wheel-tests-distributed-ucxx:
   #   secrets: inherit
@@ -49,4 +50,5 @@ jobs:
   #     branch: ${{ inputs.branch }}
   #     date: ${{ inputs.date }}
   #     sha: ${{ inputs.sha }}
+  #     container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   #     script: ci/test_wheel_distributed_ucxx.sh
