@@ -13,6 +13,16 @@ namespace ucxx {
 
 namespace python {
 
+/**
+ * @brief A garbage-collector for Python futures.
+ *
+ * Garbage-collects Python futures. It may be unsafe to require the GIL during
+ * `ucxx::PythonFutureTask` since the exact time the destructor is called may be
+ * unpredictable w.r.t. the Python application, and thus requiring the GIL may result in
+ * deadlocks if it can't be done at appropriate stages. The application is thus responsible
+ * to ensure `PythonFutureTaskCollector::push()` is regularly called and ultimately
+ * responsible for cleaning up before terminating, otherwise a resource leakage may occur.
+ */
 class PythonFutureTaskCollector {
  public:
   std::vector<PyObject*> _toCollect{};  ///< Tasks to be collected

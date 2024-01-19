@@ -19,6 +19,12 @@ namespace ucxx {
 
 class Worker;
 
+/**
+ * @brief Component encapsulating the UCP context.
+ *
+ * The UCP layer provides a handle to access its context in form of `ucp_context_h` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Context : public Component {
  private:
   ucp_context_h _handle{nullptr};  ///< The UCP context handle
@@ -40,7 +46,8 @@ class Context : public Component {
 
  public:
   static constexpr uint64_t defaultFeatureFlags =
-    UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
+    UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM |
+    UCP_FEATURE_RMA;  ///< Suggested default context feature flags to use.
 
   Context()                          = delete;
   Context(const Context&)            = delete;
@@ -147,7 +154,7 @@ class Context : public Component {
    * 3. Start with `^` (disable all listed transports) and _NOT_ contain a field named
    *    either `cuda` or `cuda_copy`.
    *
-   * @return Whether CUDA support is availale.
+   * @return Whether CUDA support is available.
    */
   bool hasCudaSupport() const;
 

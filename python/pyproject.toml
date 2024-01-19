@@ -113,3 +113,6 @@ exclude = [
     "__init__.py",
 ]
 line-length = 88
+
+[tool.codespell]
+ignore-words-list = "cancelation,inflight"

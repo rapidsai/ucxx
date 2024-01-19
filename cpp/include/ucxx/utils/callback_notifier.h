@@ -9,6 +9,12 @@ namespace ucxx {
 
 namespace utils {
 
+/**
+ * A thread-safe notification object.
+ *
+ * A thread-safe notification object which can signal release of some shared state while
+ * a single thread blocks until the shared state is released.
+ */
 class CallbackNotifier {
  private:
   std::atomic_bool _flag{};                      //< flag storing state
