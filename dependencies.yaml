@@ -7,15 +7,15 @@ files:
       arch: [x86_64]
     includes:
       - build_cpp
-      - build_python
+      - build_python_ucxx
       - checks
       - cuda
       - cuda_version
       - dev
       - py_version
-      - run_python
+      - run_python_ucxx
       - test_cpp
-      - test_python
+      - test_python_ucxx
       - depends_on_cupy
       - depends_on_rmm
       - depends_on_cudf
@@ -37,29 +37,29 @@ files:
     includes:
       - checks
       - py_version
-  py_build:
+  py_build_ucxx:
     output: pyproject
     pyproject_dir: python
     extras:
       table: build-system
     includes:
-      - build_python
+      - build_python_ucxx
       - depends_on_rmm
-  py_run:
+  py_run_ucxx:
     output: pyproject
     pyproject_dir: python
     extras:
       table: project
     includes:
-      - run_python
-  py_test:
+      - run_python_ucxx
+  py_test_ucxx:
     output: pyproject
     pyproject_dir: python
     extras:
       table: project.optional-dependencies
       key: test
     includes:
-      - test_python
+      - test_python_ucxx
       - depends_on_cupy
       - depends_on_cudf
 channels:
@@ -82,7 +82,7 @@ dependencies:
           - librmm==24.4.*
           - ninja
           - spdlog>=1.12.0,<1.13
-  build_python:
+  build_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -166,7 +166,7 @@ dependencies:
           - matrix:
             packages:
               - python>=3.9,<3.11
-  run_python:
+  run_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -182,7 +182,7 @@ dependencies:
           - *cmake_ver
           - *gtest
           - *gmock
-  test_python:
+  test_python_ucxx:
     common:
       - output_types: [conda]
         packages:
