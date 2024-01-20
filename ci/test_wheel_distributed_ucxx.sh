@@ -14,7 +14,7 @@ RAPIDS_PY_WHEEL_NAME="${PROJECT_NAME}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-
 
 # Install previously built ucxx wheel
 RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-ucxx-dep
-python -m pip install --no-deps ./local-ucxx-dep/ucxx*.whl
+python -m pip install ./local-ucxx-dep/ucxx*.whl
 
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/${PROJECT_NAME}*.whl)[test]
