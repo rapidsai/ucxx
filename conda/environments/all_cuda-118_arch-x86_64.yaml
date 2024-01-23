@@ -14,7 +14,7 @@ dependencies:
 - cmake>=3.26.4
 - cuda-version=11.8
 - cudatoolkit
-- cudf==24.2.*
+- cudf==24.4.*
 - cupy>=12.0.0
 - cxx-compiler
 - cython>=3.0.0
@@ -39,7 +39,7 @@ dependencies:
 - pytest-asyncio
 - pytest-rerunfailures
 - python>=3.9,<3.11
-- rmm==24.2.*
+- rmm==24.4.*
 - scikit-build-core>=0.7.0
 - spdlog>=1.12.0,<1.13
 - ucx
