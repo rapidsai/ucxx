@@ -21,6 +21,7 @@ option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulti
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_CPP)
+  find_package(ucx REQUIRED)
   find_package(ucxx ${ucxx_version} REQUIRED COMPONENTS python)
 else()
   set(ucxx_FOUND OFF)

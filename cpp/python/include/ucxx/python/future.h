@@ -79,9 +79,10 @@ PyObject* create_python_future_with_event_loop(PyObject* event_loop) noexcept;
  *
  * Note that this may be called from any thread and will take the Python GIL to run.
  *
- * @param[in] future  Python object containing the `_asyncio.Future` object.
- * @param[in] value   Python object containing an arbitrary value to set the future result
- *                    to.
+ * @param[in] event_loop  the Python asyncio event loop to which the future will belong to.
+ * @param[in] future      Python object containing the `_asyncio.Future` object.
+ * @param[in] value       Python object containing an arbitrary value to set the future
+ *                        result to.
  *
  * @returns The result of the call to `_asyncio.Future.set_result()`.
  */
@@ -98,9 +99,10 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop,
  *
  * Note that this may be called from any thread and will take the Python GIL to run.
  *
- * @param[in] future    Python object containing the `_asyncio.Future` object.
- * @param[in] exception a Python exception derived of the `Exception` class.
- * @param[in] message   human-readable error message for the exception.
+ * @param[in] event_loop  the Python asyncio event loop to which the future will belong to.
+ * @param[in] future      Python object containing the `_asyncio.Future` object.
+ * @param[in] exception   a Python exception derived of the `Exception` class.
+ * @param[in] message     human-readable error message for the exception.
  *
  * @returns The result of the call to `_asyncio.Future.set_result()`.
  */

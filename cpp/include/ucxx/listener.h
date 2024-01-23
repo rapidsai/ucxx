@@ -14,6 +14,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Component encapsulating a UCP listener.
+ *
+ * The UCP layer provides a handle to access listeners in form of `ucp_listener_h` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Listener : public Component {
  private:
   ucp_listener_h _handle{nullptr};  ///< The UCP listener handle

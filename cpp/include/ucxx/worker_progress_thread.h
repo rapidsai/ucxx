@@ -13,10 +13,38 @@
 
 namespace ucxx {
 
+/**
+ * @brief A user-defined function used to wake the worker.
+ *
+ * A user-defined function signaling worker to wake the progress event.
+ */
 typedef std::function<void(void)> SignalWorkerFunction;
+
+/**
+ * @brief A user-defined function to execute at the start of the progress thread.
+ *
+ * A user-defined function to execute at the start of the progress thread, used for example
+ * to ensure resources are properly set for the thread, such as a CUDA context.
+ */
 typedef std::function<void(void*)> ProgressThreadStartCallback;
+
+/**
+ * @brief Data for the user-defined function provided to progress thread start callback.
+ *
+ * Data passed to the user-defined function provided to the callback executed when the
+ * progress thread starts, which the custom user-defined function may act upon.
+ */
 typedef void* ProgressThreadStartCallbackArg;
 
+/**
+ * @brief A thread to progress a `ucxx::Worker`.
+ *
+ * A thread to progress the `ucxx::Worker`, thus moving all such blocking operations out of
+ * the main program thread. It may also be used to execute submissions, such as from
+ * `ucxx::Request` objects, therefore also moving any blocking costs of those to this
+ * thread, as well as generic pre-progress and post-progress callbacks that can be used by
+ * the program to block until that stage is reached.
+ */
 class WorkerProgressThread {
  private:
   std::thread _thread{};     ///< Thread object
@@ -100,7 +128,7 @@ class WorkerProgressThread {
                        std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection);
 
   /**
-   * @brief `ucxx::WorkerProgressThread destructor.
+   * @brief `ucxx::WorkerProgressThread` destructor.
    *
    * Raises the stop signal and joins the thread.
    */
@@ -113,6 +141,11 @@ class WorkerProgressThread {
    */
   bool pollingMode() const;
 
+  /**
+   * @brief Returns the ID of the progress thread.
+   *
+   * @returns the progress thread ID.
+   */
   std::thread::id getId() const;
 };
 

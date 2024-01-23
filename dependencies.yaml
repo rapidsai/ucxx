@@ -13,6 +13,7 @@ files:
       - cuda
       - cuda_version
       - dev
+      - docs
       - py_version
       - run_python_ucxx
       - run_python_distributed_ucxx
@@ -40,6 +41,11 @@ files:
     output: none
     includes:
       - checks
+      - py_version
+  docs:
+    output: none
+    includes:
+      - docs
       - py_version
   py_build_ucxx:
     output: pyproject
@@ -112,14 +118,14 @@ dependencies:
           - spdlog>=1.12.0,<1.13
   build_python_ucxx:
     common:
+      - output_types: [conda]
+        packages:
+          - scikit-build-core>=0.7.0
       - output_types: [conda, requirements, pyproject]
         packages:
           - *cmake_ver
           - cython>=3.0.0
           - ninja
-      - output_types: conda
-        packages:
-          - scikit-build-core>=0.7.0
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
@@ -185,6 +191,13 @@ dependencies:
           - autoconf
           # UCXX Build
           - pkg-config
+          # Docs Build
+          - &doxygen doxygen=1.10.0 # pre-commit hook needs a specific version.
+  docs:
+    common:
+      - output_types: [conda]
+        packages:
+          - *doxygen
   py_version:
     specific:
       - output_types: conda
@@ -241,7 +254,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cupy>=12.0.0
+          - &cupy_conda cupy>=12.0.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -251,7 +264,7 @@ dependencies:
           - matrix: {cuda: "11.*"}
             packages:
               - cupy-cuda11x>=12.0.0
-          - {matrix: null, packages: [cupy-cuda11x>=12.0.0]}
+          - {matrix: null, packages: [*cupy_conda]}
   depends_on_rmm:
     common:
       - output_types: conda

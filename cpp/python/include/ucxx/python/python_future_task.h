@@ -28,6 +28,12 @@ namespace python {
 
 namespace detail {
 
+/**
+ * @brief A bridge of C++ and Python futures.
+ *
+ * A bridge of C++ and Python futures, notifying the Python future handled by this object
+ * when the underlying C++ future completes.
+ */
 template <typename ReturnType, typename... TaskArgs>
 struct PythonFutureTask {
  public:
@@ -120,6 +126,24 @@ struct PythonFutureTask {
   }
 
  public:
+  /**
+   * @brief Construct a Python future backed by C++ `std::packaged_task`.
+   *
+   * Construct a future object that receives a user-defined C++ `std::packaged_task` which
+   * runs asynchronously using an internal `std::async` that ultimately notifies a Python
+   * future that can be awaited in Python code.
+   *
+   * Note that this call will take the Python GIL and requires that the current thread have
+   * an asynchronous event loop set.
+   *
+   * @param[in] task the user-defined C++ task.
+   * @param[in] pythonConvert C-Python function to convert a C object into a `PyObject*`
+   *                          representing the result of the task.
+   * @param[in] asyncioEventLoop pointer to a valid Python object containing the event loop
+   *                             that the application is using, to which the Python future
+   *                             will belong to.
+   * @param[in] launchPolicy launch policy for the async C++ task.
+   */
   explicit PythonFutureTask(std::packaged_task<ReturnType(TaskArgs...)> task,
                             std::function<PyObject*(ReturnType)> pythonConvert,
                             PyObject* asyncioEventLoop,
@@ -144,8 +168,24 @@ struct PythonFutureTask {
 
   PythonFutureTask(const PythonFutureTask&)            = delete;
   PythonFutureTask& operator=(PythonFutureTask const&) = delete;
-  PythonFutureTask(PythonFutureTask&& o)               = default;
-  PythonFutureTask& operator=(PythonFutureTask&& o)    = default;
+
+  /**
+   * @brief The move constructor.
+   *
+   * Moves a `ucxx::PythonFutureTask` to the newly-constructed object.
+   *
+   * @param[in] o the object to be moved.
+   */
+  PythonFutureTask(PythonFutureTask&& o) = default;
+
+  /**
+   * @brief The move operator.
+   *
+   * Moves a `ucxx::PythonFutureTask` to the object at the left-hand side.
+   *
+   * @param[in] o the object to be moved.
+   */
+  PythonFutureTask& operator=(PythonFutureTask&& o) = default;
 
   /**
    * @brief Python future destructor.
@@ -215,6 +255,12 @@ struct PythonFutureTask {
 
 }  // namespace detail
 
+/**
+ * @brief User-facing bridge of C++ and Python futures.
+ *
+ * User-facing bridge of C++ and Python futures, notifying the Python future handled by this
+ * object when the underlying C++ future completes.
+ */
 template <typename ReturnType, typename... TaskArgs>
 class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<ReturnType>> {
  private:
@@ -250,8 +296,24 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
   }
   PythonFutureTask(const PythonFutureTask&)            = delete;
   PythonFutureTask& operator=(PythonFutureTask const&) = delete;
-  PythonFutureTask(PythonFutureTask&& o)               = default;
-  PythonFutureTask& operator=(PythonFutureTask&& o)    = default;
+
+  /**
+   * @brief The move constructor.
+   *
+   * Moves a `ucxx::PythonFutureTask` to the newly-constructed object.
+   *
+   * @param[in] o the object to be moved.
+   */
+  PythonFutureTask(PythonFutureTask&& o) = default;
+
+  /**
+   * @brief The move operator.
+   *
+   * Moves a `ucxx::PythonFutureTask` to the object at the left-hand side.
+   *
+   * @param[in] o the object to be moved.
+   */
+  PythonFutureTask& operator=(PythonFutureTask&& o) = default;
 
   /**
    * @brief Get the C++ future.

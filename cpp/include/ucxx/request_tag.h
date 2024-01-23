@@ -15,6 +15,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Send or receive a message with the UCX Tag API.
+ *
+ * Send or receive a message with the UCX Tag API, using non-blocking UCP calls
+ * `ucp_tag_send_nbx` or `ucp_tag_recv_nbx`.
+ */
 class RequestTag : public Request {
  private:
   /**
