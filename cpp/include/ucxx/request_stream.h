@@ -15,6 +15,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Send or receive a message with the UCX Stream API.
+ *
+ * Send or receive a message with the UCX Stream API, using non-blocking UCP calls
+ * `ucp_stream_send_nbx` or `ucp_stream_recv_nbx`.
+ */
 class RequestStream : public Request {
  private:
   /**

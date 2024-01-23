@@ -18,6 +18,12 @@ class Buffer;
 
 namespace data {
 
+/**
+ * @brief Data for an Active Message send.
+ *
+ * Type identifying an Active Message send operation and containing data specific to this
+ * request type.
+ */
 class AmSend {
  public:
   const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
@@ -29,6 +35,8 @@ class AmSend {
    *
    * Construct an object containing Active Message-specific send data.
    *
+   * @param[in] buffer      a raw pointer to the data to be sent.
+   * @param[in] length      the size in bytes of the message to be sent.
    * @param[in] memoryType  the memory type of the buffer.
    */
   explicit AmSend(const decltype(_buffer) buffer,
@@ -38,6 +46,12 @@ class AmSend {
   AmSend() = delete;
 };
 
+/**
+ * @brief Data for an Active Message receive.
+ *
+ * Type identifying an Active Message receive operation and containing data specific to this
+ * request type.
+ */
 class AmReceive {
  public:
   std::shared_ptr<::ucxx::Buffer> _buffer{nullptr};  ///< The AM received message buffer
@@ -45,13 +59,19 @@ class AmReceive {
   /**
    * @brief Constructor for Active Message-specific receive data.
    *
-   * Construct an object containing Active Message-specific receive data.
-   *
-   * @param[in] memoryType  the memory type of the buffer.
+   * Construct an object containing Active Message-specific receive data. Currently no
+   * specific data to receive Active Message is supported, but this class exists to act as
+   * an operation identifier, providing interface compatibility.
    */
   AmReceive();
 };
 
+/**
+ * @brief Data for a Stream send.
+ *
+ * Type identifying a Stream send operation and containing data specific to this request
+ * type.
+ */
 class StreamSend {
  public:
   const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
@@ -70,6 +90,12 @@ class StreamSend {
   StreamSend() = delete;
 };
 
+/**
+ * @brief Data for an Stream receive.
+ *
+ * Type identifying an Stream receive operation and containing data specific to this
+ * request type.
+ */
 class StreamReceive {
  public:
   void* _buffer{nullptr};     ///< The raw pointer where received data should be stored.
@@ -89,6 +115,11 @@ class StreamReceive {
   StreamReceive() = delete;
 };
 
+/**
+ * @brief Data for a Tag send.
+ *
+ * Type identifying a Tag send operation and containing data specific to this request type.
+ */
 class TagSend {
  public:
   const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
@@ -111,6 +142,12 @@ class TagSend {
   TagSend() = delete;
 };
 
+/**
+ * @brief Data for a Tag receive.
+ *
+ * Type identifying a Tag receive operation and containing data specific to this request
+ * type.
+ */
 class TagReceive {
  public:
   void* _buffer{nullptr};             ///< The raw pointer where received data should be stored.
@@ -136,6 +173,12 @@ class TagReceive {
   TagReceive() = delete;
 };
 
+/**
+ * @brief Data for a multi-buffer Tag send.
+ *
+ * Type identifying a multi-buffer Tag send operation and containing data specific to this
+ * request type.
+ */
 class TagMultiSend {
  public:
   const std::vector<void*> _buffer{};   ///< Raw pointers where data to be sent is stored.
@@ -148,9 +191,10 @@ class TagMultiSend {
    *
    * Construct an object containing tag/multi-buffer tag-specific data.
    *
-   * @param[in] buffer  a raw pointer to the data to be sent.
-   * @param[in] length  the size in bytes of the tag message to be sent.
-   * @param[in] tag     the tag to match.
+   * @param[in] buffer  a raw pointers to the data to be sent.
+   * @param[in] length  the size in bytes of the tag messages to be sent.
+   * @param[in] isCUDA  flags indicating whether buffers being sent are CUDA.
+   * @param[in] tag     the tags to match.
    */
   explicit TagMultiSend(const decltype(_buffer)& buffer,
                         const decltype(_length)& length,
@@ -160,6 +204,12 @@ class TagMultiSend {
   TagMultiSend() = delete;
 };
 
+/**
+ * @brief Data for a multi-buffer Tag receive.
+ *
+ * Type identifying a multi-buffer Tag receive operation and containing data specific to
+ * this request type.
+ */
 class TagMultiReceive {
  public:
   const ::ucxx::Tag _tag{0};          ///< Tag to match

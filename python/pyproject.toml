@@ -41,7 +41,7 @@ classifiers = [
 test = [
     "cloudpickle",
     "cudf==24.4.*",
-    "cupy",
+    "cupy>=12.0.0",
     "dask",
     "distributed",
     "numba>=0.57.1",
@@ -113,3 +113,6 @@ exclude = [
     "__init__.py",
 ]
 line-length = 88
+
+[tool.codespell]
+ignore-words-list = "cancelation,inflight"

@@ -25,6 +25,12 @@ namespace internal {
 
 class AmData;
 
+/**
+ * @brief Handle receiving of a `ucxx::RequestAm`.
+ *
+ * Handle receiving of a `ucxx::RequestAm`, delivering the message to the user and
+ * notifying of completion.
+ */
 class RecvAmMessage {
  public:
   internal::AmData* _amData{nullptr};  ///< Active messages data
@@ -80,6 +86,13 @@ class RecvAmMessage {
 typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAm>>> AmPoolType;
 typedef std::unordered_map<RequestAm*, std::shared_ptr<RecvAmMessage>> RecvAmMessageMapType;
 
+/**
+ * @brief Active Message data owned by a `ucxx::Worker`.
+ *
+ * Receiving Active Messages are handled directly by a `ucxx::Worker` without the user
+ * necessarily creating a `ucxx::RequestAm` for it. When there is an incoming message, the
+ * worker will populate the internal pool of received messages in an orderly-fashion.
+ */
 class AmData {
  public:
   std::weak_ptr<Worker> _worker{};  ///< The worker to which the Active Message callback belongs
