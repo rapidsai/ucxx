@@ -24,10 +24,29 @@
 
 namespace ucxx {
 
+/**
+ * @brief Deleter for a endpoint parameters object.
+ *
+ * Deleter used during allocation of a `ucp_ep_params_t*` to handle automated deletion of
+ * the object when its reference count goes to zero.
+ */
 struct EpParamsDeleter {
+  /**
+   * @brief Execute the deletion.
+   *
+   * Execute the deletion of the `ucp_ep_params_t*` object.
+   *
+   * param[in] ptr  the point to the object to be deleted.
+   */
   void operator()(ucp_ep_params_t* ptr);
 };
 
+/**
+ * @brief The endpoint data that is accessible by the error callback.
+ *
+ * The `ucxx::Endpoint` data that is accessible by the asynchronous UCP endpoint error
+ * callback to modify the `ucxx::Endpoint` with information relevant to the error occurred.
+ */
 struct ErrorCallbackData {
   ucs_status_t status;                                 ///< Endpoint status
   std::shared_ptr<InflightRequests> inflightRequests;  ///< Endpoint inflight requests
@@ -36,6 +55,12 @@ struct ErrorCallbackData {
   std::shared_ptr<Worker> worker;  ///< Worker the endpoint has been created from
 };
 
+/**
+ * @brief Component encapsulating a UCP endpoint.
+ *
+ * The UCP layer provides a handle to access endpoints in form of `ucp_ep_h` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Endpoint : public Component {
  private:
   ucp_ep_h _handle{nullptr};          ///< Handle to the UCP endpoint
@@ -260,8 +285,6 @@ class Endpoint : public Component {
    * @param[in] closeCallback     `std::function` to a function definition return `void` and
    *                              receiving a single opaque pointer.
    * @param[in] closeCallbackArg  pointer to optional user-allocated callback argument.
-   *
-   * @returns Number of requests that were canceled.
    */
   void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
 
@@ -355,7 +378,6 @@ class Endpoint : public Component {
    * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
    *                                data will be stored.
    * @param[in] length              the size in bytes of the tag message to be received.
-   * @param[in] tag                 the tag to match.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    *
@@ -446,7 +468,7 @@ class Endpoint : public Component {
    * @throws  std::runtime_error  if sizes of `buffer`, `size` and `isCUDA` do not match.
    *
    * @param[in] buffer              a vector of raw pointers to the data frames to be sent.
-   * @param[in] length              a vector of size in bytes of each frame to be sent.
+   * @param[in] size                a vector of size in bytes of each frame to be sent.
    * @param[in] isCUDA              a vector of booleans (integers to prevent incoherence
    *                                with other vector types) indicating whether frame is
    *                                CUDA, to ensure proper memory allocation by the
@@ -454,8 +476,6 @@ class Endpoint : public Component {
    * @param[in] tag                 the tag to match.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
