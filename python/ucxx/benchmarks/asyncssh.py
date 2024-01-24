@@ -29,7 +29,7 @@ try:
                 logger.error(f"SSH session error: {exc}", file=sys.stderr)
             else:
                 logger.debug(
-                    f"SSH connection terminated succesfully {self.out_queue.empty()=}"
+                    f"SSH connection terminated successfully {self.out_queue.empty()=}"
                 )
 
     class SSHServerProc(SSHProc):

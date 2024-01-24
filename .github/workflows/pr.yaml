@@ -14,6 +14,7 @@ jobs:
     needs:
       - checks
       - conda-cpp-build
+      - docs-build
       - conda-cpp-tests
       - conda-python-tests
     secrets: inherit
@@ -29,6 +30,16 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-24.04
     with:
       build_type: pull-request
+  docs-build:
+    needs: conda-cpp-build
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.02
+    with:
+      build_type: pull-request
+      node_type: "gpu-v100-latest-1"
+      arch: "amd64"
+      container_image: "rapidsai/ci-conda:latest"
+      run_script: "ci/build_docs.sh"
   conda-cpp-tests:
     needs: conda-cpp-build
     secrets: inherit

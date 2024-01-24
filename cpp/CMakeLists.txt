@@ -71,11 +71,20 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
-rapids_find_package(
+find_package(
   ucx REQUIRED
-  BUILD_EXPORT_SET ucxx-exports
-  INSTALL_EXPORT_SET ucxx-exports
 )
+# Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx
+# dependency because users would then have no control over whether ucx is found
+# multiple times, causing potential configure errors. Therefore, we do not
+# export the ucx dependency. Consumers of ucxx must find ucx themselves. Once
+# the above issue is resolved (see https://github.com/openucx/ucx/pull/9622) we
+# can remove the above find_package in favor of the commented out lines below.
+#rapids_find_package(
+#  ucx REQUIRED
+#  BUILD_EXPORT_SET ucxx-exports
+#  INSTALL_EXPORT_SET ucxx-exports
+#)
 
 # ##################################################################################################
 # * dependencies ----------------------------------------------------------------------------------

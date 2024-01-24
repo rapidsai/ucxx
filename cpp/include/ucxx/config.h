@@ -10,6 +10,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Component encapsulating the UCP configuration.
+ *
+ * The UCP layer provides a handle to its configuration in form of `ucp_config_t*` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Config {
  private:
   ucp_config_t* _handle{nullptr};  ///< Handle to the UCP config
