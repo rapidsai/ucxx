@@ -42,6 +42,11 @@ files:
     includes:
       - checks
       - py_version
+  docs:
+    output: none
+    includes:
+      - docs
+      - py_version
   py_build_ucxx:
     output: pyproject
     pyproject_dir: python
