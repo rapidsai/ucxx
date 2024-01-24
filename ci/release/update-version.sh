@@ -20,8 +20,9 @@ NEXT_SHORT_TAG=${NEXT_MAJOR}.${NEXT_MINOR}
 NEXT_RAPIDS_VERSION="$(curl -sL https://version.gpuci.io/ucx-py/${NEXT_SHORT_TAG})"
 
 # Need to distutils-normalize the versions for some use cases
-NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_RAPIDS_VERSION}'))")
-echo "Next tag is ${NEXT_SHORT_TAG_PEP440}"
+NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
+NEXT_RAPIDS_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_RAPIDS_VERSION}'))")
+echo "Next tag is ${NEXT_RAPIDS_SHORT_TAG_PEP440}"
 
 echo "Preparing release: $NEXT_FULL_TAG"
 
@@ -44,6 +45,7 @@ sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/distributed
 # bump RAPIDS libs
 sed_runner "/- librmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
 sed_runner "/- rmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
+sed_runner "/- rapids-dask-dependency =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
 
 # doxyfile update
 sed_runner 's/PROJECT_NUMBER         = .*/PROJECT_NUMBER         = '${NEXT_FULL_TAG}'/g' cpp/doxygen/Doxyfile
@@ -54,12 +56,26 @@ DEPENDENCIES=(
   dask-cudf
   librmm
   rmm
+  rapids-dask-dependency
 )
 for DEP in "${DEPENDENCIES[@]}"; do
   for FILE in dependencies.yaml conda/environments/*.yaml; do
-    sed_runner "/-.* ${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}.*/g" "${FILE}"
+    sed_runner "/-.* ${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*/==${NEXT_RAPIDS_SHORT_TAG_PEP440}.*/g" "${FILE}"
   done
-  sed_runner "/\"${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml;
+  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml
+  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/g" python/distributed-ucxx/pyproject.toml
+done
+
+UCXX_DEPENDENCIES=(
+  ucxx
+  distributed-ucxx
+)
+for DEP in "${UCXX_DEPENDENCIES[@]}"; do
+  for FILE in dependencies.yaml; do
+    sed_runner "/-.* ${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*/==${NEXT_RAPIDS_SHORT_TAG_PEP440}.*/g" "${FILE}"
+  done
+  sed_runner "/\"${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml
+  sed_runner "/\"${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/distributed-ucxx/pyproject.toml
 done
 
 # rapids-cmake version
