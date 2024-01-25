@@ -123,7 +123,7 @@ dependencies:
           - *cmake_ver
           - cython>=3.0.0
           - ninja
-      - output_types: [conda]
+      - output_types: conda
         packages:
           - scikit-build-core>=0.7.0
       - output_types: [requirements, pyproject]

@@ -55,7 +55,6 @@ DEPENDENCIES=(
   dask-cuda
   dask-cudf
   librmm
-  rapids-dask-dependency
   rmm
   rapids-dask-dependency
 )
