@@ -57,13 +57,14 @@ DEPENDENCIES=(
   librmm
   rapids-dask-dependency
   rmm
+  rapids-dask-dependency
 )
 for DEP in "${DEPENDENCIES[@]}"; do
   for FILE in dependencies.yaml conda/environments/*.yaml; do
-    sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*/g" ${FILE};
+    sed_runner "/-.* ${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*/==${NEXT_RAPIDS_SHORT_TAG_PEP440}.*/g" "${FILE}"
   done
-  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml;
-  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/g" python/distributed-ucxx/pyproject.toml;
+  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml
+  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/g" python/distributed-ucxx/pyproject.toml
 done
 
 UCXX_DEPENDENCIES=(
@@ -72,10 +73,10 @@ UCXX_DEPENDENCIES=(
 )
 for DEP in "${UCXX_DEPENDENCIES[@]}"; do
   for FILE in dependencies.yaml; do
-    sed_runner "/-.* ${DEP}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
+    sed_runner "/-.* ${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}.*/g" "${FILE}"
   done
-  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml;
-  sed_runner "/\"${DEP}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/distributed-ucxx/pyproject.toml;
+  sed_runner "/\"${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/pyproject.toml
+  sed_runner "/\"${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*\"/g" python/distributed-ucxx/pyproject.toml
 done
 
 # rapids-cmake version
@@ -84,4 +85,4 @@ sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_RAPIDS_VERSION}\/RAPID
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_RAPIDS_VERSION}/g" "${FILE}"
 done
-sed_runner "s/RAPIDS_VERSION_NUMBER=\".*/RAPIDS_VERSION_NUMBER=\"${NEXT_SHORT_TAG}\"/g" ci/build_docs.sh
+sed_runner "s/RAPIDS_VERSION_NUMBER=\".*/RAPIDS_VERSION_NUMBER=\"${NEXT_RAPIDS_VERSION}\"/g" ci/build_docs.sh

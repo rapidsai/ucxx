@@ -38,7 +38,7 @@ jobs:
     if: github.ref_type == 'branch'
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.02
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.04
     with:
       arch: "amd64"
       branch: ${{ inputs.branch }}

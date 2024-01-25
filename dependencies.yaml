@@ -118,14 +118,14 @@ dependencies:
           - spdlog>=1.12.0,<1.13
   build_python_ucxx:
     common:
-      - output_types: [conda]
-        packages:
-          - scikit-build-core>=0.7.0
       - output_types: [conda, requirements, pyproject]
         packages:
           - *cmake_ver
           - cython>=3.0.0
           - ninja
+      - output_types: [conda]
+        packages:
+          - scikit-build-core>=0.7.0
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
@@ -192,7 +192,7 @@ dependencies:
           # UCXX Build
           - pkg-config
           # Docs Build
-          - &doxygen doxygen=1.10.0 # pre-commit hook needs a specific version.
+          - &doxygen doxygen=1.9.1 # pre-commit hook needs a specific version.
   docs:
     common:
       - output_types: [conda]
@@ -217,7 +217,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.21
+          - &numpy numpy>=1.21
           - pynvml>=11.4.1
       - output_types: [conda]
         packages:
@@ -226,7 +226,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numba >=0.54
+          - &numba numba>=0.57.1
           - rapids-dask-dependency==24.4.*
   test_cpp:
     common:
@@ -240,21 +240,22 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - numba>=0.57.1
+          - *numba
           - pytest
           - pytest-asyncio
           - pytest-rerunfailures
+          - rapids-dask-dependency==24.4.*
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy
+          - *numpy
           - pytest
   depends_on_cupy:
     common:
       - output_types: conda
         packages:
-          - &cupy_conda cupy>=12.0.0
+          - cupy>=12.0.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -262,9 +263,9 @@ dependencies:
             packages:
               - cupy-cuda12x>=12.0.0
           - matrix: {cuda: "11.*"}
-            packages:
+            packages: &cupy_packages_cu11
               - cupy-cuda11x>=12.0.0
-          - {matrix: null, packages: [*cupy_conda]}
+          - {matrix: null, packages: *cupy_packages_cu11}
   depends_on_rmm:
     common:
       - output_types: conda
