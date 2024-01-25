@@ -271,8 +271,7 @@ outputs:
         - tomli
       run:
         - python * *_cpython
-        - dask >=2023.9.2
-        - distributed >=2023.9.2
+        - rapids-dask-dependency =24.04
         - {{ pin_subpackage('ucxx', max_pin='x.x') }}
     test:
       imports:
