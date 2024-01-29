@@ -25,15 +25,15 @@ rapids-logger "Install Distributed in developer mode"
 git clone https://github.com/dask/distributed /tmp/distributed
 python -m pip install -e /tmp/distributed
 
-# Run smoke tests for aarch64 pull requests
-# if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
-#     python ci/wheel_smoke_test.py
-# else
-#     python -m pytest ./python/${PROJECT_NAME}/tests -k 'not test_sparse_pca_inputs' -n 4 --ignore=python/cuml/tests/dask && python -m pytest ./python/${PROJECT_NAME}/tests -k 'test_sparse_pca_inputs' && python -m pytest ./python/cuml/tests/dask
-# fi
-
 print_ucx_config
 
-rapids-logger "Distributed Tests"
-# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests      thread          1                           1
+# Run smoke tests for aarch64 pull requests
+if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
+  rapids-logger "Distributed Smoke Tests"
+  pytest -vs ci/wheel_smoke_test.py
+else
+  rapids-logger "Distributed Tests"
+
+  # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+  run_distributed_ucxx_tests      thread          1                           1
+fi
