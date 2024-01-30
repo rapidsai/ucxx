@@ -30,7 +30,7 @@ print_ucx_config
 # Run smoke tests for aarch64 pull requests
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
   rapids-logger "Distributed Smoke Tests"
-  pytest -vs ci/wheel_smoke_test.py
+  pytest -vs ci/wheel_smoke_test_distributed_ucxx.py
 else
   rapids-logger "Distributed Tests"
 
