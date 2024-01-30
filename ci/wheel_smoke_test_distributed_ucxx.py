@@ -46,9 +46,6 @@ async def get_comm_pair(
 )
 @gen_test()
 async def test_ping_pong_cudf(ucxx_loop, g):
-    # if this test appears after cupy an import error arises
-    # *** ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `CXXABI_1.3.11'
-    # not found (required by python3.7/site-packages/pyarrow/../../../libarrow.so.12)
     cudf = pytest.importorskip("cudf")
     from cudf.testing._utils import assert_eq
 
