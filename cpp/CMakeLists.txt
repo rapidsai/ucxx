@@ -176,10 +176,10 @@ target_compile_definitions(
 # Enable RMM if necessary
 if(UCXX_ENABLE_RMM)
     target_link_libraries(ucxx PUBLIC rmm::rmm)
+
+    # Define spdlog level
     target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
 endif()
-
-# Define spdlog level
 
 # Specify the target module library dependencies
 target_link_libraries(ucxx PUBLIC ucx::ucp)
