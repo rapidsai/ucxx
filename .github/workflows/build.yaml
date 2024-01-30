@@ -86,7 +86,7 @@ jobs:
       date: ${{ inputs.date }}
       script: ci/build_wheel_distributed_ucxx.sh
   wheel-publish-distributed-ucxx:
-    needs: wheel-build-distributed-ucxx
+    needs: [wheel-build-ucxx, wheel-build-distributed-ucxx]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.04
     with:
