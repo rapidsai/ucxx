@@ -48,7 +48,8 @@ struct EpParamsDeleter {
  * callback to modify the `ucxx::Endpoint` with information relevant to the error occurred.
  */
 struct ErrorCallbackData {
-  ucs_status_t status;                                 ///< Endpoint status
+  ucs_status_t status;                         ///< Endpoint status
+  std::unique_ptr<std::atomic<bool>> closing;  ///< Prevent calling close multiple concurrent times.
   std::shared_ptr<InflightRequests> inflightRequests;  ///< Endpoint inflight requests
   std::function<void(void*)> closeCallback;            ///< Close callback to call
   void* closeCallbackArg;                              ///< Argument to be passed to close callback

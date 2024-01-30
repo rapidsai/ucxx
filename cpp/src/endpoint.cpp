@@ -55,7 +55,10 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   setParent(workerOrListener);
 
   _callbackData = std::make_unique<ErrorCallbackData>(
-    (ErrorCallbackData){.status = UCS_OK, .inflightRequests = _inflightRequests, .worker = worker});
+    (ErrorCallbackData){.status           = UCS_OK,
+                        .closing          = std::make_unique<std::atomic<bool>>(false),
+                        .inflightRequests = _inflightRequests,
+                        .worker           = worker});
 
   params->err_mode =
     (endpointErrorHandling ? UCP_ERR_HANDLING_MODE_PEER : UCP_ERR_HANDLING_MODE_NONE);
@@ -145,7 +148,7 @@ Endpoint::~Endpoint()
 
 void Endpoint::close(uint64_t period, uint64_t maxAttempts)
 {
-  if (_handle == nullptr) return;
+  if (_callbackData->closing->exchange(true) || _handle == nullptr) return;
 
   size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
   ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
@@ -427,7 +430,8 @@ std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent
 void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
   ErrorCallbackData* data = reinterpret_cast<ErrorCallbackData*>(arg);
-  data->status            = status;
+  if (data->closing->exchange(true)) return;
+  data->status = status;
   data->worker->scheduleRequestCancel(data->inflightRequests->release());
   if (data->closeCallback) {
     ucxx_debug("ucxx::Endpoint::%s, UCP handle: %p, calling user close callback", __func__, ep);
