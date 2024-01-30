@@ -25,12 +25,10 @@ rapids-logger "Install Distributed in developer mode"
 git clone https://github.com/dask/distributed /tmp/distributed
 python -m pip install -e /tmp/distributed
 
-print_ucx_config
-
 # Run smoke tests for aarch64 pull requests
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
   rapids-logger "Distributed Smoke Tests"
-  pytest -vs ci/wheel_smoke_test_distributed_ucxx.py
+  python -m pytest -vs ci/wheel_smoke_test_distributed_ucxx.py
 else
   rapids-logger "Distributed Tests"
 
