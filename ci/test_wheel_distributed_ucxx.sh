@@ -28,7 +28,7 @@ python -m pip install -e /tmp/distributed
 # Run smoke tests for aarch64 pull requests
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
   rapids-logger "Distributed Smoke Tests"
-  pytest -vs ci/wheel_smoke_test.py
+  python -m pytest -vs ci/wheel_smoke_test.py
 else
   rapids-logger "Distributed Tests"
 
