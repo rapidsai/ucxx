@@ -10,7 +10,6 @@ from distributed.protocol import to_serialize
 
 import ucxx
 
-import distributed_ucxx  # noqa: E402
 from distributed_ucxx.utils_test import gen_test, ucxx_loop
 
 
