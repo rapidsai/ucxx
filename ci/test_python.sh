@@ -5,7 +5,6 @@
 
 set -euo pipefail
 
-source "$(dirname "$0")/test_utils.sh"
 source "$(dirname "$0")/test_common.sh"
 
 rapids-logger "Create test conda environment"

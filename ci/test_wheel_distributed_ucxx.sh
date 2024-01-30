@@ -5,7 +5,6 @@ set -euo pipefail
 
 PROJECT_NAME="distributed_ucxx"
 
-source "$(dirname "$0")/test_utils.sh"
 source "$(dirname "$0")/test_common.sh"
 
 mkdir -p ./dist

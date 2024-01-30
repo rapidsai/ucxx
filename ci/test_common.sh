@@ -5,7 +5,29 @@
 
 set -euo pipefail
 
-source "$(dirname "$0")/test_utils.sh"
+
+################################### Common #####################################
+log_command() {
+  CMD_LINE=$1
+  echo -e "\e[1mRunning: \n ${CMD_LINE}\e[0m"
+}
+
+print_system_stats() {
+  rapids-logger "Check GPU usage"
+  nvidia-smi
+
+  rapids-logger "Check NICs"
+  awk 'END{print $1}' /etc/hosts
+  cat /etc/hosts
+}
+
+print_ucx_config() {
+  rapids-logger "UCX Version and Build Configuration"
+
+  set +e
+  ucx_info -v
+  set -e
+}
 
 
 ##################################### C++ ######################################
