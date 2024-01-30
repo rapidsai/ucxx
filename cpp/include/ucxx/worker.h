@@ -34,6 +34,12 @@ namespace internal {
 class AmData;
 }  // namespace internal
 
+/**
+ * @brief Component encapsulating a UCP worker.
+ *
+ * The UCP layer provides a handle to access workers in form of `ucp_worker_h` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Worker : public Component {
  private:
   ucp_worker_h _handle{nullptr};        ///< The UCP worker handle
@@ -91,7 +97,7 @@ class Worker : public Component {
    * @param[in] ep  the endpoint handle where receiving the message, the same handle that
    *                will later be used to reply to the message.
    * @param[in] createAmRecvRequestFunction function to create a new request if one is not
-   *                                        already availale in the pool.
+   *                                        already available in the pool.
    *
    * @returns Request to be subsequently checked for the completion state and data.
    */
@@ -616,7 +622,8 @@ class Worker : public Component {
    * inflight requests for that endpoint will not be completed successfully and should be
    * canceled.
    *
-   * @param[in] inflight requests object that implements the `cancelAll()` method.
+   * @param[in] trackedRequests the requests tracked by a child of this class to be
+   *                            scheduled for cancelation.
    */
   void scheduleRequestCancel(TrackedRequestsPtr trackedRequests);
 
@@ -772,7 +779,7 @@ class Worker : public Component {
    *
    * @param[in] port port number where to listen at.
    * @param[in] callback to handle each incoming connection.
-   * @param[in] callback_args pointer to argument to pass to the callback.
+   * @param[in] callbackArgs pointer to argument to pass to the callback.
    *
    * @returns The `shared_ptr<ucxx::Listener>` object
    */

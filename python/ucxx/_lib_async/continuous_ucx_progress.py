@@ -14,7 +14,7 @@ class ProgressTask(object):
     def __init__(self, worker, event_loop):
         """Creates a task that keeps calling worker.progress()
 
-        Notice, class and created task is carefull not to hold a
+        Notice, class and created task is careful not to hold a
         reference to `worker` so that a danling progress task will
         not prevent `worker` to be garbage collected.
 
@@ -104,7 +104,7 @@ class BlockingMode(ProgressTask):
         """
         super().__init__(worker, event_loop)
 
-        # Creating a job that is ready straightaway but with low priority.
+        # Creating a job that is ready straight away but with low priority.
         # Calling `await self.event_loop.sock_recv(self.rsock, 1)` will
         # return when all non-IO tasks are finished.
         # See <https://stackoverflow.com/a/48491563>.
@@ -115,7 +115,7 @@ class BlockingMode(ProgressTask):
 
         epoll_fd = worker.epoll_file_descriptor
 
-        # Bind an asyncio reader to a UCX epoll file descripter
+        # Bind an asyncio reader to a UCX epoll file descriptor
         event_loop.add_reader(epoll_fd, self._fd_reader_callback)
 
         # Remove the reader and close socket on finalization

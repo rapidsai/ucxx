@@ -15,12 +15,25 @@
 
 namespace ucxx {
 
+/**
+ * @brief The type of a buffer.
+ *
+ * The type of a buffer that can be used to match among the different supported types.
+ */
 enum class BufferType {
   Host = 0,
   RMM,
   Invalid,
 };
 
+/**
+ * @brief A simple object to simplify managing buffers.
+ *
+ * UCXX can work with raw pointers in most cases, but in some circumstances it's required
+ * to know more information about the buffer, such as with `ucxx::RequestTagMulti`. In such
+ * circumstances it may need to allocate buffers internally and UCXX can utilize objects of
+ * this type to describe the internally-allocated buffers.
+ */
 class Buffer {
  protected:
   BufferType _bufferType{BufferType::Invalid};  ///< Buffer type
@@ -82,6 +95,11 @@ class Buffer {
   virtual void* data() = 0;
 };
 
+/**
+ * @brief A simple object containing a host buffer.
+ *
+ * A buffer encapsulating a host buffer with its properties.
+ */
 class HostBuffer : public Buffer {
  private:
   void* _buffer;  ///< Pointer to the allocated buffer
@@ -166,6 +184,11 @@ class HostBuffer : public Buffer {
 };
 
 #if UCXX_ENABLE_RMM
+/**
+ * @brief A simple object containing a RMM (CUDA) buffer.
+ *
+ * A buffer encapsulating an RMM (CUDA) buffer with its properties.
+ */
 class RMMBuffer : public Buffer {
  private:
   std::unique_ptr<rmm::device_buffer> _buffer;  ///< RMM-allocated device buffer
@@ -245,6 +268,17 @@ class RMMBuffer : public Buffer {
 };
 #endif
 
+/**
+ * @brief Allocate a buffer of specified type and size.
+ *
+ * Allocate a buffer of the specified type and size pair, returning the `ucxx::Buffer`
+ * object wrapped in a `std::shared_ptr`.
+ *
+ * @param[in] bufferType  the type of buffer to allocate.
+ * @param[in] size        the size (in bytes) of the buffer to allocate.
+ *
+ * @returns the `std::shared_ptr` to the allocated buffer.
+ */
 std::shared_ptr<Buffer> allocateBuffer(BufferType bufferType, const size_t size);
 
 }  // namespace ucxx

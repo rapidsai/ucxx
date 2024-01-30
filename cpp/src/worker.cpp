@@ -590,7 +590,7 @@ std::shared_ptr<Listener> Worker::createListener(uint16_t port,
 void Worker::registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)
 {
   if (_amData == nullptr)
-    throw std::runtime_error("Active Messages wasn not enabled during context creation");
+    throw std::runtime_error("Active Messages was not enabled during context creation");
   _amData->_allocators.insert_or_assign(memoryType, allocator);
 }
 
