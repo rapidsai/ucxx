@@ -185,6 +185,6 @@ dependencies:
           - dask
           - distributed
           - numba>=0.57.1
-          - pytest
+          - pytest==7.*
           - pytest-asyncio
           - pytest-rerunfailures

@@ -34,9 +34,9 @@ dependencies:
 - pkg-config
 - pre-commit
 - pynvml>=11.4.1
-- pytest
 - pytest-asyncio
 - pytest-rerunfailures
+- pytest==7.*
 - python>=3.9,<3.11
 - rmm==24.2.*
 - scikit-build-core>=0.7.0
