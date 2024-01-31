@@ -24,9 +24,7 @@ print_system_stats() {
 print_ucx_config() {
   rapids-logger "UCX Version and Build Configuration"
 
-  set +e
   ucx_info -v
-  set -e
 }
 
 
