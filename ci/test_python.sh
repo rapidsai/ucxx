@@ -69,5 +69,18 @@ run_distributed_ucxx_tests      thread          0                           1
 run_distributed_ucxx_tests      thread          1                           0
 run_distributed_ucxx_tests      thread          1                           1
 
+# Run tests requiring Distributed installed in developer mode to access internals.
+# This isn't a great solution but it's what we can do for non-public API tests.
+rapids-logger "Install Distributed in developer mode"
+git clone https://github.com/dask/distributed /tmp/distributed
+pip install -e /tmp/distributed
+
+# run_distributed_ucxx_tests_internal   PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests_internal     polling         0                           0
+run_distributed_ucxx_tests_internal     thread          0                           0
+run_distributed_ucxx_tests_internal     thread          0                           1
+run_distributed_ucxx_tests_internal     thread          1                           0
+run_distributed_ucxx_tests_internal     thread          1                           1
+
 rapids-logger "C++ future -> Python future notifier example"
 python -m ucxx.examples.python_future_task_example
