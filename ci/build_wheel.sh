@@ -12,6 +12,8 @@ source rapids-date-string
 version=$(rapids-generate-version)
 commit=$(git rev-parse HEAD)
 
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+
 # This is the version of the suffix with a preceding hyphen. It's used
 # everywhere except in the final wheel name.
 PACKAGE_CUDA_SUFFIX="-${RAPIDS_PY_CUDA_SUFFIX}"
@@ -37,6 +39,8 @@ if [[ ${package_name} == "distributed-ucxx" ]]; then
     sed -r -i "s/\"ucxx(.*)\"/\"ucxx${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
 
     python -m pip wheel "${package_dir}/" -w "${package_dir}/dist" -vvv --no-deps --disable-pip-version-check
+
+    RAPIDS_PY_WHEEL_NAME="distributed_ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_dir}/dist
 elif [[ ${package_name} == "ucxx" ]]; then
     # Add -cuXX to package name
     sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
@@ -135,6 +139,8 @@ elif [[ ${package_name} == "ucxx" ]]; then
     pushd repair_dist
     zip -r $WHL ucxx_${RAPIDS_PY_CUDA_SUFFIX}.libs/
     popd
+
+    RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_dir}/final_dist
 else
   echo "Unknown package '${package_name}'"
   exit 1
