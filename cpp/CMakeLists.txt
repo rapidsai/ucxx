@@ -104,9 +104,13 @@ rapids_find_package(
 # add third party dependencies using CPM
 rapids_cpm_init()
 # find rmm
-include(cmake/thirdparty/get_rmm.cmake)
+if(UCXX_ENABLE_RMM)
+  include(cmake/thirdparty/get_rmm.cmake)
+endif()
 # find or install GoogleTest
-include(cmake/thirdparty/get_gtest.cmake)
+if(BUILD_TESTS)
+  include(cmake/thirdparty/get_gtest.cmake)
+endif()
 
 # ##################################################################################################
 # * library targets -------------------------------------------------------------------------------
@@ -171,17 +175,15 @@ target_compile_definitions(
 
 # Enable RMM if necessary
 if(UCXX_ENABLE_RMM)
-    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
+    target_link_libraries(ucxx PUBLIC rmm::rmm)
+
+    # Define spdlog level
+    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
 endif()
 
-# Define spdlog level
-target_compile_definitions(ucxx PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
-
 # Specify the target module library dependencies
-target_link_libraries(
-  ucxx
-  PUBLIC rmm::rmm ucx::ucp
-)
+target_link_libraries(ucxx PUBLIC ucx::ucp)
+
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)

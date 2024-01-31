@@ -9,7 +9,8 @@ set(linked_libraries ucxx::ucxx ucxx::python Python3::Python)
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}" ASSOCIATED_TARGETS ucxx
+  LINKED_LIBRARIES "${linked_libraries}"
+  ASSOCIATED_TARGETS ucxx ucxx_python
 )
 
 find_package(Python REQUIRED COMPONENTS Development NumPy)
