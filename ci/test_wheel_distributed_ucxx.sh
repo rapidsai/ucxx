@@ -28,11 +28,7 @@ else
   # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
   run_distributed_ucxx_tests      thread          1                           1
 
-  # Run tests requiring Distributed installed in developer mode to access internals.
-  # This isn't a great solution but it's what we can do for non-public API tests.
-  rapids-logger "Install Distributed in developer mode"
-  git clone https://github.com/dask/distributed /tmp/distributed
-  python -m pip install -e /tmp/distributed
+  install_distributed_dev_mode
 
   # run_distributed_ucxx_tests_internal PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
   run_distributed_ucxx_tests_internal   thread          1                           1

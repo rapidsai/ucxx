@@ -160,6 +160,19 @@ run_py_benchmark() {
 }
 
 ################################## Distributed #################################
+install_distributed_dev_mode() {
+  # Running Distributed tests which access its internals requires installing it in
+  # developer mode. This isn't a great solution but it's what we can currently do
+  # to run non-public API tests in CI.
+
+  rapids-logger "Install Distributed in developer mode"
+  git clone https://github.com/dask/distributed /tmp/distributed
+  pip install -e /tmp/distributed
+  # `pip install -e` removes files under `distributed` but not the directory, later
+  # causing failures to import modules.
+  rm -rf $(find $CONDA_PREFIX -type d -iname "site-packages")/distributed
+}
+
 run_distributed_ucxx_tests() {
   PROGRESS_MODE=$1
   ENABLE_DELAYED_SUBMISSION=$2
