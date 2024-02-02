@@ -18,12 +18,6 @@ python -m pip install ./local-ucxx-dep/ucxx*.whl
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/${PROJECT_NAME}*.whl)[test]
 
-# TODO: We need distributed installed in developer mode to provide test utils,
-# we still need to match to the `rapids-dask-dependency` version.
-rapids-logger "Install Distributed in developer mode"
-git clone https://github.com/dask/distributed /tmp/distributed
-python -m pip install -e /tmp/distributed
-
 # Run smoke tests for aarch64 pull requests
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
   rapids-logger "Distributed Smoke Tests"
@@ -33,4 +27,9 @@ else
 
   # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
   run_distributed_ucxx_tests      thread          1                           1
+
+  install_distributed_dev_mode
+
+  # run_distributed_ucxx_tests_internal PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+  run_distributed_ucxx_tests_internal   thread          1                           1
 fi

@@ -29,12 +29,6 @@ rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   libucxx ucxx distributed-ucxx
 
-# TODO: Perhaps install from conda? We need distributed installed in developer
-# mode to provide test utils, but that's probably not doable from conda packages.
-rapids-logger "Install Distributed in developer mode"
-git clone https://github.com/dask/distributed /tmp/distributed
-pip install -e /tmp/distributed
-
 print_ucx_config
 
 rapids-logger "Run tests with conda package"
@@ -68,6 +62,15 @@ run_distributed_ucxx_tests      thread          0                           0
 run_distributed_ucxx_tests      thread          0                           1
 run_distributed_ucxx_tests      thread          1                           0
 run_distributed_ucxx_tests      thread          1                           1
+
+install_distributed_dev_mode
+
+# run_distributed_ucxx_tests_internal   PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests_internal     polling         0                           0
+run_distributed_ucxx_tests_internal     thread          0                           0
+run_distributed_ucxx_tests_internal     thread          0                           1
+run_distributed_ucxx_tests_internal     thread          1                           0
+run_distributed_ucxx_tests_internal     thread          1                           1
 
 rapids-logger "C++ future -> Python future notifier example"
 python -m ucxx.examples.python_future_task_example

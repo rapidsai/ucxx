@@ -165,16 +165,6 @@ async def test_ping_pong_data(ucxx_loop):
     await serv_com.close()
 
 
-@gen_test()
-async def test_ucxx_deserialize(ucxx_loop):
-    # Note we see this error on some systems with this test:
-    # `socket.gaierror: [Errno -5] No address associated with hostname`
-    # This may be due to a system configuration issue.
-    from distributed.comm.tests.test_comms import check_deserialize
-
-    await check_deserialize("tcp://")
-
-
 @pytest.mark.parametrize(
     "g",
     [

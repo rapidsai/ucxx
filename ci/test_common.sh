@@ -160,6 +160,20 @@ run_py_benchmark() {
 }
 
 ################################## Distributed #################################
+install_distributed_dev_mode() {
+  # Running Distributed tests which access its internals requires installing it in
+  # developer mode. This isn't a great solution but it's what we can currently do
+  # to run non-public API tests in CI.
+
+  rapids-logger "Install Distributed in developer mode"
+  git clone https://github.com/dask/distributed /tmp/distributed
+  pip install -e /tmp/distributed
+  # `pip install -e` removes files under `distributed` but not the directory, later
+  # causing failures to import modules.
+  PYTHON_ENV_PATH=${CONDA_PREFIX:-/pyenv}
+  rm -rf $(find ${PYTHON_ENV_PATH} -type d -iname "site-packages")/distributed
+}
+
 run_distributed_ucxx_tests() {
   PROGRESS_MODE=$1
   ENABLE_DELAYED_SUBMISSION=$2
@@ -167,9 +181,19 @@ run_distributed_ucxx_tests() {
 
   CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/"
 
-  # Workaround for https://github.com/rapidsai/ucxx/issues/15
-  # CMD_LINE="UCX_KEEPALIVE_INTERVAL=1ms ${CMD_LINE}"
-
   log_command "${CMD_LINE}"
   UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/
+}
+
+run_distributed_ucxx_tests_internal() {
+  # Note that tests here require Distributed installed in developer mode!
+
+  PROGRESS_MODE=$1
+  ENABLE_DELAYED_SUBMISSION=$2
+  ENABLE_PYTHON_FUTURE=$3
+
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/"
+
+  log_command "${CMD_LINE}"
+  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/
 }
