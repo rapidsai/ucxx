@@ -74,7 +74,14 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
       status      = ucp_ep_create(worker->getHandle(), params, &_handle);
       callbackNotifier.set();
     });
-    callbackNotifier.wait();
+
+    size_t maxAttempts = 3;
+    for (uint64_t i = 0; i < maxAttempts && !callbackNotifier.wait(3000000000 /* 3s */); ++i) {
+      if (i == maxAttempts - 1)
+        ucxx_error("Timeout waiting for ucp_ep_create, all attempts failed");
+      else
+        ucxx_warn("Timeout waiting for ucp_ep_create, retrying");
+    }
     utils::ucsErrorThrow(status);
   } else {
     utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
