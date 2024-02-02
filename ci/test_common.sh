@@ -170,7 +170,8 @@ install_distributed_dev_mode() {
   pip install -e /tmp/distributed
   # `pip install -e` removes files under `distributed` but not the directory, later
   # causing failures to import modules.
-  rm -rf $(find $CONDA_PREFIX -type d -iname "site-packages")/distributed
+  PYTHON_ENV_PATH=${CONDA_PREFIX:-/pyenv}
+  rm -rf $(find ${PYTHON_ENV_PATH} -type d -iname "site-packages")/distributed
 }
 
 run_distributed_ucxx_tests() {
