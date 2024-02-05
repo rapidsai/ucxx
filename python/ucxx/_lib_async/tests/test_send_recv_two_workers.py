@@ -16,6 +16,7 @@ from ucxx._lib_async.utils_test import (
     get_num_gpus,
     recv,
     send,
+    wait_listener_client_handlers,
 )
 
 import ucxx as ucxx
@@ -150,6 +151,7 @@ def server(port, func, comm_api):
             lf.close()
 
         lf = ucxx.create_listener(write, port=listener_port)
+        await wait_listener_client_handlers(lf)
         try:
             while not lf.closed:
                 await asyncio.sleep(0.1)
