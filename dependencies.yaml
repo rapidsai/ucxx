@@ -245,7 +245,7 @@ dependencies:
         packages:
           - cloudpickle
           - *numba
-          - pytest
+          - pytest==7.*
           - pytest-asyncio
           - pytest-rerunfailures
           - rapids-dask-dependency==24.4.*
@@ -254,7 +254,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - *numpy
-          - pytest
+          - pytest==7.*
   depends_on_cupy:
     common:
       - output_types: conda
