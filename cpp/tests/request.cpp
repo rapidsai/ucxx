@@ -189,6 +189,68 @@ TEST_P(RequestTest, ProgressAm)
 #endif
 }
 
+TEST_P(RequestTest, ProgressAmReceiverCallback)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+#if !UCXX_ENABLE_RMM
+  GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
+  if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+      return std::make_shared<ucxx::RMMBuffer>(length);
+    });
+  }
+
+  // Define AM receiver callback's owner and id for callback
+  ucxx::AmReceiverCallbackInfo receiverCallbackInfo("TestApp", 0);
+
+  // Mutex required for blocking progress mode, otherwise `receivedRequests` may be
+  // accessed before `push_back()` completed.
+  std::mutex mutex;
+
+  // Define AM receiver callback and register with worker
+  std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
+  auto callback = ucxx::AmReceiverCallbackType(
+    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        receivedRequests.push_back(req);
+      }
+    });
+  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+
+  allocate(1, false);
+
+  // Submit and wait for transfers to complete
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (receivedRequests.size() < 1)
+    _progressWorker();
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    _recvPtr[0] = receivedRequests[0]->getRecvBuffer()->data();
+
+    // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
+    // smaller messages are eager and will always be host-allocated.
+    ASSERT_THAT(receivedRequests[0]->getRecvBuffer()->getType(),
+                (_registerCustomAmAllocator && _messageSize >= _rndvThresh)
+                  ? _bufferType
+                  : ucxx::BufferType::Host);
+  }
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+#endif
+}
+
 TEST_P(RequestTest, ProgressStream)
 {
   allocate();
