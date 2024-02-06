@@ -6,6 +6,7 @@
 #include <ucxx/delayed_submission.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
+#include <ucxx/typedefs.h>
 
 namespace ucxx {
 
@@ -14,8 +15,9 @@ namespace internal {
 RecvAmMessage::RecvAmMessage(internal::AmData* amData,
                              ucp_ep_h ep,
                              std::shared_ptr<RequestAm> request,
-                             std::shared_ptr<Buffer> buffer)
-  : _amData(amData), _ep(ep), _request(request)
+                             std::shared_ptr<Buffer> buffer,
+                             AmReceiverCallbackType receiverCallback)
+  : _amData(amData), _ep(ep), _request(request), _receiverCallback(receiverCallback)
 {
   std::visit(data::dispatch{
                [this, buffer](data::AmReceive& amReceive) { amReceive._buffer = buffer; },
@@ -30,6 +32,12 @@ void RecvAmMessage::callback(void* request, ucs_status_t status)
 {
   std::visit(data::dispatch{
                [this, request, status](data::AmReceive amReceive) {
+                 if (_receiverCallback) {
+                   _request->_callback = [this](ucs_status_t, std::shared_ptr<void>) {
+                     _receiverCallback(_request);
+                   };
+                 }
+
                  _request->callback(request, status);
                  {
                    std::lock_guard<std::mutex> lock(_amData->_mutex);

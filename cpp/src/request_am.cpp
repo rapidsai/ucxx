@@ -5,16 +5,25 @@
 #include <cstdio>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 #include <ucp/api/ucp.h>
 
+#include <ucs/memory/memory_type.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
+#include <ucxx/typedefs.h>
 
 namespace ucxx {
+
+struct AmHeader {
+  ucs_memory_type_t memoryType;
+  AmReceiverCallbackOwnerType receiverCallbackOwner;
+  AmReceiverCallbackIdType receiverCallbackIdentifier;
+};
 
 std::shared_ptr<RequestAm> createRequestAm(
   std::shared_ptr<Endpoint> endpoint,
@@ -119,7 +128,15 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   bool is_rndv = param->recv_attr & UCP_AM_RECV_ATTR_FLAG_RNDV;
 
   std::shared_ptr<Buffer> buf{nullptr};
-  auto allocatorType = *static_cast<const ucs_memory_type_t*>(header);
+  auto amHeader         = *static_cast<const AmHeader*>(header);
+  auto receiverCallback = [&amHeader, &amData]() {
+    try {
+      return amData->_receiverCallbacks.at(amHeader.receiverCallbackOwner)
+        .at(amHeader.receiverCallbackIdentifier);
+    } catch (std::out_of_range) {
+      return AmReceiverCallbackType();
+    }
+  }();
 
   std::shared_ptr<RequestAm> req{nullptr};
 
@@ -127,7 +144,11 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     std::lock_guard<std::mutex> lock(amData->_mutex);
 
     auto reqs = recvWait.find(ep);
-    if (reqs != recvWait.end() && !reqs->second.empty()) {
+    if (amHeader.receiverCallbackOwner != "ucxx") {
+      req = std::shared_ptr<RequestAm>(new RequestAm(
+        worker, data::AmReceive(), "amReceive", worker->isFutureEnabled(), nullptr, nullptr));
+      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "receiverCallback");
+    } else if (reqs != recvWait.end() && !reqs->second.empty()) {
       req = reqs->second.front();
       reqs->second.pop();
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
@@ -141,21 +162,22 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   }
 
   if (is_rndv) {
-    if (amData->_allocators.find(allocatorType) == amData->_allocators.end()) {
+    if (amData->_allocators.find(amHeader.memoryType) == amData->_allocators.end()) {
       // TODO: Is a hard failure better?
-      // ucxx_debug("Unsupported memory type %d", allocatorType);
+      // ucxx_debug("Unsupported memory type %d", amHeader.memoryType);
       // internal::RecvAmMessage recvAmMessage(amData, ep, req, nullptr);
       // recvAmMessage.callback(nullptr, UCS_ERR_UNSUPPORTED);
       // return UCS_ERR_UNSUPPORTED;
 
       ucxx_trace_req("No allocator registered for memory type %u, falling back to host memory.",
-                     allocatorType);
-      allocatorType = UCS_MEMORY_TYPE_HOST;
+                     amHeader.memoryType);
+      amHeader.memoryType = UCS_MEMORY_TYPE_HOST;
     }
 
-    std::shared_ptr<Buffer> buf = amData->_allocators.at(allocatorType)(length);
+    std::shared_ptr<Buffer> buf = amData->_allocators.at(amHeader.memoryType)(length);
 
-    auto recvAmMessage = std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf);
+    auto recvAmMessage =
+      std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf, receiverCallback);
 
     ucp_request_param_t request_param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                          UCP_OP_ATTR_FIELD_USER_DATA |
@@ -230,7 +252,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        buf->data(),
                        length);
 
-    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf);
+    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf, receiverCallback);
     recvAmMessage.callback(nullptr, UCS_OK);
     return UCS_OK;
   }
@@ -258,11 +280,14 @@ void RequestAm::request()
                                      .datatype  = ucp_dt_make_contig(1),
                                      .user_data = this};
 
-        param.cb.send = _amSendCallback;
-        void* request = ucp_am_send_nbx(_endpoint->getHandle(),
+        param.cb.send   = _amSendCallback;
+        AmHeader header = {.memoryType                 = amSend._memoryType,
+                           .receiverCallbackOwner      = amSend._receiverCallbackOwner,
+                           .receiverCallbackIdentifier = amSend._receiverCallbackIdentifier};
+        void* request   = ucp_am_send_nbx(_endpoint->getHandle(),
                                         0,
-                                        &amSend._memoryType,
-                                        sizeof(amSend._memoryType),
+                                        &header,
+                                        sizeof(header),
                                         amSend._buffer,
                                         amSend._length,
                                         &param);

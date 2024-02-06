@@ -38,6 +38,8 @@ class RecvAmMessage {
   std::shared_ptr<RequestAm> _request{
     nullptr};  ///< Request which will later be notified/delivered to user
   std::shared_ptr<Buffer> _buffer{nullptr};  ///< Buffer containing the received data
+  AmReceiverCallbackType _receiverCallback{
+    AmReceiverCallbackType()};  ///< Receiver callback to execute when specified by sender
 
   RecvAmMessage()                                = delete;
   RecvAmMessage(const RecvAmMessage&)            = delete;
@@ -50,16 +52,18 @@ class RecvAmMessage {
    *
    * Construct the object, setting attributes that are later needed by the callback.
    *
-   * @param[in] amData  active messages worker data.
-   * @param[in] ep      handle containing address of the reply endpoint (i.e., endpoint
-   *                    where user is requesting to receive).
-   * @param[in] request request to be later notified/delivered to user.
-   * @param[in] buffer  buffer containing the received data
+   * @param[in] amData              active messages worker data.
+   * @param[in] ep                  handle containing address of the reply endpoint (i.e.,
+                                    endpoint where user is requesting to receive).
+   * @param[in] request             request to be later notified/delivered to user.
+   * @param[in] buffer              buffer containing the received data
+   * @param[in] receiverCallback    receiver callback to execute when request completes.
    */
   RecvAmMessage(internal::AmData* amData,
                 ucp_ep_h ep,
                 std::shared_ptr<RequestAm> request,
-                std::shared_ptr<Buffer> buffer);
+                std::shared_ptr<Buffer> buffer,
+                AmReceiverCallbackType receiverCallback = AmReceiverCallbackType());
 
   /**
    * @brief Set the UCP request.
@@ -86,6 +90,11 @@ class RecvAmMessage {
 typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAm>>> AmPoolType;
 typedef std::unordered_map<RequestAm*, std::shared_ptr<RecvAmMessage>> RecvAmMessageMapType;
 
+typedef std::unordered_map<AmReceiverCallbackIdType, AmReceiverCallbackType>
+  AmReceiverCallbackMapType;
+typedef std::unordered_map<AmReceiverCallbackOwnerType, AmReceiverCallbackMapType>
+  AmReceiverCallbackOwnerMapType;
+
 /**
  * @brief Active Message data owned by a `ucxx::Worker`.
  *
@@ -101,7 +110,10 @@ class AmData {
   AmPoolType _recvWait{};  ///< The pool of user receive requests (waiting for message arrival)
   RecvAmMessageMapType
     _recvAmMessageMap{};  ///< The active messages waiting to be handled by callback
-  std::mutex _mutex{};    ///< Mutex to provide access to pools/maps
+  AmReceiverCallbackOwnerMapType
+    _receiverCallbacks{};  ///< Receiver callbacks to handle specialized Active Messages without a
+                           ///< pool.
+  std::mutex _mutex{};     ///< Mutex to provide access to pools/maps
   std::function<void(std::shared_ptr<Request>)>
     _registerInflightRequest{};  ///< Worker function to register inflight requests with
   std::unordered_map<ucs_memory_type_t, AmAllocatorType>

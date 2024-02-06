@@ -29,19 +29,27 @@ class AmSend {
   const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
   const size_t _length{0};       ///< The length of the message.
   const ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_HOST};  ///< Memory type used on the operation
+  const AmReceiverCallbackOwnerType _receiverCallbackOwner{
+    "ucxx"};                                                      ///< Receiver callback owner name
+  const AmReceiverCallbackIdType _receiverCallbackIdentifier{0};  ///< Receiver callback identifier
 
   /**
    * @brief Constructor for Active Message-specific send data.
    *
    * Construct an object containing Active Message-specific send data.
    *
-   * @param[in] buffer      a raw pointer to the data to be sent.
-   * @param[in] length      the size in bytes of the message to be sent.
-   * @param[in] memoryType  the memory type of the buffer.
+   * @param[in] buffer                  a raw pointer to the data to be sent.
+   * @param[in] length                  the size in bytes of the message to be sent.
+   * @param[in] memoryType              the memory type of the buffer.
+   * @param[in] receiverCallbackOwner   the name of the receiver callback owner.
+   * @param[in] receiverCallbackId      the identifier of the receiver callback as
+                                        registered by the owner.
    */
   explicit AmSend(const decltype(_buffer) buffer,
                   const decltype(_length) length,
-                  const decltype(_memoryType) memoryType = UCS_MEMORY_TYPE_HOST);
+                  const decltype(_memoryType) memoryType = UCS_MEMORY_TYPE_HOST,
+                  const decltype(_receiverCallbackOwner) receiverCallbackOwner   = "ucxx",
+                  const decltype(_receiverCallbackIdentifier) receiverCallbackId = 0);
 
   AmSend() = delete;
 };

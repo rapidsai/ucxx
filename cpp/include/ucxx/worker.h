@@ -20,6 +20,7 @@
 #include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/notifier.h>
+#include <ucxx/typedefs.h>
 #include <ucxx/worker_progress_thread.h>
 
 namespace ucxx {
@@ -798,6 +799,41 @@ class Worker : public Component {
    *                        active message buffers.
    */
   void registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator);
+
+  /**
+   * @brief Register receiver callback for active messages.
+   *
+   * Register a new receiver callback for active messages. By default, active messages do
+   * not execute any callbacks on the receiving end unless one is specified when sending
+   * the message. If the message sender specifies a callback receiver identifier then the
+   * remote receiver needs to have a callback registered with the same identifier to
+   * execute when the request completes. To ensure multiple applications that do not know
+   * about each other can have coexisting callbacks where receiver identifiers may have
+   * the same value, an owner must be specified as well, which has the form of a string and
+   * should be reasonably unique to prevent accidentally calling callbacks from a separate
+   * application, thus names like "A" or "UCX" are discouraged in favor of more descriptive
+   * names such as "MyFastCommsProject", and the name "ucxx" is reserved.
+   *
+   * Because it is impossible to predict which callback would be called in such an event,
+   * the registered callback cannot be changed, thus calling this method with the same
+   * given owner and identifier will throw `std::runtime_error`.
+   *
+   *
+   * @code{.cpp}
+   * // TODO
+   * @endcode
+   *
+   * @throws std::runtime_error if a callback with same given owner and identifier is
+   *                            already registered, or if the reserved owner name "ucxx"
+   *                            is specified.
+   *
+   * @param[in] owner       name of the receiver callback owner.
+   * @param[in] identifier  unique identifier of the receiver callback.
+   * @param[in] callback    the callback to execute when the active message is received.
+   */
+  void registerAmReceiverCallback(AmReceiverCallbackOwnerType owner,
+                                  AmReceiverCallbackIdType identifier,
+                                  AmReceiverCallbackType callback);
 
   /**
    * @brief Check for uncaught active messages.

@@ -13,8 +13,16 @@ namespace ucxx {
 
 namespace data {
 
-AmSend::AmSend(const void* buffer, const size_t length, const ucs_memory_type memoryType)
-  : _buffer(buffer), _length(length), _memoryType(memoryType)
+AmSend::AmSend(const void* buffer,
+               const size_t length,
+               const ucs_memory_type memoryType,
+               AmReceiverCallbackOwnerType receiverCallbackOwner,
+               AmReceiverCallbackIdType receiverCallbackIdentifier)
+  : _buffer(buffer),
+    _length(length),
+    _memoryType(memoryType),
+    _receiverCallbackOwner(receiverCallbackOwner),
+    _receiverCallbackIdentifier(receiverCallbackIdentifier)
 {
 }
 
