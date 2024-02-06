@@ -176,7 +176,8 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
   std::vector<int> send{123};
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
+  requests.push_back(
+    ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST, receiverCallbackInfo));
   waitRequests(_worker, requests, _progressWorker);
 
   while (receivedRequests.size() < 1)
