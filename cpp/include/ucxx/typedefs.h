@@ -105,6 +105,14 @@ typedef std::shared_ptr<void> RequestCallbackUserData;
 typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
 
 /**
+ * @brief Active Message receiver callback.
+ *
+ * Type for a custom Active Message receiver callback, executed by the remote worker upon
+ * Active Message request completion.
+ */
+typedef std::function<void(std::shared_ptr<Request>)> AmReceiverCallbackType;
+
+/**
  * @brief Active Message receiver callback owner name.
  *
  * A string containing the owner's name of an Active Message receiver callback. The owner
@@ -121,11 +129,20 @@ typedef std::string_view AmReceiverCallbackOwnerType;
 typedef uint64_t AmReceiverCallbackIdType;
 
 /**
- * @brief Active Message receiver callback.
+ * @brief Information of an Active Message receiver callback.
  *
- * Type for a custom Active Message receiver callback, executed by the remote worker upon
- * Active Message request completion.
+ * Type identifying an Active Message receiver callback's owner name and unique identifier.
  */
-typedef std::function<void(std::shared_ptr<Request>)> AmReceiverCallbackType;
+class AmReceiverCallbackInfo {
+ public:
+  const AmReceiverCallbackOwnerType owner;
+  const AmReceiverCallbackIdType id;
+
+  AmReceiverCallbackInfo() = delete;
+  AmReceiverCallbackInfo(AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id)
+    : owner(owner), id(id)
+  {
+  }
+};
 
 }  // namespace ucxx

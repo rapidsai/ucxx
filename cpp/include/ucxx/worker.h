@@ -820,20 +820,24 @@ class Worker : public Component {
    *
    *
    * @code{.cpp}
-   * // TODO
+   * // `worker` is `std::shared_ptr<ucxx::Worker>`
+   * auto callback = [](std::shared_ptr<ucxx::Request> req) {
+   *   std::cout << "The UCXX request address is " << (void*)req.get() << std::endl;
+   * };
+   *
+   * worker->registerAmReceiverCallback({"MyFastApp", 0}, callback};
    * @endcode
    *
    * @throws std::runtime_error if a callback with same given owner and identifier is
    *                            already registered, or if the reserved owner name "ucxx"
    *                            is specified.
    *
-   * @param[in] owner       name of the receiver callback owner.
-   * @param[in] identifier  unique identifier of the receiver callback.
-   * @param[in] callback    the callback to execute when the active message is received.
+   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
+                                        callback.
+   * @param[in] callback                the callback to execute when the active message is
+   *                                    received.
    */
-  void registerAmReceiverCallback(AmReceiverCallbackOwnerType owner,
-                                  AmReceiverCallbackIdType identifier,
-                                  AmReceiverCallbackType callback);
+  void registerAmReceiverCallback(AmReceiverCallbackInfo info, AmReceiverCallbackType callback);
 
   /**
    * @brief Check for uncaught active messages.

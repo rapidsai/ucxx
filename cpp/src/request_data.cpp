@@ -16,13 +16,11 @@ namespace data {
 AmSend::AmSend(const void* buffer,
                const size_t length,
                const ucs_memory_type memoryType,
-               AmReceiverCallbackOwnerType receiverCallbackOwner,
-               AmReceiverCallbackIdType receiverCallbackIdentifier)
+               const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo)
   : _buffer(buffer),
     _length(length),
     _memoryType(memoryType),
-    _receiverCallbackOwner(receiverCallbackOwner),
-    _receiverCallbackIdentifier(receiverCallbackIdentifier)
+    _receiverCallbackInfo(receiverCallbackInfo)
 {
 }
 

@@ -296,11 +296,11 @@ class Endpoint : public Component {
    * the status of the transfer must be verified from the resulting request object before
    * the data can be released.
    *
-   * An optional `receiverCallbackOwner` and `receiverCallbackId` may be specified, in which
-   * case the remote worker obligatorily needs to have registered a callback with the same
-   * pair via `ucxx::Worker::registerAmReceiverCallback` so that the callback is executed
-   * when the active message is received. When this is specified, `amRecv()` will _NOT_
-   * match this message, which is instead handled by the remote worker's callback.
+   * An optional `receiverCallbackInfo` may be specified, in which case the remote worker
+   * obligatorily needs to have registered a callback with the same `receiverCallbackInfo`
+   * in order to execute the callback when the active message is received. When this is
+   * specified, `amRecv()` will _NOT_ match this message, which is instead handled by the
+   * remote worker's callback.
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
@@ -309,9 +309,8 @@ class Endpoint : public Component {
    * @param[in] buffer                  a raw pointer to the data to be sent.
    * @param[in] length                  the size in bytes of the tag message to be sent.
    * @param[in] memoryType              the memory type of the buffer.
-   * @param[in] receiverCallbackOwner   the name of the receiver callback owner.
-   * @param[in] receiverCallbackId      the identifier of the receiver callback as
-                                        registered by the owner.
+   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
+                                        callback.
    * @param[in] enablePythonFuture      whether a python future should be created and
    *                                    subsequently notified.
    * @param[in] callbackFunction        user-defined callback function to call upon
@@ -320,14 +319,14 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> amSend(void* buffer,
-                                  const size_t length,
-                                  const ucs_memory_type_t memoryType,
-                                  const AmReceiverCallbackOwnerType receiverCallbackOwner = "ucxx",
-                                  const AmReceiverCallbackIdType receiverCallbackId       = 0,
-                                  const bool enablePythonFuture                           = false,
-                                  RequestCallbackUserFunction callbackFunction            = nullptr,
-                                  RequestCallbackUserData callbackData = nullptr);
+  std::shared_ptr<Request> amSend(
+    void* buffer,
+    const size_t length,
+    const ucs_memory_type_t memoryType,
+    const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo = std::nullopt,
+    const bool enablePythonFuture                                    = false,
+    RequestCallbackUserFunction callbackFunction                     = nullptr,
+    RequestCallbackUserData callbackData                             = nullptr);
 
   /**
    * @brief Enqueue an active message receive operation.

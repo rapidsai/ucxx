@@ -21,8 +21,7 @@ namespace ucxx {
 
 struct AmHeader {
   ucs_memory_type_t memoryType;
-  AmReceiverCallbackOwnerType receiverCallbackOwner;
-  AmReceiverCallbackIdType receiverCallbackIdentifier;
+  std::optional<AmReceiverCallbackInfo> receiverCallbackInfo;
 };
 
 std::shared_ptr<RequestAm> createRequestAm(
@@ -130,12 +129,17 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   std::shared_ptr<Buffer> buf{nullptr};
   auto amHeader         = *static_cast<const AmHeader*>(header);
   auto receiverCallback = [&amHeader, &amData]() {
-    try {
-      return amData->_receiverCallbacks.at(amHeader.receiverCallbackOwner)
-        .at(amHeader.receiverCallbackIdentifier);
-    } catch (std::out_of_range) {
-      return AmReceiverCallbackType();
+    if (amHeader.receiverCallbackInfo) {
+      try {
+        return amData->_receiverCallbacks.at(amHeader.receiverCallbackInfo->owner)
+          .at(amHeader.receiverCallbackInfo->id);
+      } catch (std::out_of_range) {
+        ucxx_error("No AM receiver callback registered for owner '%s' with id %lu",
+                   std::string(amHeader.receiverCallbackInfo->owner).data(),
+                   amHeader.receiverCallbackInfo->id);
+      }
     }
+    return AmReceiverCallbackType();
   }();
 
   std::shared_ptr<RequestAm> req{nullptr};
@@ -144,7 +148,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     std::lock_guard<std::mutex> lock(amData->_mutex);
 
     auto reqs = recvWait.find(ep);
-    if (amHeader.receiverCallbackOwner != "ucxx") {
+    if (amHeader.receiverCallbackInfo) {
       req = std::shared_ptr<RequestAm>(new RequestAm(
         worker, data::AmReceive(), "amReceive", worker->isFutureEnabled(), nullptr, nullptr));
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "receiverCallback");
@@ -281,9 +285,8 @@ void RequestAm::request()
                                      .user_data = this};
 
         param.cb.send   = _amSendCallback;
-        AmHeader header = {.memoryType                 = amSend._memoryType,
-                           .receiverCallbackOwner      = amSend._receiverCallbackOwner,
-                           .receiverCallbackIdentifier = amSend._receiverCallbackIdentifier};
+        AmHeader header = {.memoryType           = amSend._memoryType,
+                           .receiverCallbackInfo = amSend._receiverCallbackInfo};
         void* request   = ucp_am_send_nbx(_endpoint->getHandle(),
                                         0,
                                         &header,

@@ -587,18 +587,17 @@ void Worker::registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType a
   _amData->_allocators.insert_or_assign(memoryType, allocator);
 }
 
-void Worker::registerAmReceiverCallback(AmReceiverCallbackOwnerType owner,
-                                        AmReceiverCallbackIdType identifier,
+void Worker::registerAmReceiverCallback(AmReceiverCallbackInfo info,
                                         AmReceiverCallbackType callback)
 {
-  if (owner == "ucxx") throw std::runtime_error("The owner name 'ucxx' is reserved.");
-  if (_amData->_receiverCallbacks.find(owner) == _amData->_receiverCallbacks.end())
-    _amData->_receiverCallbacks[owner] = {};
-  if (_amData->_receiverCallbacks[owner].find(identifier) !=
-      _amData->_receiverCallbacks[owner].end())
+  if (info.owner == "ucxx") throw std::runtime_error("The owner name 'ucxx' is reserved.");
+  if (_amData->_receiverCallbacks.find(info.owner) == _amData->_receiverCallbacks.end())
+    _amData->_receiverCallbacks[info.owner] = {};
+  if (_amData->_receiverCallbacks[info.owner].find(info.id) !=
+      _amData->_receiverCallbacks[info.owner].end())
     throw std::runtime_error("Callback with given owner and identifier is already registered");
 
-  _amData->_receiverCallbacks[owner][identifier] = callback;
+  _amData->_receiverCallbacks[info.owner][info.id] = callback;
 }
 
 bool Worker::amProbe(const ucp_ep_h endpointHandle) const
