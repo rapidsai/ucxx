@@ -9,6 +9,7 @@ from libc.stdint cimport int64_t, uint16_t, uint64_t
 from libcpp cimport bool as cpp_bool
 from libcpp.functional cimport function
 from libcpp.memory cimport shared_ptr, unique_ptr
+from libcpp.optional cimport nullopt_t, optional
 from libcpp.string cimport string
 from libcpp.unordered_map cimport unordered_map as cpp_unordered_map
 from libcpp.vector cimport vector
@@ -181,6 +182,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         pass
     cdef enum TagMask:
         pass
+    cdef cppclass AmReceiverCallbackInfo:
+        pass
     # ctypedef Tag CppTag
     # ctypedef TagMask CppTagMask
 
@@ -275,6 +278,10 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             void* buffer,
             size_t length,
             ucs_memory_type_t memory_type,
+            # Using `nullopt_t` is a workaround for Cython error
+            # "Cannot assign type 'nullopt_t' to 'optional[AmReceiverCallbackInfo]'"
+            # Must change when AM receiver callbacks are implemented in Python.
+            nullopt_t receiver_callback_info,
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] amRecv(
