@@ -257,7 +257,7 @@ class UCXX(Comm):
         local_addr: str,
         peer_addr: str,
         deserialize: bool = True,
-        enable_close_callback: bool = True,
+        enable_close_callback: bool = False,
     ):
         super().__init__(deserialize=deserialize)
         self._ep = ep
