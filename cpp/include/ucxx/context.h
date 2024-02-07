@@ -17,6 +17,7 @@
 
 namespace ucxx {
 
+class MemoryHandle;
 class Worker;
 
 /**
@@ -178,6 +179,37 @@ class Context : public Component {
    */
   std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
                                        const bool enableFuture            = false);
+
+  /**
+   * @brief Create a new `std::shared_ptr<ucxx::memoryHandle>`.
+   *
+   * Create a new `std::shared_ptr<ucxx::MemoryHandle>` as a child of the current
+   * `ucxx::Context`.  The `ucxx::Context` will retain ownership of the underlying
+   * `ucxx::MemoryHandle` and will not be destroyed until all `ucxx::MemoryHandle`
+   * objects are destroyed first.
+   *
+   * @code{.cpp}
+   * // `context` is `std::shared_ptr<ucxx::Context>`
+   * // Allocate a 128-byte buffer with UCP.
+   * auto memoryHandle = context->createMemoryHandle(128, nullptr);
+   *
+   * // Map an existing 128-byte buffer with UCP.
+   * size_t allocationSize = 128;
+   * auto buffer = new uint8_t[allocationSize];
+   * auto memoryHandleFromBuffer = context->createMemoryHandle(
+   *    allocationSize * sizeof(*buffer), reinterpret_cast<void*>(buffer)
+   * );
+   * @endcode
+   *
+   * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
+   *
+   * @param[in] size    the minimum size of the memory allocation
+   * @param[in] buffer  the pointer to an existing allocation or `nullptr` to allocate a
+   *                    new memory region.
+   *
+   * @returns The `shared_ptr<ucxx::MemoryHandle>` object
+   */
+  std::shared_ptr<MemoryHandle> createMemoryHandle(const size_t size, void* buffer);
 };
 
 }  // namespace ucxx
