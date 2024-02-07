@@ -52,18 +52,18 @@ def _client_cancel(queue):
         endpoint_error_handling=True,
     )
 
-    assert ep.is_alive()
+    assert ep.alive
 
     msg = Array(bytearray(1))
-    request = ep.tag_recv(msg, tag=0)
+    request = ep.tag_recv(msg, tag=ucx_api.UCXXTag(0))
 
-    while not request.is_completed():
+    while not request.completed:
         worker.progress()
 
     with pytest.raises(ucx_api.UCXCanceledError):
         request.check_error()
 
-    while ep.is_alive():
+    while ep.alive:
         worker.progress()
 
 

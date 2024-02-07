@@ -15,17 +15,15 @@ repos:
         hooks:
               - id: black
                 files: python/.*
-      - repo: https://github.com/PyCQA/flake8
-        rev: 5.0.4
+      - repo: https://github.com/astral-sh/ruff-pre-commit
+        rev: v0.0.278
         hooks:
-              - id: flake8
-                args: ["--config=python/.flake8"]
-                files: python/.*\.py$
-                types: [python]
-              - id: flake8
-                args: ["--config=python/.flake8.cython"]
-                types: [cython]
-                additional_dependencies: ["flake8-force"]
+              - id: ruff
+                files: python/.*$
+      - repo: https://github.com/MarcoGorelli/cython-lint
+        rev: v0.15.0
+        hooks:
+              - id: cython-lint
       - repo: https://github.com/pre-commit/mirrors-clang-format
         rev: v16.0.6
         hooks:
@@ -44,12 +42,31 @@ repos:
                 files: \.(h|cpp)$
                 # exclude: path/to/myfile.h
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.5.1
+        rev: v1.8.0
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
-
-
+      - repo: local
+        hooks:
+            - id: doxygen-check
+              name: doxygen-check
+              entry: ./ci/checks/doxygen.sh
+              files: ^cpp/include/
+              types_or: [file]
+              language: system
+              pass_filenames: false
+              verbose: true
+      - repo: https://github.com/codespell-project/codespell
+        rev: v2.2.2
+        hooks:
+            - id: codespell
+              additional_dependencies: [tomli]
+              args: ["--toml", "python/pyproject.toml"]
+              exclude: |
+                (?x)^(
+                  .*test.*|
+                  ^CHANGELOG.md$
+                )
 
 default_language_version:
       python: python3

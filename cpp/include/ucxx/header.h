@@ -10,8 +10,16 @@
 
 namespace ucxx {
 
-const size_t HeaderFramesSize = 100;
+const size_t HeaderFramesSize =
+  100;  ///< The number of buffers contained in a single `ucxx::Header` object.
 
+/**
+ * @brief A serializable object containing metadata of multiple buffers.
+ *
+ * A serializable object containing metadata of a pre-defined number of buffers used to
+ * inform the remote endpoint of multiple incoming messages from buffers of given
+ * properties.
+ */
 class Header {
  private:
   /**

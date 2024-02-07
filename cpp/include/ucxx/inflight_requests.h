@@ -7,22 +7,76 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 namespace ucxx {
 
 class Request;
 
+/**
+ * @brief An inflight request map.
+ *
+ * A map of inflight requests, where keys are a unique identifier of the request and
+ * value is the reference-counted `ucxx::Request`.
+ */
 typedef std::map<const Request* const, std::shared_ptr<Request>> InflightRequestsMap;
+
+/**
+ * @brief Pre-defined type for a pointer to an inflight request map.
+ *
+ * A pre-defined type for a pointer to an inflight request map, used as a convenience type.
+ */
 typedef std::unique_ptr<InflightRequestsMap> InflightRequestsMapPtr;
 
+/**
+ * @brief A container for the different types of tracked requests.
+ *
+ * A container encapsulating the different types of handled tracked requests, currently
+ * those still valid (inflight), and those scheduled for cancelation (canceling).
+ */
+typedef struct TrackedRequests {
+  InflightRequestsMapPtr _inflight;   ///< Valid requests awaiting completion.
+  InflightRequestsMapPtr _canceling;  ///< Requests scheduled for cancelation.
+
+  TrackedRequests()
+    : _inflight(std::make_unique<InflightRequestsMap>()),
+      _canceling(std::make_unique<InflightRequestsMap>())
+  {
+  }
+} TrackedRequests;
+
+/**
+ * @brief Pre-defined type for a pointer to a container of tracked requests.
+ *
+ * A pre-defined type for a pointer to a container of tracked requests, used as a
+ * convenience type.
+ */
+typedef std::unique_ptr<TrackedRequests> TrackedRequestsPtr;
+
+/**
+ * @brief Handle tracked requests.
+ *
+ * Handle tracked requests, providing functionality so that its owner can modify those
+ * requests, performing operations such as insertion, removal and cancelation.
+ */
 class InflightRequests {
  private:
-  InflightRequestsMapPtr _inflightRequests{
-    std::make_unique<InflightRequestsMap>()};  ///< Container storing pointers to all inflight
-                                               ///< requests known to the owner of this object
+  TrackedRequestsPtr _trackedRequests{
+    std::make_unique<TrackedRequests>()};  ///< Container storing pointers to all inflight
+                                           ///< and in cancelation process requests known to
+                                           ///< the owner of this object
   std::mutex _mutex{};  ///< Mutex to control access to inflight requests container
   std::mutex
     _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
+
+  /**
+   * @brief Drop references to requests that completed cancelation.
+   *
+   * Drops references to requests that completed cancelation and stop tracking them.
+   *
+   * @returns The number of requests that have completed cancelation since last call.
+   */
+  size_t dropCanceled();
 
  public:
   /**
@@ -57,15 +111,15 @@ class InflightRequests {
   void insert(std::shared_ptr<Request> request);
 
   /**
-   * @brief Merge a container of inflight requests with the internal container.
+   * @brief Merge containers of inflight requests with the internal containers.
    *
-   * Merge a container of inflight requests obtained from `InflightRequests::release()` of
-   * another object with the internal container.
+   * Merge containers of inflight requests obtained from `InflightRequests::release()` of
+   * another object with the internal containers.
    *
-   * @param[in] inflightRequestsMap container of inflight requests to merge with the
-   *                                internal container.
+   * @param[in] trackedRequests containers of tracked inflight requests to merge with the
+   *                            internal tracked inflight requests.
    */
-  void merge(InflightRequestsMapPtr inflightRequestsMap);
+  void merge(TrackedRequestsPtr trackedRequests);
 
   /**
    * @brief Remove an inflight request from the internal container.
@@ -92,15 +146,27 @@ class InflightRequests {
   size_t cancelAll();
 
   /**
-   * @brief Releases the internal container.
+   * @brief Releases the internally-tracked containers.
    *
-   * Releases the internal container that can be merged into another `InflightRequests`
-   * object with `InflightRequests::release()`. Effectively leaves the internal state as a
-   * clean, new object.
+   * Releases the internally-tracked containers that can be merged into another
+   * `InflightRequests` object with `InflightRequests::merge()`. Effectively leaves the
+   * internal state as a clean, new object.
    *
-   * @returns The internal container.
+   * @returns The internally-tracked containers.
    */
-  InflightRequestsMapPtr release();
+  TrackedRequestsPtr release();
+
+  /**
+   * @brief Get count of requests in process of cancelation.
+   *
+   * After `cancelAll()` is called the requests are scheduled for cancelation but may not
+   * complete immediately, therefore they are tracked until cancelation is completed. This
+   * method returns the count of requests in process of cancelation and drops references
+   * to those that have completed.
+   *
+   * @returns The count of requests that are in process of cancelation.
+   */
+  size_t getCancelingSize();
 };
 
 }  // namespace ucxx

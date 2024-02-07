@@ -194,15 +194,20 @@ TEST_P(RequestTest, ProgressStream)
   allocate();
 
   // Submit and wait for transfers to complete
-  std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->streamSend(_sendPtr[0], _messageSize, 0));
-  requests.push_back(_ep->streamRecv(_recvPtr[0], _messageSize, 0));
-  waitRequests(_worker, requests, _progressWorker);
+  if (_messageSize == 0) {
+    EXPECT_THROW(_ep->streamSend(_sendPtr[0], _messageSize, 0), std::runtime_error);
+    EXPECT_THROW(_ep->streamRecv(_recvPtr[0], _messageSize, 0), std::runtime_error);
+  } else {
+    std::vector<std::shared_ptr<ucxx::Request>> requests;
+    requests.push_back(_ep->streamSend(_sendPtr[0], _messageSize, 0));
+    requests.push_back(_ep->streamRecv(_recvPtr[0], _messageSize, 0));
+    waitRequests(_worker, requests, _progressWorker);
 
-  copyResults();
+    copyResults();
 
-  // Assert data correctness
-  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+    // Assert data correctness
+    ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+  }
 }
 
 TEST_P(RequestTest, ProgressTag)
@@ -211,8 +216,8 @@ TEST_P(RequestTest, ProgressTag)
 
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, 0));
-  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, 0));
+  requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
+  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();
@@ -238,8 +243,8 @@ TEST_P(RequestTest, ProgressTagMulti)
 
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->tagMultiSend(_sendPtr, multiSize, multiIsCUDA, 0, false));
-  requests.push_back(_ep->tagMultiRecv(0, false));
+  requests.push_back(_ep->tagMultiSend(_sendPtr, multiSize, multiIsCUDA, ucxx::Tag{0}, false));
+  requests.push_back(_ep->tagMultiRecv(ucxx::Tag{0}, ucxx::TagMaskFull, false));
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvRequest = requests[1];
@@ -286,8 +291,10 @@ TEST_P(RequestTest, TagUserCallback)
   auto recvIndex = std::make_shared<size_t>(1u);
 
   // Submit and wait for transfers to complete
-  requests[0] = _ep->tagSend(_sendPtr[0], _messageSize, 0, false, checkStatus, sendIndex);
-  requests[1] = _ep->tagRecv(_recvPtr[0], _messageSize, 0, false, checkStatus, recvIndex);
+  requests[0] =
+    _ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}, false, checkStatus, sendIndex);
+  requests[1] = _ep->tagRecv(
+    _recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull, false, checkStatus, recvIndex);
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();
@@ -309,7 +316,7 @@ INSTANTIATE_TEST_SUITE_P(ProgressModes,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)));
 
 INSTANTIATE_TEST_SUITE_P(DelayedSubmission,
                          RequestTest,
@@ -317,7 +324,7 @@ INSTANTIATE_TEST_SUITE_P(DelayedSubmission,
                                  Values(false),
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)));
 
 #if UCXX_ENABLE_RMM
 INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
@@ -330,7 +337,7 @@ INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)));
 
 INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
                          RequestTest,
@@ -338,7 +345,7 @@ INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
                                  Values(false, true),
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)));
 #endif
 
 }  // namespace

@@ -493,7 +493,7 @@ class UCXX(Comm):
             # of the underlying endpoint may have changed if the remote endpoint has
             # disconnected. In that case there may still exist enqueued messages on its
             # buffer to be received, even though sending is not possible anymore.
-            return not self._ep.is_alive()
+            return not self._ep.alive
         else:
             return True
 

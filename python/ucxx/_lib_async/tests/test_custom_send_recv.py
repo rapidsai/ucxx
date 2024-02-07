@@ -123,7 +123,7 @@ async def test_send_recv_cudf(event_loop, g):
     await uu.comm.ep.close()
     await uu.client.close()
 
-    assert uu.client.closed()
-    assert uu.comm.ep.closed()
+    assert uu.client.closed
+    assert uu.comm.ep.closed
     del uu.ucxx_server
     ucxx.reset()

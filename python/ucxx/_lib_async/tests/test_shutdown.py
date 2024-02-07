@@ -106,9 +106,9 @@ async def test_listener_close(message_type):
         )
         await _shutdown_recv(ep, message_type)
         await _shutdown_recv(ep, message_type)
-        assert listener.closed() is False
+        assert listener.closed is False
         listener.close()
-        assert listener.closed() is True
+        assert listener.closed is True
 
     async def server_node(ep):
         await _shutdown_send(ep, message_type)
@@ -141,7 +141,7 @@ async def test_listener_del(message_type):
     )
     await _shutdown_recv(ep, message_type)
 
-    assert listener.closed() is False
+    assert listener.closed is False
     root = logging.getLogger("ucx")
     with captured_logger(root, level=logging.WARN) as log:
         # Deleting the listener without waiting for all client handlers to complete
@@ -171,7 +171,7 @@ async def test_close_after_n_recv(message_type):
         ep.close_after_n_recv(10)
         for _ in range(10):
             await _shutdown_recv(ep, message_type)
-        assert ep.closed()
+        assert ep.closed
 
         ep = await ucxx.create_endpoint(
             ucxx.get_address(),
@@ -182,7 +182,7 @@ async def test_close_after_n_recv(message_type):
         ep.close_after_n_recv(5)
         for _ in range(5):
             await _shutdown_recv(ep, message_type)
-        assert ep.closed()
+        assert ep.closed
 
         ep = await ucxx.create_endpoint(
             ucxx.get_address(),
@@ -193,7 +193,7 @@ async def test_close_after_n_recv(message_type):
         ep.close_after_n_recv(10, count_from_ep_creation=True)
         for _ in range(5):
             await _shutdown_recv(ep, message_type)
-        assert ep.closed()
+        assert ep.closed
 
         ep = await ucxx.create_endpoint(
             ucxx.get_address(),

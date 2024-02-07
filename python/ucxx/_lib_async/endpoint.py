@@ -1,14 +1,16 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.)
 # SPDX-License-Identifier: BSD-3-Clause
 
 
 import array
 import asyncio
 import logging
+import warnings
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
 from ucxx._lib.libucxx import UCXCanceled, UCXCloseError, UCXError
+from ucxx.types import Tag, TagMaskFull
 
 from .utils import hash64bits
 
@@ -43,34 +45,95 @@ class Endpoint:
         self.abort()
 
     @property
+    def alive(self):
+        return self._ep.alive
+
+    @property
+    def closed(self):
+        """Is this endpoint closed?"""
+        return self._ep is None or not self.alive
+
+    @property
+    def ucp_endpoint(self):
+        """The underlying UCP endpoint handle (ucp_ep_h) as a Python integer."""
+        return self._ep.handle
+
+    @property
+    def ucp_worker(self):
+        """The underlying UCP worker handle (ucp_worker_h) as a Python integer."""
+        return self._ctx.worker.handle
+
+    @property
+    def ucxx_endpoint(self):
+        """The underlying UCXX endpoint pointer (ucxx::Endpoint*) as a Python
+        integer.
+        """
+        return self._ep.ucxx_ptr
+
+    @property
+    def ucxx_worker(self):
+        """Returns the underlying UCXX worker pointer (ucxx::Worker*)
+        as a Python integer.
+        """
+        return self._ctx.worker.ucxx_ptr
+
+    @property
     def uid(self):
         """The unique ID of the underlying UCX endpoint"""
         return self._ep.handle
 
-    def closed(self):
-        """Is this endpoint closed?"""
-        return self._ep is None or not self._ep.is_alive()
-
-    def abort(self):
+    def abort(self, period=10**10, max_attempts=1):
         """Close the communication immediately and abruptly.
         Useful in destructors or generators' ``finally`` blocks.
 
+        Despite the attempt to close communication immediately, in some
+        circumstances, notably when the parent worker is running a progress
+        thread, a maximum timeout may be specified for which the close operation
+        will wait. This can be particularly important for cases where the progress
+        thread might be attempting to acquire the GIL while the current
+        thread owns that resource.
+
         Notice, this functions doesn't signal the connected peer to close.
-        To do that, use `Endpoint.close()`
+        To do that, use `Endpoint.close()`.
+
+        Parameters
+        ----------
+        period: int
+            maximum period to wait (in ns) for internal endpoint operations
+            to complete, usually two operations (pre and post) are involved
+            thus the maximum perceived timeout should be multiplied by two.
+        max_attempts: int
+            maximum number of attempts to close endpoint, only applicable
+            if worker is running a progress thread and `period > 0`.
         """
         if self._ep is not None:
             logger.debug("Endpoint.abort(): 0x%x" % self.uid)
-            self._ep.close()
+            # Wait for a maximum of `period` ns
+            self._ep.close(period=period, max_attempts=max_attempts)
         self._ep = None
         self._ctx = None
 
-    async def close(self):
+    async def close(self, period=10**10, max_attempts=1):
         """Close the endpoint cleanly.
         This will attempt to flush outgoing buffers before actually
         closing the underlying UCX endpoint.
+
+        A maximum timeout and number of attempts may be specified to prevent the
+        underlying `Endpoint` object from failing to acquire the GIL, see `abort()`
+        for details.
+
+        Parameters
+        ----------
+        period: int
+            maximum period to wait (in ns) for internal endpoint operations
+            to complete, usually two operations (pre and post) are involved
+            thus the maximum perceived timeout should be multiplied by two.
+        max_attempts: int
+            maximum number of attempts to close endpoint, only applicable
+            if worker is running a progress thread and `period > 0`.
         """
-        if self.closed():
-            self.abort()
+        if self.closed:
+            self.abort(period=period, max_attempts=max_attempts)
             return
         try:
             # Making sure we only tell peer to shutdown once
@@ -79,12 +142,12 @@ class Endpoint:
             self._shutting_down_peer = True
 
         finally:
-            if not self.closed():
+            if not self.closed:
                 # Give all current outstanding send() calls a chance to return
                 if not self._ctx.progress_mode.startswith("thread"):
                     self._ctx.worker.progress()
                 await asyncio.sleep(0)
-                self.abort()
+                self.abort(period=period, max_attempts=max_attempts)
 
     async def am_send(self, buffer):
         """Send `buffer` to connected peer via active messages.
@@ -96,7 +159,7 @@ class Endpoint:
             than nbytes.
         """
         self._ep.raise_on_error()
-        if self.closed():
+        if self.closed:
             raise UCXCloseError("Endpoint closed")
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
@@ -143,7 +206,7 @@ class Endpoint:
             internal Endpoint tag.
         """
         self._ep.raise_on_error()
-        if self.closed():
+        if self.closed:
             raise UCXCloseError("Endpoint closed")
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
@@ -151,6 +214,8 @@ class Endpoint:
             tag = self._tags["msg_send"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_send"], hash(tag))
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
@@ -158,7 +223,7 @@ class Endpoint:
             log = "[Send #%03d] ep: 0x%x, tag: 0x%x, nbytes: %d, type: %s" % (
                 self._send_count,
                 self.uid,
-                tag,
+                tag.value,
                 nbytes,
                 type(buffer.obj),
             )
@@ -194,7 +259,7 @@ class Endpoint:
             internal Endpoint tag.
         """
         self._ep.raise_on_error()
-        if self.closed():
+        if self.closed:
             raise UCXCloseError("Endpoint closed")
         if not (isinstance(buffers, list) or isinstance(buffers, tuple)):
             raise ValueError("The `buffers` argument must be a `list` or `tuple`")
@@ -203,13 +268,15 @@ class Endpoint:
             tag = self._tags["msg_send"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_send"], hash(tag))
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
 
         # Optimization to eliminate producing logger string overhead
         if logger.isEnabledFor(logging.DEBUG):
             log = "[Send Multi #%03d] ep: 0x%x, tag: 0x%x, nbytes: %s, type: %s" % (
                 self._send_count,
                 self.uid,
-                tag,
+                tag.value,
                 tuple([b.nbytes for b in buffers]),  # nbytes,
                 tuple([type(b.obj) for b in buffers]),
             )
@@ -254,7 +321,7 @@ class Endpoint:
         """Receive from connected peer via active messages."""
         if not self._ep.am_probe():
             self._ep.raise_on_error()
-            if self.closed():
+            if self.closed:
                 raise UCXCloseError("Endpoint closed")
 
         # Optimization to eliminate producing logger string overhead
@@ -269,7 +336,7 @@ class Endpoint:
 
         req = self._ep.am_recv()
         await req.wait()
-        buffer = req.get_recv_buffer()
+        buffer = req.recv_buffer
 
         if logger.isEnabledFor(logging.DEBUG):
             log = "[AM Recv Completed #%03d] ep: 0x%x, nbytes: %d, type: %s" % (
@@ -312,10 +379,12 @@ class Endpoint:
             tag = self._tags["msg_recv"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_recv"], hash(tag))
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
 
         try:
             self._ep.raise_on_error()
-            if self.closed():
+            if self.closed:
                 raise UCXCloseError("Endpoint closed")
         except Exception as e:
             # Only probe the worker as last resort. To be reliable, probing for the tag
@@ -332,7 +401,7 @@ class Endpoint:
             log = "[Recv #%03d] ep: 0x%x, tag: 0x%x, nbytes: %d, type: %s" % (
                 self._recv_count,
                 self.uid,
-                tag,
+                tag.value,
                 nbytes,
                 type(buffer.obj),
             )
@@ -340,7 +409,7 @@ class Endpoint:
 
         self._recv_count += 1
 
-        req = self._ep.tag_recv(buffer, tag)
+        req = self._ep.tag_recv(buffer, tag, TagMaskFull)
         ret = await req.wait()
 
         self._finished_recv_count += 1
@@ -371,10 +440,12 @@ class Endpoint:
             tag = self._tags["msg_recv"]
         elif not force_tag:
             tag = hash64bits(self._tags["msg_recv"], hash(tag))
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
 
         try:
             self._ep.raise_on_error()
-            if self.closed():
+            if self.closed:
                 raise UCXCloseError("Endpoint closed")
         except Exception as e:
             # Only probe the worker as last resort. To be reliable, probing for the tag
@@ -387,18 +458,18 @@ class Endpoint:
             log = "[Recv Multi #%03d] ep: 0x%x, tag: 0x%x" % (
                 self._recv_count,
                 self.uid,
-                tag,
+                tag.value,
             )
             logger.debug(log)
 
         self._recv_count += 1
 
-        buffer_requests = self._ep.tag_recv_multi(tag)
+        buffer_requests = self._ep.tag_recv_multi(tag, TagMaskFull)
         await buffer_requests.wait()
         buffer_requests.check_error()
-        for r in buffer_requests.get_requests():
+        for r in buffer_requests.requests:
             r.check_error()
-        buffers = buffer_requests.get_py_buffers()
+        buffers = buffer_requests.py_buffers
 
         self._finished_recv_count += 1
         if (
@@ -415,7 +486,7 @@ class Endpoint:
         Data is received into a buffer allocated by `allocator`.
 
         The transfer includes an extra message containing the size of `obj`,
-        which increses the overhead slightly.
+        which increases the overhead slightly.
 
         Parameters
         ----------
@@ -443,13 +514,49 @@ class Endpoint:
         """Returns the underlying UCP worker handle (ucp_worker_h)
         as a Python integer.
         """
-        return self._ctx.worker.handle
+        warnings.warn(
+            "Endpoint.get_ucp_worker() is deprecated and will soon be removed, "
+            "use the Endpoint.ucp_worker property instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.ucp_worker
+
+    def get_ucxx_worker(self):
+        """Returns the underlying UCXX worker pointer (ucxx::Worker*)
+        as a Python integer.
+        """
+        warnings.warn(
+            "Endpoint.get_ucxx_worker() is deprecated and will soon be removed, "
+            "use the Endpoint.ucxx_worker property instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.ucxx_worker
 
     def get_ucp_endpoint(self):
         """Returns the underlying UCP endpoint handle (ucp_ep_h)
         as a Python integer.
         """
-        return self._ep.handle
+        warnings.warn(
+            "Endpoint.get_ucp_endpoint() is deprecated and will soon be removed, "
+            "use the Endpoint.ucp_endpoint property instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.ucp_endpoint
+
+    def get_ucxx_endpoint(self):
+        """Returns the underlying UCXX endpoint pointer (ucxx::Endpoint*)
+        as a Python integer.
+        """
+        warnings.warn(
+            "Endpoint.get_ucxx_endpoint() is deprecated and will soon be removed, "
+            "use the Endpoint.ucxx_endpoint property instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.ucxx_endpoint
 
     def close_after_n_recv(self, n, count_from_ep_creation=False):
         """Close the endpoint after `n` received messages.
@@ -508,4 +615,10 @@ class Endpoint:
         self._ep.set_close_callback(callback_func, cb_args, cb_kwargs)
 
     def is_alive(self):
-        return self._ep.is_alive()
+        warnings.warn(
+            "Endpoint.is_alive() is deprecated and will soon be removed, "
+            "use the Endpoint.alive property instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.alive

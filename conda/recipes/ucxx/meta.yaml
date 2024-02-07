@@ -51,7 +51,7 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - ucx
     - python
-    - librmm =23.12
+    - librmm =24.04
     - gtest
 
 outputs:
@@ -77,6 +77,7 @@ outputs:
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - sysroot_{{ target_platform }}
         - cmake
         - ninja
@@ -165,6 +166,7 @@ outputs:
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - sysroot_{{ target_platform }}
         - cmake
         - ninja
@@ -204,18 +206,18 @@ outputs:
         {% if cuda_major != "11" %}
         - {{ compiler('cuda') }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - ninja
         - sysroot_{{ target_platform }}
       host:
         - python
         - pip
-        - scikit-build>=0.13.1
-        - setuptools
+        - scikit-build-core >=0.7.0
         - cython >=3.0.0
         - numpy 1.21
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
-        - rmm =23.12
+        - rmm =24.04
         {% if cuda_major != "11" %}
         - cuda-cudart-dev
         {% endif %}
@@ -264,11 +266,12 @@ outputs:
       host:
         - python
         - pip
+        - setuptools
+        - wheel
         - tomli
       run:
         - python * *_cpython
-        - dask >=2023.9.2
-        - distributed >=2023.9.2
+        - rapids-dask-dependency =24.04
         - {{ pin_subpackage('ucxx', max_pin='x.x') }}
     test:
       imports:
