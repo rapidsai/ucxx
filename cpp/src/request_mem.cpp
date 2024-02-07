@@ -14,25 +14,26 @@
 
 namespace ucxx {
 
-std::shared_ptr<RequestMem> createRequestMem(std::shared_ptr<Endpoint> endpoint,
-                                             bool send,
-                                             void* buffer,
-                                             size_t length,
-                                             uint64_t remote_addr,
-                                             ucp_rkey_h rkey,
-                                             const bool enablePythonFuture                = false,
-                                             RequestCallbackUserFunction callbackFunction = nullptr,
-                                             RequestCallbackUserData callbackData         = nullptr)
+std::shared_ptr<RequestMem> createRequestMem(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::MemSend, data::MemReceive> requestData,
+  const bool enablePythonFuture                = false,
+  RequestCallbackUserFunction callbackFunction = nullptr,
+  RequestCallbackUserData callbackData         = nullptr)
 {
-  auto req = std::shared_ptr<RequestMem>(new RequestMem(endpoint,
-                                                        send,
-                                                        buffer,
-                                                        length,
-                                                        remote_addr,
-                                                        rkey,
-                                                        enablePythonFuture,
-                                                        callbackFunction,
-                                                        callbackData));
+  std::shared_ptr<RequestMem> req = std::visit(
+    data::dispatch{
+      [&endpoint, &enablePythonFuture, &callbackFunction, &callbackData](data::MemSend memSend) {
+        return std::shared_ptr<RequestMem>(new RequestMem(
+          endpoint, memSend, "memSend", enablePythonFuture, callbackFunction, callbackData));
+      },
+      [&endpoint, &enablePythonFuture, &callbackFunction, &callbackData](
+        data::MemReceive memReceive) {
+        return std::shared_ptr<RequestMem>(new RequestMem(
+          endpoint, memReceive, "memRecv", enablePythonFuture, callbackFunction, callbackData));
+      },
+    },
+    requestData);
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
@@ -44,23 +45,25 @@ std::shared_ptr<RequestMem> createRequestMem(std::shared_ptr<Endpoint> endpoint,
 }
 
 RequestMem::RequestMem(std::shared_ptr<Endpoint> endpoint,
-                       bool send,
-                       void* buffer,
-                       size_t length,
-                       uint64_t remote_addr,
-                       ucp_rkey_h rkey,
+                       const std::variant<data::MemSend, data::MemReceive> requestData,
+                       const std::string operationName,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)
-  : Request(endpoint,
-            std::make_shared<DelayedSubmission>(send, buffer, length, 0),
-            std::string(send ? "memSend" : "memRecv"),
-            enablePythonFuture),
-    _remote_addr(remote_addr),
-    _rkey(rkey)
+  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
 {
-  if (_endpoint == nullptr)
-    throw ucxx::Error("An endpoint is required to perform remote memory put/get messages");
+  std::visit(data::dispatch{
+               [this](data::MemSend memSend) {
+                 if (_endpoint == nullptr)
+                   throw ucxx::Error("A valid endpoint is required to send memory messages.");
+               },
+               [this](data::MemReceive memReceive) {
+                 if (_endpoint == nullptr)
+                   throw ucxx::Error("A valid endpoint is required to receive memory messages.");
+               },
+               [](auto) { throw std::runtime_error("Unreachable"); },
+             },
+             requestData);
 
   _callback     = callbackFunction;
   _callbackData = callbackData;
@@ -221,14 +224,14 @@ RequestMem::RequestMem(std::shared_ptr<Endpoint> endpoint,
 void RequestMem::memPutCallback(void* request, ucs_status_t status, void* arg)
 {
   Request* req = reinterpret_cast<Request*>(arg);
-  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "memSend", "memPutCallback");
+  ucxx_trace_req_f(req->getOwnerString().c_str(), nullptr, request, "memSend", "memPutCallback");
   return req->callback(request, status);
 }
 
 void RequestMem::memGetCallback(void* request, ucs_status_t status, void* arg)
 {
   Request* req = reinterpret_cast<Request*>(arg);
-  ucxx_trace_req_f(req->getOwnerString().c_str(), request, "memRecv", "memGetCallback");
+  ucxx_trace_req_f(req->getOwnerString().c_str(), nullptr, request, "memRecv", "memGetCallback");
   return req->callback(request, status);
 }
 
@@ -243,51 +246,103 @@ void RequestMem::request()
 
   void* request = nullptr;
 
-  if (_delayedSubmission->_send) {
-    param.cb.send = memPutCallback;
-    request       = ucp_put_nbx(_endpoint->getHandle(),
-                          _delayedSubmission->_buffer,
-                          _delayedSubmission->_length,
-                          _remote_addr,
-                          _rkey,
-                          &param);
-
-    std::lock_guard<std::recursive_mutex> lock(_mutex);
-    _request = request;
-  } else {
-    param.cb.send = memGetCallback;
-    request       = ucp_get_nbx(_endpoint->getHandle(),
-                          _delayedSubmission->_buffer,
-                          _delayedSubmission->_length,
-                          _remote_addr,
-                          _rkey,
-                          &param);
-  }
+  std::visit(data::dispatch{
+               [this, &request, &param](data::MemSend memSend) {
+                 param.cb.send = memPutCallback;
+                 request       = ucp_put_nbx(_endpoint->getHandle(),
+                                       memSend._buffer,
+                                       memSend._length,
+                                       memSend._remoteAddr,
+                                       memSend._rkey,
+                                       &param);
+               },
+               [this, &request, &param](data::MemReceive memReceive) {
+                 param.cb.send = memGetCallback;
+                 request       = ucp_get_nbx(_endpoint->getHandle(),
+                                       memReceive._buffer,
+                                       memReceive._length,
+                                       memReceive._remoteAddr,
+                                       memReceive._rkey,
+                                       &param);
+               },
+               [](auto) { throw std::runtime_error("Unreachable"); },
+             },
+             _requestData);
 
   std::lock_guard<std::recursive_mutex> lock(_mutex);
   _request = request;
 }
 
+static void logPopulateDelayedSubmission() {}
+
 void RequestMem::populateDelayedSubmission()
 {
+  bool terminate =
+    std::visit(data::dispatch{
+                 [this](data::MemSend memSend) {
+                   if (_endpoint->getHandle() == nullptr) {
+                     ucxx_warn("Endpoint was closed before message could be sent");
+                     Request::callback(this, UCS_ERR_CANCELED);
+                     return true;
+                   }
+                   return false;
+                 },
+                 [this](data::MemReceive memReceive) {
+                   if (_worker->getHandle() == nullptr) {
+                     ucxx_warn("Endpoint was closed before message could be received");
+                     Request::callback(this, UCS_ERR_CANCELED);
+                     return true;
+                   }
+                   return false;
+                 },
+                 [](auto) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
+               },
+               _requestData);
+  if (terminate) return;
+
   request();
 
-  if (_enablePythonFuture)
-    ucxx_trace_req_f(_ownerString.c_str(),
-                     _request,
-                     _operationName.c_str(),
-                     "buffer %p, size %lu, future %p, future handle %p, populateDelayedSubmission",
-                     _delayedSubmission->_buffer,
-                     _delayedSubmission->_length,
-                     _future.get(),
-                     _future->getHandle());
-  else
-    ucxx_trace_req_f(_ownerString.c_str(),
-                     _request,
-                     _operationName.c_str(),
-                     "buffer %p, size %lu, populateDelayedSubmission",
-                     _delayedSubmission->_buffer,
-                     _delayedSubmission->_length);
+  auto log =
+    [this](
+      const void* buffer, const size_t length, const uint64_t remoteAddr, const ucp_rkey_h rkey) {
+      if (_enablePythonFuture)
+        ucxx_trace_req_f(
+          _ownerString.c_str(),
+          this,
+          _request,
+          _operationName.c_str(),
+          "populateDelayedSubmission, buffer: %p, size: %lu, remoteAddr: 0x%lx, rkey: %p, "
+          "future: %p, future handle: %p",
+          buffer,
+          length,
+          remoteAddr,
+          rkey,
+          _future.get(),
+          _future->getHandle());
+      else
+        ucxx_trace_req_f(
+          _ownerString.c_str(),
+          this,
+          _request,
+          _operationName.c_str(),
+          "populateDelayedSubmission, buffer: %p, size: %lu, remoteAddr: 0x%lx, rkey: %p",
+          buffer,
+          length,
+          remoteAddr,
+          rkey);
+    };
+
+  std::visit(
+    data::dispatch{
+      [this, &log](data::MemSend memSend) {
+        log(memSend._buffer, memSend._length, memSend._remoteAddr, memSend._rkey);
+      },
+      [this, &log](data::MemReceive memReceive) {
+        log(memReceive._buffer, memReceive._length, memReceive._remoteAddr, memReceive._rkey);
+      },
+      [](auto) { throw std::runtime_error("Unreachable"); },
+    },
+    _requestData);
 
   process();
 }

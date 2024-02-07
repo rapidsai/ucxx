@@ -76,15 +76,12 @@ std::shared_ptr<RequestTag> createRequestTag(
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
 
-std::shared_ptr<RequestMem> createRequestMem(std::shared_ptr<Endpoint> endpoint,
-                                             bool send,
-                                             void* buffer,
-                                             size_t length,
-                                             uint64_t remote_addr,
-                                             ucp_rkey_h rkey,
-                                             const bool enablePythonFuture,
-                                             RequestCallbackUserFunction callbackFunction,
-                                             RequestCallbackUserData callbackData);
+std::shared_ptr<RequestMem> createRequestMem(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::MemSend, data::MemReceive> requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
 
 std::shared_ptr<RequestTagMulti> createRequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
