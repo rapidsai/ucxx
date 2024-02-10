@@ -66,6 +66,8 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
         {% endif %}
         - ucx
     requirements:
@@ -156,6 +158,8 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
         {% endif %}
     requirements:
       build:
@@ -171,14 +175,13 @@ outputs:
         - cmake
         - ninja
       host:
-        {% if cuda_major != "11" %}
-        - cuda-cudart-dev
-        {% endif %}
         - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_subpackage('libucxx', exact=True) }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - cuda-cudart
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - gtest
@@ -218,16 +221,15 @@ outputs:
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
         - rmm =24.04
-        {% if cuda_major != "11" %}
-        - cuda-cudart-dev
-        {% endif %}
         - cuda-version {{ cuda_version }}
       run:
         - python * *_cpython
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - cuda-cudart
         {% endif %}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - ucx >=1.14.1,<1.16.0
         - {{ pin_subpackage('libucxx', exact=True) }}
         - {{ pin_compatible('rmm', max_pin='x.x') }}
