@@ -86,7 +86,7 @@ class Flush {
  *
  * Type identifying a memory send operation and containing data specific to this request type.
  */
-class MemSend {
+class MemPut {
  public:
   const void* _buffer{nullptr};   ///< The raw pointer where data to be sent is stored.
   const size_t _length{0};        ///< The length of the message.
@@ -103,12 +103,12 @@ class MemSend {
    * @param[in] remoteAddr  the destination remote memory address to write to.
    * @param[in] rkey        the remote memory key associated with the remote memory address.
    */
-  explicit MemSend(const decltype(_buffer) buffer,
-                   const decltype(_length) length,
-                   const decltype(_remoteAddr) remoteAddr,
-                   const decltype(_rkey) rkey);
+  explicit MemPut(const decltype(_buffer) buffer,
+                  const decltype(_length) length,
+                  const decltype(_remoteAddr) remoteAddr,
+                  const decltype(_rkey) rkey);
 
-  MemSend() = delete;
+  MemPut() = delete;
 };
 
 /**
@@ -117,7 +117,7 @@ class MemSend {
  * Type identifying a memory receive operation and containing data specific to this request
  * type.
  */
-class MemReceive {
+class MemGet {
  public:
   void* _buffer{nullptr};         ///< The raw pointer where received data should be stored.
   const size_t _length{0};        ///< The length of the message.
@@ -134,12 +134,12 @@ class MemReceive {
    * @param[in]  remoteAddr the source remote memory address to read from.
    * @param[in]  rkey       the remote memory key associated with the remote memory address.
    */
-  explicit MemReceive(decltype(_buffer) buffer,
-                      const decltype(_length) length,
-                      const decltype(_remoteAddr) remoteAddr,
-                      const decltype(_rkey) rkey);
+  explicit MemGet(decltype(_buffer) buffer,
+                  const decltype(_length) length,
+                  const decltype(_remoteAddr) remoteAddr,
+                  const decltype(_rkey) rkey);
 
-  MemReceive() = delete;
+  MemGet() = delete;
 };
 
 /**
@@ -308,8 +308,8 @@ using RequestData = std::variant<std::monostate,
                                  AmSend,
                                  AmReceive,
                                  Flush,
-                                 MemSend,
-                                 MemReceive,
+                                 MemPut,
+                                 MemGet,
                                  StreamSend,
                                  StreamReceive,
                                  TagSend,

@@ -23,18 +23,15 @@ AmReceive::AmReceive() {}
 
 Flush::Flush() {}
 
-MemSend::MemSend(const void* buffer,
-                 const size_t length,
-                 const uint64_t remoteAddr,
-                 const ucp_rkey_h rkey)
+MemPut::MemPut(const void* buffer,
+               const size_t length,
+               const uint64_t remoteAddr,
+               const ucp_rkey_h rkey)
   : _buffer(buffer), _length(length), _remoteAddr(remoteAddr), _rkey(rkey)
 {
 }
 
-MemReceive::MemReceive(void* buffer,
-                       const size_t length,
-                       const uint64_t remoteAddr,
-                       const ucp_rkey_h rkey)
+MemGet::MemGet(void* buffer, const size_t length, const uint64_t remoteAddr, const ucp_rkey_h rkey)
   : _buffer(buffer), _length(length), _remoteAddr(remoteAddr), _rkey(rkey)
 {
 }

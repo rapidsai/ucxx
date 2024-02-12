@@ -365,12 +365,11 @@ std::shared_ptr<Request> Endpoint::memGet(void* buffer,
                                           RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(
-    createRequestMem(endpoint,
-                     data::MemReceive(buffer, length, remoteAddr, rkey),
-                     enablePythonFuture,
-                     callbackFunction,
-                     callbackData));
+  return registerInflightRequest(createRequestMem(endpoint,
+                                                  data::MemGet(buffer, length, remoteAddr, rkey),
+                                                  enablePythonFuture,
+                                                  callbackFunction,
+                                                  callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::memGet(void* buffer,
@@ -384,7 +383,7 @@ std::shared_ptr<Request> Endpoint::memGet(void* buffer,
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestMem(
     endpoint,
-    data::MemReceive(
+    data::MemGet(
       buffer, length, remoteKey->getBaseAddress() + remoteAddressOffset, remoteKey->getHandle()),
     enablePythonFuture,
     callbackFunction,
@@ -401,7 +400,7 @@ std::shared_ptr<Request> Endpoint::memPut(void* buffer,
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestMem(endpoint,
-                                                  data::MemSend(buffer, length, remoteAddr, rkey),
+                                                  data::MemPut(buffer, length, remoteAddr, rkey),
                                                   enablePythonFuture,
                                                   callbackFunction,
                                                   callbackData));
@@ -418,7 +417,7 @@ std::shared_ptr<Request> Endpoint::memPut(void* buffer,
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestMem(
     endpoint,
-    data::MemSend(
+    data::MemPut(
       buffer, length, remoteKey->getBaseAddress() + remoteAddressOffset, remoteKey->getHandle()),
     enablePythonFuture,
     callbackFunction,

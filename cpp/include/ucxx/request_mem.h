@@ -41,7 +41,7 @@ class RequestMem : public Request {
    * - `ucxx::Endpoint::memPut()`
    * - `ucxx::createRequestMem()`
    *
-   * @throws ucxx::Error  if send is `true` and `endpointOrWorker` is not a
+   * @throws ucxx::Error  if `endpoint` is not a valid
    *                      `std::shared_ptr<ucxx::Endpoint>`.
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component.
@@ -55,7 +55,7 @@ class RequestMem : public Request {
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   RequestMem(std::shared_ptr<Endpoint> endpoint,
-             const std::variant<data::MemSend, data::MemReceive> requestData,
+             const std::variant<data::MemPut, data::MemGet> requestData,
              const std::string operationName,
              const bool enablePythonFuture                = false,
              RequestCallbackUserFunction callbackFunction = nullptr,
@@ -72,7 +72,9 @@ class RequestMem : public Request {
    * be released and the local data (on get operations) or remote data (on put operations)
    * can be consumed.
    *
-   * @throws ucxx::Error  if `endpoint` is not a valid `std::shared_ptr<ucxx::Endpoint>`.
+   * @throws ucxx::Error  if `endpointOrWorker` is not a valid
+   *                      `std::shared_ptr<ucxx::Endpoint>` or
+   *                      `std::shared_ptr<ucxx::Worker>`.
    *
    * @param[in] endpointOrWorker    the parent component, which may either be a
    *                                `std::shared_ptr<Endpoint>` or
@@ -88,7 +90,7 @@ class RequestMem : public Request {
    */
   friend std::shared_ptr<RequestMem> createRequestMem(
     std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::MemSend, data::MemReceive> requestData,
+    const std::variant<data::MemPut, data::MemGet> requestData,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);

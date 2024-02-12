@@ -85,7 +85,7 @@ std::shared_ptr<RequestTag> createRequestTag(
 
 std::shared_ptr<RequestMem> createRequestMem(
   std::shared_ptr<Endpoint> endpoint,
-  const std::variant<data::MemSend, data::MemReceive> requestData,
+  const std::variant<data::MemPut, data::MemGet> requestData,
   const bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
