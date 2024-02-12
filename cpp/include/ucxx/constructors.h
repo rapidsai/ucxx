@@ -21,6 +21,7 @@ class Listener;
 class Notifier;
 class Request;
 class RequestAm;
+class RequestFlush;
 class RequestMem;
 class RequestStream;
 class RequestTag;
@@ -63,6 +64,12 @@ std::shared_ptr<RequestAm> createRequestAm(
   const bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
+
+std::shared_ptr<RequestFlush> createRequestFlush(std::shared_ptr<Component> endpointOrWorker,
+                                                 const std::variant<data::Flush> requestData,
+                                                 const bool enablePythonFuture,
+                                                 RequestCallbackUserFunction callbackFunction,
+                                                 RequestCallbackUserData callbackData);
 
 std::shared_ptr<RequestStream> createRequestStream(
   std::shared_ptr<Endpoint> endpoint,

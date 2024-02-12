@@ -17,6 +17,7 @@
 #include <ucxx/listener.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_data.h>
+#include <ucxx/request_flush.h>
 #include <ucxx/request_mem.h>
 #include <ucxx/request_stream.h>
 #include <ucxx/request_tag.h>
@@ -454,6 +455,15 @@ std::shared_ptr<Request> Endpoint::tagMultiRecv(const Tag tag,
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
     createRequestTagMulti(endpoint, data::TagMultiReceive(tag, tagMask), enablePythonFuture));
+}
+
+std::shared_ptr<Request> Endpoint::flush(const bool enablePythonFuture,
+                                         RequestCallbackUserFunction callbackFunction,
+                                         RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(createRequestFlush(
+    endpoint, data::Flush(), enablePythonFuture, callbackFunction, callbackData));
 }
 
 std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }

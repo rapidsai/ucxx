@@ -21,6 +21,8 @@ AmSend::AmSend(const void* buffer, const size_t length, const ucs_memory_type me
 
 AmReceive::AmReceive() {}
 
+Flush::Flush() {}
+
 MemSend::MemSend(const void* buffer,
                  const size_t length,
                  const uint64_t remoteAddr,

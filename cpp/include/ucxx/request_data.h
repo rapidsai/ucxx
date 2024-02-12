@@ -67,6 +67,21 @@ class AmReceive {
 };
 
 /**
+ * @brief Data for a flush operation.
+ *
+ * Type identifying a flush operation and containing data specific to this request type.
+ */
+class Flush {
+ public:
+  /**
+   * @brief Constructor for flush-specific data.
+   *
+   * Construct an object containing flush-specific data.
+   */
+  Flush();
+};
+
+/**
  * @brief Data for a memory send.
  *
  * Type identifying a memory send operation and containing data specific to this request type.
@@ -292,6 +307,7 @@ class TagMultiReceive {
 using RequestData = std::variant<std::monostate,
                                  AmSend,
                                  AmReceive,
+                                 Flush,
                                  MemSend,
                                  MemReceive,
                                  StreamSend,
