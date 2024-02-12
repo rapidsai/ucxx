@@ -9,27 +9,38 @@ files:
       - build_cpp
       - build_python
       - checks
-      - cudatoolkit
+      - cuda
+      - cuda_version
       - dev
+      - docs
       - py_version
       - run_python
       - test_cpp
       - test_python
+      - depends_on_cupy
+      - depends_on_cudf
   test_cpp:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - test_cpp
   test_python:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - py_version
       - test_python
+      - depends_on_cupy
+      - depends_on_cudf
   checks:
     output: none
     includes:
       - checks
+      - py_version
+  docs:
+    output: none
+    includes:
+      - docs
       - py_version
   py_build:
     output: pyproject
@@ -53,6 +64,8 @@ files:
       key: test
     includes:
       - test_python
+      - depends_on_cupy
+      - depends_on_cudf
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -67,30 +80,44 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - &cmake_ver cmake>=3.26.4
-          - fmt>=9.1.0,<10
+          - fmt>=10.1.1,<11
           - &gmock gmock>=1.13.0
           - &gtest gtest>=1.13.0
-          - librmm==23.12.*
+          - librmm==24.2.*
           - ninja
-          - spdlog>=1.11.0,<1.12
+          - spdlog>=1.12.0,<1.13
   build_python:
     common:
+      - output_types: [conda]
+        packages:
+          - &rmm_conda rmm==24.2.*
       - output_types: [conda, requirements, pyproject]
         packages:
           - *cmake_ver
           - cython>=3.0.0
           - ninja
-          - rmm==23.12.*
-          - scikit-build>=0.13.1
-          - setuptools
-          - tomli
-          - wheel
+      - output_types: conda
+        packages:
+          - scikit-build-core>=0.7.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - rmm-cu12==24.2.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - rmm-cu11==24.2.*
+          - {matrix: null, packages: [*rmm_conda]}
   checks:
     common:
       - output_types: [conda, requirements]
         packages:
           - pre-commit
-  cudatoolkit:
+  cuda_version:
     specific:
       - output_types: conda
         matrices:
@@ -98,26 +125,33 @@ dependencies:
               cuda: "11.2"
             packages:
               - cuda-version=11.2
-              - cudatoolkit
           - matrix:
               cuda: "11.4"
             packages:
               - cuda-version=11.4
-              - cudatoolkit
           - matrix:
               cuda: "11.5"
             packages:
               - cuda-version=11.5
-              - cudatoolkit
           - matrix:
               cuda: "11.8"
             packages:
               - cuda-version=11.8
-              - cudatoolkit
           - matrix:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+  cuda:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              cuda: "11.*"
+            packages:
+              - cudatoolkit
+          - matrix:
+              cuda: "12.*"
+            packages:
               - cuda-cudart-dev
   dev:
     common:
@@ -126,14 +160,21 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==23.12.*
-          - dask-cudf==23.12.*
+          - dask-cuda==24.2.*
+          - dask-cudf==24.2.*
           # UCX Build
           - libtool
           - automake
           - autoconf
           # UCXX Build
           - pkg-config
+          # Docs Build
+          - &doxygen doxygen=1.10.0 # pre-commit hook needs a specific version.
+  docs:
+    common:
+      - output_types: [conda]
+        packages:
+          - *doxygen
   py_version:
     specific:
       - output_types: conda
@@ -170,11 +211,45 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - cudf==23.12.*
-          - cupy
           - dask
           - distributed
           - numba>=0.57.1
-          - pytest
+          - pytest==7.*
           - pytest-asyncio
           - pytest-rerunfailures
+  depends_on_cupy:
+    common:
+      - output_types: conda
+        packages:
+          - cupy>=12.0.0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - cupy-cuda12x>=12.0.0
+          - matrix: {cuda: "11.*"}
+            packages:
+              - cupy-cuda11x>=12.0.0
+          - {matrix: null, packages: [cupy-cuda11x>=12.0.0]}
+  depends_on_cudf:
+    common:
+      - output_types: conda
+        packages:
+          - &cudf_conda cudf==24.2.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for rmm, cubinlinker, ptxcompiler.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - cudf-cu12==24.2.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - cudf-cu11==24.2.*
+          - {matrix: null, packages: [*cudf_conda]}

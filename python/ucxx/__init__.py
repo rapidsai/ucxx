@@ -16,7 +16,7 @@ if "UCX_MEMTYPE_CACHE" not in os.environ:
     logger.debug("Setting env UCX_MEMTYPE_CACHE=n, which is required by UCX")
     os.environ["UCX_MEMTYPE_CACHE"] = "n"
 
-from . import exceptions, testing  # noqa
+from . import exceptions, types, testing  # noqa
 from ._lib import libucxx  # type: ignore
 from .core import *  # noqa
 from .utils import get_address, get_ucxpy_logger  # noqa
@@ -85,7 +85,7 @@ if "UCX_MAX_RNDV_RAILS" not in os.environ and get_ucx_version() >= (1, 12, 0):
     os.environ["UCX_MAX_RNDV_RAILS"] = "1"
 
 
-__version__ = "0.35.00"
+__version__ = "0.36.00"
 __ucx_version__ = "%d.%d.%d" % get_ucx_version()
 
 if get_ucx_version() < (1, 11, 1):

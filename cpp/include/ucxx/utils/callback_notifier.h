@@ -9,6 +9,12 @@ namespace ucxx {
 
 namespace utils {
 
+/**
+ * A thread-safe notification object.
+ *
+ * A thread-safe notification object which can signal release of some shared state while
+ * a single thread blocks until the shared state is released.
+ */
 class CallbackNotifier {
  private:
   std::atomic_bool _flag{};                      //< flag storing state
@@ -20,15 +26,15 @@ class CallbackNotifier {
    * @brief Construct a thread-safe notification object
    *
    * Construct a thread-safe notification object which can signal
-   * release of some shared state with `set()` while other threads
-   * block on `wait()` until the shared state is released.
+   * release of some shared state with `set()` while a single thread
+   * blocks on `wait()` until the shared state is released.
    *
    * If libc is glibc and the version is older than 2.25, the
    * implementation uses a spinlock otherwise it uses a condition
    * variable.
    *
    * When C++-20 is the minimum supported version, it should use
-   * atomic.wait + notify_all.
+   * atomic.wait + notify_one.
    */
   CallbackNotifier() : _flag{false} {};
 
@@ -42,8 +48,8 @@ class CallbackNotifier {
   /**
    * @brief Notify waiting threads that we are done and they can proceed
    *
-   * Set the flag to true and notify others threads blocked by a call to `wait()`.
-   * See also `std::condition_variable::notify_all`.
+   * Set the flag to true and notify a single thread blocked by a call to `wait()`.
+   * See also `std::condition_variable::notify_one`.
    */
   void set();
 

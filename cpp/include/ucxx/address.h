@@ -14,6 +14,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Component encapsulating the address of a UCP worker.
+ *
+ * A UCP worker has a unique address that can is contained in a `ucp_address_t*` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Address : public Component {
  private:
   ucp_address_t* _handle{nullptr};

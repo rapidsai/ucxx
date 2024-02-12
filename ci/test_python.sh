@@ -132,3 +132,6 @@ run_distributed_ucxx_tests      thread          0                           0
 run_distributed_ucxx_tests      thread          0                           1
 run_distributed_ucxx_tests      thread          1                           0
 run_distributed_ucxx_tests      thread          1                           1
+
+rapids-logger "C++ future -> Python future notifier example"
+python -m ucxx.examples.python_future_task_example

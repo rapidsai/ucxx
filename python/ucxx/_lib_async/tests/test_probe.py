@@ -4,8 +4,9 @@
 import asyncio
 
 import pytest
+from ucxx.types import Tag
 
-import ucxx as ucxx
+import ucxx
 
 
 @pytest.mark.asyncio
@@ -16,14 +17,14 @@ async def test_message_probe(transfer_api):
     async def server_node(ep):
         # Wait for remote endpoint to close before probing the endpoint for
         # in-transit message and receiving it.
-        while not ep.closed():
+        while not ep.closed:
             await asyncio.sleep(0)  # Yield task
 
         if transfer_api == "am":
             assert ep._ep.am_probe() is True
             received = bytes(await ep.am_recv())
         else:
-            assert ep._ctx.worker.tag_probe(ep._tags["msg_recv"]) is True
+            assert ep._ctx.worker.tag_probe(Tag(ep._tags["msg_recv"])) is True
             received = bytearray(10)
             await ep.recv(received)
         assert received == msg
@@ -47,5 +48,5 @@ async def test_message_probe(transfer_api):
     )
     await client_node(listener.port)
 
-    while not listener.closed():
+    while not listener.closed:
         await asyncio.sleep(0.01)

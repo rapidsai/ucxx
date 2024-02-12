@@ -45,6 +45,9 @@ sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/distributed
 sed_runner "/- librmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
 sed_runner "/- rmm =/ s/=.*/=${NEXT_RAPIDS_VERSION}/g" conda/recipes/ucxx/meta.yaml
 
+# doxyfile update
+sed_runner 's/PROJECT_NUMBER         = .*/PROJECT_NUMBER         = '${NEXT_FULL_TAG}'/g' cpp/doxygen/Doxyfile
+
 DEPENDENCIES=(
   cudf
   dask-cuda
@@ -65,3 +68,4 @@ sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_RAPIDS_VERSION}\/RAPID
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_RAPIDS_VERSION}/g" "${FILE}"
 done
+sed_runner "s/RAPIDS_VERSION_NUMBER=\".*/RAPIDS_VERSION_NUMBER=\"${NEXT_SHORT_TAG}\"/g" ci/build_docs.sh

@@ -95,7 +95,7 @@ async def test_ucxx_specific(ucxx_loop):
     """
     # TODO:
     # 1. ensure exceptions in handle_comm fail the test
-    # 2. Use dict in read / write, put seralization there.
+    # 2. Use dict in read / write, put serialization there.
     # 3. Test peer_address
     # 4. Test cleanup
     address = f"ucxx://{HOST}:{0}"
@@ -393,10 +393,6 @@ async def test_ucxx_protocol(ucxx_loop, cleanup, port):
 
 
 @gen_test()
-@pytest.mark.skipif(
-    int(os.environ.get("UCXPY_ENABLE_PYTHON_FUTURE", "1")) != 0,
-    reason="Segfaults when Python futures are enabled",
-)
 async def test_ucxx_unreachable(
     ucxx_loop,
 ):

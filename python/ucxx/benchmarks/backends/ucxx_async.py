@@ -98,7 +98,7 @@ class UCXPyAsyncServer(BaseServer):
         )
         self.queue.put(lf.port)
 
-        while not lf.closed():
+        while not lf.closed:
             await asyncio.sleep(0.5)
 
         ucxx.stop_notifier_thread()

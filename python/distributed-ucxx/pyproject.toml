@@ -7,7 +7,7 @@ requires = [
 
 [project]
 name = "distributed-ucxx"
-version = "0.35.00"
+version = "0.36.00"
 description = "UCX communication module for Dask Distributed"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -28,6 +28,9 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
 ]
+
+[project.entry-points."distributed.comm.backends"]
+ucxx = "distributed_ucxx:UCXXBackend"
 
 [project.optional-dependencies]
 docs = [

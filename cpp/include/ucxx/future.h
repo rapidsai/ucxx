@@ -12,6 +12,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Represent a future that may be notified by a specialized notifier.
+ *
+ * Represent a future object that may postpone notification of its status to a more
+ * appropriate stage by a specialize notifier, such as `ucxx::Notifier`.
+ */
 class Future : public std::enable_shared_from_this<Future> {
  protected:
   std::shared_ptr<Notifier> _notifier{nullptr};  ///< The notifier object
