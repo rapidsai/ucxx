@@ -67,7 +67,8 @@ class MemoryHandle : public Component {
    * be larger than requested, and can later be found calling the `getSize()` method. The
    * `buffer` provided may be either a `nullptr`, in which case UCP will allocate a new
    * memory region for it, or an already existing allocation, in which case UCP will only
-   * map it for RMA.
+   * map it for RMA and it's the caller's responsibility to keep `buffer` alive until this
+   * object is destroyed.
    *
    * @code{.cpp}
    * // `context` is `std::shared_ptr<ucxx::Context>`
