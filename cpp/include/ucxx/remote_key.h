@@ -86,7 +86,7 @@ class RemoteKey : public Component {
    *
    * @throws std::runtime_error if checksum of the serialized object fails.
    *
-   * @returns The serialized remote key.
+   * @returns The deserialized remote key.
    */
   void deserialize(const SerializedRemoteKey& serializedHeader);
 
