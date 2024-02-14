@@ -31,8 +31,8 @@ class RemoteKey : public Component {
  private:
   ucp_rkey_h _remoteKey{nullptr};  ///< The unpacked remote key.
   void* _packedRemoteKey{
-    nullptr};                      ///< The packed (local) remote key that may be unpacked (remote).
-  size_t _packedRemoteKeySize{0};  ///< The size in bytes of the remote key.
+    nullptr};  ///< The packed ucp_rkey_h key, suitable for transfer to a remote process.
+  size_t _packedRemoteKeySize{0};              ///< The size in bytes of the remote key.
   std::vector<char> _packedRemoteKeyVector{};  ///< The deserialized packed remote key.
   uint64_t _memoryBaseAddress{0};              ///< The allocation's base address.
   size_t _memorySize{0};                       ///< The actual allocation size.
