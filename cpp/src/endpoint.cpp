@@ -17,6 +17,7 @@
 #include <ucxx/listener.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_data.h>
+#include <ucxx/request_endpoint_close.h>
 #include <ucxx/request_stream.h>
 #include <ucxx/request_tag.h>
 #include <ucxx/request_tag_multi.h>
@@ -143,6 +144,16 @@ Endpoint::~Endpoint()
   ucxx_trace("ucxx::Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
 }
 
+std::shared_ptr<Request> Endpoint::closeRequest(const bool enablePythonFuture,
+                                                RequestCallbackUserFunction callbackFunction,
+                                                RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  bool force    = _endpointErrorHandling && _callbackData->status != UCS_OK;
+  return registerInflightRequest(createRequestEndpointClose(
+    endpoint, data::EndpointClose(force), enablePythonFuture, callbackFunction, callbackData));
+}
+
 void Endpoint::close(uint64_t period, uint64_t maxAttempts)
 {
   if (_handle == nullptr) return;
@@ -155,7 +166,7 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
              canceled);
 
   // Close the endpoint
-  unsigned closeMode = UCP_EP_CLOSE_MODE_FORCE;
+  unsigned closeMode = UCP_EP_CLOSE_MODE_FLUSH;
   if (_endpointErrorHandling && _callbackData->status != UCS_OK) {
     // We force close endpoint if endpoint error handling is enabled and
     // the endpoint status is not UCS_OK
@@ -163,45 +174,37 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
   }
 
   auto worker = ::ucxx::getWorker(_parent);
-  ucs_status_ptr_t status;
+  std::shared_ptr<Request> req{nullptr};
 
   if (worker->isProgressThreadRunning()) {
-    bool closeSuccess = false;
-    for (uint64_t i = 0; i < maxAttempts && !closeSuccess; ++i) {
-      utils::CallbackNotifier callbackNotifierPre{};
-      worker->registerGenericPre([this, &callbackNotifierPre, &status, closeMode]() {
-        status = ucp_ep_close_nb(_handle, closeMode);
-        callbackNotifierPre.set();
-      });
-      if (!callbackNotifierPre.wait(period)) continue;
-
-      while (UCS_PTR_IS_PTR(status)) {
-        utils::CallbackNotifier callbackNotifierPost{};
-        worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
-          ucs_status_t s = ucp_request_check_status(status);
-          if (UCS_PTR_STATUS(s) != UCS_INPROGRESS) {
-            ucp_request_free(status);
-            _callbackData->status = UCS_PTR_STATUS(s);
-            if (UCS_PTR_STATUS(status) != UCS_OK) {
-              ucxx_error(
-                "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, error while closing "
-                "endpoint: %s",
-                __func__,
-                this,
-                _handle,
-                ucs_status_string(UCS_PTR_STATUS(status)));
-            }
-          }
-
-          callbackNotifierPost.set();
+    for (uint64_t i = 0; i < maxAttempts && !req->isCompleted(); ++i) {
+      if (req == nullptr) {
+        utils::CallbackNotifier callbackNotifierPre{};
+        worker->registerGenericPre([this, &callbackNotifierPre, &req, closeMode]() {
+          req = closeRequest();
+          callbackNotifierPre.set();
         });
-        if (!callbackNotifierPost.wait(period)) continue;
+        if (!callbackNotifierPre.wait(period)) continue;
       }
 
-      closeSuccess = true;
+      utils::CallbackNotifier callbackNotifierPost{};
+      worker->registerGenericPost(
+        [this, &callbackNotifierPost, &req]() { callbackNotifierPost.set(); });
+      callbackNotifierPost.wait(period);
     }
 
-    if (!closeSuccess) {
+    if (req != nullptr && req->isCompleted()) {
+      auto status = req->getStatus();
+      if (status != UCS_OK) {
+        ucxx_error(
+          "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, error while closing "
+          "endpoint: %s",
+          __func__,
+          this,
+          _handle,
+          ucs_status_string(status));
+      }
+    } else {
       _callbackData->status = UCS_ERR_ENDPOINT_TIMEOUT;
       ucxx_debug(
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, all attempts to close timed out",
@@ -210,20 +213,16 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
         _handle);
     }
   } else {
-    status = ucp_ep_close_nb(_handle, closeMode);
-    if (UCS_PTR_IS_PTR(status)) {
-      ucs_status_t s;
-      while ((s = ucp_request_check_status(status)) == UCS_INPROGRESS)
-        worker->progress();
-      ucp_request_free(status);
-      _callbackData->status = s;
-    } else if (UCS_PTR_STATUS(status) != UCS_OK) {
+    req = closeRequest();
+    while (!req->isCompleted())
+      worker->progress();
+    if (req->getStatus() != UCS_OK) {
       ucxx_error(
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
         __func__,
         this,
         _handle,
-        ucs_status_string(UCS_PTR_STATUS(status)));
+        ucs_status_string(req->getStatus()));
     }
   }
   ucxx_trace("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _handle);

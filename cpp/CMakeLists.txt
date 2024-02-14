@@ -133,6 +133,7 @@ add_library(
   src/request.cpp
   src/request_am.cpp
   src/request_data.cpp
+  src/request_endpoint_close.cpp
   src/request_helper.cpp
   src/request_stream.cpp
   src/request_tag.cpp

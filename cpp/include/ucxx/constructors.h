@@ -21,6 +21,7 @@ class Listener;
 class Notifier;
 class Request;
 class RequestAm;
+class RequestEndpointClose;
 class RequestStream;
 class RequestTag;
 class RequestTagMulti;
@@ -59,6 +60,13 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
 std::shared_ptr<RequestAm> createRequestAm(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::AmSend, data::AmReceive> requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
+
+std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::EndpointClose> requestData,
   const bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);

@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <ucs/config/types.h>
+#include <ucs/type/status.h>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -177,7 +179,7 @@ TEST_F(ListenerTest, RaiseOnError)
   EXPECT_THROW(ep->raiseOnError(), ucxx::Error);
 }
 
-TEST_F(ListenerTest, CloseCallback)
+TEST_F(ListenerTest, EndpointCloseCallback)
 {
   auto listenerContainer = createListenerContainer();
   auto listener          = createListener(listenerContainer);
@@ -185,23 +187,127 @@ TEST_F(ListenerTest, CloseCallback)
 
   auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
 
-  bool isClosed = false;
-  ep->setCloseCallback([](void* isClosed) { *reinterpret_cast<bool*>(isClosed) = true; },
-                       reinterpret_cast<void*>(&isClosed));
+  struct CallbackData {
+    ucs_status_t status{UCS_INPROGRESS};
+    bool closed{false};
+  };
+
+  auto callbackData = std::make_shared<CallbackData>();
+  ep->setCloseCallback(
+    [](ucs_status_t status, ucxx::EndpointCloseCallbackUserData callbackData) {
+      auto cbData    = std::static_pointer_cast<CallbackData>(callbackData);
+      cbData->status = status;
+      cbData->closed = true;
+    },
+    callbackData);
 
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
-  ASSERT_FALSE(isClosed);
+  ASSERT_FALSE(callbackData->closed);
+  ASSERT_EQ(callbackData->status, UCS_INPROGRESS);
 
   listenerContainer->endpoint = nullptr;
 
-  loopWithTimeout(std::chrono::milliseconds(5000), [this, &isClosed]() {
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, &callbackData]() {
     _worker->progress();
-    return isClosed;
+    return callbackData->closed;
   });
 
-  ASSERT_TRUE(isClosed);
+  ASSERT_TRUE(callbackData->closed);
+  EXPECT_NE(callbackData->status, UCS_INPROGRESS);
+}
+
+bool checkRequestWithTimeout(std::chrono::milliseconds timeout,
+                             std::shared_ptr<ucxx::Worker> worker,
+                             std::shared_ptr<ucxx::Request> closeRequest)
+{
+  auto startTime = std::chrono::system_clock::now();
+  auto endTime   = startTime + std::chrono::milliseconds(timeout);
+
+  while (std::chrono::system_clock::now() < endTime) {
+    worker->progress();
+    if (closeRequest->isCompleted()) return true;
+  }
+  return false;
+}
+
+TEST_F(ListenerTest, EndpointNonBlockingClose)
+{
+  auto listenerContainer = createListenerContainer();
+  auto listener          = createListener(listenerContainer);
+  _worker->progress();
+
+  auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
+
+  while (listenerContainer->endpoint == nullptr)
+    _worker->progress();
+
+  auto closeRequest = ep->closeRequest();
+
+  /**
+   * FIXME: For some reason the code below calls `_worker->progress()` from within
+   * `_worker->progress()`, which is invalid in UCX. The `checkRequestWithTimeout` below
+   * which is functionally equivalent has no such problem. The lambda seems to behave in
+   * unexpected way here. The issue also goes away if in `Endpoint::closeRequest()` the
+   * line `if (callbackFunction) callbackFunction(status, callbackData);` is commented
+   * out from the `combineCallbacksFunction` lambda, even when no callback is specified
+   * to `ep->closeRequest()` above.
+   */
+  // auto f = [this, &closeRequest]() {
+  //   _worker->progress();
+  //   return closeRequest->isCompleted();
+  // };
+  // loopWithTimeout(std::chrono::milliseconds(5000), f);
+
+  checkRequestWithTimeout(std::chrono::milliseconds(5000), _worker, closeRequest);
+
+  ASSERT_FALSE(ep->isAlive());
+  EXPECT_NE(closeRequest->getStatus(), UCS_INPROGRESS);
+}
+
+TEST_F(ListenerTest, EndpointNonBlockingCloseWithCallbacks)
+{
+  auto listenerContainer = createListenerContainer();
+  auto listener          = createListener(listenerContainer);
+  _worker->progress();
+
+  auto closeCallback = [](ucs_status_t status, ucxx::EndpointCloseCallbackUserData data) {
+    auto dataStatus = std::static_pointer_cast<bool>(data);
+    *dataStatus     = status;
+  };
+  auto closeCallbackEndpoint = std::make_shared<ucs_status_t>(UCS_INPROGRESS);
+  auto closeCallbackRequest  = std::make_shared<ucs_status_t>(UCS_INPROGRESS);
+
+  auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
+  ep->setCloseCallback(closeCallback, closeCallbackEndpoint);
+
+  while (listenerContainer->endpoint == nullptr)
+    _worker->progress();
+
+  auto closeRequest = ep->closeRequest(false, closeCallback, closeCallbackRequest);
+
+  /**
+   * FIXME: For some reason the code below calls `_worker->progress()` from within
+   * `_worker->progress()`, which is invalid in UCX. The `checkRequestWithTimeout` below
+   * which is functionally equivalent has no such problem. The lambda seems to behave in
+   * unexpected way here. The issue also goes away if in `Endpoint::closeRequest()` the
+   * line `if (callbackFunction) callbackFunction(status, callbackData);` is commented
+   * out from the `combineCallbacksFunction` lambda, even when no callback is specified
+   * to `ep->closeRequest()` above.
+   */
+  // auto f = [this, &closeRequest]() {
+  //   _worker->progress();
+  //   return closeRequest->isCompleted();
+  // };
+  // loopWithTimeout(std::chrono::milliseconds(5000), f);
+
+  checkRequestWithTimeout(std::chrono::milliseconds(5000), _worker, closeRequest);
+
+  ASSERT_FALSE(ep->isAlive());
+  EXPECT_NE(closeRequest->getStatus(), UCS_INPROGRESS);
+  ASSERT_NE(*closeCallbackEndpoint, UCS_INPROGRESS);
+  ASSERT_NE(*closeCallbackRequest, UCS_INPROGRESS);
 }
 
 }  // namespace

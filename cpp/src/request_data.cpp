@@ -20,6 +20,8 @@ AmSend::AmSend(const void* buffer, const size_t length, const ucs_memory_type me
 
 AmReceive::AmReceive() {}
 
+EndpointClose::EndpointClose(const bool force) : _force(force) {}
+
 StreamSend::StreamSend(const void* buffer, const size_t length) : _buffer(buffer), _length(length)
 {
   /**

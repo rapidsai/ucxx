@@ -50,8 +50,8 @@ struct EpParamsDeleter {
 struct ErrorCallbackData {
   ucs_status_t status;                                 ///< Endpoint status
   std::shared_ptr<InflightRequests> inflightRequests;  ///< Endpoint inflight requests
-  std::function<void(void*)> closeCallback;            ///< Close callback to call
-  void* closeCallbackArg;                              ///< Argument to be passed to close callback
+  EndpointCloseCallbackUserFunction closeCallback;     ///< Close callback to call
+  EndpointCloseCallbackUserData closeCallbackArg;      ///< Argument to be passed to close callback
   std::shared_ptr<Worker> worker;  ///< Worker the endpoint has been created from
 };
 
@@ -286,7 +286,8 @@ class Endpoint : public Component {
    *                              receiving a single opaque pointer.
    * @param[in] closeCallbackArg  pointer to optional user-allocated callback argument.
    */
-  void setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg);
+  void setCloseCallback(EndpointCloseCallbackUserFunction closeCallback,
+                        EndpointCloseCallbackUserData closeCallbackArg);
 
   /**
    * @brief Enqueue an active message send operation.
@@ -536,6 +537,43 @@ class Endpoint : public Component {
   static void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
 
   /**
+   * @brief Enqueue an endpoint close operation.
+   *
+   * Enqueue an endpoint close operation, which will close the endpoint without requiring to
+   * destroy the object. This may be useful when other `std::shared_ptr<ucxx::Request>`
+   * objects are still alive, such as inflight transfers.
+   *
+   * This method returns a `std::shared<ucxx::Request>` that can be later awaited and
+   * checked for errors. This is a non-blocking operation, and the status of closing the
+   * endpoint must be verified from the resulting request object before the
+   * `std::shared_ptr<ucxx::Endpoint>` can be safely destroyed and the UCP endpoint assumed
+   * inactive (closed).
+   *
+   * If the endpoint was created with error handling support, the error callback will be
+   * executed, implying the user-defined callback will also be executed.
+   *
+   * If a user-defined
+   * callback is specified via the `callbackFunction` argument then that callback will be executed,
+   * if not then the callback registered with `setCloseCallback()` will be executed, if neither was
+   * specified then no user-defined callback will be executed.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> closeRequest(
+    const bool enablePythonFuture                      = false,
+    EndpointCloseCallbackUserFunction callbackFunction = nullptr,
+    EndpointCloseCallbackUserData callbackData         = nullptr);
+
+  /**
    * @brief Close the endpoint while keeping the object alive.
    *
    * Close the endpoint without requiring to destroy the object. This may be useful when
@@ -556,7 +594,6 @@ class Endpoint : public Component {
    *                        operation will wait for.
    * @param[in] maxAttempts maximum number of attempts to close endpoint, only applicable
    *                        if worker is running a progress thread and `period > 0`.
-   *
    */
   void close(uint64_t period = 0, uint64_t maxAttempts = 1);
 };
