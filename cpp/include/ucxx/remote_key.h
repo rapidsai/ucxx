@@ -149,9 +149,9 @@ class RemoteKey : public Component {
    * @brief Get the underlying `ucp_rkey_h` handle.
    *
    * Lifetime of the `ucp_rkey_h` handle is managed by the `ucxx::RemoteKey` object and
-   * its ownership is non-transferrable. Once the `ucxx::RemoteKey` is destroyed the address
-   * it points to should be considered invalid, it is the user's responsibility to ensure
-   * the owner's lifetime while using the handle.
+   * its ownership is non-transferrable. Once the `ucxx::RemoteKey` is destroyed the handle
+   * becomes invalid and so does the address to the remote memory handle it points to, it is
+   * the user's responsibility to ensure the owner's lifetime while using the handle.
    *
    * @code{.cpp}
    * // remoteKey is `std::shared_ptr<ucxx::RemoteKey>`
