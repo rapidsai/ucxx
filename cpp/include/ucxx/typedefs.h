@@ -119,7 +119,7 @@ typedef std::function<void(std::shared_ptr<Request>)> AmReceiverCallbackType;
  * should be a reasonably unique name, usually identifying the application, to allow other
  * applications to coexist and register their own receiver callbacks.
  */
-typedef std::string_view AmReceiverCallbackOwnerType;
+typedef std::string AmReceiverCallbackOwnerType;
 
 /**
  * @brief Active Message receiver callback identifier.
@@ -139,7 +139,7 @@ class AmReceiverCallbackInfo {
   const AmReceiverCallbackIdType id;
 
   AmReceiverCallbackInfo() = delete;
-  AmReceiverCallbackInfo(AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id)
+  AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id)
     : owner(owner), id(id)
   {
   }
