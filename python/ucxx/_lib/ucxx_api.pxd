@@ -309,7 +309,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         bint isAlive()
         void raiseOnError() except +raise_py_error
         void setCloseCallback(
-            function[void(void*)] close_callback, void* close_callback_arg
+            function[void(ucs_status_t, shared_ptr[void])] close_callback,
+            shared_ptr[void] close_callback_arg
         )
         shared_ptr[Worker] getWorker()
 

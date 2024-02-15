@@ -20,6 +20,7 @@ from libcpp.memory cimport (
     make_shared,
     make_unique,
     shared_ptr,
+    static_pointer_cast,
     unique_ptr,
 )
 from libcpp.string cimport string
@@ -1082,9 +1083,11 @@ cdef class UCXBufferRequests:
         return self.py_buffers
 
 
-cdef void _endpoint_close_callback(void *args) with gil:
+cdef void _endpoint_close_callback(ucs_status_t status, shared_ptr[void] args) with gil:
     """Callback function called when UCXEndpoint closes or errors"""
-    cdef dict cb_data = <dict> args
+    cdef shared_ptr[uintptr_t] cb_data_ptr = static_pointer_cast[uintptr_t, void](args)
+    cdef uintptr_t ptr = cb_data_ptr.get()[0]
+    cdef dict cb_data = <dict> ptr
 
     try:
         cb_data['cb_func'](
@@ -1102,6 +1105,7 @@ cdef class UCXEndpoint():
         bint _cuda_support
         bint _enable_python_future
         dict _close_cb_data
+        shared_ptr[uintptr_t] _close_cb_data_ptr
 
     def __init__(self) -> None:
         raise TypeError("UCXListener cannot be instantiated directly.")
@@ -1478,13 +1482,17 @@ cdef class UCXEndpoint():
             "cb_args": cb_args,
             "cb_kwargs": cb_kwargs,
         }
+        self._close_cb_data_ptr = make_shared[uintptr_t](
+            <uintptr_t><void*>self._close_cb_data
+        )
 
-        cdef function[void(void*)]* func_close_callback = (
-            new function[void(void*)](_endpoint_close_callback)
+        cdef function[void(ucs_status_t, shared_ptr[void])]* func_close_callback = (
+            new function[void(ucs_status_t, shared_ptr[void])](_endpoint_close_callback)
         )
         with nogil:
             self._endpoint.get().setCloseCallback(
-                deref(func_close_callback), <void*>self._close_cb_data
+                deref(func_close_callback),
+                static_pointer_cast[void, uintptr_t](self._close_cb_data_ptr)
             )
         del func_close_callback
 
