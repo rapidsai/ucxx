@@ -76,14 +76,16 @@ void RequestEndpointClose::endpointCloseCallback(void* request, ucs_status_t sta
 
 void RequestEndpointClose::request()
 {
-  ucp_request_param_t param = {
-    .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA, .user_data = this};
-
   void* request = nullptr;
 
   std::visit(
     data::dispatch{
-      [this, &request, &param](data::EndpointClose) {
+      [this, &request](data::EndpointClose endpointClose) {
+        ucxx_warn("force: %d", endpointClose._force);
+        ucp_request_param_t param = {
+          .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA,
+          .user_data    = this};
+        if (endpointClose._force) param.flags = UCP_EP_CLOSE_FLAG_FORCE;
         param.cb.send = endpointCloseCallback;
         if (_endpoint != nullptr)
           request = ucp_ep_close_nbx(_endpoint->getHandle(), &param);

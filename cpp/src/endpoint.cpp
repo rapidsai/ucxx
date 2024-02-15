@@ -6,6 +6,8 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <ucp/api/ucp_compat.h>
+#include <ucs/type/status.h>
 #include <utility>
 #include <vector>
 
@@ -55,8 +57,8 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
 
   setParent(workerOrListener);
 
-  _callbackData = std::make_unique<ErrorCallbackData>(
-    (ErrorCallbackData){.status = UCS_OK, .inflightRequests = _inflightRequests, .worker = worker});
+  _callbackData = std::make_unique<ErrorCallbackData>((ErrorCallbackData){
+    .status = UCS_INPROGRESS, .inflightRequests = _inflightRequests, .worker = worker});
 
   params->err_mode =
     (endpointErrorHandling ? UCP_ERR_HANDLING_MODE_PEER : UCP_ERR_HANDLING_MODE_NONE);
@@ -145,18 +147,27 @@ Endpoint::~Endpoint()
 }
 
 std::shared_ptr<Request> Endpoint::closeRequest(const bool enablePythonFuture,
-                                                RequestCallbackUserFunction callbackFunction,
-                                                RequestCallbackUserData callbackData)
+                                                EndpointCloseCallbackUserFunction callbackFunction,
+                                                EndpointCloseCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  bool force    = _endpointErrorHandling && _callbackData->status != UCS_OK;
+  bool force    = _endpointErrorHandling;
+
+  auto combineCallbacksFunction = [this, &callbackFunction, &callbackData](
+                                    ucs_status_t status, EndpointCloseCallbackUserData unused) {
+    _callbackData->status = status;
+    if (callbackFunction) callbackFunction(status, callbackData);
+    if (_callbackData->closeCallback)
+      _callbackData->closeCallback(status, _callbackData->closeCallbackArg);
+  };
+
   return registerInflightRequest(createRequestEndpointClose(
-    endpoint, data::EndpointClose(force), enablePythonFuture, callbackFunction, callbackData));
+    endpoint, data::EndpointClose(force), enablePythonFuture, combineCallbacksFunction, nullptr));
 }
 
 void Endpoint::close(uint64_t period, uint64_t maxAttempts)
 {
-  if (_handle == nullptr) return;
+  if (_callbackData->status != UCS_INPROGRESS) return;
 
   size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
   ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
@@ -165,46 +176,52 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
              _handle,
              canceled);
 
-  // Close the endpoint
-  unsigned closeMode = UCP_EP_CLOSE_MODE_FLUSH;
-  if (_endpointErrorHandling && _callbackData->status != UCS_OK) {
-    // We force close endpoint if endpoint error handling is enabled and
-    // the endpoint status is not UCS_OK
-    closeMode = UCP_EP_CLOSE_MODE_FORCE;
-  }
+  ucp_request_param_t param = {};
+  if (_endpointErrorHandling) { param.flags = UCP_EP_CLOSE_MODE_FORCE; }
 
   auto worker = ::ucxx::getWorker(_parent);
-  std::shared_ptr<Request> req{nullptr};
+  ucs_status_ptr_t status;
 
   if (worker->isProgressThreadRunning()) {
-    for (uint64_t i = 0; i < maxAttempts && !req->isCompleted(); ++i) {
-      if (req == nullptr) {
+    bool closeSuccess = false;
+    bool submitted    = false;
+    for (uint64_t i = 0; i < maxAttempts && !closeSuccess; ++i) {
+      if (!submitted) {
         utils::CallbackNotifier callbackNotifierPre{};
-        worker->registerGenericPre([this, &callbackNotifierPre, &req, closeMode]() {
-          req = closeRequest();
+        worker->registerGenericPre([this, &callbackNotifierPre, &status, &param]() {
+          status = ucp_ep_close_nbx(_handle, &param);
           callbackNotifierPre.set();
         });
         if (!callbackNotifierPre.wait(period)) continue;
+        submitted = true;
       }
 
-      utils::CallbackNotifier callbackNotifierPost{};
-      worker->registerGenericPost(
-        [this, &callbackNotifierPost, &req]() { callbackNotifierPost.set(); });
-      callbackNotifierPost.wait(period);
+      if (_callbackData->status == UCS_INPROGRESS) {
+        utils::CallbackNotifier callbackNotifierPost{};
+        worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
+          if (UCS_PTR_IS_PTR(status)) {
+            ucs_status_t s;
+            if ((s = ucp_request_check_status(status)) != UCS_INPROGRESS) {
+              _callbackData->status = s;
+            }
+          } else if (UCS_PTR_STATUS(status) != UCS_OK) {
+            ucxx_error(
+              "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
+              __func__,
+              this,
+              _handle,
+              ucs_status_string(UCS_PTR_STATUS(status)));
+          }
+
+          callbackNotifierPost.set();
+        });
+        if (!callbackNotifierPost.wait(period)) continue;
+      }
+
+      closeSuccess = true;
     }
 
-    if (req != nullptr && req->isCompleted()) {
-      auto status = req->getStatus();
-      if (status != UCS_OK) {
-        ucxx_error(
-          "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, error while closing "
-          "endpoint: %s",
-          __func__,
-          this,
-          _handle,
-          ucs_status_string(status));
-      }
-    } else {
+    if (!closeSuccess) {
       _callbackData->status = UCS_ERR_ENDPOINT_TIMEOUT;
       ucxx_debug(
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, all attempts to close timed out",
@@ -213,26 +230,31 @@ void Endpoint::close(uint64_t period, uint64_t maxAttempts)
         _handle);
     }
   } else {
-    req = closeRequest();
-    while (!req->isCompleted())
-      worker->progress();
-    if (req->getStatus() != UCS_OK) {
+    status = ucp_ep_close_nbx(_handle, &param);
+    if (UCS_PTR_IS_PTR(status)) {
+      ucs_status_t s;
+      while ((s = ucp_request_check_status(status)) == UCS_INPROGRESS)
+        worker->progress();
+      _callbackData->status = s;
+    } else if (UCS_PTR_STATUS(status) != UCS_OK) {
       ucxx_error(
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
         __func__,
         this,
         _handle,
-        ucs_status_string(req->getStatus()));
+        ucs_status_string(UCS_PTR_STATUS(status)));
     }
   }
   ucxx_trace("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _handle);
+
+  if (UCS_PTR_IS_PTR(status)) ucp_request_free(status);
 
   if (_callbackData->closeCallback) {
     ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, calling user close callback",
                __func__,
                this,
                _handle);
-    _callbackData->closeCallback(_callbackData->closeCallbackArg);
+    _callbackData->closeCallback(_callbackData->status, _callbackData->closeCallbackArg);
     _callbackData->closeCallback    = nullptr;
     _callbackData->closeCallbackArg = nullptr;
   }
@@ -246,14 +268,14 @@ bool Endpoint::isAlive() const
 {
   if (!_endpointErrorHandling) return true;
 
-  return _callbackData->status == UCS_OK;
+  return _callbackData->status == UCS_INPROGRESS;
 }
 
 void Endpoint::raiseOnError()
 {
   ucs_status_t status = _callbackData->status;
 
-  if (status == UCS_OK || !_endpointErrorHandling) return;
+  if (status == UCS_OK || status == UCS_INPROGRESS || !_endpointErrorHandling) return;
 
   std::string statusString{ucs_status_string(status)};
   std::stringstream errorMsgStream;
@@ -262,7 +284,8 @@ void Endpoint::raiseOnError()
   utils::ucsErrorThrow(status, errorMsgStream.str());
 }
 
-void Endpoint::setCloseCallback(std::function<void(void*)> closeCallback, void* closeCallbackArg)
+void Endpoint::setCloseCallback(EndpointCloseCallbackUserFunction closeCallback,
+                                EndpointCloseCallbackUserData closeCallbackArg)
 {
   _callbackData->closeCallback    = closeCallback;
   _callbackData->closeCallbackArg = closeCallbackArg;
@@ -277,7 +300,7 @@ std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Reque
    * handler may have been called already and we need to register any new requests
    * for cancelation, including the present one.
    */
-  if (_callbackData->status != UCS_OK)
+  if (_callbackData->status != UCS_OK || _callbackData->status != UCS_INPROGRESS)
     _callbackData->worker->scheduleRequestCancel(_inflightRequests->release());
 
   return request;
@@ -430,7 +453,7 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   data->worker->scheduleRequestCancel(data->inflightRequests->release());
   if (data->closeCallback) {
     ucxx_debug("ucxx::Endpoint::%s, UCP handle: %p, calling user close callback", __func__, ep);
-    data->closeCallback(data->closeCallbackArg);
+    data->closeCallback(status, data->closeCallbackArg);
     data->closeCallback    = nullptr;
     data->closeCallbackArg = nullptr;
   }
