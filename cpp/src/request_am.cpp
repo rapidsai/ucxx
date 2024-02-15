@@ -19,9 +19,81 @@
 
 namespace ucxx {
 
+AmReceiverCallbackInfo::AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner,
+                                               AmReceiverCallbackIdType id)
+  : owner(owner), id(id)
+{
+}
+
+typedef std::string AmHeaderSerialized;
+
 struct AmHeader {
   ucs_memory_type_t memoryType;
   std::optional<AmReceiverCallbackInfo> receiverCallbackInfo;
+
+  static AmHeader deserialize(const AmHeaderSerialized serialized)
+  {
+    size_t offset{0};
+
+    ucs_memory_type_t memoryType;
+    memcpy(&memoryType, serialized.data() + offset, sizeof(memoryType));
+    offset += sizeof(memoryType);
+
+    bool hasReceiverCallback{false};
+    memcpy(&hasReceiverCallback, serialized.data() + offset, sizeof(hasReceiverCallback));
+    offset += sizeof(hasReceiverCallback);
+
+    if (hasReceiverCallback) {
+      size_t ownerSize{0};
+      memcpy(&ownerSize, serialized.data() + offset, sizeof(ownerSize));
+      offset += sizeof(ownerSize);
+
+      auto owner = AmReceiverCallbackOwnerType(ownerSize, 0);
+      memcpy(owner.data(), serialized.data() + offset, ownerSize);
+      offset += ownerSize;
+
+      AmReceiverCallbackIdType id{};
+      memcpy(&id, serialized.data() + offset, sizeof(id));
+      offset += sizeof(id);
+
+      return AmHeader{.memoryType           = memoryType,
+                      .receiverCallbackInfo = AmReceiverCallbackInfo(owner, id)};
+    }
+
+    return AmHeader{.memoryType = memoryType, .receiverCallbackInfo = std::nullopt};
+  }
+
+  const AmHeaderSerialized serialize() const
+  {
+    size_t offset{0};
+    bool hasReceiverCallback{static_cast<bool>(receiverCallbackInfo)};
+    const size_t ownerSize = (receiverCallbackInfo) ? receiverCallbackInfo->owner.size() : 0;
+    const size_t amReceiverCallbackInfoSize =
+      (receiverCallbackInfo) ? sizeof(ownerSize) + ownerSize + sizeof(receiverCallbackInfo->id) : 0;
+    const size_t totalSize =
+      sizeof(memoryType) + sizeof(hasReceiverCallback) + amReceiverCallbackInfoSize;
+    std::string serialized(totalSize, 0);
+
+    memcpy(serialized.data() + offset, &memoryType, sizeof(memoryType));
+    offset += sizeof(memoryType);
+
+    memcpy(serialized.data() + offset, &hasReceiverCallback, sizeof(hasReceiverCallback));
+    offset += sizeof(hasReceiverCallback);
+
+    if (hasReceiverCallback) {
+      memcpy(serialized.data() + offset, &ownerSize, sizeof(ownerSize));
+      offset += sizeof(ownerSize);
+
+      memcpy(serialized.data() + offset, receiverCallbackInfo->owner.c_str(), ownerSize);
+      offset += ownerSize;
+
+      memcpy(
+        serialized.data() + offset, &receiverCallbackInfo->id, sizeof(receiverCallbackInfo->id));
+      offset += sizeof(receiverCallbackInfo->id);
+    }
+
+    return serialized;
+  }
 };
 
 std::shared_ptr<RequestAm> createRequestAm(
@@ -127,7 +199,9 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   bool is_rndv = param->recv_attr & UCP_AM_RECV_ATTR_FLAG_RNDV;
 
   std::shared_ptr<Buffer> buf{nullptr};
-  auto amHeader         = *static_cast<const AmHeader*>(header);
+  // auto amHeader         = AmHeader::deserialize(static_cast<const char*>(header));
+  auto amHeader =
+    AmHeader::deserialize(std::string(static_cast<const char*>(header), header_length));
   auto receiverCallback = [&amHeader, &amData]() {
     if (amHeader.receiverCallbackInfo) {
       try {
@@ -284,13 +358,14 @@ void RequestAm::request()
                                      .datatype  = ucp_dt_make_contig(1),
                                      .user_data = this};
 
-        param.cb.send   = _amSendCallback;
-        AmHeader header = {.memoryType           = amSend._memoryType,
-                           .receiverCallbackInfo = amSend._receiverCallbackInfo};
-        void* request   = ucp_am_send_nbx(_endpoint->getHandle(),
+        param.cb.send         = _amSendCallback;
+        AmHeader header       = {.memoryType           = amSend._memoryType,
+                                 .receiverCallbackInfo = amSend._receiverCallbackInfo};
+        auto headerSerialized = header.serialize();
+        void* request         = ucp_am_send_nbx(_endpoint->getHandle(),
                                         0,
-                                        &header,
-                                        sizeof(header),
+                                        headerSerialized.data(),
+                                        headerSerialized.size(),
                                         amSend._buffer,
                                         amSend._length,
                                         &param);

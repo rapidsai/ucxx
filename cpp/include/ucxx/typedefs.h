@@ -128,6 +128,8 @@ typedef std::string AmReceiverCallbackOwnerType;
  */
 typedef uint64_t AmReceiverCallbackIdType;
 
+typedef const std::string AmReceiverCallbackInfoSerialized;
+
 /**
  * @brief Information of an Active Message receiver callback.
  *
@@ -139,10 +141,7 @@ class AmReceiverCallbackInfo {
   const AmReceiverCallbackIdType id;
 
   AmReceiverCallbackInfo() = delete;
-  AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id)
-    : owner(owner), id(id)
-  {
-  }
+  AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id);
 };
 
 }  // namespace ucxx
