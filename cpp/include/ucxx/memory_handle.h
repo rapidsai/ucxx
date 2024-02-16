@@ -63,12 +63,14 @@ class MemoryHandle : public Component {
    * The constructor for a `shared_ptr<ucxx::MemoryHandle>` object, mapping a memory buffer
    * with UCP to provide RMA (Remote Memory Access) to.
    *
-   * The allocation requires a `size` and a `buffer`. The actual size of the allocation may
-   * be larger than requested, and can later be found calling the `getSize()` method. The
-   * `buffer` provided may be either a `nullptr`, in which case UCP will allocate a new
-   * memory region for it, or an already existing allocation, in which case UCP will only
-   * map it for RMA and it's the caller's responsibility to keep `buffer` alive until this
-   * object is destroyed.
+   * The allocation requires a `size` and a `buffer`.  The `buffer` provided may be either
+   * a `nullptr`, in which case UCP will allocate a new memory region for it, or an already
+   * existing allocation, in which case UCP will only map it for RMA and it's the caller's
+   * responsibility to keep `buffer` alive until this object is destroyed. When the UCP
+   * allocates `buffer` (i.e., when the value passed is `nullptr`), the actual size of the
+   * allocation may be larger than requested, and can later be found calling the `getSize()`
+   * method, if a preallocated buffer is passed `getSize()` will return the same value
+   * specified for `size`.
    *
    * @code{.cpp}
    * // `context` is `std::shared_ptr<ucxx::Context>`
