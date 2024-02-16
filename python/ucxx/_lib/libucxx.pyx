@@ -1086,8 +1086,7 @@ cdef class UCXBufferRequests:
 cdef void _endpoint_close_callback(ucs_status_t status, shared_ptr[void] args) with gil:
     """Callback function called when UCXEndpoint closes or errors"""
     cdef shared_ptr[uintptr_t] cb_data_ptr = static_pointer_cast[uintptr_t, void](args)
-    cdef uintptr_t ptr = cb_data_ptr.get()[0]
-    cdef dict cb_data = <dict> ptr
+    cdef dict cb_data = <dict><void*>cb_data_ptr.get()[0]
 
     try:
         cb_data['cb_func'](
