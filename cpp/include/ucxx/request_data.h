@@ -83,6 +83,8 @@ class EndpointClose {
    * @param[in] force   force endpoint close if `true`, flush otherwise.
    */
   explicit EndpointClose(const decltype(_force) force);
+
+  EndpointClose() = delete;
 };
 
 /**
