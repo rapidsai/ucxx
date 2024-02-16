@@ -216,9 +216,10 @@ class Endpoint : public Component {
   /**
    * @brief Check whether the endpoint is still alive.
    *
-   * Check whether the endpoint is still alive, generally `true` until `close()` is called
-   * the endpoint errors and the error handling procedure is executed. Always `true` if
-   * endpoint error handling is disabled.
+   * Check whether the endpoint is still alive, generally `true` until `closeBlocking()` is
+   * called, `close()` is called and the returned request completes or the endpoint errors
+   * and the error handling procedure is executed. Always `true` if endpoint error handling
+   * is disabled.
    *
    * @returns whether the endpoint is still alive if endpoint enables error handling, always
    *          returns `true` if error handling is disabled.
@@ -253,9 +254,32 @@ class Endpoint : public Component {
   /**
    * @brief Cancel inflight requests.
    *
-   * Cancel inflight requests, returning the total number of requests that were canceled.
-   * This is usually executed by `close()`, when pending requests will no longer be able
-   * to complete.
+   * Cancel inflight requests, returning the total number of requests that were scheduled
+   * for cancelation. After the requests are scheduled for cancelation, the caller must
+   * progress the worker and check the result of `getCancelingSize()`, all requests are only
+   * canceled when `getCancelingSize()` returns `0`.
+   *
+   * @returns Number of requests that were scheduled for cancelation.
+   */
+  size_t cancelInflightRequests();
+
+  /**
+   * @brief Check the number of inflight requests being canceled.
+   *
+   * Check the number of inflight requests that were scheduled for cancelation with
+   * `cancelInflightRequests()` who have not yet completed cancelation. To ensure their
+   * cancelation is completed, the worker must be progressed until this method returns `0`.
+   *
+   * @returns Number of requests that are in process of cancelation.
+   */
+  size_t getCancelingSize() const;
+
+  /**
+   * @brief Cancel inflight requests.
+   *
+   * Cancel inflight requests and block until all requests complete cancelation, returning
+   * the total number of requests that were canceled.  This is usually executed by
+   * `closeBlocking()`, when pending requests will no longer be able to complete.
    *
    * If the parent worker is running a progress thread, a maximum timeout may be specified
    * for which the close operation will wait. This can be particularly important for cases
@@ -271,7 +295,7 @@ class Endpoint : public Component {
    *
    * @returns Number of requests that were canceled.
    */
-  size_t cancelInflightRequests(uint64_t period = 0, uint64_t maxAttempts = 1);
+  size_t cancelInflightRequestsBlocking(uint64_t period = 0, uint64_t maxAttempts = 1);
 
   /**
    * @brief Register a user-defined callback to call when endpoint closes.
@@ -552,14 +576,19 @@ class Endpoint : public Component {
    * If the endpoint was created with error handling support, the error callback will be
    * executed, implying the user-defined callback will also be executed.
    *
-   * If a user-defined
-   * callback is specified via the `callbackFunction` argument then that callback will be executed,
-   * if not then the callback registered with `setCloseCallback()` will be executed, if neither was
-   * specified then no user-defined callback will be executed.
+   * If a user-defined callback is specified via the `callbackFunction` argument then that
+   * callback will be executed, if not then the callback registered with `setCloseCallback()`
+   * will be executed, if neither was specified then no user-defined callback will be
+   * executed.
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @warning Unlike its `closeBlocking()` counterpart, this method does not cancel any
+   * inflight requests prior to submitting the UCP close request. Before scheduling the
+   * endpoint close request, the caller must first call `cancelInflightRequests()` and
+   * progress the worker until `getCancelingSize()` returns `0`.
    *
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.

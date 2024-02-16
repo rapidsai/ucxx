@@ -169,7 +169,7 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 {
   if (_callbackData->status != UCS_INPROGRESS) return;
 
-  size_t canceled = cancelInflightRequests(3000000000 /* 3s */, 3);
+  size_t canceled = cancelInflightRequestsBlocking(3000000000 /* 3s */, 3);
   ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
              __func__,
              this,
@@ -311,7 +311,9 @@ void Endpoint::removeInflightRequest(const Request* const request)
   _inflightRequests->remove(request);
 }
 
-size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
+size_t Endpoint::cancelInflightRequests() { return _inflightRequests->cancelAll(); }
+
+size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAttempts)
 {
   auto worker     = ::ucxx::getWorker(this->_parent);
   size_t canceled = 0;
@@ -350,6 +352,8 @@ size_t Endpoint::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 
   return canceled;
 }
+
+size_t Endpoint::getCancelingSize() const { return _inflightRequests->getCancelingSize(); }
 
 std::shared_ptr<Request> Endpoint::amSend(void* buffer,
                                           size_t length,
