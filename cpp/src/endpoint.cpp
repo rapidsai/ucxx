@@ -167,7 +167,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
 
 void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 {
-  if (_callbackData->status != UCS_INPROGRESS) return;
+  if (_callbackData->status != UCS_INPROGRESS || _handle == nullptr) return;
 
   size_t canceled = cancelInflightRequestsBlocking(3000000000 /* 3s */, 3);
   ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
@@ -176,8 +176,9 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
              _handle,
              canceled);
 
-  ucp_request_param_t param = {};
-  if (_endpointErrorHandling) { param.flags = UCP_EP_CLOSE_MODE_FORCE; }
+  ucp_request_param_t param{};
+  if (_endpointErrorHandling)
+    param = {.op_attr_mask = UCP_OP_ATTR_FIELD_FLAGS, .flags = UCP_EP_CLOSE_FLAG_FORCE};
 
   auto worker = ::ucxx::getWorker(_parent);
   ucs_status_ptr_t status;
