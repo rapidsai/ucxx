@@ -296,11 +296,11 @@ std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Reque
   if (!request->isCompleted()) _inflightRequests->insert(request);
 
   /**
-   * If the endpoint errored while the request was being submitted, the error
-   * handler may have been called already and we need to register any new requests
-   * for cancelation, including the present one.
+   * If the endpoint closed or errored while the request was being submitted, the error
+   * handler may have been called already and we need to register any new requests for
+   * cancelation, including the present one.
    */
-  if (_callbackData->status != UCS_OK || _callbackData->status != UCS_INPROGRESS)
+  if (_callbackData->status != UCS_INPROGRESS)
     _callbackData->worker->scheduleRequestCancel(_inflightRequests->release());
 
   return request;
