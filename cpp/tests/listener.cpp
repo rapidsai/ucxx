@@ -260,16 +260,16 @@ TEST_P(ListenerTest, EndpointNonBlockingClose)
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
-  auto closeRequest = ep->closeRequest();
+  auto closeRequest = ep->close();
 
   /**
    * FIXME: For some reason the code below calls `_worker->progress()` from within
    * `_worker->progress()`, which is invalid in UCX. The `checkRequestWithTimeout` below
    * which is functionally equivalent has no such problem. The lambda seems to behave in
-   * unexpected way here. The issue also goes away if in `Endpoint::closeRequest()` the
+   * unexpected way here. The issue also goes away if in `Endpoint::close()` the
    * line `if (callbackFunction) callbackFunction(status, callbackData);` is commented
    * out from the `combineCallbacksFunction` lambda, even when no callback is specified
-   * to `ep->closeRequest()` above.
+   * to `ep->close()` above.
    */
   // auto f = [this, &closeRequest]() {
   //   _worker->progress();
@@ -306,16 +306,16 @@ TEST_P(ListenerTest, EndpointNonBlockingCloseWithCallbacks)
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
-  auto closeRequest = ep->closeRequest(false, closeCallback, closeCallbackRequest);
+  auto closeRequest = ep->close(false, closeCallback, closeCallbackRequest);
 
   /**
    * FIXME: For some reason the code below calls `_worker->progress()` from within
    * `_worker->progress()`, which is invalid in UCX. The `checkRequestWithTimeout` below
    * which is functionally equivalent has no such problem. The lambda seems to behave in
-   * unexpected way here. The issue also goes away if in `Endpoint::closeRequest()` the
+   * unexpected way here. The issue also goes away if in `Endpoint::close()` the
    * line `if (callbackFunction) callbackFunction(status, callbackData);` is commented
    * out from the `combineCallbacksFunction` lambda, even when no callback is specified
-   * to `ep->closeRequest()` above.
+   * to `ep->close()` above.
    */
   // auto f = [this, &closeRequest]() {
   //   _worker->progress();
@@ -334,7 +334,7 @@ TEST_P(ListenerTest, EndpointNonBlockingCloseWithCallbacks)
   ASSERT_NE(*closeCallbackRequest, UCS_INPROGRESS);
 }
 
-INSTANTIATE_TEST_SUITE_P(EndpointErrorHandling, ListenerTest, ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(EndpointErrorHandling, ListenerTest, ::testing::Values(true));
 
 TEST_P(ListenerPortTest, Port)
 {

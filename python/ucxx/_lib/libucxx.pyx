@@ -1241,12 +1241,22 @@ cdef class UCXEndpoint():
 
         return alive
 
-    def close(self, uint64_t period=0, uint64_t max_attempts=1) -> None:
+    def close(self) -> None:
+        cdef shared_ptr[Request] req
+
+        with nogil:
+            req = self._endpoint.get().close(
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
+    def close_blocking(self, uint64_t period=0, uint64_t max_attempts=1) -> None:
         cdef uint64_t c_period = period
         cdef uint64_t c_max_attempts = max_attempts
 
         with nogil:
-            self._endpoint.get().close(c_period, c_max_attempts)
+            self._endpoint.get().closeBlocking(c_period, c_max_attempts)
 
     def am_probe(self) -> bool:
         cdef ucp_ep_h handle

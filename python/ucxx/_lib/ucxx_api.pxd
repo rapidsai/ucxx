@@ -270,7 +270,10 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
-        void close(uint64_t period, uint64_t maxAttempts)
+        shared_ptr[Request] close(
+            bint enable_python_future
+        ) except +raise_py_error
+        void closeBlocking(uint64_t period, uint64_t maxAttempts)
         shared_ptr[Request] amSend(
             void* buffer,
             size_t length,

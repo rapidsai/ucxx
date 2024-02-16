@@ -537,11 +537,11 @@ class Endpoint : public Component {
   static void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
 
   /**
-   * @brief Enqueue an endpoint close operation.
+   * @brief Enqueue a non-blocking endpoint close operation.
    *
-   * Enqueue an endpoint close operation, which will close the endpoint without requiring to
-   * destroy the object. This may be useful when other `std::shared_ptr<ucxx::Request>`
-   * objects are still alive, such as inflight transfers.
+   * Enqueue a non-blocking endpoint close operation, which will close the endpoint without
+   * requiring to destroy the object. This may be useful when other
+   * `std::shared_ptr<ucxx::Request>` objects are still alive, such as inflight transfers.
    *
    * This method returns a `std::shared<ucxx::Request>` that can be later awaited and
    * checked for errors. This is a non-blocking operation, and the status of closing the
@@ -568,16 +568,16 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> closeRequest(
-    const bool enablePythonFuture                      = false,
-    EndpointCloseCallbackUserFunction callbackFunction = nullptr,
-    EndpointCloseCallbackUserData callbackData         = nullptr);
+  std::shared_ptr<Request> close(const bool enablePythonFuture                      = false,
+                                 EndpointCloseCallbackUserFunction callbackFunction = nullptr,
+                                 EndpointCloseCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Close the endpoint while keeping the object alive.
    *
-   * Close the endpoint without requiring to destroy the object. This may be useful when
-   * `std::shared_ptr<ucxx::Request>` objects are still alive.
+   * Close the endpoint without requiring to destroy the object, blocking until the
+   * operation completes. This may be useful when `std::shared_ptr<ucxx::Request>` objects
+   * are still alive.
    *
    * If the endpoint was created with error handling support, the error callback will be
    * executed, implying the user-defined callback will also be executed if one was
@@ -595,7 +595,7 @@ class Endpoint : public Component {
    * @param[in] maxAttempts maximum number of attempts to close endpoint, only applicable
    *                        if worker is running a progress thread and `period > 0`.
    */
-  void close(uint64_t period = 0, uint64_t maxAttempts = 1);
+  void closeBlocking(uint64_t period = 0, uint64_t maxAttempts = 1);
 };
 
 }  // namespace ucxx

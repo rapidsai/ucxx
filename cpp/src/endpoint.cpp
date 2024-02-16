@@ -142,13 +142,13 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
 
 Endpoint::~Endpoint()
 {
-  close(10000000000 /* 10s */);
+  closeBlocking(10000000000 /* 10s */);
   ucxx_trace("ucxx::Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
 }
 
-std::shared_ptr<Request> Endpoint::closeRequest(const bool enablePythonFuture,
-                                                EndpointCloseCallbackUserFunction callbackFunction,
-                                                EndpointCloseCallbackUserData callbackData)
+std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
+                                         EndpointCloseCallbackUserFunction callbackFunction,
+                                         EndpointCloseCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   bool force    = _endpointErrorHandling;
@@ -165,7 +165,7 @@ std::shared_ptr<Request> Endpoint::closeRequest(const bool enablePythonFuture,
     endpoint, data::EndpointClose(force), enablePythonFuture, combineCallbacksFunction, nullptr));
 }
 
-void Endpoint::close(uint64_t period, uint64_t maxAttempts)
+void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 {
   if (_callbackData->status != UCS_INPROGRESS) return;
 
