@@ -62,7 +62,12 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
                      const bool enablePythonFuture,
                      RequestCallbackUserFunction callbackFunction,
                      RequestCallbackUserData callbackData)
-  : Request(endpointOrWorker, data::getRequestData(requestData), operationName, enablePythonFuture)
+  : Request(endpointOrWorker,
+            data::getRequestData(requestData),
+            operationName,
+            enablePythonFuture,
+            callbackFunction,
+            callbackData)
 {
   std::visit(data::dispatch{
                [this](data::AmSend amSend) {
@@ -72,9 +77,6 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
                [](data::AmReceive amReceive) {},
              },
              requestData);
-
-  _callback     = callbackFunction;
-  _callbackData = callbackData;
 }
 
 static void _amSendCallback(void* request, ucs_status_t status, void* user_data)
