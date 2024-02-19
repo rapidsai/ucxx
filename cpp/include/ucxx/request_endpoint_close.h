@@ -47,7 +47,7 @@ class RequestEndpointClose : public Request {
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   RequestEndpointClose(std::shared_ptr<Endpoint> endpoint,
-                       const std::variant<data::EndpointClose> requestData,
+                       const data::EndpointClose requestData,
                        const std::string operationName,
                        const bool enablePythonFuture                = false,
                        RequestCallbackUserFunction callbackFunction = nullptr,
@@ -77,7 +77,7 @@ class RequestEndpointClose : public Request {
    */
   friend std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
     std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::EndpointClose> requestData,
+    const data::EndpointClose requestData,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);

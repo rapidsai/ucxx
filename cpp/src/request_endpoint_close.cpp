@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include "ucxx/request_data.h"
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -16,24 +17,14 @@ namespace ucxx {
 
 std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
   std::shared_ptr<Endpoint> endpoint,
-  const std::variant<data::EndpointClose> requestData,
+  const data::EndpointClose requestData,
   const bool enablePythonFuture                = false,
   RequestCallbackUserFunction callbackFunction = nullptr,
   RequestCallbackUserData callbackData         = nullptr)
 {
-  std::shared_ptr<RequestEndpointClose> req = std::visit(
-    data::dispatch{
-      [&endpoint, &enablePythonFuture, &callbackFunction, &callbackData](
-        data::EndpointClose endpointClose) {
-        return std::shared_ptr<RequestEndpointClose>(new RequestEndpointClose(endpoint,
-                                                                              endpointClose,
-                                                                              "endpointClose",
-                                                                              enablePythonFuture,
-                                                                              callbackFunction,
-                                                                              callbackData));
-      },
-    },
-    requestData);
+  std::shared_ptr<RequestEndpointClose> req =
+    std::shared_ptr<RequestEndpointClose>(new RequestEndpointClose(
+      endpoint, requestData, "endpointClose", enablePythonFuture, callbackFunction, callbackData));
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
@@ -45,22 +36,15 @@ std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
 }
 
 RequestEndpointClose::RequestEndpointClose(std::shared_ptr<Endpoint> endpoint,
-                                           const std::variant<data::EndpointClose> requestData,
+                                           const data::EndpointClose requestData,
                                            const std::string operationName,
                                            const bool enablePythonFuture,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
-  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
+  : Request(endpoint, requestData, operationName, enablePythonFuture)
 {
-  std::visit(
-    data::dispatch{
-      [this](data::EndpointClose) {
-        if (_endpoint == nullptr && _worker == nullptr)
-          throw ucxx::Error("A valid endpoint or worker is required for a close operation.");
-      },
-      [](auto) { throw std::runtime_error("Unreachable"); },
-    },
-    requestData);
+  if (_endpoint == nullptr && _worker == nullptr)
+    throw ucxx::Error("A valid endpoint or worker is required for a close operation.");
 
   _callback     = callbackFunction;
   _callbackData = callbackData;
@@ -78,23 +62,14 @@ void RequestEndpointClose::request()
 {
   void* request = nullptr;
 
-  std::visit(
-    data::dispatch{
-      [this, &request](data::EndpointClose endpointClose) {
-        ucxx_warn("force: %d", endpointClose._force);
-        ucp_request_param_t param = {
-          .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA,
-          .user_data    = this};
-        if (endpointClose._force) param.flags = UCP_EP_CLOSE_FLAG_FORCE;
-        param.cb.send = endpointCloseCallback;
-        if (_endpoint != nullptr)
-          request = ucp_ep_close_nbx(_endpoint->getHandle(), &param);
-        else
-          throw ucxx::Error("A valid endpoint or worker is required for a close operation.");
-      },
-      [](auto) { throw std::runtime_error("Unreachable"); },
-    },
-    _requestData);
+  ucp_request_param_t param = {
+    .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA, .user_data = this};
+  if (std::get<data::EndpointClose>(_requestData)._force) param.flags = UCP_EP_CLOSE_FLAG_FORCE;
+  param.cb.send = endpointCloseCallback;
+  if (_endpoint != nullptr)
+    request = ucp_ep_close_nbx(_endpoint->getHandle(), &param);
+  else
+    throw ucxx::Error("A valid endpoint or worker is required for a close operation.");
 
   std::lock_guard<std::recursive_mutex> lock(_mutex);
   _request = request;
@@ -104,45 +79,28 @@ static void logPopulateDelayedSubmission() {}
 
 void RequestEndpointClose::populateDelayedSubmission()
 {
-  bool terminate =
-    std::visit(data::dispatch{
-                 [this](data::EndpointClose endpointClose) {
-                   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {
-                     ucxx_warn("Endpoint is already closed");
-                     Request::callback(this, UCS_ERR_CANCELED);
-                     return true;
-                   }
-                   return false;
-                 },
-                 [](auto) -> decltype(terminate) { throw std::runtime_error("Unreachable"); },
-               },
-               _requestData);
-  if (terminate) return;
+  if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {
+    ucxx_warn("Endpoint is already closed");
+    Request::callback(this, UCS_ERR_CANCELED);
+    return;
+  }
 
   request();
 
-  auto log = [this]() {
-    if (_enablePythonFuture)
-      ucxx_trace_req_f(_ownerString.c_str(),
-                       this,
-                       _request,
-                       _operationName.c_str(),
-                       "populateDelayedSubmission, endpoint close, future: %p, future handle: %p",
-                       _future.get(),
-                       _future->getHandle());
-    else
-      ucxx_trace_req_f(_ownerString.c_str(),
-                       this,
-                       _request,
-                       _operationName.c_str(),
-                       "populateDelayedSubmission, endpoint close");
-  };
-
-  std::visit(data::dispatch{
-               [this, &log](data::EndpointClose endpointClose) { log(); },
-               [](auto) { throw std::runtime_error("Unreachable"); },
-             },
-             _requestData);
+  if (_enablePythonFuture)
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
+                     _request,
+                     _operationName.c_str(),
+                     "populateDelayedSubmission, endpoint close, future: %p, future handle: %p",
+                     _future.get(),
+                     _future->getHandle());
+  else
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
+                     _request,
+                     _operationName.c_str(),
+                     "populateDelayedSubmission, endpoint close");
 
   process();
 }

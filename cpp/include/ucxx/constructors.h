@@ -66,7 +66,7 @@ std::shared_ptr<RequestAm> createRequestAm(
 
 std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
   std::shared_ptr<Endpoint> endpoint,
-  const std::variant<data::EndpointClose> requestData,
+  const data::EndpointClose requestData,
   const bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
