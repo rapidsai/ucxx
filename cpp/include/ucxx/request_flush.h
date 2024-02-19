@@ -53,7 +53,7 @@ class RequestFlush : public Request {
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   RequestFlush(std::shared_ptr<Component> endpointOrWorker,
-               const std::variant<data::Flush> requestData,
+               const data::Flush requestData,
                const std::string operationName,
                const bool enablePythonFuture                = false,
                RequestCallbackUserFunction callbackFunction = nullptr,
@@ -88,7 +88,7 @@ class RequestFlush : public Request {
    */
   friend std::shared_ptr<RequestFlush> createRequestFlush(
     std::shared_ptr<Component> endpointOrWorker,
-    const std::variant<data::Flush> requestData,
+    const data::Flush requestData,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);

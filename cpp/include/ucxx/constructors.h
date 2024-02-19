@@ -66,7 +66,7 @@ std::shared_ptr<RequestAm> createRequestAm(
   RequestCallbackUserData callbackData);
 
 std::shared_ptr<RequestFlush> createRequestFlush(std::shared_ptr<Component> endpointOrWorker,
-                                                 const std::variant<data::Flush> requestData,
+                                                 const data::Flush requestData,
                                                  const bool enablePythonFuture,
                                                  RequestCallbackUserFunction callbackFunction,
                                                  RequestCallbackUserData callbackData);
