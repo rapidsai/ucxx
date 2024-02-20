@@ -113,7 +113,7 @@ class MemoryHandle : public Component {
    *
    * Lifetime of the `ucp_mem_h` handle is managed by the `ucxx::MemoryHandle` object and
    * its ownership is non-transferrable. Once the `ucxx::MemoryHandle` is destroyed the
-   * memory is unampped and the handle is not valid anymore, it is the user's responsibility
+   * memory is unmapped and the handle is not valid anymore, it is the user's responsibility
    * to ensure the owner's lifetime while using the handle.
    *
    * @code{.cpp}
