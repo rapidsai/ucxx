@@ -119,4 +119,6 @@ typedef RequestCallbackUserData EndpointCloseCallbackUserData;
  */
 typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
 
+typedef const std::string SerializedRemoteKey;
+
 }  // namespace ucxx
