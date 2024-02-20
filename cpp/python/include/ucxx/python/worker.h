@@ -20,6 +20,12 @@ namespace ucxx {
 
 namespace python {
 
+/**
+ * @brief Specialized Python implementation of a `ucxx::Worker`.
+ *
+ * Specialized Python implementation of a `ucxx::Worker`, providing Python-specific
+ * functionality, such as notification of Python futures.
+ */
 class Worker : public ::ucxx::Worker {
  private:
   /**
@@ -60,6 +66,11 @@ class Worker : public ::ucxx::Worker {
    * auto worker = ucxx::createWorker(context, false, false);
    * @endcode
    *
+   * @cond Doxygen_Suppress
+   *
+   * Note: this parameter list is suppressed due to a warning in doxygen 1.9.1.
+   * It appears to conflict with the ucxx::createWorker docstring.
+   *
    * @param[in] context the context from which to create the worker.
    * @param[in] enableDelayedSubmission if `true`, each `ucxx::Request` will not be
    *                                    submitted immediately, but instead delayed to
@@ -67,6 +78,8 @@ class Worker : public ::ucxx::Worker {
    *                                    progress thread.
    * @param[in] enableFuture if `true`, notifies the Python future associated with each
    *                         `ucxx::Request`.
+   * @endcond
+   *
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
   friend std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,

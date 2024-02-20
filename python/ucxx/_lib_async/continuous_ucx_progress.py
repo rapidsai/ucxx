@@ -9,7 +9,7 @@ class ProgressTask(object):
     def __init__(self, worker, event_loop):
         """Creates a task that keeps calling worker.progress()
 
-        Notice, class and created task is carefull not to hold a
+        Notice, class and created task is careful not to hold a
         reference to `worker` so that a danling progress task will
         not prevent `worker` to be garbage collected.
 

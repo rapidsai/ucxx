@@ -22,8 +22,20 @@
 
 namespace ucxx {
 
+/**
+ * @brief A user-defined function to execute as part of delayed submission callback.
+ *
+ * A user-defined function to execute in the scope of a `ucxx::DelayedSubmission`, allowing
+ * execution of custom code upon the completion of the delayed submission.
+ */
 typedef std::function<void()> DelayedSubmissionCallbackType;
 
+/**
+ * @brief Base type for a collection of delayed submissions.
+ *
+ * Base type for a collection of delayed submission. Delayed submissions may have different
+ * purposes and this class encapsulates generic data for all derived types.
+ */
 template <typename T>
 class BaseDelayedSubmissionCollection {
  protected:
@@ -60,7 +72,11 @@ class BaseDelayedSubmissionCollection {
    * operation into the collection, whereas the `process()` will invoke all callbacks that
    * were previously pushed into the collection and clear the collection.
    *
-   * @param[in] name  human-readable name of the collection, used for logging.
+   * @param[in] name    human-readable name of the collection, used for logging.
+   * @param[in] enabled whether the resource is enabled, if `false` an exception is raised
+   *                    when attempting to schedule a callable. Disabled instances of this
+   *                    class should only be used to provide a consistent interface among
+   *                    implementations.
    */
   explicit BaseDelayedSubmissionCollection(const std::string name, const bool enabled)
     : _name{name}, _enabled{enabled}
@@ -86,7 +102,6 @@ class BaseDelayedSubmissionCollection {
    *
    * @param[in] item            the callback that will be executed by `process()` when the
    *                            operation is submitted.
-   * @param[in] resourceEnabled whether the resource is enabled.
    */
   virtual void schedule(T item)
   {
@@ -123,6 +138,12 @@ class BaseDelayedSubmissionCollection {
   }
 };
 
+/**
+ * @brief A collection of delayed request submissions.
+ *
+ * A collection of delayed submissions used specifically for message transfer
+ * `ucxx::Request` submissions.
+ */
 class RequestDelayedSubmissionCollection
   : public BaseDelayedSubmissionCollection<
       std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>> {
@@ -134,9 +155,25 @@ class RequestDelayedSubmissionCollection
     std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
 
  public:
+  /**
+   * @brief Constructor of a collection of delayed request submissions.
+   *
+   * Construct a collection of delayed submissions used specifically for message transfer
+   * `ucxx::Request` submissions.
+   *
+   * @param[in] name    the human-readable name of the type of delayed submission for
+   *                    debugging purposes.
+   * @param[in] enabled whether delayed request submissions should be enabled.
+   */
   explicit RequestDelayedSubmissionCollection(const std::string name, const bool enabled);
 };
 
+/**
+ * @brief A collection of delayed submissions of generic callbacks.
+ *
+ * A collection of delayed submissions used specifically for execution of generic callbacks
+ * at pre-defined stages of the progress loop.
+ */
 class GenericDelayedSubmissionCollection
   : public BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType> {
  protected:
@@ -145,9 +182,24 @@ class GenericDelayedSubmissionCollection
   void processItem(DelayedSubmissionCallbackType callback) override;
 
  public:
+  /**
+   * @brief Constructor of a collection of delayed submissions of generic callbacks.
+   *
+   * Construct a collection of delayed submissions used specifically for execution of
+   * generic callbacks at pre-defined stages of the progress loop.
+   *
+   * @param[in] name    the human-readable name of the type of delayed submission for
+   *                    debugging purposes.
+   */
   explicit GenericDelayedSubmissionCollection(const std::string name);
 };
 
+/**
+ * @brief A collection of delayed submissions of multiple types.
+ *
+ * A collection of delayed submissions of multiple types used by the owner to manage each
+ * of the delayed submission types via specialized methods.
+ */
 class DelayedSubmissionCollection {
  private:
   GenericDelayedSubmissionCollection _genericPre{

@@ -11,7 +11,7 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
-set(libucxx_version 0.36.00)
+set(libucxx_version 0.37.00)
 
 project(
   UCXX
@@ -71,11 +71,25 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
-rapids_find_package(
-  ucx REQUIRED
-  BUILD_EXPORT_SET ucxx-exports
-  INSTALL_EXPORT_SET ucxx-exports
-)
+# Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx
+# dependency because users would then have no control over whether ucx is found
+# multiple times, causing potential configure errors. Therefore, we use a raw
+# find_package call instead of rapids_find_package and skip exporting the ucx
+# dependency. Consumers of ucxx must find ucx themselves. Once the above issue
+# is resolved (see https://github.com/openucx/ucx/pull/9622) we can remove the
+# above find_package in favor of the commented out lines below. For the same
+# reason, we must also gate this find_package call behind a check for the
+# target already existing so that consumers can use tools like CPM.cmake to
+# either find or build ucxx from source if it cannot be found (i.e. both cases
+# must allow prior finding of ucx).
+if(NOT TARGET ucx::ucp)
+  find_package(ucx REQUIRED)
+endif()
+#rapids_find_package(
+#  ucx REQUIRED
+#  BUILD_EXPORT_SET ucxx-exports
+#  INSTALL_EXPORT_SET ucxx-exports
+#)
 
 # ##################################################################################################
 # * dependencies ----------------------------------------------------------------------------------
@@ -90,9 +104,13 @@ rapids_find_package(
 # add third party dependencies using CPM
 rapids_cpm_init()
 # find rmm
-include(cmake/thirdparty/get_rmm.cmake)
+if(UCXX_ENABLE_RMM)
+  include(cmake/thirdparty/get_rmm.cmake)
+endif()
 # find or install GoogleTest
-include(cmake/thirdparty/get_gtest.cmake)
+if(BUILD_TESTS)
+  include(cmake/thirdparty/get_gtest.cmake)
+endif()
 
 # ##################################################################################################
 # * library targets -------------------------------------------------------------------------------
@@ -157,17 +175,15 @@ target_compile_definitions(
 
 # Enable RMM if necessary
 if(UCXX_ENABLE_RMM)
-    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
+    target_link_libraries(ucxx PUBLIC rmm::rmm)
+
+    # Define spdlog level
+    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
 endif()
 
-# Define spdlog level
-target_compile_definitions(ucxx PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
-
 # Specify the target module library dependencies
-target_link_libraries(
-  ucxx
-  PUBLIC rmm::rmm ucx::ucp
-)
+target_link_libraries(ucxx PUBLIC ucx::ucp)
+
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)

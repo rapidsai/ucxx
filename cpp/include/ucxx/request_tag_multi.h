@@ -20,6 +20,13 @@ namespace ucxx {
 
 class RequestTagMulti;
 
+/**
+ * @brief Container for data required by a `ucxx::RequestTagMulti`.
+ *
+ * Container for the data required by a `ucxx::RequestTagMulti`, such as the
+ * `ucxx::RequestTag` that is doing the operation, as well as buffers to send from or
+ * receive at.
+ */
 struct BufferRequest {
   std::shared_ptr<Request> request{nullptr};  ///< The `ucxx::RequestTag` of a header or frame
   std::shared_ptr<std::string> stringBuffer{nullptr};  ///< Serialized `Header`
@@ -34,8 +41,22 @@ struct BufferRequest {
   BufferRequest& operator=(BufferRequest&& o)    = delete;
 };
 
+/**
+ * @brief Pre-defined type for a pointer to an `ucxx::BufferRequest`.
+ *
+ * A pre-defined type for a pointer to a `ucxx::BufferRequest`, used as a convenience type.
+ */
 typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
 
+/**
+ * @brief Send or receive multiple messages with the UCX Tag API.
+ *
+ * Send or receive multiple messages with the UCX Tag API. This is done combining multiple
+ * messages with `ucxx::RequestTag`, first sending/receiving a header, followed by
+ * sending/receiving the user messages. Intended primarily for use with Python, such that
+ * the program can then only wait for the completion of one future and thus reduce
+ * potentially expensive iterations over multiple futures.
+ */
 class RequestTagMulti : public Request {
  private:
   size_t _totalFrames{0};  ///< The total number of frames handled by this request
@@ -62,7 +83,7 @@ class RequestTagMulti : public Request {
    * Construct multi-buffer tag receive request, registering the request to the
    * `std::shared_ptr<Endpoint>` parent so that it may be canceled if necessary. This
    * constructor is responsible for creating a Python future that can be later awaited
-   * in Python asynchronous code, which is indenpendent of the Python futures used by
+   * in Python asynchronous code, which is independent of the Python futures used by
    * the underlying `ucxx::RequestTag` object, which will be invisible to the user. Once
    * the initial setup is complete, `callback()` is called to initiate receiving by posting
    * the first request to receive a header.
@@ -147,8 +168,6 @@ class RequestTagMulti : public Request {
    *                                type-specific data.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
@@ -206,6 +225,11 @@ class RequestTagMulti : public Request {
   void cancel() override;
 };
 
+/**
+ * @brief Pre-defined type for a pointer to an `ucxx::RequestTagMulti`.
+ *
+ * A pre-defined type for a pointer to a `ucxx::RequestTagMulti`, used as a convenience type.
+ */
 typedef std::shared_ptr<RequestTagMulti> RequestTagMultiPtr;
 
 }  // namespace ucxx

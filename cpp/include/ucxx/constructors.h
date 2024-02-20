@@ -27,7 +27,7 @@ class RequestTagMulti;
 class Worker;
 
 // Components
-std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<ucxx::Worker> worker);
+std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
 
 std::shared_ptr<Address> createAddressFromString(std::string addressString);
 
@@ -49,7 +49,7 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          uint16_t port,
                                          ucp_listener_conn_callback_t callback,
-                                         void* callback_args);
+                                         void* callbackArgs);
 
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableDelayedSubmission,

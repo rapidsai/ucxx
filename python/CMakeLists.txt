@@ -5,7 +5,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-set(ucxx_version 0.36.00)
+set(ucxx_version 0.37.00)
 
 include(../fetch_rapids.cmake)
 
@@ -21,6 +21,7 @@ option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulti
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_CPP)
+  find_package(ucx REQUIRED)
   find_package(ucxx ${ucxx_version} REQUIRED COMPONENTS python)
 else()
   set(ucxx_FOUND OFF)
@@ -31,6 +32,7 @@ include(rapids-cython-core)
 if(NOT ucxx_FOUND)
   set(BUILD_TESTS OFF)
   set(BUILD_BENCHMARKS OFF)
+  set(UCXX_ENABLE_PYTHON ON)
 
   set(_exclude_from_all "")
 
@@ -40,10 +42,14 @@ if(NOT ucxx_FOUND)
   # and modify the rpaths appropriately.
   set(cython_lib_dir ucxx)
   install(TARGETS ucxx DESTINATION ${cython_lib_dir})
+  install(TARGETS ucxx_python DESTINATION ${cython_lib_dir})
 endif()
 
 rapids_cython_init()
 
+find_package(
+  Python3 REQUIRED COMPONENTS Development.Embed
+)
 add_subdirectory(ucxx/examples)
 add_subdirectory(ucxx/_lib)
 
