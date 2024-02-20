@@ -220,6 +220,9 @@ SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
 
 # Build and install the UCXX Python package
 if buildAll || hasArg ucxx; then
+    if hasArg -g; then
+        export SKBUILD_INSTALL_STRIP=${SKBUILD_INSTALL_STRIP:-false}
+    fi
 
     cd ${REPODIR}/python/
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
