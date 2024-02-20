@@ -130,6 +130,8 @@ add_library(
   src/internal/request_am.cpp
   src/listener.cpp
   src/log.cpp
+  src/memory_handle.cpp
+  src/remote_key.cpp
   src/request.cpp
   src/request_am.cpp
   src/request_data.cpp

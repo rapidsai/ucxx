@@ -51,6 +51,7 @@ ConfigureTest(
   header.cpp
   listener.cpp
   request.cpp
+  rma.cpp
   utils.cpp
   worker.cpp
 )
