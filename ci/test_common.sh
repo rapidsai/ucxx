@@ -166,7 +166,7 @@ install_distributed_dev_mode() {
   # to run non-public API tests in CI.
 
   rapids-logger "Install Distributed in developer mode"
-  git clone https://github.com/dask/distributed /tmp/distributed
+  git clone https://github.com/dask/distributed /tmp/distributed -b 2024.1.1
   pip install -e /tmp/distributed
   # `pip install -e` removes files under `distributed` but not the directory, later
   # causing failures to import modules.
