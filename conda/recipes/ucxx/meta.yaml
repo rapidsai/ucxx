@@ -200,6 +200,11 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_py{{ python }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        {% endif %}
         - ucx
     requirements:
       build:
