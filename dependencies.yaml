@@ -34,6 +34,13 @@ files:
       - cuda_version
       - py_version
       - test_python_ucxx
+      - depends_on_cupy
+      - depends_on_cudf
+  test_python_distributed:
+    output: none
+    includes:
+      - cuda_version
+      - py_version
       - test_python_distributed_ucxx
       - depends_on_cupy
       - depends_on_cudf
@@ -96,6 +103,8 @@ files:
       key: test
     includes:
       - test_python_distributed_ucxx
+      - depends_on_cupy
+      - depends_on_cudf
 channels:
   - rapidsai
   - rapidsai-nightly
