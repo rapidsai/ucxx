@@ -18,7 +18,9 @@ class Context;
 class Endpoint;
 class Future;
 class Listener;
+class MemoryHandle;
 class Notifier;
+class RemoteKey;
 class Request;
 class RequestAm;
 class RequestStream;
@@ -54,6 +56,16 @@ std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableDelayedSubmission,
                                      const bool enableFuture);
+
+std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
+                                                 const size_t size,
+                                                 void* buffer = nullptr);
+
+std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
+  std::shared_ptr<MemoryHandle> memoryHandle);
+
+std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(std::shared_ptr<Endpoint> endpoint,
+                                                         SerializedRemoteKey serializedRemoteKey);
 
 // Transfers
 std::shared_ptr<RequestAm> createRequestAm(
