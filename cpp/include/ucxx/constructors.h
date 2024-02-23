@@ -23,6 +23,8 @@ class Notifier;
 class RemoteKey;
 class Request;
 class RequestAm;
+class RequestFlush;
+class RequestMem;
 class RequestStream;
 class RequestTag;
 class RequestTagMulti;
@@ -75,6 +77,12 @@ std::shared_ptr<RequestAm> createRequestAm(
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
 
+std::shared_ptr<RequestFlush> createRequestFlush(std::shared_ptr<Component> endpointOrWorker,
+                                                 const data::Flush requestData,
+                                                 const bool enablePythonFuture,
+                                                 RequestCallbackUserFunction callbackFunction,
+                                                 RequestCallbackUserData callbackData);
+
 std::shared_ptr<RequestStream> createRequestStream(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::StreamSend, data::StreamReceive> requestData,
@@ -83,6 +91,13 @@ std::shared_ptr<RequestStream> createRequestStream(
 std::shared_ptr<RequestTag> createRequestTag(
   std::shared_ptr<Component> endpointOrWorker,
   const std::variant<data::TagSend, data::TagReceive> requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
+
+std::shared_ptr<RequestMem> createRequestMem(
+  std::shared_ptr<Endpoint> endpoint,
+  const std::variant<data::MemPut, data::MemGet> requestData,
   const bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);

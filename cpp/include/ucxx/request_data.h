@@ -67,6 +67,82 @@ class AmReceive {
 };
 
 /**
+ * @brief Data for a flush operation.
+ *
+ * Type identifying a flush operation and containing data specific to this request type.
+ */
+class Flush {
+ public:
+  /**
+   * @brief Constructor for flush-specific data.
+   *
+   * Construct an object containing flush-specific data.
+   */
+  Flush();
+};
+
+/**
+ * @brief Data for a memory send.
+ *
+ * Type identifying a memory send operation and containing data specific to this request type.
+ */
+class MemPut {
+ public:
+  const void* _buffer{nullptr};   ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};        ///< The length of the message.
+  const uint64_t _remoteAddr{0};  ///< Remote memory address to write to.
+  const ucp_rkey_h _rkey{};       ///< UCX remote key associated with the remote memory address.
+
+  /**
+   * @brief Constructor for memory-specific data.
+   *
+   * Construct an object containing memory-specific data.
+   *
+   * @param[in] buffer      a raw pointer to the data to be sent.
+   * @param[in] length      the size in bytes of the tag message to be sent.
+   * @param[in] remoteAddr  the destination remote memory address to write to.
+   * @param[in] rkey        the remote memory key associated with the remote memory address.
+   */
+  explicit MemPut(const decltype(_buffer) buffer,
+                  const decltype(_length) length,
+                  const decltype(_remoteAddr) remoteAddr,
+                  const decltype(_rkey) rkey);
+
+  MemPut() = delete;
+};
+
+/**
+ * @brief Data for a memory receive.
+ *
+ * Type identifying a memory receive operation and containing data specific to this request
+ * type.
+ */
+class MemGet {
+ public:
+  void* _buffer{nullptr};         ///< The raw pointer where received data should be stored.
+  const size_t _length{0};        ///< The length of the message.
+  const uint64_t _remoteAddr{0};  ///< Remote memory address to read from.
+  const ucp_rkey_h _rkey{};       ///< UCX remote key associated with the remote memory address.
+
+  /**
+   * @brief Constructor for memory-specific data.
+   *
+   * Construct an object containing memory-specific data.
+   *
+   * @param[out] buffer     a raw pointer to the received data.
+   * @param[in]  length     the size in bytes of the tag message to be received.
+   * @param[in]  remoteAddr the source remote memory address to read from.
+   * @param[in]  rkey       the remote memory key associated with the remote memory address.
+   */
+  explicit MemGet(decltype(_buffer) buffer,
+                  const decltype(_length) length,
+                  const decltype(_remoteAddr) remoteAddr,
+                  const decltype(_rkey) rkey);
+
+  MemGet() = delete;
+};
+
+/**
  * @brief Data for a Stream send.
  *
  * Type identifying a Stream send operation and containing data specific to this request
@@ -127,7 +203,7 @@ class TagSend {
   const ::ucxx::Tag _tag{0};     ///< Tag to match
 
   /**
-   * @brief Constructor for tag/multi-buffer tag-specific data.
+   * @brief Constructor for tag-specific data.
    *
    * Construct an object containing tag-specific data.
    *
@@ -156,7 +232,7 @@ class TagReceive {
   const ::ucxx::TagMask _tagMask{0};  ///< Tag mask to use
 
   /**
-   * @brief Constructor send tag-specific data.
+   * @brief Constructor for tag-specific data.
    *
    * Construct an object containing send tag-specific data.
    *
@@ -231,6 +307,9 @@ class TagMultiReceive {
 using RequestData = std::variant<std::monostate,
                                  AmSend,
                                  AmReceive,
+                                 Flush,
+                                 MemPut,
+                                 MemGet,
                                  StreamSend,
                                  StreamReceive,
                                  TagSend,
