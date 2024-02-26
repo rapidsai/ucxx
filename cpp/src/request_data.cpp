@@ -6,6 +6,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucp/api/ucp_def.h>
 #include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
 
@@ -21,6 +22,21 @@ AmSend::AmSend(const void* buffer, const size_t length, const ucs_memory_type me
 AmReceive::AmReceive() {}
 
 EndpointClose::EndpointClose(const bool force) : _force(force) {}
+
+Flush::Flush() {}
+
+MemPut::MemPut(const void* buffer,
+               const size_t length,
+               const uint64_t remoteAddr,
+               const ucp_rkey_h rkey)
+  : _buffer(buffer), _length(length), _remoteAddr(remoteAddr), _rkey(rkey)
+{
+}
+
+MemGet::MemGet(void* buffer, const size_t length, const uint64_t remoteAddr, const ucp_rkey_h rkey)
+  : _buffer(buffer), _length(length), _remoteAddr(remoteAddr), _rkey(rkey)
+{
+}
 
 StreamSend::StreamSend(const void* buffer, const size_t length) : _buffer(buffer), _length(length)
 {
