@@ -22,7 +22,7 @@ Address::~Address()
 
   auto worker = std::dynamic_pointer_cast<Worker>(getParent());
   if (worker == nullptr) {
-    std::free(_handle);
+    delete reinterpret_cast<char*>(_handle);
   } else {
     ucp_worker_release_address(worker->getHandle(), _handle);
   }
@@ -40,11 +40,10 @@ std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
 
 std::shared_ptr<Address> createAddressFromString(std::string addressString)
 {
-  char* address = new char[addressString.length()];
-  size_t length = addressString.length();
-  memcpy(reinterpret_cast<char*>(address), addressString.c_str(), length);
-  return std::shared_ptr<Address>(
-    new Address(nullptr, reinterpret_cast<ucp_address_t*>(address), length));
+  ucp_address_t* address = reinterpret_cast<ucp_address_t*>(new char[addressString.length()]);
+  size_t length          = addressString.length();
+  memcpy(address, addressString.c_str(), length);
+  return std::shared_ptr<Address>(new Address(nullptr, address, length));
 }
 
 ucp_address_t* Address::getHandle() const { return _handle; }
