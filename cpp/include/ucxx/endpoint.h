@@ -344,6 +344,130 @@ class Endpoint : public Component {
                                   RequestCallbackUserData callbackData         = nullptr);
 
   /**
+   * @brief Enqueue a memory put operation.
+   *
+   * Enqueue a memory operation, returning a `std::shared<ucxx::Request>` that can be later
+   * awaited and checked for errors. This is a non-blocking operation, and the status of the
+   * transfer must be verified from the resulting request object before both local and
+   * remote data can be released and the remote data can be consumed.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] remoteAddr          the destination remote memory address to write to.
+   * @param[in] rkey                the remote memory key associated with the remote memory
+   *                                address.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> memPut(void* buffer,
+                                  size_t length,
+                                  uint64_t remote_addr,
+                                  ucp_rkey_h rkey,
+                                  const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Enqueue a memory put operation.
+   *
+   * Enqueue a memory operation, returning a `std::shared<ucxx::Request>` that can be later
+   * awaited and checked for errors. This is a non-blocking operation, and the status of the
+   * transfer must be verified from the resulting request object before both local and
+   * remote data can be released and the remote data can be consumed.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] remoteKey           the remote memory key associated with the remote memory
+   *                                address.
+   * @param[in] remoteAddrOffset    the destination remote memory address offset where to
+   *                                start writing to, `0` means start writing from beginning
+   *                                of the base address.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> memPut(void* buffer,
+                                  size_t length,
+                                  std::shared_ptr<ucxx::RemoteKey> remoteKey,
+                                  uint64_t remoteAddrOffset                    = 0,
+                                  const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Enqueue a memory get operation.
+   *
+   * Enqueue a memory operation, returning a `std::shared<ucxx::Request>` that can be later
+   * awaited and checked for errors. This is a non-blocking operation, and the status of the
+   * transfer must be verified from the resulting request object before both local and
+   * remote data can be released and the local data can be consumed.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] remoteAddr          the source remote memory address to read from.
+   * @param[in] rkey                the remote memory key associated with the remote memory
+   *                                address.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> memGet(void* buffer,
+                                  size_t length,
+                                  uint64_t remoteAddr,
+                                  ucp_rkey_h rkey,
+                                  const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Enqueue a memory get operation.
+   *
+   * Enqueue a memory operation, returning a `std::shared<ucxx::Request>` that can be later
+   * awaited and checked for errors. This is a non-blocking operation, and the status of the
+   * transfer must be verified from the resulting request object before both local and
+   * remote data can be released and the local data can be consumed.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] remoteKey           the remote memory key associated with the remote memory
+   *                                address.
+   * @param[in] remoteAddrOffset    the destination remote memory address offset where to
+   *                                start reading from, `0` means start writing from
+   *                                beginning of the base address.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> memGet(void* buffer,
+                                  size_t length,
+                                  std::shared_ptr<ucxx::RemoteKey> remoteKey,
+                                  uint64_t remoteAddrOffset                    = 0,
+                                  const bool enablePythonFuture                = false,
+                                  RequestCallbackUserFunction callbackFunction = nullptr,
+                                  RequestCallbackUserData callbackData         = nullptr);
+
+  /**
    * @brief Enqueue a stream send operation.
    *
    * Enqueue a stream send operation, returning a `std::shared<ucxx::Request>` that can
@@ -511,6 +635,31 @@ class Endpoint : public Component {
   std::shared_ptr<Request> tagMultiRecv(const Tag tag,
                                         const TagMask tagMask,
                                         const bool enablePythonFuture);
+
+  /**
+   * @brief Enqueue a flush operation.
+   *
+   * Enqueue request to flush outstanding AMO (Atomic Memory Operation) and RMA (Remote
+   * Memory Access) operations on the endpoint, returning a pointer to a request object that
+   * can be later awaited and checked for errors. This is a non-blocking operation, and its
+   * status must be verified from the resulting request object to confirm the flush
+   * operation has completed successfully.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> flush(const bool enablePythonFuture                = false,
+                                 RequestCallbackUserFunction callbackFunction = nullptr,
+                                 RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Get `ucxx::Worker` component from a worker or listener object.
