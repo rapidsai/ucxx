@@ -22,7 +22,7 @@ Address::~Address()
 
   auto worker = std::dynamic_pointer_cast<Worker>(getParent());
   if (worker == nullptr) {
-    delete reinterpret_cast<char*>(_handle);
+    delete[] reinterpret_cast<char*>(_handle);
   } else {
     ucp_worker_release_address(worker->getHandle(), _handle);
   }
