@@ -28,7 +28,7 @@ dependencies:
 - libtool
 - ninja
 - numba>=0.57.1
-- numpy>=1.21
+- numpy>=1.23
 - pip
 - pkg-config
 - pre-commit
