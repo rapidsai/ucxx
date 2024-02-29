@@ -45,7 +45,6 @@ if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
 fi
 
 if [[ ${package_name} == "distributed-ucxx" ]]; then
-    sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
     sed -r -i "s/\"ucxx(.*)\"/\"ucxx${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
 
     python -m pip wheel "${package_dir}/" -w "${package_dir}/dist" -vvv --no-deps --disable-pip-version-check
