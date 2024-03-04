@@ -17,7 +17,7 @@ python -m pip install $(echo ./dist/${PROJECT_NAME}*.whl)[test]
 # Run smoke tests for aarch64 pull requests
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
   rapids-logger "Python Async Smoke Tests"
-  python -m pytest -vs ci/wheel_smoke_test_ucxx.py
+  timeout 1m python -m pytest -vs ci/wheel_smoke_test_ucxx.py
 else
   rapids-logger "Python Core Tests"
   run_py_tests
