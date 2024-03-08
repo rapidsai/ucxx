@@ -25,7 +25,7 @@ rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   libucxx
 
-export RAPIDS_VERSION_NUMBER="24.04"
+export UCXX_VERSION="$(cat VERSION)"
 export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
 rapids-logger "Build CPP docs"
