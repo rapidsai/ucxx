@@ -27,7 +27,7 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  libucxx ucxx distributed-ucxx
+  libucxx ucxx
 
 print_ucx_config
 
@@ -54,23 +54,6 @@ for nbuf in 1 8; do
     run_py_benchmark    ucxx-async  thread          0             1                         1                    ${nbuf}  0
   fi
 done
-
-rapids-logger "Distributed Tests"
-# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests      polling         0                           0
-run_distributed_ucxx_tests      thread          0                           0
-run_distributed_ucxx_tests      thread          0                           1
-run_distributed_ucxx_tests      thread          1                           0
-run_distributed_ucxx_tests      thread          1                           1
-
-install_distributed_dev_mode
-
-# run_distributed_ucxx_tests_internal   PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests_internal     polling         0                           0
-run_distributed_ucxx_tests_internal     thread          0                           0
-run_distributed_ucxx_tests_internal     thread          0                           1
-run_distributed_ucxx_tests_internal     thread          1                           0
-run_distributed_ucxx_tests_internal     thread          1                           1
 
 rapids-logger "C++ future -> Python future notifier example"
 python -m ucxx.examples.python_future_task_example

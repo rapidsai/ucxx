@@ -144,4 +144,6 @@ class AmReceiverCallbackInfo {
   AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id);
 };
 
+typedef const std::string SerializedRemoteKey;
+
 }  // namespace ucxx

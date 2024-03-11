@@ -198,6 +198,54 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
   }
 }
 
+TEST_P(WorkerProgressTest, ProgressMemoryGet)
+{
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  std::vector<int> send{123};
+  std::vector<int> recv(1);
+
+  size_t messageSize = send.size() * sizeof(int);
+
+  auto memoryHandle = _context->createMemoryHandle(messageSize, send.data());
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(
+    ep->memGet(recv.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle()));
+  requests.push_back(_worker->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  ASSERT_EQ(recv[0], send[0]);
+}
+
+TEST_P(WorkerProgressTest, ProgressMemoryPut)
+{
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  std::vector<int> send{123};
+  std::vector<int> recv(1);
+
+  size_t messageSize = send.size() * sizeof(int);
+
+  auto memoryHandle = _context->createMemoryHandle(messageSize, recv.data());
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(
+    ep->memPut(send.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle()));
+  requests.push_back(_worker->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  ASSERT_EQ(recv[0], send[0]);
+}
+
 TEST_P(WorkerProgressTest, ProgressStream)
 {
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());

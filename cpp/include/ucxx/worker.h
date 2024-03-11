@@ -859,6 +859,31 @@ class Worker : public Component {
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
   bool amProbe(const ucp_ep_h endpointHandle) const;
+
+  /**
+   * @brief Enqueue a flush operation.
+
+   * Enqueue request to flush outstanding AMO (Atomic Memory Operation) and RMA (Remote
+   * Memory Access) operations on the worker, returning a pointer to a request object that
+   * can be later awaited and checked for errors. This is a non-blocking operation, and its
+   * status must be verified from the resulting request object to confirm the flush
+   * operation has completed successfully.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> flush(const bool enablePythonFuture                = false,
+                                 RequestCallbackUserFunction callbackFunction = nullptr,
+                                 RequestCallbackUserData callbackData         = nullptr);
 };
 
 }  // namespace ucxx

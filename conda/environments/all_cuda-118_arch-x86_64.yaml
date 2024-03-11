@@ -28,7 +28,7 @@ dependencies:
 - libtool
 - ninja
 - numba>=0.57.1
-- numpy>=1.21
+- numpy>=1.23
 - pip
 - pkg-config
 - pre-commit
@@ -36,7 +36,7 @@ dependencies:
 - pytest-asyncio
 - pytest-rerunfailures
 - pytest==7.*
-- python>=3.9,<3.11
+- python>=3.9,<3.12
 - rapids-dask-dependency==24.4.*
 - rmm==24.4.*
 - scikit-build-core>=0.7.0
