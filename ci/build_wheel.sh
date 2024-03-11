@@ -34,24 +34,23 @@ if ! rapids-is-release-build; then
     alpha_spec=',>=0.0.0a0'
 fi
 
+# Add -cuXX to package name
+sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
+sed -r -i "s/rmm(.*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
+sed -r -i "s/cudf(.*)\"/cudf${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
+
+# Update cupy package name (different suffix from RAPIDS)
+if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
+    sed -i "s/cupy-cuda11x/cupy-cuda12x/g" ${pyproject_file}
+fi
+
 if [[ ${package_name} == "distributed-ucxx" ]]; then
-    sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
     sed -r -i "s/\"ucxx(.*)\"/\"ucxx${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
 
     python -m pip wheel "${package_dir}/" -w "${package_dir}/dist" -vvv --no-deps --disable-pip-version-check
 
     RAPIDS_PY_WHEEL_NAME="distributed_ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_dir}/dist
 elif [[ ${package_name} == "ucxx" ]]; then
-    # Add -cuXX to package name
-    sed -r -i "s/rapids-dask-dependency==(.*)\"/rapids-dask-dependency==\1${alpha_spec}\"/g" ${pyproject_file}
-    sed -r -i "s/rmm(.*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
-    sed -r -i "s/cudf(.*)\"/cudf${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
-
-    # Update cupy package name (different suffix from RAPIDS)
-    if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
-        sed -i "s/cupy-cuda11x/cupy-cuda12x/g" ${pyproject_file}
-    fi
-
     SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON" \
         python -m pip wheel "${package_dir}"/ -w "${package_dir}"/dist -vvv --no-deps --disable-pip-version-check
 
