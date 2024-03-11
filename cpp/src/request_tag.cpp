@@ -139,8 +139,6 @@ void RequestTag::request()
   _request = request;
 }
 
-static void logPopulateDelayedSubmission() {}
-
 void RequestTag::populateDelayedSubmission()
 {
   bool terminate =

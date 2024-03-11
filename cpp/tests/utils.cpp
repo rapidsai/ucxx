@@ -16,14 +16,12 @@ void createCudaContextCallback(void* callbackArg)
 std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
                                           ProgressMode progressMode)
 {
-  if (progressMode == ProgressMode::Polling)
-    return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
-  else if (progressMode == ProgressMode::Blocking)
-    return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker, -1);
-  else if (progressMode == ProgressMode::Wait)
-    return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
-  else
-    return std::function<void()>();
+  switch (progressMode) {
+    case ProgressMode::Polling: return [worker]() { worker->progress(); };
+    case ProgressMode::Blocking: return [worker]() { worker->progressWorkerEvent(-1); };
+    case ProgressMode::Wait: return [worker]() { worker->waitProgress(); };
+    default: return []() {};
+  }
 }
 
 bool loopWithTimeout(std::chrono::milliseconds timeout, std::function<bool()> f)

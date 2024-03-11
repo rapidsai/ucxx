@@ -19,6 +19,7 @@
 #include <ucxx/buffer.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
+#include <ucxx/request_flush.h>
 #include <ucxx/request_tag.h>
 #include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/file_descriptor.h>
@@ -589,6 +590,15 @@ void Worker::registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType a
 bool Worker::amProbe(const ucp_ep_h endpointHandle) const
 {
   return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
+}
+
+std::shared_ptr<Request> Worker::flush(const bool enableFuture,
+                                       RequestCallbackUserFunction callbackFunction,
+                                       RequestCallbackUserData callbackData)
+{
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  return registerInflightRequest(
+    createRequestFlush(worker, data::Flush(), enableFuture, callbackFunction, callbackData));
 }
 
 }  // namespace ucxx
