@@ -25,7 +25,9 @@ rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   libucxx
 
-export UCXX_VERSION="$(cat VERSION)"
+export UCXX_VERSION="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1.\2.\3/' VERSION)"
+export UCXX_VERSION_MAJOR_MINOR="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1.\2/' VERSION)"
+export UCXX_VERSION_NUMBER="$UCXX_VERSION_MAJOR_MINOR"
 export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
 rapids-logger "Build CPP docs"
