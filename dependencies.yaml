@@ -144,7 +144,6 @@ dependencies:
         packages:
           - setuptools>=64.0.0
           - tomli
-          - scikit-build-core[pyproject]>=0.7.0
   checks:
     common:
       - output_types: [conda, requirements]
