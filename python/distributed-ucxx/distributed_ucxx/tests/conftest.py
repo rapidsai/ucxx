@@ -5,6 +5,8 @@
 # https://pytest.org/latest/example/simple.html#control-skipping-of-tests-according-to-command-line-option
 from __future__ import annotations
 
+import gc
+
 import pytest
 
 try:
@@ -19,6 +21,10 @@ else:
 
 # Make all fixtures available
 from distributed_ucxx.utils_test import *  # noqa
+
+
+def pytest_runtest_teardown(item, nextitem):
+    gc.collect()
 
 
 def pytest_addoption(parser):
