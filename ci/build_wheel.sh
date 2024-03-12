@@ -105,7 +105,7 @@ elif [[ ${package_name} == "ucxx" ]]; then
             patchelf --replace-needed libuct.so.0 $LIBUCT $f
             patchelf --replace-needed libucs.so.0 $LIBUCS $f
             patchelf --replace-needed libucm.so.0 $LIBUCM $f
-            if [[ -z "$LIBNUMA" ]]; then
+            if [[ -n "$LIBNUMA" ]]; then
                 patchelf --replace-needed libnuma.so.1 $LIBNUMA $f
             fi
             patchelf --add-rpath '$ORIGIN/..' $f
