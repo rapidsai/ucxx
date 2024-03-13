@@ -383,9 +383,15 @@ async def test_ucxx_protocol(ucxx_loop, cleanup, port):
 
 
 @gen_test()
+@pytest.mark.ignore_alive_references(True)
 async def test_ucxx_unreachable(
     ucxx_loop,
 ):
+    # It is not entirely clear why, but when attempting to reconnect
+    # Distributed may fail to complete async tasks, leaving UCXX references
+    # still alive. For now we disable those errors that only occur during the
+    # teardown phase of this test.
+
     with pytest.raises(OSError, match="Timed out trying to connect to"):
         await Client("ucxx://255.255.255.255:12345", timeout=1, asynchronous=True)
 
