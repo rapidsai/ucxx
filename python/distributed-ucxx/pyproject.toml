@@ -121,6 +121,5 @@ version = {file = "distributed_ucxx/VERSION"}
 
 [tool.pytest.ini_options]
 markers = [
-    "gpu",
     "slow",
 ]
