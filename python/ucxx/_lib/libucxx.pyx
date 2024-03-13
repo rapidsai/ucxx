@@ -1496,8 +1496,8 @@ cdef class UCXEndpoint():
             # after the Python object has been destroyed.
             # Cast explicitly to prevent Cython `Cannot assign type ...` errors.
             self._endpoint.get().setCloseCallback(
-                <function[void (ucs_status_t, shared_ptr[void]) except *]>nullptr,
-                <shared_ptr[void]>nullptr
+                <function[void (void *) except *]>nullptr,
+                nullptr,
             )
 
 
