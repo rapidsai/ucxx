@@ -281,6 +281,9 @@ class UCXX(Comm):
 
         logger.debug("UCX.__init__ %s", self)
 
+    def __del__(self) -> None:
+        self.abort()
+
     @property
     def local_address(self) -> str:
         return self._local_addr
