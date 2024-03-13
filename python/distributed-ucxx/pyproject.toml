@@ -118,3 +118,8 @@ exclude = [
 
 [tool.setuptools.dynamic]
 version = {file = "distributed_ucxx/VERSION"}
+
+[tool.pytest.ini_options]
+markers = [
+    "slow",
+]
