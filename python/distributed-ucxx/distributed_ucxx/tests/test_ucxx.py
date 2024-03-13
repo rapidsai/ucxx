@@ -27,8 +27,6 @@ import ucxx
 import distributed_ucxx  # noqa: E402
 from distributed_ucxx.utils_test import gen_test
 
-pytestmark = pytest.mark.gpu
-
 try:
     HOST = ucxx.get_address()
 except Exception:
