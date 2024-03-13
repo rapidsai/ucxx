@@ -474,6 +474,7 @@ class UCXX(Comm):
                 ucxx.exceptions.UCXCloseError,
                 ucxx.exceptions.UCXCanceledError,
                 ucxx.exceptions.UCXConnectionResetError,
+                ucxx.exceptions.UCXUnreachableError,
             ):
                 # If the other end is in the process of closing,
                 # UCX will sometimes raise a `Input/output` error,
@@ -527,6 +528,7 @@ class UCXXConnector(Connector):
             ucxx.exceptions.UCXCanceledError,
             ucxx.exceptions.UCXConnectionResetError,
             ucxx.exceptions.UCXNotConnectedError,
+            ucxx.exceptions.UCXUnreachableError,
         ):
             raise CommClosedError("Connection closed before handshake completed")
         return self.comm_class(
