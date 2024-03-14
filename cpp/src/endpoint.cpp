@@ -60,7 +60,7 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
 
   setParent(workerOrListener);
 
-  _callbackData = std::make_unique<ErrorCallbackData>((ErrorCallbackData){
+  _callbackData = std::make_unique<ErrorCallbackData>(ErrorCallbackData {
     .status = UCS_INPROGRESS, .inflightRequests = _inflightRequests, .worker = worker});
 
   params->err_mode =
