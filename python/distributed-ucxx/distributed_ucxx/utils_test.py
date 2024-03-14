@@ -55,13 +55,19 @@ def ucxx_exception_handler(event_loop, context):
 # Let's make sure that UCX gets time to cancel
 # progress tasks before closing the event loop.
 @pytest.fixture(scope="function")
-def ucxx_loop():
+def ucxx_loop(request):
     """Allows UCX to cancel progress tasks before closing event loop.
 
     When UCX tasks are not completed in time (e.g., by unexpected Endpoint
     closure), clean up tasks before closing the event loop to prevent unwanted
     errors from being raised.
+
+    Additionally add an `ignore_alive_references` marker that will override
+    checks for alive references to `ApplicationContext`. Use sparingly!
     """
+    marker = request.node.get_closest_marker("ignore_alive_references")
+    ignore_alive_references = False if marker is None else marker.args[0]
+
     event_loop = asyncio.new_event_loop()
     event_loop.set_exception_handler(ucxx_exception_handler)
 
@@ -75,7 +81,24 @@ def ucxx_loop():
 
     with check_thread_leak():
         yield loop
-        ucxx.reset()
+        if ignore_alive_references:
+            try:
+                ucxx.reset()
+            except ucxx.exceptions.UCXError as e:
+                if (
+                    len(e.args) > 0
+                    and "The following objects are still referencing ApplicationContext"
+                    in e.args[0]
+                ):
+                    print(
+                        "ApplicationContext still has alive references but this test "
+                        f"is ignoring them. Original error:\n{e}",
+                        flush=True,
+                    )
+                else:
+                    raise e
+        else:
+            ucxx.reset()
         event_loop.close()
 
         # Reset also Distributed's UCX initialization, i.e., revert the effects of
