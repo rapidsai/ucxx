@@ -35,26 +35,26 @@ struct AmHeader {
   {
     size_t offset{0};
 
+    auto decode = [&offset, &serialized](void* data, size_t bytes) {
+      memcpy(data, serialized.data() + offset, bytes);
+      offset += bytes;
+    };
+
     ucs_memory_type_t memoryType;
-    memcpy(&memoryType, serialized.data() + offset, sizeof(memoryType));
-    offset += sizeof(memoryType);
+    decode(&memoryType, sizeof(memoryType));
 
     bool hasReceiverCallback{false};
-    memcpy(&hasReceiverCallback, serialized.data() + offset, sizeof(hasReceiverCallback));
-    offset += sizeof(hasReceiverCallback);
+    decode(&hasReceiverCallback, sizeof(hasReceiverCallback));
 
     if (hasReceiverCallback) {
       size_t ownerSize{0};
-      memcpy(&ownerSize, serialized.data() + offset, sizeof(ownerSize));
-      offset += sizeof(ownerSize);
+      decode(&ownerSize, sizeof(ownerSize));
 
       auto owner = AmReceiverCallbackOwnerType(ownerSize, 0);
-      memcpy(owner.data(), serialized.data() + offset, ownerSize);
-      offset += ownerSize;
+      decode(owner.data(), ownerSize);
 
       AmReceiverCallbackIdType id{};
-      memcpy(&id, serialized.data() + offset, sizeof(id));
-      offset += sizeof(id);
+      decode(&id, sizeof(id));
 
       return AmHeader{.memoryType           = memoryType,
                       .receiverCallbackInfo = AmReceiverCallbackInfo(owner, id)};
@@ -74,22 +74,17 @@ struct AmHeader {
       sizeof(memoryType) + sizeof(hasReceiverCallback) + amReceiverCallbackInfoSize;
     std::string serialized(totalSize, 0);
 
-    memcpy(serialized.data() + offset, &memoryType, sizeof(memoryType));
-    offset += sizeof(memoryType);
+    auto encode = [&offset, &serialized](void const* data, size_t bytes) {
+      memcpy(serialized.data() + offset, data, bytes);
+      offset += bytes;
+    };
 
-    memcpy(serialized.data() + offset, &hasReceiverCallback, sizeof(hasReceiverCallback));
-    offset += sizeof(hasReceiverCallback);
-
+    encode(&memoryType, sizeof(memoryType));
+    encode(&hasReceiverCallback, sizeof(hasReceiverCallback));
     if (hasReceiverCallback) {
-      memcpy(serialized.data() + offset, &ownerSize, sizeof(ownerSize));
-      offset += sizeof(ownerSize);
-
-      memcpy(serialized.data() + offset, receiverCallbackInfo->owner.c_str(), ownerSize);
-      offset += ownerSize;
-
-      memcpy(
-        serialized.data() + offset, &receiverCallbackInfo->id, sizeof(receiverCallbackInfo->id));
-      offset += sizeof(receiverCallbackInfo->id);
+      encode(&ownerSize, sizeof(ownerSize));
+      encode(receiverCallbackInfo->owner.c_str(), ownerSize);
+      encode(&receiverCallbackInfo->id, sizeof(receiverCallbackInfo->id));
     }
 
     return serialized;
