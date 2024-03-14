@@ -1517,8 +1517,8 @@ cdef class UCXEndpoint():
             endpoint = self._endpoint.get()
             if endpoint != nullptr:
                 endpoint.setCloseCallback(
-                    <function[void (void *) except *]>nullptr,
-                    nullptr,
+                    <function[void (ucs_status_t, shared_ptr[void]) except *]>nullptr,
+                    <shared_ptr[void]>nullptr,
                 )
 
 
