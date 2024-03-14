@@ -17,13 +17,19 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
                              std::shared_ptr<RequestAm> request,
                              std::shared_ptr<Buffer> buffer,
                              AmReceiverCallbackType receiverCallback)
-  : _amData(amData), _ep(ep), _request(request), _receiverCallback(receiverCallback)
+  : _amData(amData), _ep(ep), _request(request)
 {
   std::visit(data::dispatch{
                [this, buffer](data::AmReceive& amReceive) { amReceive._buffer = buffer; },
                [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _request->_requestData);
+
+  if (receiverCallback) {
+    _request->_callback = [this, receiverCallback](ucs_status_t, std::shared_ptr<void>) {
+      receiverCallback(_request);
+    };
+  }
 }
 
 void RecvAmMessage::setUcpRequest(void* request) { _request->_request = request; }
@@ -32,12 +38,6 @@ void RecvAmMessage::callback(void* request, ucs_status_t status)
 {
   std::visit(data::dispatch{
                [this, request, status](data::AmReceive amReceive) {
-                 if (_receiverCallback) {
-                   _request->_callback = [this](ucs_status_t, std::shared_ptr<void>) {
-                     _receiverCallback(_request);
-                   };
-                 }
-
                  _request->callback(request, status);
                  {
                    std::lock_guard<std::mutex> lock(_amData->_mutex);

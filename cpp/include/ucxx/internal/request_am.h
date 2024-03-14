@@ -38,8 +38,6 @@ class RecvAmMessage {
   std::shared_ptr<RequestAm> _request{
     nullptr};  ///< Request which will later be notified/delivered to user
   std::shared_ptr<Buffer> _buffer{nullptr};  ///< Buffer containing the received data
-  AmReceiverCallbackType _receiverCallback{
-    AmReceiverCallbackType()};  ///< Receiver callback to execute when specified by sender
 
   RecvAmMessage()                                = delete;
   RecvAmMessage(const RecvAmMessage&)            = delete;
