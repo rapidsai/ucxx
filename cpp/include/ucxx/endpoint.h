@@ -732,7 +732,7 @@ class Endpoint : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
+   * ensure the close operation has completed. Requires UCXX Python support.
    *
    * @warning Unlike its `closeBlocking()` counterpart, this method does not cancel any
    * inflight requests prior to submitting the UCP close request. Before scheduling the
