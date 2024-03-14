@@ -62,7 +62,7 @@ def ucxx_loop(request):
     closure), clean up tasks before closing the event loop to prevent unwanted
     errors from being raised.
 
-    Additionally add a `ignore_alive_references` marker that will override
+    Additionally add an `ignore_alive_references` marker that will override
     checks for alive references to `ApplicationContext`. Use sparingly!
     """
     marker = request.node.get_closest_marker("ignore_alive_references")
