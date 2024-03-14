@@ -35,7 +35,6 @@ static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
   listenerContainer->status = ucp_conn_request_query(connRequest, &attr);
   if (listenerContainer->status != UCS_OK) return;
 
-  std::cout << "Error handling listener: " << listenerContainer->endpointErrorHandling << std::endl;
   listenerContainer->endpoint = listenerContainer->listener->createEndpointFromConnRequest(
     connRequest, listenerContainer->endpointErrorHandling);
 }
@@ -95,8 +94,7 @@ class ListenerPortTest : public ListenerTestBase,
 TEST_P(ListenerTest, HandleIsValid)
 {
   auto listenerContainer = createListenerContainer();
-  std::cout << "Error handling endpoint: " << listenerContainer->endpointErrorHandling << std::endl;
-  auto listener = createListener(listenerContainer);
+  auto listener          = createListener(listenerContainer);
   _worker->progress();
 
   ASSERT_TRUE(listener->getHandle() != nullptr);
@@ -139,8 +137,7 @@ TEST_P(ListenerTest, EndpointSendRecv)
 TEST_P(ListenerTest, IsAlive)
 {
   auto listenerContainer = createListenerContainer();
-  std::cout << "Error handling endpoint: " << listenerContainer->endpointErrorHandling << std::endl;
-  auto listener = createListener(listenerContainer);
+  auto listener          = createListener(listenerContainer);
   _worker->progress();
 
   auto ep =
