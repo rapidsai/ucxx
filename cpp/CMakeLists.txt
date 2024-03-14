@@ -11,7 +11,13 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
-set(libucxx_version 0.37.00)
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../VERSION" _version_contents)
+if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
+  set(libucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+else()
+  string(REPLACE "\n" "\n  " _version_contents_formatted "${_version_contents}")
+  message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
+endif()
 
 project(
   UCXX
@@ -307,7 +313,7 @@ rapids_export(
 add_custom_command(
   OUTPUT UCXX_DOXYGEN
   WORKING_DIRECTORY ${UCXX_SOURCE_DIR}/doxygen
-  COMMAND doxygen Doxyfile
+  COMMAND ${CMAKE_COMMAND} -E env "UCXX_VERSION=${libucxx_version}" doxygen Doxyfile
   VERBATIM
   COMMENT "Custom command for building ucxx doxygen docs."
 )

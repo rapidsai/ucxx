@@ -1108,6 +1108,8 @@ cdef class UCXEndpoint():
         raise TypeError("UCXListener cannot be instantiated directly.")
 
     def __dealloc__(self) -> None:
+        self.remove_close_callback()
+
         with nogil:
             self._endpoint.reset()
 
@@ -1489,6 +1491,20 @@ cdef class UCXEndpoint():
                 deref(func_close_callback), <void*>self._close_cb_data
             )
         del func_close_callback
+
+    def remove_close_callback(self) -> None:
+        cdef Endpoint* endpoint
+
+        with nogil:
+            # Unset close callback, in case the Endpoint error callback runs
+            # after the Python object has been destroyed.
+            # Cast explicitly to prevent Cython `Cannot assign type ...` errors.
+            endpoint = self._endpoint.get()
+            if endpoint != nullptr:
+                endpoint.setCloseCallback(
+                    <function[void (void *) except *]>nullptr,
+                    nullptr,
+                )
 
 
 cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with gil:
