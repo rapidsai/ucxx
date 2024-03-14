@@ -356,7 +356,7 @@ async def test_cuda_context(
                     )
 
 
-@gen_test()
+@gen_test(timeout=60)
 async def test_transpose(
     ucxx_loop,
 ):
