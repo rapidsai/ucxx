@@ -31,7 +31,7 @@ struct AmHeader {
   ucs_memory_type_t memoryType;
   std::optional<AmReceiverCallbackInfo> receiverCallbackInfo;
 
-  static AmHeader deserialize(const AmHeaderSerialized serialized)
+  static AmHeader deserialize(const std::string_view serialized)
   {
     size_t offset{0};
 
@@ -194,9 +194,8 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   bool is_rndv = param->recv_attr & UCP_AM_RECV_ATTR_FLAG_RNDV;
 
   std::shared_ptr<Buffer> buf{nullptr};
-  // auto amHeader         = AmHeader::deserialize(static_cast<const char*>(header));
   auto amHeader =
-    AmHeader::deserialize(std::string(static_cast<const char*>(header), header_length));
+    AmHeader::deserialize(std::string_view(static_cast<const char*>(header), header_length));
   auto receiverCallback = [&amHeader, &amData]() {
     if (amHeader.receiverCallbackInfo) {
       try {
