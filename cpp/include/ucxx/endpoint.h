@@ -725,7 +725,8 @@ class Endpoint : public Component {
    * checked for errors. This is a non-blocking operation, and the status of closing the
    * endpoint must be verified from the resulting request object before the
    * `std::shared_ptr<ucxx::Endpoint>` can be safely destroyed and the UCP endpoint assumed
-   * inactive (closed).
+   * inactive (closed). If the endpoint is already closed or in process of closing, `nullptr`
+   * is returned instead.
    *
    * If the endpoint was created with error handling support, the error callback will be
    * executed, implying the user-defined callback will also be executed.
@@ -749,7 +750,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Request to be subsequently checked for the completion and its state, or
+   *          `nullptr` if the endpoint has already closed or is already in process of
+   *          closing.
    */
   std::shared_ptr<Request> close(const bool enablePythonFuture                      = false,
                                  EndpointCloseCallbackUserFunction callbackFunction = nullptr,

@@ -165,7 +165,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
                                          EndpointCloseCallbackUserFunction callbackFunction,
                                          EndpointCloseCallbackUserData callbackData)
 {
-  if (_callbackData->closing->exchange(true) || _handle == nullptr) return;
+  if (_callbackData->closing->exchange(true) || _handle == nullptr) return nullptr;
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   bool force    = _endpointErrorHandling;
@@ -184,7 +184,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
 
 void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 {
-  if (_callbackData->status != UCS_INPROGRESS || _handle == nullptr) return;
+  if (_callbackData->closing->exchange(true) || _handle == nullptr) return;
 
   size_t canceled = cancelInflightRequestsBlocking(3000000000 /* 3s */, 3);
   ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
