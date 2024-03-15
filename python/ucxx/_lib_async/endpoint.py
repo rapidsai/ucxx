@@ -109,7 +109,8 @@ class Endpoint:
         if self._ep is not None:
             logger.debug("Endpoint.abort(): 0x%x" % self.uid)
             # Wait for a maximum of `period` ns
-            self._ep.close(period=period, max_attempts=max_attempts)
+            self._ep.close_blocking(period=period, max_attempts=max_attempts)
+            self._ep.remove_close_callback()
         self._ep = None
         self._ctx = None
 

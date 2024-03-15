@@ -34,6 +34,13 @@ files:
       - cuda_version
       - py_version
       - test_python_ucxx
+      - depends_on_cupy
+      - depends_on_cudf
+  test_python_distributed:
+    output: none
+    includes:
+      - cuda_version
+      - py_version
       - test_python_distributed_ucxx
       - depends_on_cupy
       - depends_on_cudf
@@ -96,6 +103,8 @@ files:
       key: test
     includes:
       - test_python_distributed_ucxx
+      - depends_on_cupy
+      - depends_on_cudf
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -215,13 +224,17 @@ dependencies:
             packages:
               - python=3.10
           - matrix:
+              py: "3.11"
             packages:
-              - python>=3.9,<3.11
+              - python=3.11
+          - matrix:
+            packages:
+              - python>=3.9,<3.12
   run_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numpy numpy>=1.21
+          - &numpy numpy>=1.23,<2.0a0
           - pynvml>=11.4.1
       - output_types: [conda]
         packages:

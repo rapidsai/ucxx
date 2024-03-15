@@ -13,8 +13,6 @@ from distributed.utils_test import popen
 from distributed_ucxx.ucxx import _prepare_ucx_config
 from distributed_ucxx.utils_test import gen_test
 
-pytestmark = pytest.mark.gpu
-
 try:
     HOST = get_ip()
 except Exception:

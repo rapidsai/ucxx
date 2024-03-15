@@ -270,7 +270,10 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
-        void close(uint64_t period, uint64_t maxAttempts)
+        shared_ptr[Request] close(
+            bint enable_python_future
+        ) except +raise_py_error
+        void closeBlocking(uint64_t period, uint64_t maxAttempts)
         shared_ptr[Request] amSend(
             void* buffer,
             size_t length,
@@ -309,7 +312,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         bint isAlive()
         void raiseOnError() except +raise_py_error
         void setCloseCallback(
-            function[void(void*)] close_callback, void* close_callback_arg
+            function[void(ucs_status_t, shared_ptr[void])] close_callback,
+            shared_ptr[void] close_callback_arg
         )
         shared_ptr[Worker] getWorker()
 

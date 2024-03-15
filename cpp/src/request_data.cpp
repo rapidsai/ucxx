@@ -21,6 +21,8 @@ AmSend::AmSend(const void* buffer, const size_t length, const ucs_memory_type me
 
 AmReceive::AmReceive() {}
 
+EndpointClose::EndpointClose(const bool force) : _force(force) {}
+
 Flush::Flush() {}
 
 MemPut::MemPut(const void* buffer,
