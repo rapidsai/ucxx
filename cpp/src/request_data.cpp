@@ -27,6 +27,8 @@ AmSend::AmSend(const void* buffer,
 
 AmReceive::AmReceive() {}
 
+EndpointClose::EndpointClose(const bool force) : _force(force) {}
+
 Flush::Flush() {}
 
 MemPut::MemPut(const void* buffer,

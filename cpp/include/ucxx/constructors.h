@@ -23,6 +23,7 @@ class Notifier;
 class RemoteKey;
 class Request;
 class RequestAm;
+class RequestEndpointClose;
 class RequestFlush;
 class RequestMem;
 class RequestStream;
@@ -73,6 +74,13 @@ std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(std::shared_ptr<Endpoin
 std::shared_ptr<RequestAm> createRequestAm(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::AmSend, data::AmReceive> requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
+
+std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
+  std::shared_ptr<Endpoint> endpoint,
+  const data::EndpointClose requestData,
   const bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);

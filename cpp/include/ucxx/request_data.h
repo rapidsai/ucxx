@@ -73,6 +73,27 @@ class AmReceive {
 };
 
 /**
+ * @brief Data for an endpoint close operation.
+ *
+ * Type identifying an endpoint close operation and containing data specific to this request
+ * type.
+ */
+class EndpointClose {
+ public:
+  const bool _force{false};  ///< Whether to force endpoint closing.
+  /**
+   * @brief Constructor for endpoint close-specific data.
+   *
+   * Construct an object containing endpoint close-specific data.
+   *
+   * @param[in] force   force endpoint close if `true`, flush otherwise.
+   */
+  explicit EndpointClose(const decltype(_force) force);
+
+  EndpointClose() = delete;
+};
+
+/**
  * @brief Data for a flush operation.
  *
  * Type identifying a flush operation and containing data specific to this request type.
@@ -313,6 +334,7 @@ class TagMultiReceive {
 using RequestData = std::variant<std::monostate,
                                  AmSend,
                                  AmReceive,
+                                 EndpointClose,
                                  Flush,
                                  MemPut,
                                  MemGet,

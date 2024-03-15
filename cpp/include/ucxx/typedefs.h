@@ -97,6 +97,22 @@ typedef std::function<void(ucs_status_t, std::shared_ptr<void>)> RequestCallback
 typedef std::shared_ptr<void> RequestCallbackUserData;
 
 /**
+ * @brief A user-defined function to execute after an endpoint closes.
+ *
+ * A user-defined function to execute after an endpoint closes, allowing execution of custom
+ * code after such event.
+ */
+typedef RequestCallbackUserFunction EndpointCloseCallbackUserFunction;
+
+/**
+ * @brief Data for the user-defined function provided to endpoint close callback.
+ *
+ * Data passed to the user-defined function provided to the endpoint close callback, which
+ * the custom user-defined function may act upon.
+ */
+typedef RequestCallbackUserData EndpointCloseCallbackUserData;
+
+/**
  * @brief Custom Active Message allocator type.
  *
  * Type for a custom Active Message allocator that can be registered by a user so that the

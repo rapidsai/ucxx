@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <ucs/config/types.h>
+#include <ucs/type/status.h>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -19,6 +21,7 @@ struct ListenerContainer {
   std::shared_ptr<ucxx::Listener> listener{nullptr};
   std::shared_ptr<ucxx::Endpoint> endpoint{nullptr};
   bool transferCompleted{false};
+  bool endpointErrorHandling{false};
 };
 
 typedef std::shared_ptr<ListenerContainer> ListenerContainerPtr;
@@ -32,23 +35,34 @@ static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
   listenerContainer->status = ucp_conn_request_query(connRequest, &attr);
   if (listenerContainer->status != UCS_OK) return;
 
-  listenerContainer->endpoint =
-    listenerContainer->listener->createEndpointFromConnRequest(connRequest);
+  listenerContainer->endpoint = listenerContainer->listener->createEndpointFromConnRequest(
+    connRequest, listenerContainer->endpointErrorHandling);
 }
 
-class ListenerTest : public ::testing::Test {
+class ListenerTestBase {
  protected:
   std::shared_ptr<ucxx::Context> _context{
     ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
-
-  virtual void SetUp() { _worker = _context->createWorker(); }
+  bool _endpointErrorHandling{true};
 
   ListenerContainerPtr createListenerContainer()
   {
-    auto listenerContainer    = std::make_shared<ListenerContainer>();
-    listenerContainer->worker = _worker;
+    auto listenerContainer                   = std::make_shared<ListenerContainer>();
+    listenerContainer->worker                = _worker;
+    listenerContainer->endpointErrorHandling = _endpointErrorHandling;
     return listenerContainer;
+  }
+};
+
+class ListenerTest : public ListenerTestBase,
+                     public ::testing::Test,
+                     public ::testing::WithParamInterface<bool> {
+ protected:
+  virtual void SetUp()
+  {
+    _endpointErrorHandling = GetParam();
+    _worker                = _context->createWorker();
   }
 
   virtual std::shared_ptr<ucxx::Listener> createListener(ListenerContainerPtr listenerContainer)
@@ -59,17 +73,25 @@ class ListenerTest : public ::testing::Test {
   }
 };
 
-class ListenerPortTest : public ListenerTest, public ::testing::WithParamInterface<uint16_t> {
+class ListenerPortTest : public ListenerTestBase,
+                         public ::testing::Test,
+                         public ::testing::WithParamInterface<uint16_t> {
  protected:
+  uint16_t _port;
+  virtual void SetUp()
+  {
+    _port   = GetParam();
+    _worker = _context->createWorker();
+  }
   virtual std::shared_ptr<ucxx::Listener> createListener(ListenerContainerPtr listenerContainer)
   {
-    auto listener = _worker->createListener(GetParam(), listenerCallback, listenerContainer.get());
+    auto listener = _worker->createListener(_port, listenerCallback, listenerContainer.get());
     listenerContainer->listener = listener;
     return listener;
   }
 };
 
-TEST_F(ListenerTest, HandleIsValid)
+TEST_P(ListenerTest, HandleIsValid)
 {
   auto listenerContainer = createListenerContainer();
   auto listener          = createListener(listenerContainer);
@@ -78,21 +100,7 @@ TEST_F(ListenerTest, HandleIsValid)
   ASSERT_TRUE(listener->getHandle() != nullptr);
 }
 
-TEST_P(ListenerPortTest, Port)
-{
-  auto listenerContainer = createListenerContainer();
-  auto listener          = createListener(listenerContainer);
-  _worker->progress();
-
-  if (GetParam() == 0)
-    ASSERT_GE(listener->getPort(), 1024);
-  else
-    ASSERT_EQ(listener->getPort(), 12345);
-}
-
-INSTANTIATE_TEST_SUITE_P(PortAssignment, ListenerPortTest, ::testing::Values(0, 12345));
-
-TEST_F(ListenerTest, EndpointSendRecv)
+TEST_P(ListenerTest, EndpointSendRecv)
 {
   auto listenerContainer = createListenerContainer();
   auto listener          = createListener(listenerContainer);
@@ -100,7 +108,8 @@ TEST_F(ListenerTest, EndpointSendRecv)
 
   progress();
 
-  auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
+  auto ep =
+    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
   while (listenerContainer->endpoint == nullptr)
     progress();
 
@@ -125,13 +134,14 @@ TEST_F(ListenerTest, EndpointSendRecv)
   std::vector<int> buf{0};
 }
 
-TEST_F(ListenerTest, IsAlive)
+TEST_P(ListenerTest, IsAlive)
 {
   auto listenerContainer = createListenerContainer();
   auto listener          = createListener(listenerContainer);
   _worker->progress();
 
-  auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
+  auto ep =
+    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
@@ -149,16 +159,20 @@ TEST_F(ListenerTest, IsAlive)
     return !ep->isAlive();
   });
 
-  ASSERT_FALSE(ep->isAlive());
+  if (_endpointErrorHandling)
+    ASSERT_FALSE(ep->isAlive());
+  else
+    ASSERT_TRUE(ep->isAlive());
 }
 
-TEST_F(ListenerTest, RaiseOnError)
+TEST_P(ListenerTest, RaiseOnError)
 {
   auto listenerContainer = createListenerContainer();
   auto listener          = createListener(listenerContainer);
   _worker->progress();
 
-  auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
+  auto ep =
+    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
@@ -174,34 +188,163 @@ TEST_F(ListenerTest, RaiseOnError)
     return false;
   });
 
-  EXPECT_THROW(ep->raiseOnError(), ucxx::Error);
+  if (_endpointErrorHandling) EXPECT_THROW(ep->raiseOnError(), ucxx::Error);
 }
 
-TEST_F(ListenerTest, CloseCallback)
+TEST_P(ListenerTest, EndpointCloseCallback)
 {
   auto listenerContainer = createListenerContainer();
   auto listener          = createListener(listenerContainer);
   _worker->progress();
 
-  auto ep = _worker->createEndpointFromHostname("127.0.0.1", listener->getPort());
+  auto ep =
+    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
 
-  bool isClosed = false;
-  ep->setCloseCallback([](void* isClosed) { *reinterpret_cast<bool*>(isClosed) = true; },
-                       reinterpret_cast<void*>(&isClosed));
+  struct CallbackData {
+    ucs_status_t status{UCS_INPROGRESS};
+    bool closed{false};
+  };
+
+  auto callbackData = std::make_shared<CallbackData>();
+  ep->setCloseCallback(
+    [](ucs_status_t status, ucxx::EndpointCloseCallbackUserData callbackData) {
+      auto cbData    = std::static_pointer_cast<CallbackData>(callbackData);
+      cbData->status = status;
+      cbData->closed = true;
+    },
+    callbackData);
 
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
-  ASSERT_FALSE(isClosed);
+  ASSERT_FALSE(callbackData->closed);
+  ASSERT_EQ(callbackData->status, UCS_INPROGRESS);
 
   listenerContainer->endpoint = nullptr;
 
-  loopWithTimeout(std::chrono::milliseconds(5000), [this, &isClosed]() {
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, &callbackData]() {
     _worker->progress();
-    return isClosed;
+    return callbackData->closed;
   });
 
-  ASSERT_TRUE(isClosed);
+  ASSERT_TRUE(callbackData->closed);
+  EXPECT_NE(callbackData->status, UCS_INPROGRESS);
 }
+
+bool checkRequestWithTimeout(std::chrono::milliseconds timeout,
+                             std::shared_ptr<ucxx::Worker> worker,
+                             std::shared_ptr<ucxx::Request> closeRequest)
+{
+  auto startTime = std::chrono::system_clock::now();
+  auto endTime   = startTime + std::chrono::milliseconds(timeout);
+
+  while (std::chrono::system_clock::now() < endTime) {
+    worker->progress();
+    if (closeRequest->isCompleted()) return true;
+  }
+  return false;
+}
+
+TEST_P(ListenerTest, EndpointNonBlockingClose)
+{
+  auto listenerContainer = createListenerContainer();
+  auto listener          = createListener(listenerContainer);
+  _worker->progress();
+
+  auto ep =
+    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
+
+  while (listenerContainer->endpoint == nullptr)
+    _worker->progress();
+
+  auto closeRequest = ep->close();
+
+  /**
+   * FIXME: For some reason the code below calls `_worker->progress()` from within
+   * `_worker->progress()`, which is invalid in UCX. The `checkRequestWithTimeout` below
+   * which is functionally equivalent has no such problem. The lambda seems to behave in
+   * unexpected way here. The issue also goes away if in `Endpoint::close()` the
+   * line `if (callbackFunction) callbackFunction(status, callbackData);` is commented
+   * out from the `combineCallbacksFunction` lambda, even when no callback is specified
+   * to `ep->close()` above.
+   */
+  // auto f = [this, &closeRequest]() {
+  //   _worker->progress();
+  //   return closeRequest->isCompleted();
+  // };
+  // loopWithTimeout(std::chrono::milliseconds(5000), f);
+
+  checkRequestWithTimeout(std::chrono::milliseconds(5000), _worker, closeRequest);
+
+  if (_endpointErrorHandling)
+    ASSERT_FALSE(ep->isAlive());
+  else
+    ASSERT_TRUE(ep->isAlive());
+  EXPECT_NE(closeRequest->getStatus(), UCS_INPROGRESS);
+}
+
+TEST_P(ListenerTest, EndpointNonBlockingCloseWithCallbacks)
+{
+  auto listenerContainer = createListenerContainer();
+  auto listener          = createListener(listenerContainer);
+  _worker->progress();
+
+  auto closeCallback = [](ucs_status_t status, ucxx::EndpointCloseCallbackUserData data) {
+    auto dataStatus = std::static_pointer_cast<bool>(data);
+    *dataStatus     = status;
+  };
+  auto closeCallbackEndpoint = std::make_shared<ucs_status_t>(UCS_INPROGRESS);
+  auto closeCallbackRequest  = std::make_shared<ucs_status_t>(UCS_INPROGRESS);
+
+  auto ep =
+    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
+  ep->setCloseCallback(closeCallback, closeCallbackEndpoint);
+
+  while (listenerContainer->endpoint == nullptr)
+    _worker->progress();
+
+  auto closeRequest = ep->close(false, closeCallback, closeCallbackRequest);
+
+  /**
+   * FIXME: For some reason the code below calls `_worker->progress()` from within
+   * `_worker->progress()`, which is invalid in UCX. The `checkRequestWithTimeout` below
+   * which is functionally equivalent has no such problem. The lambda seems to behave in
+   * unexpected way here. The issue also goes away if in `Endpoint::close()` the
+   * line `if (callbackFunction) callbackFunction(status, callbackData);` is commented
+   * out from the `combineCallbacksFunction` lambda, even when no callback is specified
+   * to `ep->close()` above.
+   */
+  // auto f = [this, &closeRequest]() {
+  //   _worker->progress();
+  //   return closeRequest->isCompleted();
+  // };
+  // loopWithTimeout(std::chrono::milliseconds(5000), f);
+
+  checkRequestWithTimeout(std::chrono::milliseconds(5000), _worker, closeRequest);
+
+  if (_endpointErrorHandling)
+    ASSERT_FALSE(ep->isAlive());
+  else
+    ASSERT_TRUE(ep->isAlive());
+  EXPECT_NE(closeRequest->getStatus(), UCS_INPROGRESS);
+  ASSERT_NE(*closeCallbackEndpoint, UCS_INPROGRESS);
+  ASSERT_NE(*closeCallbackRequest, UCS_INPROGRESS);
+}
+
+INSTANTIATE_TEST_SUITE_P(EndpointErrorHandling, ListenerTest, ::testing::Values(true));
+
+TEST_P(ListenerPortTest, Port)
+{
+  auto listenerContainer = createListenerContainer();
+  auto listener          = createListener(listenerContainer);
+  _worker->progress();
+
+  if (GetParam() == 0)
+    ASSERT_GE(listener->getPort(), 1024);
+  else
+    ASSERT_EQ(listener->getPort(), 12345);
+}
+
+INSTANTIATE_TEST_SUITE_P(PortAssignment, ListenerPortTest, ::testing::Values(0, 12345));
 
 }  // namespace
