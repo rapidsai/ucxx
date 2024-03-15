@@ -5,16 +5,91 @@
 #include <cstdio>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 #include <ucp/api/ucp.h>
 
+#include <ucs/memory/memory_type.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
+#include <ucxx/typedefs.h>
 
 namespace ucxx {
+
+AmReceiverCallbackInfo::AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner,
+                                               AmReceiverCallbackIdType id)
+  : owner(owner), id(id)
+{
+}
+
+typedef std::string AmHeaderSerialized;
+
+struct AmHeader {
+  ucs_memory_type_t memoryType;
+  std::optional<AmReceiverCallbackInfo> receiverCallbackInfo;
+
+  static AmHeader deserialize(const std::string_view serialized)
+  {
+    size_t offset{0};
+
+    auto decode = [&offset, &serialized](void* data, size_t bytes) {
+      memcpy(data, serialized.data() + offset, bytes);
+      offset += bytes;
+    };
+
+    ucs_memory_type_t memoryType;
+    decode(&memoryType, sizeof(memoryType));
+
+    bool hasReceiverCallback{false};
+    decode(&hasReceiverCallback, sizeof(hasReceiverCallback));
+
+    if (hasReceiverCallback) {
+      size_t ownerSize{0};
+      decode(&ownerSize, sizeof(ownerSize));
+
+      auto owner = AmReceiverCallbackOwnerType(ownerSize, 0);
+      decode(owner.data(), ownerSize);
+
+      AmReceiverCallbackIdType id{};
+      decode(&id, sizeof(id));
+
+      return AmHeader{.memoryType           = memoryType,
+                      .receiverCallbackInfo = AmReceiverCallbackInfo(owner, id)};
+    }
+
+    return AmHeader{.memoryType = memoryType, .receiverCallbackInfo = std::nullopt};
+  }
+
+  const AmHeaderSerialized serialize() const
+  {
+    size_t offset{0};
+    bool hasReceiverCallback{static_cast<bool>(receiverCallbackInfo)};
+    const size_t ownerSize = (receiverCallbackInfo) ? receiverCallbackInfo->owner.size() : 0;
+    const size_t amReceiverCallbackInfoSize =
+      (receiverCallbackInfo) ? sizeof(ownerSize) + ownerSize + sizeof(receiverCallbackInfo->id) : 0;
+    const size_t totalSize =
+      sizeof(memoryType) + sizeof(hasReceiverCallback) + amReceiverCallbackInfoSize;
+    std::string serialized(totalSize, 0);
+
+    auto encode = [&offset, &serialized](void const* data, size_t bytes) {
+      memcpy(serialized.data() + offset, data, bytes);
+      offset += bytes;
+    };
+
+    encode(&memoryType, sizeof(memoryType));
+    encode(&hasReceiverCallback, sizeof(hasReceiverCallback));
+    if (hasReceiverCallback) {
+      encode(&ownerSize, sizeof(ownerSize));
+      encode(receiverCallbackInfo->owner.c_str(), ownerSize);
+      encode(&receiverCallbackInfo->id, sizeof(receiverCallbackInfo->id));
+    }
+
+    return serialized;
+  }
+};
 
 std::shared_ptr<RequestAm> createRequestAm(
   std::shared_ptr<Endpoint> endpoint,
@@ -119,7 +194,21 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   bool is_rndv = param->recv_attr & UCP_AM_RECV_ATTR_FLAG_RNDV;
 
   std::shared_ptr<Buffer> buf{nullptr};
-  auto allocatorType = *static_cast<const ucs_memory_type_t*>(header);
+  auto amHeader =
+    AmHeader::deserialize(std::string_view(static_cast<const char*>(header), header_length));
+  auto receiverCallback = [&amHeader, &amData]() {
+    if (amHeader.receiverCallbackInfo) {
+      try {
+        return amData->_receiverCallbacks.at(amHeader.receiverCallbackInfo->owner)
+          .at(amHeader.receiverCallbackInfo->id);
+      } catch (std::out_of_range) {
+        ucxx_error("No AM receiver callback registered for owner '%s' with id %lu",
+                   std::string(amHeader.receiverCallbackInfo->owner).data(),
+                   amHeader.receiverCallbackInfo->id);
+      }
+    }
+    return AmReceiverCallbackType();
+  }();
 
   std::shared_ptr<RequestAm> req{nullptr};
 
@@ -127,7 +216,11 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     std::lock_guard<std::mutex> lock(amData->_mutex);
 
     auto reqs = recvWait.find(ep);
-    if (reqs != recvWait.end() && !reqs->second.empty()) {
+    if (amHeader.receiverCallbackInfo) {
+      req = std::shared_ptr<RequestAm>(new RequestAm(
+        worker, data::AmReceive(), "amReceive", worker->isFutureEnabled(), nullptr, nullptr));
+      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "receiverCallback");
+    } else if (reqs != recvWait.end() && !reqs->second.empty()) {
       req = reqs->second.front();
       reqs->second.pop();
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
@@ -141,21 +234,22 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   }
 
   if (is_rndv) {
-    if (amData->_allocators.find(allocatorType) == amData->_allocators.end()) {
+    if (amData->_allocators.find(amHeader.memoryType) == amData->_allocators.end()) {
       // TODO: Is a hard failure better?
-      // ucxx_debug("Unsupported memory type %d", allocatorType);
+      // ucxx_debug("Unsupported memory type %d", amHeader.memoryType);
       // internal::RecvAmMessage recvAmMessage(amData, ep, req, nullptr);
       // recvAmMessage.callback(nullptr, UCS_ERR_UNSUPPORTED);
       // return UCS_ERR_UNSUPPORTED;
 
       ucxx_trace_req("No allocator registered for memory type %u, falling back to host memory.",
-                     allocatorType);
-      allocatorType = UCS_MEMORY_TYPE_HOST;
+                     amHeader.memoryType);
+      amHeader.memoryType = UCS_MEMORY_TYPE_HOST;
     }
 
-    std::shared_ptr<Buffer> buf = amData->_allocators.at(allocatorType)(length);
+    std::shared_ptr<Buffer> buf = amData->_allocators.at(amHeader.memoryType)(length);
 
-    auto recvAmMessage = std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf);
+    auto recvAmMessage =
+      std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf, receiverCallback);
 
     ucp_request_param_t request_param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                          UCP_OP_ATTR_FIELD_USER_DATA |
@@ -230,7 +324,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        buf->data(),
                        length);
 
-    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf);
+    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf, receiverCallback);
     recvAmMessage.callback(nullptr, UCS_OK);
     return UCS_OK;
   }
@@ -258,11 +352,14 @@ void RequestAm::request()
                                      .datatype  = ucp_dt_make_contig(1),
                                      .user_data = this};
 
-        param.cb.send = _amSendCallback;
-        void* request = ucp_am_send_nbx(_endpoint->getHandle(),
+        param.cb.send         = _amSendCallback;
+        AmHeader header       = {.memoryType           = amSend._memoryType,
+                                 .receiverCallbackInfo = amSend._receiverCallbackInfo};
+        auto headerSerialized = header.serialize();
+        void* request         = ucp_am_send_nbx(_endpoint->getHandle(),
                                         0,
-                                        &amSend._memoryType,
-                                        sizeof(amSend._memoryType),
+                                        headerSerialized.data(),
+                                        headerSerialized.size(),
                                         amSend._buffer,
                                         amSend._length,
                                         &param);

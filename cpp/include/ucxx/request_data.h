@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -29,19 +30,24 @@ class AmSend {
   const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
   const size_t _length{0};       ///< The length of the message.
   const ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_HOST};  ///< Memory type used on the operation
+  const std::optional<AmReceiverCallbackInfo> _receiverCallbackInfo{
+    std::nullopt};  ///< Owner name and unique identifier of the receiver callback.
 
   /**
    * @brief Constructor for Active Message-specific send data.
    *
    * Construct an object containing Active Message-specific send data.
    *
-   * @param[in] buffer      a raw pointer to the data to be sent.
-   * @param[in] length      the size in bytes of the message to be sent.
-   * @param[in] memoryType  the memory type of the buffer.
+   * @param[in] buffer                  a raw pointer to the data to be sent.
+   * @param[in] length                  the size in bytes of the message to be sent.
+   * @param[in] memoryType              the memory type of the buffer.
+   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
+                                        callback.
    */
   explicit AmSend(const decltype(_buffer) buffer,
                   const decltype(_length) length,
-                  const decltype(_memoryType) memoryType = UCS_MEMORY_TYPE_HOST);
+                  const decltype(_memoryType) memoryType                     = UCS_MEMORY_TYPE_HOST,
+                  const decltype(_receiverCallbackInfo) receiverCallbackInfo = std::nullopt);
 
   AmSend() = delete;
 };

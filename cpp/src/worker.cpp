@@ -21,6 +21,7 @@
 #include <ucxx/request_am.h>
 #include <ucxx/request_flush.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/typedefs.h>
 #include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
@@ -585,6 +586,19 @@ void Worker::registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType a
   if (_amData == nullptr)
     throw std::runtime_error("Active Messages was not enabled during context creation");
   _amData->_allocators.insert_or_assign(memoryType, allocator);
+}
+
+void Worker::registerAmReceiverCallback(AmReceiverCallbackInfo info,
+                                        AmReceiverCallbackType callback)
+{
+  if (info.owner == "ucxx") throw std::runtime_error("The owner name 'ucxx' is reserved.");
+  if (_amData->_receiverCallbacks.find(info.owner) == _amData->_receiverCallbacks.end())
+    _amData->_receiverCallbacks[info.owner] = {};
+  if (_amData->_receiverCallbacks[info.owner].find(info.id) !=
+      _amData->_receiverCallbacks[info.owner].end())
+    throw std::runtime_error("Callback with given owner and identifier is already registered");
+
+  _amData->_receiverCallbacks[info.owner][info.id] = callback;
 }
 
 bool Worker::amProbe(const ucp_ep_h endpointHandle) const
