@@ -60,8 +60,12 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
 
   setParent(workerOrListener);
 
-  _callbackData = std::make_unique<ErrorCallbackData>(ErrorCallbackData{
-    .status = UCS_INPROGRESS, .inflightRequests = _inflightRequests, .worker = worker});
+  _callbackData =
+    std::make_unique<ErrorCallbackData>(ErrorCallbackData{._endpoint = this,
+                                                          ._mutex = std::make_unique<std::mutex>(),
+                                                          .status = UCS_INPROGRESS,
+                                                          .inflightRequests = _inflightRequests,
+                                                          .worker           = worker});
 
   params->err_mode =
     (endpointErrorHandling ? UCP_ERR_HANDLING_MODE_PEER : UCP_ERR_HANDLING_MODE_NONE);
@@ -291,6 +295,8 @@ void Endpoint::raiseOnError()
 void Endpoint::setCloseCallback(EndpointCloseCallbackUserFunction closeCallback,
                                 EndpointCloseCallbackUserData closeCallbackArg)
 {
+  std::lock_guard<std::mutex> lock(*_callbackData->_mutex);
+
   _callbackData->closeCallback    = closeCallback;
   _callbackData->closeCallbackArg = closeCallbackArg;
 }
@@ -536,11 +542,17 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   ErrorCallbackData* data = reinterpret_cast<ErrorCallbackData*>(arg);
   data->status            = status;
   data->worker->scheduleRequestCancel(data->inflightRequests->release());
-  if (data->closeCallback) {
-    ucxx_debug("ucxx::Endpoint::%s, UCP handle: %p, calling user close callback", __func__, ep);
-    data->closeCallback(status, data->closeCallbackArg);
-    data->closeCallback    = nullptr;
-    data->closeCallbackArg = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(*data->_mutex);
+    if (data->closeCallback) {
+      ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, calling user close callback",
+                 __func__,
+                 data->_endpoint,
+                 ep);
+      data->closeCallback(status, data->closeCallbackArg);
+      data->closeCallback    = nullptr;
+      data->closeCallbackArg = nullptr;
+    }
   }
 
   // Connection reset and timeout often represent just a normal remote
