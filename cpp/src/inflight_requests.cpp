@@ -56,8 +56,8 @@ void InflightRequests::remove(const Request* const request)
       if (search != _trackedRequests->_inflight->end()) {
         /**
          * If this is the last request to hold `std::shared_ptr<ucxx::Endpoint>` erasing it
-         * may cause the `ucxx::Endpoint`s destructor and subsequently the `close()` method
-         * to be called which will in turn call `cancelAll()` and attempt to take the
+         * may cause the `ucxx::Endpoint`s destructor and subsequently the `closeBlocking()`
+         * method to be called which will in turn call `cancelAll()` and attempt to take the
          * mutexes. For this reason we should make a temporary copy of the request being
          * erased from `_trackedRequests->_inflight` to allow unlocking the mutexes and only then
          * destroy the object upon this method's return.
