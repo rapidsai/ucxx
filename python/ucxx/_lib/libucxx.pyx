@@ -23,6 +23,7 @@ from libcpp.memory cimport (
     static_pointer_cast,
     unique_ptr,
 )
+from libcpp.optional cimport nullopt
 from libcpp.string cimport string
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
@@ -1285,6 +1286,7 @@ cdef class UCXEndpoint():
                 buf,
                 nbytes,
                 UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST,
+                nullopt,
                 self._enable_python_future
             )
 

@@ -365,19 +365,22 @@ size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAtt
 
 size_t Endpoint::getCancelingSize() const { return _inflightRequests->getCancelingSize(); }
 
-std::shared_ptr<Request> Endpoint::amSend(void* buffer,
-                                          size_t length,
-                                          ucs_memory_type_t memoryType,
-                                          const bool enablePythonFuture,
-                                          RequestCallbackUserFunction callbackFunction,
-                                          RequestCallbackUserData callbackData)
+std::shared_ptr<Request> Endpoint::amSend(
+  void* buffer,
+  const size_t length,
+  const ucs_memory_type_t memoryType,
+  const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestAm(endpoint,
-                                                 data::AmSend(buffer, length, memoryType),
-                                                 enablePythonFuture,
-                                                 callbackFunction,
-                                                 callbackData));
+  return registerInflightRequest(
+    createRequestAm(endpoint,
+                    data::AmSend(buffer, length, memoryType, receiverCallbackInfo),
+                    enablePythonFuture,
+                    callbackFunction,
+                    callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,
