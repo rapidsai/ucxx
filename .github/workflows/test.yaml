@@ -37,7 +37,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.04
     with:
       build_type: nightly
-      test_script: "ci/test_python_distributed.sh"
+      script: "ci/test_python_distributed.sh"
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
