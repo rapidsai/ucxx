@@ -13,6 +13,7 @@ from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
+from libc.stdlib cimport free
 from libcpp cimport nullptr
 from libcpp.functional cimport function
 from libcpp.memory cimport (
@@ -40,15 +41,42 @@ include "tag.pyx"
 logger = logging.getLogger("ucx")
 
 
-np.import_array()
+cdef class HostBufferAdapter:
+    """A simple adapter around HostBuffer implementing the buffer protocol"""
+    cdef Py_ssize_t _size
+    cdef void* _ptr
+    # TODO: I believe this is owned by the current object and we only pass a
+    # pointer to it, so the end result is that the data is freed when this
+    # struct is destroyed.
+    cdef Py_ssize_t[1] _shape
+    cdef Py_ssize_t[1] _strides
+    cdef Py_ssize_t _itemsize
 
+    @staticmethod
+    cdef _from_host_buffer(HostBuffer* host_buffer):
+        cdef HostBufferAdapter obj = HostBufferAdapter.__new__(HostBufferAdapter)
+        obj._size = host_buffer.getSize()
+        obj._ptr = host_buffer.release()
+        obj._shape = [obj._size]
+        obj._itemsize = sizeof(char)
+        obj._strides = [obj._itemsize]
+        return obj
 
-cdef ptr_to_ndarray(void* ptr, np.npy_intp N):
-    cdef np.ndarray[np.uint8_t, ndim=1, mode="c"] arr = (
-        np.PyArray_SimpleNewFromData(1, &N, np.NPY_UINT8, <np.uint8_t*>ptr)
-    )
-    PyArray_ENABLEFLAGS(arr, NPY_ARRAY_OWNDATA)
-    return arr
+    def __getbuffer__(self, Py_buffer *buffer, int flags):
+        buffer.buf = self._ptr
+        buffer.format = 'c'
+        buffer.internal = NULL
+        buffer.itemsize = self._itemsize
+        buffer.len = self._size * self._itemsize
+        buffer.ndim = 1
+        buffer.obj = self
+        buffer.readonly = 0
+        buffer.shape = self._shape
+        buffer.strides = self._strides
+        buffer.suboffsets = NULL
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        free(self._ptr)
 
 
 def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
@@ -58,8 +86,7 @@ def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
 
 def _get_host_buffer(uintptr_t recv_buffer_ptr):
     cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
-    cdef size_t size = host_buffer.getSize()
-    return ptr_to_ndarray(host_buffer.release(), size)
+    return np.asarray(HostBufferAdapter._from_host_buffer(host_buffer))
 
 
 cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length):

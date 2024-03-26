@@ -4,7 +4,6 @@
 
 from posix cimport fcntl
 
-cimport numpy as np
 from libc.stdint cimport int64_t, uint16_t, uint64_t
 from libcpp cimport bool as cpp_bool
 from libcpp.functional cimport function
@@ -17,13 +16,6 @@ from libcpp.vector cimport vector
 
 cdef extern from "Python.h" nogil:
     ctypedef struct PyObject
-
-
-cdef extern from "numpy/arrayobject.h" nogil:
-    void PyArray_ENABLEFLAGS(np.ndarray arr, int flags)
-
-    enum:
-        NPY_ARRAY_OWNDATA
 
 
 cdef extern from "ucp/api/ucp.h" nogil:
