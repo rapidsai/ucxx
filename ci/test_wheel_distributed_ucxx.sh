@@ -18,18 +18,12 @@ python -m pip install ./local-ucxx-dep/ucxx*.whl
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/${PROJECT_NAME}*.whl)[test]
 
-# Run smoke tests for aarch64 pull requests
-if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
-  rapids-logger "Distributed Smoke Tests"
-  timeout 1m python -m pytest -vs ci/wheel_smoke_test_distributed_ucxx.py
-else
-  rapids-logger "Distributed Tests"
+rapids-logger "Distributed Tests"
 
-  # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-  run_distributed_ucxx_tests      thread          1                           1
+# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests      thread          1                           1
 
-  install_distributed_dev_mode
+install_distributed_dev_mode
 
-  # run_distributed_ucxx_tests_internal PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-  run_distributed_ucxx_tests_internal   thread          1                           1
-fi
+# run_distributed_ucxx_tests_internal PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests_internal   thread          1                           1
