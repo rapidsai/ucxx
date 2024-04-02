@@ -175,8 +175,14 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
                                     ucs_status_t status, EndpointCloseCallbackUserData unused) {
     _callbackData->status = status;
     if (callbackFunction) callbackFunction(status, callbackData);
-    if (_callbackData->closeCallback)
-      _callbackData->closeCallback(status, _callbackData->closeCallbackArg);
+    {
+      std::lock_guard<std::mutex> lock(_callbackData->mutex);
+      if (_callbackData->closeCallback) {
+        _callbackData->closeCallback(status, _callbackData->closeCallbackArg);
+        _callbackData->closeCallback    = nullptr;
+        _callbackData->closeCallbackArg = nullptr;
+      }
+    }
   };
 
   return registerInflightRequest(createRequestEndpointClose(
@@ -268,14 +274,17 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 
   if (UCS_PTR_IS_PTR(status)) ucp_request_free(status);
 
-  if (_callbackData->closeCallback) {
-    ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, calling user close callback",
-               __func__,
-               this,
-               _handle);
-    _callbackData->closeCallback(_callbackData->status, _callbackData->closeCallbackArg);
-    _callbackData->closeCallback    = nullptr;
-    _callbackData->closeCallbackArg = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(_callbackData->mutex);
+    if (_callbackData->closeCallback) {
+      ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, calling user close callback",
+                 __func__,
+                 this,
+                 _handle);
+      _callbackData->closeCallback(_callbackData->status, _callbackData->closeCallbackArg);
+      _callbackData->closeCallback    = nullptr;
+      _callbackData->closeCallbackArg = nullptr;
+    }
   }
 
   std::swap(_handle, _originalHandle);
