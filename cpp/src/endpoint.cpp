@@ -317,7 +317,7 @@ void Endpoint::setCloseCallback(EndpointCloseCallbackUserFunction closeCallback,
 {
   std::lock_guard<std::mutex> lock(_callbackData->mutex);
 
-  if (_callbackData->closing.load() == true && closeCallback != nullptr &&
+  if (_callbackData->closing.load() && closeCallback != nullptr &&
       closeCallbackArg != nullptr)
     throw std::runtime_error("Endpoint is closing or has already closed.");
 
