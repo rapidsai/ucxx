@@ -34,6 +34,13 @@
 
 namespace ucxx {
 
+ErrorCallbackData::ErrorCallbackData(Endpoint* endpoint,
+                                     std::shared_ptr<InflightRequests> inflightRequests,
+                                     std::shared_ptr<Worker> worker)
+  : endpoint(endpoint), inflightRequests(inflightRequests), worker(worker)
+{
+}
+
 static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener)
 {
   auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
@@ -60,13 +67,7 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
 
   setParent(workerOrListener);
 
-  _callbackData = std::make_unique<ErrorCallbackData>(
-    ErrorCallbackData{.endpoint         = this,
-                      .mutex            = std::make_unique<std::mutex>(),
-                      .status           = UCS_INPROGRESS,
-                      .closing          = std::make_unique<std::atomic<bool>>(false),
-                      .inflightRequests = _inflightRequests,
-                      .worker           = worker});
+  _callbackData = std::make_unique<ErrorCallbackData>(this, _inflightRequests, worker);
 
   params->err_mode =
     (endpointErrorHandling ? UCP_ERR_HANDLING_MODE_PEER : UCP_ERR_HANDLING_MODE_NONE);
@@ -165,7 +166,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
                                          EndpointCloseCallbackUserFunction callbackFunction,
                                          EndpointCloseCallbackUserData callbackData)
 {
-  if (_callbackData->closing->exchange(true) || _handle == nullptr) return nullptr;
+  if (_callbackData->closing.exchange(true) || _handle == nullptr) return nullptr;
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   bool force    = _endpointErrorHandling;
@@ -184,7 +185,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
 
 void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 {
-  if (_callbackData->closing->exchange(true) || _handle == nullptr) return;
+  if (_callbackData->closing.exchange(true) || _handle == nullptr) return;
 
   size_t canceled = cancelInflightRequestsBlocking(3000000000 /* 3s */, 3);
   ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
@@ -305,7 +306,7 @@ void Endpoint::raiseOnError()
 void Endpoint::setCloseCallback(EndpointCloseCallbackUserFunction closeCallback,
                                 EndpointCloseCallbackUserData closeCallbackArg)
 {
-  std::lock_guard<std::mutex> lock(*_callbackData->mutex);
+  std::lock_guard<std::mutex> lock(_callbackData->mutex);
 
   _callbackData->closeCallback    = closeCallback;
   _callbackData->closeCallbackArg = closeCallbackArg;
@@ -553,11 +554,11 @@ std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent
 void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
   ErrorCallbackData* data = reinterpret_cast<ErrorCallbackData*>(arg);
-  if (data->closing->exchange(true)) return;
+  if (data->closing.exchange(true)) return;
   data->status = status;
   data->worker->scheduleRequestCancel(data->inflightRequests->release());
   {
-    std::lock_guard<std::mutex> lock(*data->mutex);
+    std::lock_guard<std::mutex> lock(data->mutex);
     if (data->closeCallback) {
       ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, calling user close callback",
                  __func__,

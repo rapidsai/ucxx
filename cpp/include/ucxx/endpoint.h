@@ -48,16 +48,27 @@ struct EpParamsDeleter {
  * callback to modify the `ucxx::Endpoint` with information relevant to the error occurred.
  */
 struct ErrorCallbackData {
-  Endpoint*
-    endpoint;  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
-  std::unique_ptr<std::mutex>
-    mutex;  ///< Mutex used to prevent race conditions with `ucxx::Endpoint::setCloseCallback()`.
-  ucs_status_t status;                         ///< Endpoint status
-  std::unique_ptr<std::atomic<bool>> closing;  ///< Prevent calling close multiple concurrent times.
-  std::shared_ptr<InflightRequests> inflightRequests;  ///< Endpoint inflight requests
-  EndpointCloseCallbackUserFunction closeCallback;     ///< Close callback to call
-  EndpointCloseCallbackUserData closeCallbackArg;      ///< Argument to be passed to close callback
-  std::shared_ptr<Worker> worker;  ///< Worker the endpoint has been created from
+  Endpoint* endpoint{
+    nullptr};  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
+  std::mutex mutex{std::mutex()};       ///< Mutex used to prevent race conditions with
+                                        ///< `ucxx::Endpoint::setCloseCallback()`.
+  ucs_status_t status{UCS_INPROGRESS};  ///< Endpoint status
+  std::atomic<bool> closing{false};     ///< Prevent calling close multiple concurrent times.
+  std::shared_ptr<InflightRequests> inflightRequests{nullptr};  ///< Endpoint inflight requests
+  EndpointCloseCallbackUserFunction closeCallback{nullptr};     ///< Close callback to call
+  EndpointCloseCallbackUserData closeCallbackArg{
+    nullptr};                               ///< Argument to be passed to close callback
+  std::shared_ptr<Worker> worker{nullptr};  ///< Worker the endpoint has been created from
+
+  ErrorCallbackData(Endpoint* endpoint,
+                    std::shared_ptr<InflightRequests> inflightRequests,
+                    std::shared_ptr<Worker> worker);
+
+  ErrorCallbackData()                                    = delete;
+  ErrorCallbackData(const ErrorCallbackData&)            = delete;
+  ErrorCallbackData& operator=(ErrorCallbackData const&) = delete;
+  ErrorCallbackData(ErrorCallbackData&& o)               = delete;
+  ErrorCallbackData& operator=(ErrorCallbackData&& o)    = delete;
 };
 
 /**
