@@ -322,6 +322,10 @@ class Endpoint : public Component {
    * importantly when any error occurs, allowing the application to be notified immediately
    * after such an event occurred.
    *
+   * @throws  std::runtime_error  if the endpoint is closing or has already closed and this
+   *                              is not removing the close callback (setting both
+   *                              `closeCallback` and `closeCallbackArg` to `nullptr`)
+   *
    * @param[in] closeCallback     `std::function` to a function definition return `void` and
    *                              receiving a single opaque pointer.
    * @param[in] closeCallbackArg  pointer to optional user-allocated callback argument.
