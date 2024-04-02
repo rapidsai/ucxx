@@ -50,10 +50,10 @@ struct EpParamsDeleter {
 struct ErrorCallbackData {
   Endpoint* endpoint{
     nullptr};  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
-  std::mutex mutex{std::mutex()};              ///< Mutex used to prevent race conditions with
-                                               ///< `ucxx::Endpoint::setCloseCallback()`.
-  ucs_status_t status{UCS_INPROGRESS};         ///< Endpoint status
-  std::atomic_flag closing{ATOMIC_FLAG_INIT};  ///< Prevent calling close multiple concurrent times.
+  std::mutex mutex{std::mutex()};       ///< Mutex used to prevent race conditions with
+                                        ///< `ucxx::Endpoint::setCloseCallback()`.
+  ucs_status_t status{UCS_INPROGRESS};  ///< Endpoint status
+  std::atomic<bool> closing{false};     ///< Prevent calling close multiple concurrent times.
   std::shared_ptr<InflightRequests> inflightRequests{nullptr};  ///< Endpoint inflight requests
   EndpointCloseCallbackUserFunction closeCallback{nullptr};     ///< Close callback to call
   EndpointCloseCallbackUserData closeCallbackArg{
