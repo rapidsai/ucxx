@@ -166,7 +166,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
                                          EndpointCloseCallbackUserFunction callbackFunction,
                                          EndpointCloseCallbackUserData callbackData)
 {
-  if (_callbackData->closing.exchange(true) || _handle == nullptr) return nullptr;
+  if (_callbackData->closing.test_and_set() || _handle == nullptr) return nullptr;
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   bool force    = _endpointErrorHandling;
@@ -185,7 +185,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
 
 void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 {
-  if (_callbackData->closing.exchange(true) || _handle == nullptr) return;
+  if (_callbackData->closing.test_and_set() || _handle == nullptr) return;
 
   size_t canceled = cancelInflightRequestsBlocking(3000000000 /* 3s */, 3);
   ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
@@ -554,7 +554,7 @@ std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent
 void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
   ErrorCallbackData* data = reinterpret_cast<ErrorCallbackData*>(arg);
-  if (data->closing.exchange(true)) return;
+  if (data->closing.test_and_set()) return;
   data->status = status;
   data->worker->scheduleRequestCancel(data->inflightRequests->release());
   {
