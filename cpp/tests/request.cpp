@@ -351,8 +351,7 @@ TEST_P(RequestTest, TagUserCallback)
 
   auto checkStatus = [&requests, &requestStatus](ucs_status_t status,
                                                  ::ucxx::RequestCallbackUserData data) {
-    auto idx = *std::static_pointer_cast<size_t>(data);
-    if (status != UCS_OK) abort();
+    auto idx           = *std::static_pointer_cast<size_t>(data);
     requestStatus[idx] = status;
   };
 

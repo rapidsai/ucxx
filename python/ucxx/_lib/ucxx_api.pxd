@@ -321,7 +321,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void setCloseCallback(
             function[void(ucs_status_t, shared_ptr[void])] close_callback,
             shared_ptr[void] close_callback_arg
-        )
+        ) except +raise_py_error
         shared_ptr[Worker] getWorker()
 
     cdef cppclass Listener(Component):
