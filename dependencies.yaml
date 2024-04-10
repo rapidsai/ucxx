@@ -3,21 +3,25 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.0"]
+      cuda: ["11.8", "12.2"]
       arch: [x86_64]
     includes:
       - build_cpp
-      - build_python
+      - build_python_ucxx
+      - build_python_distributed_ucxx
       - checks
       - cuda
       - cuda_version
       - dev
       - docs
       - py_version
-      - run_python
+      - run_python_ucxx
+      - run_python_distributed_ucxx
       - test_cpp
-      - test_python
+      - test_python_ucxx
+      - test_python_distributed_ucxx
       - depends_on_cupy
+      - depends_on_rmm
       - depends_on_cudf
   test_cpp:
     output: none
@@ -29,7 +33,15 @@ files:
     includes:
       - cuda_version
       - py_version
-      - test_python
+      - test_python_ucxx
+      - depends_on_cupy
+      - depends_on_cudf
+  test_python_distributed:
+    output: none
+    includes:
+      - cuda_version
+      - py_version
+      - test_python_distributed_ucxx
       - depends_on_cupy
       - depends_on_cudf
   checks:
@@ -42,28 +54,55 @@ files:
     includes:
       - docs
       - py_version
-  py_build:
+  py_build_ucxx:
     output: pyproject
     pyproject_dir: python
     extras:
       table: build-system
     includes:
-      - build_python
-  py_run:
+      - build_python_ucxx
+      - depends_on_rmm
+  py_run_ucxx:
     output: pyproject
     pyproject_dir: python
     extras:
       table: project
     includes:
-      - run_python
-  py_test:
+      - run_python_ucxx
+      - depends_on_rmm
+  py_test_ucxx:
     output: pyproject
     pyproject_dir: python
     extras:
       table: project.optional-dependencies
       key: test
     includes:
-      - test_python
+      - test_python_ucxx
+      - depends_on_cupy
+      - depends_on_cudf
+  py_build_distributed_ucxx:
+    output: pyproject
+    pyproject_dir: python/distributed-ucxx
+    extras:
+      table: build-system
+    includes:
+      - build_python_distributed_ucxx
+  py_run_distributed_ucxx:
+    output: pyproject
+    pyproject_dir: python/distributed-ucxx
+    extras:
+      table: project
+    includes:
+      - run_python_distributed_ucxx
+      - depends_on_ucxx
+  py_test_distributed_ucxx:
+    output: pyproject
+    pyproject_dir: python/distributed-ucxx
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python_distributed_ucxx
       - depends_on_cupy
       - depends_on_cudf
 channels:
@@ -83,14 +122,11 @@ dependencies:
           - fmt>=10.1.1,<11
           - &gmock gmock>=1.13.0
           - &gtest gtest>=1.13.0
-          - librmm==24.2.*
+          - librmm==24.4.*
           - ninja
           - spdlog>=1.12.0,<1.13
-  build_python:
+  build_python_ucxx:
     common:
-      - output_types: [conda]
-        packages:
-          - &rmm_conda rmm==24.2.*
       - output_types: [conda, requirements, pyproject]
         packages:
           - *cmake_ver
@@ -102,16 +138,12 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix: {cuda: "12.*"}
-            packages:
-              - rmm-cu12==24.2.*
-          - matrix: {cuda: "11.*"}
-            packages:
-              - rmm-cu11==24.2.*
-          - {matrix: null, packages: [*rmm_conda]}
+  build_python_distributed_ucxx:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - setuptools>=64.0.0
+          - tomli
   checks:
     common:
       - output_types: [conda, requirements]
@@ -141,6 +173,10 @@ dependencies:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+          - matrix:
+              cuda: "12.2"
+            packages:
+              - cuda-version=12.2
   cuda:
     specific:
       - output_types: conda
@@ -160,8 +196,8 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==24.2.*
-          - dask-cudf==24.2.*
+          - dask-cuda==24.4.*
+          - dask-cudf==24.4.*
           # UCX Build
           - libtool
           - automake
@@ -169,7 +205,7 @@ dependencies:
           # UCXX Build
           - pkg-config
           # Docs Build
-          - &doxygen doxygen=1.10.0 # pre-commit hook needs a specific version.
+          - &doxygen doxygen=1.9.1 # pre-commit hook needs a specific version.
   docs:
     common:
       - output_types: [conda]
@@ -188,17 +224,27 @@ dependencies:
             packages:
               - python=3.10
           - matrix:
+              py: "3.11"
             packages:
-              - python>=3.9,<3.11
-  run_python:
+              - python=3.11
+          - matrix:
+            packages:
+              - python>=3.9,<3.12
+  run_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - numpy>=1.21
+          - &numpy numpy>=1.23,<2.0a0
           - pynvml>=11.4.1
       - output_types: [conda]
         packages:
           - ucx
+  run_python_distributed_ucxx:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - &numba numba>=0.57.1
+          - rapids-dask-dependency==24.4.*
   test_cpp:
     common:
       - output_types: conda
@@ -206,17 +252,22 @@ dependencies:
           - *cmake_ver
           - *gtest
           - *gmock
-  test_python:
+  test_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - dask
-          - distributed
-          - numba>=0.57.1
+          - *numba
           - pytest==7.*
           - pytest-asyncio
           - pytest-rerunfailures
+          - rapids-dask-dependency==24.4.*
+  test_python_distributed_ucxx:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - *numpy
+          - pytest==7.*
   depends_on_cupy:
     common:
       - output_types: conda
@@ -229,18 +280,17 @@ dependencies:
             packages:
               - cupy-cuda12x>=12.0.0
           - matrix: {cuda: "11.*"}
-            packages:
+            packages: &cupy_packages_cu11
               - cupy-cuda11x>=12.0.0
-          - {matrix: null, packages: [cupy-cuda11x>=12.0.0]}
-  depends_on_cudf:
+          - {matrix: null, packages: *cupy_packages_cu11}
+  depends_on_rmm:
     common:
       - output_types: conda
         packages:
-          - &cudf_conda cudf==24.2.*
+          - &rmm_conda rmm==24.4.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          # This index is needed for rmm, cubinlinker, ptxcompiler.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
@@ -248,8 +298,48 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - cudf-cu12==24.2.*
+              - rmm-cu12==24.4.*
           - matrix: {cuda: "11.*"}
             packages:
-              - cudf-cu11==24.2.*
+              - rmm-cu11==24.4.*
+          - {matrix: null, packages: [*rmm_conda]}
+  depends_on_cudf:
+    common:
+      - output_types: conda
+        packages:
+          - &cudf_conda cudf==24.4.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - cudf-cu12==24.4.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - cudf-cu11==24.4.*
           - {matrix: null, packages: [*cudf_conda]}
+  depends_on_ucxx:
+    common:
+      - output_types: conda
+        packages:
+          - &ucxx_conda ucxx==0.37.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - ucxx-cu12==0.37.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - ucxx-cu11==0.37.*
+          - {matrix: null, packages: [*ucxx_conda]}

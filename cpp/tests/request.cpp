@@ -6,6 +6,8 @@
 #include <memory>
 #include <numeric>
 #include <tuple>
+#include <ucp/api/ucp.h>
+#include <ucs/type/status.h>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -14,12 +16,17 @@
 #include <ucxx/api.h>
 
 #include "include/utils.h"
+#include "ucxx/buffer.h"
+#include "ucxx/constructors.h"
+#include "ucxx/utils/ucx.h"
 
 namespace {
 
 using ::testing::Combine;
 using ::testing::ContainerEq;
 using ::testing::Values;
+
+typedef std::vector<int> DataContainerType;
 
 class RequestTest : public ::testing::TestWithParam<
                       std::tuple<ucxx::BufferType, bool, bool, ProgressMode, size_t>> {
@@ -39,8 +46,8 @@ class RequestTest : public ::testing::TestWithParam<
   size_t _rndvThresh{8192};
 
   size_t _numBuffers{0};
-  std::vector<std::vector<int>> _send;
-  std::vector<std::vector<int>> _recv;
+  std::vector<DataContainerType> _send;
+  std::vector<DataContainerType> _recv;
   std::vector<std::unique_ptr<ucxx::Buffer>> _sendBuffer;
   std::vector<std::unique_ptr<ucxx::Buffer>> _recvBuffer;
   std::vector<void*> _sendPtr{nullptr};
@@ -189,6 +196,68 @@ TEST_P(RequestTest, ProgressAm)
 #endif
 }
 
+TEST_P(RequestTest, ProgressAmReceiverCallback)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+#if !UCXX_ENABLE_RMM
+  GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
+  if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+      return std::make_shared<ucxx::RMMBuffer>(length);
+    });
+  }
+
+  // Define AM receiver callback's owner and id for callback
+  ucxx::AmReceiverCallbackInfo receiverCallbackInfo("TestApp", 0);
+
+  // Mutex required for blocking progress mode, otherwise `receivedRequests` may be
+  // accessed before `push_back()` completed.
+  std::mutex mutex;
+
+  // Define AM receiver callback and register with worker
+  std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
+  auto callback = ucxx::AmReceiverCallbackType(
+    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        receivedRequests.push_back(req);
+      }
+    });
+  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+
+  allocate(1, false);
+
+  // Submit and wait for transfers to complete
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (receivedRequests.size() < 1)
+    _progressWorker();
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    _recvPtr[0] = receivedRequests[0]->getRecvBuffer()->data();
+
+    // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
+    // smaller messages are eager and will always be host-allocated.
+    ASSERT_THAT(receivedRequests[0]->getRecvBuffer()->getType(),
+                (_registerCustomAmAllocator && _messageSize >= _rndvThresh)
+                  ? _bufferType
+                  : ucxx::BufferType::Host);
+  }
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+#endif
+}
+
 TEST_P(RequestTest, ProgressStream)
 {
   allocate();
@@ -304,6 +373,176 @@ TEST_P(RequestTest, TagUserCallback)
 
   // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryGet)
+{
+  if (_bufferType == ucxx::BufferType::RMM)
+    GTEST_SKIP() << "CUDA memory support not implemented yet";
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr);
+
+  // Fill memory handle with send data
+  memcpy(reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->memGet(_recvPtr[0], _messageSize, remoteKey));
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryGetPreallocated)
+{
+  if (_bufferType == ucxx::BufferType::RMM)
+    GTEST_SKIP() << "CUDA memory support not implemented yet";
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, _sendPtr[0]);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->memGet(_recvPtr[0], _messageSize, remoteKey));
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryGetWithOffset)
+{
+  if (_bufferType == ucxx::BufferType::RMM)
+    GTEST_SKIP() << "CUDA memory support not implemented yet";
+  if (_messageLength < 2) GTEST_SKIP() << "Message too small to perform operations with offsets";
+  allocate();
+
+  size_t offset      = 1;
+  size_t offsetBytes = offset * sizeof(_send[0][0]);
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr);
+
+  // Fill memory handle with send data
+  memcpy(reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->memGet(reinterpret_cast<char*>(_recvPtr[0]) + offsetBytes,
+                                 _messageSize - offsetBytes,
+                                 remoteKey,
+                                 offsetBytes));
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  copyResults();
+
+  // Assert offset data correctness
+  auto recvOffset = DataContainerType(_recv[0].begin() + offset, _recv[0].end());
+  auto sendOffset = DataContainerType(_send[0].begin() + offset, _send[0].end());
+  ASSERT_THAT(recvOffset, sendOffset);
+}
+
+TEST_P(RequestTest, MemoryPut)
+{
+  if (_bufferType == ucxx::BufferType::RMM)
+    GTEST_SKIP() << "CUDA memory support not implemented yet";
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->memPut(_sendPtr[0], _messageSize, remoteKey));
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  // Copy memory handle data to receive buffer
+  memcpy(_recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryPutPreallocated)
+{
+  if (_bufferType == ucxx::BufferType::RMM)
+    GTEST_SKIP() << "CUDA memory support not implemented yet";
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, _recvPtr[0]);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->memPut(_sendPtr[0], _messageSize, remoteKey));
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryPutWithOffset)
+{
+  if (_bufferType == ucxx::BufferType::RMM)
+    GTEST_SKIP() << "CUDA memory support not implemented yet";
+  if (_messageLength < 2) GTEST_SKIP() << "Message too small to perform operations with offsets";
+  allocate();
+
+  size_t offset      = 1;
+  size_t offsetBytes = offset * sizeof(_send[0][0]);
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->memPut(reinterpret_cast<char*>(_sendPtr[0]) + offsetBytes,
+                                 _messageSize - offsetBytes,
+                                 remoteKey,
+                                 offsetBytes));
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  // Copy memory handle data to receive buffer
+  memcpy(reinterpret_cast<char*>(_recvPtr[0]),
+         reinterpret_cast<void*>(memoryHandle->getBaseAddress()),
+         _messageSize);
+
+  copyResults();
+
+  // Assert offset data correctness
+  auto recvOffset = DataContainerType(_recv[0].begin() + offset, _recv[0].end());
+  auto sendOffset = DataContainerType(_send[0].begin() + offset, _send[0].end());
+  ASSERT_THAT(recvOffset, sendOffset);
 }
 
 INSTANTIATE_TEST_SUITE_P(ProgressModes,
