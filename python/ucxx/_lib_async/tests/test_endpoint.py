@@ -11,6 +11,10 @@ import ucxx
 
 
 @pytest.mark.asyncio
+@pytest.mark.flaky(
+    reruns=3,
+    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
+)
 @pytest.mark.parametrize("server_close_callback", [True, False])
 async def test_close_callback(server_close_callback):
     closed = [False]
