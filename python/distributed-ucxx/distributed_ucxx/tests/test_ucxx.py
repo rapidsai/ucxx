@@ -260,7 +260,7 @@ async def test_ping_pong_numba(ucxx_loop):
 
 
 @pytest.mark.parametrize("processes", [True, False])
-@pytest.mark.flaky(rerun=3)
+@pytest.mark.flaky(reruns=3)
 @gen_test()
 async def test_ucxx_localcluster(ucxx_loop, processes, cleanup):
     async with LocalCluster(
@@ -357,7 +357,7 @@ async def test_cuda_context(
                     )
 
 
-@pytest.mark.flaky(rerun=3)
+@pytest.mark.flaky(reruns=3)
 @gen_test()
 async def test_transpose(
     ucxx_loop,
@@ -408,7 +408,7 @@ async def test_comm_closed_on_read_error():
     assert reader.closed()
 
 
-@pytest.mark.flaky(rerun=3)
+@pytest.mark.flaky(reruns=3)
 @gen_test()
 async def test_embedded_cupy_array(
     ucxx_loop,
