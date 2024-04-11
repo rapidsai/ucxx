@@ -4,6 +4,7 @@
 import asyncio
 
 import pytest
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx as ucxx
 
@@ -38,3 +39,4 @@ async def test_tag_match():
     assert m1 == msg1
     await f2
     assert m2 == msg2
+    await wait_listener_client_handlers(lf)

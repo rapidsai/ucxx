@@ -48,15 +48,27 @@ struct EpParamsDeleter {
  * callback to modify the `ucxx::Endpoint` with information relevant to the error occurred.
  */
 struct ErrorCallbackData {
-  Endpoint*
-    _endpoint;  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
-  std::unique_ptr<std::mutex>
-    _mutex;  ///< Mutex used to prevent race conditions with `ucxx::Endpoint::setCloseCallback()`.
-  ucs_status_t status;                                 ///< Endpoint status
-  std::shared_ptr<InflightRequests> inflightRequests;  ///< Endpoint inflight requests
-  EndpointCloseCallbackUserFunction closeCallback;     ///< Close callback to call
-  EndpointCloseCallbackUserData closeCallbackArg;      ///< Argument to be passed to close callback
-  std::shared_ptr<Worker> worker;  ///< Worker the endpoint has been created from
+  Endpoint* endpoint{
+    nullptr};  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
+  std::mutex mutex{std::mutex()};       ///< Mutex used to prevent race conditions with
+                                        ///< `ucxx::Endpoint::setCloseCallback()`.
+  ucs_status_t status{UCS_INPROGRESS};  ///< Endpoint status
+  std::atomic<bool> closing{false};     ///< Prevent calling close multiple concurrent times.
+  std::shared_ptr<InflightRequests> inflightRequests{nullptr};  ///< Endpoint inflight requests
+  EndpointCloseCallbackUserFunction closeCallback{nullptr};     ///< Close callback to call
+  EndpointCloseCallbackUserData closeCallbackArg{
+    nullptr};                               ///< Argument to be passed to close callback
+  std::shared_ptr<Worker> worker{nullptr};  ///< Worker the endpoint has been created from
+
+  ErrorCallbackData(Endpoint* endpoint,
+                    std::shared_ptr<InflightRequests> inflightRequests,
+                    std::shared_ptr<Worker> worker);
+
+  ErrorCallbackData()                                    = delete;
+  ErrorCallbackData(const ErrorCallbackData&)            = delete;
+  ErrorCallbackData& operator=(ErrorCallbackData const&) = delete;
+  ErrorCallbackData(ErrorCallbackData&& o)               = delete;
+  ErrorCallbackData& operator=(ErrorCallbackData&& o)    = delete;
 };
 
 /**
@@ -309,6 +321,10 @@ class Endpoint : public Component {
    * successfully after completing and disconnecting from the remote endpoint, but more
    * importantly when any error occurs, allowing the application to be notified immediately
    * after such an event occurred.
+   *
+   * @throws  std::runtime_error  if the endpoint is closing or has already closed and this
+   *                              is not removing the close callback (setting both
+   *                              `closeCallback` and `closeCallbackArg` to `nullptr`)
    *
    * @param[in] closeCallback     `std::function` to a function definition return `void` and
    *                              receiving a single opaque pointer.
@@ -735,7 +751,8 @@ class Endpoint : public Component {
    * checked for errors. This is a non-blocking operation, and the status of closing the
    * endpoint must be verified from the resulting request object before the
    * `std::shared_ptr<ucxx::Endpoint>` can be safely destroyed and the UCP endpoint assumed
-   * inactive (closed).
+   * inactive (closed). If the endpoint is already closed or in process of closing, `nullptr`
+   * is returned instead.
    *
    * If the endpoint was created with error handling support, the error callback will be
    * executed, implying the user-defined callback will also be executed.
@@ -759,7 +776,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Request to be subsequently checked for the completion and its state, or
+   *          `nullptr` if the endpoint has already closed or is already in process of
+   *          closing.
    */
   std::shared_ptr<Request> close(const bool enablePythonFuture                      = false,
                                  EndpointCloseCallbackUserFunction callbackFunction = nullptr,
