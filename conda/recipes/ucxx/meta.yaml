@@ -52,7 +52,6 @@ requirements:
     - ucx
     - python
     - librmm =24.06
-    - gtest
 
 outputs:
   - name: libucxx
@@ -184,8 +183,7 @@ outputs:
         - cuda-cudart
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        - gtest
-        - gmock
+
     about:
       home: https://rapids.ai/
       license: BSD-3-Clause

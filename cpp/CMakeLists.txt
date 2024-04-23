@@ -1,5 +1,5 @@
 # =================================================================================
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD 3-Clause License
 # =================================================================================
 
@@ -115,7 +115,10 @@ if(UCXX_ENABLE_RMM)
 endif()
 # find or install GoogleTest
 if(BUILD_TESTS)
-  include(cmake/thirdparty/get_gtest.cmake)
+  include(${rapids-cmake-dir}/cpm/gtest.cmake)
+
+  # Find or install GoogleTest
+  rapids_cpm_gtest(BUILD_STATIC)
 endif()
 
 # ##################################################################################################

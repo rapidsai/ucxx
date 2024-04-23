@@ -120,8 +120,6 @@ dependencies:
           - cxx-compiler
           - &cmake_ver cmake>=3.26.4
           - fmt>=10.1.1,<11
-          - &gmock gmock>=1.13.0
-          - &gtest gtest>=1.13.0
           - librmm==24.6.*
           - ninja
           - spdlog>=1.12.0,<1.13
@@ -250,8 +248,6 @@ dependencies:
       - output_types: conda
         packages:
           - *cmake_ver
-          - *gtest
-          - *gmock
   test_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
