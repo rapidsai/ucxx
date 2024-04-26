@@ -12,7 +12,7 @@ import weakref
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint8_t
 from libc.stdlib cimport free
 from libcpp cimport nullptr
 from libcpp.functional cimport function
@@ -61,7 +61,7 @@ cdef class HostBufferAdapter:
         obj._size = host_buffer.getSize()
         obj._ptr = host_buffer.release()
         obj._shape = [obj._size]
-        obj._itemsize = sizeof(char)
+        obj._itemsize = sizeof(uint8_t)
         obj._strides = [obj._itemsize]
         return obj
 
