@@ -12,7 +12,7 @@ import weakref
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
-from libc.stdint cimport uintptr_t, uint8_t
+from libc.stdint cimport uint8_t, uintptr_t
 from libc.stdlib cimport free
 from libcpp cimport nullptr
 from libcpp.functional cimport function
