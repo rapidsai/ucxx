@@ -45,15 +45,18 @@ cdef class HostBufferAdapter:
     """A simple adapter around HostBuffer implementing the buffer protocol"""
     cdef Py_ssize_t _size
     cdef void* _ptr
-    # TODO: I believe this is owned by the current object and we only pass a
-    # pointer to it, so the end result is that the data is freed when this
-    # struct is destroyed.
     cdef Py_ssize_t[1] _shape
     cdef Py_ssize_t[1] _strides
     cdef Py_ssize_t _itemsize
 
     @staticmethod
     cdef _from_host_buffer(HostBuffer* host_buffer):
+        """Construct a new HostBufferAdapter from a HostBuffer.
+
+        This factory takes ownership of the input host_buffer's data, so
+        attempting to use the input after this function is called will result
+        in undefined behavior.
+        """
         cdef HostBufferAdapter obj = HostBufferAdapter.__new__(HostBufferAdapter)
         obj._size = host_buffer.getSize()
         obj._ptr = host_buffer.release()
