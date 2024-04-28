@@ -130,7 +130,7 @@ dependencies:
       - output_types: [requirements, pyproject]
         packages:
           # TODO: Figure out versioning
-          - libucx
+          - libucx==1.14.1
   build_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
