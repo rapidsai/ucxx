@@ -6,6 +6,7 @@ build-backend = "scikit_build_core.build"
 requires = [
     "cmake>=3.26.4",
     "cython>=3.0.0",
+    "libucx",
     "ninja",
     "rmm==24.6.*",
     "scikit-build-core[pyproject]>=0.7.0",
@@ -22,6 +23,7 @@ authors = [
 license = { text = "BSD-3-Clause" }
 requires-python = ">=3.9"
 dependencies = [
+    "libucx",
     "numpy>=1.23,<2.0a0",
     "pynvml>=11.4.1",
     "rmm==24.6.*",

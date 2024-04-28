@@ -61,6 +61,7 @@ files:
       table: build-system
     includes:
       - build_python_ucxx
+      - ucx_wheel
       - depends_on_rmm
   py_run_ucxx:
     output: pyproject
@@ -69,6 +70,7 @@ files:
       table: project
     includes:
       - run_python_ucxx
+      - ucx_wheel
       - depends_on_rmm
   py_test_ucxx:
     output: pyproject
@@ -123,6 +125,12 @@ dependencies:
           - librmm==24.6.*
           - ninja
           - spdlog>=1.12.0,<1.13
+  ucx_wheel:
+    common:
+      - output_types: [requirements, pyproject]
+        packages:
+          # TODO: Figure out versioning
+          - libucx
   build_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
