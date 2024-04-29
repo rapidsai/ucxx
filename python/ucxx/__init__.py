@@ -6,6 +6,17 @@
 import logging
 import os
 
+# If libucx was installed as a wheel, we must request it to load the library symbols.
+# Otherwise, we assume that the library was installed in a system path that ld can find.
+try:
+    import libucx
+except ModuleNotFoundError:
+    pass
+else:
+    libucx.load_library()
+    del libucx
+
+
 logger = logging.getLogger("ucx")
 
 # Notice, if we have to update environment variables we need to do it
