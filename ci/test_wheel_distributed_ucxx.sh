@@ -3,20 +3,19 @@
 
 set -euo pipefail
 
-PROJECT_NAME="distributed_ucxx"
+package_name="distributed_ucxx"
 
 source "$(dirname "$0")/test_common.sh"
 
 mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
-RAPIDS_PY_WHEEL_NAME="${PROJECT_NAME}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
 
 # Install previously built ucxx wheel
-RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-ucxx-dep
-python -m pip install ./local-ucxx-dep/ucxx*.whl
+ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-ucxx-dep)
+libucx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact ucx-wheels 1 cpp)
 
-# echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install $(echo ./dist/${PROJECT_NAME}*.whl)[test]
+python -m pip install "${package_name}-${RAPIDS_PY_CUDA_SUFFIX}[test]" --find-links dist/ --find-links "${libucx_wheelhouse}" --find-links "${ucxx_wheelhouse}"
 
 rapids-logger "Distributed Tests"
 
