@@ -48,8 +48,8 @@ struct EpParamsDeleter {
  * callback to modify the `ucxx::Endpoint` with information relevant to the error occurred.
  */
 struct ErrorCallbackData {
-  Endpoint* endpoint{
-    nullptr};  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
+  std::weak_ptr<Endpoint>
+    endpoint{};  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
   std::mutex mutex{std::mutex()};       ///< Mutex used to prevent race conditions with
                                         ///< `ucxx::Endpoint::setCloseCallback()`.
   ucs_status_t status{UCS_INPROGRESS};  ///< Endpoint status
@@ -60,8 +60,7 @@ struct ErrorCallbackData {
     nullptr};                               ///< Argument to be passed to close callback
   std::shared_ptr<Worker> worker{nullptr};  ///< Worker the endpoint has been created from
 
-  ErrorCallbackData(Endpoint* endpoint,
-                    std::shared_ptr<InflightRequests> inflightRequests,
+  ErrorCallbackData(std::shared_ptr<InflightRequests> inflightRequests,
                     std::shared_ptr<Worker> worker);
 
   ErrorCallbackData()                                    = delete;
