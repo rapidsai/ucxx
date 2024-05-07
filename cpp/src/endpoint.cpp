@@ -34,13 +34,6 @@
 
 namespace ucxx {
 
-ErrorCallbackData::ErrorCallbackData(std::shared_ptr<Endpoint> endpoint,
-                                     std::shared_ptr<InflightRequests> inflightRequests,
-                                     std::shared_ptr<Worker> worker)
-  : endpoint(endpoint), inflightRequests(inflightRequests), worker(worker)
-{
-}
-
 static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener)
 {
   auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
@@ -53,6 +46,57 @@ static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrList
     worker = std::dynamic_pointer_cast<Worker>(listener->getParent());
   }
   return worker;
+}
+
+void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
+{
+  auto endpoint = static_cast<Endpoint*>(arg);
+
+  // Unable to cast to `Endpoint*`: invalid `arg`.
+  if (endpoint == nullptr) {
+    ucxx_error("ucxx::Endpoint::%s, UCP handle: %p, error callback called with status %d: %s",
+               __func__,
+               ep,
+               status,
+               ucs_status_string(status));
+    return;
+  }
+
+  // Endpoint is already closing.
+  if (endpoint->_closing.exchange(true)) return;
+
+  endpoint->_status = status;
+  auto worker       = ::ucxx::getWorker(endpoint->_parent);
+  worker->scheduleRequestCancel(endpoint->_inflightRequests->release());
+  {
+    std::lock_guard<std::mutex> lock(endpoint->_mutex);
+    if (endpoint->_closeCallback) {
+      ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, calling user close callback",
+                 __func__,
+                 endpoint,
+                 ep);
+      endpoint->_closeCallback(status, endpoint->_closeCallbackArg);
+      endpoint->_closeCallback    = nullptr;
+      endpoint->_closeCallbackArg = nullptr;
+    }
+  }
+
+  // Connection reset and timeout often represent just a normal remote
+  // endpoint disconnect, log only in debug mode.
+  if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
+    ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
+               __func__,
+               endpoint,
+               ep,
+               status,
+               ucs_status_string(status));
+  else
+    ucxx_error("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
+               __func__,
+               endpoint,
+               ep,
+               status,
+               ucs_status_string(status));
 }
 
 Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener, bool endpointErrorHandling)
@@ -68,14 +112,12 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener, bool endpointErr
 
 void Endpoint::create(ucp_ep_params_t* params)
 {
-  auto worker   = ::ucxx::getWorker(_parent);
-  _callbackData = std::make_unique<ErrorCallbackData>(
-    std::dynamic_pointer_cast<Endpoint>(shared_from_this()), _inflightRequests, worker);
+  auto worker = ::ucxx::getWorker(_parent);
 
   if (_endpointErrorHandling) {
     params->err_mode        = UCP_ERR_HANDLING_MODE_PEER;
-    params->err_handler.cb  = Endpoint::errorCallback;
-    params->err_handler.arg = _callbackData.get();
+    params->err_handler.cb  = errorCallback;
+    params->err_handler.arg = this;
   } else {
     params->err_mode        = UCP_ERR_HANDLING_MODE_NONE;
     params->err_handler.cb  = nullptr;
@@ -178,21 +220,21 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
                                          EndpointCloseCallbackUserFunction callbackFunction,
                                          EndpointCloseCallbackUserData callbackData)
 {
-  if (_callbackData->closing.exchange(true) || _handle == nullptr) return nullptr;
+  if (_closing.exchange(true) || _handle == nullptr) return nullptr;
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   bool force    = _endpointErrorHandling;
 
   auto combineCallbacksFunction = [this, &callbackFunction, &callbackData](
                                     ucs_status_t status, EndpointCloseCallbackUserData unused) {
-    _callbackData->status = status;
+    _status = status;
     if (callbackFunction) callbackFunction(status, callbackData);
     {
-      std::lock_guard<std::mutex> lock(_callbackData->mutex);
-      if (_callbackData->closeCallback) {
-        _callbackData->closeCallback(status, _callbackData->closeCallbackArg);
-        _callbackData->closeCallback    = nullptr;
-        _callbackData->closeCallbackArg = nullptr;
+      std::lock_guard<std::mutex> lock(_mutex);
+      if (_closeCallback) {
+        _closeCallback(status, _closeCallbackArg);
+        _closeCallback    = nullptr;
+        _closeCallbackArg = nullptr;
       }
     }
   };
@@ -203,7 +245,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
 
 void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 {
-  if (_callbackData->closing.exchange(true) || _handle == nullptr) return;
+  if (_closing.exchange(true) || _handle == nullptr) return;
 
   size_t canceled = cancelInflightRequestsBlocking(3000000000 /* 3s */, 3);
   ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
@@ -259,7 +301,7 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
     }
 
     if (!closeSuccess) {
-      _callbackData->status = UCS_ERR_ENDPOINT_TIMEOUT;
+      _status = UCS_ERR_ENDPOINT_TIMEOUT;
       ucxx_debug(
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, all attempts to close timed out",
         __func__,
@@ -272,7 +314,7 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
       ucs_status_t s;
       while ((s = ucp_request_check_status(status)) == UCS_INPROGRESS)
         worker->progress();
-      _callbackData->status = s;
+      _status = s;
     } else if (UCS_PTR_STATUS(status) != UCS_OK) {
       ucxx_error(
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
@@ -287,15 +329,15 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
   if (UCS_PTR_IS_PTR(status)) ucp_request_free(status);
 
   {
-    std::lock_guard<std::mutex> lock(_callbackData->mutex);
-    if (_callbackData->closeCallback) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    if (_closeCallback) {
       ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, calling user close callback",
                  __func__,
                  this,
                  _handle);
-      _callbackData->closeCallback(_callbackData->status, _callbackData->closeCallbackArg);
-      _callbackData->closeCallback    = nullptr;
-      _callbackData->closeCallbackArg = nullptr;
+      _closeCallback(_status, _closeCallbackArg);
+      _closeCallback    = nullptr;
+      _closeCallbackArg = nullptr;
     }
   }
 
@@ -308,12 +350,12 @@ bool Endpoint::isAlive() const
 {
   if (!_endpointErrorHandling) return true;
 
-  return _callbackData->status == UCS_INPROGRESS;
+  return _status == UCS_INPROGRESS;
 }
 
 void Endpoint::raiseOnError()
 {
-  ucs_status_t status = _callbackData->status;
+  ucs_status_t status = _status;
 
   if (status == UCS_OK || status == UCS_INPROGRESS || !_endpointErrorHandling) return;
 
@@ -327,13 +369,13 @@ void Endpoint::raiseOnError()
 void Endpoint::setCloseCallback(EndpointCloseCallbackUserFunction closeCallback,
                                 EndpointCloseCallbackUserData closeCallbackArg)
 {
-  std::lock_guard<std::mutex> lock(_callbackData->mutex);
+  std::lock_guard<std::mutex> lock(_mutex);
 
-  if (_callbackData->closing.load() && closeCallback != nullptr && closeCallbackArg != nullptr)
+  if (_closing.load() && closeCallback != nullptr && closeCallbackArg != nullptr)
     throw std::runtime_error("Endpoint is closing or has already closed.");
 
-  _callbackData->closeCallback    = closeCallback;
-  _callbackData->closeCallbackArg = closeCallbackArg;
+  _closeCallback    = closeCallback;
+  _closeCallbackArg = closeCallbackArg;
 }
 
 std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Request> request)
@@ -345,8 +387,10 @@ std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Reque
    * handler may have been called already and we need to register any new requests for
    * cancelation, including the present one.
    */
-  if (_callbackData->status != UCS_INPROGRESS)
-    _callbackData->worker->scheduleRequestCancel(_inflightRequests->release());
+  if (_status != UCS_INPROGRESS) {
+    auto worker = ::ucxx::getWorker(_parent);
+    worker->scheduleRequestCancel(_inflightRequests->release());
+  }
 
   return request;
 }
@@ -360,7 +404,7 @@ size_t Endpoint::cancelInflightRequests() { return _inflightRequests->cancelAll(
 
 size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAttempts)
 {
-  auto worker     = ::ucxx::getWorker(this->_parent);
+  auto worker     = ::ucxx::getWorker(_parent);
   size_t canceled = 0;
 
   if (std::this_thread::get_id() == worker->getProgressThreadId()) {
@@ -574,62 +618,5 @@ std::shared_ptr<Request> Endpoint::flush(const bool enablePythonFuture,
 }
 
 std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }
-
-void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
-{
-  ErrorCallbackData* data = reinterpret_cast<ErrorCallbackData*>(arg);
-
-  // Unable to cast to `ErrorCallbackData*`: invalid `arg`.
-  if (data == nullptr) {
-    ucxx_error("ucxx::Endpoint::%s, UCP handle: %p, error callback called with status %d: %s",
-               __func__,
-               ep,
-               status,
-               ucs_status_string(status));
-    return;
-  }
-
-  try {
-    std::shared_ptr<Endpoint> endpoint(data->endpoint);
-
-    // Endpoint is already closing.
-    if (data->closing.exchange(true)) return;
-
-    data->status = status;
-    data->worker->scheduleRequestCancel(data->inflightRequests->release());
-    {
-      std::lock_guard<std::mutex> lock(data->mutex);
-      if (data->closeCallback) {
-        ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, calling user close callback",
-                   __func__,
-                   endpoint.get(),
-                   ep);
-        data->closeCallback(status, data->closeCallbackArg);
-        data->closeCallback    = nullptr;
-        data->closeCallbackArg = nullptr;
-      }
-    }
-
-    // Connection reset and timeout often represent just a normal remote
-    // endpoint disconnect, log only in debug mode.
-    if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
-      ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
-                 __func__,
-                 endpoint.get(),
-                 ep,
-                 status,
-                 ucs_status_string(status));
-    else
-      ucxx_error("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
-                 __func__,
-                 endpoint.get(),
-                 ep,
-                 status,
-                 ucs_status_string(status));
-  } catch (std::bad_weak_ptr& exception) {
-    // Unable to acquire `std::shared_ptr<ucxx::Endpoint>`: owner was already destroyed.
-    return;
-  }
-}
 
 }  // namespace ucxx
