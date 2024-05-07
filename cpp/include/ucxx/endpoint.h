@@ -138,6 +138,18 @@ class Endpoint : public Component {
    */
   std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
+  /**
+   * @brief The error callback registered at endpoint creation time.
+   *
+   * When the endpoint is created with error handling support this method is registered as
+   * the callback to be called when the endpoint is closing, it is responsible for checking
+   * the closing status and update internal state accordingly. If error handling support is
+   * not active, this method is not registered nor called.
+   *
+   * The signature for this method must match `ucp_err_handler_cb_t`.
+   */
+  friend void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
+
  public:
   Endpoint()                           = delete;
   Endpoint(const Endpoint&)            = delete;
@@ -738,18 +750,6 @@ class Endpoint : public Component {
    * @returns The `std::shared_ptr<ucxx::Worker>` which the endpoint is associated with.
    */
   std::shared_ptr<Worker> getWorker();
-
-  /**
-   * @brief The error callback registered at endpoint creation time.
-   *
-   * When the endpoint is created with error handling support this method is registered as
-   * the callback to be called when the endpoint is closing, it is responsible for checking
-   * the closing status and update internal state accordingly. If error handling support is
-   * not active, this method is not registered nor called.
-   *
-   * The signature for this method must match `ucp_err_handler_cb_t`.
-   */
-  static void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
 
   /**
    * @brief Enqueue a non-blocking endpoint close operation.
