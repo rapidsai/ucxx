@@ -4,15 +4,16 @@
  */
 #pragma once
 
+#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
-#include <vector>
 
 #include <ucp/api/ucp.h>
 #include <ucs/memory/memory_type.h>
@@ -41,8 +42,11 @@ class BaseDelayedSubmissionCollection {
  protected:
   std::string _name{"undefined"};  ///< The human-readable name of the collection, used for logging
   bool _enabled{true};  ///< Whether the resource required to process the collection is enabled.
-  std::vector<T> _collection{};  ///< The collection.
-  std::mutex _mutex{};           ///< Mutex to provide access to `_collection`.
+  uint64_t _itemId{0};  ///< The item ID counter, used to allow cancelation.
+  std::deque<std::pair<uint64_t, T>> _collection{};  ///< The collection.
+  std::set<uint64_t> _canceled{};
+  std::mutex _mutex{};          ///< Mutex to provide access to `_collection`.
+  std::mutex _canceledMutex{};  ///< Mutex to provide access to `_canceled`.
 
   /**
    * @brief Log message during `schedule()`.
@@ -51,7 +55,7 @@ class BaseDelayedSubmissionCollection {
    *
    * @param[in] item      the callback that was passed as argument to `schedule()`.
    */
-  virtual void scheduleLog(T item) = 0;
+  virtual void scheduleLog(uint64_t id, T item) = 0;
 
   /**
    * @brief Process a single item during `process()`.
@@ -61,7 +65,7 @@ class BaseDelayedSubmissionCollection {
    * @param[in] item      the callback that was passed as argument to `schedule()` when
    *                      the first registered.
    */
-  virtual void processItem(T item) = 0;
+  virtual void processItem(uint64_t id, T item) = 0;
 
  public:
   /**
@@ -102,16 +106,22 @@ class BaseDelayedSubmissionCollection {
    *
    * @param[in] item            the callback that will be executed by `process()` when the
    *                            operation is submitted.
+   *
+   * @returns the ID of the scheduled item which can be used cancelation requests.
    */
-  virtual void schedule(T item)
+  virtual uint64_t schedule(T item)
   {
     if (!_enabled) throw std::runtime_error("Resource is disabled.");
 
+    uint64_t id;
     {
       std::lock_guard<std::mutex> lock(_mutex);
-      _collection.push_back(item);
+      id = _itemId++;
+      _collection.emplace_back(id, item);
     }
-    scheduleLog(item);
+    scheduleLog(id, item);
+
+    return id;
   }
 
   /**
@@ -122,19 +132,34 @@ class BaseDelayedSubmissionCollection {
    */
   void process()
   {
-    decltype(_collection) itemsToProcess;
+    // Process only those that were already inserted to prevent from never
+    // returning if `_collection` grows indefinitely.
+    size_t toProcess = 0;
     {
       std::lock_guard<std::mutex> lock(_mutex);
-      // Move _collection to a local copy in order to to hold the lock for as
-      // short as possible
-      itemsToProcess = std::move(_collection);
+      toProcess = _collection.size();
     }
 
-    if (itemsToProcess.size() > 0) {
-      ucxx_trace_req("Submitting %lu %s callbacks", itemsToProcess.size(), _name.c_str());
-      for (auto& item : itemsToProcess)
-        processItem(item);
+    for (auto i = 0; i < toProcess; ++i) {
+      std::pair<uint64_t, T> item;
+      {
+        std::lock_guard<std::mutex> lock(_mutex);
+        item = std::move(_collection.front());
+        _collection.pop_front();
+        if (_canceled.erase(item.first)) continue;
+      }
+
+      processItem(item.first, item.second);
     }
+  }
+
+  void cancel(uint64_t id)
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    // TODO: Check if not cancellable anymore? Will likely need a separate set to keep tracking of
+    // registered items.
+    _canceled.insert(id);
+    ucxx_trace_req("Canceled item: %lu", id);
   }
 };
 
@@ -149,10 +174,10 @@ class RequestDelayedSubmissionCollection
       std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>> {
  protected:
   void scheduleLog(
-    std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
+    uint64_t id, std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
 
   void processItem(
-    std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
+    uint64_t id, std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item) override;
 
  public:
   /**
@@ -177,9 +202,9 @@ class RequestDelayedSubmissionCollection
 class GenericDelayedSubmissionCollection
   : public BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType> {
  protected:
-  void scheduleLog(DelayedSubmissionCallbackType item) override;
+  void scheduleLog(uint64_t id, DelayedSubmissionCallbackType item) override;
 
-  void processItem(DelayedSubmissionCallbackType callback) override;
+  void processItem(uint64_t id, DelayedSubmissionCallbackType callback) override;
 
  public:
   /**
@@ -277,7 +302,7 @@ class DelayedSubmissionCollection {
    *
    * @param[in] callback  the callback that will be executed by `processPre()`.
    */
-  void registerGenericPre(DelayedSubmissionCallbackType callback);
+  uint64_t registerGenericPre(DelayedSubmissionCallbackType callback);
 
   /**
    * @brief Register a generic callback to execute during `processPost()`.
@@ -287,7 +312,10 @@ class DelayedSubmissionCollection {
    *
    * @param[in] callback  the callback that will be executed by `processPre()`.
    */
-  void registerGenericPost(DelayedSubmissionCallbackType callback);
+  uint64_t registerGenericPost(DelayedSubmissionCallbackType callback);
+
+  void cancelGenericPre(uint64_t id);
+  void cancelGenericPost(uint64_t id);
 
   /**
    * @brief Inquire if delayed request submission is enabled.

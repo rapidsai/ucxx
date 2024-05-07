@@ -319,6 +319,39 @@ void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
   }
 }
 
+bool Worker::registerGenericPreNotifiable(DelayedSubmissionCallbackType callback, uint64_t period)
+{
+  if (std::this_thread::get_id() == getProgressThreadId()) {
+    /**
+     * If the method is called from within the progress thread (e.g., from the
+     * listener callback), execute it immediately.
+     */
+    callback();
+
+    return true;
+  } else {
+    utils::CallbackNotifier callbackNotifier{};
+    auto notifiableCallback = [&callback, &callbackNotifier]() {
+      callback();
+      callbackNotifier.set();
+    };
+
+    auto id = _delayedSubmissionCollection->registerGenericPre(notifiableCallback);
+
+    /* Waking the progress event is needed here because the UCX request is
+     * not dispatched immediately. Thus we must signal the progress task so
+     * it will ensure the request is dispatched.
+     */
+    signal();
+
+    auto ret = callbackNotifier.wait(period);
+
+    if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
+
+    return ret;
+  }
+}
+
 void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
 {
   if (std::this_thread::get_id() == getProgressThreadId()) {
@@ -335,6 +368,39 @@ void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
      * it will ensure the request is dispatched.
      */
     signal();
+  }
+}
+
+bool Worker::registerGenericPostNotifiable(DelayedSubmissionCallbackType callback, uint64_t period)
+{
+  if (std::this_thread::get_id() == getProgressThreadId()) {
+    /**
+     * If the method is called from within the progress thread (e.g., from the
+     * listener callback), execute it immediately.
+     */
+    callback();
+
+    return true;
+  } else {
+    utils::CallbackNotifier callbackNotifier{};
+    auto notifiableCallback = [&callback, &callbackNotifier]() {
+      callback();
+      callbackNotifier.set();
+    };
+
+    auto id = _delayedSubmissionCollection->registerGenericPost(notifiableCallback);
+
+    /* Waking the progress event is needed here because the UCX request is
+     * not dispatched immediately. Thus we must signal the progress task so
+     * it will ensure the request is dispatched.
+     */
+    signal();
+
+    auto ret = callbackNotifier.wait(period);
+
+    if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
+
+    return ret;
   }
 }
 
@@ -439,20 +505,19 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
   } else if (isProgressThreadRunning()) {
     bool cancelSuccess = false;
     for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
-      utils::CallbackNotifier callbackNotifierPre{};
-      registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
-        canceled += inflightRequestsToCancel->cancelAll();
-        callbackNotifierPre.set();
-      });
-      if (!callbackNotifierPre.wait(period)) continue;
+      if (!registerGenericPreNotifiable(
+            [&canceled, &inflightRequestsToCancel]() {
+              canceled += inflightRequestsToCancel->cancelAll();
+            },
+            period))
+        continue;
 
-      utils::CallbackNotifier callbackNotifierPost{};
-      registerGenericPost(
-        [this, &callbackNotifierPost, &inflightRequestsToCancel, &cancelSuccess]() {
-          cancelSuccess = inflightRequestsToCancel->getCancelingSize() == 0;
-          callbackNotifierPost.set();
-        });
-      if (!callbackNotifierPost.wait(period)) continue;
+      if (!registerGenericPostNotifiable(
+            [this, &inflightRequestsToCancel, &cancelSuccess]() {
+              cancelSuccess = inflightRequestsToCancel->getCancelingSize() == 0;
+            },
+            period))
+        continue;
     }
 
     if (!cancelSuccess)
@@ -518,12 +583,8 @@ bool Worker::tagProbe(const Tag tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    utils::CallbackNotifier callbackNotifierPre{};
-    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.set(); });
-    callbackNotifierPre.wait();
-    utils::CallbackNotifier callbackNotifierPost{};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    registerGenericPreNotifiable([]() {}, 3000000000 /* 3s */);
+    registerGenericPostNotifiable([]() {}, 3000000000 /* 3s */);
   }
 
   ucp_tag_recv_info_t info;

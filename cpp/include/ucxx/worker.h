@@ -438,6 +438,9 @@ class Worker : public Component {
    */
   void registerGenericPost(DelayedSubmissionCallbackType callback);
 
+  bool registerGenericPreNotifiable(DelayedSubmissionCallbackType callback, uint64_t period);
+  bool registerGenericPostNotifiable(DelayedSubmissionCallbackType callback, uint64_t period);
+
   /**
    * @brief Inquire if worker has been created with delayed submission enabled.
    *

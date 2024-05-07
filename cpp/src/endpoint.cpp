@@ -126,14 +126,16 @@ void Endpoint::create(ucp_ep_params_t* params)
 
   if (worker->isProgressThreadRunning()) {
     ucs_status_t status = UCS_INPROGRESS;
-    utils::CallbackNotifier callbackNotifier{};
-    worker->registerGenericPre([this, &worker, &params, &callbackNotifier, &status]() {
-      status = ucp_ep_create(worker->getHandle(), params, &_handle);
-      callbackNotifier.set();
-    });
 
     size_t maxAttempts = 3;
-    for (uint64_t i = 0; i < maxAttempts && !callbackNotifier.wait(3000000000 /* 3s */); ++i) {
+    for (uint64_t i = 0; i < maxAttempts; ++i) {
+      if (worker->registerGenericPreNotifiable(
+            [this, &worker, &params, &status]() {
+              status = ucp_ep_create(worker->getHandle(), params, &_handle);
+            },
+            3000000000 /* 3s */))
+        break;
+
       if (i == maxAttempts - 1)
         ucxx_error("Timeout waiting for ucp_ep_create, all attempts failed");
       else
@@ -266,35 +268,30 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
     bool submitted    = false;
     for (uint64_t i = 0; i < maxAttempts && !closeSuccess; ++i) {
       if (!submitted) {
-        utils::CallbackNotifier callbackNotifierPre{};
-        worker->registerGenericPre([this, &callbackNotifierPre, &status, &param]() {
-          status = ucp_ep_close_nbx(_handle, &param);
-          callbackNotifierPre.set();
-        });
-        if (!callbackNotifierPre.wait(period)) continue;
+        if (!worker->registerGenericPreNotifiable(
+              [this, &status, &param]() { status = ucp_ep_close_nbx(_handle, &param); }, period))
+          continue;
         submitted = true;
       }
 
-      if (_callbackData->status == UCS_INPROGRESS) {
-        utils::CallbackNotifier callbackNotifierPost{};
-        worker->registerGenericPost([this, &callbackNotifierPost, &status]() {
-          if (UCS_PTR_IS_PTR(status)) {
-            ucs_status_t s;
-            if ((s = ucp_request_check_status(status)) != UCS_INPROGRESS) {
-              _callbackData->status = s;
-            }
-          } else if (UCS_PTR_STATUS(status) != UCS_OK) {
-            ucxx_error(
-              "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
-              __func__,
-              this,
-              _handle,
-              ucs_status_string(UCS_PTR_STATUS(status)));
-          }
-
-          callbackNotifierPost.set();
-        });
-        if (!callbackNotifierPost.wait(period)) continue;
+      if (_status == UCS_INPROGRESS) {
+        if (!worker->registerGenericPostNotifiable(
+              [this, &status]() {
+                if (UCS_PTR_IS_PTR(status)) {
+                  ucs_status_t s;
+                  if ((s = ucp_request_check_status(status)) != UCS_INPROGRESS) { _status = s; }
+                } else if (UCS_PTR_STATUS(status) != UCS_OK) {
+                  ucxx_error(
+                    "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing "
+                    "endpoint: %s",
+                    __func__,
+                    this,
+                    _handle,
+                    ucs_status_string(UCS_PTR_STATUS(status)));
+                }
+              },
+              period))
+          continue;
       }
 
       closeSuccess = true;
@@ -414,19 +411,16 @@ size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAtt
   } else if (worker->isProgressThreadRunning()) {
     bool cancelSuccess = false;
     for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
-      utils::CallbackNotifier callbackNotifierPre{};
-      worker->registerGenericPre([this, &callbackNotifierPre, &canceled]() {
-        canceled += _inflightRequests->cancelAll();
-        callbackNotifierPre.set();
-      });
-      if (!callbackNotifierPre.wait(period)) continue;
+      if (!worker->registerGenericPreNotifiable(
+            [this, &canceled]() { canceled += _inflightRequests->cancelAll(); }, period))
+        continue;
 
-      utils::CallbackNotifier callbackNotifierPost{};
-      worker->registerGenericPost([this, &callbackNotifierPost, &cancelSuccess]() {
-        cancelSuccess = _inflightRequests->getCancelingSize() == 0;
-        callbackNotifierPost.set();
-      });
-      if (!callbackNotifierPost.wait(period)) continue;
+      if (!worker->registerGenericPostNotifiable(
+            [this, &cancelSuccess]() {
+              cancelSuccess = _inflightRequests->getCancelingSize() == 0;
+            },
+            period))
+        continue;
     }
     if (!cancelSuccess)
       ucxx_debug(
