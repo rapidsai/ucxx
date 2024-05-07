@@ -40,6 +40,15 @@ inline void waitRequests(std::shared_ptr<ucxx::Worker> worker,
   }
 }
 
+template <typename RequestType>
+inline void waitSingleRequest(const std::shared_ptr<RequestType>& request,
+                              const std::function<void()>& progressWorker)
+{
+  while (!request->isCompleted())
+    if (progressWorker) progressWorker();
+  request->checkError();
+}
+
 std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
                                           ProgressMode progressMode);
 

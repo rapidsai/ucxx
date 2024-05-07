@@ -407,6 +407,8 @@ std::shared_ptr<Request> Endpoint::amSend(
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData)
 {
+  if (_callbackData->closing.load()) return nullptr;
+
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
     createRequestAm(endpoint,
@@ -497,6 +499,8 @@ std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
                                               size_t length,
                                               const bool enablePythonFuture)
 {
+  if (_callbackData->closing.load()) return nullptr;
+
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
     createRequestStream(endpoint, data::StreamSend(buffer, length), enablePythonFuture));
@@ -506,6 +510,8 @@ std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
                                               size_t length,
                                               const bool enablePythonFuture)
 {
+  if (_callbackData->closing.load()) return nullptr;
+
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
     createRequestStream(endpoint, data::StreamReceive(buffer, length), enablePythonFuture));
@@ -518,6 +524,8 @@ std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
 {
+  if (_callbackData->closing.load()) return nullptr;
+
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTag(endpoint,
                                                   data::TagSend(buffer, length, tag),
@@ -548,6 +556,8 @@ std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer
                                                 const Tag tag,
                                                 const bool enablePythonFuture)
 {
+  if (_callbackData->closing.load()) return nullptr;
+
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTagMulti(
     endpoint, data::TagMultiSend(buffer, size, isCUDA, tag), enablePythonFuture));
