@@ -587,48 +587,47 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
     return;
   }
 
-  std::shared_ptr<Endpoint> endpoint{nullptr};
   try {
-    endpoint = data->endpoint.lock();
+    std::shared_ptr<Endpoint> endpoint(data->endpoint);
+
+    // Endpoint is already closing.
+    if (data->closing.exchange(true)) return;
+
+    data->status = status;
+    data->worker->scheduleRequestCancel(data->inflightRequests->release());
+    {
+      std::lock_guard<std::mutex> lock(data->mutex);
+      if (data->closeCallback) {
+        ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, calling user close callback",
+                   __func__,
+                   endpoint.get(),
+                   ep);
+        data->closeCallback(status, data->closeCallbackArg);
+        data->closeCallback    = nullptr;
+        data->closeCallbackArg = nullptr;
+      }
+    }
+
+    // Connection reset and timeout often represent just a normal remote
+    // endpoint disconnect, log only in debug mode.
+    if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
+      ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
+                 __func__,
+                 endpoint.get(),
+                 ep,
+                 status,
+                 ucs_status_string(status));
+    else
+      ucxx_error("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
+                 __func__,
+                 endpoint.get(),
+                 ep,
+                 status,
+                 ucs_status_string(status));
   } catch (std::bad_weak_ptr& exception) {
     // Unable to acquire `std::shared_ptr<ucxx::Endpoint>`: owner was already destroyed.
     return;
   }
-
-  // Endpoint is already closing.
-  if (data->closing.exchange(true)) return;
-
-  data->status = status;
-  data->worker->scheduleRequestCancel(data->inflightRequests->release());
-  {
-    std::lock_guard<std::mutex> lock(data->mutex);
-    if (data->closeCallback) {
-      ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, calling user close callback",
-                 __func__,
-                 endpoint.get(),
-                 ep);
-      data->closeCallback(status, data->closeCallbackArg);
-      data->closeCallback    = nullptr;
-      data->closeCallbackArg = nullptr;
-    }
-  }
-
-  // Connection reset and timeout often represent just a normal remote
-  // endpoint disconnect, log only in debug mode.
-  if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
-    ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
-               __func__,
-               endpoint.get(),
-               ep,
-               status,
-               ucs_status_string(status));
-  else
-    ucxx_error("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
-               __func__,
-               endpoint.get(),
-               ep,
-               status,
-               ucs_status_string(status));
 }
 
 }  // namespace ucxx
