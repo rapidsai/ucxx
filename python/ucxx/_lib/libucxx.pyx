@@ -72,13 +72,16 @@ cdef class HostBufferAdapter:
         buffer.itemsize = self._itemsize
         buffer.len = self._size * self._itemsize
         buffer.ndim = 1
-        buffer.obj = self
         buffer.readonly = 0
         buffer.shape = self._shape
         buffer.strides = self._strides
         buffer.suboffsets = NULL
+        buffer.obj = self
 
     def __releasebuffer__(self, Py_buffer *buffer):
+        pass
+
+    def __dealloc__(self):
         free(self._ptr)
 
 
