@@ -42,36 +42,6 @@ struct EpParamsDeleter {
 };
 
 /**
- * @brief The endpoint data that is accessible by the error callback.
- *
- * The `ucxx::Endpoint` data that is accessible by the asynchronous UCP endpoint error
- * callback to modify the `ucxx::Endpoint` with information relevant to the error occurred.
- */
-struct ErrorCallbackData {
-  std::weak_ptr<Endpoint>
-    endpoint{};  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
-  std::mutex mutex{std::mutex()};       ///< Mutex used to prevent race conditions with
-                                        ///< `ucxx::Endpoint::setCloseCallback()`.
-  ucs_status_t status{UCS_INPROGRESS};  ///< Endpoint status
-  std::atomic<bool> closing{false};     ///< Prevent calling close multiple concurrent times.
-  std::shared_ptr<InflightRequests> inflightRequests{nullptr};  ///< Endpoint inflight requests
-  EndpointCloseCallbackUserFunction closeCallback{nullptr};     ///< Close callback to call
-  EndpointCloseCallbackUserData closeCallbackArg{
-    nullptr};                               ///< Argument to be passed to close callback
-  std::shared_ptr<Worker> worker{nullptr};  ///< Worker the endpoint has been created from
-
-  ErrorCallbackData(std::shared_ptr<Endpoint> endpoint,
-                    std::shared_ptr<InflightRequests> inflightRequests,
-                    std::shared_ptr<Worker> worker);
-
-  ErrorCallbackData()                                    = delete;
-  ErrorCallbackData(const ErrorCallbackData&)            = delete;
-  ErrorCallbackData& operator=(ErrorCallbackData const&) = delete;
-  ErrorCallbackData(ErrorCallbackData&& o)               = delete;
-  ErrorCallbackData& operator=(ErrorCallbackData&& o)    = delete;
-};
-
-/**
  * @brief Component encapsulating a UCP endpoint.
  *
  * The UCP layer provides a handle to access endpoints in form of `ucp_ep_h` object,
@@ -83,10 +53,15 @@ class Endpoint : public Component {
   ucp_ep_h _originalHandle{nullptr};  ///< Handle to the UCP endpoint, after it was previously
                                       ///< closed, used for logging purposes only
   bool _endpointErrorHandling{true};  ///< Whether the endpoint enables error handling
-  std::unique_ptr<ErrorCallbackData> _callbackData{
-    nullptr};  ///< Data struct to pass to endpoint error handling callback
   std::shared_ptr<InflightRequests> _inflightRequests{
     std::make_shared<InflightRequests>()};  ///< The inflight requests
+  std::mutex _mutex{std::mutex()};          ///< Mutex used to prevent race conditions with
+                                            ///< `ucxx::Endpoint::setCloseCallback()`.
+  ucs_status_t _status{UCS_INPROGRESS};     ///< Endpoint status
+  std::atomic<bool> _closing{false};        ///< Prevent calling close multiple concurrent times.
+  EndpointCloseCallbackUserFunction _closeCallback{nullptr};  ///< Close callback to call
+  EndpointCloseCallbackUserData _closeCallbackArg{
+    nullptr};  ///< Argument to be passed to close callback
 
   /**
    * @brief Private constructor of `ucxx::Endpoint`.
@@ -749,7 +724,7 @@ class Endpoint : public Component {
    *
    * The signature for this method must match `ucp_err_handler_cb_t`.
    */
-  static void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
+  friend void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
 
   /**
    * @brief Enqueue a non-blocking endpoint close operation.
