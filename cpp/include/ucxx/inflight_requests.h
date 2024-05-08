@@ -35,14 +35,10 @@ typedef std::unique_ptr<InflightRequestsMap> InflightRequestsMapPtr;
  * those still valid (inflight), and those scheduled for cancelation (canceling).
  */
 typedef struct TrackedRequests {
-  InflightRequestsMapPtr _inflight;   ///< Valid requests awaiting completion.
-  InflightRequestsMapPtr _canceling;  ///< Requests scheduled for cancelation.
-
-  TrackedRequests()
-    : _inflight(std::make_unique<InflightRequestsMap>()),
-      _canceling(std::make_unique<InflightRequestsMap>())
-  {
-  }
+  InflightRequestsMapPtr _inflight{
+    std::make_unique<InflightRequestsMap>()};  ///< Valid requests awaiting completion.
+  InflightRequestsMapPtr _canceling{
+    std::make_unique<InflightRequestsMap>()};  ///< Requests scheduled for cancelation.
 } TrackedRequests;
 
 /**
