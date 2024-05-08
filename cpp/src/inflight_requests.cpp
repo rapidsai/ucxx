@@ -29,8 +29,14 @@ void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
 {
   {
     std::scoped_lock lock{_cancelMutex, _mutex};
-    _trackedRequests->_inflight->merge(*(trackedRequests->_inflight));
-    _trackedRequests->_canceling->merge(*(trackedRequests->_canceling));
+    if (trackedRequests->_inflight != nullptr)
+      _trackedRequests->_inflight->merge(*(trackedRequests->_inflight));
+    else
+      ucxx_error("Invalid _inflight object during merge");
+    if (trackedRequests->_canceling != nullptr)
+      _trackedRequests->_canceling->merge(*(trackedRequests->_canceling));
+    else
+      ucxx_error("Invalid _canceling object during merge");
   }
 }
 
