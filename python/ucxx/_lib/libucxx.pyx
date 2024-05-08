@@ -67,7 +67,7 @@ cdef class HostBufferAdapter:
 
     def __getbuffer__(self, Py_buffer *buffer, int flags):
         buffer.buf = self._ptr
-        buffer.format = 'c'
+        buffer.format = 'B'
         buffer.internal = NULL
         buffer.itemsize = self._itemsize
         buffer.len = self._size * self._itemsize
