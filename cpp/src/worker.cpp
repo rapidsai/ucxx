@@ -300,26 +300,7 @@ void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
   }
 }
 
-void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
-{
-  if (std::this_thread::get_id() == getProgressThreadId()) {
-    /**
-     * If the method is called from within the progress thread (e.g., from the
-     * listener callback), execute it immediately.
-     */
-    callback();
-  } else {
-    _delayedSubmissionCollection->registerGenericPre(callback);
-
-    /* Waking the progress event is needed here because the UCX request is
-     * not dispatched immediately. Thus we must signal the progress task so
-     * it will ensure the request is dispatched.
-     */
-    signal();
-  }
-}
-
-bool Worker::registerGenericPreNotifiable(DelayedSubmissionCallbackType callback, uint64_t period)
+bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t period)
 {
   if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
@@ -352,26 +333,7 @@ bool Worker::registerGenericPreNotifiable(DelayedSubmissionCallbackType callback
   }
 }
 
-void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
-{
-  if (std::this_thread::get_id() == getProgressThreadId()) {
-    /**
-     * If the method is called from within the progress thread (e.g., from the
-     * listener callback), execute it immediately.
-     */
-    callback();
-  } else {
-    _delayedSubmissionCollection->registerGenericPost(callback);
-
-    /* Waking the progress event is needed here because the UCX request is
-     * not dispatched immediately. Thus we must signal the progress task so
-     * it will ensure the request is dispatched.
-     */
-    signal();
-  }
-}
-
-bool Worker::registerGenericPostNotifiable(DelayedSubmissionCallbackType callback, uint64_t period)
+bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_t period)
 {
   if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
@@ -505,14 +467,14 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
   } else if (isProgressThreadRunning()) {
     bool cancelSuccess = false;
     for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
-      if (!registerGenericPreNotifiable(
+      if (!registerGenericPre(
             [&canceled, &inflightRequestsToCancel]() {
               canceled += inflightRequestsToCancel->cancelAll();
             },
             period))
         continue;
 
-      if (!registerGenericPostNotifiable(
+      if (!registerGenericPost(
             [this, &inflightRequestsToCancel, &cancelSuccess]() {
               cancelSuccess = inflightRequestsToCancel->getCancelingSize() == 0;
             },
@@ -583,8 +545,8 @@ bool Worker::tagProbe(const Tag tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    registerGenericPreNotifiable([]() {}, 3000000000 /* 3s */);
-    registerGenericPostNotifiable([]() {}, 3000000000 /* 3s */);
+    registerGenericPre([]() {}, 3000000000 /* 3s */);
+    registerGenericPost([]() {}, 3000000000 /* 3s */);
   }
 
   ucp_tag_recv_info_t info;

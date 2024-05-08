@@ -129,7 +129,7 @@ void Endpoint::create(ucp_ep_params_t* params)
 
     size_t maxAttempts = 3;
     for (uint64_t i = 0; i < maxAttempts; ++i) {
-      if (worker->registerGenericPreNotifiable(
+      if (worker->registerGenericPre(
             [this, &worker, &params, &status]() {
               status = ucp_ep_create(worker->getHandle(), params, &_handle);
             },
@@ -268,14 +268,14 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
     bool submitted    = false;
     for (uint64_t i = 0; i < maxAttempts && !closeSuccess; ++i) {
       if (!submitted) {
-        if (!worker->registerGenericPreNotifiable(
+        if (!worker->registerGenericPre(
               [this, &status, &param]() { status = ucp_ep_close_nbx(_handle, &param); }, period))
           continue;
         submitted = true;
       }
 
       if (_status == UCS_INPROGRESS) {
-        if (!worker->registerGenericPostNotifiable(
+        if (!worker->registerGenericPost(
               [this, &status]() {
                 if (UCS_PTR_IS_PTR(status)) {
                   ucs_status_t s;
@@ -411,11 +411,11 @@ size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAtt
   } else if (worker->isProgressThreadRunning()) {
     bool cancelSuccess = false;
     for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
-      if (!worker->registerGenericPreNotifiable(
+      if (!worker->registerGenericPre(
             [this, &canceled]() { canceled += _inflightRequests->cancelAll(); }, period))
         continue;
 
-      if (!worker->registerGenericPostNotifiable(
+      if (!worker->registerGenericPost(
             [this, &cancelSuccess]() {
               cancelSuccess = _inflightRequests->getCancelingSize() == 0;
             },
