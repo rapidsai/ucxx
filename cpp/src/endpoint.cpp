@@ -48,7 +48,7 @@ static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrList
   return worker;
 }
 
-void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
+void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
   auto endpoint = static_cast<Endpoint*>(arg);
 
@@ -116,7 +116,7 @@ void Endpoint::create(ucp_ep_params_t* params)
 
   if (_endpointErrorHandling) {
     params->err_mode        = UCP_ERR_HANDLING_MODE_PEER;
-    params->err_handler.cb  = errorCallback;
+    params->err_handler.cb  = endpointErrorCallback;
     params->err_handler.arg = this;
   } else {
     params->err_mode        = UCP_ERR_HANDLING_MODE_NONE;

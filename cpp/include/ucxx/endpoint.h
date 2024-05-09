@@ -123,7 +123,7 @@ class Endpoint : public Component {
    *
    * The signature for this method must match `ucp_err_handler_cb_t`.
    */
-  friend void errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
+  friend void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
 
  public:
   Endpoint()                           = delete;
