@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
@@ -224,12 +224,12 @@ def main():
         recv_bufs = recv_buffer_requests.py_buffers
     else:
         requests = [
-            listener_ep.tag_send(Array(send_bufs[0]), tag=ucx_api.UCXTag(0)),
-            listener_ep.tag_send(Array(send_bufs[1]), tag=ucx_api.UCXTag(1)),
-            listener_ep.tag_send(Array(send_bufs[2]), tag=ucx_api.UCXTag(2)),
-            ep.tag_recv(Array(recv_bufs[0]), tag=ucx_api.UCXTag(0)),
-            ep.tag_recv(Array(recv_bufs[1]), tag=ucx_api.UCXTag(1)),
-            ep.tag_recv(Array(recv_bufs[2]), tag=ucx_api.UCXTag(2)),
+            listener_ep.tag_send(Array(send_bufs[0]), tag=ucx_api.UCXXTag(0)),
+            listener_ep.tag_send(Array(send_bufs[1]), tag=ucx_api.UCXXTag(1)),
+            listener_ep.tag_send(Array(send_bufs[2]), tag=ucx_api.UCXXTag(2)),
+            ep.tag_recv(Array(recv_bufs[0]), tag=ucx_api.UCXXTag(0)),
+            ep.tag_recv(Array(recv_bufs[1]), tag=ucx_api.UCXXTag(1)),
+            ep.tag_recv(Array(recv_bufs[2]), tag=ucx_api.UCXXTag(2)),
         ]
 
         if args.asyncio_wait_future:
@@ -253,6 +253,8 @@ def main():
             xp.testing.assert_equal(recv_buf, send_buf)
         else:
             xp.testing.assert_array_equal(xp.asarray(recv_buf), send_buf)
+
+    print("Completed successfully")
 
 
 if __name__ == "__main__":
