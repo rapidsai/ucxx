@@ -254,8 +254,6 @@ def main():
         else:
             xp.testing.assert_array_equal(xp.asarray(recv_buf), send_buf)
 
-    print("Completed successfully")
-
 
 if __name__ == "__main__":
     main()
