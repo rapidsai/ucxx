@@ -48,8 +48,8 @@ struct EpParamsDeleter {
  * callback to modify the `ucxx::Endpoint` with information relevant to the error occurred.
  */
 struct ErrorCallbackData {
-  Endpoint* endpoint{
-    nullptr};  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
+  std::weak_ptr<Endpoint>
+    endpoint{};  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
   std::mutex mutex{std::mutex()};       ///< Mutex used to prevent race conditions with
                                         ///< `ucxx::Endpoint::setCloseCallback()`.
   ucs_status_t status{UCS_INPROGRESS};  ///< Endpoint status
@@ -60,7 +60,7 @@ struct ErrorCallbackData {
     nullptr};                               ///< Argument to be passed to close callback
   std::shared_ptr<Worker> worker{nullptr};  ///< Worker the endpoint has been created from
 
-  ErrorCallbackData(Endpoint* endpoint,
+  ErrorCallbackData(std::shared_ptr<Endpoint> endpoint,
                     std::shared_ptr<InflightRequests> inflightRequests,
                     std::shared_ptr<Worker> worker);
 
@@ -95,6 +95,9 @@ class Endpoint : public Component {
    * to be called directly. This constructor is made private to ensure all UCXX objects
    * are shared pointers and the correct lifetime management of each one.
    *
+   * This constructor does not fully initialize the `ucxx::Endpoint` object, the caller
+   * must call the `create()` method immediately after this to complete the construction.
+   *
    * Instead the user should use one of the following:
    *
    * - `ucxx::Listener::createEndpointFromConnRequest`
@@ -107,12 +110,20 @@ class Endpoint : public Component {
    * @param[in] workerOrListener      the parent component, which may either be a
    *                                  `std::shared_ptr<Listener>` or
    *                                  `std::shared_ptr<Worker>`.
-   * @param[in] params                parameters specifying UCP endpoint capabilities.
    * @param[in] endpointErrorHandling whether to enable endpoint error handling.
    */
-  Endpoint(std::shared_ptr<Component> workerOrListener,
-           ucp_ep_params_t* params,
-           bool endpointErrorHandling);
+  Endpoint(std::shared_ptr<Component> workerOrListener, bool endpointErrorHandling);
+
+  /**
+   * @brief Create the underlying UCP endpoint of `ucxx::Endpoint`.
+   *
+   * This is the internal implementation of `ucxx::Endpoint` creation. This method completes
+   * the initialization with the creation of the UCP endpoint and must be always called
+   * after the private constructor is called.
+   *
+   * @param[in] params                parameters specifying UCP endpoint capabilities.
+   */
+  void create(ucp_ep_params_t* params);
 
   /**
    * @brief Register an inflight request.
