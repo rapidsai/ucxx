@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import functools
 import pickle
+import weakref
 
 import numpy as np
 import pytest
@@ -98,11 +100,12 @@ async def test_send_recv_cudf(event_loop, g):
             self.comm = None
 
         def start(self):
-            async def serve_forever(ep):
-                ucx = UCX(ep)
-                self.comm = ucx
+            async def serve_forever(ep, *, selfref):
+                selfref().comm = UCX(ep)
 
-            self.ucxx_server = ucxx.create_listener(serve_forever)
+            self.ucxx_server = ucxx.create_listener(
+                functools.partial(serve_forever, selfref=weakref.ref(self))
+            )
 
     uu = UCXListener()
     uu.start()

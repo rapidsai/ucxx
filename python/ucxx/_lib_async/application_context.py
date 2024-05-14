@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import functools
 import logging
 import os
 import threading
@@ -204,12 +205,23 @@ class ApplicationContext:
                 name="UCX-Py Async Notifier Thread",
             )
             self.notifier_thread.start()
+            weakref.finalize(
+                self,
+                functools.partial(
+                    self.stop_notifier_thread,
+                    self.notifier_thread_q,
+                    self.notifier_thread,
+                ),
+            )
         else:
             logger.debug(
                 "UCXX not compiled with UCXX_ENABLE_PYTHON, disabling notifier thread"
             )
 
-    def stop_notifier_thread(self):
+    # Must be a staticmethod so that it can be used in a weakref
+    # finalizer on the application context
+    @staticmethod
+    def stop_notifier_thread(queue, thread):
         """
         Stop Python future notifier thread
 
@@ -217,24 +229,22 @@ class ApplicationContext:
         notification enabled via `UCXPY_ENABLE_PYTHON_FUTURE=1` or
         `ucxx.init(..., enable_python_future=True)`.
 
-        .. warning:: When the notifier thread is enabled it may be necessary to
-                     explicitly call this method before shutting down the process or
-                     or application, otherwise it may block indefinitely waiting for
-                     the thread to terminate. Executing `ucxx.reset()` will also run
-                     this method, so it's not necessary to have both.
+        The application context arranges to call this function
+        automatically in a weakref finalizer when it goes out of
+        scope. If using the global application context, `ucxx.reset()`
+        will drop the reference and cause the notifier thread to be
+        stopped. For a user-maintained context, one must just ensure
+        that the reference is dropped.
         """
-        if self.notifier_thread_q and self.notifier_thread:
-            self.notifier_thread_q.put("shutdown")
-            while True:
-                # Having a timeout is required. During the notifier thread shutdown
-                # it may require the GIL, which will cause a deadlock with the `join()`
-                # call otherwise.
-                self.notifier_thread.join(timeout=0.01)
-                if not self.notifier_thread.is_alive():
-                    break
-            logger.debug("Notifier thread stopped")
-        else:
-            logger.debug("Notifier thread not running")
+        queue.put("shutdown")
+        while True:
+            # Having a timeout is required. During the notifier thread shutdown
+            # it may require the GIL, which will cause a deadlock with the `join()`
+            # call otherwise.
+            thread.join(timeout=0.01)
+            if not thread.is_alive():
+                break
+        logger.debug("Notifier thread stopped")
 
     def create_listener(
         self,
