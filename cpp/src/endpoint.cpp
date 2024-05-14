@@ -409,7 +409,7 @@ std::shared_ptr<Request> Endpoint::amSend(
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData)
 {
-  if (_callbackData->closing.load()) return nullptr;
+  if (_callbackData->stopping.load()) throw RejectedError("Endpoint is stopping.");
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
@@ -437,6 +437,8 @@ std::shared_ptr<Request> Endpoint::memGet(void* buffer,
                                           RequestCallbackUserFunction callbackFunction,
                                           RequestCallbackUserData callbackData)
 {
+  if (_callbackData->stopping.load()) throw RejectedError("Endpoint is stopping.");
+
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestMem(endpoint,
                                                   data::MemGet(buffer, length, remoteAddr, rkey),
@@ -453,6 +455,8 @@ std::shared_ptr<Request> Endpoint::memGet(void* buffer,
                                           RequestCallbackUserFunction callbackFunction,
                                           RequestCallbackUserData callbackData)
 {
+  if (_callbackData->stopping.load()) throw RejectedError("Endpoint is stopping.");
+
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestMem(
     endpoint,
@@ -471,6 +475,8 @@ std::shared_ptr<Request> Endpoint::memPut(void* buffer,
                                           RequestCallbackUserFunction callbackFunction,
                                           RequestCallbackUserData callbackData)
 {
+  if (_callbackData->stopping.load()) throw RejectedError("Endpoint is stopping.");
+
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestMem(endpoint,
                                                   data::MemPut(buffer, length, remoteAddr, rkey),
@@ -487,6 +493,8 @@ std::shared_ptr<Request> Endpoint::memPut(void* buffer,
                                           RequestCallbackUserFunction callbackFunction,
                                           RequestCallbackUserData callbackData)
 {
+  if (_callbackData->stopping.load()) throw RejectedError("Endpoint is stopping.");
+
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestMem(
     endpoint,
@@ -501,7 +509,7 @@ std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
                                               size_t length,
                                               const bool enablePythonFuture)
 {
-  if (_callbackData->closing.load()) return nullptr;
+  if (_callbackData->stopping.load()) throw RejectedError("Endpoint is stopping.");
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
@@ -512,7 +520,7 @@ std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
                                               size_t length,
                                               const bool enablePythonFuture)
 {
-  if (_callbackData->closing.load()) return nullptr;
+  if (_callbackData->stopping.load()) throw RejectedError("Endpoint is stopping.");
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
@@ -526,7 +534,7 @@ std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
 {
-  if (_callbackData->closing.load()) return nullptr;
+  if (_callbackData->stopping.load()) throw RejectedError("Endpoint is stopping.");
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTag(endpoint,
@@ -558,7 +566,7 @@ std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer
                                                 const Tag tag,
                                                 const bool enablePythonFuture)
 {
-  if (_callbackData->closing.load()) return nullptr;
+  if (_callbackData->stopping.load()) throw RejectedError("Endpoint is stopping.");
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(createRequestTagMulti(
@@ -642,5 +650,9 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
                status,
                ucs_status_string(status));
 }
+
+void Endpoint::stop() { _callbackData->stopping = true; }
+
+bool Endpoint::isStopping() { return _callbackData->stopping.load(); }
 
 }  // namespace ucxx
