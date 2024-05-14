@@ -270,7 +270,6 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
       ucs_status_t s;
       while ((s = ucp_request_check_status(status)) == UCS_INPROGRESS)
         worker->progress();
-      _callbackData->status = s;
     } else if (UCS_PTR_STATUS(status) != UCS_OK) {
       ucxx_error(
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
@@ -279,6 +278,7 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
         _handle,
         ucs_status_string(UCS_PTR_STATUS(status)));
     }
+    _callbackData->status = UCS_PTR_STATUS(status);
   }
   ucxx_trace("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _handle);
 
