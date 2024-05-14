@@ -105,6 +105,17 @@ size_t InflightRequests::getCancelingSize()
   return cancelingSize;
 }
 
+size_t InflightRequests::getInflightSize()
+{
+  size_t inflightSize = 0;
+  {
+    std::scoped_lock lock{_mutex};
+    inflightSize = _trackedRequests->_inflight->size();
+  }
+
+  return inflightSize;
+}
+
 size_t InflightRequests::cancelAll()
 {
   decltype(_trackedRequests->_inflight) toCancel;
