@@ -398,6 +398,8 @@ size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAtt
 
 size_t Endpoint::getCancelingSize() const { return _inflightRequests->getCancelingSize(); }
 
+size_t Endpoint::getInflightSize() const { return _inflightRequests->getInflightSize(); }
+
 std::shared_ptr<Request> Endpoint::amSend(
   void* buffer,
   const size_t length,

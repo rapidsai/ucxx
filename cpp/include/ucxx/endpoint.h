@@ -290,6 +290,16 @@ class Endpoint : public Component {
   size_t getCancelingSize() const;
 
   /**
+   * @brief Check the number of inflight requests waiting for completion.
+   *
+   * Check the number of inflight requests that were posted but have not yet completed nor
+   * have been scheduled for cancelation.
+   *
+   * @returns Number of inflight requests that are waiting for completion.
+   */
+  size_t getInflightSize() const;
+
+  /**
    * @brief Cancel inflight requests.
    *
    * Cancel inflight requests and block until all requests complete cancelation, returning
