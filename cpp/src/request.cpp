@@ -63,6 +63,11 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
 
 Request::~Request()
 {
+  if (UCS_PTR_IS_PTR(_request)) {
+    // ucxx_warn("ucxx::Request (%s) freeing: %p", _operationName.c_str(), _request);
+    ucp_request_free(_request);
+  }
+  // ucxx_warn("ucxx::Request destroyed (%s): %p", _operationName.c_str(), this);
   ucxx_trace("ucxx::Request destroyed (%s): %p", _operationName.c_str(), this);
 }
 
@@ -80,8 +85,16 @@ void Request::cancel()
                        status,
                        ucs_status_string(status));
     } else {
-      ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "canceling");
-      if (_request != nullptr) ucp_request_cancel(_worker->getHandle(), _request);
+      if (_request != nullptr) {
+        ucs_status_t status = UCS_PTR_STATUS(_request);
+        // ucxx_warn("status1: %d (%s)", status, ucs_status_string(status));
+        ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "canceling");
+        ucp_request_cancel(_worker->getHandle(), _request);
+        status = UCS_PTR_STATUS(_request);
+        // ucxx_warn("status2: %d (%s)", status, ucs_status_string(status));
+        // TODO: Cancel all send operations? amSend/streamSend probably do not need it.
+        if (_operationName == "tagSend") { setStatus(UCS_ERR_CANCELED); }
+      }
     }
   } else {
     ucxx_trace_req_f(_ownerString.c_str(),
@@ -143,7 +156,11 @@ void Request::callback(void* request, ucs_status_t status)
                      status,
                      ucs_status_string(status));
 
-  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
+  if (UCS_PTR_IS_PTR(_request)) {
+    // ucxx_warn("ucxx::Request (%s) callback: %p %p", _operationName.c_str(), _request, request);
+    ucp_request_free(request);
+    _request = nullptr;
+  }
 
   ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "completed");
   setStatus(status);
