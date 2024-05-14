@@ -563,7 +563,9 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> streamSend(void* buffer, size_t length, const bool enablePythonFuture);
+  std::shared_ptr<Request> streamSend(void* buffer,
+                                      size_t length,
+                                      const bool enablePythonFuture = false);
 
   /**
    * @brief Enqueue a stream receive operation.
@@ -587,7 +589,9 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> streamRecv(void* buffer, size_t length, const bool enablePythonFuture);
+  std::shared_ptr<Request> streamRecv(void* buffer,
+                                      size_t length,
+                                      const bool enablePythonFuture = false);
 
   /**
    * @brief Enqueue a tag send operation.
