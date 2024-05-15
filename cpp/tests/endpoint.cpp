@@ -17,6 +17,7 @@
 #include <thread>
 
 #include "include/utils.h"
+#include "ucxx/typedefs.h"
 
 namespace {
 
@@ -43,12 +44,14 @@ class EndpointTest : public ::testing::Test {
 enum class TransferType { Am, Tag, Stream };
 typedef std::vector<std::shared_ptr<ucxx::Request>> RequestContainer;
 
-class EndpointCancelTest : public ::testing::TestWithParam<std::tuple<TransferType, size_t, bool>> {
+class EndpointCancelTest
+  : public ::testing::TestWithParam<std::tuple<ProgressMode, TransferType, size_t, bool>> {
  protected:
   std::shared_ptr<ucxx::Context> _context{nullptr};
   std::shared_ptr<ucxx::Context> _remoteContext{nullptr};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   std::shared_ptr<ucxx::Worker> _remoteWorker{nullptr};
+  ProgressMode _progressMode{};
   TransferType _transferType{};
   size_t _messageSize{};
   RequestContainer _requests{};
@@ -57,7 +60,7 @@ class EndpointCancelTest : public ::testing::TestWithParam<std::tuple<TransferTy
 
   virtual void SetUp()
   {
-    std::tie(_transferType, _messageSize, _rndv) = GetParam();
+    std::tie(_progressMode, _transferType, _messageSize, _rndv) = GetParam();
 
     _send.resize(_messageSize);
     _recv.resize(_messageSize, 0);
@@ -420,7 +423,11 @@ TEST_P(EndpointCancelTest, StoppingWaitCompletionThenCancel)
   if (_transferType == TransferType::Stream && _messageSize == 0)
     GTEST_SKIP() << "Stream messages of size 0 are not supported.";
 
-  auto progressWorker = getProgressFunction(_worker, ProgressMode::Blocking);
+  auto progressWorker = getProgressFunction(_worker, _progressMode);
+  if (_progressMode == ProgressMode::ThreadPolling)
+    _worker->startProgressThread(true);
+  else if (_progressMode == ProgressMode::ThreadBlocking)
+    _worker->startProgressThread(false);
 
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
   while (!ep->isAlive())
@@ -438,18 +445,25 @@ TEST_P(EndpointCancelTest, StoppingWaitCompletionThenCancel)
         requests.begin(), requests.end(), [](auto r) { ASSERT_FALSE(r->isCompleted()); });
     } else {
       ASSERT_TRUE(requests[0]->isCompleted());
-      ASSERT_FALSE(requests[1]->isCompleted());
+      // In thread progress mode it's not possible to determine completion time
+      if (_progressMode != ProgressMode::ThreadBlocking &&
+          _progressMode != ProgressMode::ThreadPolling)
+        ASSERT_FALSE(requests[1]->isCompleted());
     }
 
     // Check no requests are being canceled
     ASSERT_EQ(ep->getCancelingSize(), 0);
 
     // Check which requests are inflight or completed
-    if (_rndv)
+    if (_rndv) {
       ASSERT_EQ(ep->getInflightSize(), requests.size());
-    else
-      // Eager send request completes immediately, receive request still inflight
-      ASSERT_EQ(ep->getInflightSize(), 1);
+    } else {
+      // Eager send request completes immediately, receive request still inflight, except
+      // for thread progress mode where it's not possible to determine completion time
+      if (_progressMode != ProgressMode::ThreadBlocking &&
+          _progressMode != ProgressMode::ThreadPolling)
+        ASSERT_EQ(ep->getInflightSize(), 1);
+    }
   };
 
   // Check request statuses before stopping endpoint
@@ -462,16 +476,31 @@ TEST_P(EndpointCancelTest, StoppingWaitCompletionThenCancel)
   // Check that requests statuses haven't changed
   checkAfterSubmit();
 
+  bool cancelationComplete    = false;
+  auto cancelInflightCallback = [&ep, &progressWorker, &cancelationComplete]() {
+    // Now that cancelation is complete, closing the endpoint is safe
+    auto close = ep->close();
+    ASSERT_NE(close, nullptr);
+    while (!close->isCompleted())
+      progressWorker();
+    ASSERT_EQ(close->getStatus(), UCS_OK);
+
+    cancelationComplete = true;
+  };
+
   // Cancel inflight requests
-  ep->cancelInflightRequests();
+  ep->cancelInflightRequests(cancelInflightCallback);
   ASSERT_EQ(ep->getCancelingSize(), countIncomplete(requests));
   ASSERT_EQ(ep->getInflightSize(), 0);
 
-  // Wait for canceling requests to complete
-  while (countIncomplete(requests) > 0)
+  // Wait for canceling requests to complete and `cancelInflightCallback` to run
+  while (!cancelationComplete)
     progressWorker();
 
-  // Check all requests have been canceled
+  // `cancelInflightCallback` executed an the endpoint should be closed now.
+  ASSERT_FALSE(ep->isAlive());
+
+  // Check all requests have been canceled or completed
   std::for_each(requests.begin(), requests.end(), [](auto r) {
     auto status = r->getStatus();
     ASSERT_TRUE(status == UCS_ERR_CANCELED || status == UCS_OK);
@@ -493,23 +522,25 @@ TEST_P(EndpointCancelTest, StoppingWaitCompletionThenCancel)
   // Check no more tracked requests exist
   ASSERT_EQ(ep->getCancelingSize(), 0);
   ASSERT_EQ(ep->getInflightSize(), 0);
-
-  auto close = ep->close();
-  ASSERT_NE(close, nullptr);
-  while (!close->isCompleted())
-    progressWorker();
-  ASSERT_EQ(close->getStatus(), UCS_OK);
 }
 
 INSTANTIATE_TEST_SUITE_P(Eager,
                          EndpointCancelTest,
-                         Combine(Values(TransferType::Tag, TransferType::Am, TransferType::Stream),
+                         Combine(Values(ProgressMode::Polling,
+                                        ProgressMode::Blocking,
+                                        ProgressMode::ThreadPolling,
+                                        ProgressMode::ThreadBlocking),
+                                 Values(TransferType::Tag, TransferType::Am, TransferType::Stream),
                                  Values(0, 1, 10),
                                  Values(false)));
 
 INSTANTIATE_TEST_SUITE_P(Rndv,
                          EndpointCancelTest,
-                         Combine(Values(TransferType::Tag, TransferType::Am, TransferType::Stream),
+                         Combine(Values(ProgressMode::Polling,
+                                        ProgressMode::Blocking,
+                                        ProgressMode::ThreadPolling,
+                                        ProgressMode::ThreadBlocking),
+                                 Values(TransferType::Tag, TransferType::Am, TransferType::Stream),
                                  Values(10485760, 104857600),
                                  Values(true)));
 
