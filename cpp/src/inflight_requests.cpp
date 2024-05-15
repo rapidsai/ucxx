@@ -124,30 +124,22 @@ size_t InflightRequests::getInflightSize()
 
 size_t InflightRequests::cancelAll()
 {
-  decltype(_trackedRequests->_inflight) toCancel;
-  size_t total;
-  {
-    std::scoped_lock lock{_cancelMutex, _mutex};
-    total = _trackedRequests->_inflight->size();
+  std::scoped_lock lock{_cancelMutex, _mutex};
+  auto total = _trackedRequests->_inflight->size();
 
-    // Fast path when no requests have been registered or the map has been
-    // previously released.
-    if (total == 0) return 0;
+  // Fast path when no requests have been registered or the map has been
+  // previously released.
+  if (total == 0) return 0;
 
-    toCancel = std::exchange(_trackedRequests->_inflight, std::make_unique<InflightRequestsMap>());
-  }
-
-  ucxx_debug("ucxx::InflightRequests::%s, canceling %lu requests", __func__, total);
-
-  for (auto& r : *toCancel) {
+  for (auto& r : *_trackedRequests->_inflight) {
     auto request = r.second;
-    if (request != nullptr) { request->cancel(); }
+    if (request != nullptr) {
+      request->cancel();
+      if (!request->isCompleted()) _trackedRequests->_canceling->insert({request.get(), request});
+    }
   }
+  _trackedRequests->_inflight->clear();
 
-  {
-    std::scoped_lock lock{_cancelMutex, _mutex};
-    _trackedRequests->_canceling->merge(*toCancel);
-  }
   // dropCanceled();
 
   return total;
