@@ -33,6 +33,24 @@ void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
   }
 }
 
+static void findAndRemove(InflightRequestsMap* requestsMap, const Request* const request)
+{
+  auto search = requestsMap->find(request);
+  decltype(search->second) tmpRequest;
+  if (search != requestsMap->end()) {
+    /**
+     * If this is the last request to hold `std::shared_ptr<ucxx::Endpoint>` erasing it
+     * may cause the `ucxx::Endpoint`s destructor and subsequently the `closeBlocking()`
+     * method to be called which will in turn call `cancelAll()` and attempt to take the
+     * mutexes. For this reason we should make a temporary copy of the request being
+     * erased from `_trackedRequests->_inflight` to allow unlocking the mutexes and only then
+     * destroy the object upon this method's return.
+     */
+    tmpRequest = search->second;
+    requestsMap->erase(search);
+  }
+}
+
 void InflightRequests::remove(const Request* const request)
 {
   do {
@@ -51,20 +69,8 @@ void InflightRequests::remove(const Request* const request)
     if (result == 0) {
       return;
     } else if (result == -1) {
-      auto search = _trackedRequests->_inflight->find(request);
-      decltype(search->second) tmpRequest;
-      if (search != _trackedRequests->_inflight->end()) {
-        /**
-         * If this is the last request to hold `std::shared_ptr<ucxx::Endpoint>` erasing it
-         * may cause the `ucxx::Endpoint`s destructor and subsequently the `closeBlocking()`
-         * method to be called which will in turn call `cancelAll()` and attempt to take the
-         * mutexes. For this reason we should make a temporary copy of the request being
-         * erased from `_trackedRequests->_inflight` to allow unlocking the mutexes and only then
-         * destroy the object upon this method's return.
-         */
-        tmpRequest = search->second;
-        _trackedRequests->_inflight->erase(search);
-      }
+      findAndRemove(_trackedRequests->_inflight.get(), request);
+      findAndRemove(_trackedRequests->_canceling.get(), request);
       _cancelMutex.unlock();
       _mutex.unlock();
       return;
@@ -95,7 +101,7 @@ size_t InflightRequests::dropCanceled()
 
 size_t InflightRequests::getCancelingSize()
 {
-  dropCanceled();
+  // dropCanceled();
   size_t cancelingSize = 0;
   {
     std::scoped_lock lock{_cancelMutex};
@@ -142,7 +148,7 @@ size_t InflightRequests::cancelAll()
     std::scoped_lock lock{_cancelMutex, _mutex};
     _trackedRequests->_canceling->merge(*toCancel);
   }
-  dropCanceled();
+  // dropCanceled();
 
   return total;
 }
