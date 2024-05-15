@@ -341,9 +341,11 @@ std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Reque
   /**
    * If the endpoint closed or errored while the request was being submitted, the error
    * handler may have been called already and we need to register any new requests for
-   * cancelation, including the present one.
+   * cancelation, including the present one. `RequestEndpointClose` requests are
+   * special-cased and do _not_ get scheduled for cancelation.
    */
-  if (_callbackData->status != UCS_INPROGRESS)
+  if (_callbackData->status != UCS_INPROGRESS &&
+      std::dynamic_pointer_cast<RequestEndpointClose>(request) == nullptr)
     _callbackData->worker->scheduleRequestCancel(_inflightRequests->release());
 
   return request;
@@ -354,7 +356,21 @@ void Endpoint::removeInflightRequest(const Request* const request)
   _inflightRequests->remove(request);
 }
 
-size_t Endpoint::cancelInflightRequests() { return _inflightRequests->cancelAll(); }
+size_t Endpoint::cancelInflightRequests(GenericCallbackUserFunction callback)
+{
+  _cancelInflightCallbackOriginal = callback;
+
+  // Wrapper responsible for deregistering after callback is called.
+  _cancelInflightCallback = [this]() {
+    if (_cancelInflightCallbackOriginal != nullptr) _cancelInflightCallbackOriginal();
+    _cancelInflightCallback         = nullptr;
+    _cancelInflightCallbackOriginal = nullptr;
+  };
+
+  auto canceled = _inflightRequests->cancelAll(_cancelInflightCallback);
+
+  return canceled;
+}
 
 size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAttempts)
 {

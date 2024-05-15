@@ -87,6 +87,11 @@ class Endpoint : public Component {
     nullptr};  ///< Data struct to pass to endpoint error handling callback
   std::shared_ptr<InflightRequests> _inflightRequests{
     std::make_shared<InflightRequests>()};  ///< The inflight requests
+  GenericCallbackUserFunction _cancelInflightCallback{
+    nullptr};  ///< The wrapper to the callback registered via `cancelInflightRequests()` that will
+               ///< deregister once the callback is called.
+  GenericCallbackUserFunction _cancelInflightCallbackOriginal{
+    nullptr};  ///< The original user callback registered via `cancelInflightRequests()`
 
   /**
    * @brief Private constructor of `ucxx::Endpoint`.
@@ -275,9 +280,21 @@ class Endpoint : public Component {
    * progress the worker and check the result of `getCancelingSize()`, all requests are only
    * canceled when `getCancelingSize()` returns `0`.
    *
+   * Supports an optional callback function to be called exclusively if there are no
+   * more requests inflight or canceling. Be advised that before the callback is called the
+   * mutex that controls inflight requests is released to prevent deadlocks in case the
+   * callback happens to register a new inflight request, therefore there's no guarantee
+   * that another inflight request won't be registered between the time in which the mutex
+   * is released and the callback is executed, the user is thus responsible to prevent such
+   * situations and the use of `stop()` before `cancelInflightRequests()` is highly
+   * advisable.
+   *
+   * @param[in] callbackFunction  function to be called upon termination and only if no
+   *                              further requests inflight or canceling remain.
+   *
    * @returns Number of requests that were scheduled for cancelation.
    */
-  size_t cancelInflightRequests();
+  size_t cancelInflightRequests(GenericCallbackUserFunction callbackFunction = nullptr);
 
   /**
    * @brief Check the number of inflight requests being canceled.
