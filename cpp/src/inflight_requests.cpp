@@ -91,7 +91,7 @@ void InflightRequests::remove(const Request* const request,
         _cancelMutex.unlock();
         return;
       } catch (const std::exception& e) {
-        ucxx_warn("Exception in callback");
+        ucxx_warn("Exception in callback: %s", e.what());
         _cancelMutex.unlock();
         throw(e);
       }
@@ -196,7 +196,7 @@ size_t InflightRequests::cancelAll(GenericCallbackUserFunction cancelInflightCal
     _cancelMutex.unlock();
     return total;
   } catch (const std::exception& e) {
-    ucxx_warn("Exception in callback");
+    ucxx_warn("Exception in callback: %s", e.what());
     _cancelMutex.unlock();
     throw(e);
   }
