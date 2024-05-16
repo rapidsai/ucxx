@@ -17,6 +17,7 @@
 #include <thread>
 
 #include "include/utils.h"
+#include "ucxx/exception.h"
 #include "ucxx/typedefs.h"
 
 namespace {
@@ -147,252 +148,7 @@ TEST_F(EndpointTest, IsAlive)
   ASSERT_FALSE(ep->isAlive());
 }
 
-// TEST_F(EndpointTest, CancelCloseNonBlocking)
-// {
-//   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
-//   _worker->progress();
-
-//   ASSERT_TRUE(ep->isAlive());
-
-//   std::vector<int> send(100 * 1024 * 1024, 42);
-//   std::vector<int> recv(send.size(), 0);
-
-//   // Submit and wait for transfers to complete
-//   std::vector<std::shared_ptr<ucxx::Request>> requests;
-//   requests.push_back(ep->tagSend(send.data(), send.size() * sizeof(int), ucxx::Tag{0}));
-//   requests.push_back(
-//     ep->tagRecv(recv.data(), recv.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
-//   // waitRequests(_worker, requests, _progressWorker);
-
-//   // copyResults();
-
-//   // Assert data correctness
-//   // ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
-
-//   size_t inflightCount = 0;
-//   for (const auto& req : requests) {
-//     inflightCount += !req->isCompleted();
-//   }
-//   std::cout << "inflightCount: " << inflightCount << std::endl;
-
-//   size_t tmpCount = 0;
-//   do {
-//     tmpCount = 0;
-//     for (const auto& req : requests) {
-//       tmpCount += req->isCompleted();
-//       req->cancel();
-//     }
-//     _worker->progress();
-//     std::cout << "tmpCount: " << tmpCount << std::endl;
-
-//     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-//   } while (tmpCount != 2);
-
-//   auto canceling = ep->cancelInflightRequests();
-//   // ASSERT_EQ(canceling, inflightCount);
-//   std::cout << canceling << std::endl;
-
-//   while (ep->getCancelingSize() > 0) {
-//     std::cout << ep->getCancelingSize() << std::endl;
-//     _worker->progress();
-
-//     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-//     for (const auto& req : requests)
-//       std::cout << req->isCompleted() << " ";
-//     std::cout << std::endl;
-//   }
-
-//   auto close = ep->close();
-//   while (!close->isCompleted())
-//     _worker->progress();
-//   ASSERT_EQ(close->getStatus(), UCS_OK);
-// }
-
-TEST_F(EndpointTest, CloseNonBlockingCancel)
-{
-  auto progressWorker       = getProgressFunction(_worker, ProgressMode::Blocking);
-  auto progressRemoteWorker = getProgressFunction(_remoteWorker, ProgressMode::Blocking);
-  auto progressAllWorkers   = [&progressWorker, progressRemoteWorker]() {
-    progressWorker();
-    progressRemoteWorker();
-  };
-
-  auto ep = _worker->createEndpointFromWorkerAddress(_remoteWorker->getAddress());
-  while (!ep->isAlive())
-    progressWorker();
-
-  auto remoteEp = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
-  while (!remoteEp->isAlive())
-    progressRemoteWorker();
-
-  std::vector<int> send(100 * 1024 * 1024, 42);
-  std::vector<int> recv(send.size(), 0);
-
-  // Submit and wait for transfers to complete
-  std::vector<std::shared_ptr<ucxx::Request>> requests, remoteRequests;
-  requests.push_back(ep->tagSend(send.data(), send.size() * sizeof(int), ucxx::Tag{0}));
-  // requests.push_back(remoteEp->tagRecv(recv.data(), recv.size() * sizeof(int), ucxx::Tag{0},
-  // ucxx::TagMaskFull));
-  requests.push_back(_remoteWorker->tagRecv(
-    recv.data(), recv.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
-
-  // copyResults();
-
-  // Assert data correctness
-  // ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
-
-  // Endpoints that are _receiving_ may close before the request completes
-  waitRequests(_remoteWorker, requests, progressAllWorkers);
-  auto closeRemote = remoteEp->close();
-  // waitRequests(_remoteWorker, requests, progressRemoteWorker);
-  waitSingleRequest(closeRemote, progressRemoteWorker);
-  ASSERT_FALSE(remoteEp->isAlive());
-
-  // Endpoints that are _sending_ may _not_ close before the request completes
-  auto close = ep->close();
-  waitRequests(_worker, requests, progressWorker);
-  waitSingleRequest(close, progressRemoteWorker);
-  ASSERT_FALSE(ep->isAlive());
-
-  // requests.clear();
-  // requests.push_back(ep->tagRecv(recv.data(), recv.size() * sizeof(int), ucxx::Tag{0},
-  // ucxx::TagMaskFull)); waitRequests(_worker, requests, progressWorker);
-
-  ASSERT_THAT(recv, ContainerEq(send));
-
-  // size_t inflightCount = 0;
-  // for (const auto& req : requests) {
-  //   inflightCount += !req->isCompleted();
-  // }
-
-  // // ASSERT_EQ(canceling, inflightCount);
-  // std::cout << canceling << std::endl;
-
-  // while (ep->getCancelingSize() > 0) {
-  //   std::cout << ep->getCancelingSize() << std::endl;
-  //   _worker->progress();
-
-  //   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-  //   for (const auto& req : requests)
-  //     std::cout << req->isCompleted() << " ";
-  //   std::cout << std::endl;
-  // }
-
-  // ASSERT_EQ(close->getStatus(), UCS_OK);
-
-  // auto canceling = ep->cancelInflightRequests();
-}
-
-// TEST_F(EndpointTest, CancelTmp)
-// {
-//   auto progressWorker       = getProgressFunction(_worker, ProgressMode::Blocking);
-//   auto progressRemoteWorker = getProgressFunction(_remoteWorker, ProgressMode::Blocking);
-//   auto progressAllWorkers   = [&progressWorker, progressRemoteWorker]() {
-//     progressWorker();
-//     progressRemoteWorker();
-//   };
-
-//   auto ep = _worker->createEndpointFromWorkerAddress(_remoteWorker->getAddress());
-//   while (!ep->isAlive())
-//     progressWorker();
-
-//   auto remoteEp = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
-//   while (!remoteEp->isAlive())
-//     progressRemoteWorker();
-
-//   std::vector<int> send(100 * 1024 * 1024, 42);
-//   std::vector<int> recv(send.size(), 0);
-
-//   // Submit and wait for transfers to complete
-//   std::vector<std::shared_ptr<ucxx::Request>> requests, remoteRequests;
-//   requests.push_back(ep->tagSend(send.data(), send.size() * sizeof(int), ucxx::Tag{0}));
-//   remoteRequests.push_back(remoteEp->tagRecv(recv.data(), recv.size() * sizeof(int),
-//   ucxx::Tag{0}, ucxx::TagMaskFull));
-//   // requests.push_back(_remoteWorker->tagRecv(
-//   //   recv.data(), recv.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
-
-//   // copyResults();
-
-//   // Assert data correctness
-//   // ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
-
-//   // Endpoints that are _receiving_ may close before the request completes
-//   ASSERT_FALSE(requests[0]->isCompleted());
-//   ASSERT_FALSE(remoteRequests[0]->isCompleted());
-
-//   // ep->cancelInflightRequests();
-//   // remoteEp->cancelInflightRequests();
-
-//   // ASSERT_FALSE(requests[0]->isCompleted());
-//   // ASSERT_FALSE(remoteRequests[0]->isCompleted());
-
-//   while (!requests[0]->isCompleted() || ! remoteRequests[0]->isCompleted()) {
-//     std::cout << "progress: " << requests[0]->isCompleted() << " " <<
-//     remoteRequests[0]->isCompleted() << std::endl; progressWorker(); progressRemoteWorker();
-//     std::this_thread::sleep_for(std::chrono::seconds(1));
-//   }
-
-//   ASSERT_TRUE(requests[0]->isCompleted());
-//   ASSERT_TRUE(remoteRequests[0]->isCompleted());
-//   ASSERT_EQ(requests[0]->getStatus(), UCS_OK);
-//   ASSERT_EQ(remoteRequests[0]->isCompleted(), UCS_OK);
-
-//   ASSERT_THAT(recv, ContainerEq(send));
-// }
-
-TEST_F(EndpointTest, CancelSingleTmp)
-{
-  // auto progressWorker       = getProgressFunction(_worker, ProgressMode::Blocking);
-  auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
-  while (!ep->isAlive())
-    progressWorker();
-
-  wireup(ep, ep, progressWorker);
-
-  std::vector<int> send(100 * 1024 * 1024, 42);
-  std::vector<int> recv(send.size(), 0);
-
-  // Submit and wait for transfers to complete
-  std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagSend(send.data(), send.size() * sizeof(int), ucxx::Tag{0}));
-  requests.push_back(
-    ep->tagRecv(recv.data(), recv.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
-
-  ASSERT_FALSE(requests[0]->isCompleted());
-  ASSERT_FALSE(requests[1]->isCompleted());
-
-  progressWorker();
-  ep->cancelInflightRequests();
-
-  // ASSERT_FALSE(requests[0]->isCompleted());
-  // ASSERT_FALSE(requests[1]->isCompleted());
-
-  while (!requests[0]->isCompleted() || !requests[1]->isCompleted()) {
-    std::cout << "progress1: " << requests[0]->isCompleted() << " " << requests[1]->isCompleted()
-              << std::endl;
-    std::cout << "progress2: " << requests[0]->getStatus() << " " << requests[1]->getStatus()
-              << std::endl;
-    progressWorker();
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-  }
-  std::cout << "progress3: " << requests[0]->isCompleted() << " " << requests[1]->isCompleted()
-            << std::endl;
-  std::cout << "progress4: " << requests[0]->getStatus() << " " << requests[1]->getStatus()
-            << std::endl;
-
-  ASSERT_TRUE(requests[0]->isCompleted());
-  ASSERT_TRUE(requests[1]->isCompleted());
-  ASSERT_EQ(requests[0]->getStatus(), UCS_OK);
-  ASSERT_EQ(requests[1]->getStatus(), UCS_OK);
-
-  ASSERT_THAT(recv, ContainerEq(send));
-}
-
-TEST_F(EndpointTest, StoppingRejection)
+TEST_F(EndpointTest, StoppingRejectRequests)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Blocking);
 
@@ -415,7 +171,32 @@ TEST_F(EndpointTest, StoppingRejection)
   EXPECT_THROW(ep->streamRecv(tmp.data(), tmp.size() * sizeof(int)), ucxx::RejectedError);
   EXPECT_THROW(ep->streamSend(tmp.data(), tmp.size() * sizeof(int)), ucxx::RejectedError);
 
-  // TODO: tagMultiSend, memPut, memGet
+  {
+    auto memoryHandle = _context->createMemoryHandle(tmp.size() * sizeof(int), nullptr);
+
+    auto localRemoteKey      = memoryHandle->createRemoteKey();
+    auto serializedRemoteKey = localRemoteKey->serialize();
+    auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
+
+    std::vector<std::shared_ptr<ucxx::Request>> requests;
+    EXPECT_THROW(ep->memPut(tmp.data(), tmp.size() * sizeof(int), remoteKey), ucxx::RejectedError);
+    EXPECT_THROW(
+      ep->memPut(
+        tmp.data(), tmp.size() * sizeof(int), remoteKey->getBaseAddress(), remoteKey->getHandle()),
+      ucxx::RejectedError);
+    EXPECT_THROW(ep->memGet(tmp.data(), tmp.size() * sizeof(int), remoteKey), ucxx::RejectedError);
+    EXPECT_THROW(
+      ep->memGet(
+        tmp.data(), tmp.size() * sizeof(int), remoteKey->getBaseAddress(), remoteKey->getHandle()),
+      ucxx::RejectedError);
+  }
+
+  {
+    std::vector<void*> buffers{tmp.data()};
+    std::vector<size_t> sizes{tmp.size()};
+    std::vector<int> isCUDA{false};
+    EXPECT_THROW(ep->tagMultiSend(buffers, sizes, isCUDA, ucxx::Tag{0}), ucxx::RejectedError);
+  }
 }
 
 TEST_P(EndpointCancelTest, StoppingWaitCompletionThenCancel)
@@ -423,19 +204,22 @@ TEST_P(EndpointCancelTest, StoppingWaitCompletionThenCancel)
   if (_transferType == TransferType::Stream && _messageSize == 0)
     GTEST_SKIP() << "Stream messages of size 0 are not supported.";
 
+  // Get appropriate progress worker function depending on selected mode
   auto progressWorker = getProgressFunction(_worker, _progressMode);
   if (_progressMode == ProgressMode::ThreadPolling)
     _worker->startProgressThread(true);
   else if (_progressMode == ProgressMode::ThreadBlocking)
     _worker->startProgressThread(false);
 
+  // Create endpoint
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
   while (!ep->isAlive())
     progressWorker();
 
+  // Perform endpoint wireup
   wireup(ep, ep, progressWorker);
 
-  // Submit and wait for transfers to complete
+  // Submit transfer requests
   auto requests = buildPair(ep, ep);
 
   auto checkAfterSubmit = [this, &requests, &ep]() {
@@ -478,7 +262,7 @@ TEST_P(EndpointCancelTest, StoppingWaitCompletionThenCancel)
 
   bool cancelationComplete    = false;
   auto cancelInflightCallback = [&ep, &progressWorker, &cancelationComplete]() {
-    // Now that cancelation is complete, closing the endpoint is safe
+    // No more inflight or canceling requests, closing the endpoint is safe
     auto close = ep->close();
     ASSERT_NE(close, nullptr);
     while (!close->isCompleted())
