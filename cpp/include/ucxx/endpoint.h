@@ -711,7 +711,7 @@ class Endpoint : public Component {
                                         const std::vector<size_t>& size,
                                         const std::vector<int>& isCUDA,
                                         const Tag tag,
-                                        const bool enablePythonFuture);
+                                        const bool enablePythonFuture = false);
 
   /**
    * @brief Enqueue a multi-buffer tag receive operation.
@@ -737,7 +737,7 @@ class Endpoint : public Component {
    */
   std::shared_ptr<Request> tagMultiRecv(const Tag tag,
                                         const TagMask tagMask,
-                                        const bool enablePythonFuture);
+                                        const bool enablePythonFuture = false);
 
   /**
    * @brief Enqueue a flush operation.
@@ -793,7 +793,23 @@ class Endpoint : public Component {
    *
    * Enqueue a non-blocking endpoint close operation, which will close the endpoint without
    * requiring to destroy the object. This may be useful when other
-   * `std::shared_ptr<ucxx::Request>` objects are still alive, such as inflight transfers.
+   * `std::shared_ptr<ucxx::Request>` objects are still alive, such as inflight transfers,
+   * or the user wants to have more control over cancelation and closing order.
+   *
+   * @warning Unlike its `closeBlocking()` counterpart, this method does not cancel any
+   * inflight requests prior to submitting the UCP close request. Before scheduling the
+   * endpoint close request, the caller is advised to first call `stop()` to prevent new
+   * requests that require an active endpoint from being registered and once `stop()` is
+   * called, the user may call `cancelInflightRequests()` specifying a callback that can
+   * be used to submit a `close()` request, or may check for the number of inflight and
+   * canceling requests via `getInflightSize()` and `getCancelingSize()` methods,
+   * respectively, and issue the non-blocking `close()` of the worker once both return
+   * `0` or after a certain period of time has elapsed and the application cannot wait
+   * anymore for their completion. Note that `cancelInflightRequests()` callback is not
+   * guaranteed to be called, nor are `getCancelingSize()` and `getInflightSize()`
+   * guaranteed to go to `0` depending on the requests being handled, and thus the user is
+   * advised to provide a forceful termination mechanism in case the requests can never
+   * complete.
    *
    * This method returns a `std::shared<ucxx::Request>` that can be later awaited and
    * checked for errors. This is a non-blocking operation, and the status of closing the
@@ -813,11 +829,6 @@ class Endpoint : public Component {
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
    * ensure the close operation has completed. Requires UCXX Python support.
-   *
-   * @warning Unlike its `closeBlocking()` counterpart, this method does not cancel any
-   * inflight requests prior to submitting the UCP close request. Before scheduling the
-   * endpoint close request, the caller must first call `cancelInflightRequests()` and
-   * progress the worker until `getCancelingSize()` returns `0`.
    *
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
@@ -864,10 +875,15 @@ class Endpoint : public Component {
    * be issued that require the endpoint to complete. This method is useful when the user
    * needs control of the non-blocking closing process with `close()`, and thus allow
    * requests to complete before issuing the close request. Once this is called, the user
-   * may check for the number of inflight and canceling requests via `getInflightSize()`
-   * and `getCancelingSize()` methods, respectively, and issue the non-blocking close of
-   * the worker once both return `0` or after a certain period of time has elapsed and
-   * the application cannot wait anymore for their completion.
+   * may call `cancelInflightRequests()` specifying a callback that can be used to submit
+   * a `close()` request, or may check for the number of inflight and canceling requests
+   * via `getInflightSize()` and `getCancelingSize()` methods, respectively, and issue the
+   * non-blocking `close()` of the worker once both return `0` or after a certain period of
+   * time has elapsed and the application cannot wait anymore for their completion. Note
+   * that `cancelInflightRequests()` callback is not guaranteed to be called, nor are
+   * `getCancelingSize()` and `getInflightSize()` guaranteed to go to `0` depending on the
+   * requests being handled, and thus the user is advised to provide a forceful termination
+   * mechanism in case the requests can never complete.
    *
    * After this is called certain requests are not anymore accepted because they require a
    * valid endpoint to complete. The requests that are not accepted are:
