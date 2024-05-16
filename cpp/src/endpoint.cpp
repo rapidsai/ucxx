@@ -54,9 +54,7 @@ static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrList
   return worker;
 }
 
-Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
-                   ucp_ep_params_t* params,
-                   bool endpointErrorHandling)
+Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener, bool endpointErrorHandling)
   : _endpointErrorHandling{endpointErrorHandling}
 {
   auto worker = ::ucxx::getWorker(workerOrListener);
@@ -65,10 +63,14 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
     throw ucxx::Error("Worker not initialized");
 
   setParent(workerOrListener);
+}
 
+void Endpoint::create(ucp_ep_params_t* params)
+{
+  auto worker   = ::ucxx::getWorker(_parent);
   _callbackData = std::make_unique<ErrorCallbackData>(_inflightRequests, worker);
 
-  if (endpointErrorHandling) {
+  if (_endpointErrorHandling) {
     params->err_mode        = UCP_ERR_HANDLING_MODE_PEER;
     params->err_handler.cb  = Endpoint::errorCallback;
     params->err_handler.arg = _callbackData.get();
@@ -81,10 +83,8 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
   if (worker->isProgressThreadRunning()) {
     ucs_status_t status = UCS_INPROGRESS;
     utils::CallbackNotifier callbackNotifier{};
-    auto worker = ::ucxx::getWorker(_parent);
-    worker->registerGenericPre([this, &params, &callbackNotifier, &status]() {
-      auto worker = ::ucxx::getWorker(_parent);
-      status      = ucp_ep_create(worker->getHandle(), params, &_handle);
+    worker->registerGenericPre([this, &worker, &params, &callbackNotifier, &status]() {
+      status = ucp_ep_create(worker->getHandle(), params, &_handle);
       callbackNotifier.set();
     });
 
@@ -104,7 +104,7 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener,
              this,
              _handle,
              _parent.get(),
-             endpointErrorHandling);
+             _endpointErrorHandling);
 }
 
 std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
@@ -124,8 +124,8 @@ std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> wor
   params.sockaddr.addrlen = info->ai_addrlen;
   params.sockaddr.addr    = info->ai_addr;
 
-  auto ep = std::shared_ptr<Endpoint>(new Endpoint(worker, &params, endpointErrorHandling));
-  ep->_callbackData->endpoint = ep;
+  auto ep = std::shared_ptr<Endpoint>(new Endpoint(worker, endpointErrorHandling));
+  ep->create(&params);
   return ep;
 }
 
@@ -142,8 +142,8 @@ std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener
     .flags        = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK,
     .conn_request = connRequest};
 
-  auto ep = std::shared_ptr<Endpoint>(new Endpoint(listener, &params, endpointErrorHandling));
-  ep->_callbackData->endpoint = ep;
+  auto ep = std::shared_ptr<Endpoint>(new Endpoint(listener, endpointErrorHandling));
+  ep->create(&params);
   return ep;
 }
 
@@ -161,8 +161,8 @@ std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker
                                           UCP_EP_PARAM_FIELD_ERR_HANDLER,
                             .address = address->getHandle()};
 
-  auto ep = std::shared_ptr<Endpoint>(new Endpoint(worker, &params, endpointErrorHandling));
-  ep->_callbackData->endpoint = ep;
+  auto ep = std::shared_ptr<Endpoint>(new Endpoint(worker, endpointErrorHandling));
+  ep->create(&params);
   return ep;
 }
 
@@ -623,48 +623,47 @@ void Endpoint::errorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
     return;
   }
 
-  std::shared_ptr<Endpoint> endpoint{nullptr};
   try {
-    endpoint = data->endpoint.lock();
+    std::shared_ptr<Endpoint> endpoint(data->endpoint);
+
+    // Endpoint is already closing.
+    if (data->closing.exchange(true)) return;
+
+    data->status = status;
+    data->worker->scheduleRequestCancel(data->inflightRequests->release());
+    {
+      std::lock_guard<std::mutex> lock(data->mutex);
+      if (data->closeCallback) {
+        ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, calling user close callback",
+                   __func__,
+                   endpoint.get(),
+                   ep);
+        data->closeCallback(status, data->closeCallbackArg);
+        data->closeCallback    = nullptr;
+        data->closeCallbackArg = nullptr;
+      }
+    }
+
+    // Connection reset and timeout often represent just a normal remote
+    // endpoint disconnect, log only in debug mode.
+    if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
+      ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
+                 __func__,
+                 endpoint.get(),
+                 ep,
+                 status,
+                 ucs_status_string(status));
+    else
+      ucxx_error("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
+                 __func__,
+                 endpoint.get(),
+                 ep,
+                 status,
+                 ucs_status_string(status));
   } catch (std::bad_weak_ptr& exception) {
     // Unable to acquire `std::shared_ptr<ucxx::Endpoint>`: owner was already destroyed.
     return;
   }
-
-  // Endpoint is already closing.
-  if (data->closing.exchange(true)) return;
-
-  data->status = status;
-  data->worker->scheduleRequestCancel(data->inflightRequests->release());
-  {
-    std::lock_guard<std::mutex> lock(data->mutex);
-    if (data->closeCallback) {
-      ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, calling user close callback",
-                 __func__,
-                 endpoint.get(),
-                 ep);
-      data->closeCallback(status, data->closeCallbackArg);
-      data->closeCallback    = nullptr;
-      data->closeCallbackArg = nullptr;
-    }
-  }
-
-  // Connection reset and timeout often represent just a normal remote
-  // endpoint disconnect, log only in debug mode.
-  if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
-    ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
-               __func__,
-               endpoint.get(),
-               ep,
-               status,
-               ucs_status_string(status));
-  else
-    ucxx_error("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
-               __func__,
-               endpoint.get(),
-               ep,
-               status,
-               ucs_status_string(status));
 }
 
 void Endpoint::stop() { _callbackData->stopping = true; }

@@ -43,7 +43,7 @@ requirements:
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - ninja
-    - sysroot_{{ target_platform }}
+    - {{ stdlib("c") }}
   host:
     {% if cuda_major != "11" %}
     - cuda-cudart-dev
@@ -79,7 +79,7 @@ outputs:
         - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
-        - sysroot_{{ target_platform }}
+        - {{ stdlib("c") }}
         - cmake
         - ninja
       host:
@@ -170,7 +170,7 @@ outputs:
         - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
-        - sysroot_{{ target_platform }}
+        - {{ stdlib("c") }}
         - cmake
         - ninja
       host:
@@ -216,7 +216,7 @@ outputs:
         {% endif %}
         - cuda-version ={{ cuda_version }}
         - ninja
-        - sysroot_{{ target_platform }}
+        - {{ stdlib("c") }}
       host:
         - python
         - pip
@@ -275,7 +275,6 @@ outputs:
         - pip
         - setuptools
         - wheel
-        - tomli
       run:
         - python * *_cpython
         - rapids-dask-dependency =24.06
