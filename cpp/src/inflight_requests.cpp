@@ -99,30 +99,8 @@ void InflightRequests::remove(const Request* const request,
   }
 }
 
-size_t InflightRequests::dropCanceled()
-{
-  size_t removed = 0;
-
-  {
-    std::scoped_lock lock{_cancelMutex};
-    for (auto it = _trackedRequests->_canceling->begin();
-         it != _trackedRequests->_canceling->end();) {
-      auto request = it->second;
-      if (request != nullptr && request->getStatus() != UCS_INPROGRESS) {
-        it = _trackedRequests->_canceling->erase(it);
-        ++removed;
-      } else {
-        ++it;
-      }
-    }
-  }
-
-  return removed;
-}
-
 size_t InflightRequests::getCancelingSize()
 {
-  // dropCanceled();
   size_t cancelingSize = 0;
   {
     std::scoped_lock lock{_cancelMutex};
@@ -172,8 +150,6 @@ size_t InflightRequests::cancelAll(GenericCallbackUserFunction cancelInflightCal
         }
       }
       _trackedRequests->_inflight->clear();
-
-      // dropCanceled();
 
       break;
     }

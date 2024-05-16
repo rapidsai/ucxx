@@ -71,15 +71,6 @@ class InflightRequests {
   std::mutex
     _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
 
-  /**
-   * @brief Drop references to requests that completed cancelation.
-   *
-   * Drops references to requests that completed cancelation and stop tracking them.
-   *
-   * @returns The number of requests that have completed cancelation since last call.
-   */
-  size_t dropCanceled();
-
  public:
   /**
    * @brief Default constructor.
