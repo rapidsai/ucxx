@@ -353,7 +353,7 @@ std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Reque
 
 void Endpoint::removeInflightRequest(const Request* const request)
 {
-  _inflightRequests->remove(request);
+  _inflightRequests->remove(request, _cancelInflightCallback);
 }
 
 size_t Endpoint::cancelInflightRequests(GenericCallbackUserFunction callback)
