@@ -83,7 +83,7 @@ void InflightRequests::remove(const Request* const request,
       _mutex.unlock();
       try {
         if (cancelInflightCallback && trackedRequestsCount == 0) {
-          ucxx_debug("ucxx::InflightRequests::%s: %p, calling user cancel inflight callback",
+          ucxx_trace("ucxx::InflightRequests::%s: %p, calling user cancel inflight callback",
                      __func__,
                      this);
           cancelInflightCallback();
@@ -126,17 +126,13 @@ size_t InflightRequests::cancelAll(GenericCallbackUserFunction cancelInflightCal
   size_t total = 0;
 
   while (true) {
-    /**
-     * -1: both mutexes were locked.
-     */
+    // -1: both mutexes were locked.
     if (std::try_lock(_cancelMutex, _mutex) == -1) {
       auto total = _trackedRequests->_inflight->size();
 
       // Fast path when no requests have been registered or the map has been
       // previously released.
       if (total == 0) break;
-
-      // ucxx_debug("ucxx::InflightRequests::%s, canceling %lu requests", __func__, total);
 
       for (auto& r : *_trackedRequests->_inflight) {
         auto request = r.second;
@@ -165,7 +161,7 @@ size_t InflightRequests::cancelAll(GenericCallbackUserFunction cancelInflightCal
   _mutex.unlock();
   try {
     if (cancelInflightCallback && trackedRequestsCount == 0) {
-      ucxx_debug(
+      ucxx_trace(
         "ucxx::InflightRequests::%s: %p, calling user cancel inflight callback", __func__, this);
       cancelInflightCallback();
     }
