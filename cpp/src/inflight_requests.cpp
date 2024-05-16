@@ -16,7 +16,7 @@ size_t InflightRequests::size() { return _trackedRequests->_inflight->size(); }
 
 void InflightRequests::insert(std::shared_ptr<Request> request)
 {
-  std::lock_guard<std::mutex> lock(_mutex);
+  std::scoped_lock lock(_mutex);
 
   _trackedRequests->_inflight->insert({request.get(), request});
 }
@@ -24,11 +24,11 @@ void InflightRequests::insert(std::shared_ptr<Request> request)
 void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
 {
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::scoped_lock lock(_mutex);
     _trackedRequests->_inflight->merge(*(trackedRequests->_inflight));
   }
   {
-    std::lock_guard<std::mutex> lock(_cancelMutex);
+    std::scoped_lock lock(_cancelMutex);
     _trackedRequests->_canceling->merge(*(trackedRequests->_canceling));
   }
 }
