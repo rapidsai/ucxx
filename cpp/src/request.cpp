@@ -71,6 +71,12 @@ Request::~Request()
   ucxx_trace("ucxx::Request destroyed (%s): %p", _operationName.c_str(), this);
 }
 
+void Request::removeInflightRequest()
+{
+  if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
+  _worker->removeInflightRequest(this);
+}
+
 void Request::cancelImpl()
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);
@@ -109,6 +115,12 @@ void Request::cancelImpl()
                      "already completed with status: %d (%s)",
                      _status,
                      ucs_status_string(_status));
+
+    /**
+     * Ensure the request is removed from the parent in case it got re-registered while it
+     * was completing.
+     */
+    removeInflightRequest();
   }
 
   _cancelCallback = nullptr;
@@ -233,8 +245,7 @@ void Request::setStatus(ucs_status_t status)
   {
     std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-    if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
-    _worker->removeInflightRequest(this);
+    removeInflightRequest();
 
     ucxx_trace_req_f(_ownerString.c_str(),
                      this,

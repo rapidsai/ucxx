@@ -107,7 +107,18 @@ class Request : public Component {
 
  private:
   /**
-   * @brief Implementation of the request cancelatron.
+   * @brief Remove reference to request from endpoint and worker.
+   *
+   * Remove the reference to the request from the endpoint and worker. This should be called
+   * when a request has completed and the parent `ucxx::Endpoint` or `ucxx::Worker` does not
+   * need to keep track of it anymore. This is called during `setStatus()` and also during
+   * `cancel()` in case the request was scheduled for cancelation while it completed, which
+   * may have duplicated the canceling request tracking.
+   */
+  void removeInflightRequest();
+
+  /**
+   * @brief Implementation of the request cancelation.
    *
    * Cancel the request, called by `cancel()` which will submit it for execution from the
    * worker progress thread when active as it is unsafe to do so from the application thread
