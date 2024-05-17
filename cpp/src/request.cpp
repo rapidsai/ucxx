@@ -63,6 +63,7 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
 
 Request::~Request()
 {
+  if (_cancelCallback != nullptr) { _cancelCallbackNotifier.wait(1000000000 /* 1s */); }
   if (UCS_PTR_IS_PTR(_request)) {
     ucxx_warn("ucxx::Request (%s) freeing: %p", _operationName.c_str(), _request);
     ucp_request_free(_request);
@@ -70,7 +71,7 @@ Request::~Request()
   ucxx_trace("ucxx::Request destroyed (%s): %p", _operationName.c_str(), this);
 }
 
-void Request::cancel()
+void Request::cancelImpl()
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);
   if (_status == UCS_INPROGRESS) {
@@ -108,6 +109,21 @@ void Request::cancel()
                      "already completed with status: %d (%s)",
                      _status,
                      ucs_status_string(_status));
+  }
+
+  _cancelCallback = nullptr;
+}
+
+void Request::cancel()
+{
+  if (_worker->isProgressThreadRunning()) {
+    _cancelCallback = [this]() {
+      cancelImpl();
+      _cancelCallbackNotifier.set();
+    };
+    _worker->registerGenericPre(_cancelCallback);
+  } else {
+    cancelImpl();
   }
 }
 
