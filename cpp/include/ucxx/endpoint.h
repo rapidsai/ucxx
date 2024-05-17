@@ -61,7 +61,8 @@ struct ErrorCallbackData {
     nullptr};                               ///< Argument to be passed to close callback
   std::shared_ptr<Worker> worker{nullptr};  ///< Worker the endpoint has been created from
 
-  ErrorCallbackData(std::shared_ptr<InflightRequests> inflightRequests,
+  ErrorCallbackData(std::shared_ptr<Endpoint> endpoint,
+                    std::shared_ptr<InflightRequests> inflightRequests,
                     std::shared_ptr<Worker> worker);
 
   ErrorCallbackData()                                    = delete;

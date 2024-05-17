@@ -34,9 +34,10 @@
 
 namespace ucxx {
 
-ErrorCallbackData::ErrorCallbackData(std::shared_ptr<InflightRequests> inflightRequests,
+ErrorCallbackData::ErrorCallbackData(std::shared_ptr<Endpoint> endpoint,
+                                     std::shared_ptr<InflightRequests> inflightRequests,
                                      std::shared_ptr<Worker> worker)
-  : inflightRequests(inflightRequests), worker(worker)
+  : endpoint(endpoint), inflightRequests(inflightRequests), worker(worker)
 {
 }
 
@@ -68,7 +69,8 @@ Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener, bool endpointErr
 void Endpoint::create(ucp_ep_params_t* params)
 {
   auto worker   = ::ucxx::getWorker(_parent);
-  _callbackData = std::make_unique<ErrorCallbackData>(_inflightRequests, worker);
+  _callbackData = std::make_unique<ErrorCallbackData>(
+    std::dynamic_pointer_cast<Endpoint>(shared_from_this()), _inflightRequests, worker);
 
   if (_endpointErrorHandling) {
     params->err_mode        = UCP_ERR_HANDLING_MODE_PEER;
