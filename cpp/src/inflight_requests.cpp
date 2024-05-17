@@ -33,22 +33,26 @@ void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
   }
 }
 
-static void findAndRemove(InflightRequestsMap* requestsMap, const Request* const request)
+static InflightRequestsMapPtr findAndRemove(InflightRequestsMap* requestsMap,
+                                            const Request* const request)
 {
-  auto search = requestsMap->find(request);
-  decltype(search->second) tmpRequest;
+  auto removed = std::make_unique<InflightRequestsMap>();
+  auto search  = requestsMap->find(request);
   if (search != requestsMap->end()) {
     /**
      * If this is the last request to hold `std::shared_ptr<ucxx::Endpoint>` erasing it
      * may cause the `ucxx::Endpoint`s destructor and subsequently the `closeBlocking()`
      * method to be called which will in turn call `cancelAll()` and attempt to take the
      * mutexes. For this reason we should make a temporary copy of the request being
-     * erased from `_trackedRequests->_inflight` to allow unlocking the mutexes and only then
-     * destroy the object upon this method's return.
+     * erased from `_trackedRequests->_inflight` in `removed` to allow the caller to unlock
+     * the mutexes and only then destroy the object.
      */
-    tmpRequest = search->second;
+    removed->insert({request, search->second});
+
     requestsMap->erase(search);
   }
+
+  return removed;
 }
 
 void InflightRequests::remove(const Request* const request,
@@ -70,8 +74,13 @@ void InflightRequests::remove(const Request* const request,
     if (result == 0) {
       return;
     } else if (result == -1) {
-      findAndRemove(_trackedRequests->_inflight.get(), request);
-      findAndRemove(_trackedRequests->_canceling.get(), request);
+      /**
+       * Retain references to removed pointers to prevent their refcounts from going to
+       * while locks are held, which may trigger a chain effect and cause `this` itself
+       * from destroying and thus call `cancelAll()` which will then cause a deadlock.
+       */
+      auto removedInflight  = findAndRemove(_trackedRequests->_inflight.get(), request);
+      auto removedCanceling = findAndRemove(_trackedRequests->_canceling.get(), request);
 
       size_t trackedRequestsCount =
         _trackedRequests->_inflight->size() + _trackedRequests->_canceling->size();
