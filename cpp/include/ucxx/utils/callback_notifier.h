@@ -2,6 +2,8 @@
  * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#pragma once
+
 #include <atomic>
 #include <condition_variable>
 #include <mutex>

@@ -16,7 +16,7 @@ size_t InflightRequests::size() { return _trackedRequests->_inflight->size(); }
 
 void InflightRequests::insert(std::shared_ptr<Request> request)
 {
-  std::lock_guard<std::mutex> lock(_mutex);
+  std::scoped_lock lock(_mutex);
 
   _trackedRequests->_inflight->insert({request.get(), request});
 }
@@ -24,18 +24,41 @@ void InflightRequests::insert(std::shared_ptr<Request> request)
 void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
 {
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::scoped_lock lock(_mutex);
     _trackedRequests->_inflight->merge(*(trackedRequests->_inflight));
   }
   {
-    std::lock_guard<std::mutex> lock(_cancelMutex);
+    std::scoped_lock lock(_cancelMutex);
     _trackedRequests->_canceling->merge(*(trackedRequests->_canceling));
   }
 }
 
-void InflightRequests::remove(const Request* const request)
+static InflightRequestsMapPtr findAndRemove(InflightRequestsMap* requestsMap,
+                                            const Request* const request)
 {
-  do {
+  auto removed = std::make_unique<InflightRequestsMap>();
+  auto search  = requestsMap->find(request);
+  if (search != requestsMap->end()) {
+    /**
+     * If this is the last request to hold `std::shared_ptr<ucxx::Endpoint>` erasing it
+     * may cause the `ucxx::Endpoint`s destructor and subsequently the `closeBlocking()`
+     * method to be called which will in turn call `cancelAll()` and attempt to take the
+     * mutexes. For this reason we should make a temporary copy of the request being
+     * erased from `_trackedRequests->_inflight` in `removed` to allow the caller to unlock
+     * the mutexes and only then destroy the object.
+     */
+    removed->insert({request, search->second});
+
+    requestsMap->erase(search);
+  }
+
+  return removed;
+}
+
+void InflightRequests::remove(const Request* const request,
+                              GenericCallbackUserFunction cancelInflightCallback)
+{
+  while (true) {
     int result = std::try_lock(_cancelMutex, _mutex);
 
     /**
@@ -51,51 +74,42 @@ void InflightRequests::remove(const Request* const request)
     if (result == 0) {
       return;
     } else if (result == -1) {
-      auto search = _trackedRequests->_inflight->find(request);
-      decltype(search->second) tmpRequest;
-      if (search != _trackedRequests->_inflight->end()) {
-        /**
-         * If this is the last request to hold `std::shared_ptr<ucxx::Endpoint>` erasing it
-         * may cause the `ucxx::Endpoint`s destructor and subsequently the `closeBlocking()`
-         * method to be called which will in turn call `cancelAll()` and attempt to take the
-         * mutexes. For this reason we should make a temporary copy of the request being
-         * erased from `_trackedRequests->_inflight` to allow unlocking the mutexes and only then
-         * destroy the object upon this method's return.
-         */
-        tmpRequest = search->second;
-        _trackedRequests->_inflight->erase(search);
-      }
-      _cancelMutex.unlock();
+      /**
+       * Retain references to removed pointers to prevent their refcounts from going to
+       * while locks are held, which may trigger a chain effect and cause `this` itself
+       * from destroying and thus call `cancelAll()` which will then cause a deadlock.
+       */
+      auto removedInflight  = findAndRemove(_trackedRequests->_inflight.get(), request);
+      auto removedCanceling = findAndRemove(_trackedRequests->_canceling.get(), request);
+
+      size_t trackedRequestsCount =
+        _trackedRequests->_inflight->size() + _trackedRequests->_canceling->size();
+
+      /**
+       * Unlock `_mutex` before calling the user callback to prevent deadlocks in case the
+       * user callback happens to register another inflight request.
+       */
       _mutex.unlock();
-      return;
-    }
-  } while (true);
-}
-
-size_t InflightRequests::dropCanceled()
-{
-  size_t removed = 0;
-
-  {
-    std::scoped_lock lock{_cancelMutex};
-    for (auto it = _trackedRequests->_canceling->begin();
-         it != _trackedRequests->_canceling->end();) {
-      auto request = it->second;
-      if (request != nullptr && request->getStatus() != UCS_INPROGRESS) {
-        it = _trackedRequests->_canceling->erase(it);
-        ++removed;
-      } else {
-        ++it;
+      try {
+        if (cancelInflightCallback && trackedRequestsCount == 0) {
+          ucxx_trace("ucxx::InflightRequests::%s: %p, calling user cancel inflight callback",
+                     __func__,
+                     this);
+          cancelInflightCallback();
+        }
+        _cancelMutex.unlock();
+        return;
+      } catch (const std::exception& e) {
+        ucxx_warn("Exception in callback: %s", e.what());
+        _cancelMutex.unlock();
+        throw(e);
       }
     }
   }
-
-  return removed;
 }
 
 size_t InflightRequests::getCancelingSize()
 {
-  dropCanceled();
   size_t cancelingSize = 0;
   {
     std::scoped_lock lock{_cancelMutex};
@@ -105,35 +119,68 @@ size_t InflightRequests::getCancelingSize()
   return cancelingSize;
 }
 
-size_t InflightRequests::cancelAll()
+size_t InflightRequests::getInflightSize()
 {
-  decltype(_trackedRequests->_inflight) toCancel;
-  size_t total;
+  size_t inflightSize = 0;
   {
-    std::scoped_lock lock{_cancelMutex, _mutex};
-    total = _trackedRequests->_inflight->size();
-
-    // Fast path when no requests have been registered or the map has been
-    // previously released.
-    if (total == 0) return 0;
-
-    toCancel = std::exchange(_trackedRequests->_inflight, std::make_unique<InflightRequestsMap>());
+    std::scoped_lock lock{_mutex};
+    inflightSize = _trackedRequests->_inflight->size();
   }
 
-  ucxx_debug("ucxx::InflightRequests::%s, canceling %lu requests", __func__, total);
+  return inflightSize;
+}
 
-  for (auto& r : *toCancel) {
-    auto request = r.second;
-    if (request != nullptr) { request->cancel(); }
+size_t InflightRequests::cancelAll(GenericCallbackUserFunction cancelInflightCallback)
+{
+  size_t total = 0;
+
+  while (true) {
+    // -1: both mutexes were locked.
+    if (std::try_lock(_cancelMutex, _mutex) == -1) {
+      auto total = _trackedRequests->_inflight->size();
+
+      // Fast path when no requests have been registered or the map has been
+      // previously released.
+      if (total == 0) break;
+
+      for (auto& r : *_trackedRequests->_inflight) {
+        auto request = r.second;
+        if (request != nullptr) {
+          request->cancel();
+          if (!request->isCompleted()) {
+            _trackedRequests->_canceling->insert({request.get(), request});
+          } else {
+            auto status = request->getStatus();
+          }
+        }
+      }
+      _trackedRequests->_inflight->clear();
+
+      break;
+    }
   }
 
-  {
-    std::scoped_lock lock{_cancelMutex, _mutex};
-    _trackedRequests->_canceling->merge(*toCancel);
-  }
-  dropCanceled();
+  size_t trackedRequestsCount =
+    _trackedRequests->_inflight->size() + _trackedRequests->_canceling->size();
 
-  return total;
+  /**
+   * Unlock `_mutex` before calling the user callback to prevent deadlocks in case the
+   * user callback happens to register another inflight request.
+   */
+  _mutex.unlock();
+  try {
+    if (cancelInflightCallback && trackedRequestsCount == 0) {
+      ucxx_trace(
+        "ucxx::InflightRequests::%s: %p, calling user cancel inflight callback", __func__, this);
+      cancelInflightCallback();
+    }
+    _cancelMutex.unlock();
+    return total;
+  } catch (const std::exception& e) {
+    ucxx_warn("Exception in callback: %s", e.what());
+    _cancelMutex.unlock();
+    throw(e);
+  }
 }
 
 TrackedRequestsPtr InflightRequests::release()
