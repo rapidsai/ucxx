@@ -63,7 +63,10 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
 
 Request::~Request()
 {
-  if (_cancelCallback != nullptr) { _cancelCallbackNotifier.wait(1000000000 /* 1s */); }
+  if (_cancelCallback != nullptr) {
+    auto completed  = _cancelCallbackNotifier.wait(1000000000 /* 1s */);
+    _cancelCallback = nullptr;
+  }
   if (UCS_PTR_IS_PTR(_request)) {
     ucxx_warn("ucxx::Request (%s) freeing: %p", _operationName.c_str(), _request);
     ucp_request_free(_request);
@@ -130,6 +133,12 @@ void Request::cancel()
 {
   if (_worker->isProgressThreadRunning()) {
     _cancelCallback = [this]() {
+      /**
+       * FIXME: Check the callback hasn't run and object hasn't been destroyed. Long-term
+       * fix is to allow deregistering generic callbacks with the worker.
+       */
+      if (_cancelCallback == nullptr) return;
+
       cancelImpl();
       _cancelCallbackNotifier.set();
     };
