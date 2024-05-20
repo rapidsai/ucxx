@@ -51,7 +51,7 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - ucx
     - python
-    - librmm =24.06
+    - librmm =24.08
 
 outputs:
   - name: libucxx
@@ -225,7 +225,7 @@ outputs:
         - numpy 1.23
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
-        - rmm =24.06
+        - rmm =24.08
         - cuda-version {{ cuda_version }}
       run:
         - python * *_cpython
@@ -277,7 +277,7 @@ outputs:
         - wheel
       run:
         - python * *_cpython
-        - rapids-dask-dependency =24.06
+        - rapids-dask-dependency =24.08
         - {{ pin_subpackage('ucxx', max_pin='x.x') }}
     test:
       imports:

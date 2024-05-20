@@ -123,7 +123,7 @@ dependencies:
           - cxx-compiler
           - &cmake_ver cmake>=3.26.4
           - fmt>=10.1.1,<11
-          - librmm==24.6.*
+          - librmm==24.8.*
           - ninja
           - spdlog>=1.12.0,<1.13
   build_python_ucxx:
@@ -196,8 +196,8 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==24.6.*
-          - dask-cudf==24.6.*
+          - dask-cuda==24.8.*
+          - dask-cudf==24.8.*
           # UCX Build
           - libtool
           - automake
@@ -241,7 +241,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &numba numba>=0.57.1
-          - rapids-dask-dependency==24.6.*
+          - rapids-dask-dependency==24.8.*
   test_cpp:
     common:
       - output_types: conda
@@ -256,7 +256,7 @@ dependencies:
           - pytest==7.*
           - pytest-asyncio
           - pytest-rerunfailures
-          - rapids-dask-dependency==24.6.*
+          - rapids-dask-dependency==24.8.*
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -283,7 +283,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &rmm_conda rmm==24.6.*
+          - &rmm_conda rmm==24.8.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -294,16 +294,16 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - rmm-cu12==24.6.*
+              - rmm-cu12==24.8.*
           - matrix: {cuda: "11.*"}
             packages:
-              - rmm-cu11==24.6.*
+              - rmm-cu11==24.8.*
           - {matrix: null, packages: [*rmm_conda]}
   depends_on_cudf:
     common:
       - output_types: conda
         packages:
-          - &cudf_conda cudf==24.6.*
+          - &cudf_conda cudf==24.8.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -314,16 +314,16 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - cudf-cu12==24.6.*
+              - cudf-cu12==24.8.*
           - matrix: {cuda: "11.*"}
             packages:
-              - cudf-cu11==24.6.*
+              - cudf-cu11==24.8.*
           - {matrix: null, packages: [*cudf_conda]}
   depends_on_ucxx:
     common:
       - output_types: conda
         packages:
-          - &ucxx_conda ucxx==0.38.*
+          - &ucxx_conda ucxx==0.39.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -334,10 +334,10 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - ucxx-cu12==0.38.*
+              - ucxx-cu12==0.39.*
           - matrix: {cuda: "11.*"}
             packages:
-              - ucxx-cu11==0.38.*
+              - ucxx-cu11==0.39.*
           - {matrix: null, packages: [*ucxx_conda]}
   depends_on_ucx_build:
     common:
