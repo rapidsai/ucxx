@@ -123,7 +123,9 @@ std::shared_ptr<RequestAm> createRequestAm(
           return std::shared_ptr<RequestAm>(new RequestAm(
             endpoint, amReceive, "amReceive", enablePythonFuture, callbackFunction, callbackData));
         };
-        return worker->getAmRecv(endpoint->getHandle(), createRequest);
+        auto req       = worker->getAmRecv(endpoint->getHandle(), createRequest);
+        req->_endpoint = endpoint;
+        return req;
       },
     },
     requestData);
