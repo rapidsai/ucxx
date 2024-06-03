@@ -196,8 +196,8 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==24.8.*
-          - dask-cudf==24.8.*
+          - dask-cuda==24.8.*,>=0.0.0a0
+          - dask-cudf==24.8.*,>=0.0.0a0
           # UCX Build
           - libtool
           - automake
@@ -241,7 +241,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &numba numba>=0.57.1
-          - rapids-dask-dependency==24.8.*
+          - rapids-dask-dependency==24.8.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -256,7 +256,7 @@ dependencies:
           - pytest==7.*
           - pytest-asyncio
           - pytest-rerunfailures
-          - rapids-dask-dependency==24.8.*
+          - rapids-dask-dependency==24.8.*,>=0.0.0a0
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -283,7 +283,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &rmm_conda rmm==24.8.*
+          - &rmm_conda rmm==24.8.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -294,16 +294,16 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - rmm-cu12==24.8.*
+              - rmm-cu12==24.8.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
-              - rmm-cu11==24.8.*
+              - rmm-cu11==24.8.*,>=0.0.0a0
           - {matrix: null, packages: [*rmm_conda]}
   depends_on_cudf:
     common:
       - output_types: conda
         packages:
-          - &cudf_conda cudf==24.8.*
+          - &cudf_conda cudf==24.8.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -314,10 +314,10 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - cudf-cu12==24.8.*
+              - cudf-cu12==24.8.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
-              - cudf-cu11==24.8.*
+              - cudf-cu11==24.8.*,>=0.0.0a0
           - {matrix: null, packages: [*cudf_conda]}
   depends_on_ucxx:
     common:
@@ -334,10 +334,10 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - ucxx-cu12==0.39.*
+              - ucxx-cu12==0.39.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
-              - ucxx-cu11==0.39.*
+              - ucxx-cu11==0.39.*,>=0.0.0a0
           - {matrix: null, packages: [*ucxx_conda]}
   depends_on_ucx_build:
     common:
