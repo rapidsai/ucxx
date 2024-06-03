@@ -12,7 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Copyright (c) 2024, NVIDIA CORPORATION.
+
 import importlib.resources
 
-__version__ = importlib.resources.files("ucxx").joinpath("VERSION").read_text().strip()
-__git_commit__ = ""
+__version__ = (
+    importlib.resources.files(__package__).joinpath("VERSION").read_text().strip()
+)
+try:
+    __git_commit__ = (
+        importlib.resources.files(__package__)
+        .joinpath("GIT_COMMIT")
+        .read_text()
+        .strip()
+    )
+except FileNotFoundError:
+    __git_commit__ = ""
+
+__all__ = ["__git_commit__", "__version__"]

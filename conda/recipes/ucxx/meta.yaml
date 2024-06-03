@@ -49,6 +49,7 @@ requirements:
     - cuda-cudart-dev
     {% endif %}
     - cuda-version ={{ cuda_version }}
+    - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - ucx
     - python
     - librmm =24.08
