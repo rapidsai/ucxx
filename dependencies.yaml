@@ -132,7 +132,7 @@ dependencies:
           - cxx-compiler
           - &cmake_ver cmake>=3.26.4
           - fmt>=10.1.1,<11
-          - librmm==24.8.*
+          - librmm==24.8.*,>=0.0.0a0
           - ninja
           - spdlog>=1.12.0,<1.13
   build_python_ucxx:

@@ -93,9 +93,6 @@ skip = [
 
 [tool.rapids-build-backend]
 build-backend = "scikit_build_core.build"
-commit-files = [
-    "ucxx/COMMIT_FILE"
-]
 dependencies-file = "../dependencies.yaml"
 requires = [
     "cmake>=3.26.4",

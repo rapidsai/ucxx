@@ -116,9 +116,6 @@ exclude = [
 
 [tool.rapids-build-backend]
 build-backend = "setuptools.build_meta"
-commit-files = [
-    "distributed_ucxx/COMMIT_FILE"
-]
 dependencies-file = "../../dependencies.yaml"
 
 [tool.setuptools.package-data]
