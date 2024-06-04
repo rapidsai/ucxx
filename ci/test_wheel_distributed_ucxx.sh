@@ -14,7 +14,7 @@ ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-do
 
 python -m pip install \
     -v \
-    --constraint "${ucxx_wheelhouse}"/*.whl \
+    "${ucxx_wheelhouse}"/ucxx_${RAPIDS_PY_CUDA_SUFFIX}*.whl \
     "$(echo ./dist/${package_name}_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
 rapids-logger "Distributed Tests"
