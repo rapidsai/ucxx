@@ -35,9 +35,7 @@ function sed_runner() {
 echo "${NEXT_FULL_TAG}" > VERSION
 
 # bump RAPIDS libs
-sed_runner "/- librmm =/ s/=.*/=${NEXT_RAPIDS_VERSION},>=0.0.0a0/g" conda/recipes/ucxx/meta.yaml
-sed_runner "/- rmm =/ s/=.*/=${NEXT_RAPIDS_VERSION},>=0.0.0a0/g" conda/recipes/ucxx/meta.yaml
-sed_runner "/- rapids-dask-dependency =/ s/=.*/=${NEXT_RAPIDS_VERSION},>=0.0.0a0/g" conda/recipes/ucxx/meta.yaml
+sed_runner "/^rapids_version:$/ {n;s/.*/  - \"${NEXT_RAPIDS_VERSION}\"/}" conda/recipes/ucxx/conda_build_config.yaml
 
 DEPENDENCIES=(
   cudf

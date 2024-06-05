@@ -32,3 +32,6 @@ gmock:
 
 gtest:
   - ">=1.13.0"
+
+rapids_version:
+  - "24.08"
