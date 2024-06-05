@@ -48,15 +48,27 @@ struct EpParamsDeleter {
  * callback to modify the `ucxx::Endpoint` with information relevant to the error occurred.
  */
 struct ErrorCallbackData {
-  Endpoint*
-    _endpoint;  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
-  std::unique_ptr<std::mutex>
-    _mutex;  ///< Mutex used to prevent race conditions with `ucxx::Endpoint::setCloseCallback()`.
-  ucs_status_t status;                                 ///< Endpoint status
-  std::shared_ptr<InflightRequests> inflightRequests;  ///< Endpoint inflight requests
-  EndpointCloseCallbackUserFunction closeCallback;     ///< Close callback to call
-  EndpointCloseCallbackUserData closeCallbackArg;      ///< Argument to be passed to close callback
-  std::shared_ptr<Worker> worker;  ///< Worker the endpoint has been created from
+  std::weak_ptr<Endpoint>
+    endpoint{};  ///< Pointer to the `ucxx::Endpoint` that owns this object, used only for logging.
+  std::mutex mutex{std::mutex()};       ///< Mutex used to prevent race conditions with
+                                        ///< `ucxx::Endpoint::setCloseCallback()`.
+  ucs_status_t status{UCS_INPROGRESS};  ///< Endpoint status
+  std::atomic<bool> closing{false};     ///< Prevent calling close multiple concurrent times.
+  std::shared_ptr<InflightRequests> inflightRequests{nullptr};  ///< Endpoint inflight requests
+  EndpointCloseCallbackUserFunction closeCallback{nullptr};     ///< Close callback to call
+  EndpointCloseCallbackUserData closeCallbackArg{
+    nullptr};                               ///< Argument to be passed to close callback
+  std::shared_ptr<Worker> worker{nullptr};  ///< Worker the endpoint has been created from
+
+  ErrorCallbackData(std::shared_ptr<Endpoint> endpoint,
+                    std::shared_ptr<InflightRequests> inflightRequests,
+                    std::shared_ptr<Worker> worker);
+
+  ErrorCallbackData()                                    = delete;
+  ErrorCallbackData(const ErrorCallbackData&)            = delete;
+  ErrorCallbackData& operator=(ErrorCallbackData const&) = delete;
+  ErrorCallbackData(ErrorCallbackData&& o)               = delete;
+  ErrorCallbackData& operator=(ErrorCallbackData&& o)    = delete;
 };
 
 /**
@@ -83,6 +95,9 @@ class Endpoint : public Component {
    * to be called directly. This constructor is made private to ensure all UCXX objects
    * are shared pointers and the correct lifetime management of each one.
    *
+   * This constructor does not fully initialize the `ucxx::Endpoint` object, the caller
+   * must call the `create()` method immediately after this to complete the construction.
+   *
    * Instead the user should use one of the following:
    *
    * - `ucxx::Listener::createEndpointFromConnRequest`
@@ -95,12 +110,20 @@ class Endpoint : public Component {
    * @param[in] workerOrListener      the parent component, which may either be a
    *                                  `std::shared_ptr<Listener>` or
    *                                  `std::shared_ptr<Worker>`.
-   * @param[in] params                parameters specifying UCP endpoint capabilities.
    * @param[in] endpointErrorHandling whether to enable endpoint error handling.
    */
-  Endpoint(std::shared_ptr<Component> workerOrListener,
-           ucp_ep_params_t* params,
-           bool endpointErrorHandling);
+  Endpoint(std::shared_ptr<Component> workerOrListener, bool endpointErrorHandling);
+
+  /**
+   * @brief Create the underlying UCP endpoint of `ucxx::Endpoint`.
+   *
+   * This is the internal implementation of `ucxx::Endpoint` creation. This method completes
+   * the initialization with the creation of the UCP endpoint and must be always called
+   * after the private constructor is called.
+   *
+   * @param[in] params                parameters specifying UCP endpoint capabilities.
+   */
+  void create(ucp_ep_params_t* params);
 
   /**
    * @brief Register an inflight request.
@@ -309,6 +332,10 @@ class Endpoint : public Component {
    * successfully after completing and disconnecting from the remote endpoint, but more
    * importantly when any error occurs, allowing the application to be notified immediately
    * after such an event occurred.
+   *
+   * @throws  std::runtime_error  if the endpoint is closing or has already closed and this
+   *                              is not removing the close callback (setting both
+   *                              `closeCallback` and `closeCallbackArg` to `nullptr`)
    *
    * @param[in] closeCallback     `std::function` to a function definition return `void` and
    *                              receiving a single opaque pointer.
@@ -735,7 +762,8 @@ class Endpoint : public Component {
    * checked for errors. This is a non-blocking operation, and the status of closing the
    * endpoint must be verified from the resulting request object before the
    * `std::shared_ptr<ucxx::Endpoint>` can be safely destroyed and the UCP endpoint assumed
-   * inactive (closed).
+   * inactive (closed). If the endpoint is already closed or in process of closing, `nullptr`
+   * is returned instead.
    *
    * If the endpoint was created with error handling support, the error callback will be
    * executed, implying the user-defined callback will also be executed.
@@ -759,7 +787,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Request to be subsequently checked for the completion and its state, or
+   *          `nullptr` if the endpoint has already closed or is already in process of
+   *          closing.
    */
   std::shared_ptr<Request> close(const bool enablePythonFuture                      = false,
                                  EndpointCloseCallbackUserFunction callbackFunction = nullptr,

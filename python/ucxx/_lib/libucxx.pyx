@@ -12,7 +12,8 @@ import weakref
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uint8_t, uintptr_t
+from libc.stdlib cimport free
 from libcpp cimport nullptr
 from libcpp.functional cimport function
 from libcpp.memory cimport (
@@ -40,15 +41,48 @@ include "tag.pyx"
 logger = logging.getLogger("ucx")
 
 
-np.import_array()
+cdef class HostBufferAdapter:
+    """A simple adapter around HostBuffer implementing the buffer protocol"""
+    cdef Py_ssize_t _size
+    cdef void* _ptr
+    cdef Py_ssize_t[1] _shape
+    cdef Py_ssize_t[1] _strides
+    cdef Py_ssize_t _itemsize
 
+    @staticmethod
+    cdef _from_host_buffer(HostBuffer* host_buffer):
+        """Construct a new HostBufferAdapter from a HostBuffer.
 
-cdef ptr_to_ndarray(void* ptr, np.npy_intp N):
-    cdef np.ndarray[np.uint8_t, ndim=1, mode="c"] arr = (
-        np.PyArray_SimpleNewFromData(1, &N, np.NPY_UINT8, <np.uint8_t*>ptr)
-    )
-    PyArray_ENABLEFLAGS(arr, NPY_ARRAY_OWNDATA)
-    return arr
+        This factory takes ownership of the input host_buffer's data, so
+        attempting to use the input after this function is called will result
+        in undefined behavior.
+        """
+        cdef HostBufferAdapter obj = HostBufferAdapter.__new__(HostBufferAdapter)
+        obj._size = host_buffer.getSize()
+        obj._ptr = host_buffer.release()
+        obj._shape = [obj._size]
+        obj._itemsize = sizeof(uint8_t)
+        obj._strides = [obj._itemsize]
+        return obj
+
+    def __getbuffer__(self, Py_buffer *buffer, int flags):
+        buffer.buf = self._ptr
+        buffer.format = 'B'
+        buffer.internal = NULL
+        buffer.itemsize = self._itemsize
+        buffer.len = self._size * self._itemsize
+        buffer.ndim = 1
+        buffer.readonly = 0
+        buffer.shape = self._shape
+        buffer.strides = self._strides
+        buffer.suboffsets = NULL
+        buffer.obj = self
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        pass
+
+    def __dealloc__(self):
+        free(self._ptr)
 
 
 def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
@@ -58,8 +92,7 @@ def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
 
 def _get_host_buffer(uintptr_t recv_buffer_ptr):
     cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
-    cdef size_t size = host_buffer.getSize()
-    return ptr_to_ndarray(host_buffer.release(), size)
+    return np.asarray(HostBufferAdapter._from_host_buffer(host_buffer))
 
 
 cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length):
