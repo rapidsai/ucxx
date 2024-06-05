@@ -35,7 +35,7 @@ function sed_runner() {
 echo "${NEXT_FULL_TAG}" > VERSION
 
 # bump RAPIDS libs
-sed_runner "/^rapids_version:$/ {n;s/.*/  - \"${NEXT_RAPIDS_VERSION}\"/}" conda/recipes/ucxx/conda_build_config.yaml
+sed_runner "/^rapids_version:$/ {n;s/.*/  - \"${NEXT_RAPIDS_VERSION}\.*\"/}" conda/recipes/ucxx/conda_build_config.yaml
 
 DEPENDENCIES=(
   cudf

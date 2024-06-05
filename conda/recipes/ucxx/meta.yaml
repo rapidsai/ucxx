@@ -52,7 +52,7 @@ requirements:
     - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - ucx
     - python
-    - librmm ={{ rapids_version }}
+    - librmm {{ rapids_version }}
 
 outputs:
   - name: libucxx
@@ -227,7 +227,7 @@ outputs:
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
-        - rmm ={{ rapids_version }}
+        - rmm {{ rapids_version }}
         - cuda-version {{ cuda_version }}
       run:
         - python * *_cpython
@@ -280,7 +280,7 @@ outputs:
         - wheel
       run:
         - python * *_cpython
-        - rapids-dask-dependency ={{ rapids_version }}
+        - rapids-dask-dependency {{ rapids_version }}
         - {{ pin_subpackage('ucxx', max_pin='x.x') }}
     test:
       imports:
