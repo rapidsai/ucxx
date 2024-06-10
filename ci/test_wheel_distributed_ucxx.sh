@@ -11,7 +11,11 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
 RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
 ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-ucxx-dep)
-python -m pip install -v "$(echo ./dist/${package_name}_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
+
+python -m pip install \
+    -v \
+    "${ucxx_wheelhouse}"/ucxx_${RAPIDS_PY_CUDA_SUFFIX}*.whl \
+    "$(echo ./dist/${package_name}_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
 rapids-logger "Distributed Tests"
 
