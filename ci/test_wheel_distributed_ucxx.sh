@@ -3,33 +3,26 @@
 
 set -euo pipefail
 
-PROJECT_NAME="distributed_ucxx"
+package_name="distributed_ucxx"
 
 source "$(dirname "$0")/test_common.sh"
 
-mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
-RAPIDS_PY_WHEEL_NAME="${PROJECT_NAME}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
 
-# Install previously built ucxx wheel
-RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-ucxx-dep
-python -m pip install ./local-ucxx-dep/ucxx*.whl
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
+ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-ucxx-dep)
 
-# echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install $(echo ./dist/${PROJECT_NAME}*.whl)[test]
+python -m pip install \
+    -v \
+    "${ucxx_wheelhouse}"/ucxx_${RAPIDS_PY_CUDA_SUFFIX}*.whl \
+    "$(echo ./dist/${package_name}_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
-# Run smoke tests for aarch64 pull requests
-if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
-  rapids-logger "Distributed Smoke Tests"
-  timeout 1m python -m pytest -vs ci/wheel_smoke_test_distributed_ucxx.py
-else
-  rapids-logger "Distributed Tests"
+rapids-logger "Distributed Tests"
 
-  # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-  run_distributed_ucxx_tests      thread          1                           1
+# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests      thread          1                           1
 
-  install_distributed_dev_mode
+install_distributed_dev_mode
 
-  # run_distributed_ucxx_tests_internal PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-  run_distributed_ucxx_tests_internal   thread          1                           1
-fi
+# run_distributed_ucxx_tests_internal PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests_internal   thread          1                           1

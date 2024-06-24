@@ -43,16 +43,16 @@ requirements:
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - ninja
-    - sysroot_{{ target_platform }}
+    - {{ stdlib("c") }}
   host:
     {% if cuda_major != "11" %}
     - cuda-cudart-dev
     {% endif %}
     - cuda-version ={{ cuda_version }}
+    - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - ucx
     - python
-    - librmm =24.04
-    - gtest
+    - librmm {{ rapids_version }}
 
 outputs:
   - name: libucxx
@@ -80,7 +80,7 @@ outputs:
         - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
-        - sysroot_{{ target_platform }}
+        - {{ stdlib("c") }}
         - cmake
         - ninja
       host:
@@ -171,7 +171,7 @@ outputs:
         - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
-        - sysroot_{{ target_platform }}
+        - {{ stdlib("c") }}
         - cmake
         - ninja
       host:
@@ -184,8 +184,7 @@ outputs:
         - cuda-cudart
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        - gtest
-        - gmock
+
     about:
       home: https://rapids.ai/
       license: BSD-3-Clause
@@ -218,7 +217,7 @@ outputs:
         {% endif %}
         - cuda-version ={{ cuda_version }}
         - ninja
-        - sysroot_{{ target_platform }}
+        - {{ stdlib("c") }}
       host:
         - python
         - pip
@@ -227,7 +226,8 @@ outputs:
         - numpy 1.23
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
-        - rmm =24.04
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rmm {{ rapids_version }}
         - cuda-version {{ cuda_version }}
       run:
         - python * *_cpython
@@ -275,12 +275,12 @@ outputs:
       host:
         - python
         - pip
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
         - setuptools
         - wheel
-        - tomli
       run:
         - python * *_cpython
-        - rapids-dask-dependency =24.04
+        - rapids-dask-dependency {{ rapids_version }}
         - {{ pin_subpackage('ucxx', max_pin='x.x') }}
     test:
       imports:

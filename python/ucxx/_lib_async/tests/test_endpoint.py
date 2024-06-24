@@ -5,11 +5,16 @@ import asyncio
 from queue import Empty, Queue
 
 import pytest
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 
 
 @pytest.mark.asyncio
+@pytest.mark.flaky(
+    reruns=3,
+    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
+)
 @pytest.mark.parametrize("server_close_callback", [True, False])
 async def test_close_callback(server_close_callback):
     closed = [False]
@@ -35,6 +40,7 @@ async def test_close_callback(server_close_callback):
         server_node,
     )
     await client_node(listener.port)
+    await wait_listener_client_handlers(listener)
     while closed[0] is False:
         await asyncio.sleep(0.01)
 
@@ -91,4 +97,5 @@ async def test_cancel(transfer_api):
         # TODO: Add back custom UCXCanceledError messages?
     ):
         await client_node(listener.port)
+    await wait_listener_client_handlers(listener)
     listener.close()
