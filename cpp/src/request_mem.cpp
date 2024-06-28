@@ -49,7 +49,12 @@ RequestMem::RequestMem(std::shared_ptr<Endpoint> endpoint,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)
-  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
+  : Request(endpoint,
+            data::getRequestData(requestData),
+            operationName,
+            enablePythonFuture,
+            callbackFunction,
+            callbackData)
 {
   std::visit(data::dispatch{
                [this](data::MemPut memPut) {
@@ -63,9 +68,6 @@ RequestMem::RequestMem(std::shared_ptr<Endpoint> endpoint,
                [](auto) { throw std::runtime_error("Unreachable"); },
              },
              requestData);
-
-  _callback     = callbackFunction;
-  _callbackData = callbackData;
 }
 
 void RequestMem::memPutCallback(void* request, ucs_status_t status, void* arg)
