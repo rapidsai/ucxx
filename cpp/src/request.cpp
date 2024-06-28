@@ -215,8 +215,7 @@ void Request::setStatus(ucs_status_t status)
     if (_status != UCS_INPROGRESS)
       ucxx_error(
         "ucxx::Request: %p, setStatus called with status: %d (%s) but status: %d (%s) was "
-        "already "
-        "set",
+        "already set",
         this,
         status,
         ucs_status_string(status),
