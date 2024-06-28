@@ -374,13 +374,13 @@ dependencies:
             packages:
               - libucx-cu11==1.15.0
           - matrix: null
-            packages: 
+            packages:
               - libucx==1.15.0
   depends_on_ucx_run:
     common:
       - output_types: conda
         packages:
-          - &ucx_conda_run ucx>=1.15.0
+          - &ucx_conda_run ucx>=1.15.0,<1.18
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -391,10 +391,10 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - libucx-cu12>=1.15.0
+              - libucx-cu12>=1.15.0,<1.18
           - matrix: {cuda: "11.*"}
             packages:
-              - libucx-cu11>=1.15.0
+              - libucx-cu11>=1.15.0,<1.18
           - matrix: null
-            packages: 
-              - libucx>=1.15.0
+            packages:
+              - libucx>=1.15.0,<1.18

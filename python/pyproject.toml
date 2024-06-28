@@ -19,7 +19,7 @@ authors = [
 license = { text = "BSD-3-Clause" }
 requires-python = ">=3.9"
 dependencies = [
-    "libucx>=1.15.0",
+    "libucx>=1.15.0,<1.18",
     "numpy>=1.23,<2.0a0",
     "pynvml>=11.4.1",
     "rmm==24.8.*,>=0.0.0a0",
