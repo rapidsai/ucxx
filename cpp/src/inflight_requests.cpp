@@ -12,7 +12,11 @@ namespace ucxx {
 
 InflightRequests::~InflightRequests() { cancelAll(); }
 
-size_t InflightRequests::size() { return _trackedRequests->_inflight->size(); }
+size_t InflightRequests::size()
+{
+  std::lock_guard<std::mutex> lock(_mutex);
+  return _trackedRequests->_inflight->size();
+}
 
 void InflightRequests::insert(std::shared_ptr<Request> request)
 {
@@ -24,12 +28,15 @@ void InflightRequests::insert(std::shared_ptr<Request> request)
 void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
 {
   {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _trackedRequests->_inflight->merge(*(trackedRequests->_inflight));
-  }
-  {
-    std::lock_guard<std::mutex> lock(_cancelMutex);
-    _trackedRequests->_canceling->merge(*(trackedRequests->_canceling));
+    std::scoped_lock lock{_cancelMutex, _mutex};
+    if (trackedRequests->_inflight != nullptr)
+      _trackedRequests->_inflight->merge(*(trackedRequests->_inflight));
+    else
+      ucxx_error("Invalid _inflight object during merge");
+    if (trackedRequests->_canceling != nullptr)
+      _trackedRequests->_canceling->merge(*(trackedRequests->_canceling));
+    else
+      ucxx_error("Invalid _canceling object during merge");
   }
 }
 
@@ -118,20 +125,27 @@ size_t InflightRequests::cancelAll()
     if (total == 0) return 0;
 
     toCancel = std::exchange(_trackedRequests->_inflight, std::make_unique<InflightRequestsMap>());
-  }
 
-  ucxx_debug("ucxx::InflightRequests::%s, canceling %lu requests", __func__, total);
+    ucxx_debug("ucxx::InflightRequests::%s, canceling %lu requests", __func__, total);
 
-  for (auto& r : *toCancel) {
-    auto request = r.second;
-    if (request != nullptr) { request->cancel(); }
-  }
+    for (auto& r : *toCancel) {
+      auto request = r.second;
+      if (request != nullptr) { request->cancel(); }
+    }
 
-  {
-    std::scoped_lock lock{_cancelMutex, _mutex};
     _trackedRequests->_canceling->merge(*toCancel);
+
+    // dropCanceled();
+    for (auto it = _trackedRequests->_canceling->begin();
+         it != _trackedRequests->_canceling->end();) {
+      auto request = it->second;
+      if (request != nullptr && request->getStatus() != UCS_INPROGRESS) {
+        it = _trackedRequests->_canceling->erase(it);
+      } else {
+        ++it;
+      }
+    }
   }
-  dropCanceled();
 
   return total;
 }

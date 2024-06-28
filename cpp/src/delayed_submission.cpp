@@ -21,18 +21,18 @@ RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(const std
 }
 
 void RequestDelayedSubmissionCollection::scheduleLog(
-  std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
+  ItemIdType id, std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
 {
-  ucxx_trace_req("Registered %s: %p", _name.c_str(), item.first.get());
+  ucxx_trace_req("Registered %s [%lu]: %p", _name.c_str(), id, item.first.get());
 }
 
 void RequestDelayedSubmissionCollection::processItem(
-  std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
+  ItemIdType id, std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
 {
   auto& req      = item.first;
   auto& callback = item.second;
 
-  ucxx_trace_req("Submitting %s callbacks: %p", _name.c_str(), req.get());
+  ucxx_trace_req("Submitting %s [%lu] callback: %p", _name.c_str(), id, req.get());
 
   if (callback) callback();
 }
@@ -42,14 +42,16 @@ GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(const std
 {
 }
 
-void GenericDelayedSubmissionCollection::scheduleLog(DelayedSubmissionCallbackType item)
+void GenericDelayedSubmissionCollection::scheduleLog(ItemIdType id,
+                                                     DelayedSubmissionCallbackType item)
 {
-  ucxx_trace_req("Registered %s", _name.c_str());
+  ucxx_trace_req("Registered %s [%lu]", _name.c_str(), id);
 }
 
-void GenericDelayedSubmissionCollection::processItem(DelayedSubmissionCallbackType callback)
+void GenericDelayedSubmissionCollection::processItem(ItemIdType id,
+                                                     DelayedSubmissionCallbackType callback)
 {
-  ucxx_trace_req("Submitting %s callback", _name.c_str());
+  ucxx_trace_req("Submitting %s [%lu] callback", _name.c_str(), id);
 
   if (callback) callback();
 }
@@ -80,14 +82,18 @@ void DelayedSubmissionCollection::registerRequest(std::shared_ptr<Request> reque
   _requests.schedule({request, callback});
 }
 
-void DelayedSubmissionCollection::registerGenericPre(DelayedSubmissionCallbackType callback)
+ItemIdType DelayedSubmissionCollection::registerGenericPre(DelayedSubmissionCallbackType callback)
 {
-  _genericPre.schedule(callback);
+  return _genericPre.schedule(callback);
 }
 
-void DelayedSubmissionCollection::registerGenericPost(DelayedSubmissionCallbackType callback)
+ItemIdType DelayedSubmissionCollection::registerGenericPost(DelayedSubmissionCallbackType callback)
 {
-  _genericPost.schedule(callback);
+  return _genericPost.schedule(callback);
 }
+
+void DelayedSubmissionCollection::cancelGenericPre(ItemIdType id) { _genericPre.cancel(id); }
+
+void DelayedSubmissionCollection::cancelGenericPost(ItemIdType id) { _genericPre.cancel(id); }
 
 }  // namespace ucxx
