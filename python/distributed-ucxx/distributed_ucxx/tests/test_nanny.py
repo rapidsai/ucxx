@@ -21,4 +21,4 @@ async def test_nanny_closed_by_keyboard_interrupt(ucxx_loop):
         ) as n:
             await n.process.stopped.wait()
             # Check that the scheduler has been notified about the closed worker
-            assert "remove-worker" in str(s.events)
+            assert "remove-worker" in str(s.get_events())
