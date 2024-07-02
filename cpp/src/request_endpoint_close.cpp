@@ -41,13 +41,11 @@ RequestEndpointClose::RequestEndpointClose(std::shared_ptr<Endpoint> endpoint,
                                            const bool enablePythonFuture,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
-  : Request(endpoint, requestData, operationName, enablePythonFuture)
+  : Request(
+      endpoint, requestData, operationName, enablePythonFuture, callbackFunction, callbackData)
 {
   if (_endpoint == nullptr && _worker == nullptr)
     throw ucxx::Error("A valid endpoint or worker is required for a close operation.");
-
-  _callback     = callbackFunction;
-  _callbackData = callbackData;
 }
 
 void RequestEndpointClose::endpointCloseCallback(void* request, ucs_status_t status, void* arg)
