@@ -39,6 +39,9 @@ typedef struct TrackedRequests {
     std::make_unique<InflightRequestsMap>()};  ///< Valid requests awaiting completion.
   InflightRequestsMapPtr _canceling{
     std::make_unique<InflightRequestsMap>()};  ///< Requests scheduled for cancelation.
+  std::mutex _mutex{};  ///< Mutex to control access to inflight requests container
+  std::mutex
+    _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
 } TrackedRequests;
 
 /**
@@ -61,9 +64,6 @@ class InflightRequests {
     std::make_unique<TrackedRequests>()};  ///< Container storing pointers to all inflight
                                            ///< and in cancelation process requests known to
                                            ///< the owner of this object
-  std::mutex _mutex{};  ///< Mutex to control access to inflight requests container
-  std::mutex
-    _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
 
   /**
    * @brief Drop references to requests that completed cancelation.
