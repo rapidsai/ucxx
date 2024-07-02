@@ -41,6 +41,10 @@ repos:
                 # language: system
                 files: \.(h|cpp)$
                 # exclude: path/to/myfile.h
+      - repo: https://github.com/rapidsai/pre-commit-hooks
+        rev: v0.2.0
+        hooks:
+            - id: verify-alpha-spec
       - repo: https://github.com/rapidsai/dependency-file-generator
         rev: v1.13.11
         hooks:
