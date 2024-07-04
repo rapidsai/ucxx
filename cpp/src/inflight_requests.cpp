@@ -14,13 +14,15 @@ InflightRequests::~InflightRequests() { cancelAll(); }
 
 size_t InflightRequests::size()
 {
-  std::lock_guard<std::mutex> lock(_trackedRequests->_mutex);
+  std::scoped_lock localLock{_mutex};
+  std::lock_guard<std::mutex> lock(*_trackedRequests->_mutex);
   return _trackedRequests->_inflight->size();
 }
 
 void InflightRequests::insert(std::shared_ptr<Request> request)
 {
-  std::lock_guard<std::mutex> lock(_trackedRequests->_mutex);
+  std::scoped_lock localLock{_mutex};
+  std::lock_guard<std::mutex> lock(*_trackedRequests->_mutex);
 
   _trackedRequests->_inflight->insert({request.get(), request});
 }
@@ -28,10 +30,14 @@ void InflightRequests::insert(std::shared_ptr<Request> request)
 void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
 {
   {
-    std::scoped_lock lock{_trackedRequests->_cancelMutex,
-                          _trackedRequests->_mutex,
-                          trackedRequests->_cancelMutex,
-                          trackedRequests->_mutex};
+    if (trackedRequests == nullptr) return;
+
+    std::scoped_lock localLock{_mutex};
+    std::scoped_lock lock{*_trackedRequests->_cancelMutex,
+                          *_trackedRequests->_mutex,
+                          *trackedRequests->_cancelMutex,
+                          *trackedRequests->_mutex};
+
     if (trackedRequests->_inflight != nullptr)
       _trackedRequests->_inflight->merge(*(trackedRequests->_inflight));
     else
@@ -46,7 +52,8 @@ void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
 void InflightRequests::remove(const Request* const request)
 {
   do {
-    int result = std::try_lock(_trackedRequests->_cancelMutex, _trackedRequests->_mutex);
+    std::scoped_lock localLock{_mutex};
+    int result = std::try_lock(*_trackedRequests->_cancelMutex, *_trackedRequests->_mutex);
 
     /**
      * `result` can be have one of three values:
@@ -75,8 +82,8 @@ void InflightRequests::remove(const Request* const request)
         tmpRequest = search->second;
         _trackedRequests->_inflight->erase(search);
       }
-      _trackedRequests->_cancelMutex.unlock();
-      _trackedRequests->_mutex.unlock();
+      _trackedRequests->_cancelMutex->unlock();
+      _trackedRequests->_mutex->unlock();
       return;
     }
   } while (true);
@@ -87,7 +94,8 @@ size_t InflightRequests::dropCanceled()
   size_t removed = 0;
 
   {
-    std::scoped_lock lock{_trackedRequests->_cancelMutex};
+    std::scoped_lock localLock{_mutex};
+    std::scoped_lock lock{*_trackedRequests->_cancelMutex};
     for (auto it = _trackedRequests->_canceling->begin();
          it != _trackedRequests->_canceling->end();) {
       auto request = it->second;
@@ -108,7 +116,8 @@ size_t InflightRequests::getCancelingSize()
   dropCanceled();
   size_t cancelingSize = 0;
   {
-    std::scoped_lock lock{_trackedRequests->_cancelMutex};
+    std::scoped_lock localLock{_mutex};
+    std::scoped_lock lock{*_trackedRequests->_cancelMutex};
     cancelingSize = _trackedRequests->_canceling->size();
   }
 
@@ -120,7 +129,8 @@ size_t InflightRequests::cancelAll()
   decltype(_trackedRequests->_inflight) toCancel;
   size_t total;
   {
-    std::scoped_lock lock{_trackedRequests->_cancelMutex, _trackedRequests->_mutex};
+    std::scoped_lock localLock{_mutex};
+    std::scoped_lock lock{*_trackedRequests->_cancelMutex, *_trackedRequests->_mutex};
     total = _trackedRequests->_inflight->size();
 
     // Fast path when no requests have been registered or the map has been
@@ -155,7 +165,8 @@ size_t InflightRequests::cancelAll()
 
 TrackedRequestsPtr InflightRequests::release()
 {
-  std::scoped_lock lock{_trackedRequests->_cancelMutex, _trackedRequests->_mutex};
+  std::scoped_lock localLock{_mutex};
+  std::scoped_lock lock{*_trackedRequests->_cancelMutex, *_trackedRequests->_mutex};
 
   return std::exchange(_trackedRequests, std::make_unique<TrackedRequests>());
 }
