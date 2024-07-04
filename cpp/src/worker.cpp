@@ -511,7 +511,7 @@ void Worker::scheduleRequestCancel(TrackedRequestsPtr trackedRequests)
       __func__,
       this,
       _handle,
-      trackedRequests->_inflight->size() + trackedRequests->_canceling->size());
+      trackedRequests->_inflight.size() + trackedRequests->_canceling.size());
     _inflightRequestsToCancel->merge(std::move(trackedRequests));
   }
 }

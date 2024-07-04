@@ -22,28 +22,17 @@ class Request;
 typedef std::map<const Request* const, std::shared_ptr<Request>> InflightRequestsMap;
 
 /**
- * @brief Pre-defined type for a pointer to an inflight request map.
- *
- * A pre-defined type for a pointer to an inflight request map, used as a convenience type.
- */
-typedef std::unique_ptr<InflightRequestsMap> InflightRequestsMapPtr;
-
-/**
  * @brief A container for the different types of tracked requests.
  *
  * A container encapsulating the different types of handled tracked requests, currently
  * those still valid (inflight), and those scheduled for cancelation (canceling).
  */
 typedef struct TrackedRequests {
-  InflightRequestsMapPtr _inflight{
-    std::make_unique<InflightRequestsMap>()};  ///< Valid requests awaiting completion.
-  InflightRequestsMapPtr _canceling{
-    std::make_unique<InflightRequestsMap>()};  ///< Requests scheduled for cancelation.
-  std::unique_ptr<std::mutex> _mutex{
-    std::make_unique<std::mutex>()};  ///< Mutex to control access to inflight requests container
-  std::unique_ptr<std::mutex> _cancelMutex{
-    std::make_unique<std::mutex>()};  ///< Mutex to allow cancelation and prevent removing requests
-                                      ///< simultaneously
+  InflightRequestsMap _inflight{};   ///< Valid requests awaiting completion.
+  InflightRequestsMap _canceling{};  ///< Requests scheduled for cancelation.
+  std::mutex _mutex{};               ///< Mutex to control access to inflight requests container
+  std::mutex
+    _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
 } TrackedRequests;
 
 /**
