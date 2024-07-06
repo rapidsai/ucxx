@@ -11,7 +11,7 @@ dependencies:
 - automake
 - c-compiler
 - cloudpickle
-- cmake>=3.26.4
+- cmake>=3.26.4,!=3.30.0
 - cuda-cudart-dev
 - cuda-version=12.2
 - cudf==24.8.*,>=0.0.0a0
