@@ -71,6 +71,10 @@ class WorkerProgressThread {
    * @param[in] progressFunction            user-defined progress function implementation.
    * @param[in] stop                        reference to the stop signal causing the
    *                                        progress loop to terminate.
+   * @param[in] setThreadId                 callback function executed before the
+   *                                        `startCallback` with a purpose of setting the
+   *                                        thread ID with the parent so it is known before
+   *                                        the progress loop starts.
    * @param[in] startCallback               user-defined callback function to be executed
    *                                        at the start of the progress thread.
    * @param[in] startCallbackArg            an argument to be passed to the start callback.
@@ -80,6 +84,7 @@ class WorkerProgressThread {
   static void progressUntilSync(
     std::function<bool(void)> progressFunction,
     const bool& stop,
+    std::function<void(void)> setThreadId,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,
     std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection);
@@ -112,6 +117,10 @@ class WorkerProgressThread {
    * @param[in] pollingMode                 whether the thread should use polling mode to
    *                                        progress.
    * @param[in] progressFunction            user-defined progress function implementation.
+   * @param[in] setThreadId                 callback function executed before the
+   *                                        `startCallback` with a purpose of setting the
+   *                                        thread ID with the parent so it is known before
+   *                                        the progress loop starts.
    * @param[in] signalWorkerFunction        user-defined function to wake the worker
    *                                        progress event (when `pollingMode` is `false`).
    * @param[in] startCallback               user-defined callback function to be executed
@@ -123,6 +132,7 @@ class WorkerProgressThread {
   WorkerProgressThread(const bool pollingMode,
                        std::function<bool(void)> progressFunction,
                        std::function<void(void)> signalWorkerFunction,
+                       std::function<void(void)> setThreadId,
                        ProgressThreadStartCallback startCallback,
                        ProgressThreadStartCallbackArg startCallbackArg,
                        std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection);

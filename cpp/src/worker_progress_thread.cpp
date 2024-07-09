@@ -13,10 +13,18 @@ namespace ucxx {
 void WorkerProgressThread::progressUntilSync(
   std::function<bool(void)> progressFunction,
   const bool& stop,
+  std::function<void(void)> setThreadId,
   ProgressThreadStartCallback startCallback,
   ProgressThreadStartCallbackArg startCallbackArg,
   std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection)
 {
+  /**
+   * Ensure the progress thread's ID is available allowing generic callbacks to run
+   * successfully even after `_progressThread == nullptr`, which may occur before
+   * `WorkerProgressThreads`'s destructor completes.
+   */
+  setThreadId();
+
   if (startCallback) startCallback(startCallbackArg);
 
   while (!stop) {
@@ -32,6 +40,7 @@ WorkerProgressThread::WorkerProgressThread(
   const bool pollingMode,
   std::function<bool(void)> progressFunction,
   std::function<void(void)> signalWorkerFunction,
+  std::function<void(void)> setThreadId,
   ProgressThreadStartCallback startCallback,
   ProgressThreadStartCallbackArg startCallbackArg,
   std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection)
@@ -44,6 +53,7 @@ WorkerProgressThread::WorkerProgressThread(
   _thread = std::thread(WorkerProgressThread::progressUntilSync,
                         progressFunction,
                         std::ref(_stop),
+                        setThreadId,
                         _startCallback,
                         _startCallbackArg,
                         _delayedSubmissionCollection);

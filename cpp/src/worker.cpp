@@ -416,19 +416,15 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
     signalWorkerFunction = [this]() { return this->signal(); };
   }
 
+  auto setThreadId = [this]() { _progressThreadId = std::this_thread::get_id(); };
+
   _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
                                                            progressFunction,
                                                            signalWorkerFunction,
+                                                           setThreadId,
                                                            _progressThreadStartCallback,
                                                            _progressThreadStartCallbackArg,
                                                            _delayedSubmissionCollection);
-
-  /**
-   * Ensure the progress thread's ID is available allowing generic callbacks to run
-   * successfully even after `_progressThread == nullptr`, which may occur before
-   * `WorkerProgressThreads`'s destructor completes.
-   */
-  _progressThreadId = _progressThread->getId();
 }
 
 void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
