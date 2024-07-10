@@ -130,7 +130,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - &cmake_ver cmake>=3.26.4
+          - &cmake_ver cmake>=3.26.4,!=3.30.0
           - fmt>=10.1.1,<11
           - librmm==24.8.*,>=0.0.0a0
           - ninja
