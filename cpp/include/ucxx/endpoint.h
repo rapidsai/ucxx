@@ -53,8 +53,8 @@ class Endpoint : public Component {
   ucp_ep_h _originalHandle{nullptr};  ///< Handle to the UCP endpoint, after it was previously
                                       ///< closed, used for logging purposes only
   bool _endpointErrorHandling{true};  ///< Whether the endpoint enables error handling
-  std::shared_ptr<InflightRequests> _inflightRequests{
-    std::make_shared<InflightRequests>()};  ///< The inflight requests
+  std::unique_ptr<InflightRequests> _inflightRequests{
+    std::make_unique<InflightRequests>()};  ///< The inflight requests
   std::mutex _mutex{std::mutex()};          ///< Mutex used to prevent race conditions with
                                             ///< `ucxx::Endpoint::setCloseCallback()`.
   ucs_status_t _status{UCS_INPROGRESS};     ///< Endpoint status
