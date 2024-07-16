@@ -28,6 +28,7 @@ class MemoryHandle : public Component {
   ucp_mem_h _handle{};       ///< The UCP handle to the memory allocation.
   size_t _size{0};           ///< The actual allocation size.
   uint64_t _baseAddress{0};  ///< The allocation's base address.
+  ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_HOST};
 
   /**
    * @brief Private constructor of `ucxx::MemoryHandle`.
@@ -43,12 +44,16 @@ class MemoryHandle : public Component {
    *
    * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
    *
-   * @param[in] context parent context where to map memory.
-   * @param[in] size    the minimum size of the memory allocation
-   * @param[in] buffer  the pointer to an existing allocation or `nullptr` to allocate a
-   *                    new memory region.
+   * @param[in] context     parent context where to map memory.
+   * @param[in] size        the minimum size of the memory allocation
+   * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
+   *                        new memory region.
+   * @param[in] memoryType  the type of memory the memory allocation the handle points to.
    */
-  MemoryHandle(std::shared_ptr<Context> context, const size_t size, void* buffer);
+  MemoryHandle(std::shared_ptr<Context> context,
+               const size_t size,
+               void* buffer,
+               const ucs_memory_type_t memoryType);
 
  public:
   MemoryHandle()                               = delete;
@@ -95,16 +100,18 @@ class MemoryHandle : public Component {
    *
    * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
    *
-   * @param[in] context parent context where to map memory.
-   * @param[in] size    the minimum size of the memory allocation
-   * @param[in] buffer  the pointer to an existing allocation or `nullptr` to allocate a
-   *                    new memory region.
+   * @param[in] context     parent context where to map memory.
+   * @param[in] size        the minimum size of the memory allocation
+   * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
+   *                        new memory region.
+   * @param[in] memoryType  the type of memory the memory allocation the handle points to.
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
   friend std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
                                                           const size_t size,
-                                                          void* buffer);
+                                                          void* buffer,
+                                                          const ucs_memory_type_t memoryType);
 
   ~MemoryHandle();
 
@@ -155,6 +162,8 @@ class MemoryHandle : public Component {
    * @returns The base address of the memory allocation.
    */
   uint64_t getBaseAddress();
+
+  ucs_memory_type_t getMemoryType();
 
   std::shared_ptr<RemoteKey> createRemoteKey();
 };

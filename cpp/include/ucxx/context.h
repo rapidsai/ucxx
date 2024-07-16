@@ -210,13 +210,15 @@ class Context : public Component {
    *
    * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
    *
-   * @param[in] size    the minimum size of the memory allocation
-   * @param[in] buffer  the pointer to an existing allocation or `nullptr` to allocate a
-   *                    new memory region.
+   * @param[in] size        the minimum size of the memory allocation.
+   * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
+   *                        new memory region.
+   * @param[in] memoryType  the type of memory the memory allocation the handle points to.
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
-  std::shared_ptr<MemoryHandle> createMemoryHandle(const size_t size, void* buffer);
+  std::shared_ptr<MemoryHandle> createMemoryHandle(
+    const size_t size, void* buffer, const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
 };
 
 }  // namespace ucxx
