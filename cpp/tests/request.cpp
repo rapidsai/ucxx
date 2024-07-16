@@ -111,20 +111,14 @@ class RequestTest : public ::testing::TestWithParam<
       if (_bufferType == ucxx::BufferType::Host) {
         _sendBuffer[i] = std::make_unique<ucxx::HostBuffer>(_messageSize);
         if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<ucxx::HostBuffer>(_messageSize);
-
-        std::copy(_send[i].begin(), _send[i].end(), reinterpret_cast<int*>(_sendBuffer[i]->data()));
 #if UCXX_ENABLE_RMM
       } else if (_bufferType == ucxx::BufferType::RMM) {
         _sendBuffer[i] = std::make_unique<ucxx::RMMBuffer>(_messageSize);
         if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<ucxx::RMMBuffer>(_messageSize);
-
-        RMM_CUDA_TRY(cudaMemcpyAsync(_sendBuffer[i]->data(),
-                                     _send[i].data(),
-                                     _messageSize,
-                                     cudaMemcpyDefault,
-                                     rmm::cuda_stream_default.value()));
 #endif
       }
+
+      copyMemoryTypeAware(_sendBuffer[i]->data(), _send[i].data(), _messageSize, false);
 
       _sendPtr[i] = _sendBuffer[i]->data();
       if (allocateRecvBuffer) _recvPtr[i] = _recvBuffer[i]->data();
@@ -136,24 +130,24 @@ class RequestTest : public ::testing::TestWithParam<
 
   void copyResults()
   {
-    for (size_t i = 0; i < _numBuffers; ++i) {
-      if (_bufferType == ucxx::BufferType::Host) {
-        std::copy(reinterpret_cast<int*>(_recvPtr[i]),
-                  reinterpret_cast<int*>(_recvPtr[i]) + _messageLength,
-                  _recv[i].begin());
-#if UCXX_ENABLE_RMM
-      } else if (_bufferType == ucxx::BufferType::RMM) {
-        RMM_CUDA_TRY(cudaMemcpyAsync(_recv[i].data(),
-                                     _recvPtr[i],
-                                     _messageSize,
-                                     cudaMemcpyDefault,
-                                     rmm::cuda_stream_default.value()));
-#endif
-      }
-    }
+    for (size_t i = 0; i < _numBuffers; ++i)
+      copyMemoryTypeAware(_recv[i].data(), _recvPtr[i], _messageSize, false);
 #if UCXX_ENABLE_RMM
     if (_bufferType == ucxx::BufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
 #endif
+  }
+
+  void copyMemoryTypeAware(void* dst, const void* src, size_t size, bool synchronize = true)
+  {
+    if (_memoryType == UCS_MEMORY_TYPE_HOST) {
+      memcpy(dst, src, size);
+#if UCXX_ENABLE_RMM
+    } else if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
+      RMM_CUDA_TRY(
+        cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, rmm::cuda_stream_default.value()));
+      if (synchronize) rmm::cuda_stream_default.synchronize();
+#endif
+    }
   }
 };
 
@@ -383,16 +377,8 @@ TEST_P(RequestTest, MemoryGet)
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
   // Fill memory handle with send data
-  if (_bufferType == ucxx::BufferType::RMM) {
-    RMM_CUDA_TRY(cudaMemcpyAsync(reinterpret_cast<void*>(memoryHandle->getBaseAddress()),
-                                 _sendPtr[0],
-                                 _messageSize,
-                                 cudaMemcpyDefault,
-                                 rmm::cuda_stream_default.value()));
-    rmm::cuda_stream_default.synchronize();
-  } else {
-    memcpy(reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
-  }
+  copyMemoryTypeAware(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
   auto localRemoteKey      = memoryHandle->createRemoteKey();
   auto serializedRemoteKey = localRemoteKey->serialize();
@@ -445,16 +431,8 @@ TEST_P(RequestTest, MemoryGetWithOffset)
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
   // Fill memory handle with send data
-  if (_bufferType == ucxx::BufferType::RMM) {
-    RMM_CUDA_TRY(cudaMemcpyAsync(reinterpret_cast<void*>(memoryHandle->getBaseAddress()),
-                                 _sendPtr[0],
-                                 _messageSize,
-                                 cudaMemcpyDefault,
-                                 rmm::cuda_stream_default.value()));
-    rmm::cuda_stream_default.synchronize();
-  } else {
-    memcpy(reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
-  }
+  copyMemoryTypeAware(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
   auto localRemoteKey      = memoryHandle->createRemoteKey();
   auto serializedRemoteKey = localRemoteKey->serialize();
@@ -494,16 +472,8 @@ TEST_P(RequestTest, MemoryPut)
   waitRequests(_worker, requests, _progressWorker);
 
   // Copy memory handle data to receive buffer
-  if (_bufferType == ucxx::BufferType::RMM) {
-    RMM_CUDA_TRY(cudaMemcpyAsync(_recvPtr[0],
-                                 reinterpret_cast<void*>(memoryHandle->getBaseAddress()),
-                                 _messageSize,
-                                 cudaMemcpyDefault,
-                                 rmm::cuda_stream_default.value()));
-    rmm::cuda_stream_default.synchronize();
-  } else {
-    memcpy(_recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
-  }
+  copyMemoryTypeAware(
+    _recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
 
   copyResults();
 
@@ -559,16 +529,8 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   waitRequests(_worker, requests, _progressWorker);
 
   // Copy memory handle data to receive buffer
-  if (_bufferType == ucxx::BufferType::RMM) {
-    RMM_CUDA_TRY(cudaMemcpyAsync(_recvPtr[0],
-                                 reinterpret_cast<void*>(memoryHandle->getBaseAddress()),
-                                 _messageSize,
-                                 cudaMemcpyDefault,
-                                 rmm::cuda_stream_default.value()));
-    rmm::cuda_stream_default.synchronize();
-  } else {
-    memcpy(_recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
-  }
+  copyMemoryTypeAware(
+    _recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
 
   copyResults();
 
