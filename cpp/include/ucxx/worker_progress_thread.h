@@ -47,8 +47,8 @@ typedef void* ProgressThreadStartCallbackArg;
  */
 class WorkerProgressThread {
  private:
-  std::thread _thread{};     ///< Thread object
-  bool _stop{false};         ///< Signal to stop on next iteration
+  std::thread _thread{};                                       ///< Thread object
+  std::shared_ptr<bool> _stop{std::make_shared<bool>(false)};  ///< Signal to stop on next iteration
   bool _pollingMode{false};  ///< Whether thread will use polling mode to progress
   SignalWorkerFunction _signalWorkerFunction{
     nullptr};  ///< Function signaling worker to wake the progress event (when _pollingMode is
@@ -83,14 +83,18 @@ class WorkerProgressThread {
    */
   static void progressUntilSync(
     std::function<bool(void)> progressFunction,
-    const bool& stop,
+    std::shared_ptr<bool> stop,
     std::function<void(void)> setThreadId,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,
     std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection);
 
  public:
-  WorkerProgressThread() = delete;
+  WorkerProgressThread()                                       = default;
+  WorkerProgressThread(const WorkerProgressThread&)            = delete;
+  WorkerProgressThread& operator=(WorkerProgressThread const&) = delete;
+  WorkerProgressThread(WorkerProgressThread&& o)               = default;
+  WorkerProgressThread& operator=(WorkerProgressThread&& o)    = default;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::Worker>`.
@@ -157,6 +161,10 @@ class WorkerProgressThread {
    * @returns the progress thread ID.
    */
   std::thread::id getId() const;
+
+  bool isRunning() const;
+
+  void stop();
 };
 
 }  // namespace ucxx

@@ -53,8 +53,8 @@ class Worker : public Component {
     _inflightRequestsToCancelMutex{};  ///< Mutex to access the inflight requests to cancel pool
   std::unique_ptr<InflightRequests> _inflightRequestsToCancel{
     std::make_unique<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
-  std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};  ///< The progress thread object
-  std::thread::id _progressThreadId{};                             ///< The progress thread ID
+  WorkerProgressThread _progressThread{};   ///< The progress thread object
+  std::thread::id _progressThreadId{};      ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
     nullptr};  ///< The callback function to execute at progress thread start
   void* _progressThreadStartCallbackArg{

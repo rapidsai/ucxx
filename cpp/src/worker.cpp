@@ -395,7 +395,7 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
 
 void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
-  if (_progressThread) {
+  if (_progressThread.isRunning()) {
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread "
       "already running",
@@ -418,20 +418,20 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 
   auto setThreadId = [this]() { _progressThreadId = std::this_thread::get_id(); };
 
-  _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
-                                                           progressFunction,
-                                                           signalWorkerFunction,
-                                                           setThreadId,
-                                                           _progressThreadStartCallback,
-                                                           _progressThreadStartCallbackArg,
-                                                           _delayedSubmissionCollection);
+  _progressThread = WorkerProgressThread(pollingMode,
+                                         progressFunction,
+                                         signalWorkerFunction,
+                                         setThreadId,
+                                         _progressThreadStartCallback,
+                                         _progressThreadStartCallbackArg,
+                                         _delayedSubmissionCollection);
 }
 
-void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
+void Worker::stopProgressThreadNoWarn() { _progressThread.stop(); }
 
 void Worker::stopProgressThread()
 {
-  if (!_progressThread)
+  if (!_progressThread.isRunning())
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread not "
       "running or already stopped",
@@ -442,7 +442,7 @@ void Worker::stopProgressThread()
     stopProgressThreadNoWarn();
 }
 
-bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
+bool Worker::isProgressThreadRunning() { return _progressThread.isRunning(); }
 
 std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
 
