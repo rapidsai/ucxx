@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.2"]
+      cuda: ["11.8", "12.5"]
       arch: [x86_64]
     includes:
       - build_cpp
@@ -130,7 +130,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - &cmake_ver cmake>=3.26.4
+          - &cmake_ver cmake>=3.26.4,!=3.30.0
           - fmt>=10.1.1,<11
           - librmm==24.8.*,>=0.0.0a0
           - ninja
@@ -192,6 +192,10 @@ dependencies:
               cuda: "12.2"
             packages:
               - cuda-version=12.2
+          - matrix:
+              cuda: "12.5"
+            packages:
+              - cuda-version=12.5
   cuda:
     specific:
       - output_types: conda
