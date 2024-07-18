@@ -323,9 +323,13 @@ bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t
      * not dispatched immediately. Thus we must signal the progress task so
      * it will ensure the request is dispatched.
      */
-    signal();
+    std::function<void()> signalWorkerFunction = []() {};
+    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+      signalWorkerFunction = [this]() { return this->signal(); };
+    }
+    signalWorkerFunction();
 
-    auto ret = callbackNotifier.wait(period);
+    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
     if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
 
@@ -356,9 +360,13 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
      * not dispatched immediately. Thus we must signal the progress task so
      * it will ensure the request is dispatched.
      */
-    signal();
+    std::function<void()> signalWorkerFunction = []() {};
+    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+      signalWorkerFunction = [this]() { return this->signal(); };
+    }
+    signalWorkerFunction();
 
-    auto ret = callbackNotifier.wait(period);
+    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
     if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
 

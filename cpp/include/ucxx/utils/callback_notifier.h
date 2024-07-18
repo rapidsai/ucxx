@@ -65,7 +65,9 @@ class CallbackNotifier {
    *
    * @return  `true` if waiting finished or `false` if a timeout occurred.
    */
-  bool wait(uint64_t period = 0);
+  bool wait(uint64_t period                                = 0,
+            std::function<void(void)> signalWorkerFunction = nullptr,
+            uint64_t signalRerun                           = 100000000);
 };
 
 }  // namespace utils
