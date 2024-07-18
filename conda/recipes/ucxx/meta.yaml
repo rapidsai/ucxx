@@ -1,99 +1,106 @@
 # SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
-{% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
-{% set cuda_major = cuda_version.split('.')[0] %}
-{% set date_string = environ['RAPIDS_DATE_STRING'] %}
+context:
+  version: ${{ env.get("RAPIDS_PACKAGE_VERSION") }}
+  minor_version: ${{ (version | split('.'))[:2] | join(".") }}
+  cuda_version: ${{ (env.get('RAPIDS_CUDA_VERSION') | split('.'))[:2] | join(".") }}
+  cuda_major: ${{ (env.get('RAPIDS_CUDA_VERSION') | split('.'))[0] }}
+  date_string: ${{ env.get("RAPIDS_DATE_STRING") }}
 
-package:
-  name: libucxx-split
+recipe:
+  version: ${{ version }}
 
 source:
   path: ../../..
 
-build:
-  script_env:
-    - AWS_ACCESS_KEY_ID
-    - AWS_SECRET_ACCESS_KEY
-    - AWS_SESSION_TOKEN
-    - CMAKE_C_COMPILER_LAUNCHER
-    - CMAKE_CXX_COMPILER_LAUNCHER
-    - CMAKE_GENERATOR
-    - PARALLEL_LEVEL
-    - RAPIDS_ARTIFACTS_DIR
-    - SCCACHE_BUCKET
-    - SCCACHE_IDLE_TIMEOUT
-    - SCCACHE_REGION
-    - SCCACHE_S3_KEY_PREFIX=libucxx-aarch64 # [aarch64]
-    - SCCACHE_S3_KEY_PREFIX=libucxx-linux64 # [linux64]
-    - SCCACHE_S3_USE_SSL
-    - SCCACHE_S3_NO_CREDENTIALS
-
-requirements:
-  build:
-    - cmake
-    - {{ compiler('c') }}
-    - {{ compiler('cxx') }}
-    {% if cuda_major == "11" %}
-    - {{ compiler('cuda11') }} ={{ cuda_version }}
-    {% else %}
-    - {{ compiler('cuda') }}
-    {% endif %}
-    - cuda-version ={{ cuda_version }}
-    - ninja
-    - {{ stdlib("c") }}
-  host:
-    {% if cuda_major != "11" %}
-    - cuda-cudart-dev
-    {% endif %}
-    - cuda-version ={{ cuda_version }}
-    - rapids-build-backend >=0.3.0,<0.4.0.dev0
-    - ucx
-    - python
-    - librmm {{ rapids_version }}
+#requirements:
+#  build:
+#    - cmake
+#    - ${{ compiler('c') }}
+#    - ${{ compiler('cxx') }}
+#    - if: cuda_major == "11"
+#      then:
+#        - ${{ compiler('cuda11') }} =${{ cuda_version }}
+#      else:
+#        - ${{ compiler('cuda') }}
+#    - cuda-version =${{ cuda_version }}
+#    - ninja
+#    - ${{ stdlib("c") }}
+#  host:
+#    - if: cuda_major == "11"
+#      then:
+#        - cuda-cudart-dev
+#    - cuda-version =${{ cuda_version }}
+#    - rapids-build-backend >=0.3.0,<0.4.0.dev0
+#    - ucx
+#    - python
+#    - librmm ${{ rapids_version }}
 
 outputs:
-  - name: libucxx
-    version: {{ version }}
-    script: install_libucxx.sh
+  - package:
+      name: libucxx
     build:
-      number: {{ GIT_DESCRIBE_NUMBER }}
-      string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      run_exports:
-        - {{ pin_subpackage("libucxx", max_pin="x.x") }}
-      ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
-        - ucx
+      script:
+        file: install_libucxx.sh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.get("AWS_ACCESS_KEY_ID", default="") }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.get("AWS_SECRET_ACCESS_KEY", default="") }}
+          AWS_SESSION_TOKEN: ${{ env.get("AWS_SESSION_TOKEN", default="") }}
+          CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CXX_COMPILER_LAUNCHER") }}
+          CMAKE_GENERATOR: "Ninja"
+          PARALLEL_LEVEL: ${{ env.get("PARALLEL_LEVEL") }}
+          RAPIDS_ARTIFACTS_DIR: ${{ env.get("RAPIDS_ARTIFACTS_DIR", default="") }}
+          SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET") }}
+          SCCACHE_IDLE_TIMEOUT: ${{ env.get("SCCACHE_IDLE_TIMEOUT") }}
+          SCCACHE_REGION: ${{ env.get("SCCACHE_REGION") }}
+          SCCACHE_S3_KEY_PREFIX: ${{ "libucxx-linux64" if linux64 else "libucxx-aarch64" if aarch64 }}
+          SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
+          SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
+      number: ${{ GIT_DESCRIBE_NUMBER }}
+      string: cuda${{ cuda_major }}_${{ date_string }}_${{ GIT_DESCRIBE_HASH }}_${{ GIT_DESCRIBE_NUMBER }}
     requirements:
+      run_exports:
+        - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
+      ignore_run_exports:
+        from_package:
+          - if: cuda_major == "11"
+            then:
+              - ${{ compiler('cuda11') }}
+            else:
+              - ${{ compiler('cuda') }}
+          - ucx
       build:
-        - {{ compiler('c') }}
-        - {{ compiler('cxx') }}
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
-        - cuda-version ={{ cuda_version }}
-        - {{ stdlib("c") }}
+        - ${{ compiler('c') }}
+        - ${{ compiler('cxx') }}
+        - if: cuda_major == "11"
+          then:
+            - ${{ compiler('cuda11') }} =${{ cuda_version }}
+          else:
+            - ${{ compiler('cuda') }}
+        - cuda-version =${{ cuda_version }}
+        - ${{ stdlib("c") }}
         - cmake
+        - git 
         - ninja
       host:
-        - ucx
-        - cuda-version ={{ cuda_version }}
+        - if: cuda_major == "11"
+          then:
+            - cuda-cudart-dev
+        - cuda-version =${{ cuda_version }}
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - conda-forge::ucx
+        - python
+        - librmm ${{ rapids_version }}
       run:
-        {% if cuda_major == "11" %}
-        - cudatoolkit
-        {% endif %}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        - ucx >=1.15.0,<1.16.0
-    test:
-      commands:
+        - if: cuda_major == "11"
+          then:
+            - cudatoolkit
+        - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
+        - conda-forge::ucx >=1.15.0,<1.16.0
+    tests:
+      - script:
         - test -f $PREFIX/lib/libucxx.so
         - test -f $PREFIX/include/ucxx/utils/python.h
         - test -f $PREFIX/include/ucxx/utils/file_descriptor.h
@@ -123,171 +130,203 @@ outputs:
         - test -f $PREFIX/include/ucxx/worker.h
         - test -f $PREFIX/include/ucxx/exception.h
         - test -f $PREFIX/include/ucxx/log.h
-        - test ! -d ${PREFIX}/include/rapids
+        #- test ! -d ${PREFIX}/include/rapids
+        requirements:
+          run:
+            # This shouldn't be needed because it is already a run requirement
+            # of libucx, but right now we have to have it for channel priority
+            # reasons (we can't pull the one on the RAPIDS channel).
+            - conda-forge::ucx >=1.15.0,<1.16.0
     about:
-      home: https://rapids.ai/
+      homepage: https://rapids.ai/
+      repository: https://github.com/rapidsai/ucxx
       license: BSD-3-Clause
       license_family: BSD
-      license_file: ../../../LICENSE
+      license_file: LICENSE
       summary: libucxx library
 
-  - name: libucxx-examples
-    version: {{ version }}
-    script: install_libucxx_examples.sh
-    build:
-      number: {{ GIT_DESCRIBE_NUMBER }}
-      string: {{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-    requirements:
-      build:
-        - cmake
-      run:
-        - {{ pin_subpackage('libucxx', exact=True) }}
-    about:
-      home: https://rapids.ai/
-      license: BSD-3-Clause
-      license_family: BSD
-      license_file: ../../../LICENSE
-      summary: libucxx examples executables
-
-  - name: libucxx-tests
-    version: {{ version }}
-    script: install_libucxx_tests.sh
-    build:
-      number: {{ GIT_DESCRIBE_NUMBER }}
-      string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
-    requirements:
-      build:
-        - {{ compiler('c') }}
-        - {{ compiler('cxx') }}
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
-        - cuda-version ={{ cuda_version }}
-        - {{ stdlib("c") }}
-        - cmake
-        - ninja
-      host:
-        - cuda-version ={{ cuda_version }}
-      run:
-        - {{ pin_subpackage('libucxx', exact=True) }}
-        {% if cuda_major == "11" %}
-        - cudatoolkit
-        {% else %}
-        - cuda-cudart
-        {% endif %}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-
-    about:
-      home: https://rapids.ai/
-      license: BSD-3-Clause
-      license_family: BSD
-      license_file: ../../../LICENSE
-      summary: libucxx tests executables
-
-  - name: ucxx
-    version: {{ version }}
-    script: build_and_install_ucxx.sh
-    build:
-      number: {{ GIT_DESCRIBE_NUMBER }}
-      string: cuda{{ cuda_major }}_py{{ python }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
-        - ucx
-    requirements:
-      build:
-        - cmake
-        - {{ compiler('c') }}
-        - {{ compiler('cxx') }}
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
-        - cuda-version ={{ cuda_version }}
-        - ninja
-        - {{ stdlib("c") }}
-      host:
-        - python
-        - pip
-        - scikit-build-core >=0.7.0
-        - cython >=3.0.0
-        - numpy 1.23
-        - {{ pin_subpackage('libucxx', exact=True) }}
-        - ucx
-        - rapids-build-backend >=0.3.0,<0.4.0.dev0
-        - rmm {{ rapids_version }}
-        - cuda-version {{ cuda_version }}
-      run:
-        - python * *_cpython
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        {% if cuda_major == "11" %}
-        - cudatoolkit
-        {% else %}
-        - cuda-cudart
-        {% endif %}
-        - ucx >=1.15.0,<1.16.0
-        - {{ pin_subpackage('libucxx', exact=True) }}
-        - {{ pin_compatible('rmm', max_pin='x.x') }}
-        - {{ pin_compatible('numpy') }}
-        - pynvml >=11.4.1
-      run_constrained:
-        - cupy >=9.5.0
-        - numba >=0.57.0
-    test:
-      commands:
-        - test -f $PREFIX/lib/libucxx_python.so
-        - test -f $PREFIX/include/ucxx/python/exception.h
-        - test -f $PREFIX/include/ucxx/python/future.h
-        - test -f $PREFIX/include/ucxx/python/api.h
-        - test -f $PREFIX/include/ucxx/python/constructors.h
-        - test -f $PREFIX/include/ucxx/python/notifier.h
-        - test -f $PREFIX/include/ucxx/python/python_future.h
-        - test -f $PREFIX/include/ucxx/python/worker.h
-      imports:
-        - ucxx
-    about:
-      home: https://rapids.ai/
-      license: BSD-3-Clause
-      license_family: BSD
-      license_file: ../../../LICENSE
-      summary: UCX Python interface built on top of the libucxx C++ implementation
-
-
-  - name: distributed-ucxx
-    version: {{ version }}
-    script: build_and_install_distributed_ucxx.sh
-    build:
-      number: {{ GIT_DESCRIBE_NUMBER }}
-      string: py{{ python }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-    requirements:
-      host:
-        - python
-        - pip
-        - rapids-build-backend >=0.3.0,<0.4.0.dev0
-        - setuptools
-        - wheel
-      run:
-        - python * *_cpython
-        - rapids-dask-dependency {{ rapids_version }}
-        - {{ pin_subpackage('ucxx', max_pin='x.x') }}
-    test:
-      imports:
-        - distributed_ucxx
-    about:
-      home: https://rapids.ai/
-      license: BSD-3-Clause
-      license_family: BSD
-      license_file: ../../../LICENSE
-      summary: UCX communication module for Dask Distributed
+  #- package:
+  #    name: libucxx-examples
+  #  build:
+  #    script: install_libucxx_examples.sh
+  #    number: ${{ GIT_DESCRIBE_NUMBER }}
+  #    string: ${{ date_string }}_${{ GIT_DESCRIBE_HASH }}_${{ GIT_DESCRIBE_NUMBER }}
+  #  #requirements:
+  #  #  build:
+  #  #    - cmake
+  #  #  run:
+  #  #    - ${{ pin_subpackage('libucxx', exact=True) }}
+  #  requirements:
+  #    build:
+  #      - ${{ compiler('c') }}
+  #      - ${{ compiler('cxx') }}
+  #      - if: cuda_major == "11"
+  #        then:
+  #          - ${{ compiler('cuda11') }} =${{ cuda_version }}
+  #        else:
+  #          - ${{ compiler('cuda') }}
+  #      - cuda-version =${{ cuda_version }}
+  #      - ${{ stdlib("c") }}
+  #      - cmake
+  #      - ninja
+  #    host:
+  #      - ucx
+  #      - cuda-version =${{ cuda_version }}
+  #    run:
+  #      - if: cuda_major == "11"
+  #        then:
+  #          - cudatoolkit
+  #      - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
+  #      - ucx >=1.15.0,<1.16.0
+  #  about:
+  #    homepage: https://rapids.ai/
+  #    repository: https://github.com/rapidsai/ucxx
+  #    license: BSD-3-Clause
+  #    license_family: BSD
+  #    license_file: ../../../LICENSE
+  #    summary: libucxx examples executables
+  #
+  #- name: libucxx-tests
+  #  build:
+  #    script: install_libucxx_tests.sh
+  #    number: ${{ GIT_DESCRIBE_NUMBER }}
+  #    string: cuda${{ cuda_major }}_${{ date_string }}_${{ GIT_DESCRIBE_HASH }}_${{ GIT_DESCRIBE_NUMBER }}
+  #  requirements:
+  #    ignore_run_exports:
+  #      from_package:
+  #        - if: cuda_major == "11"
+  #          then:
+  #            - ${{ compiler('cuda11') }}
+  #          else:
+  #            - ${{ compiler('cuda') }}
+  #    build:
+  #      - ${{ compiler('c') }}
+  #      - ${{ compiler('cxx') }}
+  #      - if: cuda_major == "11"
+  #        then:
+  #          - ${{ compiler('cuda11') }} =${{ cuda_version }}
+  #        else:
+  #          - ${{ compiler('cuda') }}
+  #      - cuda-version =${{ cuda_version }}
+  #      - ${{ stdlib("c") }}
+  #      - cmake
+  #      - ninja
+  #    host:
+  #      - cuda-version =${{ cuda_version }}
+  #    run:
+  #      - ${{ pin_subpackage('libucxx', exact=True) }}
+  #      - if: cuda_major == "11"
+  #        then:
+  #          - cudatoolkit
+  #        else:
+  #          - cuda-cudart
+  #      - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
+  #
+  #  about:
+  #    homepage: https://rapids.ai/
+  #    repository: https://github.com/rapidsai/ucxx
+  #    license: BSD-3-Clause
+  #    license_family: BSD
+  #    license_file: ../../../LICENSE
+  #    summary: libucxx tests executables
+  #
+  #- name: ucxx
+  #  build:
+  #    script: build_and_install_ucxx.sh
+  #    number: ${{ GIT_DESCRIBE_NUMBER }}
+  #    string: cuda${{ cuda_major }}_py${{ python }}_${{ date_string }}_${{ GIT_DESCRIBE_HASH }}_${{ GIT_DESCRIBE_NUMBER }}
+  #  requirements:
+  #    ignore_run_exports:
+  #      from_package:
+  #        - if: cuda_major == "11"
+  #          then:
+  #            - ${{ compiler('cuda11') }}
+  #          else:
+  #            - ${{ compiler('cuda') }}
+  #        - ucx
+  #    build:
+  #      - cmake
+  #      - ${{ compiler('c') }}
+  #      - ${{ compiler('cxx') }}
+  #      - if: cuda_major == "11"
+  #        then:
+  #          - ${{ compiler('cuda11') }} =${{ cuda_version }}
+  #        else:
+  #          - ${{ compiler('cuda') }}
+  #      - cuda-version =${{ cuda_version }}
+  #      - ninja
+  #      - ${{ stdlib("c") }}
+  #    host:
+  #      - python
+  #      - pip
+  #      - scikit-build-core >=0.7.0
+  #      - cython >=3.0.0
+  #      - numpy 1.23
+  #      - ${{ pin_subpackage('libucxx', exact=True) }}
+  #      - ucx
+  #      - rapids-build-backend >=0.3.0,<0.4.0.dev0
+  #      - rmm ${{ rapids_version }}
+  #      - cuda-version ${{ cuda_version }}
+  #    run:
+  #      - python * *_cpython
+  #      - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
+  #      - if: cuda_major == "11"
+  #        then:
+  #          - cudatoolkit
+  #        else:
+  #          - cuda-cudart
+  #      - ucx >=1.15.0,<1.16.0
+  #      - ${{ pin_subpackage('libucxx', exact=True) }}
+  #      - ${{ pin_compatible('rmm', upper_bound='x.x') }}
+  #      - ${{ pin_compatible('numpy') }}
+  #      - pynvml >=11.4.1
+  #    run_constrained:
+  #      - cupy >=9.5.0
+  #      - numba >=0.57.0
+  #  test:
+  #    commands:
+  #      - test -f $PREFIX/lib/libucxx_python.so
+  #      - test -f $PREFIX/include/ucxx/python/exception.h
+  #      - test -f $PREFIX/include/ucxx/python/future.h
+  #      - test -f $PREFIX/include/ucxx/python/api.h
+  #      - test -f $PREFIX/include/ucxx/python/constructors.h
+  #      - test -f $PREFIX/include/ucxx/python/notifier.h
+  #      - test -f $PREFIX/include/ucxx/python/python_future.h
+  #      - test -f $PREFIX/include/ucxx/python/worker.h
+  #    imports:
+  #      - ucxx
+  #  about:
+  #    homepage: https://rapids.ai/
+  #    repository: https://github.com/rapidsai/ucxx
+  #    license: BSD-3-Clause
+  #    license_family: BSD
+  #    license_file: ../../../LICENSE
+  #    summary: UCX Python interface built on top of the libucxx C++ implementation
+  #
+  #
+  #- name: distributed-ucxx
+  #  build:
+  #    script: build_and_install_distributed_ucxx.sh
+  #    number: ${{ GIT_DESCRIBE_NUMBER }}
+  #    string: py${{ python }}_${{ date_string }}_${{ GIT_DESCRIBE_HASH }}_${{ GIT_DESCRIBE_NUMBER }}
+  #  requirements:
+  #    host:
+  #      - python
+  #      - pip
+  #      - rapids-build-backend >=0.3.0,<0.4.0.dev0
+  #      - setuptools
+  #      - wheel
+  #    run:
+  #      - python * *_cpython
+  #      - rapids-dask-dependency ${{ rapids_version }}
+  #      - ${{ pin_subpackage('ucxx', upper_bound='x.x') }}
+  #  test:
+  #    imports:
+  #      - distributed_ucxx
+  #  about:
+  #    homepage: https://rapids.ai/
+  #    repository: https://github.com/rapidsai/ucxx
+  #    license: BSD-3-Clause
+  #    license_family: BSD
+  #    license_file: ../../../LICENSE
+  #    summary: UCX communication module for Dask Distributed
