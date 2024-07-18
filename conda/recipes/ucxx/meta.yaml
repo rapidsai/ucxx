@@ -34,6 +34,20 @@ cache:
         SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
         SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
   requirements:
+    ignore_run_exports:
+      from_package:
+        # librmm is showing up, which also indicates an error in librmm's conda
+        # package. It shouldn't have a run export on itself since it's header-only.
+        # It should run export the relevant CTK libs (mainly cudart) so that its APIs
+        # can be called in any code that uses rmm functions, though.
+        #- librmm
+        - python
+        - ucx
+        - if: cuda_major == "11"
+          then:
+            - ${{ compiler('cuda11') }}
+          else:
+            - ${{ compiler('cuda') }}
     build:
       - cmake
       - ${{ compiler('c') }}
@@ -70,22 +84,10 @@ outputs:
     requirements:
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
-      ignore_run_exports:
-        from_package:
-          - if: cuda_major == "11"
-            then:
-              - ${{ compiler('cuda11') }}
-            else:
-              - ${{ compiler('cuda') }}
-          - ucx
       build:
         - cmake
       host:
-        - if: cuda_major == "11"
-          then:
-            - cuda-cudart-dev
         - cuda-version =${{ cuda_version }}
-        - python
       run:
         - if: cuda_major == "11"
           then:
@@ -138,10 +140,6 @@ outputs:
       summary: libucxx library
 
   # TODO: Check on overdepending/overlinking warnings.
-  # librmm is showing up, which also indicates an error in librmm's conda
-  # package. It shouldn't have a run export on itself since it's header-only.
-  # It should run export the relevant CTK libs (mainly cudart) so that its APIs
-  # can be called in any code that uses rmm functions, though.
   - package:
       name: libucxx-examples
     build:
@@ -178,12 +176,6 @@ outputs:
         - cmake
       run:
         - ${{ pin_subpackage('libucxx', exact=True) }}
-        - if: cuda_major == "11"
-          then:
-            - cudatoolkit
-          else:
-            - cuda-cudart
-        - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
   
     about:
       homepage: https://rapids.ai/
@@ -216,14 +208,6 @@ outputs:
       number: ${{ GIT_DESCRIBE_NUMBER }}
       string: cuda${{ cuda_major }}_py${{ python }}_${{ date_string }}_${{ GIT_DESCRIBE_HASH }}_${{ GIT_DESCRIBE_NUMBER }}
     requirements:
-      ignore_run_exports:
-        from_package:
-          - if: cuda_major == "11"
-            then:
-              - ${{ compiler('cuda11') }}
-            else:
-              - ${{ compiler('cuda') }}
-          - ucx
       build:
         - cmake
         - ${{ compiler('c') }}
@@ -243,20 +227,16 @@ outputs:
         - cython >=3.0.0
         - numpy 1.23
         - ${{ pin_subpackage('libucxx', exact=True) }}
-        # Channel priority strikes again (not inherited from parent).
+        # Channel priority strikes again (we should inherit ucx from libucxx,
+        # but we can't inherit the channel specifier).
         - conda-forge::ucx
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
         - rmm ${{ rapids_version }}
         - cuda-version ${{ cuda_version }}
       run:
         - python * *_cpython
-        - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
-        - if: cuda_major == "11"
-          then:
-            - cudatoolkit
-          else:
-            - cuda-cudart
-        # Channel priority strikes again (not inherited from parent).
+        # Channel priority strikes again (we should inherit ucx from libucxx,
+        # but we can't inherit the channel specifier).
         - conda-forge::ucx >=1.15.0,<1.16.0
         - ${{ pin_compatible('rmm', upper_bound='x.x') }}
         - ${{ pin_compatible('numpy') }}
