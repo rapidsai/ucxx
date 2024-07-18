@@ -3,5 +3,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
-cmake --install cpp/build --component python
+cp -r ${PREFIX}/tmp/install/python/* ${PREFIX}/
 ./build.sh ucxx
