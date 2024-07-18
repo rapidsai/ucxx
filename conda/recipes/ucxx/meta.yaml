@@ -282,6 +282,7 @@ outputs:
             - conda-forge::ucx >=1.15.0,<1.16.0
       # Python tests don't currently support specifying requirements, so we
       # can't work around the channel priority here.
+      # https://github.com/prefix-dev/rattler-build/issues/976
       #- python:
       #    imports:
       #      - ucxx
@@ -312,6 +313,7 @@ outputs:
         - ${{ pin_subpackage('ucxx', upper_bound='x.x') }}
     # Python tests don't currently support specifying requirements, so we
     # can't work around the channel priority here.
+    # https://github.com/prefix-dev/rattler-build/issues/976
     #tests:
     #  - python:
     #      imports:
