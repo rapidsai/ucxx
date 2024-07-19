@@ -35,4 +35,7 @@ RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rattler-build build \
     # By default rattler-build adds a timestamp that defeats sccache caching.
     --no-build-id
 
+echo "sccache stats:"
+sccache -s
+
 rapids-upload-conda-to-s3 cpp
