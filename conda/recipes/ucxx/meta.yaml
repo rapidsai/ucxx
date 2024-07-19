@@ -135,6 +135,11 @@ outputs:
             # of libucx, but right now we have to have it to specify channel
             # priority (we can't pull the one on the RAPIDS channel).
             - conda-forge::ucx >=1.15.0,<1.16.0
+            # This spec is only here to specify channel priority, otherwise it
+            # would be inherited from the cache build. It can be removed later.
+            - if: cuda_major == "11"
+              then:
+                - conda-forge::cudatoolkit
     about:
       homepage: https://rapids.ai/
       repository: https://github.com/rapidsai/ucxx
