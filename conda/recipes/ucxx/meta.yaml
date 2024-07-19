@@ -183,6 +183,12 @@ outputs:
     requirements:
       build:
         - cmake
+      host:
+        # This spec is only here to specify channel priority, otherwise it
+        # would be inherited from the cache build. It can be removed later.
+        - if: cuda_major == "11"
+          then:
+            - conda-forge::cudatoolkit
       run:
         - ${{ pin_subpackage('libucxx', exact=True) }}
   
