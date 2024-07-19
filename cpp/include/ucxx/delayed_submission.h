@@ -337,7 +337,7 @@ class DelayedSubmissionCollection {
   ItemIdType registerGenericPost(DelayedSubmissionCallbackType callback);
 
   /**
-   * @brief Cancel a generic callback schedules for `processPre()` execution.
+   * @brief Cancel a generic callback scheduled for `processPre()` execution.
    *
    * Cancel the execution of a generic callback that has been previously scheduled for
    * execution during `processPre()`. This can be useful if the caller of
@@ -350,7 +350,7 @@ class DelayedSubmissionCollection {
   void cancelGenericPre(ItemIdType id);
 
   /**
-   * @brief Cancel a generic callback schedules for `processPost()` execution.
+   * @brief Cancel a generic callback scheduled for `processPost()` execution.
    *
    * Cancel the execution of a generic callback that has been previously scheduled for
    * execution during `processPos()`. This can be useful if the caller of

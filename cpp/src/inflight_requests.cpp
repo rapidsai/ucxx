@@ -142,7 +142,8 @@ size_t InflightRequests::cancelAll()
 
     _trackedRequests->_canceling.merge(toCancel);
 
-    // dropCanceled();
+    // Drop canceled requests. Do not call `dropCanceled()` to prevent locking mutexes
+    // again.
     for (auto it = _trackedRequests->_canceling.begin();
          it != _trackedRequests->_canceling.end();) {
       auto request = it->second;
