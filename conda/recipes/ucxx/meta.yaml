@@ -64,9 +64,9 @@ cache:
     host:
       - if: cuda_major == "11"
         then:
-          - cuda-cudart-dev
-        else:
           - conda-forge::cudatoolkit
+        else:
+          - cuda-cudart-dev
       - cuda-version =${{ cuda_version }}
       - rapids-build-backend >=0.3.0,<0.4.0.dev0
       - conda-forge::ucx
