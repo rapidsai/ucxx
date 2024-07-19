@@ -91,7 +91,7 @@ outputs:
       run:
         - if: cuda_major == "11"
           then:
-            - cudatoolkit
+            - conda-forge::cudatoolkit
         - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
         - conda-forge::ucx >=1.15.0,<1.16.0
     tests:
