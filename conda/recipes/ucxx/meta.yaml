@@ -243,11 +243,11 @@ outputs:
             - ${{ compiler('cuda') }}
         - cuda-version =${{ cuda_version }}
         - ninja
-        - git
         - ${{ stdlib("c") }}
       host:
         - python
         - pip
+        - git
         - scikit-build-core >=0.7.0
         - cython >=3.0.0
         - ${{ pin_subpackage('libucxx', exact=True) }}
@@ -318,11 +318,10 @@ outputs:
         exclude:
           - tmp/*
     requirements:
-      build: 
-        - git
       host:
         - python
         - pip
+        - git
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
         - setuptools
         - wheel
