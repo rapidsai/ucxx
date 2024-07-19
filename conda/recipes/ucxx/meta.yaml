@@ -244,6 +244,11 @@ outputs:
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
         - rmm ${{ rapids_version }}
         - cuda-version ${{ cuda_version }}
+        # This spec is only here to specify channel priority, otherwise it
+        # would be inherited from the cache build. It can be removed later.
+        - if: cuda_major == "11"
+          then:
+            - conda-forge::cudatoolkit
       run:
         - python * *_cpython
         # Channel priority strikes again (we should inherit ucx from libucxx,
@@ -271,6 +276,11 @@ outputs:
             # of libucx, but right now we have to have it to specify channel
             # priority (we can't pull the one on the RAPIDS channel).
             - conda-forge::ucx >=1.15.0,<1.16.0
+            # This spec is only here to specify channel priority, otherwise it
+            # would be inherited from the cache build. It can be removed later.
+            - if: cuda_major == "11"
+              then:
+                - conda-forge::cudatoolkit
       # Python tests don't currently support specifying requirements, so we
       # can't work around the channel priority here.
       # https://github.com/prefix-dev/rattler-build/issues/976
