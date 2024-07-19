@@ -47,8 +47,7 @@ class BaseDelayedSubmissionCollection {
   ItemIdType _itemId{0};  ///< The item ID counter, used to allow cancelation.
   std::deque<std::pair<ItemIdType, T>> _collection{};  ///< The collection.
   std::set<ItemIdType> _canceled{};                    ///< IDs of canceled items.
-  std::mutex _mutex{};          ///< Mutex to provide access to `_collection`.
-  std::mutex _canceledMutex{};  ///< Mutex to provide access to `_canceled`.
+  std::mutex _mutex{};  ///< Mutex to provide access to `_collection`.
 
   /**
    * @brief Log message during `schedule()`.
