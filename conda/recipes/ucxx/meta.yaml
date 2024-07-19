@@ -62,7 +62,7 @@ cache:
       - git
       - ${{ stdlib("c") }}
     host:
-      - if: cuda_major == "11"
+      - if: cuda_major != "11"
         then:
           - cuda-cudart-dev
       - cuda-version =${{ cuda_version }}
