@@ -62,9 +62,11 @@ cache:
       - git
       - ${{ stdlib("c") }}
     host:
-      - if: cuda_major != "11"
+      - if: cuda_major == "11"
         then:
           - cuda-cudart-dev
+        else:
+          - conda-forge::cudatoolkit
       - cuda-version =${{ cuda_version }}
       - rapids-build-backend >=0.3.0,<0.4.0.dev0
       - conda-forge::ucx
@@ -89,9 +91,6 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
       run:
-        - if: cuda_major == "11"
-          then:
-            - conda-forge::cudatoolkit
         - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
         - conda-forge::ucx >=1.15.0,<1.16.0
     tests:
