@@ -113,7 +113,7 @@ class BaseDelayedSubmissionCollection {
    *
    * @returns the ID of the scheduled item which can be used cancelation requests.
    */
-  virtual ItemIdType schedule(T item)
+  [[nodiscard]] virtual ItemIdType schedule(T item)
   {
     if (!_enabled) throw std::runtime_error("Resource is disabled.");
 
