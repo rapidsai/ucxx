@@ -90,6 +90,11 @@ outputs:
         - cmake
       host:
         - cuda-version =${{ cuda_version }}
+        # This spec is only here to specify channel priority, otherwise it
+        # would be inherited from the cache build. It can be removed later.
+        - if: cuda_major == "11"
+          then:
+            - conda-forge::cudatoolkit
       run:
         - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
         - conda-forge::ucx >=1.15.0,<1.16.0
