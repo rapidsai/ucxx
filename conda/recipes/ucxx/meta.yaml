@@ -243,6 +243,7 @@ outputs:
             - ${{ compiler('cuda') }}
         - cuda-version =${{ cuda_version }}
         - ninja
+        - git
         - ${{ stdlib("c") }}
       host:
         - python
@@ -318,6 +319,8 @@ outputs:
         exclude:
           - tmp/*
     requirements:
+      build: 
+        - git
       host:
         - python
         - pip
