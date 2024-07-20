@@ -34,20 +34,25 @@ cache:
         SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
         SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
   requirements:
-    ignore_run_exports:
-      from_package:
-        # librmm is showing up, which also indicates an error in librmm's conda
-        # package. It shouldn't have a run export on itself since it's header-only.
-        # It should run export the relevant CTK libs (mainly cudart) so that its APIs
-        # can be called in any code that uses rmm functions, though.
-        #- librmm
-        - python
-        - ucx
-        - if: cuda_major == "11"
-          then:
-            - ${{ compiler('cuda11') }}
-          else:
-            - ${{ compiler('cuda') }}
+    # The docs say that run exports on the cache are applied at the cache level.
+    # https://prefix-dev.github.io/rattler-build/dev/multiple_output_cache/#run-exports-from-the-cache
+    # I don't know what that means. I expected it to mean that it would prevent
+    # these run exports from being propagated to the outputs, but that doesn't
+    # seem to be happening.
+    #ignore_run_exports:
+    #  from_package:
+    #    # librmm is showing up, which also indicates an error in librmm's conda
+    #    # package. It shouldn't have a run export on itself since it's header-only.
+    #    # It should run export the relevant CTK libs (mainly cudart) so that its APIs
+    #    # can be called in any code that uses rmm functions, though.
+    #    #- librmm
+    #    - python
+    #    - ucx
+    #    - if: cuda_major == "11"
+    #      then:
+    #        - ${{ compiler('cuda11') }}
+    #      else:
+    #        - ${{ compiler('cuda') }}
     build:
       - cmake
       - ${{ compiler('c') }}
@@ -84,6 +89,15 @@ outputs:
         exclude:
           - tmp/*
     requirements:
+      ignore_run_exports:
+        from_package:
+          # librmm is showing up, which also indicates an error in librmm's conda
+          # package. It shouldn't have a run export on itself since it's header-only.
+          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
+          # can be called in any code that uses rmm functions, though.
+          #- librmm
+          - python
+          - ucx
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       build:
@@ -159,6 +173,20 @@ outputs:
         exclude:
           - tmp/*
     requirements:
+      ignore_run_exports:
+        from_package:
+          # librmm is showing up, which also indicates an error in librmm's conda
+          # package. It shouldn't have a run export on itself since it's header-only.
+          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
+          # can be called in any code that uses rmm functions, though.
+          #- librmm
+          - python
+          - ucx
+          - if: cuda_major == "11"
+            then:
+              - ${{ compiler('cuda11') }}
+            else:
+              - ${{ compiler('cuda') }}
       build:
         - cmake
       host:
@@ -187,6 +215,20 @@ outputs:
         exclude:
           - tmp/*
     requirements:
+      ignore_run_exports:
+        from_package:
+          # librmm is showing up, which also indicates an error in librmm's conda
+          # package. It shouldn't have a run export on itself since it's header-only.
+          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
+          # can be called in any code that uses rmm functions, though.
+          #- librmm
+          - python
+          - ucx
+          - if: cuda_major == "11"
+            then:
+              - ${{ compiler('cuda11') }}
+            else:
+              - ${{ compiler('cuda') }}
       build:
         - cmake
       host:
@@ -232,6 +274,19 @@ outputs:
         exclude:
           - tmp/*
     requirements:
+      ignore_run_exports:
+        from_package:
+          # librmm is showing up, which also indicates an error in librmm's conda
+          # package. It shouldn't have a run export on itself since it's header-only.
+          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
+          # can be called in any code that uses rmm functions, though.
+          #- librmm
+          - ucx
+          - if: cuda_major == "11"
+            then:
+              - ${{ compiler('cuda11') }}
+            else:
+              - ${{ compiler('cuda') }}
       build:
         - cmake
         - ${{ compiler('c') }}
@@ -318,6 +373,19 @@ outputs:
         exclude:
           - tmp/*
     requirements:
+      ignore_run_exports:
+        from_package:
+          # librmm is showing up, which also indicates an error in librmm's conda
+          # package. It shouldn't have a run export on itself since it's header-only.
+          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
+          # can be called in any code that uses rmm functions, though.
+          #- librmm
+          - ucx
+          - if: cuda_major == "11"
+            then:
+              - ${{ compiler('cuda11') }}
+            else:
+              - ${{ compiler('cuda') }}
       build: 
         - git
       host:
