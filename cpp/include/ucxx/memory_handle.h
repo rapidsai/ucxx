@@ -49,7 +49,7 @@ class MemoryHandle : public Component {
    * @param[in] size        the minimum size of the memory allocation
    * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
    *                        new memory region.
-   * @param[in] memoryType  the type of memory the memory allocation the handle points to.
+   * @param[in] memoryType  the type of memory the handle points to.
    */
   MemoryHandle(std::shared_ptr<Context> context,
                const size_t size,
@@ -105,7 +105,7 @@ class MemoryHandle : public Component {
    * @param[in] size        the minimum size of the memory allocation
    * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
    *                        new memory region.
-   * @param[in] memoryType  the type of memory the memory allocation the handle points to.
+   * @param[in] memoryType  the type of memory the handle points to.
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */

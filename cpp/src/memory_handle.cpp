@@ -74,7 +74,7 @@ std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> contex
                                                  void* buffer,
                                                  const ucs_memory_type_t memoryType)
 {
-  return std::shared_ptr<MemoryHandle>(new MemoryHandle(context, size, buffer, memoryType));
+  return std::make_shared<MemoryHandle>(context, size, buffer, memoryType);
 }
 
 ucp_mem_h MemoryHandle::getHandle() { return _handle; }
