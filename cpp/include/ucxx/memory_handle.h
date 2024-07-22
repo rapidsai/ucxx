@@ -28,7 +28,8 @@ class MemoryHandle : public Component {
   ucp_mem_h _handle{};       ///< The UCP handle to the memory allocation.
   size_t _size{0};           ///< The actual allocation size.
   uint64_t _baseAddress{0};  ///< The allocation's base address.
-  ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_HOST};
+  ucs_memory_type_t _memoryType{
+    UCS_MEMORY_TYPE_HOST};  ///< The memory type of the underlying allocation.
 
   /**
    * @brief Private constructor of `ucxx::MemoryHandle`.
