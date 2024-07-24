@@ -5,7 +5,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-file(READ "${CMAKE_CURRENT_LIST_DIR}/../VERSION" _version_contents)
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../../VERSION" _version_contents)
 if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
   set(ucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
 else()
