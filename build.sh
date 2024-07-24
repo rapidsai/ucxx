@@ -40,7 +40,7 @@ HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [distributed_ucxx] [benchmark
    default action (no args) is to build and install 'libucxx' and 'libucxx_python', then 'ucxx' targets, and finally 'distributed_ucxx'
 "
 LIB_BUILD_DIR=${LIB_BUILD_DIR:=${REPODIR}/cpp/build}
-UCXX_BUILD_DIR=${REPODIR}/python/build
+UCXX_BUILD_DIR=${REPODIR}/python/ucxx/build
 
 BUILD_DIRS="${LIB_BUILD_DIR} ${UCXX_BUILD_DIR}"
 
@@ -224,7 +224,7 @@ if buildAll || hasArg ucxx; then
         export SKBUILD_INSTALL_STRIP=${SKBUILD_INSTALL_STRIP:-false}
     fi
 
-    cd ${REPODIR}/python/
+    cd ${REPODIR}/python/ucxx/
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
         python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
 fi

@@ -58,14 +58,14 @@ files:
       - py_version
   py_rapids_build_ucxx:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/ucxx
     extras:
       table: build-system
     includes:
       - rapids_build_skbuild
   py_build_ucxx:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/ucxx
     extras:
       table: tool.rapids-build-backend
       key: requires
@@ -75,7 +75,7 @@ files:
       - depends_on_ucx_build
   py_run_ucxx:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/ucxx
     extras:
       table: project
     includes:
@@ -84,7 +84,7 @@ files:
       - depends_on_ucx_run
   py_test_ucxx:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/ucxx
     extras:
       table: project.optional-dependencies
       key: test
