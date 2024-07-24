@@ -55,10 +55,11 @@ class Endpoint : public Component {
   bool _endpointErrorHandling{true};  ///< Whether the endpoint enables error handling
   std::unique_ptr<InflightRequests> _inflightRequests{
     std::make_unique<InflightRequests>()};  ///< The inflight requests
-  std::mutex _mutex{std::mutex()};          ///< Mutex used to prevent race conditions with
-                                            ///< `ucxx::Endpoint::setCloseCallback()`.
-  ucs_status_t _status{UCS_INPROGRESS};     ///< Endpoint status
-  std::atomic<bool> _closing{false};        ///< Prevent calling close multiple concurrent times.
+  std::mutex _mutex{std::mutex()};  ///< Mutex used during close to prevent race conditions between
+                                    ///< application thread and `ucxx::Endpoint::setCloseCallback()`
+                                    ///< that may run asynchronously on another thread.
+  ucs_status_t _status{UCS_INPROGRESS};  ///< Endpoint status
+  std::atomic<bool> _closing{false};     ///< Prevent calling close multiple concurrent times.
   EndpointCloseCallbackUserFunction _closeCallback{nullptr};  ///< Close callback to call
   EndpointCloseCallbackUserData _closeCallbackArg{
     nullptr};  ///< Argument to be passed to close callback
