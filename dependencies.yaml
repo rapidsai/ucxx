@@ -311,12 +311,26 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - rmm-cu12==24.8.*,>=0.0.0a0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "false"
+            packages:
+              - *rmm_conda
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - rmm-cu11==24.8.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "false"
+            packages:
+              - *rmm_conda
           - {matrix: null, packages: [*rmm_conda]}
   depends_on_cudf:
     common:
@@ -331,12 +345,26 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - cudf-cu12==24.8.*,>=0.0.0a0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "false"
+            packages:
+              - *cudf_conda
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - cudf-cu11==24.8.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "false"
+            packages:
+              - *cudf_conda
           - {matrix: null, packages: [*cudf_conda]}
   depends_on_ucxx:
     common:
@@ -351,12 +379,26 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - ucxx-cu12==0.39.*,>=0.0.0a0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "false"
+            packages:
+              - *ucxx_conda
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - ucxx-cu11==0.39.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "false"
+            packages:
+              - *ucxx_conda
           - {matrix: null, packages: [*ucxx_conda]}
   depends_on_ucx_build:
     common:
@@ -371,15 +413,29 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - libucx-cu12==1.15.0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "false"
+            packages:
+              - &libucx_build libucx==1.15.0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - libucx-cu11==1.15.0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "false"
+            packages:
+              - *libucx_build
           - matrix: null
             packages: 
-              - libucx==1.15.0
+              - *libucx_build
   depends_on_ucx_run:
     common:
       - output_types: conda
@@ -393,12 +449,26 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - libucx-cu12>=1.15.0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "false"
+            packages:
+              - &libucx_run libucx>=1.15.0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - libucx-cu11>=1.15.0
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "false"
+            packages:
+              - *libucx_run
           - matrix: null
             packages: 
-              - libucx>=1.15.0
+              - *libucx_run
