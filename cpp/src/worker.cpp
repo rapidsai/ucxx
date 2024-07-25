@@ -308,7 +308,7 @@ void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
   }
 }
 
-void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
+bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t period)
 {
   if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
@@ -316,18 +316,36 @@ void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
      * listener callback), execute it immediately.
      */
     callback();
+
+    return true;
   } else {
-    _delayedSubmissionCollection->registerGenericPre(callback);
+    utils::CallbackNotifier callbackNotifier{};
+    auto notifiableCallback = [&callback, &callbackNotifier]() {
+      callback();
+      callbackNotifier.set();
+    };
+
+    auto id = _delayedSubmissionCollection->registerGenericPre(notifiableCallback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must signal the progress task so
      * it will ensure the request is dispatched.
      */
-    signal();
+    std::function<void()> signalWorkerFunction = []() {};
+    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+      signalWorkerFunction = [this]() { return this->signal(); };
+    }
+    signalWorkerFunction();
+
+    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+
+    if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
+
+    return ret;
   }
 }
 
-void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
+bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_t period)
 {
   if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
@@ -335,14 +353,32 @@ void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
      * listener callback), execute it immediately.
      */
     callback();
+
+    return true;
   } else {
-    _delayedSubmissionCollection->registerGenericPost(callback);
+    utils::CallbackNotifier callbackNotifier{};
+    auto notifiableCallback = [&callback, &callbackNotifier]() {
+      callback();
+      callbackNotifier.set();
+    };
+
+    auto id = _delayedSubmissionCollection->registerGenericPost(notifiableCallback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must signal the progress task so
      * it will ensure the request is dispatched.
      */
-    signal();
+    std::function<void()> signalWorkerFunction = []() {};
+    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+      signalWorkerFunction = [this]() { return this->signal(); };
+    }
+    signalWorkerFunction();
+
+    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+
+    if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
+
+    return ret;
   }
 }
 
@@ -375,7 +411,7 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
 
 void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
-  if (_progressThread) {
+  if (_progressThread.isRunning()) {
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread "
       "already running",
@@ -396,26 +432,22 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
     signalWorkerFunction = [this]() { return this->signal(); };
   }
 
-  _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
-                                                           progressFunction,
-                                                           signalWorkerFunction,
-                                                           _progressThreadStartCallback,
-                                                           _progressThreadStartCallbackArg,
-                                                           _delayedSubmissionCollection);
+  auto setThreadId = [this]() { _progressThreadId = std::this_thread::get_id(); };
 
-  /**
-   * Ensure the progress thread's ID is available allowing generic callbacks to run
-   * successfully even after `_progressThread == nullptr`, which may occur before
-   * `WorkerProgressThreads`'s destructor completes.
-   */
-  _progressThreadId = _progressThread->getId();
+  _progressThread = WorkerProgressThread(pollingMode,
+                                         progressFunction,
+                                         signalWorkerFunction,
+                                         setThreadId,
+                                         _progressThreadStartCallback,
+                                         _progressThreadStartCallbackArg,
+                                         _delayedSubmissionCollection);
 }
 
-void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
+void Worker::stopProgressThreadNoWarn() { _progressThread.stop(); }
 
 void Worker::stopProgressThread()
 {
-  if (!_progressThread)
+  if (!_progressThread.isRunning())
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread not "
       "running or already stopped",
@@ -426,7 +458,7 @@ void Worker::stopProgressThread()
     stopProgressThreadNoWarn();
 }
 
-bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
+bool Worker::isProgressThreadRunning() { return _progressThread.isRunning(); }
 
 std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
 
@@ -447,20 +479,19 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
   } else if (isProgressThreadRunning()) {
     bool cancelSuccess = false;
     for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
-      utils::CallbackNotifier callbackNotifierPre{};
-      registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
-        canceled += inflightRequestsToCancel->cancelAll();
-        callbackNotifierPre.set();
-      });
-      if (!callbackNotifierPre.wait(period)) continue;
+      if (!registerGenericPre(
+            [&canceled, &inflightRequestsToCancel]() {
+              canceled += inflightRequestsToCancel->cancelAll();
+            },
+            period))
+        continue;
 
-      utils::CallbackNotifier callbackNotifierPost{};
-      registerGenericPost(
-        [this, &callbackNotifierPost, &inflightRequestsToCancel, &cancelSuccess]() {
-          cancelSuccess = inflightRequestsToCancel->getCancelingSize() == 0;
-          callbackNotifierPost.set();
-        });
-      if (!callbackNotifierPost.wait(period)) continue;
+      if (!registerGenericPost(
+            [this, &inflightRequestsToCancel, &cancelSuccess]() {
+              cancelSuccess = inflightRequestsToCancel->getCancelingSize() == 0;
+            },
+            period))
+        continue;
     }
 
     if (!cancelSuccess)
@@ -492,7 +523,7 @@ void Worker::scheduleRequestCancel(TrackedRequestsPtr trackedRequests)
       __func__,
       this,
       _handle,
-      trackedRequests->_inflight->size() + trackedRequests->_canceling->size());
+      trackedRequests->_inflight.size() + trackedRequests->_canceling.size());
     _inflightRequestsToCancel->merge(std::move(trackedRequests));
   }
 }
@@ -526,12 +557,8 @@ bool Worker::tagProbe(const Tag tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    utils::CallbackNotifier callbackNotifierPre{};
-    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.set(); });
-    callbackNotifierPre.wait();
-    utils::CallbackNotifier callbackNotifierPost{};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    registerGenericPre([]() {}, 3000000000 /* 3s */);
+    registerGenericPost([]() {}, 3000000000 /* 3s */);
   }
 
   ucp_tag_recv_info_t info;
