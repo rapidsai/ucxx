@@ -77,7 +77,9 @@ class Request : public Component {
   Request(std::shared_ptr<Component> endpointOrWorker,
           const data::RequestData requestData,
           const std::string operationName,
-          const bool enablePythonFuture = false);
+          const bool enablePythonFuture                = false,
+          RequestCallbackUserFunction callbackFunction = nullptr,
+          RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Perform initial processing of the request to determine if immediate completion.

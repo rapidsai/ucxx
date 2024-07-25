@@ -4,6 +4,7 @@
 import asyncio
 
 import pytest
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 from ucxx.types import Tag
 
 import ucxx
@@ -48,5 +49,6 @@ async def test_message_probe(transfer_api):
     )
     await client_node(listener.port)
 
+    wait_listener_client_handlers(listener)
     while not listener.closed:
         await asyncio.sleep(0.01)

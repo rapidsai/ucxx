@@ -16,6 +16,7 @@ namespace ucxx {
 
 class Buffer;
 class Request;
+class RequestAm;
 
 /**
  * @brief Available logging levels.
@@ -96,11 +97,69 @@ typedef std::function<void(ucs_status_t, std::shared_ptr<void>)> RequestCallback
 typedef std::shared_ptr<void> RequestCallbackUserData;
 
 /**
+ * @brief A user-defined function to execute after an endpoint closes.
+ *
+ * A user-defined function to execute after an endpoint closes, allowing execution of custom
+ * code after such event.
+ */
+typedef RequestCallbackUserFunction EndpointCloseCallbackUserFunction;
+
+/**
+ * @brief Data for the user-defined function provided to endpoint close callback.
+ *
+ * Data passed to the user-defined function provided to the endpoint close callback, which
+ * the custom user-defined function may act upon.
+ */
+typedef RequestCallbackUserData EndpointCloseCallbackUserData;
+
+/**
  * @brief Custom Active Message allocator type.
  *
  * Type for a custom Active Message allocator that can be registered by a user so that the
  * Active Message receiver can allocate a buffer of such type upon receiving message.
  */
 typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
+
+/**
+ * @brief Active Message receiver callback.
+ *
+ * Type for a custom Active Message receiver callback, executed by the remote worker upon
+ * Active Message request completion.
+ */
+typedef std::function<void(std::shared_ptr<Request>)> AmReceiverCallbackType;
+
+/**
+ * @brief Active Message receiver callback owner name.
+ *
+ * A string containing the owner's name of an Active Message receiver callback. The owner
+ * should be a reasonably unique name, usually identifying the application, to allow other
+ * applications to coexist and register their own receiver callbacks.
+ */
+typedef std::string AmReceiverCallbackOwnerType;
+
+/**
+ * @brief Active Message receiver callback identifier.
+ *
+ * A 64-bit unsigned integer unique identifier type of an Active Message receiver callback.
+ */
+typedef uint64_t AmReceiverCallbackIdType;
+
+typedef const std::string AmReceiverCallbackInfoSerialized;
+
+/**
+ * @brief Information of an Active Message receiver callback.
+ *
+ * Type identifying an Active Message receiver callback's owner name and unique identifier.
+ */
+class AmReceiverCallbackInfo {
+ public:
+  const AmReceiverCallbackOwnerType owner;
+  const AmReceiverCallbackIdType id;
+
+  AmReceiverCallbackInfo() = delete;
+  AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id);
+};
+
+typedef const std::string SerializedRemoteKey;
 
 }  // namespace ucxx

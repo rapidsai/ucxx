@@ -6,6 +6,7 @@ import pickle
 
 import numpy as np
 import pytest
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 
@@ -117,7 +118,7 @@ async def test_send_recv_cudf(event_loop, g):
     typ = type(msg)
     res = typ.deserialize(ucx_header, cudf_buffer)
 
-    from cudf.testing._utils import assert_eq
+    from cudf.testing import assert_eq
 
     assert_eq(res, msg)
     await uu.comm.ep.close()
@@ -125,5 +126,4 @@ async def test_send_recv_cudf(event_loop, g):
 
     assert uu.client.closed
     assert uu.comm.ep.closed
-    del uu.ucxx_server
-    ucxx.reset()
+    await wait_listener_client_handlers(uu.ucxx_server)

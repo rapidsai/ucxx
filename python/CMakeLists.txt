@@ -5,7 +5,13 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-set(ucxx_version 0.36.00)
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../VERSION" _version_contents)
+if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
+  set(ucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+else()
+  string(REPLACE "\n" "\n  " _version_contents_formatted "${_version_contents}")
+  message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
+endif()
 
 include(../fetch_rapids.cmake)
 
@@ -21,6 +27,7 @@ option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulti
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_CPP)
+  find_package(ucx REQUIRED)
   find_package(ucxx ${ucxx_version} REQUIRED COMPONENTS python)
 else()
   set(ucxx_FOUND OFF)
@@ -31,6 +38,7 @@ include(rapids-cython-core)
 if(NOT ucxx_FOUND)
   set(BUILD_TESTS OFF)
   set(BUILD_BENCHMARKS OFF)
+  set(UCXX_ENABLE_PYTHON ON)
 
   set(_exclude_from_all "")
 
@@ -40,10 +48,14 @@ if(NOT ucxx_FOUND)
   # and modify the rpaths appropriately.
   set(cython_lib_dir ucxx)
   install(TARGETS ucxx DESTINATION ${cython_lib_dir})
+  install(TARGETS ucxx_python DESTINATION ${cython_lib_dir})
 endif()
 
 rapids_cython_init()
 
+find_package(
+  Python3 REQUIRED COMPONENTS Development.Embed
+)
 add_subdirectory(ucxx/examples)
 add_subdirectory(ucxx/_lib)
 

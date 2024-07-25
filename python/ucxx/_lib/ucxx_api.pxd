@@ -4,11 +4,11 @@
 
 from posix cimport fcntl
 
-cimport numpy as np
 from libc.stdint cimport int64_t, uint16_t, uint64_t
 from libcpp cimport bool as cpp_bool
 from libcpp.functional cimport function
 from libcpp.memory cimport shared_ptr, unique_ptr
+from libcpp.optional cimport nullopt_t, optional
 from libcpp.string cimport string
 from libcpp.unordered_map cimport unordered_map as cpp_unordered_map
 from libcpp.vector cimport vector
@@ -16,13 +16,6 @@ from libcpp.vector cimport vector
 
 cdef extern from "Python.h" nogil:
     ctypedef struct PyObject
-
-
-cdef extern from "numpy/arrayobject.h" nogil:
-    void PyArray_ENABLEFLAGS(np.ndarray arr, int flags)
-
-    enum:
-        NPY_ARRAY_OWNDATA
 
 
 cdef extern from "ucp/api/ucp.h" nogil:
@@ -181,6 +174,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         pass
     cdef enum TagMask:
         pass
+    cdef cppclass AmReceiverCallbackInfo:
+        pass
     # ctypedef Tag CppTag
     # ctypedef TagMask CppTagMask
 
@@ -272,11 +267,18 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
-        void close(uint64_t period, uint64_t maxAttempts)
+        shared_ptr[Request] close(
+            bint enable_python_future
+        ) except +raise_py_error
+        void closeBlocking(uint64_t period, uint64_t maxAttempts)
         shared_ptr[Request] amSend(
             void* buffer,
             size_t length,
             ucs_memory_type_t memory_type,
+            # Using `nullopt_t` is a workaround for Cython error
+            # "Cannot assign type 'nullopt_t' to 'optional[AmReceiverCallbackInfo]'"
+            # Must change when AM receiver callbacks are implemented in Python.
+            nullopt_t receiver_callback_info,
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] amRecv(
@@ -311,8 +313,9 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         bint isAlive()
         void raiseOnError() except +raise_py_error
         void setCloseCallback(
-            function[void(void*)] close_callback, void* close_callback_arg
-        )
+            function[void(ucs_status_t, shared_ptr[void])] close_callback,
+            shared_ptr[void] close_callback_arg
+        ) except +raise_py_error
         shared_ptr[Worker] getWorker()
 
     cdef cppclass Listener(Component):

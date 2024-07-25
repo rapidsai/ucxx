@@ -2,4 +2,4 @@ from .ucxx import UCXXBackend, UCXXConnector, UCXXListener  # noqa: F401
 from . import distributed_patches  # noqa: F401
 
 
-__version__ = "0.36.00"
+from ._version import __git_commit__, __version__

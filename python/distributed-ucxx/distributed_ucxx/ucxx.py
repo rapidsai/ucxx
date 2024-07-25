@@ -257,7 +257,7 @@ class UCXX(Comm):
         local_addr: str,
         peer_addr: str,
         deserialize: bool = True,
-        enable_close_callback: bool = True,
+        enable_close_callback: bool = False,
     ):
         super().__init__(deserialize=deserialize)
         self._ep = ep
@@ -280,6 +280,9 @@ class UCXX(Comm):
             self._has_close_callback = False
 
         logger.debug("UCX.__init__ %s", self)
+
+    def __del__(self) -> None:
+        self.abort()
 
     @property
     def local_address(self) -> str:
@@ -471,6 +474,7 @@ class UCXX(Comm):
                 ucxx.exceptions.UCXCloseError,
                 ucxx.exceptions.UCXCanceledError,
                 ucxx.exceptions.UCXConnectionResetError,
+                ucxx.exceptions.UCXUnreachableError,
             ):
                 # If the other end is in the process of closing,
                 # UCX will sometimes raise a `Input/output` error,
@@ -524,6 +528,7 @@ class UCXXConnector(Connector):
             ucxx.exceptions.UCXCanceledError,
             ucxx.exceptions.UCXConnectionResetError,
             ucxx.exceptions.UCXNotConnectedError,
+            ucxx.exceptions.UCXUnreachableError,
         ):
             raise CommClosedError("Connection closed before handshake completed")
         return self.comm_class(

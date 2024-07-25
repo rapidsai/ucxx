@@ -146,6 +146,106 @@ TEST_P(WorkerProgressTest, ProgressAm)
   ASSERT_EQ(recvAbstract[0], send[0]);
 }
 
+TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    // TODO: Is this the same reason as TagMulti?
+    GTEST_SKIP() << "Wait mode not supported";
+  }
+
+  // Define AM receiver callback's owner and id for callback
+  ucxx::AmReceiverCallbackInfo receiverCallbackInfo("TestApp", 0);
+
+  // Mutex required for blocking progress mode, otherwise `receivedRequests` may be
+  // accessed before `push_back()` completed.
+  std::mutex mutex;
+
+  // Define AM receiver callback and register with worker
+  std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
+  auto callback = ucxx::AmReceiverCallbackType(
+    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        receivedRequests.push_back(req);
+      }
+    });
+  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  std::vector<int> send{123};
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(
+    ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST, receiverCallbackInfo));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (receivedRequests.size() < 1)
+    _progressWorker();
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+
+    auto recvReq    = receivedRequests[0];
+    auto recvBuffer = recvReq->getRecvBuffer();
+
+    ASSERT_EQ(recvBuffer->getType(), ucxx::BufferType::Host);
+    ASSERT_EQ(recvBuffer->getSize(), send.size() * sizeof(int));
+
+    std::vector<int> recvAbstract(reinterpret_cast<int*>(recvBuffer->data()),
+                                  reinterpret_cast<int*>(recvBuffer->data()) + send.size());
+    ASSERT_EQ(recvAbstract[0], send[0]);
+  }
+}
+
+TEST_P(WorkerProgressTest, ProgressMemoryGet)
+{
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  std::vector<int> send{123};
+  std::vector<int> recv(1);
+
+  size_t messageSize = send.size() * sizeof(int);
+
+  auto memoryHandle = _context->createMemoryHandle(messageSize, send.data());
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(
+    ep->memGet(recv.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle()));
+  requests.push_back(_worker->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  ASSERT_EQ(recv[0], send[0]);
+}
+
+TEST_P(WorkerProgressTest, ProgressMemoryPut)
+{
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  std::vector<int> send{123};
+  std::vector<int> recv(1);
+
+  size_t messageSize = send.size() * sizeof(int);
+
+  auto memoryHandle = _context->createMemoryHandle(messageSize, recv.data());
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(
+    ep->memPut(send.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle()));
+  requests.push_back(_worker->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  ASSERT_EQ(recv[0], send[0]);
+}
+
 TEST_P(WorkerProgressTest, ProgressStream)
 {
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());

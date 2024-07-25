@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -29,19 +30,24 @@ class AmSend {
   const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
   const size_t _length{0};       ///< The length of the message.
   const ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_HOST};  ///< Memory type used on the operation
+  const std::optional<AmReceiverCallbackInfo> _receiverCallbackInfo{
+    std::nullopt};  ///< Owner name and unique identifier of the receiver callback.
 
   /**
    * @brief Constructor for Active Message-specific send data.
    *
    * Construct an object containing Active Message-specific send data.
    *
-   * @param[in] buffer      a raw pointer to the data to be sent.
-   * @param[in] length      the size in bytes of the message to be sent.
-   * @param[in] memoryType  the memory type of the buffer.
+   * @param[in] buffer                  a raw pointer to the data to be sent.
+   * @param[in] length                  the size in bytes of the message to be sent.
+   * @param[in] memoryType              the memory type of the buffer.
+   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
+                                        callback.
    */
   explicit AmSend(const decltype(_buffer) buffer,
                   const decltype(_length) length,
-                  const decltype(_memoryType) memoryType = UCS_MEMORY_TYPE_HOST);
+                  const decltype(_memoryType) memoryType                     = UCS_MEMORY_TYPE_HOST,
+                  const decltype(_receiverCallbackInfo) receiverCallbackInfo = std::nullopt);
 
   AmSend() = delete;
 };
@@ -64,6 +70,103 @@ class AmReceive {
    * an operation identifier, providing interface compatibility.
    */
   AmReceive();
+};
+
+/**
+ * @brief Data for an endpoint close operation.
+ *
+ * Type identifying an endpoint close operation and containing data specific to this request
+ * type.
+ */
+class EndpointClose {
+ public:
+  const bool _force{false};  ///< Whether to force endpoint closing.
+  /**
+   * @brief Constructor for endpoint close-specific data.
+   *
+   * Construct an object containing endpoint close-specific data.
+   *
+   * @param[in] force   force endpoint close if `true`, flush otherwise.
+   */
+  explicit EndpointClose(const decltype(_force) force);
+
+  EndpointClose() = delete;
+};
+
+/**
+ * @brief Data for a flush operation.
+ *
+ * Type identifying a flush operation and containing data specific to this request type.
+ */
+class Flush {
+ public:
+  /**
+   * @brief Constructor for flush-specific data.
+   *
+   * Construct an object containing flush-specific data.
+   */
+  Flush();
+};
+
+/**
+ * @brief Data for a memory send.
+ *
+ * Type identifying a memory send operation and containing data specific to this request type.
+ */
+class MemPut {
+ public:
+  const void* _buffer{nullptr};   ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};        ///< The length of the message.
+  const uint64_t _remoteAddr{0};  ///< Remote memory address to write to.
+  const ucp_rkey_h _rkey{};       ///< UCX remote key associated with the remote memory address.
+
+  /**
+   * @brief Constructor for memory-specific data.
+   *
+   * Construct an object containing memory-specific data.
+   *
+   * @param[in] buffer      a raw pointer to the data to be sent.
+   * @param[in] length      the size in bytes of the tag message to be sent.
+   * @param[in] remoteAddr  the destination remote memory address to write to.
+   * @param[in] rkey        the remote memory key associated with the remote memory address.
+   */
+  explicit MemPut(const decltype(_buffer) buffer,
+                  const decltype(_length) length,
+                  const decltype(_remoteAddr) remoteAddr,
+                  const decltype(_rkey) rkey);
+
+  MemPut() = delete;
+};
+
+/**
+ * @brief Data for a memory receive.
+ *
+ * Type identifying a memory receive operation and containing data specific to this request
+ * type.
+ */
+class MemGet {
+ public:
+  void* _buffer{nullptr};         ///< The raw pointer where received data should be stored.
+  const size_t _length{0};        ///< The length of the message.
+  const uint64_t _remoteAddr{0};  ///< Remote memory address to read from.
+  const ucp_rkey_h _rkey{};       ///< UCX remote key associated with the remote memory address.
+
+  /**
+   * @brief Constructor for memory-specific data.
+   *
+   * Construct an object containing memory-specific data.
+   *
+   * @param[out] buffer     a raw pointer to the received data.
+   * @param[in]  length     the size in bytes of the tag message to be received.
+   * @param[in]  remoteAddr the source remote memory address to read from.
+   * @param[in]  rkey       the remote memory key associated with the remote memory address.
+   */
+  explicit MemGet(decltype(_buffer) buffer,
+                  const decltype(_length) length,
+                  const decltype(_remoteAddr) remoteAddr,
+                  const decltype(_rkey) rkey);
+
+  MemGet() = delete;
 };
 
 /**
@@ -127,7 +230,7 @@ class TagSend {
   const ::ucxx::Tag _tag{0};     ///< Tag to match
 
   /**
-   * @brief Constructor for tag/multi-buffer tag-specific data.
+   * @brief Constructor for tag-specific data.
    *
    * Construct an object containing tag-specific data.
    *
@@ -156,7 +259,7 @@ class TagReceive {
   const ::ucxx::TagMask _tagMask{0};  ///< Tag mask to use
 
   /**
-   * @brief Constructor send tag-specific data.
+   * @brief Constructor for tag-specific data.
    *
    * Construct an object containing send tag-specific data.
    *
@@ -231,6 +334,10 @@ class TagMultiReceive {
 using RequestData = std::variant<std::monostate,
                                  AmSend,
                                  AmReceive,
+                                 EndpointClose,
+                                 Flush,
+                                 MemPut,
+                                 MemGet,
                                  StreamSend,
                                  StreamReceive,
                                  TagSend,

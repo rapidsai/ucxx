@@ -6,6 +6,17 @@
 import logging
 import os
 
+# If libucx was installed as a wheel, we must request it to load the library symbols.
+# Otherwise, we assume that the library was installed in a system path that ld can find.
+try:
+    import libucx
+except ModuleNotFoundError:
+    pass
+else:
+    libucx.load_library()
+    del libucx
+
+
 logger = logging.getLogger("ucx")
 
 # Notice, if we have to update environment variables we need to do it
@@ -85,7 +96,8 @@ if "UCX_MAX_RNDV_RAILS" not in os.environ and get_ucx_version() >= (1, 12, 0):
     os.environ["UCX_MAX_RNDV_RAILS"] = "1"
 
 
-__version__ = "0.36.00"
+from ._version import __git_commit__, __version__
+
 __ucx_version__ = "%d.%d.%d" % get_ucx_version()
 
 if get_ucx_version() < (1, 11, 1):

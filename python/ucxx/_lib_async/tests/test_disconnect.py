@@ -10,6 +10,7 @@ from queue import Empty
 import numpy as np
 import pytest
 from ucxx._lib_async.utils import get_event_loop
+from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 import ucxx
 
@@ -53,6 +54,7 @@ def _test_shutdown_unexpected_closed_peer_server(
             server_node, endpoint_error_handling=endpoint_error_handling
         )
         client_queue.put(listener.port)
+        await wait_listener_client_handlers(listener)
         while not listener.closed:
             await asyncio.sleep(0.1)
 

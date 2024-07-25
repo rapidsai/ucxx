@@ -12,7 +12,8 @@ import weakref
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uint8_t, uintptr_t
+from libc.stdlib cimport free
 from libcpp cimport nullptr
 from libcpp.functional cimport function
 from libcpp.memory cimport (
@@ -20,8 +21,10 @@ from libcpp.memory cimport (
     make_shared,
     make_unique,
     shared_ptr,
+    static_pointer_cast,
     unique_ptr,
 )
+from libcpp.optional cimport nullopt
 from libcpp.string cimport string
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
@@ -38,15 +41,48 @@ include "tag.pyx"
 logger = logging.getLogger("ucx")
 
 
-np.import_array()
+cdef class HostBufferAdapter:
+    """A simple adapter around HostBuffer implementing the buffer protocol"""
+    cdef Py_ssize_t _size
+    cdef void* _ptr
+    cdef Py_ssize_t[1] _shape
+    cdef Py_ssize_t[1] _strides
+    cdef Py_ssize_t _itemsize
 
+    @staticmethod
+    cdef _from_host_buffer(HostBuffer* host_buffer):
+        """Construct a new HostBufferAdapter from a HostBuffer.
 
-cdef ptr_to_ndarray(void* ptr, np.npy_intp N):
-    cdef np.ndarray[np.uint8_t, ndim=1, mode="c"] arr = (
-        np.PyArray_SimpleNewFromData(1, &N, np.NPY_UINT8, <np.uint8_t*>ptr)
-    )
-    PyArray_ENABLEFLAGS(arr, NPY_ARRAY_OWNDATA)
-    return arr
+        This factory takes ownership of the input host_buffer's data, so
+        attempting to use the input after this function is called will result
+        in undefined behavior.
+        """
+        cdef HostBufferAdapter obj = HostBufferAdapter.__new__(HostBufferAdapter)
+        obj._size = host_buffer.getSize()
+        obj._ptr = host_buffer.release()
+        obj._shape = [obj._size]
+        obj._itemsize = sizeof(uint8_t)
+        obj._strides = [obj._itemsize]
+        return obj
+
+    def __getbuffer__(self, Py_buffer *buffer, int flags):
+        buffer.buf = self._ptr
+        buffer.format = 'B'
+        buffer.internal = NULL
+        buffer.itemsize = self._itemsize
+        buffer.len = self._size * self._itemsize
+        buffer.ndim = 1
+        buffer.readonly = 0
+        buffer.shape = self._shape
+        buffer.strides = self._strides
+        buffer.suboffsets = NULL
+        buffer.obj = self
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        pass
+
+    def __dealloc__(self):
+        free(self._ptr)
 
 
 def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
@@ -56,8 +92,7 @@ def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
 
 def _get_host_buffer(uintptr_t recv_buffer_ptr):
     cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
-    cdef size_t size = host_buffer.getSize()
-    return ptr_to_ndarray(host_buffer.release(), size)
+    return np.asarray(HostBufferAdapter._from_host_buffer(host_buffer))
 
 
 cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length):
@@ -1099,9 +1134,10 @@ cdef class UCXBufferRequests:
         return self.py_buffers
 
 
-cdef void _endpoint_close_callback(void *args) with gil:
+cdef void _endpoint_close_callback(ucs_status_t status, shared_ptr[void] args) with gil:
     """Callback function called when UCXEndpoint closes or errors"""
-    cdef dict cb_data = <dict> args
+    cdef shared_ptr[uintptr_t] cb_data_ptr = static_pointer_cast[uintptr_t, void](args)
+    cdef dict cb_data = <dict><void*>cb_data_ptr.get()[0]
 
     try:
         cb_data['cb_func'](
@@ -1119,11 +1155,14 @@ cdef class UCXEndpoint():
         bint _cuda_support
         bint _enable_python_future
         dict _close_cb_data
+        shared_ptr[uintptr_t] _close_cb_data_ptr
 
     def __init__(self) -> None:
         raise TypeError("UCXListener cannot be instantiated directly.")
 
     def __dealloc__(self) -> None:
+        self.remove_close_callback()
+
         with nogil:
             self._endpoint.reset()
 
@@ -1254,12 +1293,22 @@ cdef class UCXEndpoint():
 
         return alive
 
-    def close(self, uint64_t period=0, uint64_t max_attempts=1) -> None:
+    def close(self) -> None:
+        cdef shared_ptr[Request] req
+
+        with nogil:
+            req = self._endpoint.get().close(
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
+    def close_blocking(self, uint64_t period=0, uint64_t max_attempts=1) -> None:
         cdef uint64_t c_period = period
         cdef uint64_t c_max_attempts = max_attempts
 
         with nogil:
-            self._endpoint.get().close(c_period, c_max_attempts)
+            self._endpoint.get().closeBlocking(c_period, c_max_attempts)
 
     def am_probe(self) -> bool:
         cdef ucp_ep_h handle
@@ -1287,6 +1336,7 @@ cdef class UCXEndpoint():
                 buf,
                 nbytes,
                 UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST,
+                nullopt,
                 self._enable_python_future
             )
 
@@ -1495,15 +1545,33 @@ cdef class UCXEndpoint():
             "cb_args": cb_args,
             "cb_kwargs": cb_kwargs,
         }
+        self._close_cb_data_ptr = make_shared[uintptr_t](
+            <uintptr_t><void*>self._close_cb_data
+        )
 
-        cdef function[void(void*)]* func_close_callback = (
-            new function[void(void*)](_endpoint_close_callback)
+        cdef function[void(ucs_status_t, shared_ptr[void])]* func_close_callback = (
+            new function[void(ucs_status_t, shared_ptr[void])](_endpoint_close_callback)
         )
         with nogil:
             self._endpoint.get().setCloseCallback(
-                deref(func_close_callback), <void*>self._close_cb_data
+                deref(func_close_callback),
+                static_pointer_cast[void, uintptr_t](self._close_cb_data_ptr)
             )
         del func_close_callback
+
+    def remove_close_callback(self) -> None:
+        cdef Endpoint* endpoint
+
+        with nogil:
+            # Unset close callback, in case the Endpoint error callback runs
+            # after the Python object has been destroyed.
+            # Cast explicitly to prevent Cython `Cannot assign type ...` errors.
+            endpoint = self._endpoint.get()
+            if endpoint != nullptr:
+                endpoint.setCloseCallback(
+                    <function[void (ucs_status_t, shared_ptr[void]) except *]>nullptr,
+                    <shared_ptr[void]>nullptr,
+                )
 
 
 cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with gil:
