@@ -162,4 +162,6 @@ class AmReceiverCallbackInfo {
 
 typedef const std::string SerializedRemoteKey;
 
+typedef std::function<void()> GenericCallbackUserFunction;
+
 }  // namespace ucxx
