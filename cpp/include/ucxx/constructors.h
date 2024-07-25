@@ -60,9 +60,11 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableDelayedSubmission,
                                      const bool enableFuture);
 
-std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
-                                                 const size_t size,
-                                                 void* buffer = nullptr);
+std::shared_ptr<MemoryHandle> createMemoryHandle(
+  std::shared_ptr<Context> context,
+  const size_t size,
+  void* buffer                       = nullptr,
+  const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
 
 std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
   std::shared_ptr<MemoryHandle> memoryHandle);

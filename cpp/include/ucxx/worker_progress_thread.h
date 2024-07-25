@@ -47,8 +47,8 @@ typedef void* ProgressThreadStartCallbackArg;
  */
 class WorkerProgressThread {
  private:
-  std::thread _thread{};     ///< Thread object
-  bool _stop{false};         ///< Signal to stop on next iteration
+  std::thread _thread{};                                       ///< Thread object
+  std::shared_ptr<bool> _stop{std::make_shared<bool>(false)};  ///< Signal to stop on next iteration
   bool _pollingMode{false};  ///< Whether thread will use polling mode to progress
   SignalWorkerFunction _signalWorkerFunction{
     nullptr};  ///< Function signaling worker to wake the progress event (when _pollingMode is
@@ -71,6 +71,10 @@ class WorkerProgressThread {
    * @param[in] progressFunction            user-defined progress function implementation.
    * @param[in] stop                        reference to the stop signal causing the
    *                                        progress loop to terminate.
+   * @param[in] setThreadId                 callback function executed before the
+   *                                        `startCallback` with a purpose of setting the
+   *                                        thread ID with the parent so it is known before
+   *                                        the progress loop starts.
    * @param[in] startCallback               user-defined callback function to be executed
    *                                        at the start of the progress thread.
    * @param[in] startCallbackArg            an argument to be passed to the start callback.
@@ -79,13 +83,18 @@ class WorkerProgressThread {
    */
   static void progressUntilSync(
     std::function<bool(void)> progressFunction,
-    const bool& stop,
+    std::shared_ptr<bool> stop,
+    std::function<void(void)> setThreadId,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,
     std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection);
 
  public:
-  WorkerProgressThread() = delete;
+  WorkerProgressThread()                                       = default;
+  WorkerProgressThread(const WorkerProgressThread&)            = delete;
+  WorkerProgressThread& operator=(WorkerProgressThread const&) = delete;
+  WorkerProgressThread(WorkerProgressThread&& o)               = default;
+  WorkerProgressThread& operator=(WorkerProgressThread&& o)    = default;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::Worker>`.
@@ -112,6 +121,10 @@ class WorkerProgressThread {
    * @param[in] pollingMode                 whether the thread should use polling mode to
    *                                        progress.
    * @param[in] progressFunction            user-defined progress function implementation.
+   * @param[in] setThreadId                 callback function executed before the
+   *                                        `startCallback` with a purpose of setting the
+   *                                        thread ID with the parent so it is known before
+   *                                        the progress loop starts.
    * @param[in] signalWorkerFunction        user-defined function to wake the worker
    *                                        progress event (when `pollingMode` is `false`).
    * @param[in] startCallback               user-defined callback function to be executed
@@ -123,6 +136,7 @@ class WorkerProgressThread {
   WorkerProgressThread(const bool pollingMode,
                        std::function<bool(void)> progressFunction,
                        std::function<void(void)> signalWorkerFunction,
+                       std::function<void(void)> setThreadId,
                        ProgressThreadStartCallback startCallback,
                        ProgressThreadStartCallbackArg startCallbackArg,
                        std::shared_ptr<DelayedSubmissionCollection> delayedSubmissionCollection);
@@ -147,6 +161,10 @@ class WorkerProgressThread {
    * @returns the progress thread ID.
    */
   std::thread::id getId() const;
+
+  bool isRunning() const;
+
+  void stop();
 };
 
 }  // namespace ucxx
