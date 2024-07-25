@@ -124,7 +124,7 @@ static void printUsage()
   std::cerr << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
             << std::endl;
   std::cerr << "  -t          use thread progress mode (disabled)" << std::endl;
-  std::cerr << "  -e          create endpoints with error handling support (false)" << std::endl;
+  std::cerr << "  -e          create endpoints with error handling support (disabled)" << std::endl;
   std::cerr << "  -p <port>   port number to listen at (12345)" << std::endl;
   std::cerr << "  -s <bytes>  message size (8)" << std::endl;
   std::cerr << "  -n <int>    number of iterations to run (100)" << std::endl;
@@ -190,7 +190,7 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
           return UCS_ERR_INVALID_PARAM;
         }
         break;
-      case 'e': app_context->endpoint_error_handling = false; break;
+      case 'e': app_context->endpoint_error_handling = true; break;
       case 'r': app_context->reuse_alloc = true; break;
       case 'v': app_context->verify_results = true; break;
       case 'h':
