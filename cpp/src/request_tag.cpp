@@ -59,7 +59,12 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)
-  : Request(endpointOrWorker, data::getRequestData(requestData), operationName, enablePythonFuture)
+  : Request(endpointOrWorker,
+            data::getRequestData(requestData),
+            operationName,
+            enablePythonFuture,
+            callbackFunction,
+            callbackData)
 {
   std::visit(data::dispatch{
                [this](data::TagSend tagSend) {
@@ -69,9 +74,6 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                [](data::TagReceive tagReceive) {},
              },
              requestData);
-
-  _callback     = callbackFunction;
-  _callbackData = callbackData;
 }
 
 void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* info)
@@ -136,8 +138,6 @@ void RequestTag::request()
   std::lock_guard<std::recursive_mutex> lock(_mutex);
   _request = request;
 }
-
-static void logPopulateDelayedSubmission() {}
 
 void RequestTag::populateDelayedSubmission()
 {

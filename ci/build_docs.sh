@@ -10,10 +10,10 @@ ENV_YAML_DIR="$(mktemp -d)"
 
 rapids-dependency-file-generator \
   --output conda \
-  --file_key docs \
+  --file-key docs \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee "${ENV_YAML_DIR}/env.yaml"
 
-rapids-mamba-retry env create --force -f "${ENV_YAML_DIR}/env.yaml" -n docs
+rapids-mamba-retry env create --yes -f "${ENV_YAML_DIR}/env.yaml" -n docs
 conda activate docs
 
 rapids-print-env
@@ -25,7 +25,9 @@ rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   libucxx
 
-export RAPIDS_VERSION_NUMBER="24.02"
+export UCXX_VERSION="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*$/\1.\2.\3/' VERSION)"
+export UCXX_VERSION_MAJOR_MINOR="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*$/\1.\2/' VERSION)"
+export RAPIDS_VERSION_NUMBER="$UCXX_VERSION_MAJOR_MINOR"
 export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
 rapids-logger "Build CPP docs"

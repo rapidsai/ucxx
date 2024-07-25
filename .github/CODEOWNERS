@@ -16,7 +16,14 @@ python/ucxx/_lib/CMakeLists.txt     @rapidsai/ucxx-cmake-codeowners
 fetch_rapids.cmake                  @rapidsai/ucxx-cmake-codeowners
 **/cmake/                           @rapidsai/ucxx-cmake-codeowners
 
-#build/ops code owners
-.github/                            @rapidsai/ops-codeowners
-ci/                                 @rapidsai/ops-codeowners
-conda/                              @rapidsai/ops-codeowners
+#CI code owners
+/.github/                @rapidsai/ci-codeowners
+/ci/                     @rapidsai/ci-codeowners
+/.pre-commit-config.yaml @rapidsai/ci-codeowners
+
+#packaging code owners
+/.devcontainer/    @rapidsai/packaging-codeowners
+/conda/            @rapidsai/packaging-codeowners
+/dependencies.yaml @rapidsai/packaging-codeowners
+/build.sh          @rapidsai/packaging-codeowners
+pyproject.toml     @rapidsai/packaging-codeowners

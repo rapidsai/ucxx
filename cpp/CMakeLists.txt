@@ -1,5 +1,5 @@
 # =================================================================================
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD 3-Clause License
 # =================================================================================
 
@@ -11,7 +11,13 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
-set(libucxx_version 0.36.00)
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../VERSION" _version_contents)
+if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
+  set(libucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+else()
+  string(REPLACE "\n" "\n  " _version_contents_formatted "${_version_contents}")
+  message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
+endif()
 
 project(
   UCXX
@@ -71,11 +77,25 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
-rapids_find_package(
-  ucx REQUIRED
-  BUILD_EXPORT_SET ucxx-exports
-  INSTALL_EXPORT_SET ucxx-exports
-)
+# Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx
+# dependency because users would then have no control over whether ucx is found
+# multiple times, causing potential configure errors. Therefore, we use a raw
+# find_package call instead of rapids_find_package and skip exporting the ucx
+# dependency. Consumers of ucxx must find ucx themselves. Once the above issue
+# is resolved (see https://github.com/openucx/ucx/pull/9622) we can remove the
+# above find_package in favor of the commented out lines below. For the same
+# reason, we must also gate this find_package call behind a check for the
+# target already existing so that consumers can use tools like CPM.cmake to
+# either find or build ucxx from source if it cannot be found (i.e. both cases
+# must allow prior finding of ucx).
+if(NOT TARGET ucx::ucp)
+  find_package(ucx REQUIRED)
+endif()
+#rapids_find_package(
+#  ucx REQUIRED
+#  BUILD_EXPORT_SET ucxx-exports
+#  INSTALL_EXPORT_SET ucxx-exports
+#)
 
 # ##################################################################################################
 # * dependencies ----------------------------------------------------------------------------------
@@ -90,9 +110,16 @@ rapids_find_package(
 # add third party dependencies using CPM
 rapids_cpm_init()
 # find rmm
-include(cmake/thirdparty/get_rmm.cmake)
+if(UCXX_ENABLE_RMM)
+  include(cmake/thirdparty/get_rmm.cmake)
+endif()
 # find or install GoogleTest
-include(cmake/thirdparty/get_gtest.cmake)
+if(BUILD_TESTS)
+  include(${rapids-cmake-dir}/cpm/gtest.cmake)
+
+  # Find or install GoogleTest
+  rapids_cpm_gtest(BUILD_STATIC)
+endif()
 
 # ##################################################################################################
 # * library targets -------------------------------------------------------------------------------
@@ -112,10 +139,15 @@ add_library(
   src/internal/request_am.cpp
   src/listener.cpp
   src/log.cpp
+  src/memory_handle.cpp
+  src/remote_key.cpp
   src/request.cpp
   src/request_am.cpp
   src/request_data.cpp
+  src/request_endpoint_close.cpp
+  src/request_flush.cpp
   src/request_helper.cpp
+  src/request_mem.cpp
   src/request_stream.cpp
   src/request_tag.cpp
   src/request_tag_multi.cpp
@@ -157,17 +189,15 @@ target_compile_definitions(
 
 # Enable RMM if necessary
 if(UCXX_ENABLE_RMM)
-    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
+    target_link_libraries(ucxx PUBLIC rmm::rmm)
+
+    # Define spdlog level
+    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
 endif()
 
-# Define spdlog level
-target_compile_definitions(ucxx PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
-
 # Specify the target module library dependencies
-target_link_libraries(
-  ucxx
-  PUBLIC rmm::rmm ucx::ucp
-)
+target_link_libraries(ucxx PUBLIC ucx::ucp)
+
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
@@ -287,7 +317,7 @@ rapids_export(
 add_custom_command(
   OUTPUT UCXX_DOXYGEN
   WORKING_DIRECTORY ${UCXX_SOURCE_DIR}/doxygen
-  COMMAND doxygen Doxyfile
+  COMMAND ${CMAKE_COMMAND} -E env "UCXX_VERSION=${libucxx_version}" doxygen Doxyfile
   VERBATIM
   COMMENT "Custom command for building ucxx doxygen docs."
 )

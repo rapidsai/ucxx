@@ -10,6 +10,7 @@ rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${linked_libraries}"
+  ASSOCIATED_TARGETS ucxx ucxx_python
 )
 
 target_include_directories(python_future_task_app PRIVATE ".")

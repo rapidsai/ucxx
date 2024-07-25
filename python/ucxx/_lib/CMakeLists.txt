@@ -9,13 +9,6 @@ set(linked_libraries ucxx::ucxx ucxx::python Python3::Python)
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}" ASSOCIATED_TARGETS ucxx
+  LINKED_LIBRARIES "${linked_libraries}"
+  ASSOCIATED_TARGETS ucxx ucxx_python
 )
-
-find_package(Python REQUIRED COMPONENTS Development NumPy)
-
-set(targets_using_numpy libucxx)
-foreach(target IN LISTS targets_using_numpy)
-  target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
-  target_compile_definitions(${target} PRIVATE NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION)
-endforeach()

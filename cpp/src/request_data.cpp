@@ -6,6 +6,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucp/api/ucp_def.h>
 #include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
 
@@ -13,12 +14,35 @@ namespace ucxx {
 
 namespace data {
 
-AmSend::AmSend(const void* buffer, const size_t length, const ucs_memory_type memoryType)
-  : _buffer(buffer), _length(length), _memoryType(memoryType)
+AmSend::AmSend(const void* buffer,
+               const size_t length,
+               const ucs_memory_type memoryType,
+               const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo)
+  : _buffer(buffer),
+    _length(length),
+    _memoryType(memoryType),
+    _receiverCallbackInfo(receiverCallbackInfo)
 {
 }
 
 AmReceive::AmReceive() {}
+
+EndpointClose::EndpointClose(const bool force) : _force(force) {}
+
+Flush::Flush() {}
+
+MemPut::MemPut(const void* buffer,
+               const size_t length,
+               const uint64_t remoteAddr,
+               const ucp_rkey_h rkey)
+  : _buffer(buffer), _length(length), _remoteAddr(remoteAddr), _rkey(rkey)
+{
+}
+
+MemGet::MemGet(void* buffer, const size_t length, const uint64_t remoteAddr, const ucp_rkey_h rkey)
+  : _buffer(buffer), _length(length), _remoteAddr(remoteAddr), _rkey(rkey)
+{
+}
 
 StreamSend::StreamSend(const void* buffer, const size_t length) : _buffer(buffer), _length(length)
 {

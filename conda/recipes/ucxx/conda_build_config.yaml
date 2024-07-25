@@ -10,7 +10,10 @@ cuda_compiler:
 cuda11_compiler:
   - nvcc
 
-sysroot_linux_64:
+c_stdlib:
+  - sysroot
+
+c_stdlib_version:
   - "2.17"
 
 cmake:
@@ -19,12 +22,16 @@ cmake:
 python:
   - 3.9
   - 3.10
+  - 3.11
 
 ucx:
-  - "==1.14.*"
+  - "==1.15.*"
 
 gmock:
   - ">=1.13.0"
 
 gtest:
   - ">=1.13.0"
+
+rapids_version:
+  - "24.10.*"

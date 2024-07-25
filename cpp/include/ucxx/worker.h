@@ -20,6 +20,7 @@
 #include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/notifier.h>
+#include <ucxx/typedefs.h>
 #include <ucxx/worker_progress_thread.h>
 
 namespace ucxx {
@@ -817,6 +818,45 @@ class Worker : public Component {
   void registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator);
 
   /**
+   * @brief Register receiver callback for active messages.
+   *
+   * Register a new receiver callback for active messages. By default, active messages do
+   * not execute any callbacks on the receiving end unless one is specified when sending
+   * the message. If the message sender specifies a callback receiver identifier then the
+   * remote receiver needs to have a callback registered with the same identifier to
+   * execute when the request completes. To ensure multiple applications that do not know
+   * about each other can have coexisting callbacks where receiver identifiers may have
+   * the same value, an owner must be specified as well, which has the form of a string and
+   * should be reasonably unique to prevent accidentally calling callbacks from a separate
+   * application, thus names like "A" or "UCX" are discouraged in favor of more descriptive
+   * names such as "MyFastCommsProject", and the name "ucxx" is reserved.
+   *
+   * Because it is impossible to predict which callback would be called in such an event,
+   * the registered callback cannot be changed, thus calling this method with the same
+   * given owner and identifier will throw `std::runtime_error`.
+   *
+   *
+   * @code{.cpp}
+   * // `worker` is `std::shared_ptr<ucxx::Worker>`
+   * auto callback = [](std::shared_ptr<ucxx::Request> req) {
+   *   std::cout << "The UCXX request address is " << (void*)req.get() << std::endl;
+   * };
+   *
+   * worker->registerAmReceiverCallback({"MyFastApp", 0}, callback};
+   * @endcode
+   *
+   * @throws std::runtime_error if a callback with same given owner and identifier is
+   *                            already registered, or if the reserved owner name "ucxx"
+   *                            is specified.
+   *
+   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
+                                        callback.
+   * @param[in] callback                the callback to execute when the active message is
+   *                                    received.
+   */
+  void registerAmReceiverCallback(AmReceiverCallbackInfo info, AmReceiverCallbackType callback);
+
+  /**
    * @brief Check for uncaught active messages.
    *
    * Checks the worker for any uncaught active messages. An uncaught active message is any
@@ -836,6 +876,31 @@ class Worker : public Component {
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
   bool amProbe(const ucp_ep_h endpointHandle) const;
+
+  /**
+   * @brief Enqueue a flush operation.
+
+   * Enqueue request to flush outstanding AMO (Atomic Memory Operation) and RMA (Remote
+   * Memory Access) operations on the worker, returning a pointer to a request object that
+   * can be later awaited and checked for errors. This is a non-blocking operation, and its
+   * status must be verified from the resulting request object to confirm the flush
+   * operation has completed successfully.
+   *
+   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
+   * Python future is requested, the Python application must then await on this future to
+   * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  std::shared_ptr<Request> flush(const bool enablePythonFuture                = false,
+                                 RequestCallbackUserFunction callbackFunction = nullptr,
+                                 RequestCallbackUserData callbackData         = nullptr);
 };
 
 }  // namespace ucxx
