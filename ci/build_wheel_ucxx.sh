@@ -3,6 +3,6 @@
 
 set -euo pipefail
 
-package_dir="python"
+package_dir="python/ucxx"
 
 ./ci/build_wheel.sh ucxx ${package_dir}
