@@ -4,7 +4,6 @@
  */
 #include <memory>
 #include <stdexcept>
-#include <tuple>
 #include <utility>
 
 #include <Python.h>

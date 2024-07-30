@@ -4,7 +4,6 @@
  */
 #include <memory>
 #include <mutex>
-#include <tuple>
 #include <utility>
 
 #include <ucp/api/ucp.h>
