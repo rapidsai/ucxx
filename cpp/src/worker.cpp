@@ -9,6 +9,7 @@
 #include <queue>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -48,7 +49,7 @@ Worker::Worker(std::shared_ptr<Context> context,
     unsigned int AM_MSG_ID            = 0;
     _amData                           = std::make_shared<internal::AmData>();
     _amData->_registerInflightRequest = [this](std::shared_ptr<Request> req) {
-      this->registerInflightRequest(req);
+      return registerInflightRequest(req);
     };
     registerAmAllocator(UCS_MEMORY_TYPE_HOST,
                         [](size_t length) { return std::make_shared<HostBuffer>(length); });
@@ -549,8 +550,8 @@ bool Worker::tagProbe(const Tag tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    registerGenericPre([]() {}, 3000000000 /* 3s */);
-    registerGenericPost([]() {}, 3000000000 /* 3s */);
+    std::ignore = registerGenericPre([]() {}, 3000000000 /* 3s */);
+    std::ignore = registerGenericPost([]() {}, 3000000000 /* 3s */);
   }
 
   ucp_tag_recv_info_t info;

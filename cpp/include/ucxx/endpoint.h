@@ -112,7 +112,7 @@ class Endpoint : public Component {
    *
    * @return the request that was registered (i.e., the `request` argument itself).
    */
-  std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
+  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief The error callback registered at endpoint creation time.
@@ -157,10 +157,11 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  friend std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
-                                                              std::string ipAddress,
-                                                              uint16_t port,
-                                                              bool endpointErrorHandling);
+  [[nodiscard]] friend std::shared_ptr<Endpoint> createEndpointFromHostname(
+    std::shared_ptr<Worker> worker,
+    std::string ipAddress,
+    uint16_t port,
+    bool endpointErrorHandling);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -184,9 +185,8 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  friend std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener> listener,
-                                                                 ucp_conn_request_h connRequest,
-                                                                 bool endpointErrorHandling);
+  [[nodiscard]] friend std::shared_ptr<Endpoint> createEndpointFromConnRequest(
+    std::shared_ptr<Listener> listener, ucp_conn_request_h connRequest, bool endpointErrorHandling);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -207,9 +207,8 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  friend std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker> worker,
-                                                                   std::shared_ptr<Address> address,
-                                                                   bool endpointErrorHandling);
+  [[nodiscard]] friend std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
+    std::shared_ptr<Worker> worker, std::shared_ptr<Address> address, bool endpointErrorHandling);
 
   /**
    * @brief Get the underlying `ucp_ep_h` handle.
@@ -226,7 +225,7 @@ class Endpoint : public Component {
    *
    * @returns The underlying `ucp_ep_h` handle.
    */
-  ucp_ep_h getHandle();
+  [[nodiscard]] ucp_ep_h getHandle();
 
   /**
    * @brief Check whether the endpoint is still alive.
@@ -239,7 +238,7 @@ class Endpoint : public Component {
    * @returns whether the endpoint is still alive if endpoint enables error handling, always
    *          returns `true` if error handling is disabled.
    */
-  bool isAlive() const;
+  [[nodiscard]] bool isAlive() const;
 
   /**
    * @brief Raises an exception if an error occurred.
@@ -287,7 +286,7 @@ class Endpoint : public Component {
    *
    * @returns Number of requests that are in process of cancelation.
    */
-  size_t getCancelingSize() const;
+  [[nodiscard]] size_t getCancelingSize() const;
 
   /**
    * @brief Cancel inflight requests.
@@ -363,7 +362,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> amSend(
+  [[nodiscard]] std::shared_ptr<Request> amSend(
     void* buffer,
     const size_t length,
     const ucs_memory_type_t memoryType,
@@ -393,9 +392,10 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion state and data.
    */
-  std::shared_ptr<Request> amRecv(const bool enablePythonFuture                = false,
-                                  RequestCallbackUserFunction callbackFunction = nullptr,
-                                  RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> amRecv(
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a memory put operation.
@@ -419,13 +419,14 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> memPut(void* buffer,
-                                  size_t length,
-                                  uint64_t remote_addr,
-                                  ucp_rkey_h rkey,
-                                  const bool enablePythonFuture                = false,
-                                  RequestCallbackUserFunction callbackFunction = nullptr,
-                                  RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> memPut(
+    void* buffer,
+    size_t length,
+    uint64_t remote_addr,
+    ucp_rkey_h rkey,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a memory put operation.
@@ -451,13 +452,14 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> memPut(void* buffer,
-                                  size_t length,
-                                  std::shared_ptr<ucxx::RemoteKey> remoteKey,
-                                  uint64_t remoteAddrOffset                    = 0,
-                                  const bool enablePythonFuture                = false,
-                                  RequestCallbackUserFunction callbackFunction = nullptr,
-                                  RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> memPut(
+    void* buffer,
+    size_t length,
+    std::shared_ptr<ucxx::RemoteKey> remoteKey,
+    uint64_t remoteAddrOffset                    = 0,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a memory get operation.
@@ -481,13 +483,14 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> memGet(void* buffer,
-                                  size_t length,
-                                  uint64_t remoteAddr,
-                                  ucp_rkey_h rkey,
-                                  const bool enablePythonFuture                = false,
-                                  RequestCallbackUserFunction callbackFunction = nullptr,
-                                  RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> memGet(
+    void* buffer,
+    size_t length,
+    uint64_t remoteAddr,
+    ucp_rkey_h rkey,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a memory get operation.
@@ -513,13 +516,14 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> memGet(void* buffer,
-                                  size_t length,
-                                  std::shared_ptr<ucxx::RemoteKey> remoteKey,
-                                  uint64_t remoteAddrOffset                    = 0,
-                                  const bool enablePythonFuture                = false,
-                                  RequestCallbackUserFunction callbackFunction = nullptr,
-                                  RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> memGet(
+    void* buffer,
+    size_t length,
+    std::shared_ptr<ucxx::RemoteKey> remoteKey,
+    uint64_t remoteAddrOffset                    = 0,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a stream send operation.
@@ -540,7 +544,9 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> streamSend(void* buffer, size_t length, const bool enablePythonFuture);
+  [[nodiscard]] std::shared_ptr<Request> streamSend(void* buffer,
+                                                    size_t length,
+                                                    const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a stream receive operation.
@@ -562,7 +568,9 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> streamRecv(void* buffer, size_t length, const bool enablePythonFuture);
+  [[nodiscard]] std::shared_ptr<Request> streamRecv(void* buffer,
+                                                    size_t length,
+                                                    const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a tag send operation.
@@ -586,12 +594,13 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagSend(void* buffer,
-                                   size_t length,
-                                   Tag tag,
-                                   const bool enablePythonFuture                = false,
-                                   RequestCallbackUserFunction callbackFunction = nullptr,
-                                   RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> tagSend(
+    void* buffer,
+    size_t length,
+    Tag tag,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -617,13 +626,14 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagRecv(void* buffer,
-                                   size_t length,
-                                   Tag tag,
-                                   TagMask tagMask,
-                                   const bool enablePythonFuture                = false,
-                                   RequestCallbackUserFunction callbackFunction = nullptr,
-                                   RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> tagRecv(
+    void* buffer,
+    size_t length,
+    Tag tag,
+    TagMask tagMask,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a multi-buffer tag send operation.
@@ -658,11 +668,11 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagMultiSend(const std::vector<void*>& buffer,
-                                        const std::vector<size_t>& size,
-                                        const std::vector<int>& isCUDA,
-                                        const Tag tag,
-                                        const bool enablePythonFuture);
+  [[nodiscard]] std::shared_ptr<Request> tagMultiSend(const std::vector<void*>& buffer,
+                                                      const std::vector<size_t>& size,
+                                                      const std::vector<int>& isCUDA,
+                                                      const Tag tag,
+                                                      const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a multi-buffer tag receive operation.
@@ -686,9 +696,9 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagMultiRecv(const Tag tag,
-                                        const TagMask tagMask,
-                                        const bool enablePythonFuture);
+  [[nodiscard]] std::shared_ptr<Request> tagMultiRecv(const Tag tag,
+                                                      const TagMask tagMask,
+                                                      const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a flush operation.
@@ -711,9 +721,10 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> flush(const bool enablePythonFuture                = false,
-                                 RequestCallbackUserFunction callbackFunction = nullptr,
-                                 RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> flush(
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Get `ucxx::Worker` component from a worker or listener object.
@@ -725,7 +736,7 @@ class Endpoint : public Component {
    *
    * @returns The `std::shared_ptr<ucxx::Worker>` which the endpoint is associated with.
    */
-  std::shared_ptr<Worker> getWorker();
+  [[nodiscard]] std::shared_ptr<Worker> getWorker();
 
   /**
    * @brief Enqueue a non-blocking endpoint close operation.
@@ -767,9 +778,10 @@ class Endpoint : public Component {
    *          `nullptr` if the endpoint has already closed or is already in process of
    *          closing.
    */
-  std::shared_ptr<Request> close(const bool enablePythonFuture                      = false,
-                                 EndpointCloseCallbackUserFunction callbackFunction = nullptr,
-                                 EndpointCloseCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> close(
+    const bool enablePythonFuture                      = false,
+    EndpointCloseCallbackUserFunction callbackFunction = nullptr,
+    EndpointCloseCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Close the endpoint while keeping the object alive.

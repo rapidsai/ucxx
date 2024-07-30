@@ -82,9 +82,8 @@ class Worker : public ::ucxx::Worker {
    *
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
-  friend std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
-                                                      const bool enableDelayedSubmission,
-                                                      const bool enableFuture);
+  [[nodiscard]] friend std::shared_ptr<::ucxx::Worker> createWorker(
+    std::shared_ptr<Context> context, const bool enableDelayedSubmission, const bool enableFuture);
 
   /**
    * @brief Populate the Python future pool.
@@ -105,7 +104,7 @@ class Worker : public ::ucxx::Worker {
    *
    * @returns The `shared_ptr<ucxx::python::Future>` object
    */
-  std::shared_ptr<::ucxx::Future> getFuture() override;
+  [[nodiscard]] std::shared_ptr<::ucxx::Future> getFuture() override;
 
   /**
    * @brief Block until a request event.
@@ -119,7 +118,7 @@ class Worker : public ::ucxx::Worker {
    *          `RequestNotifierWaitStats::Timeout` if a timeout occurred, or
    *          `RequestNotifierWaitStats::Shutdown` if shutdown has initiated.
    */
-  RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs) override;
+  [[nodiscard]] RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs) override;
 
   /**
    * @brief Notify Python futures of each completed communication request.

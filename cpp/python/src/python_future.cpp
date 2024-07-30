@@ -4,6 +4,7 @@
  */
 #include <memory>
 #include <stdexcept>
+#include <tuple>
 #include <utility>
 
 #include <Python.h>
@@ -59,18 +60,19 @@ void Future::set(ucs_status_t status)
                  ucs_status_string(status));
   if (status == UCS_OK) {
     if (_asyncioEventLoop == nullptr)
-      future_set_result(_handle, Py_True);
+      std::ignore = future_set_result(_handle, Py_True);
     else
-      future_set_result_with_event_loop(_asyncioEventLoop, _handle, Py_True);
+      std::ignore = future_set_result_with_event_loop(_asyncioEventLoop, _handle, Py_True);
   } else {
     if (_asyncioEventLoop == nullptr)
-      future_set_exception(
+      std::ignore = future_set_exception(
         _handle, get_python_exception_from_ucs_status(status), ucs_status_string(status));
     else
-      future_set_exception_with_event_loop(_asyncioEventLoop,
-                                           _handle,
-                                           get_python_exception_from_ucs_status(status),
-                                           ucs_status_string(status));
+      std::ignore =
+        future_set_exception_with_event_loop(_asyncioEventLoop,
+                                             _handle,
+                                             get_python_exception_from_ucs_status(status),
+                                             ucs_status_string(status));
   }
 }
 

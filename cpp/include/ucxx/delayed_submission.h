@@ -321,7 +321,7 @@ class DelayedSubmissionCollection {
    *
    * @returns the ID of the scheduled item which can be used cancelation requests.
    */
-  ItemIdType registerGenericPre(DelayedSubmissionCallbackType callback);
+  [[nodiscard]] ItemIdType registerGenericPre(DelayedSubmissionCallbackType callback);
 
   /**
    * @brief Register a generic callback to execute during `processPost()`.
@@ -333,7 +333,7 @@ class DelayedSubmissionCollection {
    *
    * @returns the ID of the scheduled item which can be used cancelation requests.
    */
-  ItemIdType registerGenericPost(DelayedSubmissionCallbackType callback);
+  [[nodiscard]] ItemIdType registerGenericPost(DelayedSubmissionCallbackType callback);
 
   /**
    * @brief Cancel a generic callback scheduled for `processPre()` execution.
@@ -369,7 +369,7 @@ class DelayedSubmissionCollection {
    *
    * @returns `true` if a delayed request submission is enabled, `false` otherwise.
    */
-  bool isDelayedRequestSubmissionEnabled() const;
+  [[nodiscard]] bool isDelayedRequestSubmissionEnabled() const;
 };
 
 }  // namespace ucxx

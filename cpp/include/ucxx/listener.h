@@ -92,10 +92,11 @@ class Listener : public Component {
    *
    * @returns The `shared_ptr<ucxx::Listener>` object.
    */
-  friend std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                                  uint16_t port,
-                                                  ucp_listener_conn_callback_t callback,
-                                                  void* callbackArgs);
+  [[nodiscard]] friend std::shared_ptr<Listener> createListener(
+    std::shared_ptr<Worker> worker,
+    uint16_t port,
+    ucp_listener_conn_callback_t callback,
+    void* callbackArgs);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -118,8 +119,8 @@ class Listener : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object.
    */
-  std::shared_ptr<Endpoint> createEndpointFromConnRequest(ucp_conn_request_h connRequest,
-                                                          bool endpointErrorHandling = true);
+  [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromConnRequest(
+    ucp_conn_request_h connRequest, bool endpointErrorHandling = true);
 
   /**
    * @brief Get the underlying `ucp_listener_h` handle.
@@ -136,7 +137,7 @@ class Listener : public Component {
    *
    * @returns The underlying `ucp_listener_h` handle.
    */
-  ucp_listener_h getHandle();
+  [[nodiscard]] ucp_listener_h getHandle();
 
   /**
    * @brief Get the port to which the listener is bound to.
@@ -145,7 +146,7 @@ class Listener : public Component {
    *
    * @returns the port to which the listener is bound to.
    */
-  uint16_t getPort();
+  [[nodiscard]] uint16_t getPort();
 
   /**
    * @brief Get the IP address to which the listener is bound to.
@@ -154,7 +155,7 @@ class Listener : public Component {
    *
    * @returns the IP address to which the listener is bound to.
    */
-  std::string getIp();
+  [[nodiscard]] std::string getIp();
 };
 
 }  // namespace ucxx

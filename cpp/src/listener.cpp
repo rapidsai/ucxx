@@ -5,6 +5,8 @@
 #include <memory>
 #include <netinet/in.h>
 #include <string>
+#include <tuple>
+
 #include <ucp/api/ucp.h>
 
 #include <ucxx/exception.h>
@@ -51,9 +53,10 @@ Listener::~Listener()
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
   if (worker->isProgressThreadRunning()) {
-    worker->registerGenericPre([this]() { ucp_listener_destroy(_handle); }, 10000000000 /* 10s */);
+    std::ignore = worker->registerGenericPre([this]() { ucp_listener_destroy(_handle); },
+                                             10000000000 /* 10s */);
 
-    worker->registerGenericPost([]() {}, 10000000000 /* 10s */);
+    std::ignore = worker->registerGenericPost([]() {}, 10000000000 /* 10s */);
   } else {
     ucp_listener_destroy(_handle);
     worker->progress();
