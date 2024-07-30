@@ -85,7 +85,7 @@ class Future : public std::enable_shared_from_this<Future> {
    *
    * @returns The underlying handle.
    */
-  virtual void* getHandle() = 0;
+  [[nodiscard]] virtual void* getHandle() = 0;
 
   /**
    * @brief Get the underlying handle and release ownership.
@@ -98,7 +98,7 @@ class Future : public std::enable_shared_from_this<Future> {
    *
    * @returns The underlying handle.
    */
-  virtual void* release() = 0;
+  [[nodiscard]] virtual void* release() = 0;
 };
 
 }  // namespace ucxx

@@ -109,10 +109,11 @@ class MemoryHandle : public Component {
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
-  friend std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
-                                                          const size_t size,
-                                                          void* buffer,
-                                                          const ucs_memory_type_t memoryType);
+  [[nodiscard]] friend std::shared_ptr<MemoryHandle> createMemoryHandle(
+    std::shared_ptr<Context> context,
+    const size_t size,
+    void* buffer,
+    const ucs_memory_type_t memoryType);
 
   ~MemoryHandle();
 
@@ -131,7 +132,7 @@ class MemoryHandle : public Component {
    *
    * @returns The underlying `ucp_mem_h` handle.
    */
-  ucp_mem_h getHandle();
+  [[nodiscard]] ucp_mem_h getHandle();
 
   /**
    * @brief Get the size of the memory allocation.
@@ -146,7 +147,7 @@ class MemoryHandle : public Component {
    *
    * @returns The size of the memory allocation.
    */
-  size_t getSize() const;
+  [[nodiscard]] size_t getSize() const;
 
   /**
    * @brief Get the base address of the memory allocation.
@@ -162,11 +163,11 @@ class MemoryHandle : public Component {
    *
    * @returns The base address of the memory allocation.
    */
-  uint64_t getBaseAddress();
+  [[nodiscard]] uint64_t getBaseAddress();
 
-  ucs_memory_type_t getMemoryType();
+  [[nodiscard]] ucs_memory_type_t getMemoryType();
 
-  std::shared_ptr<RemoteKey> createRemoteKey();
+  [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKey();
 };
 
 }  // namespace ucxx

@@ -134,7 +134,7 @@ class Request : public Component {
    *
    * @return the current status of the request.
    */
-  ucs_status_t getStatus();
+  [[nodiscard]] ucs_status_t getStatus();
 
   /**
    * @brief Return the future used to check on state.
@@ -144,7 +144,7 @@ class Request : public Component {
    *
    * @returns the Python future object or `nullptr`.
    */
-  void* getFuture();
+  [[nodiscard]] void* getFuture();
 
   /**
    * @brief Check whether the request completed with an error.
@@ -168,7 +168,7 @@ class Request : public Component {
    *
    * @return whether the request has completed.
    */
-  bool isCompleted();
+  [[nodiscard]] bool isCompleted();
 
   /**
    * @brief Callback executed by UCX when request is completed.
@@ -207,7 +207,7 @@ class Request : public Component {
    *
    * @returns the formatted string containing the owner type and its handle.
    */
-  const std::string& getOwnerString() const;
+  [[nodiscard]] const std::string& getOwnerString() const;
 
   /**
    * @brief Get the received buffer.
@@ -221,7 +221,7 @@ class Request : public Component {
    *
    * @return The received buffer (if applicable) or `nullptr`.
    */
-  virtual std::shared_ptr<Buffer> getRecvBuffer();
+  [[nodiscard]] virtual std::shared_ptr<Buffer> getRecvBuffer();
 };
 
 }  // namespace ucxx
