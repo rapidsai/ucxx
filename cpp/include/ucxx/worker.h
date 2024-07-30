@@ -53,8 +53,8 @@ class Worker : public Component {
     _inflightRequestsToCancelMutex{};  ///< Mutex to access the inflight requests to cancel pool
   std::unique_ptr<InflightRequests> _inflightRequestsToCancel{
     std::make_unique<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
-  std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};  ///< The progress thread object
-  std::thread::id _progressThreadId{};                             ///< The progress thread ID
+  WorkerProgressThread _progressThread{};   ///< The progress thread object
+  std::thread::id _progressThreadId{};      ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
     nullptr};  ///< The callback function to execute at progress thread start
   void* _progressThreadStartCallbackArg{
@@ -411,32 +411,48 @@ class Worker : public Component {
    * Register callback to be executed in the current or next iteration of the progress
    * thread before the worker is progressed. There is no guarantee that the callback will
    * be executed in the current or next iteration, this depends on where the progress thread
-   * is in the current iteration when this callback is registered. The lifetime of the
-   * callback must be ensured by the caller.
+   * is in the current iteration when this callback is registered.
    *
    * The purpose of this method is to schedule operations to be executed in the progress
    * thread, such as endpoint creation and closing, so that progressing doesn't ever need
    * to occur in the application thread when using a progress thread.
    *
+   * If `period` is `0` this is a blocking call that only returns when the callback has been
+   * executed and will always return `true`, and if `period` is a positive integer the time
+   * in nanoseconds will be waited for the callback to complete and return `true` in the
+   * successful case or `false` otherwise. `period` only applies if the worker progress
+   * thread is running, otherwise the callback is immediately executed.
+   *
    * @param[in] callback  the callback to execute before progressing the worker.
+   * @param[in] period    the time in nanoseconds to wait for the callback to complete.
+   *
+   * @returns `true` if the callback was successfully executed or `false` if timed out.
    */
-  void registerGenericPre(DelayedSubmissionCallbackType callback);
+  bool registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t period = 0);
 
   /**
-   * @brief Register callback to be executed in progress thread after progressing.
+   * @brief Register callback to be executed in progress thread before progressing.
    *
    * Register callback to be executed in the current or next iteration of the progress
    * thread after the worker is progressed. There is no guarantee that the callback will
    * be executed in the current or next iteration, this depends on where the progress thread
-   * is in the current iteration when this callback is registered. The lifetime of the
-   * callback must be ensured by the caller.
+   * is in the current iteration when this callback is registered.
    *
    * The purpose of this method is to schedule operations to be executed in the progress
    * thread, immediately after progressing the worker completes.
    *
-   * @param[in] callback  the callback to execute after progressing the worker.
+   * If `period` is `0` this is a blocking call that only returns when the callback has been
+   * executed and will always return `true`, and if `period` is a positive integer the time
+   * in nanoseconds will be waited for the callback to complete and return `true` in the
+   * successful case or `false` otherwise. `period` only applies if the worker progress
+   * thread is running, otherwise the callback is immediately executed.
+   *
+   * @param[in] callback  the callback to execute before progressing the worker.
+   * @param[in] period    the time in nanoseconds to wait for the callback to complete.
+   *
+   * @returns `true` if the callback was successfully executed or `false` if timed out.
    */
-  void registerGenericPost(DelayedSubmissionCallbackType callback);
+  bool registerGenericPost(DelayedSubmissionCallbackType callback, uint64_t period = 0);
 
   /**
    * @brief Inquire if worker has been created with delayed submission enabled.
