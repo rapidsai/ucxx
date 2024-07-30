@@ -24,7 +24,12 @@ async def test_close_callback(server_close_callback):
 
     async def server_node(ep):
         if server_close_callback is True:
-            ep.set_close_callback(_close_callback)
+            try:
+                ep.set_close_callback(_close_callback)
+            except RuntimeError:
+                # If we fail to set the close callback because the remote endpoint
+                # has closed already, simply execute the callback.
+                _close_callback()
         await ep.close()
 
     async def client_node(port):
@@ -33,7 +38,12 @@ async def test_close_callback(server_close_callback):
             port,
         )
         if server_close_callback is False:
-            ep.set_close_callback(_close_callback)
+            try:
+                ep.set_close_callback(_close_callback)
+            except RuntimeError:
+                # If we fail to set the close callback because the remote endpoint
+                # has closed already, simply execute the callback.
+                _close_callback()
         await ep.close()
 
     listener = ucxx.create_listener(

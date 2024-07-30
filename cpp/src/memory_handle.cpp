@@ -16,54 +16,65 @@
 
 namespace ucxx {
 
-MemoryHandle::MemoryHandle(std::shared_ptr<Context> context, const size_t size, void* buffer)
+MemoryHandle::MemoryHandle(std::shared_ptr<Context> context,
+                           const size_t size,
+                           void* buffer,
+                           const ucs_memory_type_t memoryType)
 {
   setParent(context);
 
   ucp_mem_map_params_t params;
   if (buffer == nullptr) {
-    params = {.field_mask  = UCP_MEM_MAP_PARAM_FIELD_FLAGS | UCP_MEM_MAP_PARAM_FIELD_LENGTH,
+    params = {.field_mask = UCP_MEM_MAP_PARAM_FIELD_FLAGS | UCP_MEM_MAP_PARAM_FIELD_LENGTH |
+                            UCP_MEM_MAP_PARAM_FIELD_MEMORY_TYPE,
               .length      = size,
               .flags       = UCP_MEM_MAP_NONBLOCK | UCP_MEM_MAP_ALLOCATE,
-              .memory_type = UCS_MEMORY_TYPE_HOST};
+              .memory_type = memoryType};
   } else {
-    params = {.field_mask  = UCP_MEM_MAP_PARAM_FIELD_ADDRESS | UCP_MEM_MAP_PARAM_FIELD_LENGTH,
+    params = {.field_mask = UCP_MEM_MAP_PARAM_FIELD_ADDRESS | UCP_MEM_MAP_PARAM_FIELD_LENGTH |
+                            UCP_MEM_MAP_PARAM_FIELD_MEMORY_TYPE,
               .address     = buffer,
               .length      = size,
-              .memory_type = UCS_MEMORY_TYPE_HOST};
+              .memory_type = memoryType};
   }
 
   utils::ucsErrorThrow(ucp_mem_map(context->getHandle(), &params, &_handle));
 
-  ucp_mem_attr_t attr = {.field_mask = UCP_MEM_ATTR_FIELD_ADDRESS | UCP_MEM_ATTR_FIELD_LENGTH};
+  ucp_mem_attr_t attr = {.field_mask = UCP_MEM_ATTR_FIELD_ADDRESS | UCP_MEM_ATTR_FIELD_LENGTH |
+                                       UCP_MEM_ATTR_FIELD_MEM_TYPE};
 
   utils::ucsErrorThrow(ucp_mem_query(_handle, &attr));
 
   _baseAddress = (uint64_t)attr.address;
   _size        = attr.length;
+  _memoryType  = attr.mem_type;
 
-  ucxx_trace("MemoryHandle created: %p, UCP handle: %p, base address: 0x%lx, size: %lu",
+  ucxx_trace("MemoryHandle created: %p, UCP handle: %p, base address: 0x%lx, size: %lu, type: %lu",
              this,
              _handle,
              _baseAddress,
-             _size);
+             _size,
+             _memoryType);
 }
 
 MemoryHandle::~MemoryHandle()
 {
   ucp_mem_unmap(std::dynamic_pointer_cast<Context>(getParent())->getHandle(), _handle);
-  ucxx_trace("ucxx::MemoryHandle destroyed: %p, UCP handle: %p, base address: 0x%lx, size: %lu",
-             this,
-             _handle,
-             _baseAddress,
-             _size);
+  ucxx_trace(
+    "ucxx::MemoryHandle destroyed: %p, UCP handle: %p, base address: 0x%lx, size: %lu, type: %lu",
+    this,
+    _handle,
+    _baseAddress,
+    _size,
+    _memoryType);
 }
 
 std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
                                                  const size_t size,
-                                                 void* buffer)
+                                                 void* buffer,
+                                                 const ucs_memory_type_t memoryType)
 {
-  return std::shared_ptr<MemoryHandle>(new MemoryHandle(context, size, buffer));
+  return std::shared_ptr<MemoryHandle>(new MemoryHandle(context, size, buffer, memoryType));
 }
 
 ucp_mem_h MemoryHandle::getHandle() { return _handle; }
@@ -71,6 +82,8 @@ ucp_mem_h MemoryHandle::getHandle() { return _handle; }
 size_t MemoryHandle::getSize() const { return _size; }
 
 uint64_t MemoryHandle::getBaseAddress() { return _baseAddress; }
+
+ucs_memory_type_t MemoryHandle::getMemoryType() { return _memoryType; }
 
 std::shared_ptr<RemoteKey> MemoryHandle::createRemoteKey()
 {

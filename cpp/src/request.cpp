@@ -19,10 +19,14 @@ namespace ucxx {
 Request::Request(std::shared_ptr<Component> endpointOrWorker,
                  const data::RequestData requestData,
                  const std::string operationName,
-                 const bool enablePythonFuture)
+                 const bool enablePythonFuture,
+                 RequestCallbackUserFunction callbackFunction,
+                 RequestCallbackUserData callbackData)
   : _requestData(requestData),
     _operationName(operationName),
-    _enablePythonFuture(enablePythonFuture)
+    _enablePythonFuture(enablePythonFuture),
+    _callback(callbackFunction),
+    _callbackData(callbackData)
 {
   _endpoint = std::dynamic_pointer_cast<Endpoint>(endpointOrWorker);
   _worker =
@@ -210,8 +214,8 @@ void Request::setStatus(ucs_status_t status)
 
     if (_status != UCS_INPROGRESS)
       ucxx_error(
-        "ucxx::Request: %p, setStatus called with status: %d (%s) but status: %d (%s) was already "
-        "set",
+        "ucxx::Request: %p, setStatus called with status: %d (%s) but status: %d (%s) was "
+        "already set",
         this,
         status,
         ucs_status_string(status),
