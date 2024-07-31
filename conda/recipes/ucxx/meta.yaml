@@ -91,7 +91,7 @@ outputs:
         - cudatoolkit
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        - ucx >=1.15.0,<1.16.0
+        - ucx >=1.15.0,<1.18.0
     test:
       commands:
         - test -f $PREFIX/lib/libucxx.so
@@ -236,7 +236,7 @@ outputs:
         {% else %}
         - cuda-cudart
         {% endif %}
-        - ucx >=1.15.0,<1.16.0
+        - ucx >=1.15.0,<1.18.0
         - {{ pin_subpackage('libucxx', exact=True) }}
         - {{ pin_compatible('rmm', max_pin='x.x') }}
         - numpy>=1.23,<2.0a0
