@@ -26,6 +26,7 @@ project(
 option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulting to local files"
        OFF
 )
+option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_CPP)
