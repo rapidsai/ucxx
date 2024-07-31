@@ -5,10 +5,30 @@
 
 rapids_find_package(
   Python3 REQUIRED COMPONENTS Development
-  BUILD_EXPORT_SET ucxx-python-exports
-  INSTALL_EXPORT_SET ucxx-python-exports
 )
 set(UCXX_PYTHON_LIB Python3::Python)
+
+# ##################################################################################################
+# * compiler options ------------------------------------------------------------------------------
+# Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx
+# dependency because users would then have no control over whether ucx is found
+# multiple times, causing potential configure errors. Therefore, we use a raw
+# find_package call instead of rapids_find_package and skip exporting the ucx
+# dependency. Consumers of ucxx must find ucx themselves. Once the above issue
+# is resolved (see https://github.com/openucx/ucx/pull/9622) we can remove the
+# above find_package in favor of the commented out lines below. For the same
+# reason, we must also gate this find_package call behind a check for the
+# target already existing so that consumers can use tools like CPM.cmake to
+# either find or build ucxx from source if it cannot be found (i.e. both cases
+# must allow prior finding of ucx).
+if(NOT TARGET ucx::ucp)
+  find_package(ucx REQUIRED)
+endif()
+#rapids_find_package(
+#  ucx REQUIRED
+#  BUILD_EXPORT_SET ucxx-exports
+#  INSTALL_EXPORT_SET ucxx-exports
+#)
 
 # ##################################################################################################
 # * python library --------------------------------------------------------------------------------
@@ -38,12 +58,14 @@ target_compile_options(
   ucxx_python PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
 )
 
+get_filename_component(ucxx_dir "${CMAKE_CURRENT_SOURCE_DIR}" DIRECTORY)
+
 # Specify include paths for the current target and dependents
 target_include_directories(
   ucxx_python
-  PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
-         "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/python/include>"
-  PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
+  PUBLIC "$<BUILD_INTERFACE:${ucxx_dir}/include>"
+         "$<BUILD_INTERFACE:${ucxx_dir}/python/include>"
+  PRIVATE "$<BUILD_INTERFACE:${ucxx_dir}/src>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
@@ -66,15 +88,4 @@ if(TARGET conda_env)
   target_link_libraries(ucxx_python PRIVATE conda_env)
 endif()
 
-include(GNUInstallDirs)
 add_library(ucxx::python ALIAS ucxx_python)
-install(DIRECTORY ${UCXX_SOURCE_DIR}/python/include/ucxx
-                  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-                  COMPONENT python
-                  EXCLUDE_FROM_ALL
-)
-
-include("${rapids-cmake-dir}/export/find_package_root.cmake")
-rapids_export_find_package_root(
-  BUILD Python3 [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET ucxx-python-exports
-)

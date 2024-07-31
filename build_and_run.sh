@@ -22,7 +22,6 @@ HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
    libucxx                       - build the UCXX C++ module
-   libucxx_python                - build the UCXX C++ Python support module
    ucxx                          - build the ucxx Python package
    tests                         - build tests
    -v                            - verbose build mode
@@ -99,7 +98,7 @@ fi
 # Exit if a building error occurs
 set -e
 
-(cd ${REPODIR}; ./build.sh ${BUILD_ARGS} libucxx libucxx_python ucxx benchmarks tests examples)
+(cd ${REPODIR}; ./build.sh ${BUILD_ARGS} libucxx ucxx benchmarks tests examples)
 
 # Let all tests run even if they fail
 set +e

@@ -37,7 +37,6 @@ option(BUILD_TESTS "Configure CMake to build tests" ON)
 option(BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
 option(BUILD_EXAMPLES "Configure CMake to build examples" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
-option(UCXX_ENABLE_PYTHON "Enable support for Python notifier thread" OFF)
 option(UCXX_ENABLE_RMM "Enable support for CUDA multi-buffer transfer with RMM" OFF)
 option(DISABLE_DEPRECATION_WARNINGS "Disable warnings generated from deprecated declarations." OFF)
 
@@ -45,7 +44,6 @@ message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
 message(VERBOSE "UCXX: Configure CMake to build benchmarks: ${BUILD_BENCHMARKS}")
 message(VERBOSE "UCXX: Configure CMake to build examples: ${BUILD_EXAMPLES}")
 message(VERBOSE "UCXX: Build UCXX shared libraries: ${BUILD_SHARED_LIBS}")
-message(VERBOSE "UCXX: Enable support for Python notifier thread: ${UCXX_ENABLE_PYTHON}")
 message(VERBOSE "UCXX: Enable support for CUDA multi-buffer transfer with RMM: ${UCXX_ENABLE_RMM}")
 message(
   VERBOSE
@@ -206,13 +204,6 @@ endif()
 
 add_library(ucxx::ucxx ALIAS ucxx)
 
-# Build Python if requested
-if(UCXX_ENABLE_PYTHON)
-  add_subdirectory(python)
-else()
-  set(UCXX_PYTHON_TARGET_TARGET "")
-endif()
-
 # ##################################################################################################
 # * tests and benchmarks --------------------------------------------------------------------------
 # ##################################################################################################
@@ -258,17 +249,6 @@ install(
   EXPORT ucxx-exports
 )
 
-if(TARGET ucxx_python)
-  install(
-    TARGETS ucxx_python
-    COMPONENT python
-    DESTINATION ${lib_dir}
-    EXCLUDE_FROM_ALL
-    EXPORT ucxx-python-exports
-  )
-  set(_components_export_string COMPONENTS python COMPONENTS_EXPORT_SET ucxx-python-exports)
-endif()
-
 install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx
                   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
@@ -295,7 +275,7 @@ targets:
 rapids_export(
   INSTALL ucxx
   EXPORT_SET ucxx-exports ${_components_export_string}
-  GLOBAL_TARGETS ucxx python
+  GLOBAL_TARGETS ucxx
   NAMESPACE ucxx::
   DOCUMENTATION doc_string
 )
@@ -305,7 +285,7 @@ rapids_export(
 rapids_export(
   BUILD ucxx
   EXPORT_SET ucxx-exports ${_components_export_string}
-  GLOBAL_TARGETS ucxx python
+  GLOBAL_TARGETS ucxx
   NAMESPACE ucxx::
   DOCUMENTATION doc_string
 )

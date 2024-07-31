@@ -53,8 +53,7 @@ BUILD_TESTS=OFF
 BUILD_EXAMPLES=OFF
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_COMPILE_COMMANDS=OFF
-UCXX_ENABLE_PYTHON=OFF
-UCXX_ENABLE_RMM=OFF
+UCXX_ENABLE_RMM=ON
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -138,11 +137,6 @@ if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
 fi
 
-if buildAll || hasArg libucxx_python; then
-  UCXX_ENABLE_PYTHON=ON
-  UCXX_ENABLE_RMM=ON
-fi
-
 # If clean given, run it prior to any other steps
 if hasArg clean; then
     # If the dirs to clean are mounted dirs in a container, the
@@ -178,7 +172,6 @@ if buildAll || hasArg libucxx; then
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
-          -DUCXX_ENABLE_PYTHON=${UCXX_ENABLE_PYTHON} \
           -DUCXX_ENABLE_RMM=${UCXX_ENABLE_RMM} \
           ${EXTRA_CMAKE_ARGS}
 
@@ -195,9 +188,6 @@ if buildAll || hasArg libucxx; then
 
     if [[ ${INSTALL_TARGET} != "" ]]; then
         cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
-        if [[ ${UCXX_ENABLE_PYTHON} == "ON" ]]; then
-          cmake --install . --component python
-        fi
         if [[ ${BUILD_BENCHMARKS} == "ON" ]]; then
           cmake --install . --component benchmarks
         fi
@@ -226,7 +216,7 @@ if buildAll || hasArg ucxx; then
 
     cd ${REPODIR}/python/ucxx/
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true -v .
 fi
 
 # Build and install the distributed_ucxx Python package

@@ -18,7 +18,7 @@ if [[ ${package_name} == "distributed-ucxx" ]]; then
 
     RAPIDS_PY_WHEEL_NAME="distributed_ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_dir}/dist
 elif [[ ${package_name} == "ucxx" ]]; then
-    SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON" \
+    SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON;-DCMAKE_INSTALL_LIBDIR=ucxx/lib64;-DCMAKE_INSTALL_INCLUDEDIR=ucxx/include" \
         python -m pip wheel "${package_dir}"/ -w "${package_dir}"/dist -vvv --no-deps --disable-pip-version-check
 
     python -m auditwheel repair -w ${package_dir}/final_dist --exclude "libucp.so.0" ${package_dir}/dist/*
