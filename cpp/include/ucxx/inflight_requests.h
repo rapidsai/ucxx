@@ -89,7 +89,7 @@ class InflightRequests {
    *
    * @returns The number of pending inflight requests.
    */
-  size_t size();
+  [[nodiscard]] size_t size();
 
   /**
    * @brief Insert an inflight requests to the container.
@@ -142,7 +142,7 @@ class InflightRequests {
    *
    * @returns The internally-tracked containers.
    */
-  TrackedRequestsPtr release();
+  [[nodiscard]] TrackedRequestsPtr release();
 
   /**
    * @brief Get count of requests in process of cancelation.
@@ -154,7 +154,7 @@ class InflightRequests {
    *
    * @returns The count of requests that are in process of cancelation.
    */
-  size_t getCancelingSize();
+  [[nodiscard]] size_t getCancelingSize();
 };
 
 }  // namespace ucxx

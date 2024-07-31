@@ -19,7 +19,7 @@ namespace utils {
  *
  * @returns whether Python support is available.
  */
-bool isPythonAvailable();
+[[nodiscard]] bool isPythonAvailable();
 
 }  // namespace utils
 
