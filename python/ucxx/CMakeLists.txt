@@ -14,8 +14,6 @@ else()
 endif()
 
 include(../../fetch_rapids.cmake)
-include(rapids-cmake)
-include(rapids-find)
 
 project(
   ucxx-python
@@ -39,6 +37,9 @@ endif()
 include(rapids-cython-core)
 
 if(NOT ucxx-python_FOUND)
+  set(BUILD_TESTS OFF)
+  set(BUILD_BENCHMARKS OFF)
+
   set(_exclude_from_all "")
 
   add_subdirectory(../../cpp/python ucxx-python ${_exclude_from_all})
