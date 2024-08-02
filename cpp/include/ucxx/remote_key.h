@@ -112,7 +112,7 @@ class RemoteKey : public Component {
    *
    * @returns The `shared_ptr<ucxx::RemoteKey>` object
    */
-  friend std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
+  [[nodiscard]] friend std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
     std::shared_ptr<MemoryHandle> memoryHandle);
 
   /**
@@ -140,7 +140,7 @@ class RemoteKey : public Component {
    *
    * @returns The `shared_ptr<ucxx::RemoteKey>` object
    */
-  friend std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
+  [[nodiscard]] friend std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
     std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
 
   ~RemoteKey();
@@ -160,7 +160,7 @@ class RemoteKey : public Component {
    *
    * @returns The underlying `ucp_mem_h` handle.
    */
-  ucp_rkey_h getHandle();
+  [[nodiscard]] ucp_rkey_h getHandle();
 
   /**
    * @brief Get the size of the memory allocation.
@@ -175,7 +175,7 @@ class RemoteKey : public Component {
    *
    * @returns The size of the memory allocation.
    */
-  size_t getSize() const;
+  [[nodiscard]] size_t getSize() const;
 
   /**
    * @brief Get the base address of the memory allocation.
@@ -191,7 +191,7 @@ class RemoteKey : public Component {
    *
    * @returns The base address of the memory allocation.
    */
-  uint64_t getBaseAddress();
+  [[nodiscard]] uint64_t getBaseAddress();
 
   /**
    * @brief Serialize the remote key.
@@ -206,7 +206,7 @@ class RemoteKey : public Component {
    *
    * @returns The serialized remote key.
    */
-  SerializedRemoteKey serialize() const;
+  [[nodiscard]] SerializedRemoteKey serialize() const;
 };
 
 }  // namespace ucxx

@@ -72,7 +72,7 @@ class Buffer {
    *
    * @return the type of buffer the object holds
    */
-  BufferType getType() const noexcept;
+  [[nodiscard]] BufferType getType() const noexcept;
 
   /**
    * @brief Get the size of the contained buffer.
@@ -81,7 +81,7 @@ class Buffer {
    *
    * @return the size of the contained buffer.
    */
-  size_t getSize() const noexcept;
+  [[nodiscard]] size_t getSize() const noexcept;
 
   /**
    * @brief Abstract method returning void pointer to buffer.
@@ -92,7 +92,7 @@ class Buffer {
    *
    * @return the void pointer to the buffer.
    */
-  virtual void* data() = 0;
+  [[nodiscard]] virtual void* data() = 0;
 };
 
 /**
@@ -159,7 +159,7 @@ class HostBuffer : public Buffer {
    *
    * @return the void pointer to the buffer.
    */
-  void* release();
+  [[nodiscard]] void* release();
 
   /**
    * @brief Get a pointer to the allocated raw host buffer.
@@ -180,7 +180,7 @@ class HostBuffer : public Buffer {
    *
    * @return the void pointer to the buffer.
    */
-  virtual void* data();
+  [[nodiscard]] virtual void* data();
 };
 
 #if UCXX_ENABLE_RMM
@@ -242,7 +242,7 @@ class RMMBuffer : public Buffer {
    *
    * @return the void pointer to the buffer.
    */
-  std::unique_ptr<rmm::device_buffer> release();
+  [[nodiscard]] std::unique_ptr<rmm::device_buffer> release();
 
   /**
    * @brief Get a pointer to the allocated raw device buffer.
@@ -264,7 +264,7 @@ class RMMBuffer : public Buffer {
    *
    * @return the void pointer to the device buffer.
    */
-  virtual void* data();
+  [[nodiscard]] virtual void* data();
 };
 #endif
 
@@ -279,6 +279,6 @@ class RMMBuffer : public Buffer {
  *
  * @returns the `std::shared_ptr` to the allocated buffer.
  */
-std::shared_ptr<Buffer> allocateBuffer(BufferType bufferType, const size_t size);
+[[nodiscard]] std::shared_ptr<Buffer> allocateBuffer(BufferType bufferType, const size_t size);
 
 }  // namespace ucxx

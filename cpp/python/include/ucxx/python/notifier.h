@@ -51,7 +51,7 @@ class Notifier : public ::ucxx::Notifier {
    * WARNING: Use with caution, if no event ever occurs it will be impossible to continue
    * the thread.
    */
-  RequestNotifierWaitState waitRequestNotifierWithoutTimeout();
+  [[nodiscard]] RequestNotifierWaitState waitRequestNotifierWithoutTimeout();
 
   /**
    * @brief Wait for a new event with a timeout.
@@ -61,7 +61,7 @@ class Notifier : public ::ucxx::Notifier {
    *
    * @param[in] period the time to wait for an event before unblocking.
    */
-  RequestNotifierWaitState waitRequestNotifierWithTimeout(uint64_t period);
+  [[nodiscard]] RequestNotifierWaitState waitRequestNotifierWithTimeout(uint64_t period);
 
  public:
   Notifier(const Notifier&)            = delete;
@@ -84,7 +84,7 @@ class Notifier : public ::ucxx::Notifier {
    *
    * @returns The `shared_ptr<ucxx::python::Notifier>` object
    */
-  friend std::shared_ptr<::ucxx::Notifier> createNotifier();
+  [[nodiscard]] friend std::shared_ptr<::ucxx::Notifier> createNotifier();
 
   /**
    * @brief Virtual destructor.
@@ -120,7 +120,7 @@ class Notifier : public ::ucxx::Notifier {
    *
    * @param[in] period the time in nanoseconds to wait for an event before unblocking.
    */
-  RequestNotifierWaitState waitRequestNotifier(uint64_t period) override;
+  [[nodiscard]] RequestNotifierWaitState waitRequestNotifier(uint64_t period) override;
 
   /**
    * @brief Notify event loop of all pending completed Python futures.

@@ -34,7 +34,7 @@ class PythonFutureTaskCollector {
    * `PythonFutureTaskCollector` is a singleton and thus must not be directly instantiated.
    * Instead, users should call this static method to get a reference to its instance.
    */
-  static PythonFutureTaskCollector& get();
+  [[nodiscard]] static PythonFutureTaskCollector& get();
 
   /**
    * Push a Python handle to be later collected.

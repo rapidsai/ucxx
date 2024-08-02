@@ -84,7 +84,7 @@ class RequestTag : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestTag>` object
    */
-  friend std::shared_ptr<RequestTag> createRequestTag(
+  [[nodiscard]] friend std::shared_ptr<RequestTag> createRequestTag(
     std::shared_ptr<Component> endpointOrWorker,
     const std::variant<data::TagSend, data::TagReceive> requestData,
     const bool enablePythonFuture,

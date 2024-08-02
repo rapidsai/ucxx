@@ -79,7 +79,7 @@ void DelayedSubmissionCollection::processPost() { _genericPost.process(); }
 void DelayedSubmissionCollection::registerRequest(std::shared_ptr<Request> request,
                                                   DelayedSubmissionCallbackType callback)
 {
-  _requests.schedule({request, callback});
+  std::ignore = _requests.schedule({request, callback});
 }
 
 ItemIdType DelayedSubmissionCollection::registerGenericPre(DelayedSubmissionCallbackType callback)

@@ -91,7 +91,7 @@ outputs:
         - cudatoolkit
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-        - ucx >=1.15.0,<1.16.0
+        - ucx >=1.15.0,<1.18.0
     test:
       commands:
         - test -f $PREFIX/lib/libucxx.so
@@ -223,7 +223,6 @@ outputs:
         - pip
         - scikit-build-core >=0.7.0
         - cython >=3.0.0
-        - numpy 1.23
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
@@ -237,10 +236,10 @@ outputs:
         {% else %}
         - cuda-cudart
         {% endif %}
-        - ucx >=1.15.0,<1.16.0
+        - ucx >=1.15.0,<1.18.0
         - {{ pin_subpackage('libucxx', exact=True) }}
         - {{ pin_compatible('rmm', max_pin='x.x') }}
-        - {{ pin_compatible('numpy') }}
+        - numpy>=1.23,<2.0a0
         - pynvml >=11.4.1
       run_constrained:
         - cupy >=9.5.0
