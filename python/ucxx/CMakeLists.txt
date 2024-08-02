@@ -24,7 +24,6 @@ project(
 option(FIND_UCXX_PYTHON "Search for existing UCXX Python library installations before defaulting to local files"
        OFF
 )
-option(BUILD_SHARED_LIBS "Build UCXX Python shared libraries" ON)
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_PYTHON)
