@@ -40,9 +40,10 @@ HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [distributed_ucxx] [benchmark
    default action (no args) is to build and install 'libucxx' and 'libucxx_python', then 'ucxx' targets, and finally 'distributed_ucxx'
 "
 LIB_BUILD_DIR=${LIB_BUILD_DIR:=${REPODIR}/cpp/build}
+PYTHON_BUILD_DIR=${PYTHON_BUILD_DIR:=${REPODIR}/cpp/python/build}
 UCXX_BUILD_DIR=${REPODIR}/python/ucxx/build
 
-BUILD_DIRS="${LIB_BUILD_DIR} ${UCXX_BUILD_DIR}"
+BUILD_DIRS="${LIB_BUILD_DIR} ${PYTHON_BUILD_DIR} ${UCXX_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
 VERBOSE_FLAG=""
@@ -53,7 +54,7 @@ BUILD_TESTS=OFF
 BUILD_EXAMPLES=OFF
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_COMPILE_COMMANDS=OFF
-UCXX_ENABLE_RMM=ON
+UCXX_ENABLE_RMM=OFF
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -137,6 +138,10 @@ if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
 fi
 
+if buildAll || hasArg libucxx_python; then
+  UCXX_ENABLE_RMM=ON
+fi
+
 # If clean given, run it prior to any other steps
 if hasArg clean; then
     # If the dirs to clean are mounted dirs in a container, the
@@ -208,6 +213,34 @@ fi
 # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
 SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
 
+# Build and install libucxx_python.so
+if buildAll || hasArg libucxx_python; then
+    CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
+    pwd
+    cmake -S $REPODIR/cpp/python -B ${PYTHON_BUILD_DIR} \
+          -G${CMAKE_GENERATOR} \
+          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
+          ${EXTRA_CMAKE_ARGS}
+
+    cd ${PYTHON_BUILD_DIR}
+
+    compile_start=$(date +%s)
+    cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
+    compile_end=$(date +%s)
+    compile_total=$(( compile_end - compile_start ))
+
+    if [[ ${BUILD_COMPILE_COMMANDS} == "ON" ]]; then
+      cp compile_commands.json ..
+    fi
+
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
+    fi
+fi
+
 # Build and install the UCXX Python package
 if buildAll || hasArg ucxx; then
     if hasArg -g; then
@@ -216,7 +249,7 @@ if buildAll || hasArg ucxx; then
 
     cd ${REPODIR}/python/ucxx/
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true -v .
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
 fi
 
 # Build and install the distributed_ucxx Python package

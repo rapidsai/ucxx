@@ -3,8 +3,53 @@
 # SPDX-License-Identifier: BSD 3-Clause License
 # ======================================================================================================
 
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
+
+include(../../fetch_rapids.cmake)
+include(rapids-cmake)
+include(rapids-cpm)
+include(rapids-export)
+include(rapids-find)
+
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../../VERSION" _version_contents)
+if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
+  set(libucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+else()
+  string(REPLACE "\n" "\n  " _version_contents_formatted "${_version_contents}")
+  message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
+endif()
+
+project(
+  UCXX_PYTHON
+  VERSION ${libucxx_version}
+  LANGUAGES C CXX
+)
+
+option(BUILD_SHARED_LIBS "Build UCXX Python shared libraries" ON)
+option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulting to local files"
+       OFF
+)
+
+# add third party dependencies using CPM
+rapids_cpm_init()
+# find rmm
+include(../cmake/thirdparty/get_rmm.cmake)
+
+if(FIND_UCXX_CPP)
+  rapids_find_package(
+    ucxx REQUIRED
+    BUILD_EXPORT_SET ucxx-python-exports
+    INSTALL_EXPORT_SET ucxx-python-exports
+  )
+else()
+  set(UCXX_ENABLE_RMM ON)
+  add_subdirectory(.. ucxx-cpp)
+endif()
+
 rapids_find_package(
   Python3 REQUIRED COMPONENTS Development
+  BUILD_EXPORT_SET ucxx-python-exports
+  INSTALL_EXPORT_SET ucxx-python-exports
 )
 set(UCXX_PYTHON_LIB Python3::Python)
 
@@ -88,4 +133,25 @@ if(TARGET conda_env)
   target_link_libraries(ucxx_python PRIVATE conda_env)
 endif()
 
+include(GNUInstallDirs)
 add_library(ucxx::python ALIAS ucxx_python)
+install(DIRECTORY ${ucxx_dir}/python/include/ucxx
+                  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(TARGETS ucxx_python DESTINATION ${CMAKE_INSTALL_LIBDIR} EXPORT ucxx-python-exports)
+
+rapids_export(
+  INSTALL ucxx-python
+  EXPORT_SET ucxx-python-exports
+  GLOBAL_TARGETS python
+  NAMESPACE ucxx::
+)
+
+# ##################################################################################################
+# * build export -------------------------------------------------------------------------------
+rapids_export(
+  BUILD ucxx-python
+  EXPORT_SET ucxx-python-exports
+  GLOBAL_TARGETS python
+  NAMESPACE ucxx::
+)
