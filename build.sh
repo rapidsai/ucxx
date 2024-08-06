@@ -167,7 +167,6 @@ fi
 
 if buildAll || hasArg libucxx; then
     CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
-    pwd
     cmake -S $REPODIR/cpp -B ${LIB_BUILD_DIR} \
           -G${CMAKE_GENERATOR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
@@ -182,10 +181,7 @@ if buildAll || hasArg libucxx; then
 
     cd ${LIB_BUILD_DIR}
 
-    compile_start=$(date +%s)
     cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
-    compile_end=$(date +%s)
-    compile_total=$(( compile_end - compile_start ))
 
     if [[ ${BUILD_COMPILE_COMMANDS} == "ON" ]]; then
       cp compile_commands.json ..
@@ -216,7 +212,6 @@ SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
 # Build and install libucxx_python.so
 if buildAll || hasArg libucxx_python; then
     CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
-    pwd
     cmake -S $REPODIR/cpp/python -B ${PYTHON_BUILD_DIR} \
           -G${CMAKE_GENERATOR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
@@ -227,10 +222,7 @@ if buildAll || hasArg libucxx_python; then
 
     cd ${PYTHON_BUILD_DIR}
 
-    compile_start=$(date +%s)
     cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
-    compile_end=$(date +%s)
-    compile_total=$(( compile_end - compile_start ))
 
     if [[ ${BUILD_COMPILE_COMMANDS} == "ON" ]]; then
       cp compile_commands.json ..
