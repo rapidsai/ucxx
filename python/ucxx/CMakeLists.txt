@@ -21,34 +21,27 @@ project(
   LANGUAGES CXX
 )
 
-option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulting to local files"
+option(FIND_UCXX_PYTHON "Search for existing UCXX Python library installations before defaulting to local files"
        OFF
 )
 
 # If the user requested it we attempt to find UCXX.
-if(FIND_UCXX_CPP)
+if(FIND_UCXX_PYTHON)
   find_package(ucx REQUIRED)
-  find_package(ucxx ${ucxx_version} REQUIRED COMPONENTS python)
+  find_package(ucxx-python ${ucxx_version} REQUIRED)
 else()
-  set(ucxx_FOUND OFF)
+  set(ucxx-python_FOUND OFF)
 endif()
 
 include(rapids-cython-core)
 
-if(NOT ucxx_FOUND)
+if(NOT ucxx-python_FOUND)
   set(BUILD_TESTS OFF)
   set(BUILD_BENCHMARKS OFF)
-  set(UCXX_ENABLE_PYTHON ON)
 
   set(_exclude_from_all "")
 
-  add_subdirectory(../../cpp ucxx-cpp ${_exclude_from_all})
-
-  # Since ucxx._lib requires access to libucxx, we place the library in the ucxx directory
-  # and modify the rpaths appropriately.
-  set(cython_lib_dir ucxx)
-  install(TARGETS ucxx DESTINATION ${cython_lib_dir})
-  install(TARGETS ucxx_python DESTINATION ${cython_lib_dir})
+  add_subdirectory(../../cpp/python ucxx-python ${_exclude_from_all})
 endif()
 
 rapids_cython_init()
@@ -59,6 +52,6 @@ find_package(
 add_subdirectory(ucxx/examples)
 add_subdirectory(ucxx/_lib)
 
-if(DEFINED cython_lib_dir)
-  rapids_cython_add_rpath_entries(TARGET ucxx PATHS "${cython_lib_dir}")
+if(NOT ucxx-python_FOUND)
+  rapids_cython_add_rpath_entries(TARGET ucxx_python PATHS ${CMAKE_INSTALL_LIBDIR})
 endif()
