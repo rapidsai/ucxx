@@ -105,6 +105,7 @@ files:
       table: project
     includes:
       - run_python_ucxx
+      - depends_on_libucxx
       - depends_on_rmm
   py_test_ucxx:
     output: pyproject
