@@ -18,6 +18,7 @@ jobs:
       - conda-cpp-tests
       - conda-python-tests
       - conda-python-distributed-tests
+      - wheel-build-libucxx
       - wheel-build-ucxx
       - wheel-tests-ucxx
       - wheel-build-distributed-ucxx
