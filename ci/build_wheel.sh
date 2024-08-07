@@ -17,11 +17,18 @@ if [[ ${package_name} == "distributed-ucxx" ]]; then
     python -m pip wheel "${package_dir}/" -w "${package_dir}/dist" -vvv --no-deps --disable-pip-version-check
 
     RAPIDS_PY_WHEEL_NAME="distributed_ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_dir}/dist
-elif [[ ${package_name} == "ucxx" ]]; then
-    SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON;-DCMAKE_INSTALL_LIBDIR=ucxx/lib64;-DCMAKE_INSTALL_INCLUDEDIR=ucxx/include" \
+elif [[ ${package_name} == "libucxx" ]]; then
+    SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON" \
         python -m pip wheel "${package_dir}"/ -w "${package_dir}"/dist -vvv --no-deps --disable-pip-version-check
 
     python -m auditwheel repair -w ${package_dir}/final_dist --exclude "libucp.so.0" ${package_dir}/dist/*
+
+    RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_dir}/final_dist
+elif [[ ${package_name} == "ucxx" ]]; then
+    SKBUILD_CMAKE_ARGS="-DFIND_UCXX_CPP=ON;-DCMAKE_INSTALL_LIBDIR=ucxx/lib64;-DCMAKE_INSTALL_INCLUDEDIR=ucxx/include" \
+        python -m pip wheel "${package_dir}"/ -w "${package_dir}"/dist -vvv --no-deps --disable-pip-version-check
+
+    python -m auditwheel repair -w ${package_dir}/final_dist --exclude "libucp.so.0" --exclude "libucxx.so" ${package_dir}/dist/*
 
     RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_dir}/final_dist
 else
