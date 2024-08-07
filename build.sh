@@ -226,12 +226,12 @@ if buildAll || hasArg ucxx; then
 
     cd ${REPODIR}/python/
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps .
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
 fi
 
 # Build and install the distributed_ucxx Python package
 if buildAll || hasArg distributed_ucxx; then
 
     cd ${REPODIR}/python/distributed-ucxx/
-    python -m pip install --no-build-isolation --no-deps .
+    python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
 fi

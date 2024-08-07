@@ -49,9 +49,10 @@ requirements:
     - cuda-cudart-dev
     {% endif %}
     - cuda-version ={{ cuda_version }}
+    - rapids-build-backend >=0.3.0,<0.4.0.dev0
     - ucx
     - python
-    - librmm =24.06
+    - librmm {{ rapids_version }}
 
 outputs:
   - name: libucxx
@@ -225,7 +226,8 @@ outputs:
         - numpy 1.23
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
-        - rmm =24.06
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rmm {{ rapids_version }}
         - cuda-version {{ cuda_version }}
       run:
         - python * *_cpython
@@ -273,11 +275,12 @@ outputs:
       host:
         - python
         - pip
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
         - setuptools
         - wheel
       run:
         - python * *_cpython
-        - rapids-dask-dependency =24.06
+        - rapids-dask-dependency {{ rapids_version }}
         - {{ pin_subpackage('ucxx', max_pin='x.x') }}
     test:
       imports:

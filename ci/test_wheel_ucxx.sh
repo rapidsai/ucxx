@@ -10,7 +10,7 @@ source "$(dirname "$0")/test_common.sh"
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
 RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
-python -m pip install "${package_name}-${RAPIDS_PY_CUDA_SUFFIX}[test]>=0.0.0a0" --find-links dist/
+python -m pip install -v "$(echo ./dist/${package_name}_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
 rapids-logger "Python Core Tests"
 run_py_tests

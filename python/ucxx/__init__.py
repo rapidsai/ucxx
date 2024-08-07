@@ -96,7 +96,7 @@ if "UCX_MAX_RNDV_RAILS" not in os.environ and get_ucx_version() >= (1, 12, 0):
     os.environ["UCX_MAX_RNDV_RAILS"] = "1"
 
 
-from ._version import __version__
+from ._version import __git_commit__, __version__
 
 __ucx_version__ = "%d.%d.%d" % get_ucx_version()
 
