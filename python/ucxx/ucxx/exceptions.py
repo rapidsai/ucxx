@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from ._lib.libucxx import UCXAlreadyExistsError  # noqa
-from ._lib.libucxx import (
+from ._lib.libucxx import (  # noqa
+    UCXAlreadyExistsError,
     UCXBufferTooSmallError,
     UCXBusyError,
     UCXCanceled,
