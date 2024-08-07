@@ -153,16 +153,16 @@ class WorkerProgressThread {
    *
    * @returns Whether polling mode is enabled.
    */
-  bool pollingMode() const;
+  [[nodiscard]] bool pollingMode() const;
 
   /**
    * @brief Returns the ID of the progress thread.
    *
    * @returns the progress thread ID.
    */
-  std::thread::id getId() const;
+  [[nodiscard]] std::thread::id getId() const;
 
-  bool isRunning() const;
+  [[nodiscard]] bool isRunning() const;
 
   void stop();
 };

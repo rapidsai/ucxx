@@ -64,7 +64,8 @@ class Future : public ::ucxx::Future {
    *
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
-  friend std::shared_ptr<::ucxx::Future> createFuture(std::shared_ptr<::ucxx::Notifier> notifier);
+  [[nodiscard]] friend std::shared_ptr<::ucxx::Future> createFuture(
+    std::shared_ptr<::ucxx::Notifier> notifier);
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::python::Future>`.
@@ -80,7 +81,7 @@ class Future : public ::ucxx::Future {
    *
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
-  friend std::shared_ptr<::ucxx::Future> createFutureWithEventLoop(
+  [[nodiscard]] friend std::shared_ptr<::ucxx::Future> createFutureWithEventLoop(
     PyObject* asyncioEventLoop, std::shared_ptr<::ucxx::Notifier> notifier);
 
   /**
@@ -127,7 +128,7 @@ class Future : public ::ucxx::Future {
    *
    * @returns The underlying `PyObject*` handle.
    */
-  void* getHandle();
+  [[nodiscard]] void* getHandle();
 
   /**
    * @brief Get the underlying `PyObject*` handle and release ownership.
@@ -140,7 +141,7 @@ class Future : public ::ucxx::Future {
    *
    * @returns The underlying `PyObject*` handle.
    */
-  void* release();
+  [[nodiscard]] void* release();
 };
 
 }  // namespace python

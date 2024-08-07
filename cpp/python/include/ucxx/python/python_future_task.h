@@ -206,7 +206,7 @@ struct PythonFutureTask {
    *
    * @returns The underlying C++ future.
    */
-  std::future<ReturnType>& getFuture()
+  [[nodiscard]] std::future<ReturnType>& getFuture()
   {
     if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
 
@@ -227,7 +227,7 @@ struct PythonFutureTask {
    *
    * @returns The underlying `PyObject*` handle.
    */
-  PyObject* getHandle()
+  [[nodiscard]] PyObject* getHandle()
   {
     if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
 
@@ -245,7 +245,7 @@ struct PythonFutureTask {
    *
    * @returns The underlying `PyObject*` handle.
    */
-  PyObject* release()
+  [[nodiscard]] PyObject* release()
   {
     if (_handle == nullptr) throw std::runtime_error("Invalid object or already released");
 
@@ -322,7 +322,7 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
    *
    * @returns The underlying C++ future.
    */
-  std::future<ReturnType>& getFuture() { return _detail->getFuture(); }
+  [[nodiscard]] std::future<ReturnType>& getFuture() { return _detail->getFuture(); }
 
   /**
    * @brief Get the underlying future `PyObject*` handle but does not release ownership.
@@ -338,7 +338,7 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
    *
    * @returns The underlying `PyObject*` handle.
    */
-  PyObject* getHandle() { return _detail->getHandle(); }
+  [[nodiscard]] PyObject* getHandle() { return _detail->getHandle(); }
 
   /**
    * @brief Get the underlying future `PyObject*` handle and release ownership.
@@ -351,7 +351,7 @@ class PythonFutureTask : public std::enable_shared_from_this<PythonFutureTask<Re
    *
    * @returns The underlying `PyObject*` handle.
    */
-  PyObject* release() { return _detail->release(); }
+  [[nodiscard]] PyObject* release() { return _detail->release(); }
 };
 
 }  // namespace python
