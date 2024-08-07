@@ -23,7 +23,7 @@ elif [[ ${package_name} == "libucxx" ]]; then
 
     python -m auditwheel repair -w ${package_dir}/final_dist --exclude "libucp.so.0" ${package_dir}/dist/*
 
-    RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_dir}/final_dist
+    RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp ${package_dir}/final_dist
 elif [[ ${package_name} == "ucxx" ]]; then
     CPP_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libucxx_dist)
     echo "libucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${CPP_WHEELHOUSE}/libucxx_*.whl)" > "${package_dir}/constraints.txt"
@@ -34,7 +34,7 @@ elif [[ ${package_name} == "ucxx" ]]; then
 
     python -m auditwheel repair -w ${package_dir}/final_dist --exclude "libucp.so.0" --exclude "libucxx.so" ${package_dir}/dist/*
 
-    RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 ${package_dir}/final_dist
+    RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python ${package_dir}/final_dist
 else
   echo "Unknown package '${package_name}'"
   exit 1
