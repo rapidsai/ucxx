@@ -331,7 +331,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &librmm_conda librmm==24.10.*,>=0.0.0a0
+          - &librmm_unsuffixed librmm==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -346,7 +346,7 @@ dependencies:
           - matrix: {cuda: "11.*"}
             packages:
               - librmm-cu11==24.10.*,>=0.0.0a0
-          - {matrix: null, packages: [*librmm_conda]}
+          - {matrix: null, packages: [*librmm_unsuffixed]}
   depends_on_rmm:
     common:
       - output_types: conda

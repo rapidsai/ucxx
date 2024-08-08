@@ -46,6 +46,7 @@ DEPENDENCIES=(
   rmm
 )
 UCXX_DEPENDENCIES=(
+  libucxx
   ucxx
   distributed-ucxx
 )
