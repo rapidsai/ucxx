@@ -76,6 +76,7 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: libucxx
+      package-type: cpp
   wheel-build-ucxx:
     needs: wheel-build-libucxx
     secrets: inherit
@@ -96,6 +97,7 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: ucxx
+      package-type: python
   wheel-build-distributed-ucxx:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.10
@@ -115,3 +117,4 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: distributed_ucxx
+      package-type: python
