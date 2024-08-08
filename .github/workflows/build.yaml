@@ -65,7 +65,7 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      script: ci/build_wheel_ucxx.sh
+      script: ci/build_wheel_libucxx.sh
   wheel-publish-libucxx:
     needs: wheel-build-libucxx
     secrets: inherit
