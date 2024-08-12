@@ -34,25 +34,20 @@ cache:
         SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
         SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
   requirements:
-    # The docs say that run exports on the cache are applied at the cache level.
-    # https://prefix-dev.github.io/rattler-build/dev/multiple_output_cache/#run-exports-from-the-cache
-    # I don't know what that means. I expected it to mean that it would prevent
-    # these run exports from being propagated to the outputs, but that doesn't
-    # seem to be happening.
-    #ignore_run_exports:
-    #  from_package:
-    #    # librmm is showing up, which also indicates an error in librmm's conda
-    #    # package. It shouldn't have a run export on itself since it's header-only.
-    #    # It should run export the relevant CTK libs (mainly cudart) so that its APIs
-    #    # can be called in any code that uses rmm functions, though.
-    #    #- librmm
-    #    - python
-    #    - ucx
-    #    - if: cuda_major == "11"
-    #      then:
-    #        - ${{ compiler('cuda11') }}
-    #      else:
-    #        - ${{ compiler('cuda') }}
+    ignore_run_exports:
+      from_package:
+        # librmm is showing up, which also indicates an error in librmm's conda
+        # package. It shouldn't have a run export on itself since it's header-only.
+        # It should run export the relevant CTK libs (mainly cudart) so that its APIs
+        # can be called in any code that uses rmm functions, though.
+        #- librmm
+        - python
+        - ucx
+        - if: cuda_major == "11"
+          then:
+            - ${{ compiler('cuda11') }}
+          else:
+            - ${{ compiler('cuda') }}
     build:
       - cmake
       - ${{ compiler('c') }}
@@ -89,15 +84,6 @@ outputs:
         exclude:
           - tmp/*
     requirements:
-      ignore_run_exports:
-        from_package:
-          # librmm is showing up, which also indicates an error in librmm's conda
-          # package. It shouldn't have a run export on itself since it's header-only.
-          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
-          # can be called in any code that uses rmm functions, though.
-          #- librmm
-          - python
-          - ucx
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       build:
@@ -173,20 +159,6 @@ outputs:
         exclude:
           - tmp/*
     requirements:
-      ignore_run_exports:
-        from_package:
-          # librmm is showing up, which also indicates an error in librmm's conda
-          # package. It shouldn't have a run export on itself since it's header-only.
-          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
-          # can be called in any code that uses rmm functions, though.
-          #- librmm
-          - python
-          - ucx
-          - if: cuda_major == "11"
-            then:
-              - ${{ compiler('cuda11') }}
-            else:
-              - ${{ compiler('cuda') }}
       build:
         - cmake
       host:
@@ -215,20 +187,6 @@ outputs:
         exclude:
           - tmp/*
     requirements:
-      ignore_run_exports:
-        from_package:
-          # librmm is showing up, which also indicates an error in librmm's conda
-          # package. It shouldn't have a run export on itself since it's header-only.
-          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
-          # can be called in any code that uses rmm functions, though.
-          #- librmm
-          - python
-          - ucx
-          - if: cuda_major == "11"
-            then:
-              - ${{ compiler('cuda11') }}
-            else:
-              - ${{ compiler('cuda') }}
       build:
         - cmake
       host:
@@ -274,19 +232,6 @@ outputs:
         exclude:
           - tmp/*
     requirements:
-      ignore_run_exports:
-        from_package:
-          # librmm is showing up, which also indicates an error in librmm's conda
-          # package. It shouldn't have a run export on itself since it's header-only.
-          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
-          # can be called in any code that uses rmm functions, though.
-          #- librmm
-          - ucx
-          - if: cuda_major == "11"
-            then:
-              - ${{ compiler('cuda11') }}
-            else:
-              - ${{ compiler('cuda') }}
       build:
         - cmake
         - ${{ compiler('c') }}
@@ -338,6 +283,7 @@ outputs:
         - test -f $PREFIX/include/ucxx/python/notifier.h
         - test -f $PREFIX/include/ucxx/python/python_future.h
         - test -f $PREFIX/include/ucxx/python/worker.h
+        - python -c "import ucxx"
         requirements:
           run:
             # This shouldn't be needed because it is already a run requirement
@@ -349,12 +295,6 @@ outputs:
             - if: cuda_major == "11"
               then:
                 - conda-forge::cudatoolkit
-      # Python tests don't currently support specifying requirements, so we
-      # can't work around the channel priority here.
-      # https://github.com/prefix-dev/rattler-build/issues/976
-      #- python:
-      #    imports:
-      #      - ucxx
     about:
       homepage: https://rapids.ai/
       repository: https://github.com/rapidsai/ucxx
@@ -373,19 +313,6 @@ outputs:
         exclude:
           - tmp/*
     requirements:
-      ignore_run_exports:
-        from_package:
-          # librmm is showing up, which also indicates an error in librmm's conda
-          # package. It shouldn't have a run export on itself since it's header-only.
-          # It should run export the relevant CTK libs (mainly cudart) so that its APIs
-          # can be called in any code that uses rmm functions, though.
-          #- librmm
-          - ucx
-          - if: cuda_major == "11"
-            then:
-              - ${{ compiler('cuda11') }}
-            else:
-              - ${{ compiler('cuda') }}
       build: 
         - git
       host:
@@ -400,16 +327,17 @@ outputs:
           then:
             - conda-forge::cudatoolkit
       run:
-        - python * *_cpython
         - rapids-dask-dependency ${{ rapids_version }}
         - ${{ pin_subpackage('ucxx', upper_bound='x.x') }}
-    # Python tests don't currently support specifying requirements, so we
-    # can't work around the channel priority here.
-    # https://github.com/prefix-dev/rattler-build/issues/976
-    #tests:
-    #  - python:
-    #      imports:
-    #        - distributed_ucxx
+    tests:
+      - script:
+        - python -c "import distributed_ucxx"
+        requirements:
+          run:
+            # This shouldn't be needed because it is already a run requirement
+            # of libucx, but right now we have to have it to specify channel
+            # priority (we can't pull the one on the RAPIDS channel).
+            - conda-forge::ucx >=1.15.0,<1.16.0
     about:
       homepage: https://rapids.ai/
       repository: https://github.com/rapidsai/ucxx
