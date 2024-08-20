@@ -282,7 +282,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numpy numpy>=1.23,<3
+          - &numpy numpy>=1.23,<3.0a0
           - pynvml>=11.4.1
   run_python_distributed_ucxx:
     common:
