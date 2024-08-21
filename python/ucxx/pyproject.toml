@@ -17,7 +17,7 @@ authors = [
     { name = "NVIDIA Corporation" },
 ]
 license = { text = "BSD-3-Clause" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "libucxx==0.40.*,>=0.0.0a0",
     "numpy>=1.23,<2.0a0",
