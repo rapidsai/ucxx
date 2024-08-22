@@ -239,7 +239,7 @@ outputs:
         - ucx >=1.15.0,<1.18.0
         - {{ pin_subpackage('libucxx', exact=True) }}
         - {{ pin_compatible('rmm', max_pin='x.x') }}
-        - numpy>=1.23,<2.0a0
+        - numpy>=1.23,<3.0a0
         - pynvml >=11.4.1
       run_constrained:
         - cupy >=9.5.0
