@@ -113,41 +113,13 @@ finish:
   return result;
 }
 
-static PyCFunction get_future_method(const char* method_name)
-{
-  PyCFunction result = NULL;
-
-  PyGILState_STATE state = PyGILState_Ensure();
-
-  PyObject* future_object = get_asyncio_future_object();
-  if (PyErr_Occurred()) {
-    ucxx_trace_req("ucxx::python::%s, error getting asyncio.Future method object", __func__);
-    PyErr_Print();
-  }
-  PyMethodDef* m = reinterpret_cast<PyTypeObject*>(future_object)->tp_methods;
-
-  for (; m != NULL; ++m) {
-    if (m->ml_name && !strcmp(m->ml_name, method_name)) {
-      result = m->ml_meth;
-      break;
-    }
-  }
-
-  if (!result)
-    PyErr_Format(PyExc_RuntimeError, "Unable to load function pointer for `Future.set_result`.");
-
-  PyGILState_Release(state);
-  return result;
-}
-
 PyObject* future_set_result(PyObject* future, PyObject* value)
 {
   PyObject* result = NULL;
 
   PyGILState_STATE state = PyGILState_Ensure();
 
-  PyCFunction f = get_future_method("set_result");
-  result        = f(future, value);
+  result = PyObject_CallMethodOneArg(future, set_result_str, value);
   if (PyErr_Occurred()) {
     ucxx_trace_req("ucxx::python::%s, error calling `set_result()` from `asyncio.Future` object",
                    __func__);
@@ -165,7 +137,6 @@ PyObject* future_set_exception(PyObject* future, PyObject* exception, const char
   PyObject* message_object   = NULL;
   PyObject* message_tuple    = NULL;
   PyObject* formed_exception = NULL;
-  PyCFunction f              = NULL;
 
   PyGILState_STATE state = PyGILState_Ensure();
 
@@ -176,9 +147,8 @@ PyObject* future_set_exception(PyObject* future, PyObject* exception, const char
   formed_exception = PyObject_Call(exception, message_tuple, NULL);
   if (formed_exception == NULL) goto err;
 
-  f = get_future_method("set_exception");
+  result = PyObject_CallMethodOneArg(future, set_exception_str, formed_exception);
 
-  result = f(future, formed_exception);
   goto finish;
 
 err:
