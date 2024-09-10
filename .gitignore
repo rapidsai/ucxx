@@ -16,11 +16,11 @@ dask-worker-space
 dist/
 python/distributed-ucxx/record.txt
 python/record.txt
-python/ucxx/_lib/*.a
-python/ucxx/_lib/*.o
-python/ucxx/_lib/*.c
-python/ucxx/_lib/*.cpp
-python/ucxx/_lib/*.h
+python/ucxx/ucxx/_lib/*.a
+python/ucxx/ucxx/_lib/*.o
+python/ucxx/ucxx/_lib/*.c
+python/ucxx/ucxx/_lib/*.cpp
+python/ucxx/ucxx/_lib/*.h
 wheels/
 *.egg-info/
 _skbuild/

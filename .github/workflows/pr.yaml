@@ -18,27 +18,28 @@ jobs:
       - conda-cpp-tests
       - conda-python-tests
       - conda-python-distributed-tests
+      - wheel-build-libucxx
       - wheel-build-ucxx
       - wheel-tests-ucxx
       - wheel-build-distributed-ucxx
       - wheel-tests-distributed-ucxx
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@python-3.12
   checks:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@python-3.12
     with:
       enable_check_generated_files: false
   conda-cpp-build:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@python-3.12
     with:
       build_type: pull-request
   docs-build:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@python-3.12
     with:
       build_type: pull-request
       node_type: "gpu-v100-latest-1"
@@ -48,36 +49,43 @@ jobs:
   conda-cpp-tests:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@python-3.12
     with:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   conda-python-tests:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@python-3.12
     with:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   conda-python-distributed-tests:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@python-3.12
     with:
       build_type: pull-request
       script: "ci/test_python_distributed.sh"
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-  wheel-build-ucxx:
+  wheel-build-libucxx:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@python-3.12
+    with:
+      build_type: pull-request
+      script: ci/build_wheel_libucxx.sh
+  wheel-build-ucxx:
+    needs: wheel-build-libucxx
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@python-3.12
     with:
       build_type: pull-request
       script: ci/build_wheel_ucxx.sh
   wheel-tests-ucxx:
     needs: wheel-build-ucxx
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@python-3.12
     with:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
@@ -85,14 +93,14 @@ jobs:
   wheel-build-distributed-ucxx:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@python-3.12
     with:
       build_type: pull-request
       script: ci/build_wheel_distributed_ucxx.sh
   wheel-tests-distributed-ucxx:
     needs: [wheel-build-ucxx, wheel-build-distributed-ucxx]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-24.10
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@python-3.12
     with:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"

@@ -53,8 +53,8 @@ class Worker : public Component {
     _inflightRequestsToCancelMutex{};  ///< Mutex to access the inflight requests to cancel pool
   std::unique_ptr<InflightRequests> _inflightRequestsToCancel{
     std::make_unique<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
-  std::shared_ptr<WorkerProgressThread> _progressThread{nullptr};  ///< The progress thread object
-  std::thread::id _progressThreadId{};                             ///< The progress thread ID
+  WorkerProgressThread _progressThread{};   ///< The progress thread object
+  std::thread::id _progressThreadId{};      ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
     nullptr};  ///< The callback function to execute at progress thread start
   void* _progressThreadStartCallbackArg{
@@ -102,7 +102,7 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion state and data.
    */
-  std::shared_ptr<RequestAm> getAmRecv(
+  [[nodiscard]] std::shared_ptr<RequestAm> getAmRecv(
     ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction);
 
   /**
@@ -123,7 +123,7 @@ class Worker : public Component {
    *
    * @return the request that was registered (i.e., the `request` argument itself).
    */
-  std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
+  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Progress the worker until all communication events are completed.
@@ -187,9 +187,9 @@ class Worker : public Component {
    *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    * @returns The `shared_ptr<ucxx::Worker>` object
    */
-  friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                              const bool enableDelayedSubmission,
-                                              const bool enableFuture);
+  [[nodiscard]] friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
+                                                            const bool enableDelayedSubmission,
+                                                            const bool enableFuture);
 
   /**
    * @brief `ucxx::Worker` destructor.
@@ -211,7 +211,7 @@ class Worker : public Component {
    *
    * @returns The underlying `ucp_worker_h` handle.
    */
-  ucp_worker_h getHandle();
+  [[nodiscard]] ucp_worker_h getHandle();
 
   /**
    * @brief Get information about the underlying `ucp_worker_h` object.
@@ -221,7 +221,7 @@ class Worker : public Component {
    *
    * @returns String containing information about the UCP worker.
    */
-  std::string getInfo();
+  [[nodiscard]] std::string getInfo();
 
   /**
    * @brief Initialize blocking progress mode.
@@ -428,32 +428,50 @@ class Worker : public Component {
    * Register callback to be executed in the current or next iteration of the progress
    * thread before the worker is progressed. There is no guarantee that the callback will
    * be executed in the current or next iteration, this depends on where the progress thread
-   * is in the current iteration when this callback is registered. The lifetime of the
-   * callback must be ensured by the caller.
+   * is in the current iteration when this callback is registered.
    *
    * The purpose of this method is to schedule operations to be executed in the progress
    * thread, such as endpoint creation and closing, so that progressing doesn't ever need
    * to occur in the application thread when using a progress thread.
    *
+   * If `period` is `0` this is a blocking call that only returns when the callback has been
+   * executed and will always return `true`, and if `period` is a positive integer the time
+   * in nanoseconds will be waited for the callback to complete and return `true` in the
+   * successful case or `false` otherwise. `period` only applies if the worker progress
+   * thread is running, otherwise the callback is immediately executed.
+   *
    * @param[in] callback  the callback to execute before progressing the worker.
+   * @param[in] period    the time in nanoseconds to wait for the callback to complete.
+   *
+   * @returns `true` if the callback was successfully executed or `false` if timed out.
    */
-  void registerGenericPre(DelayedSubmissionCallbackType callback);
+  [[nodiscard]] bool registerGenericPre(DelayedSubmissionCallbackType callback,
+                                        uint64_t period = 0);
 
   /**
-   * @brief Register callback to be executed in progress thread after progressing.
+   * @brief Register callback to be executed in progress thread before progressing.
    *
    * Register callback to be executed in the current or next iteration of the progress
    * thread after the worker is progressed. There is no guarantee that the callback will
    * be executed in the current or next iteration, this depends on where the progress thread
-   * is in the current iteration when this callback is registered. The lifetime of the
-   * callback must be ensured by the caller.
+   * is in the current iteration when this callback is registered.
    *
    * The purpose of this method is to schedule operations to be executed in the progress
    * thread, immediately after progressing the worker completes.
    *
-   * @param[in] callback  the callback to execute after progressing the worker.
+   * If `period` is `0` this is a blocking call that only returns when the callback has been
+   * executed and will always return `true`, and if `period` is a positive integer the time
+   * in nanoseconds will be waited for the callback to complete and return `true` in the
+   * successful case or `false` otherwise. `period` only applies if the worker progress
+   * thread is running, otherwise the callback is immediately executed.
+   *
+   * @param[in] callback  the callback to execute before progressing the worker.
+   * @param[in] period    the time in nanoseconds to wait for the callback to complete.
+   *
+   * @returns `true` if the callback was successfully executed or `false` if timed out.
    */
-  void registerGenericPost(DelayedSubmissionCallbackType callback);
+  [[nodiscard]] bool registerGenericPost(DelayedSubmissionCallbackType callback,
+                                         uint64_t period = 0);
 
   /**
    * @brief Inquire if worker has been created with delayed submission enabled.
@@ -462,7 +480,7 @@ class Worker : public Component {
    *
    * @returns `true` if delayed submission is enabled, `false` otherwise.
    */
-  bool isDelayedRequestSubmissionEnabled() const;
+  [[nodiscard]] bool isDelayedRequestSubmissionEnabled() const;
 
   /**
    * @brief Inquire if worker has been created with future support.
@@ -471,7 +489,7 @@ class Worker : public Component {
    *
    * @returns `true` if future support is enabled, `false` otherwise.
    */
-  bool isFutureEnabled() const;
+  [[nodiscard]] bool isFutureEnabled() const;
 
   /**
    * @brief Populate the future pool.
@@ -497,7 +515,7 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::python::Future>` object
    */
-  virtual std::shared_ptr<Future> getFuture();
+  [[nodiscard]] virtual std::shared_ptr<Future> getFuture();
 
   /**
    * @brief Block until a request event.
@@ -513,7 +531,7 @@ class Worker : public Component {
    *          `RequestNotifierWaitStats::Timeout` if a timeout occurred, or
    *          `RequestNotifierWaitStats::Shutdown` if shutdown has initiated.
    */
-  virtual RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
+  [[nodiscard]] virtual RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs);
 
   /**
    * @brief Notify futures of each completed communication request.
@@ -581,7 +599,7 @@ class Worker : public Component {
    *
    * @returns `true` if a progress thread is running, `false` otherwise.
    */
-  bool isProgressThreadRunning();
+  [[nodiscard]] bool isProgressThreadRunning();
 
   /**
    * @brief Get the progress thread ID.
@@ -590,7 +608,7 @@ class Worker : public Component {
    *
    * @returns the progress thread ID.
    */
-  std::thread::id getProgressThreadId();
+  [[nodiscard]] std::thread::id getProgressThreadId();
 
   /**
    * @brief Cancel inflight requests.
@@ -661,7 +679,7 @@ class Worker : public Component {
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
-  bool tagProbe(const Tag tag);
+  [[nodiscard]] bool tagProbe(const Tag tag);
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -687,13 +705,14 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> tagRecv(void* buffer,
-                                   size_t length,
-                                   Tag tag,
-                                   TagMask tagMask,
-                                   const bool enableFuture                      = false,
-                                   RequestCallbackUserFunction callbackFunction = nullptr,
-                                   RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> tagRecv(
+    void* buffer,
+    size_t length,
+    Tag tag,
+    TagMask tagMask,
+    const bool enableFuture                      = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Get the address of the UCX worker object.
@@ -706,7 +725,7 @@ class Worker : public Component {
    *
    * @returns The address of the local worker.
    */
-  std::shared_ptr<Address> getAddress();
+  [[nodiscard]] std::shared_ptr<Address> getAddress();
 
   /**
    * @brief Create endpoint to worker listening on specific IP and port.
@@ -732,9 +751,8 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  std::shared_ptr<Endpoint> createEndpointFromHostname(std::string ipAddress,
-                                                       uint16_t port,
-                                                       bool endpointErrorHandling = true);
+  [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromHostname(
+    std::string ipAddress, uint16_t port, bool endpointErrorHandling = true);
 
   /**
    * @brief Create endpoint to worker located at UCX address.
@@ -764,8 +782,8 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Address> address,
-                                                            bool endpointErrorHandling = true);
+  [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
+    std::shared_ptr<Address> address, bool endpointErrorHandling = true);
 
   /**
    * @brief Listen for remote connections on given port.
@@ -784,9 +802,9 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Listener>` object
    */
-  std::shared_ptr<Listener> createListener(uint16_t port,
-                                           ucp_listener_conn_callback_t callback,
-                                           void* callbackArgs);
+  [[nodiscard]] std::shared_ptr<Listener> createListener(uint16_t port,
+                                                         ucp_listener_conn_callback_t callback,
+                                                         void* callbackArgs);
 
   /**
    * @brief Register allocator for active messages.
@@ -875,7 +893,7 @@ class Worker : public Component {
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
-  bool amProbe(const ucp_ep_h endpointHandle) const;
+  [[nodiscard]] bool amProbe(const ucp_ep_h endpointHandle) const;
 
   /**
    * @brief Enqueue a flush operation.
@@ -898,9 +916,10 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  std::shared_ptr<Request> flush(const bool enablePythonFuture                = false,
-                                 RequestCallbackUserFunction callbackFunction = nullptr,
-                                 RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] std::shared_ptr<Request> flush(
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 };
 
 }  // namespace ucxx

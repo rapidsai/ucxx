@@ -99,10 +99,12 @@ std::shared_ptr<Worker> Context::createWorker(const bool enableDelayedSubmission
   return worker;
 }
 
-std::shared_ptr<MemoryHandle> Context::createMemoryHandle(const size_t size, void* buffer)
+std::shared_ptr<MemoryHandle> Context::createMemoryHandle(const size_t size,
+                                                          void* buffer,
+                                                          const ucs_memory_type_t memoryType)
 {
   auto context = std::dynamic_pointer_cast<Context>(shared_from_this());
-  return ucxx::createMemoryHandle(context, size, buffer);
+  return ucxx::createMemoryHandle(context, size, buffer, memoryType);
 }
 
 }  // namespace ucxx

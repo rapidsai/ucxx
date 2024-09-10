@@ -75,7 +75,7 @@ class RequestEndpointClose : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestEndpointClose>` object.
    */
-  friend std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
+  [[nodiscard]] friend std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
     std::shared_ptr<Endpoint> endpoint,
     const data::EndpointClose requestData,
     const bool enablePythonFuture,

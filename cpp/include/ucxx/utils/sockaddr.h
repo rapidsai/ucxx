@@ -22,8 +22,8 @@ namespace utils {
  *
  * @returns unique pointer wrapping a `struct addrinfo` (frees the addrinfo when out of scope)
  */
-std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> get_addrinfo(const char* ip_address,
-                                                                          uint16_t port);
+[[nodiscard]] std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> get_addrinfo(
+  const char* ip_address, uint16_t port);
 
 /**
  * @brief Get socket address and port of a socket address storage.

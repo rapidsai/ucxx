@@ -56,35 +56,60 @@ files:
     includes:
       - docs
       - py_version
-  py_rapids_build_ucxx:
+  py_build_libucxx:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/libucxx
     extras:
       table: build-system
     includes:
       - rapids_build_skbuild
+  py_rapids_build_libucxx:
+    output: pyproject
+    pyproject_dir: python/libucxx
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
+    includes:
+      - build_cpp
+      - depends_on_librmm
+      - depends_on_ucx_build
+  py_run_libucxx:
+    output: pyproject
+    pyproject_dir: python/libucxx
+    extras:
+      table: project
+    includes:
+      - depends_on_ucx_run
   py_build_ucxx:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/ucxx
+    extras:
+      table: build-system
+    includes:
+      - rapids_build_skbuild
+  py_rapids_build_ucxx:
+    output: pyproject
+    pyproject_dir: python/ucxx
     extras:
       table: tool.rapids-build-backend
       key: requires
     includes:
       - build_python_ucxx
+      - depends_on_librmm
+      - depends_on_libucxx
       - depends_on_rmm
-      - depends_on_ucx_build
   py_run_ucxx:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/ucxx
     extras:
       table: project
     includes:
       - run_python_ucxx
+      - depends_on_libucxx
       - depends_on_rmm
-      - depends_on_ucx_run
   py_test_ucxx:
     output: pyproject
-    pyproject_dir: python
+    pyproject_dir: python/ucxx
     extras:
       table: project.optional-dependencies
       key: test
@@ -135,6 +160,10 @@ dependencies:
           - librmm==24.10.*,>=0.0.0a0
           - ninja
           - spdlog>=1.12.0,<1.13
+      - output_types: [requirements, pyproject]
+        packages:
+          - *cmake_ver
+          - ninja
   build_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -149,10 +178,10 @@ dependencies:
           - &rapids_build_backend rapids-build-backend>=0.3.0,<0.4.0.dev0
       - output_types: conda
         packages:
-          - scikit-build-core>=0.7.0
+          - scikit-build-core>=0.10.0
       - output_types: [requirements, pyproject]
         packages:
-          - scikit-build-core[pyproject]>=0.7.0
+          - scikit-build-core[pyproject]>=0.10.0
   rapids_build_setuptools:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -235,10 +264,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.9"
-            packages:
-              - python=3.9
-          - matrix:
               py: "3.10"
             packages:
               - python=3.10
@@ -247,13 +272,17 @@ dependencies:
             packages:
               - python=3.11
           - matrix:
+              py: "3.12"
             packages:
-              - python>=3.9,<3.12
+              - python=3.12
+          - matrix:
+            packages:
+              - python>=3.10,<3.13
   run_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numpy numpy>=1.23,<2.0a0
+          - &numpy numpy>=1.23,<3.0a0
           - pynvml>=11.4.1
   run_python_distributed_ucxx:
     common:
@@ -298,11 +327,31 @@ dependencies:
             packages: &cupy_packages_cu11
               - cupy-cuda11x>=12.0.0
           - {matrix: null, packages: *cupy_packages_cu11}
+  depends_on_librmm:
+    common:
+      - output_types: conda
+        packages:
+          - &librmm_unsuffixed librmm==24.10.*,>=0.0.0a0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - librmm-cu12==24.10.*,>=0.0.0a0
+          - matrix: {cuda: "11.*"}
+            packages:
+              - librmm-cu11==24.10.*,>=0.0.0a0
+          - {matrix: null, packages: [*librmm_unsuffixed]}
   depends_on_rmm:
     common:
       - output_types: conda
         packages:
-          - &rmm_conda rmm==24.10.*,>=0.0.0a0
+          - &rmm_unsuffixed rmm==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -311,18 +360,22 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - rmm-cu12==24.10.*,>=0.0.0a0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - rmm-cu11==24.10.*,>=0.0.0a0
-          - {matrix: null, packages: [*rmm_conda]}
+          - {matrix: null, packages: [*rmm_unsuffixed]}
   depends_on_cudf:
     common:
       - output_types: conda
         packages:
-          - &cudf_conda cudf==24.10.*,>=0.0.0a0
+          - &cudf_unsuffixed cudf==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -331,18 +384,39 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - cudf-cu12==24.10.*,>=0.0.0a0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - cudf-cu11==24.10.*,>=0.0.0a0
-          - {matrix: null, packages: [*cudf_conda]}
+          - {matrix: null, packages: [*cudf_unsuffixed]}
+  depends_on_libucxx:
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - libucxx-cu12==0.40.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
+            packages:
+              - libucxx-cu11==0.40.*,>=0.0.0a0
+          - matrix:
+            packages:
+              - libucxx==0.40.*,>=0.0.0a0
   depends_on_ucxx:
     common:
       - output_types: conda
         packages:
-          - &ucxx_conda ucxx==0.40.*,>=0.0.0a0
+          - &ucxx_unsuffixed ucxx==0.40.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -351,18 +425,22 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - ucxx-cu12==0.40.*,>=0.0.0a0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - ucxx-cu11==0.40.*,>=0.0.0a0
-          - {matrix: null, packages: [*ucxx_conda]}
+          - {matrix: null, packages: [*ucxx_unsuffixed]}
   depends_on_ucx_build:
     common:
       - output_types: conda
         packages:
-          - &ucx_conda_build ucx==1.15.0
+          - ucx==1.15.0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -371,10 +449,14 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - libucx-cu12==1.15.0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
               - libucx-cu11==1.15.0
           - matrix: null
@@ -384,7 +466,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &ucx_conda_run ucx>=1.15.0
+          - ucx>=1.15.0,<1.18
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -393,12 +475,16 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.15.0
-          - matrix: {cuda: "11.*"}
+              - libucx-cu12>=1.15.0,<1.18
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
-              - libucx-cu11>=1.15.0
+              - libucx-cu11>=1.15.0,<1.18
           - matrix: null
             packages:
-              - libucx>=1.15.0
+              - libucx>=1.15.0,<1.18

@@ -22,27 +22,17 @@ class Request;
 typedef std::map<const Request* const, std::shared_ptr<Request>> InflightRequestsMap;
 
 /**
- * @brief Pre-defined type for a pointer to an inflight request map.
- *
- * A pre-defined type for a pointer to an inflight request map, used as a convenience type.
- */
-typedef std::unique_ptr<InflightRequestsMap> InflightRequestsMapPtr;
-
-/**
  * @brief A container for the different types of tracked requests.
  *
  * A container encapsulating the different types of handled tracked requests, currently
  * those still valid (inflight), and those scheduled for cancelation (canceling).
  */
 typedef struct TrackedRequests {
-  InflightRequestsMapPtr _inflight;   ///< Valid requests awaiting completion.
-  InflightRequestsMapPtr _canceling;  ///< Requests scheduled for cancelation.
-
-  TrackedRequests()
-    : _inflight(std::make_unique<InflightRequestsMap>()),
-      _canceling(std::make_unique<InflightRequestsMap>())
-  {
-  }
+  InflightRequestsMap _inflight{};   ///< Valid requests awaiting completion.
+  InflightRequestsMap _canceling{};  ///< Requests scheduled for cancelation.
+  std::mutex _mutex{};               ///< Mutex to control access to inflight requests container
+  std::mutex
+    _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
 } TrackedRequests;
 
 /**
@@ -65,9 +55,7 @@ class InflightRequests {
     std::make_unique<TrackedRequests>()};  ///< Container storing pointers to all inflight
                                            ///< and in cancelation process requests known to
                                            ///< the owner of this object
-  std::mutex _mutex{};  ///< Mutex to control access to inflight requests container
-  std::mutex
-    _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
+  std::recursive_mutex _mutex{};           ///< Mutex to control access to class resources
 
   /**
    * @brief Drop references to requests that completed cancelation.
@@ -101,7 +89,7 @@ class InflightRequests {
    *
    * @returns The number of pending inflight requests.
    */
-  size_t size();
+  [[nodiscard]] size_t size();
 
   /**
    * @brief Insert an inflight requests to the container.
@@ -154,7 +142,7 @@ class InflightRequests {
    *
    * @returns The internally-tracked containers.
    */
-  TrackedRequestsPtr release();
+  [[nodiscard]] TrackedRequestsPtr release();
 
   /**
    * @brief Get count of requests in process of cancelation.
@@ -166,7 +154,7 @@ class InflightRequests {
    *
    * @returns The count of requests that are in process of cancelation.
    */
-  size_t getCancelingSize();
+  [[nodiscard]] size_t getCancelingSize();
 };
 
 }  // namespace ucxx

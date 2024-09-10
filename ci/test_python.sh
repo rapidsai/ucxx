@@ -63,4 +63,4 @@ for progress_mode in "blocking" "thread"; do
 done
 
 rapids-logger "C++ future -> Python future notifier example"
-python -m ucxx.examples.python_future_task_example
+timeout 1m python -m ucxx.examples.python_future_task_example
