@@ -10,9 +10,14 @@ source "$(dirname "$0")/test_common.sh"
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 cpp)
+RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 python)
+
 rapids-dependency-file-generator \
   --output conda \
   --file-key test_python \
+  --prepend-channel "${LIBRMM_CHANNEL}" \
+  --prepend-channel "${RMM_CHANNEL}" \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
@@ -27,6 +32,8 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
+  --channel "${LIBRMM_CHANNEL}" \
+  --channel "${RMM_CHANNEL}" \
   libucxx ucxx
 
 print_ucx_config
