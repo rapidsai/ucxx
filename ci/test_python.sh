@@ -13,18 +13,16 @@ rapids-logger "Create test conda environment"
 LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 cpp)
 RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 python)
 
-CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 python)
-LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact libcudf 16806 cpp)
-PYLIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact pycudf 16806 python)
+CUDF_CPP_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 cpp)
+CUDF_PYTHON_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 python)
 
 rapids-dependency-file-generator \
   --output conda \
   --file-key test_python \
   --prepend-channel "${LIBRMM_CHANNEL}" \
   --prepend-channel "${RMM_CHANNEL}" \
-  --prepend-channel "${CUDF_CHANNEL}" \
-  --prepend-channel "${LIBCUDF_CHANNEL}" \
-  --prepend-channel "${PYLIBCUDF_CHANNEL}" \
+  --prepend-channel "${CUDF_CPP_CHANNEL}" \
+  --prepend-channel "${CUDF_PYTHON_CHANNEL}" \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
@@ -41,9 +39,8 @@ rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${LIBRMM_CHANNEL}" \
   --channel "${RMM_CHANNEL}" \
-  --channel "${CUDF_CHANNEL}" \
-  --channel "${LIBCUDF_CHANNEL}" \
-  --channel "${PYLIBCUDF_CHANNEL}" \
+  --channel "${CUDF_CPP_CHANNEL}" \
+  --channel "${CUDF_PYTHON_CHANNEL}" \
   libucxx ucxx
 
 print_ucx_config
