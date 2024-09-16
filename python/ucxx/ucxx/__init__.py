@@ -106,7 +106,7 @@ from ._version import __git_commit__, __version__
 __ucx_min_version__ = "1.15.0"
 __ucx_version__ = "%d.%d.%d" % get_ucx_version()
 
-if get_ucx_version() < tuple([int(i) for i in __ucx_min_version__.split(".")]):
+if get_ucx_version() < tuple(int(i) for i in __ucx_min_version__.split(".")):
     raise ImportError(
         f"Support for UCX {__ucx_version__} has ended. Please upgrade to "
         f"{__ucx_min_version__} or newer. If you believe the wrong version "
