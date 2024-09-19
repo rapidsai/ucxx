@@ -42,12 +42,12 @@ DASK_CUDF_CHANNEL=$(
 # )
 
 cat > /tmp/constraints.txt <<EOF
-librmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://${LIBRMM_CHANNEL}
-rmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://${RMM_CHANNEL}
-cudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://${CUDF_CHANNEL}
-libcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://${LIBCUDF_CHANNEL}
-pylibcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://${PYLIBCUDF_CHANNEL}
-dask-cudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://${DASK_CUDF_CHANNEL}
+librmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBRMM_CHANNEL}/librmm_*.whl)
+rmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${RMM_CHANNEL}/rmm_*.whl)
+cudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${CUDF_CHANNEL}/cudf_*.whl)
+libcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBCUDF_CHANNEL}/libcudf_*.whl)
+pylibcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${PYLIBCUDF_CHANNEL}/pylibcudf_*.whl)
+dask-cudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${DASK_CUDF_CHANNEL}/dask_cudf_*.whl)
 EOF
 # ucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://${UCXX_CHANNEL}
 # libucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://${LIBUCXX_CHANNEL}
