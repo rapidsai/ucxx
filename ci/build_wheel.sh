@@ -26,9 +26,8 @@ elif [[ ${package_name} == "libucxx" ]]; then
     RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp ${package_dir}/final_dist
 elif [[ ${package_name} == "ucxx" ]]; then
     CPP_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libucxx_dist)
-    echo "libucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${CPP_WHEELHOUSE}/libucxx_*.whl)" > "${package_dir}/constraints.txt"
+    echo "libucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${CPP_WHEELHOUSE}/libucxx_*.whl)" >> /tmp/constraints.txt
 
-    PIP_CONSTRAINT="${package_dir}/constraints.txt" \
     SKBUILD_CMAKE_ARGS="-DFIND_UCXX_CPP=ON;-DCMAKE_INSTALL_LIBDIR=ucxx/lib64;-DCMAKE_INSTALL_INCLUDEDIR=ucxx/include" \
         python -m pip wheel "${package_dir}"/ -w "${package_dir}"/dist -vvv --no-deps --disable-pip-version-check
 

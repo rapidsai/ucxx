@@ -13,19 +13,13 @@ source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
 
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
+source ./ci/use_conda_packages_from_prs.sh
+
 rapids-print-env
 
 rapids-logger "Begin C++ and Python builds"
 
-LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 cpp)
-RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 python)
-CUDF_CPP_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 cpp)
-CUDF_PYTHON_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 python)
-rapids-conda-retry mambabuild \
-  --channel "${LIBRMM_CHANNEL}" \
-  --channel "${RMM_CHANNEL}" \
-  --channel "${CUDF_CPP_CHANNEL}" \
-  --channel "${CUDF_PYTHON_CHANNEL}" \
-  conda/recipes/ucxx
+rapids-conda-retry mambabuild conda/recipes/ucxx
 
 rapids-upload-conda-to-s3 cpp

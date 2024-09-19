@@ -6,6 +6,7 @@ set -euo pipefail
 package_name="ucxx"
 
 source "$(dirname "$0")/test_common.sh"
+source "$(dirname "$0")/use_wheels_from_prs.sh"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
