@@ -54,4 +54,4 @@ EOF
 # distributed-ucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://${DISTRIBUTED_UCXX_CHANNEL}
 # raft-dask-${RAPIDS_PY_CUDA_SUFFIX} @ file://${RAFT_DASK_CHANNEL}
 # pylibraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://${PYLIBRAFT_CHANNEL}
-export PIP_CONSTRAINT=/tmp/constraints
+export PIP_CONSTRAINT=/tmp/constraints.txt
