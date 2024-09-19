@@ -48,10 +48,10 @@ cudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://${CUDF_CHANNEL}
 libcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://${LIBCUDF_CHANNEL}
 pylibcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://${PYLIBCUDF_CHANNEL}
 dask-cudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://${DASK_CUDF_CHANNEL}
+EOF
 # ucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://${UCXX_CHANNEL}
 # libucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://${LIBUCXX_CHANNEL}
 # distributed-ucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://${DISTRIBUTED_UCXX_CHANNEL}
 # raft-dask-${RAPIDS_PY_CUDA_SUFFIX} @ file://${RAFT_DASK_CHANNEL}
 # pylibraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://${PYLIBRAFT_CHANNEL}
-EOF
 export PIP_CONSTRAINT=/tmp/constraints
