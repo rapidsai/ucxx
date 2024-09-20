@@ -49,9 +49,9 @@ libcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBCUDF_CHANNEL}/libcudf_*.wh
 pylibcudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${PYLIBCUDF_CHANNEL}/pylibcudf_*.whl)
 dask-cudf-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${DASK_CUDF_CHANNEL}/dask_cudf_*.whl)
 EOF
-# ucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://${UCXX_CHANNEL}
-# libucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://${LIBUCXX_CHANNEL}
-# distributed-ucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://${DISTRIBUTED_UCXX_CHANNEL}
-# raft-dask-${RAPIDS_PY_CUDA_SUFFIX} @ file://${RAFT_DASK_CHANNEL}
-# pylibraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://${PYLIBRAFT_CHANNEL}
+# ucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${UCXX_CHANNEL}/ucxx_*.whl)
+# libucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBUCXX_CHANNEL}/libucxx_*.whl)
+# distributed-ucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${DISTRIBUTED_UCXX_CHANNEL}/distributed_ucxx_*.whl)
+# raft-dask-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${RAFT_DASK_CHANNEL}/raft_dask_*.whl)
+# pylibraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${PYLIBRAFT_CHANNEL}/pylibraft_*.whl)
 export PIP_CONSTRAINT=/tmp/constraints.txt
