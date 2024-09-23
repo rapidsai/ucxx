@@ -42,13 +42,12 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
     we keep a reference to the listener's endpoint and execute transfers
     outside of the callback function.
     """
+    # TAG is always used for wireup
     feature_flags = [ucx_api.Feature.WAKEUP]
     if transfer_api == "am":
         feature_flags.append(ucx_api.Feature.AM)
     elif transfer_api == "stream":
         feature_flags.append(ucx_api.Feature.STREAM)
-    else:
-        feature_flags.append(ucx_api.Feature.TAG)
 
     ctx = ucx_api.UCXContext(feature_flags=tuple(feature_flags))
     worker = ucx_api.UCXWorker(ctx)
@@ -75,9 +74,13 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
         if progress_mode == "blocking":
             worker.progress()
 
-    wireup_msg = Array(bytearray(WireupMessageSize))
-    wireup_request = _recv(ep[0], transfer_api, wireup_msg)
-    wait_requests(worker, progress_mode, wireup_request)
+    wireup_msg_recv = Array(bytearray(WireupMessageSize))
+    wireup_msg_send = Array(bytes(os.urandom(WireupMessageSize)))
+    wireup_requests = [
+        _recv(ep[0], transfer_api, wireup_msg_recv),
+        _send(ep[0], transfer_api, wireup_msg_send),
+    ]
+    wait_requests(worker, progress_mode, wireup_requests)
 
     msg = Array(bytearray(msg_size))
 
@@ -110,13 +113,12 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
 
 
 def _echo_client(transfer_api, msg_size, progress_mode, port):
-    feature_flags = [ucx_api.Feature.WAKEUP]
+    # TAG is always used for wireup
+    feature_flags = [ucx_api.Feature.WAKEUP, ucx_api.Feature.TAG]
     if transfer_api == "am":
         feature_flags.append(ucx_api.Feature.AM)
     if transfer_api == "stream":
         feature_flags.append(ucx_api.Feature.STREAM)
-    else:
-        feature_flags.append(ucx_api.Feature.TAG)
 
     ctx = ucx_api.UCXContext(feature_flags=tuple(feature_flags))
     worker = ucx_api.UCXWorker(ctx)
@@ -136,9 +138,13 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
     if progress_mode == "blocking":
         worker.progress()
 
-    wireup_msg = Array(bytes(os.urandom(WireupMessageSize)))
-    wireup_request = _send(ep, transfer_api, wireup_msg)
-    wait_requests(worker, progress_mode, wireup_request)
+    wireup_msg_send = Array(bytes(os.urandom(WireupMessageSize)))
+    wireup_msg_recv = Array(bytearray(WireupMessageSize))
+    wireup_requests = [
+        _send(ep, transfer_api, wireup_msg_send),
+        _recv(ep, transfer_api, wireup_msg_recv),
+    ]
+    wait_requests(worker, progress_mode, wireup_requests)
 
     send_msg = bytes(os.urandom(msg_size))
     recv_msg = bytearray(msg_size)
