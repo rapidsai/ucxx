@@ -17,6 +17,10 @@ PyObject* create_future_str        = NULL;
 PyObject* future_str               = NULL;
 PyObject* set_exception_str        = NULL;
 PyObject* set_result_str           = NULL;
+PyObject* done_str                 = NULL;
+PyObject* cancelled_str            = NULL;
+PyObject* result_str               = NULL;
+PyObject* exception_str            = NULL;
 
 static int intern_strings(void)
 {
@@ -32,6 +36,14 @@ static int intern_strings(void)
   if (set_exception_str == NULL) { return -1; }
   set_result_str = PyUnicode_InternFromString("set_result");
   if (set_result_str == NULL) { return -1; }
+  done_str = PyUnicode_InternFromString("done");
+  if (done_str == NULL) { return -1; }
+  cancelled_str = PyUnicode_InternFromString("cancelled");
+  if (cancelled_str == NULL) { return -1; }
+  result_str = PyUnicode_InternFromString("result");
+  if (result_str == NULL) { return -1; }
+  exception_str = PyUnicode_InternFromString("exception");
+  if (exception_str == NULL) { return -1; }
   return 0;
 }
 
@@ -113,11 +125,50 @@ finish:
   return result;
 }
 
-PyObject* future_set_result(PyObject* future, PyObject* value)
+PyObject* future_get_result(PyObject* future)
 {
   PyObject* result = NULL;
 
   PyGILState_STATE state = PyGILState_Ensure();
+
+  result = PyObject_CallMethodNoArgs(future, result_str);
+  if (PyErr_Occurred()) {
+    ucxx_warn("ucxx::python::%s, error calling `result()` from `asyncio.Future` object", __func__);
+    PyErr_Print();
+  }
+
+  PyGILState_Release(state);
+
+  return result;
+}
+
+PyObject* future_set_result(PyObject* future, PyObject* value)
+{
+  PyObject* result      = NULL;
+  PyObject* done        = NULL;
+  PyObject* cancelled   = NULL;
+  PyObject* prev_result = NULL;
+
+  PyGILState_STATE state = PyGILState_Ensure();
+
+  done = PyObject_CallMethodNoArgs(future, done_str);
+  if (PyErr_Occurred()) {
+    ucxx_warn("ucxx::python::%s, error calling `done()` from `asyncio.Future` object", __func__);
+    PyErr_Print();
+  } else if (PyObject_IsTrue(done)) {
+    ucxx_warn("ucxx::python::%s, `asyncio.Future` object is already done.", __func__);
+    prev_result = future_get_result(future);
+  } else {
+    cancelled = PyObject_CallMethodNoArgs(future, cancelled_str);
+    if (PyErr_Occurred()) {
+      ucxx_warn("ucxx::python::%s, error calling `cancelled()` from `asyncio.Future` object",
+                __func__);
+      PyErr_Print();
+    } else if (PyObject_IsTrue(cancelled)) {
+      ucxx_warn("ucxx::python::%s, `asyncio.Future` object has been cancelled.", __func__);
+      prev_result = future_get_result(future);
+    }
+  }
 
   result = PyObject_CallMethodOneArg(future, set_result_str, value);
   if (PyErr_Occurred()) {
