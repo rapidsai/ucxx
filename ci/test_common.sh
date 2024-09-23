@@ -173,7 +173,23 @@ install_distributed_dev_mode() {
   # to run non-public API tests in CI.
 
   rapids-logger "Install Distributed in developer mode"
-  git clone https://github.com/dask/distributed /tmp/distributed -b 2024.1.1
+  MAX_ATTEMPTS=5
+  for attempt in $(seq 1 $MAX_ATTEMPTS); do
+    rm -rf /tmp/distributed
+
+    if git clone https://github.com/dask/distributed /tmp/distributed -b 2024.1.1; then
+      break
+    else
+
+      if [ $attempt -eq $MAX_ATTEMPTS ]; then
+        rapids-logger "Maximum number of attempts to clone Distributed failed."
+        exit 1
+      fi
+
+      sleep 1
+    fi
+  done
+
   pip install -e /tmp/distributed
   # `pip install -e` removes files under `distributed` but not the directory, later
   # causing failures to import modules.

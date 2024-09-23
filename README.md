@@ -6,16 +6,27 @@ UCXX is an object-oriented C++ interface for UCX, with native support for Python
 
 ### Environment setup
 
-Before starting it is necessary to have the necessary dependencies installed. The simplest way to get started is to installed [Miniconda](https://docs.conda.io/en/latest/miniconda.html) and then to create and activate an environment with the provided development file:
+Before starting it is necessary to have the necessary dependencies installed. The simplest way to get started is to install [Miniforge](https://github.com/conda-forge/miniforge) and then to create and activate an environment with the provided development file, for CUDA 11.x:
 
 ```
 $ conda env create -n ucxx -f conda/environments/all_cuda-118_arch-x86_64.yaml
+```
+
+Or for CUDA 12.x:
+
+```
+$ conda env create -n ucxx -f conda/environments/all_cuda-125_arch-x86_64.yaml
+```
+
+And then activate the newly created environment:
+
+```
 $ conda activate ucxx
 ```
 
 #### Faster conda dependency resolution
 
-The procedure aforementioned should complete without issues, but it may be slower than necessary. One alternative to speed up dependency resolution is to install [mamba](https://mamba.readthedocs.io/en/latest/) before creating the new environment. After installing Miniconda, mamba can be installed with:
+The procedure aforementioned should complete without issues, but it may be slower than necessary. One alternative to speed up dependency resolution is to install [mamba](https://mamba.readthedocs.io/en/latest/) before creating the new environment. After installing Miniforge, mamba can be installed with:
 
 ```
 $ conda install -c conda-forge mamba
