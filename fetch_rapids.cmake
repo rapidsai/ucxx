@@ -12,8 +12,6 @@
 # the License.
 # =============================================================================
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/UCXX_RAPIDS.cmake)
-  set(rapids-cmake-repo jameslamb/rapids-cmake)
-  set(rapids-cmake-branch fmt-and-spdlog)  
   file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-24.10/RAPIDS.cmake
        ${CMAKE_CURRENT_BINARY_DIR}/UCXX_RAPIDS.cmake
   )

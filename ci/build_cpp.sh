@@ -13,13 +13,11 @@ source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
 
-cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
-source ./ci/use_conda_packages_from_prs.sh
-
 rapids-print-env
 
 rapids-logger "Begin C++ and Python builds"
 
-rapids-conda-retry mambabuild conda/recipes/ucxx
+rapids-conda-retry mambabuild \
+  conda/recipes/ucxx
 
 rapids-upload-conda-to-s3 cpp

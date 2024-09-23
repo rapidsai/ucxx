@@ -6,7 +6,6 @@
 set -euo pipefail
 
 source "$(dirname "$0")/test_common.sh"
-source "$(dirname "$0")/use_conda_packages_from_prs.sh"
 
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
