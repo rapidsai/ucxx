@@ -19,8 +19,6 @@ PyObject* set_exception_str        = NULL;
 PyObject* set_result_str           = NULL;
 PyObject* done_str                 = NULL;
 PyObject* cancelled_str            = NULL;
-PyObject* result_str               = NULL;
-PyObject* exception_str            = NULL;
 
 static int intern_strings(void)
 {
@@ -40,10 +38,6 @@ static int intern_strings(void)
   if (done_str == NULL) { return -1; }
   cancelled_str = PyUnicode_InternFromString("cancelled");
   if (cancelled_str == NULL) { return -1; }
-  result_str = PyUnicode_InternFromString("result");
-  if (result_str == NULL) { return -1; }
-  exception_str = PyUnicode_InternFromString("exception");
-  if (exception_str == NULL) { return -1; }
   return 0;
 }
 
@@ -72,18 +66,12 @@ static PyObject* get_asyncio_future_object()
   }
 
   asyncio_module = PyImport_Import(asyncio_str);
-  if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, error importing asyncio", __func__);
-    PyErr_Print();
-  }
-  if (PyErr_Occurred()) PyErr_Print();
+  if (PyErr_Occurred()) ucxx_error("ucxx::python::%s, error importing asyncio", __func__);
   if (asyncio_module == NULL) goto finish;
 
   asyncio_future_object = PyObject_GetAttr(asyncio_module, future_str);
-  if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, error getting asyncio.Future method", __func__);
-    PyErr_Print();
-  }
+  if (PyErr_Occurred())
+    ucxx_error("ucxx::python::%s, error getting asyncio.Future method", __func__);
   Py_DECREF(asyncio_module);
   if (asyncio_future_object == NULL) { goto finish; }
 
@@ -115,28 +103,37 @@ PyObject* create_python_future()
   }
 
   result = PyObject_CallFunctionObjArgs(future_object, NULL);
-  if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, error creating asyncio.Future", __func__);
-    PyErr_Print();
-  }
+  if (PyErr_Occurred()) ucxx_error("ucxx::python::%s, error creating asyncio.Future", __func__);
 
 finish:
   PyGILState_Release(state);
   return result;
 }
 
-PyObject* future_get_result(PyObject* future)
+PyObject* check_future_state(PyObject* future)
 {
   PyObject* result = NULL;
 
   PyGILState_STATE state = PyGILState_Ensure();
 
-  result = PyObject_CallMethodNoArgs(future, result_str);
+  result = PyObject_CallMethodNoArgs(future, cancelled_str);
   if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, error calling `result()` from `asyncio.Future` object", __func__);
-    PyErr_Print();
+    ucxx_error("ucxx::python::%s, error calling `cancelled()` from `asyncio.Future` object",
+               __func__);
+  } else if (PyObject_IsTrue(result)) {
+    ucxx_trace_req("ucxx::python::%s, `asyncio.Future` object has been cancelled.", __func__);
+    goto finish;
   }
 
+  result = PyObject_CallMethodNoArgs(future, done_str);
+  if (PyErr_Occurred()) {
+    ucxx_error("ucxx::python::%s, error calling `done()` from `asyncio.Future` object", __func__);
+  } else if (PyObject_IsTrue(result)) {
+    ucxx_trace_req("ucxx::python::%s, `asyncio.Future` object is already done.", __func__);
+    goto finish;
+  }
+
+finish:
   PyGILState_Release(state);
 
   return result;
@@ -144,37 +141,22 @@ PyObject* future_get_result(PyObject* future)
 
 PyObject* future_set_result(PyObject* future, PyObject* value)
 {
-  PyObject* result      = NULL;
-  PyObject* done        = NULL;
-  PyObject* cancelled   = NULL;
-  PyObject* prev_result = NULL;
+  PyObject* result = NULL;
 
   PyGILState_STATE state = PyGILState_Ensure();
 
-  cancelled = PyObject_CallMethodNoArgs(future, cancelled_str);
-  if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, error calling `cancelled()` from `asyncio.Future` object",
-              __func__);
-    PyErr_Print();
-  } else if (PyObject_IsTrue(cancelled)) {
-    ucxx_warn("ucxx::python::%s, `asyncio.Future` object has been cancelled.", __func__);
+  if (PyObject_IsTrue(check_future_state(future))) {
+    ucxx_trace_req(
+      "ucxx::python::%s, `asyncio.Future` object is already done or has been cancelled, "
+      "skipping `set_result()`.",
+      __func__);
     goto finish;
-  }
-
-  done = PyObject_CallMethodNoArgs(future, done_str);
-  if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, error calling `done()` from `asyncio.Future` object", __func__);
-    PyErr_Print();
-  } else if (PyObject_IsTrue(done)) {
-    ucxx_warn("ucxx::python::%s, `asyncio.Future` object is already done.", __func__);
-    prev_result = future_get_result(future);
-  } else {
   }
 
   result = PyObject_CallMethodOneArg(future, set_result_str, value);
   if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, error calling `set_result()` from `asyncio.Future` object",
-              __func__);
+    ucxx_error("ucxx::python::%s, error calling `set_result()` from `asyncio.Future` object",
+               __func__);
     PyErr_Print();
   }
 
@@ -192,6 +174,14 @@ PyObject* future_set_exception(PyObject* future, PyObject* exception, const char
   PyObject* formed_exception = NULL;
 
   PyGILState_STATE state = PyGILState_Ensure();
+
+  if (PyObject_IsTrue(check_future_state(future))) {
+    ucxx_trace_req(
+      "ucxx::python::%s, `asyncio.Future` object is already done or has been cancelled, "
+      "skipping `set_exception()`.",
+      __func__);
+    goto finish;
+  }
 
   message_object = PyUnicode_FromString(message);
   if (message_object == NULL) goto err;
@@ -227,7 +217,7 @@ PyObject* create_python_future_with_event_loop(PyObject* event_loop)
 
   result = PyObject_CallMethodObjArgs(event_loop, create_future_str, NULL);
   if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, error calling `create_future` from event loop object", __func__);
+    ucxx_error("ucxx::python::%s, error calling `create_future` from event loop object", __func__);
     PyErr_Print();
   }
 
@@ -250,8 +240,8 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop, PyObject* futu
 
   set_result_callable = PyObject_GetAttr(future, set_result_str);
   if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, error getting `set_result` method from `asyncio.Future` object",
-              __func__);
+    ucxx_error("ucxx::python::%s, error getting `set_result` method from `asyncio.Future` object",
+               __func__);
     PyErr_Print();
     goto finish;
   }
@@ -266,7 +256,7 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop, PyObject* futu
   result = PyObject_CallMethodObjArgs(
     event_loop, call_soon_threadsafe_str, set_result_callable, value, NULL);
   if (PyErr_Occurred()) {
-    ucxx_warn(
+    ucxx_error(
       "ucxx::python::%s, error calling `call_soon_threadsafe` from event loop object to set future "
       "result",
       __func__);
@@ -299,8 +289,9 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
 
   set_exception_callable = PyObject_GetAttr(future, set_exception_str);
   if (PyErr_Occurred()) {
-    ucxx_warn("ucxx::python::%s, Error getting `set_exception` method from `asyncio.Future` object",
-              __func__);
+    ucxx_error(
+      "ucxx::python::%s, Error getting `set_exception` method from `asyncio.Future` object",
+      __func__);
     PyErr_Print();
     goto finish;
   }
@@ -322,7 +313,7 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
   result = PyObject_CallMethodObjArgs(
     event_loop, call_soon_threadsafe_str, set_exception_callable, formed_exception, NULL);
   if (PyErr_Occurred()) {
-    ucxx_warn(
+    ucxx_error(
       "ucxx::python::%s, Error calling `call_soon_threadsafe` from event loop object to set future "
       "exception",
       __func__);
