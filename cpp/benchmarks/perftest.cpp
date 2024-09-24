@@ -4,6 +4,7 @@
  */
 #include <unistd.h>  // for getopt, optarg
 
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <chrono>
@@ -260,6 +261,29 @@ BufferMapPtr allocateTransferBuffers(size_t message_size)
                                                {RECV, std::vector<char>(message_size)}});
 }
 
+std::string appendSpaces(const std::string_view input, const int maxLength = 91)
+{
+  int spacesToAdd = std::max(0, maxLength - static_cast<int>(input.length()));
+  return std::string(input) + std::string(spacesToAdd, ' ');
+}
+
+void printHeader(std::string_view sendMemory, std::string_view recvMemory, size_t size)
+{
+  // clang-format off
+  std::cout << "+--------------+--------------+------------------------------+---------------------+-----------------------+" << std::endl;
+  std::cout << "|              |              |       overhead (usec)        |   bandwidth (MB/s)  |  message rate (msg/s) |" << std::endl;
+  std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
+  std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
+  std::cout << "| Test:         tag match bandwidth                                                                        |" << std::endl;
+  std::cout << "|    Stage     | # iterations | 50.0%ile | average | overall |  average |  overall |  average  |  overall  |" << std::endl;
+  std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
+  std::cout << "| Send memory:  " << appendSpaces(sendMemory) << "|" << std::endl;
+  std::cout << "| Recv memory:  " << appendSpaces(recvMemory) << "|" << std::endl;
+  std::cout << "| Message size: " << appendSpaces(std::to_string(size)) << "|" << std::endl;
+  std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
+  // clang-format on
+}
+
 auto doTransfer(const app_context_t& app_context,
                 std::shared_ptr<ucxx::Worker> worker,
                 std::shared_ptr<ucxx::Endpoint> endpoint,
@@ -293,14 +317,16 @@ int main(int argc, char** argv)
   app_context_t app_context;
   if (parseCommand(&app_context, argc, argv) != UCS_OK) return -1;
 
+  bool is_server = app_context.server_addr == NULL;
+  if (!is_server) printHeader("host", "host", app_context.message_size);
+
   // Setup: create UCP context, worker, listener and client endpoint.
   auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
   auto worker  = context->createWorker();
 
-  bool is_server = app_context.server_addr == NULL;
-  auto tagMap    = std::make_shared<TagMap>(TagMap{
-       {SEND, is_server ? ucxx::Tag{0} : ucxx::Tag{1}},
-       {RECV, is_server ? ucxx::Tag{1} : ucxx::Tag{0}},
+  auto tagMap = std::make_shared<TagMap>(TagMap{
+    {SEND, is_server ? ucxx::Tag{0} : ucxx::Tag{1}},
+    {RECV, is_server ? ucxx::Tag{1} : ucxx::Tag{0}},
   });
 
   std::shared_ptr<ListenerContext> listener_ctx;
