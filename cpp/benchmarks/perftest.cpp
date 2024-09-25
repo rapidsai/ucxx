@@ -8,9 +8,11 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <numeric>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -113,11 +115,11 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
   }
 }
 
-static void printUsage()
+static void printUsage(std::string_view executable_name)
 {
-  std::cerr << " basic client/server example" << std::endl;
+  std::cerr << "UCXX performance testing tool" << std::endl;
   std::cerr << std::endl;
-  std::cerr << "Usage: basic [server-hostname] [options]" << std::endl;
+  std::cerr << "Usage: " << executable_name << " [server-hostname] [options]" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
   std::cerr << "  -m          progress mode to use, valid values are: 'polling', 'blocking',"
@@ -195,7 +197,7 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
       case 'r': app_context->reuse_alloc = true; break;
       case 'v': app_context->verify_results = true; break;
       case 'h':
-      default: printUsage(); return UCS_ERR_INVALID_PARAM;
+      default: printUsage(std::string_view(argv[0])); return UCS_ERR_INVALID_PARAM;
     }
   }
 
@@ -282,6 +284,30 @@ void printHeader(std::string_view sendMemory, std::string_view recvMemory, size_
   std::cout << "| Message size: " << appendSpaces(std::to_string(size)) << "|" << std::endl;
   std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
   // clang-format on
+}
+
+std::string floatToString(double number, size_t precision = 2)
+{
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(2) << number;
+  return oss.str();
+}
+
+void printProgress(size_t iteration,
+                   double overhead_50,
+                   double overhead_avg,
+                   double overhead_overall,
+                   double bandwidthAverage,
+                   double bandwidthOverall,
+                   size_t messageRateAverage,
+                   size_t messageRateOverall)
+{
+  std::cout << "                " << appendSpaces(std::to_string(iteration), 15)
+            << appendSpaces("N/A", 11) << appendSpaces("N/A", 10) << appendSpaces("N/A", 10)
+            << appendSpaces(floatToString(bandwidthAverage), 11)
+            << appendSpaces(floatToString(bandwidthOverall), 11)
+            << appendSpaces(std::to_string(messageRateAverage), 12)
+            << appendSpaces(std::to_string(messageRateOverall), 0) << std::endl;
 }
 
 auto doTransfer(const app_context_t& app_context,
@@ -390,23 +416,53 @@ int main(int argc, char** argv)
 
   // Schedule send and recv messages on different tags and different ordering
   size_t total_duration_ns = 0;
+  auto last_print_time     = std::chrono::steady_clock::now();
+
+  size_t groupDuration   = 0;
+  size_t totalDuration   = 0;
+  size_t groupIterations = 0;
+
   for (size_t n = 0; n < app_context.n_iter; ++n) {
     auto duration_ns = doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
     total_duration_ns += duration_ns;
     auto elapsed   = parseTime(duration_ns);
     auto bandwidth = parseBandwidth(app_context.message_size * 2, duration_ns);
 
-    if (!is_server)
-      std::cout << "Elapsed, bandwidth: " << elapsed << ", " << bandwidth << std::endl;
+    groupDuration += duration_ns;
+    totalDuration += duration_ns;
+    ++groupIterations;
+
+    auto current_time = std::chrono::steady_clock::now();
+    auto elapsed_time =
+      std::chrono::duration_cast<std::chrono::seconds>(current_time - last_print_time);
+
+    if (!is_server && (elapsed_time.count() >= 1 || n == app_context.n_iter - 1)) {
+      auto groupBytes       = app_context.message_size * 2 * groupIterations;
+      auto groupBandwidth   = groupBytes / (groupDuration / 1e3);
+      auto totalBytes       = app_context.message_size * 2 * (n + 1);
+      auto totalBandwidth   = totalBytes / (totalDuration / 1e3);
+      auto groupMessageRate = groupIterations * 2 / (groupDuration / 1e9);
+      auto totalMessageRate = (n + 1) * 2 / (totalDuration / 1e9);
+
+      printProgress(n + 1,
+                    0.0f,
+                    0.0f,
+                    0.0f,
+                    groupBandwidth,
+                    totalBandwidth,
+                    groupMessageRate,
+                    totalMessageRate);
+
+      groupDuration   = 0;
+      groupIterations = 0;
+
+      last_print_time = current_time;
+    }
   }
 
   auto total_elapsed = parseTime(total_duration_ns);
   auto total_bandwidth =
     parseBandwidth(app_context.n_iter * app_context.message_size * 2, total_duration_ns);
-
-  if (!is_server)
-    std::cout << "Total elapsed, bandwidth: " << total_elapsed << ", " << total_bandwidth
-              << std::endl;
 
   // Stop progress thread
   if (app_context.progress_mode == ProgressMode::ThreadBlocking ||
