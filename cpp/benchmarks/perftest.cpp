@@ -35,10 +35,9 @@ enum transfer_type_t { SEND, RECV };
 typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
 typedef std::unordered_map<transfer_type_t, ucxx::Tag> TagMap;
 
-typedef std::shared_ptr<BufferMap> BufferMapPtr;
 typedef std::shared_ptr<TagMap> TagMapPtr;
 
-struct app_context_t {
+struct ApplicationContext {
   ProgressMode progress_mode   = ProgressMode::Blocking;
   const char* server_addr      = NULL;
   uint16_t listener_port       = 12345;
@@ -138,7 +137,7 @@ static void printUsage(std::string_view executable_name)
   std::cerr << std::endl;
 }
 
-ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv[])
+ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const argv[])
 {
   optind = 1;
   int c;
@@ -146,62 +145,62 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
     switch (c) {
       case 'm':
         if (strcmp(optarg, "blocking") == 0) {
-          app_context->progress_mode = ProgressMode::Blocking;
+          appContext->progress_mode = ProgressMode::Blocking;
           break;
         } else if (strcmp(optarg, "polling") == 0) {
-          app_context->progress_mode = ProgressMode::Polling;
+          appContext->progress_mode = ProgressMode::Polling;
           break;
         } else if (strcmp(optarg, "thread-blocking") == 0) {
-          app_context->progress_mode = ProgressMode::ThreadBlocking;
+          appContext->progress_mode = ProgressMode::ThreadBlocking;
           break;
         } else if (strcmp(optarg, "thread-polling") == 0) {
-          app_context->progress_mode = ProgressMode::ThreadPolling;
+          appContext->progress_mode = ProgressMode::ThreadPolling;
           break;
         } else if (strcmp(optarg, "wait") == 0) {
-          app_context->progress_mode = ProgressMode::Wait;
+          appContext->progress_mode = ProgressMode::Wait;
           break;
         } else {
           std::cerr << "Invalid progress mode: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
       case 'p':
-        app_context->listener_port = atoi(optarg);
-        if (app_context->listener_port <= 0) {
-          std::cerr << "Wrong listener port: " << app_context->listener_port << std::endl;
+        appContext->listener_port = atoi(optarg);
+        if (appContext->listener_port <= 0) {
+          std::cerr << "Wrong listener port: " << appContext->listener_port << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
         break;
       case 's':
-        app_context->message_size = atoi(optarg);
-        if (app_context->message_size <= 0) {
-          std::cerr << "Wrong message size: " << app_context->message_size << std::endl;
+        appContext->message_size = atoi(optarg);
+        if (appContext->message_size <= 0) {
+          std::cerr << "Wrong message size: " << appContext->message_size << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
         break;
       case 'w':
-        app_context->warmup_iter = atoi(optarg);
-        if (app_context->warmup_iter <= 0) {
-          std::cerr << "Wrong number of warmup iterations: " << app_context->warmup_iter
+        appContext->warmup_iter = atoi(optarg);
+        if (appContext->warmup_iter <= 0) {
+          std::cerr << "Wrong number of warmup iterations: " << appContext->warmup_iter
                     << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
         break;
       case 'n':
-        app_context->n_iter = atoi(optarg);
-        if (app_context->n_iter <= 0) {
-          std::cerr << "Wrong number of iterations: " << app_context->n_iter << std::endl;
+        appContext->n_iter = atoi(optarg);
+        if (appContext->n_iter <= 0) {
+          std::cerr << "Wrong number of iterations: " << appContext->n_iter << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
         break;
-      case 'e': app_context->endpoint_error_handling = true; break;
-      case 'r': app_context->reuse_alloc = true; break;
-      case 'v': app_context->verify_results = true; break;
+      case 'e': appContext->endpoint_error_handling = true; break;
+      case 'r': appContext->reuse_alloc = true; break;
+      case 'v': appContext->verify_results = true; break;
       case 'h':
       default: printUsage(std::string_view(argv[0])); return UCS_ERR_INVALID_PARAM;
     }
   }
 
-  if (optind < argc) { app_context->server_addr = argv[optind]; }
+  if (optind < argc) { appContext->server_addr = argv[optind]; }
 
   return UCS_OK;
 }
@@ -257,10 +256,10 @@ std::string parseBandwidth(size_t totalBytes, size_t countNs)
     return std::to_string(bw / (1024 * 1024 * 1024)) + std::string("GB/s");
 }
 
-BufferMapPtr allocateTransferBuffers(size_t message_size)
+BufferMap allocateTransferBuffers(size_t message_size)
 {
-  return std::make_shared<BufferMap>(BufferMap{{SEND, std::vector<char>(message_size, 0xaa)},
-                                               {RECV, std::vector<char>(message_size)}});
+  return BufferMap{{SEND, std::vector<char>(message_size, 0xaa)},
+                   {RECV, std::vector<char>(message_size)}};
 }
 
 std::string appendSpaces(const std::string_view input, const int maxLength = 91)
@@ -310,174 +309,185 @@ void printProgress(size_t iteration,
             << appendSpaces(std::to_string(messageRateOverall), 0) << std::endl;
 }
 
-auto doTransfer(const app_context_t& app_context,
-                std::shared_ptr<ucxx::Worker> worker,
-                std::shared_ptr<ucxx::Endpoint> endpoint,
-                TagMapPtr tagMap,
-                BufferMapPtr bufferMapReuse)
-{
-  BufferMapPtr localBufferMap;
-  if (!app_context.reuse_alloc) localBufferMap = allocateTransferBuffers(app_context.message_size);
-  BufferMapPtr bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
+class Application {
+ private:
+  ApplicationContext _appContext;
+  std::shared_ptr<ucxx::Context> _context{nullptr};
+  std::shared_ptr<ucxx::Worker> _worker{nullptr};
+  std::shared_ptr<ucxx::Endpoint> _endpoint{nullptr};
+  std::shared_ptr<ucxx::Listener> _listener{nullptr};
+  std::shared_ptr<ListenerContext> _listenerContext{nullptr};
+  std::shared_ptr<TagMap> _tagMap{nullptr};
+  BufferMap _bufferMapReuse{};
 
-  auto start                                           = std::chrono::high_resolution_clock::now();
-  std::vector<std::shared_ptr<ucxx::Request>> requests = {
-    endpoint->tagSend((*bufferMap)[SEND].data(), app_context.message_size, (*tagMap)[SEND]),
-    endpoint->tagRecv(
-      (*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
+  void doWireup()
+  {
+    std::vector<std::shared_ptr<ucxx::Request>> requests;
 
-  // Wait for requests and clear requests
-  waitRequests(app_context.progress_mode, worker, requests);
-  auto stop = std::chrono::high_resolution_clock::now();
+    // Allocate wireup buffers
+    auto wireupBufferMap = std::make_shared<BufferMap>(
+      BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
 
-  if (app_context.verify_results) {
-    for (size_t j = 0; j < (*bufferMap)[SEND].size(); ++j)
-      assert((*bufferMap)[RECV][j] == (*bufferMap)[RECV][j]);
+    // Schedule small wireup messages to let UCX identify capabilities between endpoints
+    requests.push_back(_endpoint->tagSend((*wireupBufferMap)[SEND].data(),
+                                          (*wireupBufferMap)[SEND].size() * sizeof(int),
+                                          (*_tagMap)[SEND]));
+    requests.push_back(_endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
+                                          (*wireupBufferMap)[RECV].size() * sizeof(int),
+                                          (*_tagMap)[RECV],
+                                          ucxx::TagMaskFull));
+
+    // Wait for wireup requests and clear requests
+    waitRequests(_appContext.progress_mode, _worker, requests);
+
+    // Verify wireup result
+    for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
+      assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
   }
 
-  return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
-}
+  auto doTransfer()
+  {
+    BufferMap localBufferMap;
+    if (!_appContext.reuse_alloc)
+      localBufferMap = allocateTransferBuffers(_appContext.message_size);
+    BufferMap& bufferMap = _appContext.reuse_alloc ? _bufferMapReuse : localBufferMap;
 
-auto doWireup(const app_context_t& app_context,
-              std::shared_ptr<ucxx::Worker> worker,
-              std::shared_ptr<ucxx::Endpoint> endpoint,
-              TagMapPtr tagMap)
-{
-  std::vector<std::shared_ptr<ucxx::Request>> requests;
+    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<std::shared_ptr<ucxx::Request>> requests = {
+      _endpoint->tagSend((bufferMap)[SEND].data(), _appContext.message_size, (*_tagMap)[SEND]),
+      _endpoint->tagRecv(
+        (bufferMap)[RECV].data(), _appContext.message_size, (*_tagMap)[RECV], ucxx::TagMaskFull)};
 
-  // Allocate wireup buffers
-  auto wireupBufferMap = std::make_shared<BufferMap>(
-    BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
+    // Wait for requests and clear requests
+    waitRequests(_appContext.progress_mode, _worker, requests);
+    auto stop = std::chrono::high_resolution_clock::now();
 
-  // Schedule small wireup messages to let UCX identify capabilities between endpoints
-  requests.push_back(endpoint->tagSend((*wireupBufferMap)[SEND].data(),
-                                       (*wireupBufferMap)[SEND].size() * sizeof(int),
-                                       (*tagMap)[SEND]));
-  requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
-                                       (*wireupBufferMap)[RECV].size() * sizeof(int),
-                                       (*tagMap)[RECV],
-                                       ucxx::TagMaskFull));
+    if (_appContext.verify_results) {
+      for (size_t j = 0; j < (bufferMap)[SEND].size(); ++j)
+        assert((bufferMap)[RECV][j] == (bufferMap)[RECV][j]);
+    }
 
-  // Wait for wireup requests and clear requests
-  waitRequests(app_context.progress_mode, worker, requests);
-}
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+  }
+
+ public:
+  explicit Application(ApplicationContext&& appContext) : _appContext(appContext)
+  {
+    bool is_server = appContext.server_addr == NULL;
+    if (!is_server) printHeader("host", "host", appContext.message_size);
+
+    // Setup: create UCP context, worker, listener and client endpoint.
+    _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+    _worker  = _context->createWorker();
+
+    _tagMap = std::make_shared<TagMap>(TagMap{
+      {SEND, is_server ? ucxx::Tag{0} : ucxx::Tag{1}},
+      {RECV, is_server ? ucxx::Tag{1} : ucxx::Tag{0}},
+    });
+
+    if (is_server) {
+      _listenerContext =
+        std::make_unique<ListenerContext>(_worker, _appContext.endpoint_error_handling);
+      _listener =
+        _worker->createListener(_appContext.listener_port, listener_cb, _listenerContext.get());
+      _listenerContext->setListener(_listener);
+    }
+
+    // Initialize worker progress
+    if (_appContext.progress_mode == ProgressMode::Blocking)
+      _worker->initBlockingProgressMode();
+    else if (_appContext.progress_mode == ProgressMode::ThreadBlocking)
+      _worker->startProgressThread(false);
+    else if (_appContext.progress_mode == ProgressMode::ThreadPolling)
+      _worker->startProgressThread(true);
+
+    auto progress = getProgressFunction(_worker, _appContext.progress_mode);
+
+    // Block until client connects
+    while (is_server && _listenerContext->isAvailable())
+      progress();
+
+    if (is_server)
+      _endpoint = _listenerContext->getEndpoint();
+    else
+      _endpoint = _worker->createEndpointFromHostname(
+        _appContext.server_addr, _appContext.listener_port, _appContext.endpoint_error_handling);
+
+    std::vector<std::shared_ptr<ucxx::Request>> requests;
+
+    // Do wireup
+    doWireup();
+
+    if (_appContext.reuse_alloc)
+      _bufferMapReuse = allocateTransferBuffers(_appContext.message_size);
+
+    // Warmup
+    for (size_t n = 0; n < _appContext.warmup_iter; ++n)
+      doTransfer();
+
+    // Schedule send and recv messages on different tags and different ordering
+    size_t total_duration_ns = 0;
+    auto last_print_time     = std::chrono::steady_clock::now();
+
+    size_t groupDuration   = 0;
+    size_t totalDuration   = 0;
+    size_t groupIterations = 0;
+
+    for (size_t n = 0; n < _appContext.n_iter; ++n) {
+      auto duration_ns = doTransfer();
+      total_duration_ns += duration_ns;
+      auto elapsed   = parseTime(duration_ns);
+      auto bandwidth = parseBandwidth(_appContext.message_size * 2, duration_ns);
+
+      groupDuration += duration_ns;
+      totalDuration += duration_ns;
+      ++groupIterations;
+
+      auto current_time = std::chrono::steady_clock::now();
+      auto elapsed_time =
+        std::chrono::duration_cast<std::chrono::seconds>(current_time - last_print_time);
+
+      if (!is_server && (elapsed_time.count() >= 1 || n == _appContext.n_iter - 1)) {
+        auto groupBytes       = _appContext.message_size * 2 * groupIterations;
+        auto groupBandwidth   = groupBytes / (groupDuration / 1e3);
+        auto totalBytes       = _appContext.message_size * 2 * (n + 1);
+        auto totalBandwidth   = totalBytes / (totalDuration / 1e3);
+        auto groupMessageRate = groupIterations * 2 / (groupDuration / 1e9);
+        auto totalMessageRate = (n + 1) * 2 / (totalDuration / 1e9);
+
+        printProgress(n + 1,
+                      0.0f,
+                      0.0f,
+                      0.0f,
+                      groupBandwidth,
+                      totalBandwidth,
+                      groupMessageRate,
+                      totalMessageRate);
+
+        groupDuration   = 0;
+        groupIterations = 0;
+
+        last_print_time = current_time;
+      }
+    }
+
+    auto total_elapsed = parseTime(total_duration_ns);
+    auto total_bandwidth =
+      parseBandwidth(_appContext.n_iter * _appContext.message_size * 2, total_duration_ns);
+
+    // Stop progress thread
+    if (_appContext.progress_mode == ProgressMode::ThreadBlocking ||
+        _appContext.progress_mode == ProgressMode::ThreadPolling)
+      _worker->stopProgressThread();
+  }
+};
 
 int main(int argc, char** argv)
 {
-  app_context_t app_context;
-  if (parseCommand(&app_context, argc, argv) != UCS_OK) return -1;
+  ApplicationContext appContext;
+  if (parseCommand(&appContext, argc, argv) != UCS_OK) return -1;
 
-  bool is_server = app_context.server_addr == NULL;
-  if (!is_server) printHeader("host", "host", app_context.message_size);
-
-  // Setup: create UCP context, worker, listener and client endpoint.
-  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
-  auto worker  = context->createWorker();
-
-  auto tagMap = std::make_shared<TagMap>(TagMap{
-    {SEND, is_server ? ucxx::Tag{0} : ucxx::Tag{1}},
-    {RECV, is_server ? ucxx::Tag{1} : ucxx::Tag{0}},
-  });
-
-  std::shared_ptr<ListenerContext> listener_ctx;
-  std::shared_ptr<ucxx::Endpoint> endpoint;
-  std::shared_ptr<ucxx::Listener> listener;
-  if (is_server) {
-    listener_ctx = std::make_unique<ListenerContext>(worker, app_context.endpoint_error_handling);
-    listener = worker->createListener(app_context.listener_port, listener_cb, listener_ctx.get());
-    listener_ctx->setListener(listener);
-  }
-
-  // Initialize worker progress
-  if (app_context.progress_mode == ProgressMode::Blocking)
-    worker->initBlockingProgressMode();
-  else if (app_context.progress_mode == ProgressMode::ThreadBlocking)
-    worker->startProgressThread(false);
-  else if (app_context.progress_mode == ProgressMode::ThreadPolling)
-    worker->startProgressThread(true);
-
-  auto progress = getProgressFunction(worker, app_context.progress_mode);
-
-  // Block until client connects
-  while (is_server && listener_ctx->isAvailable())
-    progress();
-
-  if (is_server)
-    endpoint = listener_ctx->getEndpoint();
-  else
-    endpoint = worker->createEndpointFromHostname(
-      app_context.server_addr, app_context.listener_port, app_context.endpoint_error_handling);
-
-  std::vector<std::shared_ptr<ucxx::Request>> requests;
-
-  // Do wireup
-  doWireup(app_context, worker, endpoint, tagMap);
-
-  // Verify wireup result
-  for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
-    assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
-
-  BufferMapPtr bufferMapReuse;
-  if (app_context.reuse_alloc) bufferMapReuse = allocateTransferBuffers(app_context.message_size);
-
-  // Warmup
-  for (size_t n = 0; n < app_context.warmup_iter; ++n)
-    doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
-
-  // Schedule send and recv messages on different tags and different ordering
-  size_t total_duration_ns = 0;
-  auto last_print_time     = std::chrono::steady_clock::now();
-
-  size_t groupDuration   = 0;
-  size_t totalDuration   = 0;
-  size_t groupIterations = 0;
-
-  for (size_t n = 0; n < app_context.n_iter; ++n) {
-    auto duration_ns = doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
-    total_duration_ns += duration_ns;
-    auto elapsed   = parseTime(duration_ns);
-    auto bandwidth = parseBandwidth(app_context.message_size * 2, duration_ns);
-
-    groupDuration += duration_ns;
-    totalDuration += duration_ns;
-    ++groupIterations;
-
-    auto current_time = std::chrono::steady_clock::now();
-    auto elapsed_time =
-      std::chrono::duration_cast<std::chrono::seconds>(current_time - last_print_time);
-
-    if (!is_server && (elapsed_time.count() >= 1 || n == app_context.n_iter - 1)) {
-      auto groupBytes       = app_context.message_size * 2 * groupIterations;
-      auto groupBandwidth   = groupBytes / (groupDuration / 1e3);
-      auto totalBytes       = app_context.message_size * 2 * (n + 1);
-      auto totalBandwidth   = totalBytes / (totalDuration / 1e3);
-      auto groupMessageRate = groupIterations * 2 / (groupDuration / 1e9);
-      auto totalMessageRate = (n + 1) * 2 / (totalDuration / 1e9);
-
-      printProgress(n + 1,
-                    0.0f,
-                    0.0f,
-                    0.0f,
-                    groupBandwidth,
-                    totalBandwidth,
-                    groupMessageRate,
-                    totalMessageRate);
-
-      groupDuration   = 0;
-      groupIterations = 0;
-
-      last_print_time = current_time;
-    }
-  }
-
-  auto total_elapsed = parseTime(total_duration_ns);
-  auto total_bandwidth =
-    parseBandwidth(app_context.n_iter * app_context.message_size * 2, total_duration_ns);
-
-  // Stop progress thread
-  if (app_context.progress_mode == ProgressMode::ThreadBlocking ||
-      app_context.progress_mode == ProgressMode::ThreadPolling)
-    worker->stopProgressThread();
+  auto app = Application(std::move(appContext));
 
   return 0;
 }
