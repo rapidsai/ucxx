@@ -338,6 +338,30 @@ auto doTransfer(const app_context_t& app_context,
   return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 }
 
+auto doWireup(const app_context_t& app_context,
+              std::shared_ptr<ucxx::Worker> worker,
+              std::shared_ptr<ucxx::Endpoint> endpoint,
+              TagMapPtr tagMap)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+
+  // Allocate wireup buffers
+  auto wireupBufferMap = std::make_shared<BufferMap>(
+    BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
+
+  // Schedule small wireup messages to let UCX identify capabilities between endpoints
+  requests.push_back(endpoint->tagSend((*wireupBufferMap)[SEND].data(),
+                                       (*wireupBufferMap)[SEND].size() * sizeof(int),
+                                       (*tagMap)[SEND]));
+  requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
+                                       (*wireupBufferMap)[RECV].size() * sizeof(int),
+                                       (*tagMap)[RECV],
+                                       ucxx::TagMaskFull));
+
+  // Wait for wireup requests and clear requests
+  waitRequests(app_context.progress_mode, worker, requests);
+}
+
 int main(int argc, char** argv)
 {
   app_context_t app_context;
@@ -386,22 +410,8 @@ int main(int argc, char** argv)
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
 
-  // Allocate wireup buffers
-  auto wireupBufferMap = std::make_shared<BufferMap>(
-    BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
-
-  // Schedule small wireup messages to let UCX identify capabilities between endpoints
-  requests.push_back(endpoint->tagSend((*wireupBufferMap)[SEND].data(),
-                                       (*wireupBufferMap)[SEND].size() * sizeof(int),
-                                       (*tagMap)[SEND]));
-  requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
-                                       (*wireupBufferMap)[RECV].size() * sizeof(int),
-                                       (*tagMap)[RECV],
-                                       ucxx::TagMaskFull));
-
-  // Wait for wireup requests and clear requests
-  waitRequests(app_context.progress_mode, worker, requests);
-  requests.clear();
+  // Do wireup
+  doWireup(app_context, worker, endpoint, tagMap);
 
   // Verify wireup result
   for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
