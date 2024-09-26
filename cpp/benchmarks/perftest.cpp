@@ -205,84 +205,10 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
   return UCS_OK;
 }
 
-std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
-                                          ProgressMode progressMode)
-{
-  switch (progressMode) {
-    case ProgressMode::Polling: return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
-    case ProgressMode::Blocking:
-      return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker, -1);
-    case ProgressMode::Wait: return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
-    default: return []() {};
-  }
-}
-
-void waitRequests(ProgressMode progressMode,
-                  std::shared_ptr<ucxx::Worker> worker,
-                  const std::vector<std::shared_ptr<ucxx::Request>>& requests)
-{
-  auto progress = getProgressFunction(worker, progressMode);
-  // Wait until all messages are completed
-  for (auto& r : requests) {
-    while (!r->isCompleted())
-      progress();
-    r->checkError();
-  }
-}
-
-std::string parseTime(size_t countNs)
-{
-  if (countNs < 1e3)
-    return std::to_string(countNs) + std::string("ns");
-  else if (countNs < 1e6)
-    return std::to_string(countNs / 1e3) + std::string("us");
-  else if (countNs < 1e9)
-    return std::to_string(countNs / 1e6) + std::string("ms");
-  else
-    return std::to_string(countNs / 1e9) + std::string("s");
-}
-
-std::string parseBandwidth(size_t totalBytes, size_t countNs)
-{
-  double bw = totalBytes / (countNs / 1e9);
-
-  if (bw < 1024)
-    return std::to_string(bw) + std::string("B/s");
-  else if (bw < (1024 * 1024))
-    return std::to_string(bw / 1024) + std::string("KB/s");
-  else if (bw < (1024 * 1024 * 1024))
-    return std::to_string(bw / (1024 * 1024)) + std::string("MB/s");
-  else
-    return std::to_string(bw / (1024 * 1024 * 1024)) + std::string("GB/s");
-}
-
-BufferMap allocateTransferBuffers(size_t message_size)
-{
-  return BufferMap{{SEND, std::vector<char>(message_size, 0xaa)},
-                   {RECV, std::vector<char>(message_size)}};
-}
-
 std::string appendSpaces(const std::string_view input, const int maxLength = 91)
 {
   int spacesToAdd = std::max(0, maxLength - static_cast<int>(input.length()));
   return std::string(input) + std::string(spacesToAdd, ' ');
-}
-
-void printHeader(std::string_view sendMemory, std::string_view recvMemory, size_t size)
-{
-  // clang-format off
-  std::cout << "+--------------+--------------+------------------------------+---------------------+-----------------------+" << std::endl;
-  std::cout << "|              |              |       overhead (usec)        |   bandwidth (MB/s)  |  message rate (msg/s) |" << std::endl;
-  std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
-  std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
-  std::cout << "| Test:         tag match bandwidth                                                                        |" << std::endl;
-  std::cout << "|    Stage     | # iterations | 50.0%ile | average | overall |  average |  overall |  average  |  overall  |" << std::endl;
-  std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
-  std::cout << "| Send memory:  " << appendSpaces(sendMemory) << "|" << std::endl;
-  std::cout << "| Recv memory:  " << appendSpaces(recvMemory) << "|" << std::endl;
-  std::cout << "| Message size: " << appendSpaces(std::to_string(size)) << "|" << std::endl;
-  std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
-  // clang-format on
 }
 
 std::string floatToString(double number, size_t precision = 2)
@@ -290,23 +216,6 @@ std::string floatToString(double number, size_t precision = 2)
   std::ostringstream oss;
   oss << std::fixed << std::setprecision(2) << number;
   return oss.str();
-}
-
-void printProgress(size_t iteration,
-                   double overhead_50,
-                   double overhead_avg,
-                   double overhead_overall,
-                   double bandwidthAverage,
-                   double bandwidthOverall,
-                   size_t messageRateAverage,
-                   size_t messageRateOverall)
-{
-  std::cout << "                " << appendSpaces(std::to_string(iteration), 15)
-            << appendSpaces("N/A", 11) << appendSpaces("N/A", 10) << appendSpaces("N/A", 10)
-            << appendSpaces(floatToString(bandwidthAverage), 11)
-            << appendSpaces(floatToString(bandwidthOverall), 11)
-            << appendSpaces(std::to_string(messageRateAverage), 12)
-            << appendSpaces(std::to_string(messageRateOverall), 0) << std::endl;
 }
 
 class Application {
@@ -320,6 +229,34 @@ class Application {
   std::shared_ptr<ListenerContext> _listenerContext{nullptr};
   std::shared_ptr<TagMap> _tagMap{nullptr};
   BufferMap _bufferMapReuse{};
+
+  std::function<void()> getProgressFunction()
+  {
+    switch (_appContext.progress_mode) {
+      case ProgressMode::Polling: return std::bind(std::mem_fn(&ucxx::Worker::progress), _worker);
+      case ProgressMode::Blocking:
+        return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), _worker, -1);
+      case ProgressMode::Wait: return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), _worker);
+      default: return []() {};
+    }
+  }
+
+  void waitRequests(const std::vector<std::shared_ptr<ucxx::Request>>& requests)
+  {
+    auto progress = getProgressFunction();
+    // Wait until all messages are completed
+    for (auto& r : requests) {
+      while (!r->isCompleted())
+        progress();
+      r->checkError();
+    }
+  }
+
+  BufferMap allocateTransferBuffers()
+  {
+    return BufferMap{{SEND, std::vector<char>(_appContext.message_size, 0xaa)},
+                     {RECV, std::vector<char>(_appContext.message_size)}};
+  }
 
   void doWireup()
   {
@@ -339,7 +276,7 @@ class Application {
                                           ucxx::TagMaskFull));
 
     // Wait for wireup requests and clear requests
-    waitRequests(_appContext.progress_mode, _worker, requests);
+    waitRequests(requests);
 
     // Verify wireup result
     for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
@@ -349,8 +286,7 @@ class Application {
   auto doTransfer()
   {
     BufferMap localBufferMap;
-    if (!_appContext.reuse_alloc)
-      localBufferMap = allocateTransferBuffers(_appContext.message_size);
+    if (!_appContext.reuse_alloc) localBufferMap = allocateTransferBuffers();
     BufferMap& bufferMap = _appContext.reuse_alloc ? _bufferMapReuse : localBufferMap;
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -360,7 +296,7 @@ class Application {
         (bufferMap)[RECV].data(), _appContext.message_size, (*_tagMap)[RECV], ucxx::TagMaskFull)};
 
     // Wait for requests and clear requests
-    waitRequests(_appContext.progress_mode, _worker, requests);
+    waitRequests(requests);
     auto stop = std::chrono::high_resolution_clock::now();
 
     if (_appContext.verify_results) {
@@ -371,11 +307,45 @@ class Application {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
   }
 
+  void printHeader(std::string_view sendMemory, std::string_view recvMemory)
+  {
+    // clang-format off
+    std::cout << "+--------------+--------------+------------------------------+---------------------+-----------------------+" << std::endl;
+    std::cout << "|              |              |       overhead (usec)        |   bandwidth (MB/s)  |  message rate (msg/s) |" << std::endl;
+    std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
+    std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
+    std::cout << "| Test:         tag match bandwidth                                                                        |" << std::endl;
+    std::cout << "|    Stage     | # iterations | 50.0%ile | average | overall |  average |  overall |  average  |  overall  |" << std::endl;
+    std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
+    std::cout << "| Send memory:  " << appendSpaces(sendMemory) << "|" << std::endl;
+    std::cout << "| Recv memory:  " << appendSpaces(recvMemory) << "|" << std::endl;
+    std::cout << "| Message size: " << appendSpaces(std::to_string(_appContext.message_size)) << "|" << std::endl;
+    std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
+    // clang-format on
+  }
+
+  void printProgress(size_t iteration,
+                     double overhead_50,
+                     double overhead_avg,
+                     double overhead_overall,
+                     double bandwidthAverage,
+                     double bandwidthOverall,
+                     size_t messageRateAverage,
+                     size_t messageRateOverall)
+  {
+    std::cout << "                " << appendSpaces(std::to_string(iteration), 15)
+              << appendSpaces("N/A", 11) << appendSpaces("N/A", 10) << appendSpaces("N/A", 10)
+              << appendSpaces(floatToString(bandwidthAverage), 11)
+              << appendSpaces(floatToString(bandwidthOverall), 11)
+              << appendSpaces(std::to_string(messageRateAverage), 12)
+              << appendSpaces(std::to_string(messageRateOverall), 0) << std::endl;
+  }
+
  public:
   explicit Application(ApplicationContext&& appContext)
     : _appContext(appContext), _isServer(appContext.server_addr == NULL)
   {
-    if (!_isServer) printHeader("host", "host", appContext.message_size);
+    if (!_isServer) printHeader("host", "host");
 
     // Setup: create UCP context, worker, listener and client endpoint.
     _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
@@ -402,7 +372,7 @@ class Application {
     else if (_appContext.progress_mode == ProgressMode::ThreadPolling)
       _worker->startProgressThread(true);
 
-    auto progress = getProgressFunction(_worker, _appContext.progress_mode);
+    auto progress = getProgressFunction();
 
     // Block until client connects
     while (_isServer && _listenerContext->isAvailable())
@@ -417,13 +387,20 @@ class Application {
     std::vector<std::shared_ptr<ucxx::Request>> requests;
   }
 
+  ~Application()
+  {
+    // Stop progress thread
+    if (_appContext.progress_mode == ProgressMode::ThreadBlocking ||
+        _appContext.progress_mode == ProgressMode::ThreadPolling)
+      _worker->stopProgressThread();
+  }
+
   void run()
   {
     // Do wireup
     doWireup();
 
-    if (_appContext.reuse_alloc)
-      _bufferMapReuse = allocateTransferBuffers(_appContext.message_size);
+    if (_appContext.reuse_alloc) _bufferMapReuse = allocateTransferBuffers();
 
     // Warmup
     for (size_t n = 0; n < _appContext.warmup_iter; ++n)
@@ -440,8 +417,6 @@ class Application {
     for (size_t n = 0; n < _appContext.n_iter; ++n) {
       auto duration_ns = doTransfer();
       total_duration_ns += duration_ns;
-      auto elapsed   = parseTime(duration_ns);
-      auto bandwidth = parseBandwidth(_appContext.message_size * 2, duration_ns);
 
       groupDuration += duration_ns;
       totalDuration += duration_ns;
@@ -474,15 +449,6 @@ class Application {
         last_print_time = current_time;
       }
     }
-
-    auto total_elapsed = parseTime(total_duration_ns);
-    auto total_bandwidth =
-      parseBandwidth(_appContext.n_iter * _appContext.message_size * 2, total_duration_ns);
-
-    // Stop progress thread
-    if (_appContext.progress_mode == ProgressMode::ThreadBlocking ||
-        _appContext.progress_mode == ProgressMode::ThreadPolling)
-      _worker->stopProgressThread();
   }
 };
 
