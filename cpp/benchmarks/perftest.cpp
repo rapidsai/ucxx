@@ -311,7 +311,8 @@ void printProgress(size_t iteration,
 
 class Application {
  private:
-  ApplicationContext _appContext;
+  ApplicationContext _appContext{};
+  bool _isServer{false};
   std::shared_ptr<ucxx::Context> _context{nullptr};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   std::shared_ptr<ucxx::Endpoint> _endpoint{nullptr};
@@ -371,21 +372,21 @@ class Application {
   }
 
  public:
-  explicit Application(ApplicationContext&& appContext) : _appContext(appContext)
+  explicit Application(ApplicationContext&& appContext)
+    : _appContext(appContext), _isServer(appContext.server_addr == NULL)
   {
-    bool is_server = appContext.server_addr == NULL;
-    if (!is_server) printHeader("host", "host", appContext.message_size);
+    if (!_isServer) printHeader("host", "host", appContext.message_size);
 
     // Setup: create UCP context, worker, listener and client endpoint.
     _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
     _worker  = _context->createWorker();
 
     _tagMap = std::make_shared<TagMap>(TagMap{
-      {SEND, is_server ? ucxx::Tag{0} : ucxx::Tag{1}},
-      {RECV, is_server ? ucxx::Tag{1} : ucxx::Tag{0}},
+      {SEND, _isServer ? ucxx::Tag{0} : ucxx::Tag{1}},
+      {RECV, _isServer ? ucxx::Tag{1} : ucxx::Tag{0}},
     });
 
-    if (is_server) {
+    if (_isServer) {
       _listenerContext =
         std::make_unique<ListenerContext>(_worker, _appContext.endpoint_error_handling);
       _listener =
@@ -404,17 +405,20 @@ class Application {
     auto progress = getProgressFunction(_worker, _appContext.progress_mode);
 
     // Block until client connects
-    while (is_server && _listenerContext->isAvailable())
+    while (_isServer && _listenerContext->isAvailable())
       progress();
 
-    if (is_server)
+    if (_isServer)
       _endpoint = _listenerContext->getEndpoint();
     else
       _endpoint = _worker->createEndpointFromHostname(
         _appContext.server_addr, _appContext.listener_port, _appContext.endpoint_error_handling);
 
     std::vector<std::shared_ptr<ucxx::Request>> requests;
+  }
 
+  void run()
+  {
     // Do wireup
     doWireup();
 
@@ -447,7 +451,7 @@ class Application {
       auto elapsed_time =
         std::chrono::duration_cast<std::chrono::seconds>(current_time - last_print_time);
 
-      if (!is_server && (elapsed_time.count() >= 1 || n == _appContext.n_iter - 1)) {
+      if (!_isServer && (elapsed_time.count() >= 1 || n == _appContext.n_iter - 1)) {
         auto groupBytes       = _appContext.message_size * 2 * groupIterations;
         auto groupBandwidth   = groupBytes / (groupDuration / 1e3);
         auto totalBytes       = _appContext.message_size * 2 * (n + 1);
@@ -488,6 +492,7 @@ int main(int argc, char** argv)
   if (parseCommand(&appContext, argc, argv) != UCS_OK) return -1;
 
   auto app = Application(std::move(appContext));
+  app.run();
 
   return 0;
 }
