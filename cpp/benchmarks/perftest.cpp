@@ -30,23 +30,23 @@ enum class ProgressMode {
   ThreadBlocking,
 };
 
-enum transfer_type_t { SEND, RECV };
+enum TransferType { SEND, RECV };
 
-typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
-typedef std::unordered_map<transfer_type_t, ucxx::Tag> TagMap;
+typedef std::unordered_map<TransferType, std::vector<char>> BufferMap;
+typedef std::unordered_map<TransferType, ucxx::Tag> TagMap;
 
 typedef std::shared_ptr<TagMap> TagMapPtr;
 
 struct ApplicationContext {
-  ProgressMode progress_mode   = ProgressMode::Blocking;
-  const char* server_addr      = NULL;
-  uint16_t listener_port       = 12345;
-  size_t message_size          = 8;
-  size_t n_iter                = 100;
-  size_t warmup_iter           = 3;
-  bool endpoint_error_handling = false;
-  bool reuse_alloc             = false;
-  bool verify_results          = false;
+  ProgressMode progressMode  = ProgressMode::Blocking;
+  const char* serverAddress  = NULL;
+  uint16_t listenerPort      = 12345;
+  size_t messageSize         = 8;
+  size_t numIterations       = 100;
+  size_t numWarmupIterations = 3;
+  bool endpointErrorHandling = false;
+  bool reuseAllocations      = false;
+  bool verifyResults         = false;
 };
 
 class ListenerContext {
@@ -73,11 +73,11 @@ class ListenerContext {
 
   bool isAvailable() const { return _isAvailable; }
 
-  void createEndpointFromConnRequest(ucp_conn_request_h conn_request)
+  void createEndpointFromConnRequest(ucp_conn_request_h connRequest)
   {
     if (!isAvailable()) throw std::runtime_error("Listener context already has an endpoint");
 
-    _endpoint    = _listener->createEndpointFromConnRequest(conn_request, _endpointErrorHandling);
+    _endpoint    = _listener->createEndpointFromConnRequest(connRequest, _endpointErrorHandling);
     _isAvailable = false;
   }
 
@@ -88,37 +88,38 @@ class ListenerContext {
   }
 };
 
-static void listener_cb(ucp_conn_request_h conn_request, void* arg)
+static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
 {
-  char ip_str[INET6_ADDRSTRLEN];
-  char port_str[INET6_ADDRSTRLEN];
+  char ipString[INET6_ADDRSTRLEN];
+  char portString[INET6_ADDRSTRLEN];
   ucp_conn_request_attr_t attr{};
-  ListenerContext* listener_ctx = reinterpret_cast<ListenerContext*>(arg);
+  ListenerContext* listenerContext = reinterpret_cast<ListenerContext*>(arg);
 
   attr.field_mask = UCP_CONN_REQUEST_ATTR_FIELD_CLIENT_ADDR;
-  ucxx::utils::ucsErrorThrow(ucp_conn_request_query(conn_request, &attr));
-  ucxx::utils::sockaddr_get_ip_port_str(&attr.client_address, ip_str, port_str, INET6_ADDRSTRLEN);
-  std::cout << "Server received a connection request from client at address " << ip_str << ":"
-            << port_str << std::endl;
+  ucxx::utils::ucsErrorThrow(ucp_conn_request_query(connRequest, &attr));
+  ucxx::utils::sockaddr_get_ip_port_str(
+    &attr.client_address, ipString, portString, INET6_ADDRSTRLEN);
+  std::cout << "Server received a connection request from client at address " << ipString << ":"
+            << portString << std::endl;
 
-  if (listener_ctx->isAvailable()) {
-    listener_ctx->createEndpointFromConnRequest(conn_request);
+  if (listenerContext->isAvailable()) {
+    listenerContext->createEndpointFromConnRequest(connRequest);
   } else {
     // The server is already handling a connection request from a client,
     // reject this new one
-    std::cout << "Rejecting a connection request from " << ip_str << ":" << port_str << "."
+    std::cout << "Rejecting a connection request from " << ipString << ":" << portString << "."
               << std::endl
               << "Only one client at a time is supported." << std::endl;
     ucxx::utils::ucsErrorThrow(
-      ucp_listener_reject(listener_ctx->getListener()->getHandle(), conn_request));
+      ucp_listener_reject(listenerContext->getListener()->getHandle(), connRequest));
   }
 }
 
-static void printUsage(std::string_view executable_name)
+static void printUsage(std::string_view executablePath)
 {
   std::cerr << "UCXX performance testing tool" << std::endl;
   std::cerr << std::endl;
-  std::cerr << "Usage: " << executable_name << " [server-hostname] [options]" << std::endl;
+  std::cerr << "Usage: " << executablePath << " [server-hostname] [options]" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
   std::cerr << "  -m          progress mode to use, valid values are: 'polling', 'blocking',"
@@ -145,62 +146,62 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
     switch (c) {
       case 'm':
         if (strcmp(optarg, "blocking") == 0) {
-          appContext->progress_mode = ProgressMode::Blocking;
+          appContext->progressMode = ProgressMode::Blocking;
           break;
         } else if (strcmp(optarg, "polling") == 0) {
-          appContext->progress_mode = ProgressMode::Polling;
+          appContext->progressMode = ProgressMode::Polling;
           break;
         } else if (strcmp(optarg, "thread-blocking") == 0) {
-          appContext->progress_mode = ProgressMode::ThreadBlocking;
+          appContext->progressMode = ProgressMode::ThreadBlocking;
           break;
         } else if (strcmp(optarg, "thread-polling") == 0) {
-          appContext->progress_mode = ProgressMode::ThreadPolling;
+          appContext->progressMode = ProgressMode::ThreadPolling;
           break;
         } else if (strcmp(optarg, "wait") == 0) {
-          appContext->progress_mode = ProgressMode::Wait;
+          appContext->progressMode = ProgressMode::Wait;
           break;
         } else {
           std::cerr << "Invalid progress mode: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
       case 'p':
-        appContext->listener_port = atoi(optarg);
-        if (appContext->listener_port <= 0) {
-          std::cerr << "Wrong listener port: " << appContext->listener_port << std::endl;
+        appContext->listenerPort = atoi(optarg);
+        if (appContext->listenerPort <= 0) {
+          std::cerr << "Wrong listener port: " << appContext->listenerPort << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
         break;
       case 's':
-        appContext->message_size = atoi(optarg);
-        if (appContext->message_size <= 0) {
-          std::cerr << "Wrong message size: " << appContext->message_size << std::endl;
+        appContext->messageSize = atoi(optarg);
+        if (appContext->messageSize <= 0) {
+          std::cerr << "Wrong message size: " << appContext->messageSize << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
         break;
       case 'w':
-        appContext->warmup_iter = atoi(optarg);
-        if (appContext->warmup_iter <= 0) {
-          std::cerr << "Wrong number of warmup iterations: " << appContext->warmup_iter
+        appContext->numWarmupIterations = atoi(optarg);
+        if (appContext->numWarmupIterations <= 0) {
+          std::cerr << "Wrong number of warmup iterations: " << appContext->numWarmupIterations
                     << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
         break;
       case 'n':
-        appContext->n_iter = atoi(optarg);
-        if (appContext->n_iter <= 0) {
-          std::cerr << "Wrong number of iterations: " << appContext->n_iter << std::endl;
+        appContext->numIterations = atoi(optarg);
+        if (appContext->numIterations <= 0) {
+          std::cerr << "Wrong number of iterations: " << appContext->numIterations << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
         break;
-      case 'e': appContext->endpoint_error_handling = true; break;
-      case 'r': appContext->reuse_alloc = true; break;
-      case 'v': appContext->verify_results = true; break;
+      case 'e': appContext->endpointErrorHandling = true; break;
+      case 'r': appContext->reuseAllocations = true; break;
+      case 'v': appContext->verifyResults = true; break;
       case 'h':
       default: printUsage(std::string_view(argv[0])); return UCS_ERR_INVALID_PARAM;
     }
   }
 
-  if (optind < argc) { appContext->server_addr = argv[optind]; }
+  if (optind < argc) { appContext->serverAddress = argv[optind]; }
 
   return UCS_OK;
 }
@@ -232,7 +233,7 @@ class Application {
 
   std::function<void()> getProgressFunction()
   {
-    switch (_appContext.progress_mode) {
+    switch (_appContext.progressMode) {
       case ProgressMode::Polling: return std::bind(std::mem_fn(&ucxx::Worker::progress), _worker);
       case ProgressMode::Blocking:
         return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), _worker, -1);
@@ -254,8 +255,8 @@ class Application {
 
   BufferMap allocateTransferBuffers()
   {
-    return BufferMap{{SEND, std::vector<char>(_appContext.message_size, 0xaa)},
-                     {RECV, std::vector<char>(_appContext.message_size)}};
+    return BufferMap{{SEND, std::vector<char>(_appContext.messageSize, 0xaa)},
+                     {RECV, std::vector<char>(_appContext.messageSize)}};
   }
 
   void doWireup()
@@ -286,20 +287,20 @@ class Application {
   auto doTransfer()
   {
     BufferMap localBufferMap;
-    if (!_appContext.reuse_alloc) localBufferMap = allocateTransferBuffers();
-    BufferMap& bufferMap = _appContext.reuse_alloc ? _bufferMapReuse : localBufferMap;
+    if (!_appContext.reuseAllocations) localBufferMap = allocateTransferBuffers();
+    BufferMap& bufferMap = _appContext.reuseAllocations ? _bufferMapReuse : localBufferMap;
 
     auto start = std::chrono::high_resolution_clock::now();
     std::vector<std::shared_ptr<ucxx::Request>> requests = {
-      _endpoint->tagSend((bufferMap)[SEND].data(), _appContext.message_size, (*_tagMap)[SEND]),
+      _endpoint->tagSend((bufferMap)[SEND].data(), _appContext.messageSize, (*_tagMap)[SEND]),
       _endpoint->tagRecv(
-        (bufferMap)[RECV].data(), _appContext.message_size, (*_tagMap)[RECV], ucxx::TagMaskFull)};
+        (bufferMap)[RECV].data(), _appContext.messageSize, (*_tagMap)[RECV], ucxx::TagMaskFull)};
 
     // Wait for requests and clear requests
     waitRequests(requests);
     auto stop = std::chrono::high_resolution_clock::now();
 
-    if (_appContext.verify_results) {
+    if (_appContext.verifyResults) {
       for (size_t j = 0; j < (bufferMap)[SEND].size(); ++j)
         assert((bufferMap)[RECV][j] == (bufferMap)[RECV][j]);
     }
@@ -319,15 +320,15 @@ class Application {
     std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
     std::cout << "| Send memory:  " << appendSpaces(sendMemory) << "|" << std::endl;
     std::cout << "| Recv memory:  " << appendSpaces(recvMemory) << "|" << std::endl;
-    std::cout << "| Message size: " << appendSpaces(std::to_string(_appContext.message_size)) << "|" << std::endl;
+    std::cout << "| Message size: " << appendSpaces(std::to_string(_appContext.messageSize)) << "|" << std::endl;
     std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
     // clang-format on
   }
 
   void printProgress(size_t iteration,
-                     double overhead_50,
-                     double overhead_avg,
-                     double overhead_overall,
+                     double overhead50,
+                     double overheadAverage,
+                     double overheadOverall,
                      double bandwidthAverage,
                      double bandwidthOverall,
                      size_t messageRateAverage,
@@ -343,7 +344,7 @@ class Application {
 
  public:
   explicit Application(ApplicationContext&& appContext)
-    : _appContext(appContext), _isServer(appContext.server_addr == NULL)
+    : _appContext(appContext), _isServer(appContext.serverAddress == NULL)
   {
     if (!_isServer) printHeader("host", "host");
 
@@ -358,18 +359,18 @@ class Application {
 
     if (_isServer) {
       _listenerContext =
-        std::make_unique<ListenerContext>(_worker, _appContext.endpoint_error_handling);
+        std::make_unique<ListenerContext>(_worker, _appContext.endpointErrorHandling);
       _listener =
-        _worker->createListener(_appContext.listener_port, listener_cb, _listenerContext.get());
+        _worker->createListener(_appContext.listenerPort, listenerCallback, _listenerContext.get());
       _listenerContext->setListener(_listener);
     }
 
     // Initialize worker progress
-    if (_appContext.progress_mode == ProgressMode::Blocking)
+    if (_appContext.progressMode == ProgressMode::Blocking)
       _worker->initBlockingProgressMode();
-    else if (_appContext.progress_mode == ProgressMode::ThreadBlocking)
+    else if (_appContext.progressMode == ProgressMode::ThreadBlocking)
       _worker->startProgressThread(false);
-    else if (_appContext.progress_mode == ProgressMode::ThreadPolling)
+    else if (_appContext.progressMode == ProgressMode::ThreadPolling)
       _worker->startProgressThread(true);
 
     auto progress = getProgressFunction();
@@ -382,7 +383,7 @@ class Application {
       _endpoint = _listenerContext->getEndpoint();
     else
       _endpoint = _worker->createEndpointFromHostname(
-        _appContext.server_addr, _appContext.listener_port, _appContext.endpoint_error_handling);
+        _appContext.serverAddress, _appContext.listenerPort, _appContext.endpointErrorHandling);
 
     std::vector<std::shared_ptr<ucxx::Request>> requests;
   }
@@ -390,8 +391,8 @@ class Application {
   ~Application()
   {
     // Stop progress thread
-    if (_appContext.progress_mode == ProgressMode::ThreadBlocking ||
-        _appContext.progress_mode == ProgressMode::ThreadPolling)
+    if (_appContext.progressMode == ProgressMode::ThreadBlocking ||
+        _appContext.progressMode == ProgressMode::ThreadPolling)
       _worker->stopProgressThread();
   }
 
@@ -400,36 +401,36 @@ class Application {
     // Do wireup
     doWireup();
 
-    if (_appContext.reuse_alloc) _bufferMapReuse = allocateTransferBuffers();
+    if (_appContext.reuseAllocations) _bufferMapReuse = allocateTransferBuffers();
 
     // Warmup
-    for (size_t n = 0; n < _appContext.warmup_iter; ++n)
+    for (size_t n = 0; n < _appContext.numWarmupIterations; ++n)
       doTransfer();
 
     // Schedule send and recv messages on different tags and different ordering
-    size_t total_duration_ns = 0;
-    auto last_print_time     = std::chrono::steady_clock::now();
+    size_t totalDurationNs = 0;
+    auto lastPrintTime     = std::chrono::steady_clock::now();
 
     size_t groupDuration   = 0;
     size_t totalDuration   = 0;
     size_t groupIterations = 0;
 
-    for (size_t n = 0; n < _appContext.n_iter; ++n) {
-      auto duration_ns = doTransfer();
-      total_duration_ns += duration_ns;
+    for (size_t n = 0; n < _appContext.numIterations; ++n) {
+      auto durationNs = doTransfer();
+      totalDurationNs += durationNs;
 
-      groupDuration += duration_ns;
-      totalDuration += duration_ns;
+      groupDuration += durationNs;
+      totalDuration += durationNs;
       ++groupIterations;
 
-      auto current_time = std::chrono::steady_clock::now();
-      auto elapsed_time =
-        std::chrono::duration_cast<std::chrono::seconds>(current_time - last_print_time);
+      auto currentTime = std::chrono::steady_clock::now();
+      auto elapsedTime =
+        std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastPrintTime);
 
-      if (!_isServer && (elapsed_time.count() >= 1 || n == _appContext.n_iter - 1)) {
-        auto groupBytes       = _appContext.message_size * 2 * groupIterations;
+      if (!_isServer && (elapsedTime.count() >= 1 || n == _appContext.numIterations - 1)) {
+        auto groupBytes       = _appContext.messageSize * 2 * groupIterations;
         auto groupBandwidth   = groupBytes / (groupDuration / 1e3);
-        auto totalBytes       = _appContext.message_size * 2 * (n + 1);
+        auto totalBytes       = _appContext.messageSize * 2 * (n + 1);
         auto totalBandwidth   = totalBytes / (totalDuration / 1e3);
         auto groupMessageRate = groupIterations * 2 / (groupDuration / 1e9);
         auto totalMessageRate = (n + 1) * 2 / (totalDuration / 1e9);
@@ -446,7 +447,7 @@ class Application {
         groupDuration   = 0;
         groupIterations = 0;
 
-        last_print_time = current_time;
+        lastPrintTime = currentTime;
       }
     }
   }
