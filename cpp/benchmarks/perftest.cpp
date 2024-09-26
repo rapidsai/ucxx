@@ -30,6 +30,12 @@ enum class ProgressMode {
   ThreadBlocking,
 };
 
+enum class TestType {
+  TagLatency,
+  TagBandwidth,
+  Undefined,
+};
+
 enum TransferType { SEND, RECV };
 
 typedef std::unordered_map<TransferType, std::vector<char>> BufferMap;
@@ -39,6 +45,7 @@ typedef std::shared_ptr<TagMap> TagMapPtr;
 
 struct ApplicationContext {
   ProgressMode progressMode  = ProgressMode::Blocking;
+  TestType testType          = TestType::Undefined;
   const char* serverAddress  = NULL;
   uint16_t listenerPort      = 12345;
   size_t messageSize         = 8;
@@ -122,19 +129,25 @@ static void printUsage(std::string_view executablePath)
   std::cerr << "Usage: " << executablePath << " [server-hostname] [options]" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
-  std::cerr << "  -m          progress mode to use, valid values are: 'polling', 'blocking',"
+  std::cerr << "  -t <test>           test to run (required)" << std::endl;
+  std::cerr << "            tag_lat - UCP tag match latency" << std::endl;
+  std::cerr << "             tag_bw - UCP tag match bandwidth" << std::endl;
+  std::cerr << "  -m <progress_mode>  worker progress mode to use" << std::endl;
+  std::cerr << "           blocking - Blocking progress mode (default)" << std::endl;
+  std::cerr << "            polling - Polling progress mode" << std::endl;
+  std::cerr << "    thread-blocking - Blocking progress mode in exclusive progress thread"
             << std::endl;
-  std::cerr << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
+  std::cerr << "     thread-polling - Polling progress mode in exclusive progress thread"
             << std::endl;
-  std::cerr << "  -t          use thread progress mode (disabled)" << std::endl;
-  std::cerr << "  -e          create endpoints with error handling support (disabled)" << std::endl;
-  std::cerr << "  -p <port>   port number to listen at (12345)" << std::endl;
-  std::cerr << "  -s <bytes>  message size (8)" << std::endl;
-  std::cerr << "  -n <int>    number of iterations to run (100)" << std::endl;
-  std::cerr << "  -r          reuse memory allocation (disabled)" << std::endl;
-  std::cerr << "  -v          verify results (disabled)" << std::endl;
-  std::cerr << "  -w <int>    number of warmup iterations to run (3)" << std::endl;
-  std::cerr << "  -h          print this help" << std::endl;
+  std::cerr << "  -e                  create endpoints with error handling support (disabled)"
+            << std::endl;
+  std::cerr << "  -p <port>           port number to listen at (12345)" << std::endl;
+  std::cerr << "  -s <bytes>          message size (8)" << std::endl;
+  std::cerr << "  -n <int>            number of iterations to run (100)" << std::endl;
+  std::cerr << "  -r                  reuse memory allocation (disabled)" << std::endl;
+  std::cerr << "  -v                  verify results (disabled)" << std::endl;
+  std::cerr << "  -w <int>            number of warmup iterations to run (3)" << std::endl;
+  std::cerr << "  -h                  print this help" << std::endl;
   std::cerr << std::endl;
 }
 
@@ -142,7 +155,7 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "m:p:s:w:n:ervh")) != -1) {
+  while ((c = getopt(argc, argv, "m:t:p:s:w:n:ervh")) != -1) {
     switch (c) {
       case 'm':
         if (strcmp(optarg, "blocking") == 0) {
@@ -162,6 +175,17 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
           break;
         } else {
           std::cerr << "Invalid progress mode: " << optarg << std::endl;
+          return UCS_ERR_INVALID_PARAM;
+        }
+      case 't':
+        if (strcmp(optarg, "tag_lat") == 0) {
+          appContext->testType = TestType::TagLatency;
+          break;
+        } else if (strcmp(optarg, "tag_bw") == 0) {
+          appContext->testType = TestType::TagBandwidth;
+          break;
+        } else {
+          std::cerr << "Invalid test to run: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
       case 'p':
@@ -199,6 +223,11 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
       case 'h':
       default: printUsage(std::string_view(argv[0])); return UCS_ERR_INVALID_PARAM;
     }
+  }
+
+  if (appContext->testType == TestType::Undefined) {
+    std::cerr << "missing test to run (-t)" << std::endl;
+    return UCS_ERR_INVALID_PARAM;
   }
 
   if (optind < argc) { appContext->serverAddress = argv[optind]; }
