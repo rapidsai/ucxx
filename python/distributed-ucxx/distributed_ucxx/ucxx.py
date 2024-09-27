@@ -90,6 +90,26 @@ def synchronize_stream(stream=0):
     stream.synchronize()
 
 
+def _allocate_dask_resources_tracker() -> None:
+    """Allocate Dask resources tracker.
+
+    Allocate a Dask resources tracker in the UCXX context. This is useful by the
+    Distributed patcher to stop progress and notifier threads once no more Dask
+    resources (i.e., Scheduler, Nanny, Worker, Client) are alive who need UCXX
+    to keep on progressing the UCX worker.
+    """
+    ctx = ucxx.core._get_ctx()
+    if not hasattr(ctx, "_dask_resources"):
+        from threading import Lock
+
+        ctx._dask_resources = set()
+        ctx._dask_resources_lock = Lock()
+        print(
+            f"[{os.getpid()}] init_once: {ctx=}, {ctx._dask_resources}, "
+            f"{ctx.progress_tasks=}, {ctx.notifier_thread=}"
+        )
+
+
 def init_once():
     global ucxx, device_array
     global ucx_create_endpoint, ucx_create_listener
@@ -97,6 +117,11 @@ def init_once():
     global multi_buffer
 
     if ucxx is not None:
+        # Ensure reallocation of Dask resources tracker if the UCXX context was
+        # reset since the previous `init_once()` call. This may happen in tests,
+        # where the `ucxx_loop` fixture will reset the context after each test.
+        _allocate_dask_resources_tracker()
+
         return
 
     # remove/process dask.ucx flags for valid ucx options
@@ -159,6 +184,7 @@ def init_once():
         # environment, so the user's external environment can safely
         # override things here.
         ucxx.init(options=ucx_config, env_takes_precedence=True)
+        _allocate_dask_resources_tracker()
 
     pool_size_str = dask.config.get("distributed.rmm.pool-size")
 
