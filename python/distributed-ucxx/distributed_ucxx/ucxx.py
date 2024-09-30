@@ -90,6 +90,63 @@ def synchronize_stream(stream=0):
     stream.synchronize()
 
 
+def _stop_notifier_thread_and_progress_tasks():
+    """Stop the notifier thread and progress tasks.
+
+    If no Dask resources that make use of UCXX communicator are running anymore,
+    stop the notifier thread and progress tasks to allow for clean shutdown.
+    """
+    ctx = ucxx.core._get_ctx()
+    if len(ctx._dask_resources) == 0:
+        print(f"[{os.getpid()}] _stop_notifier_thread_and_progress_tasks", flush=True)
+        ucxx.stop_notifier_thread()
+        ucxx.core._get_ctx().progress_tasks.clear()
+
+
+def _register_dask_resource(resource, name=None):
+    """Register a Dask resource with the UCXX context.
+
+    Register a Dask resource with the UCXX context to keep track of it, so that
+    the notifier thread and progress tasks may be stopped when no more resources
+    need UCXX.
+    """
+    if name is None:
+        name = "Unknown caller"
+
+    ctx = ucxx.core._get_ctx()
+
+    with ctx._dask_resources_lock:
+        ctx._dask_resources.add(resource)
+    print(f"[{os.getpid()}] {name} registered: {ctx._dask_resources=}", flush=True)
+
+
+def _deregister_dask_resource(resource, name=None):
+    """Deregister a Dask resource with the UCXX context.
+
+    Deregister a Dask resource from the UCXX context, and if no resources remain
+    after deregistration, stop the notifier thread and progress tasks.
+    need UCXX.
+    """
+    if name is None:
+        name = "Unknown caller"
+
+    ctx = ucxx.core._get_ctx()
+
+    if hasattr(ctx, "_dask_resources_lock"):
+        with ctx._dask_resources_lock:
+            try:
+                ctx._dask_resources.remove(resource)
+            except KeyError:
+                pass
+            _stop_notifier_thread_and_progress_tasks()
+            print(f"[{os.getpid()}] {name} deregistered: {ctx._dask_resources=}")
+    else:
+        print(
+            f"[{os.getpid()}] {name}: {ctx=} has no _dask_resources_lock, "
+            "the context was probably already reset."
+        )
+
+
 def _allocate_dask_resources_tracker() -> None:
     """Allocate Dask resources tracker.
 
@@ -305,6 +362,8 @@ class UCXX(Comm):
         else:
             self._has_close_callback = False
 
+        _register_dask_resource(self)
+
         logger.debug("UCX.__init__ %s", self)
 
     def __del__(self) -> None:
@@ -506,14 +565,16 @@ class UCXX(Comm):
                 # UCX will sometimes raise a `Input/output` error,
                 # which we can ignore.
                 pass
-            self.abort()
-            self._ep = None
+            finally:
+                self.abort()
+                self._ep = None
 
     def abort(self):
         self._closed = True
         if self._ep is not None:
             self._ep.abort()
             self._ep = None
+            _deregister_dask_resource(self)
 
     def closed(self):
         if self._has_close_callback is True:

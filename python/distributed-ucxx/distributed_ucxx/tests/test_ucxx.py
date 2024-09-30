@@ -85,6 +85,9 @@ async def test_comm_objs(ucxx_loop):
 
     assert comm.peer_address == serv_comm.local_address
 
+    await comm.close()
+    await serv_comm.close()
+
 
 @gen_test()
 async def test_ucxx_specific(ucxx_loop):
@@ -257,6 +260,9 @@ async def test_ping_pong_numba(ucxx_loop):
     data2 = result.pop("data")
     np.testing.assert_array_equal(data2, arr)
     assert result["op"] == "ping"
+
+    await com.close()
+    await serv_com.close()
 
 
 @pytest.mark.parametrize("processes", [True, False])
