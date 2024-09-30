@@ -98,7 +98,6 @@ def _stop_notifier_thread_and_progress_tasks():
     """
     ctx = ucxx.core._get_ctx()
     if len(ctx._dask_resources) == 0:
-        print(f"[{os.getpid()}] _stop_notifier_thread_and_progress_tasks", flush=True)
         ucxx.stop_notifier_thread()
         ucxx.core._get_ctx().progress_tasks.clear()
 
@@ -117,7 +116,6 @@ def _register_dask_resource(resource, name=None):
 
     with ctx._dask_resources_lock:
         ctx._dask_resources.add(resource)
-    print(f"[{os.getpid()}] {name} registered: {ctx._dask_resources=}", flush=True)
 
 
 def _deregister_dask_resource(resource, name=None):
@@ -132,6 +130,8 @@ def _deregister_dask_resource(resource, name=None):
 
     ctx = ucxx.core._get_ctx()
 
+    # Check if the attribute exists first, in tests the UCXX context may have
+    # been reset before some resources are deregistered.
     if hasattr(ctx, "_dask_resources_lock"):
         with ctx._dask_resources_lock:
             try:
@@ -139,12 +139,6 @@ def _deregister_dask_resource(resource, name=None):
             except KeyError:
                 pass
             _stop_notifier_thread_and_progress_tasks()
-            print(f"[{os.getpid()}] {name} deregistered: {ctx._dask_resources=}")
-    else:
-        print(
-            f"[{os.getpid()}] {name}: {ctx=} has no _dask_resources_lock, "
-            "the context was probably already reset."
-        )
 
 
 def _allocate_dask_resources_tracker() -> None:
@@ -161,10 +155,6 @@ def _allocate_dask_resources_tracker() -> None:
 
         ctx._dask_resources = set()
         ctx._dask_resources_lock = Lock()
-        print(
-            f"[{os.getpid()}] init_once: {ctx=}, {ctx._dask_resources}, "
-            f"{ctx.progress_tasks=}, {ctx.notifier_thread=}"
-        )
 
 
 def init_once():
