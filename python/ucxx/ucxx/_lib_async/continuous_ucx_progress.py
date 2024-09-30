@@ -29,14 +29,19 @@ class ProgressTask(object):
         self.event_loop = event_loop
         self.asyncio_task = None
 
-    def __del__(self):
-        # FIXME: This only works if the event loop is still running and awaits the
-        # cancelation.
-        # Running with blocking and polling modes may cause
-        # `Task was destroyed but it is pending!` errors at ucxx.reset().
-        if self.event_loop is not None and self.event_loop.is_running():
-            if self.asyncio_task is not None:
-                self.call_soon_threadsafe(self.asyncio_task.cancel())
+        event_loop_close = self.event_loop.close
+
+        def _event_loop_close(*args, **kwargs):
+            if not self.event_loop.is_closed() and self.asyncio_task is not None:
+                try:
+                    self.asyncio_task.cancel()
+                    self.event_loop.run_until_complete(self.asyncio_task)
+                except asyncio.exceptions.CancelledError:
+                    pass
+                finally:
+                    event_loop_close(*args, **kwargs)
+
+        self.event_loop.close = _event_loop_close
 
     # Hash and equality is based on the event loop
     def __hash__(self):
@@ -128,26 +133,6 @@ class BlockingMode(ProgressTask):
         self.blocking_asyncio_task = None
         self.last_progress_time = time.monotonic() - self._progress_timeout
         self.asyncio_task = event_loop.create_task(self._progress_with_timeout())
-
-    def __del__(self):
-        """Cancel asynchronous blocking progress task.
-
-        Cancel asynchronouns blocking progress task.
-
-        .. warning::
-            This only works if the event loop is still running. If the event loop has
-            been closed before this runs the following error will be printed by the
-            interpreter on the standard output:
-
-            ```
-            Task was destroyed but it is pending!
-            ```
-        """
-        if self.event_loop is not None and self.event_loop.is_running():
-            if self.blocking_asyncio_task is not None:
-                self.call_soon_threadsafe(self.blocking_asyncio_task.cancel())
-
-        super().__del__()
 
     def _fd_reader_callback(self):
         """Schedule new progress task upon worker event.
