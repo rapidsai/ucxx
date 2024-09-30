@@ -88,9 +88,11 @@ class BlockingMode(ProgressTask):
     ):
         """Progress the UCX worker in blocking mode.
 
-        The blocking progress mode ensure the worker is progress whenever the UCX
-        worker reports an event on its epoll file descriptor. In certain
-        circumstances the epoll file descriptor may not
+        The blocking progress mode ensure the worker is progresses whenever the
+        UCX worker reports an event on its epoll file descriptor. In certain
+        circumstances the epoll file descriptor may not present an event, thus
+        the `progress_timeout` will ensure the UCX worker is progressed to
+        prevent a potential deadlock.
 
         Parameters
         ----------
@@ -103,6 +105,7 @@ class BlockingMode(ProgressTask):
             be progressed.
         """
         super().__init__(worker, event_loop)
+        self._progress_timeout = progress_timeout
 
         # Creating a job that is ready straight away but with low priority.
         # Calling `await self.event_loop.sock_recv(self.rsock, 1)` will
@@ -123,8 +126,8 @@ class BlockingMode(ProgressTask):
         weakref.finalize(self, self.rsock.close)
 
         self.blocking_asyncio_task = None
-        self.last_progress_time = time.monotonic() - progress_timeout
-        self.asyncio_task = event_loop.create_task(self._timeout_progress(1.0))
+        self.last_progress_time = time.monotonic() - self._progress_timeout
+        self.asyncio_task = event_loop.create_task(self._progress_with_timeout())
 
     def __del__(self):
         """Cancel asynchronous blocking progress task.
@@ -176,34 +179,30 @@ class BlockingMode(ProgressTask):
 
             # This IO task returns when all non-IO tasks are finished.
             # Notice, we do NOT hold a reference to `worker` while waiting.
-            await self.event_loop.sock_recv(self.rsock, 1)
+            await asyncio.wait_for(
+                self.event_loop.sock_recv(self.rsock, 1), self._progress_timeout
+            )
 
             if self.worker.arm():
                 # At this point we know that asyncio's next state is
                 # epoll wait.
                 break
 
-    async def _timeout_progress(self, progress_timeout: float = 1.0):
+    async def _progress_with_timeout(self):
         """Protect worker from never progressing again.
 
         To ensure the worker progresses if no events are raised and the asyncio loop
         getting stuck we must ensure the worker is progressed every so often. This
         method ensures the worker is progressed independent of what the epoll file
-        descriptor does if longer than `progress_timeout` has elapsed since last check,
-        thus preventing a deadlock.
-
-        Parameters
-        ----------
-        progress_timeout: float
-            The timeout to sleep until calling checking again whether the worker should
-            be progressed.
+        descriptor does if longer than `self._progress_timeout` has elapsed since
+        last check, thus preventing a deadlock.
         """
         while True:
             worker = self.worker
             if worker is None:
                 return
-            if time.monotonic() > self.last_progress_time + progress_timeout:
+            if time.monotonic() > self.last_progress_time + self._progress_timeout:
                 self.last_progress_time = time.monotonic()
                 worker.progress()
             # Give other co-routines a chance to run.
-            await asyncio.sleep(progress_timeout)
+            await asyncio.sleep(self._progress_timeout)
