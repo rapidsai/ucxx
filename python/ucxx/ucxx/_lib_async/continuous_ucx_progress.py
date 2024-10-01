@@ -40,6 +40,7 @@ class ProgressTask(object):
                 except asyncio.exceptions.CancelledError:
                     pass
                 finally:
+                    self.asyncio_task = None
                     event_loop_close_original(*args, **kwargs)
 
         self.event_loop.close = partial(_event_loop_close, event_loop_close_original)
