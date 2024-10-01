@@ -144,7 +144,7 @@ class BlockingMode(ProgressTask):
         """
         self.worker.progress()
 
-        # Notice, we can safely overwrite `self.dangling_arm_task`
+        # Notice, we can safely overwrite `self.blocking_asyncio_task`
         # since previous arm task is finished by now.
         assert self.blocking_asyncio_task is None or self.blocking_asyncio_task.done()
         self.blocking_asyncio_task = self.event_loop.create_task(self._arm_worker())
@@ -157,7 +157,7 @@ class BlockingMode(ProgressTask):
         """
         # When arming the worker, the following must be true:
         #  - No more progress in UCX (see doc of ucp_worker_arm())
-        #  - All asyncio tasks that isn't waiting on UCX must be executed
+        #  - All asyncio tasks that aren't waiting on UCX must be executed
         #    so that the asyncio's next state is epoll wait.
         #    See <https://github.com/rapidsai/ucx-py/issues/413>
         while True:
