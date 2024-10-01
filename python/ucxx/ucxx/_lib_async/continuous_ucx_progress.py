@@ -6,6 +6,7 @@ import asyncio
 import socket
 import time
 import weakref
+from functools import partial
 
 from ucxx._lib.libucxx import UCXWorker
 
@@ -29,9 +30,9 @@ class ProgressTask(object):
         self.event_loop = event_loop
         self.asyncio_task = None
 
-        event_loop_close = self.event_loop.close
+        event_loop_close_original = self.event_loop.close
 
-        def _event_loop_close(*args, **kwargs):
+        def _event_loop_close(event_loop_close_original, *args, **kwargs):
             if not self.event_loop.is_closed() and self.asyncio_task is not None:
                 try:
                     self.asyncio_task.cancel()
@@ -39,9 +40,9 @@ class ProgressTask(object):
                 except asyncio.exceptions.CancelledError:
                     pass
                 finally:
-                    event_loop_close(*args, **kwargs)
+                    event_loop_close_original(*args, **kwargs)
 
-        self.event_loop.close = _event_loop_close
+        self.event_loop.close = partial(_event_loop_close, event_loop_close_original)
 
     # Hash and equality is based on the event loop
     def __hash__(self):
