@@ -98,8 +98,8 @@ def _stop_notifier_thread_and_progress_tasks():
     """
     ctx = ucxx.core._get_ctx()
     if len(ctx._dask_resources) == 0:
-        ucxx.stop_notifier_thread()
-        ucxx.core._get_ctx().progress_tasks.clear()
+        ctx.stop_notifier_thread()
+        ctx.progress_tasks.clear()
 
 
 def _register_dask_resource(resource, name=None):
@@ -116,6 +116,8 @@ def _register_dask_resource(resource, name=None):
 
     with ctx._dask_resources_lock:
         ctx._dask_resources.add(resource)
+        ctx.start_notifier_thread()
+        ctx.continuous_ucx_progress()
 
 
 def _deregister_dask_resource(resource, name=None):
@@ -599,6 +601,7 @@ class UCXXConnector(Connector):
         init_once()
 
         try:
+            _register_dask_resource(self)
             ep = await ucxx.create_endpoint(ip, port)
         except (
             ucxx.exceptions.UCXCloseError,
@@ -608,6 +611,8 @@ class UCXXConnector(Connector):
             ucxx.exceptions.UCXUnreachableError,
         ):
             raise CommClosedError("Connection closed before handshake completed")
+        finally:
+            _deregister_dask_resource(self)
         return self.comm_class(
             ep,
             local_addr="",
