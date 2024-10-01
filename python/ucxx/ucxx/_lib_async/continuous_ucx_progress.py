@@ -166,9 +166,7 @@ class BlockingMode(ProgressTask):
 
             # This IO task returns when all non-IO tasks are finished.
             # Notice, we do NOT hold a reference to `worker` while waiting.
-            await asyncio.wait_for(
-                self.event_loop.sock_recv(self.rsock, 1), self._progress_timeout
-            )
+            await self.event_loop.sock_recv(self.rsock, 1)
 
             if self.worker.arm():
                 # At this point we know that asyncio's next state is
@@ -190,6 +188,18 @@ class BlockingMode(ProgressTask):
                 return
             if time.monotonic() > self.last_progress_time + self._progress_timeout:
                 self.last_progress_time = time.monotonic()
+
+                # Cancel `_arm_worker` task if available. `loop.sock_recv` does not
+                # seem to respect timeout with `asyncio.wait_for`, thus we cancel
+                # it here instead. It will get recreated after a new event on
+                # `worker.epoll_file_descriptor`.
+                if self.blocking_asyncio_task is not None:
+                    self.blocking_asyncio_task.cancel()
+                    try:
+                        await self.blocking_asyncio_task
+                    except asyncio.exceptions.CancelledError:
+                        pass
+
                 worker.progress()
             # Give other co-routines a chance to run.
             await asyncio.sleep(self._progress_timeout)
