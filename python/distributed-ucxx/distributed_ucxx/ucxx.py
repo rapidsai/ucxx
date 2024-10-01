@@ -102,16 +102,13 @@ def _stop_notifier_thread_and_progress_tasks():
         ctx.progress_tasks.clear()
 
 
-def _register_dask_resource(resource, name=None):
+def _register_dask_resource(resource):
     """Register a Dask resource with the UCXX context.
 
     Register a Dask resource with the UCXX context to keep track of it, so that
     the notifier thread and progress tasks may be stopped when no more resources
     need UCXX.
     """
-    if name is None:
-        name = "Unknown caller"
-
     ctx = ucxx.core._get_ctx()
 
     with ctx._dask_resources_lock:
@@ -120,16 +117,13 @@ def _register_dask_resource(resource, name=None):
         ctx.continuous_ucx_progress()
 
 
-def _deregister_dask_resource(resource, name=None):
+def _deregister_dask_resource(resource):
     """Deregister a Dask resource with the UCXX context.
 
     Deregister a Dask resource from the UCXX context, and if no resources remain
     after deregistration, stop the notifier thread and progress tasks.
     need UCXX.
     """
-    if name is None:
-        name = "Unknown caller"
-
     ctx = ucxx.core._get_ctx()
 
     # Check if the attribute exists first, in tests the UCXX context may have
@@ -357,6 +351,8 @@ class UCXX(Comm):
         _register_dask_resource(self)
 
         logger.debug("UCX.__init__ %s", self)
+
+        weakref.finalize(self, _deregister_dask_resource, self)
 
     def __del__(self) -> None:
         self.abort()
