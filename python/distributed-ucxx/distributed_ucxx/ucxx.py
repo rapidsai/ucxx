@@ -124,6 +124,11 @@ def _deregister_dask_resource(resource):
     after deregistration, stop the notifier thread and progress tasks.
     need UCXX.
     """
+    if ucxx.core._ctx is None:
+        # Prevent creation of context if it was already destroyed, all
+        # registered references are already gone.
+        return
+
     ctx = ucxx.core._get_ctx()
 
     # Check if the attribute exists first, in tests the UCXX context may have
