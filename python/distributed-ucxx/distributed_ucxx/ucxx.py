@@ -348,11 +348,11 @@ class UCXX(Comm):
         else:
             self._has_close_callback = False
 
-        _register_dask_resource(self)
+        _register_dask_resource(hash(self))
 
         logger.debug("UCX.__init__ %s", self)
 
-        weakref.finalize(self, _deregister_dask_resource, self)
+        weakref.finalize(self, _deregister_dask_resource, hash(self))
 
     def __del__(self) -> None:
         self.abort()
@@ -562,7 +562,7 @@ class UCXX(Comm):
         if self._ep is not None:
             self._ep.abort()
             self._ep = None
-            _deregister_dask_resource(self)
+            _deregister_dask_resource(hash(self))
 
     def closed(self):
         if self._has_close_callback is True:
@@ -597,7 +597,7 @@ class UCXXConnector(Connector):
         init_once()
 
         try:
-            _register_dask_resource(self)
+            _register_dask_resource(hash(self))
             ep = await ucxx.create_endpoint(ip, port)
         except (
             ucxx.exceptions.UCXCloseError,
@@ -608,7 +608,7 @@ class UCXXConnector(Connector):
         ):
             raise CommClosedError("Connection closed before handshake completed")
         finally:
-            _deregister_dask_resource(self)
+            _deregister_dask_resource(hash(self))
         return self.comm_class(
             ep,
             local_addr="",
