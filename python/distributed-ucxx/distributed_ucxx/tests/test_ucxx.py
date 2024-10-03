@@ -85,9 +85,6 @@ async def test_comm_objs(ucxx_loop):
 
     assert comm.peer_address == serv_comm.local_address
 
-    await comm.close()
-    await serv_comm.close()
-
 
 @gen_test()
 async def test_ucxx_specific(ucxx_loop):
@@ -320,10 +317,7 @@ async def test_simple(
     ucxx_loop,
 ):
     async with LocalCluster(
-        protocol="ucxx",
-        n_workers=2,
-        threads_per_worker=2,
-        asynchronous=True,
+        protocol="ucxx", n_workers=2, threads_per_worker=2, asynchronous=True
     ) as cluster:
         async with Client(cluster, asynchronous=True) as client:
             assert cluster.scheduler_address.startswith("ucxx://")
