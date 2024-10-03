@@ -132,19 +132,13 @@ async def test_ucxx_specific(ucxx_loop):
         keys.append(key)
         return comm
 
-    comms = [await client_communicate(key=1234, delay=0.5)]
+    await client_communicate(key=1234, delay=0.5)
 
     # Many clients at once
     N = 2
     futures = [client_communicate(key=i, delay=0.05) for i in range(N)]
-    comms += await asyncio.gather(*futures)
+    await asyncio.gather(*futures)
     assert set(keys) == {1234} | set(range(N))
-
-    # We need to ensure all `comm`s are closed so that UCXX resources can be
-    # properly released before the thread leak check in `ucxx_loop`, where
-    # the notifier thread will still be alive otherwise.
-    comms_close = [comm.close() for comm in comms]
-    await asyncio.gather(*comms_close)
 
     listener.stop()
 
@@ -266,9 +260,6 @@ async def test_ping_pong_numba(ucxx_loop):
     data2 = result.pop("data")
     np.testing.assert_array_equal(data2, arr)
     assert result["op"] == "ping"
-
-    await com.close()
-    await serv_com.close()
 
 
 @pytest.mark.parametrize("processes", [True, False])
@@ -401,12 +392,6 @@ async def test_transpose(
 async def test_ucxx_protocol(ucxx_loop, cleanup, port):
     async with Scheduler(protocol="ucxx", port=port, dashboard_address=":0") as s:
         assert s.address.startswith("ucxx://")
-
-    # Force resetting the UCXX context. Since there's no actual communicator
-    # being created here the `UCXX` class will not stop the notifier thread
-    # until `ucxx_loop` does it _after_ the thread leak check, which will
-    # raise a teardown error.
-    ucxx.reset()
 
 
 @gen_test()
