@@ -48,6 +48,8 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
         feature_flags.append(ucx_api.Feature.AM)
     elif transfer_api == "stream":
         feature_flags.append(ucx_api.Feature.STREAM)
+    else:
+        feature_flags.append(ucx_api.Feature.TAG)
 
     ctx = ucx_api.UCXContext(feature_flags=tuple(feature_flags))
     worker = ucx_api.UCXWorker(ctx)
@@ -114,11 +116,13 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
 
 def _echo_client(transfer_api, msg_size, progress_mode, port):
     # TAG is always used for wireup
-    feature_flags = [ucx_api.Feature.WAKEUP, ucx_api.Feature.TAG]
+    feature_flags = [ucx_api.Feature.WAKEUP]
     if transfer_api == "am":
         feature_flags.append(ucx_api.Feature.AM)
-    if transfer_api == "stream":
+    elif transfer_api == "stream":
         feature_flags.append(ucx_api.Feature.STREAM)
+    else:
+        feature_flags.append(ucx_api.Feature.TAG)
 
     ctx = ucx_api.UCXContext(feature_flags=tuple(feature_flags))
     worker = ucx_api.UCXWorker(ctx)
