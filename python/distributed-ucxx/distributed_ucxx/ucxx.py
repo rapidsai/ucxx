@@ -671,10 +671,13 @@ class UCXXListener(Listener):
                 await self.comm_handler(ucx)
 
         init_once()
+        _register_dask_resource(hash(self))
+        weakref.finalize(self, _deregister_dask_resource, hash(self))
         self.ucxx_server = ucxx.create_listener(serve_forever, port=self._input_port)
 
     def stop(self):
         self.ucxx_server = None
+        _deregister_dask_resource(hash(self))
 
     def get_host_port(self):
         # TODO: TCP raises if this hasn't started yet.
