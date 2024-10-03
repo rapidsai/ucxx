@@ -107,7 +107,6 @@ def _register_dask_resource(resource):
 
     Register a Dask resource with the UCXX context to keep track of it, so that
     the notifier thread and progress tasks may be stopped when no more resources
-    need UCXX.
     """
     ctx = ucxx.core._get_ctx()
 
@@ -145,10 +144,9 @@ def _deregister_dask_resource(resource):
 def _allocate_dask_resources_tracker() -> None:
     """Allocate Dask resources tracker.
 
-    Allocate a Dask resources tracker in the UCXX context. This is useful by the
-    Distributed patcher to stop progress and notifier threads once no more Dask
-    resources (i.e., Scheduler, Nanny, Worker, Client) are alive who need UCXX
-    to keep on progressing the UCX worker.
+    Allocate a Dask resources tracker in the UCXX context. This is useful to
+    track Distributed communicators so that progress and notifier threads can
+    be cleanly stopped when no UCXX communicators are alive anymore.
     """
     ctx = ucxx.core._get_ctx()
     if not hasattr(ctx, "_dask_resources"):
@@ -558,9 +556,8 @@ class UCXX(Comm):
                 # UCX will sometimes raise a `Input/output` error,
                 # which we can ignore.
                 pass
-            finally:
-                self.abort()
-                self._ep = None
+            self.abort()
+            self._ep = None
 
     def abort(self):
         self._closed = True
