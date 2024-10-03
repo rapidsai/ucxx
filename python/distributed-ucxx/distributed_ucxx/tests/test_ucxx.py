@@ -285,7 +285,6 @@ async def test_ucxx_localcluster(ucxx_loop, processes, cleanup):
         n_workers=2,
         threads_per_worker=1,
         processes=processes,
-        silence_logs=False,
         asynchronous=True,
     ) as cluster:
         async with Client(cluster, asynchronous=True) as client:
@@ -310,7 +309,6 @@ async def test_stress(
         protocol="ucxx",
         dashboard_address=":0",
         asynchronous=True,
-        silence_logs=False,
         host=HOST,
     ) as cluster:
         async with Client(cluster, asynchronous=True):
@@ -335,7 +333,6 @@ async def test_simple(
         n_workers=2,
         threads_per_worker=2,
         asynchronous=True,
-        silence_logs=False,
     ) as cluster:
         async with Client(cluster, asynchronous=True) as client:
             assert cluster.scheduler_address.startswith("ucxx://")
