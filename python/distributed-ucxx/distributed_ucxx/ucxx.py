@@ -527,6 +527,7 @@ class UCXXConnector(Connector):
             ucxx.exceptions.UCXCloseError,
             ucxx.exceptions.UCXCanceledError,
             ucxx.exceptions.UCXConnectionResetError,
+            ucxx.exceptions.UCXMessageTruncatedError,
             ucxx.exceptions.UCXNotConnectedError,
             ucxx.exceptions.UCXUnreachableError,
         ):
