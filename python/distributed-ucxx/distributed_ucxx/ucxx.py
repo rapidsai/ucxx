@@ -90,18 +90,6 @@ def synchronize_stream(stream=0):
     stream.synchronize()
 
 
-def _stop_notifier_thread_and_progress_tasks():
-    """Stop the notifier thread and progress tasks.
-
-    If no Dask resources that make use of UCXX communicator are running anymore,
-    stop the notifier thread and progress tasks to allow for clean shutdown.
-    """
-    ctx = ucxx.core._get_ctx()
-    if len(ctx._dask_resources) == 0:
-        ctx.stop_notifier_thread()
-        ctx.progress_tasks.clear()
-
-
 def _register_dask_resource(resource):
     """Register a Dask resource with the UCXX context.
 
@@ -138,7 +126,12 @@ def _deregister_dask_resource(resource):
                 ctx._dask_resources.remove(resource)
             except KeyError:
                 pass
-            _stop_notifier_thread_and_progress_tasks()
+
+            # Stop notifier thread and progress tasks if no Dask resources using
+            # UCXX communicators are running anymore.
+            if len(ctx._dask_resources) == 0:
+                ctx.stop_notifier_thread()
+                ctx.progress_tasks.clear()
 
 
 def _allocate_dask_resources_tracker() -> None:
