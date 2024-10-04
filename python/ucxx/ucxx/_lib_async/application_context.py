@@ -366,11 +366,14 @@ class ApplicationContext:
                 listener=False,
                 stream_timeout=exchange_peer_info_timeout,
             )
-        except UCXMessageTruncatedError:
+        except UCXMessageTruncatedError as e:
             # A truncated message occurs if the remote endpoint closed before
             # exchanging peer info, in that case we should raise the endpoint
-            # error instead.
+            # error, if available.
             ucx_ep.raise_on_error()
+            # If no endpoint error is available, re-raise exception.
+            raise e
+
         tags = {
             "msg_send": peer_info["msg_tag"],
             "msg_recv": msg_tag,
