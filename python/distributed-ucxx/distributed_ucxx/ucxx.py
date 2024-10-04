@@ -92,24 +92,23 @@ def synchronize_stream(stream=0):
 
 
 def make_register():
-    """Register a Dask resource with the UCXX context.
-
-    Register a Dask resource with the UCXX context and keep track of it with the
-    use of a unique ID for the resource. The resource ID is later used to
-    deregister the resource from the UCXX context calling
-    `_deregister_dask_resource(resource_id)`, which stops the notifier thread
-    and progress tasks when no more UCXX resources are alive.
-
-    Returns
-    -------
-    resource_id: int
-        The ID of the registered resource that should be used with
-        `_deregister_dask_resource` during stop/destruction of the resource.
-    """
-
     count = itertools.count()
 
     def register() -> int:
+        """Register a Dask resource with the UCXX context.
+
+        Register a Dask resource with the UCXX context and keep track of it with the
+        use of a unique ID for the resource. The resource ID is later used to
+        deregister the resource from the UCXX context calling
+        `_deregister_dask_resource(resource_id)`, which stops the notifier thread
+        and progress tasks when no more UCXX resources are alive.
+
+        Returns
+        -------
+        resource_id: int
+            The ID of the registered resource that should be used with
+            `_deregister_dask_resource` during stop/destruction of the resource.
+        """
         ctx = ucxx.core._get_ctx()
         with ctx._dask_resources_lock:
             resource_id = next(count)
@@ -122,6 +121,8 @@ def make_register():
 
 
 _register_dask_resource = make_register()
+
+del make_register
 
 
 def _deregister_dask_resource(resource_id):
