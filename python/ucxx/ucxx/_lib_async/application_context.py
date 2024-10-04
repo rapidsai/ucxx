@@ -40,7 +40,7 @@ class ApplicationContext:
         enable_python_future=None,
         exchange_peer_info_timeout=10.0,
     ):
-        self.progress_tasks = []
+        self.progress_tasks = dict()
         self.notifier_thread_q = None
         self.notifier_thread = None
         self._listener_active_clients = ActiveClients()
@@ -194,7 +194,7 @@ class ApplicationContext:
         return self.worker.address
 
     def start_notifier_thread(self):
-        if self.worker.enable_python_future:
+        if self.worker.enable_python_future and self.notifier_thread is None:
             logger.debug("UCXX_ENABLE_PYTHON available, enabling notifier thread")
             loop = get_event_loop()
             self.notifier_thread_q = Queue()
@@ -231,6 +231,7 @@ class ApplicationContext:
                 # call otherwise.
                 self.notifier_thread.join(timeout=0.01)
                 if not self.notifier_thread.is_alive():
+                    self.notifier_thread = None
                     break
             logger.debug("Notifier thread stopped")
         else:
@@ -365,11 +366,14 @@ class ApplicationContext:
                 listener=False,
                 stream_timeout=exchange_peer_info_timeout,
             )
-        except UCXMessageTruncatedError:
+        except UCXMessageTruncatedError as e:
             # A truncated message occurs if the remote endpoint closed before
             # exchanging peer info, in that case we should raise the endpoint
-            # error instead.
+            # error, if available.
             ucx_ep.raise_on_error()
+            # If no endpoint error is available, re-raise exception.
+            raise e
+
         tags = {
             "msg_send": peer_info["msg_tag"],
             "msg_recv": msg_tag,
@@ -461,7 +465,7 @@ class ApplicationContext:
         elif self.progress_mode == "polling":
             task = PollingMode(self.worker, loop)
 
-        self.progress_tasks.append(task)
+        self.progress_tasks[loop] = task
 
     def get_ucp_worker(self):
         """Returns the underlying UCP worker handle (ucp_worker_h)
