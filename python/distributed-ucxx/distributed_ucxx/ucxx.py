@@ -170,6 +170,10 @@ def _allocate_dask_resources_tracker() -> None:
     """
     ctx = ucxx.core._get_ctx()
     if not hasattr(ctx, "_dask_resources"):
+        # TODO: Move the `Lock` to a file/module-level variable for true
+        # lock-safety. The approach implemented below could cause race
+        # conditions if this function is called simultaneously by multiple
+        # threads.
         from threading import Lock
 
         ctx._dask_resources = set()
