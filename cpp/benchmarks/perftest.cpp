@@ -276,9 +276,38 @@ std::string appendSpaces(const std::string_view input,
 std::string floatToString(double number, size_t precision = 2)
 {
   std::ostringstream oss;
-  oss << std::fixed << std::setprecision(2) << number;
+  oss << std::fixed << std::setprecision(precision) << number;
   return oss.str();
 }
+
+struct Result {
+  std::chrono::duration<double> duration{0};
+  size_t iterations{0};
+  size_t bytes{0};
+  size_t messages{0};
+};
+
+struct Results {
+  Result total{};
+  Result current{};
+
+  void update(decltype(Result::duration) duration,
+              decltype(Result::iterations) iterations,
+              decltype(Result::bytes) bytes,
+              decltype(Result::messages) messages)
+  {
+    total.duration += duration;
+    current.duration += duration;
+    total.iterations += iterations;
+    current.iterations += iterations;
+    total.bytes += bytes;
+    current.bytes += bytes;
+    total.messages += messages;
+    current.messages += messages;
+  }
+
+  void resetCurrent() { current = Result{}; }
+};
 
 class Application {
  private:
@@ -387,7 +416,7 @@ class Application {
         assert((bufferMap)[DirectionType::Recv][j] == (bufferMap)[DirectionType::Recv][j]);
     }
 
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+    return stop - start;
   }
 
   void printHeader(std::string_view description,
@@ -422,7 +451,8 @@ class Application {
                      size_t messageRateOverall)
   {
     std::cout << "                " << appendSpaces(std::to_string(iteration), 15)
-              << appendSpaces("N/A", 11) << appendSpaces("N/A", 10) << appendSpaces("N/A", 10)
+              << appendSpaces("N/A", 11) << appendSpaces(floatToString(overheadAverage, 3), 10)
+              << appendSpaces(floatToString(overheadOverall, 3), 10)
               << appendSpaces(floatToString(bandwidthAverage), 11)
               << appendSpaces(floatToString(bandwidthOverall), 11)
               << appendSpaces(std::to_string(messageRateAverage), 12)
@@ -498,46 +528,42 @@ class Application {
     for (size_t n = 0; n < _appContext.numWarmupIterations; ++n)
       doTransfer();
 
-    // Schedule send and recv messages on different tags and different ordering
     auto lastPrintTime = std::chrono::steady_clock::now();
 
-    size_t groupDuration   = 0;
-    size_t totalDuration   = 0;
-    size_t groupIterations = 0;
+    Results results{};
 
     const double factor = (_appContext.testAttributes->testType == TestType::PingPong) ? 2.0 : 1.0;
 
     for (size_t n = 0; n < _appContext.numIterations; ++n) {
-      auto durationNs = doTransfer();
+      auto duration = doTransfer();
 
-      groupDuration += durationNs;
-      totalDuration += durationNs;
-      ++groupIterations;
+      results.update(duration, 1, _appContext.messageSize * factor, 1 * factor);
 
       auto currentTime = std::chrono::steady_clock::now();
       auto elapsedTime =
         std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastPrintTime);
 
-      if (!_isServer && (elapsedTime.count() >= 1 || n == _appContext.numIterations - 1)) {
-        auto groupBytes       = _appContext.messageSize * factor * groupIterations;
-        auto groupBandwidth   = groupBytes / (groupDuration / 1e3);
-        auto totalBytes       = _appContext.messageSize * factor * (n + 1);
-        auto totalBandwidth   = totalBytes / (totalDuration / 1e3);
-        auto groupMessageRate = groupIterations * factor / (groupDuration / 1e9);
-        auto totalMessageRate = (n + 1) * factor / (totalDuration / 1e9);
+      if (!_isServer &&
+          (elapsedTime.count() >= 1 || results.total.iterations == _appContext.numIterations)) {
+        auto currentLatency =
+          results.current.duration.count() / results.current.iterations / factor * 1e6;
+        auto totalLatency =
+          results.total.duration.count() / results.total.iterations / factor * 1e6;
+        auto currentBandwidth   = results.current.bytes / (results.current.duration.count() * 1e6);
+        auto totalBandwidth     = results.total.bytes / (results.total.duration.count() * 1e6);
+        auto currentMessageRate = results.current.messages / (results.current.duration.count());
+        auto totalMessageRate   = results.total.messages / (results.total.duration.count());
 
-        printProgress(n + 1,
+        printProgress(results.total.iterations,
                       0.0f,
-                      0.0f,
-                      0.0f,
-                      groupBandwidth,
+                      currentLatency,
+                      totalLatency,
+                      currentBandwidth,
                       totalBandwidth,
-                      groupMessageRate,
+                      currentMessageRate,
                       totalMessageRate);
 
-        groupDuration   = 0;
-        groupIterations = 0;
-
+        results.resetCurrent();
         lastPrintTime = currentTime;
       }
     }
