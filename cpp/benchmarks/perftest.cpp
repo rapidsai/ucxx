@@ -68,7 +68,7 @@ const std::unordered_map<std::string, TestAttributes> testAttributesDefinitions 
 };
 
 struct ApplicationContext {
-  ProgressMode progressMode                    = ProgressMode::Blocking;
+  ProgressMode progressMode                    = ProgressMode::Polling;
   std::optional<TestAttributes> testAttributes = std::nullopt;
   const char* serverAddress                    = NULL;
   uint16_t listenerPort                        = 12345;
@@ -157,8 +157,11 @@ static void printUsage(std::string_view executablePath)
   std::cerr << "            tag_lat - UCP tag match latency" << std::endl;
   std::cerr << "             tag_bw - UCP tag match bandwidth" << std::endl;
   std::cerr << "  -m <progress_mode>  worker progress mode to use" << std::endl;
-  std::cerr << "           blocking - Blocking progress mode (default)" << std::endl;
-  std::cerr << "            polling - Polling progress mode" << std::endl;
+  std::cerr << "           blocking - Blocking progress mode, equivalent to `ucx_perftest -E sleep`"
+            << std::endl;
+  std::cerr
+    << "            polling - Polling progress mode, equivalent to `ucx_perftest -E poll` (default)"
+    << std::endl;
   std::cerr << "    thread-blocking - Blocking progress mode in exclusive progress thread"
             << std::endl;
   std::cerr << "     thread-polling - Polling progress mode in exclusive progress thread"
