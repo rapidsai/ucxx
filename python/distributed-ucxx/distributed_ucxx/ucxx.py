@@ -50,7 +50,12 @@ device_array = None
 pre_existing_cuda_context = False
 cuda_context_created = False
 multi_buffer = None
+# Lock protecting access to _resources dict
 _resources_lock = Lock()
+# Mapping from UCXX context handles to sets of registered dask resource IDs
+# Used to track when there are no more users of the context, at which point
+# its progress task and notification thread can be shut down.
+# See _register_dask_resource and _deregister_dask_resource.
 _resources = dict()
 
 
@@ -115,7 +120,6 @@ def make_register():
         ctx = ucxx.core._get_ctx()
         handle = ctx.context.handle
         with _resources_lock:
-            handle = ctx.context.handle
             if handle not in _resources:
                 _resources[handle] = set()
 
