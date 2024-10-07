@@ -30,30 +30,54 @@ enum class ProgressMode {
   ThreadBlocking,
 };
 
-enum class TestType {
-  TagLatency,
-  TagBandwidth,
-  Undefined,
-};
+enum class DirectionType { Send, Recv };
 
-enum TransferType { SEND, RECV };
-
-typedef std::unordered_map<TransferType, std::vector<char>> BufferMap;
-typedef std::unordered_map<TransferType, ucxx::Tag> TagMap;
+typedef std::unordered_map<DirectionType, std::vector<char>> BufferMap;
+typedef std::unordered_map<DirectionType, ucxx::Tag> TagMap;
 
 typedef std::shared_ptr<TagMap> TagMapPtr;
 
+// Define an enum for each attribute that can be one of a fixed set of values
+enum class CommandType { Tag, Undefined };
+enum class TestType { PingPong, Unidirectional };
+
+// Define a struct to hold the attributes of a test type
+struct TestAttributes {
+  CommandType commandType;
+  TestType testType;
+  std::string description;
+  std::string category;
+  int priority;  // Assume this is an integer for demonstration purposes
+
+  // Constructor to initialize attributes
+  TestAttributes(CommandType command,
+                 TestType testType,
+                 const std::string& description,
+                 const std::string& category)
+    : commandType(commandType), testType(testType), description(description), category(category)
+  {
+  }
+
+  TestAttributes() = delete;
+};
+
+// Use a std::unordered_map to store instances of TestAttributes with name as the key
+const std::unordered_map<std::string, TestAttributes> testAttributesDefinitions = {
+  {"tag_lat", {CommandType::Tag, TestType::PingPong, "tag match latency", "latency"}},
+  {"tag_bw", {CommandType::Tag, TestType::Unidirectional, "tag match bandwidth", "overhead"}},
+};
+
 struct ApplicationContext {
-  ProgressMode progressMode  = ProgressMode::Blocking;
-  TestType testType          = TestType::Undefined;
-  const char* serverAddress  = NULL;
-  uint16_t listenerPort      = 12345;
-  size_t messageSize         = 8;
-  size_t numIterations       = 100;
-  size_t numWarmupIterations = 3;
-  bool endpointErrorHandling = false;
-  bool reuseAllocations      = false;
-  bool verifyResults         = false;
+  ProgressMode progressMode                    = ProgressMode::Blocking;
+  std::optional<TestAttributes> testAttributes = std::nullopt;
+  const char* serverAddress                    = NULL;
+  uint16_t listenerPort                        = 12345;
+  size_t messageSize                           = 8;
+  size_t numIterations                         = 100;
+  size_t numWarmupIterations                   = 3;
+  bool endpointErrorHandling                   = false;
+  bool reuseAllocations                        = false;
+  bool verifyResults                           = false;
 };
 
 class ListenerContext {
@@ -177,17 +201,14 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
           std::cerr << "Invalid progress mode: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
-      case 't':
-        if (strcmp(optarg, "tag_lat") == 0) {
-          appContext->testType = TestType::TagLatency;
-          break;
-        } else if (strcmp(optarg, "tag_bw") == 0) {
-          appContext->testType = TestType::TagBandwidth;
-          break;
-        } else {
+      case 't': {
+        auto testAttributes = testAttributesDefinitions.find(optarg);
+        if (testAttributes == testAttributesDefinitions.end()) {
           std::cerr << "Invalid test to run: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
+        appContext->testAttributes = testAttributes->second;
+      } break;
       case 'p':
         appContext->listenerPort = atoi(optarg);
         if (appContext->listenerPort <= 0) {
@@ -225,7 +246,7 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
     }
   }
 
-  if (appContext->testType == TestType::Undefined) {
+  if (!appContext->testAttributes.has_value()) {
     std::cerr << "missing test to run (-t)" << std::endl;
     return UCS_ERR_INVALID_PARAM;
   }
@@ -235,10 +256,18 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
   return UCS_OK;
 }
 
-std::string appendSpaces(const std::string_view input, const int maxLength = 91)
+std::string appendSpaces(const std::string_view input,
+                         const int maxLength = 91,
+                         const bool bothEnds = false)
 {
-  int spacesToAdd = std::max(0, maxLength - static_cast<int>(input.length()));
-  return std::string(input) + std::string(spacesToAdd, ' ');
+  int spaces = std::max(0, maxLength - static_cast<int>(input.length()));
+  if (bothEnds) {
+    int prefix = spaces / 2;
+    int suffix = spaces / 2 + spaces % 2;
+    return std::string(prefix, ' ') + std::string(input) + std::string(suffix, ' ');
+  } else {
+    return std::string(input) + std::string(spaces, ' ');
+  }
 }
 
 std::string floatToString(double number, size_t precision = 2)
@@ -284,8 +313,8 @@ class Application {
 
   BufferMap allocateTransferBuffers()
   {
-    return BufferMap{{SEND, std::vector<char>(_appContext.messageSize, 0xaa)},
-                     {RECV, std::vector<char>(_appContext.messageSize)}};
+    return BufferMap{{DirectionType::Send, std::vector<char>(_appContext.messageSize, 0xaa)},
+                     {DirectionType::Recv, std::vector<char>(_appContext.messageSize)}};
   }
 
   void doWireup()
@@ -293,24 +322,28 @@ class Application {
     std::vector<std::shared_ptr<ucxx::Request>> requests;
 
     // Allocate wireup buffers
-    auto wireupBufferMap = std::make_shared<BufferMap>(
-      BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
+    auto wireupBufferMap =
+      std::make_shared<BufferMap>(BufferMap{{DirectionType::Send, std::vector<char>{1, 2, 3}},
+                                            {DirectionType::Recv, std::vector<char>(3, 0)}});
 
     // Schedule small wireup messages to let UCX identify capabilities between endpoints
-    requests.push_back(_endpoint->tagSend((*wireupBufferMap)[SEND].data(),
-                                          (*wireupBufferMap)[SEND].size() * sizeof(int),
-                                          (*_tagMap)[SEND]));
-    requests.push_back(_endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
-                                          (*wireupBufferMap)[RECV].size() * sizeof(int),
-                                          (*_tagMap)[RECV],
-                                          ucxx::TagMaskFull));
+    requests.push_back(
+      _endpoint->tagSend((*wireupBufferMap)[DirectionType::Send].data(),
+                         (*wireupBufferMap)[DirectionType::Send].size() * sizeof(int),
+                         (*_tagMap)[DirectionType::Send]));
+    requests.push_back(
+      _endpoint->tagRecv((*wireupBufferMap)[DirectionType::Recv].data(),
+                         (*wireupBufferMap)[DirectionType::Recv].size() * sizeof(int),
+                         (*_tagMap)[DirectionType::Recv],
+                         ucxx::TagMaskFull));
 
     // Wait for wireup requests and clear requests
     waitRequests(requests);
 
     // Verify wireup result
-    for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
-      assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
+    for (size_t i = 0; i < (*wireupBufferMap)[DirectionType::Send].size(); ++i)
+      assert((*wireupBufferMap)[DirectionType::Recv][i] ==
+             (*wireupBufferMap)[DirectionType::Send][i]);
   }
 
   auto doTransfer()
@@ -319,34 +352,56 @@ class Application {
     if (!_appContext.reuseAllocations) localBufferMap = allocateTransferBuffers();
     BufferMap& bufferMap = _appContext.reuseAllocations ? _bufferMapReuse : localBufferMap;
 
+    std::vector<std::shared_ptr<ucxx::Request>> requests;
+
     auto start = std::chrono::high_resolution_clock::now();
-    std::vector<std::shared_ptr<ucxx::Request>> requests = {
-      _endpoint->tagSend((bufferMap)[SEND].data(), _appContext.messageSize, (*_tagMap)[SEND]),
-      _endpoint->tagRecv(
-        (bufferMap)[RECV].data(), _appContext.messageSize, (*_tagMap)[RECV], ucxx::TagMaskFull)};
+    if (_appContext.testAttributes->testType == TestType::PingPong) {
+      requests = {_endpoint->tagSend((bufferMap)[DirectionType::Send].data(),
+                                     _appContext.messageSize,
+                                     (*_tagMap)[DirectionType::Send]),
+                  _endpoint->tagRecv((bufferMap)[DirectionType::Recv].data(),
+                                     _appContext.messageSize,
+                                     (*_tagMap)[DirectionType::Recv],
+                                     ucxx::TagMaskFull)};
+    } else {
+      if (_isServer)
+        requests = {_endpoint->tagRecv((bufferMap)[DirectionType::Recv].data(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)};
+      else
+        requests = {_endpoint->tagSend((bufferMap)[DirectionType::Send].data(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])};
+    }
 
     // Wait for requests and clear requests
     waitRequests(requests);
     auto stop = std::chrono::high_resolution_clock::now();
 
     if (_appContext.verifyResults) {
-      for (size_t j = 0; j < (bufferMap)[SEND].size(); ++j)
-        assert((bufferMap)[RECV][j] == (bufferMap)[RECV][j]);
+      for (size_t j = 0; j < (bufferMap)[DirectionType::Send].size(); ++j)
+        assert((bufferMap)[DirectionType::Recv][j] == (bufferMap)[DirectionType::Recv][j]);
     }
 
     return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
   }
 
-  void printHeader(std::string_view sendMemory, std::string_view recvMemory)
+  void printHeader(std::string_view description,
+                   std::string_view category,
+                   std::string_view sendMemory,
+                   std::string_view recvMemory)
   {
+    std::string categoryWithUnit = std::string(category) + std::string{" (usec)"};
+
     // clang-format off
     std::cout << "+--------------+--------------+------------------------------+---------------------+-----------------------+" << std::endl;
-    std::cout << "|              |              |       overhead (usec)        |   bandwidth (MB/s)  |  message rate (msg/s) |" << std::endl;
+    std::cout << "|              |              | " << appendSpaces(categoryWithUnit, 28, true) << " |   bandwidth (MB/s)  |  message rate (msg/s) |" << std::endl;
     std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
     std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
-    std::cout << "| Test:         tag match bandwidth                                                                        |" << std::endl;
     std::cout << "|    Stage     | # iterations | 50.0%ile | average | overall |  average |  overall |  average  |  overall  |" << std::endl;
     std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
+    std::cout << "| Test:         " << appendSpaces(description) << "|" << std::endl;
     std::cout << "| Send memory:  " << appendSpaces(sendMemory) << "|" << std::endl;
     std::cout << "| Recv memory:  " << appendSpaces(recvMemory) << "|" << std::endl;
     std::cout << "| Message size: " << appendSpaces(std::to_string(_appContext.messageSize)) << "|" << std::endl;
@@ -375,15 +430,19 @@ class Application {
   explicit Application(ApplicationContext&& appContext)
     : _appContext(appContext), _isServer(appContext.serverAddress == NULL)
   {
-    if (!_isServer) printHeader("host", "host");
+    if (!_isServer)
+      printHeader(appContext.testAttributes->description,
+                  appContext.testAttributes->category,
+                  "host",
+                  "host");
 
     // Setup: create UCP context, worker, listener and client endpoint.
     _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
     _worker  = _context->createWorker();
 
     _tagMap = std::make_shared<TagMap>(TagMap{
-      {SEND, _isServer ? ucxx::Tag{0} : ucxx::Tag{1}},
-      {RECV, _isServer ? ucxx::Tag{1} : ucxx::Tag{0}},
+      {DirectionType::Send, _isServer ? ucxx::Tag{0} : ucxx::Tag{1}},
+      {DirectionType::Recv, _isServer ? ucxx::Tag{1} : ucxx::Tag{0}},
     });
 
     if (_isServer) {
@@ -437,16 +496,16 @@ class Application {
       doTransfer();
 
     // Schedule send and recv messages on different tags and different ordering
-    size_t totalDurationNs = 0;
-    auto lastPrintTime     = std::chrono::steady_clock::now();
+    auto lastPrintTime = std::chrono::steady_clock::now();
 
     size_t groupDuration   = 0;
     size_t totalDuration   = 0;
     size_t groupIterations = 0;
 
+    const double factor = (_appContext.testAttributes->testType == TestType::PingPong) ? 2.0 : 1.0;
+
     for (size_t n = 0; n < _appContext.numIterations; ++n) {
       auto durationNs = doTransfer();
-      totalDurationNs += durationNs;
 
       groupDuration += durationNs;
       totalDuration += durationNs;
@@ -457,12 +516,12 @@ class Application {
         std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastPrintTime);
 
       if (!_isServer && (elapsedTime.count() >= 1 || n == _appContext.numIterations - 1)) {
-        auto groupBytes       = _appContext.messageSize * 2 * groupIterations;
+        auto groupBytes       = _appContext.messageSize * factor * groupIterations;
         auto groupBandwidth   = groupBytes / (groupDuration / 1e3);
-        auto totalBytes       = _appContext.messageSize * 2 * (n + 1);
+        auto totalBytes       = _appContext.messageSize * factor * (n + 1);
         auto totalBandwidth   = totalBytes / (totalDuration / 1e3);
-        auto groupMessageRate = groupIterations * 2 / (groupDuration / 1e9);
-        auto totalMessageRate = (n + 1) * 2 / (totalDuration / 1e9);
+        auto groupMessageRate = groupIterations * factor / (groupDuration / 1e9);
+        auto totalMessageRate = (n + 1) * factor / (totalDuration / 1e9);
 
         printProgress(n + 1,
                       0.0f,
