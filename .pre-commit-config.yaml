@@ -42,10 +42,13 @@ repos:
                 files: \.(h|cpp)$
                 # exclude: path/to/myfile.h
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.3.0
+        rev: v0.4.0
         hooks:
             - id: verify-alpha-spec
-              args: [--fix, --mode=release, --rapids-version=24.08]
+              args:
+                - --fix
+                - --mode=release
+                - --rapids-version=24.10
       - repo: https://github.com/rapidsai/dependency-file-generator
         rev: v1.13.11
         hooks:

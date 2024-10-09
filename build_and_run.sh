@@ -134,13 +134,13 @@ run_tests_async() {
   ENABLE_PYTHON_FUTURE=$3
   SKIP=$4
 
-  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} pytest -vs python/ucxx/_lib_async/tests/"
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} pytest -vs python/ucxx/ucxx/_lib_async/tests/"
 
   if [ $SKIP -ne 0 ]; then
     echo -e "\e[31;1mSkipping unstable test: ${CMD_LINE}\e[0m"
   else
     echo -e "\e[1mRunning: ${CMD_LINE}\e[0m"
-    UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} pytest -vs python/ucxx/_lib_async/tests/
+    UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} pytest -vs python/ucxx/ucxx/_lib_async/tests/
   fi
 }
 
@@ -190,8 +190,8 @@ if [[ $RUN_CPP_EXAMPLE != 0 ]]; then
   run_cpp_example   wait
 fi
 if [[ $RUN_PY_TESTS != 0 ]]; then
-  echo -e "\e[1mRunning: pytest-vs python/ucxx/_lib/tests/\e[0m"
-  pytest -vs python/ucxx/_lib/tests/
+  echo -e "\e[1mRunning: pytest-vs python/ucxx/ucxx/_lib/tests/\e[0m"
+  pytest -vs python/ucxx/ucxx/_lib/tests/
 fi
 if [[ $RUN_PY_ASYNC_TESTS != 0 ]]; then
   # run_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP

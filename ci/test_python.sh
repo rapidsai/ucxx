@@ -56,4 +56,4 @@ for nbuf in 1 8; do
 done
 
 rapids-logger "C++ future -> Python future notifier example"
-python -m ucxx.examples.python_future_task_example
+timeout 1m python -m ucxx.examples.python_future_task_example
