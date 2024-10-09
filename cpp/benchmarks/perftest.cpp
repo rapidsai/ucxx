@@ -75,6 +75,7 @@ struct ApplicationContext {
   size_t messageSize                           = 8;
   size_t numIterations                         = 100;
   size_t numWarmupIterations                   = 3;
+  double percentileRank                        = 50.0;
   bool endpointErrorHandling                   = false;
   bool reuseAllocations                        = false;
   bool verifyResults                           = false;
@@ -174,6 +175,9 @@ static void printUsage(std::string_view executablePath)
   std::cerr << "  -r                  reuse memory allocation (disabled)" << std::endl;
   std::cerr << "  -v                  verify results (disabled)" << std::endl;
   std::cerr << "  -w <int>            number of warmup iterations to run (3)" << std::endl;
+  std::cerr
+    << "  -R <rank>           percentile rank of the percentile data in latency tests (50.0)"
+    << std::endl;
   std::cerr << "  -h                  print this help" << std::endl;
   std::cerr << std::endl;
 }
@@ -182,7 +186,7 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "m:t:p:s:w:n:ervh")) != -1) {
+  while ((c = getopt(argc, argv, "m:t:p:s:w:n:R:ervh")) != -1) {
     switch (c) {
       case 'm':
         if (strcmp(optarg, "blocking") == 0) {
@@ -241,6 +245,13 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
           return UCS_ERR_INVALID_PARAM;
         }
         break;
+      case 'R':
+        appContext->percentileRank = atof(optarg);
+        if (appContext->percentileRank < 0.0 || appContext->percentileRank > 100.0) {
+          std::cerr << "Wrong percentile rank: " << appContext->percentileRank << std::endl;
+          return UCS_ERR_INVALID_PARAM;
+        }
+        break;
       case 'e': appContext->endpointErrorHandling = true; break;
       case 'r': appContext->reuseAllocations = true; break;
       case 'v': appContext->verifyResults = true; break;
@@ -290,6 +301,8 @@ struct Result {
 struct Results {
   Result total{};
   Result current{};
+  std::queue<decltype(Result::duration)> _timingQueue{};
+  const size_t _timingQueueSize{2048};
 
   void update(decltype(Result::duration) duration,
               decltype(Result::iterations) iterations,
@@ -304,6 +317,36 @@ struct Results {
     current.bytes += bytes;
     total.messages += messages;
     current.messages += messages;
+
+    if (_timingQueue.size() == _timingQueueSize) _timingQueue.pop();
+    _timingQueue.push(duration);
+  }
+
+  double calculatePercentile(double percentile = 50.0)
+  {
+    if (percentile < 0.0 || percentile > 100.0) {
+      throw std::invalid_argument("Percentile must be between 0.0 and 100.0");
+    }
+
+    std::vector<decltype(Result::duration)> timingVector;
+    decltype(_timingQueue) tmpQueue;
+    while (!_timingQueue.empty()) {
+      auto duration = _timingQueue.front();
+      _timingQueue.pop();
+      timingVector.push_back(duration);
+      tmpQueue.push(duration);
+    }
+    std::swap(tmpQueue, _timingQueue);
+
+    std::sort(timingVector.begin(), timingVector.end());
+
+    double index = (timingVector.size() - 1) * (percentile / 100.0);
+    size_t lower = static_cast<size_t>(std::floor(index));
+    if (index == static_cast<double>(lower)) {
+      return timingVector[lower].count();
+    } else {
+      return (timingVector[lower] + timingVector[lower + 1]).count() / 2.0;
+    }
   }
 
   void resetCurrent() { current = Result{}; }
@@ -425,13 +468,14 @@ class Application {
                    std::string_view recvMemory)
   {
     std::string categoryWithUnit = std::string(category) + std::string{" (usec)"};
+    auto percentileRank          = floatToString(_appContext.percentileRank, 1);
 
     // clang-format off
     std::cout << "+--------------+--------------+------------------------------+---------------------+-----------------------+" << std::endl;
     std::cout << "|              |              | " << appendSpaces(categoryWithUnit, 28, true) << " |   bandwidth (MB/s)  |  message rate (msg/s) |" << std::endl;
     std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
     std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
-    std::cout << "|    Stage     | # iterations | 50.0%ile | average | overall |  average |  overall |  average  |  overall  |" << std::endl;
+    std::cout << "|    Stage     | # iterations | " << percentileRank << "%ile | average | overall |  average |  overall |  average  |  overall  |" << std::endl;
     std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
     std::cout << "| Test:         " << appendSpaces(description) << "|" << std::endl;
     std::cout << "| Send memory:  " << appendSpaces(sendMemory) << "|" << std::endl;
@@ -442,7 +486,7 @@ class Application {
   }
 
   void printProgress(size_t iteration,
-                     double overhead50,
+                     double percentile,
                      double overheadAverage,
                      double overheadOverall,
                      double bandwidthAverage,
@@ -451,7 +495,8 @@ class Application {
                      size_t messageRateOverall)
   {
     std::cout << "                " << appendSpaces(std::to_string(iteration), 15)
-              << appendSpaces("N/A", 11) << appendSpaces(floatToString(overheadAverage, 3), 10)
+              << appendSpaces(floatToString(percentile, 3), 11)
+              << appendSpaces(floatToString(overheadAverage, 3), 10)
               << appendSpaces(floatToString(overheadOverall, 3), 10)
               << appendSpaces(floatToString(bandwidthAverage), 11)
               << appendSpaces(floatToString(bandwidthOverall), 11)
@@ -545,6 +590,7 @@ class Application {
 
       if (!_isServer &&
           (elapsedTime.count() >= 1 || results.total.iterations == _appContext.numIterations)) {
+        auto percentile = results.calculatePercentile() / factor * 1e6;
         auto currentLatency =
           results.current.duration.count() / results.current.iterations / factor * 1e6;
         auto totalLatency =
@@ -555,7 +601,7 @@ class Application {
         auto totalMessageRate   = results.total.messages / (results.total.duration.count());
 
         printProgress(results.total.iterations,
-                      0.0f,
+                      percentile,
                       currentLatency,
                       totalLatency,
                       currentBandwidth,
