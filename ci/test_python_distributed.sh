@@ -10,7 +10,7 @@ source "$(dirname "$0")/test_common.sh"
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
-UCXX_VERSION="$(rapids-version)"
+UCXX_VERSION="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*$/\1.\2.\3/' VERSION)"
 
 rapids-dependency-file-generator \
   --output conda \

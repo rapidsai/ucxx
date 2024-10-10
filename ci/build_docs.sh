@@ -6,8 +6,8 @@ set -euo pipefail
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
-export UCXX_VERSION="$(rapids-version)"
-UCXX_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
+export UCXX_VERSION="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*$/\1.\2.\3/' VERSION)"
+UCXX_VERSION_MAJOR_MINOR="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*$/\1.\2/' VERSION)"
 
 ENV_YAML_DIR="$(mktemp -d)"
 
