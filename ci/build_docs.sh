@@ -6,6 +6,9 @@ set -euo pipefail
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
+export UCXX_VERSION="$(rapids-version)"
+UCXX_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
+
 ENV_YAML_DIR="$(mktemp -d)"
 
 rapids-dependency-file-generator \
@@ -23,11 +26,8 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  libucxx
+  "libucxx=${UCXX_VERSION}"
 
-export UCXX_VERSION="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*$/\1.\2.\3/' VERSION)"
-export UCXX_VERSION_MAJOR_MINOR="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*$/\1.\2/' VERSION)"
-export RAPIDS_VERSION_NUMBER="$UCXX_VERSION_MAJOR_MINOR"
 export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
 rapids-logger "Build CPP docs"
@@ -37,4 +37,4 @@ mkdir -p "${RAPIDS_DOCS_DIR}/libucxx/html"
 mv html/* "${RAPIDS_DOCS_DIR}/libucxx/html"
 popd
 
-rapids-upload-docs
+RAPIDS_VERSION_NUMBER="${UCXX_VERSION_MAJOR_MINOR}" rapids-upload-docs
