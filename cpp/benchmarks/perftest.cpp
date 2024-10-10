@@ -77,7 +77,7 @@ struct ApplicationContext {
   size_t numWarmupIterations                   = 3;
   double percentileRank                        = 50.0;
   bool endpointErrorHandling                   = false;
-  bool reuseAllocations                        = false;
+  bool reuseAllocations                        = true;
   bool verifyResults                           = false;
 };
 
@@ -170,11 +170,11 @@ static void printUsage(std::string_view executablePath)
   std::cerr << "  -e                  create endpoints with error handling support (disabled)"
             << std::endl;
   std::cerr << "  -p <port>           port number to listen at (12345)" << std::endl;
-  std::cerr << "  -s <bytes>          message size (8)" << std::endl;
-  std::cerr << "  -n <int>            number of iterations to run (100)" << std::endl;
+  std::cerr << "  -s <size>           message size (8)" << std::endl;
+  std::cerr << "  -n <iters>          number of iterations to run (100)" << std::endl;
   std::cerr << "  -r                  reuse memory allocation (disabled)" << std::endl;
   std::cerr << "  -v                  verify results (disabled)" << std::endl;
-  std::cerr << "  -w <int>            number of warmup iterations to run (3)" << std::endl;
+  std::cerr << "  -w <iters>          number of warmup iterations to run (3)" << std::endl;
   std::cerr
     << "  -R <rank>           percentile rank of the percentile data in latency tests (50.0)"
     << std::endl;
@@ -186,9 +186,9 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "m:t:p:s:w:n:R:ervh")) != -1) {
+  while ((c = getopt(argc, argv, "P:t:p:s:w:n:R:eLvh")) != -1) {
     switch (c) {
-      case 'm':
+      case 'P':
         if (strcmp(optarg, "blocking") == 0) {
           appContext->progressMode = ProgressMode::Blocking;
           break;
@@ -253,7 +253,7 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
         }
         break;
       case 'e': appContext->endpointErrorHandling = true; break;
-      case 'r': appContext->reuseAllocations = true; break;
+      case 'L': appContext->reuseAllocations = false; break;
       case 'v': appContext->verifyResults = true; break;
       case 'h':
       default: printUsage(std::string_view(argv[0])); return UCS_ERR_INVALID_PARAM;
