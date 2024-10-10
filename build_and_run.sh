@@ -109,12 +109,12 @@ run_cpp_benchmark() {
 
   # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
   # `TIME_WAIT` timeout
-  CMD_LINE_SERVER="UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE}"
-  CMD_LINE_CLIENT="${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1"
+  CMD_LINE_SERVER="UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -n 20 -P ${PROGRESS_MODE}"
+  CMD_LINE_CLIENT="${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -n 20 -P ${PROGRESS_MODE} 127.0.0.1"
 
   echo -e "\e[1mRunning: \n  - ${CMD_LINE_SERVER}\n  - ${CMD_LINE_CLIENT}\e[0m"
-  UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} &
-  ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1
+  UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -n 20 -P ${PROGRESS_MODE} &
+  ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -n 20 -P ${PROGRESS_MODE} 127.0.0.1
 }
 
 run_cpp_example() {
