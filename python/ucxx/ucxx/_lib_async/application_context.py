@@ -13,7 +13,7 @@ from ucxx._lib.arr import Array
 from ucxx.exceptions import UCXMessageTruncatedError
 from ucxx.types import Tag
 
-from .continuous_ucx_progress import PollingMode, ThreadMode
+from .continuous_ucx_progress import BlockingMode, PollingMode, ThreadMode
 from .endpoint import Endpoint
 from .exchange_peer_info import exchange_peer_info
 from .listener import ActiveClients, Listener, _listener_handler
@@ -60,6 +60,9 @@ class ApplicationContext:
             enable_python_future=self._enable_python_future,
         )
 
+        if self.progress_mode == "blocking":
+            self.worker.init_blocking_progress_mode()
+
         self.start_notifier_thread()
 
         weakref.finalize(self, self.progress_tasks.clear)
@@ -82,7 +85,7 @@ class ApplicationContext:
                 else:
                     progress_mode = "thread"
 
-            valid_progress_modes = ["polling", "thread", "thread-polling"]
+            valid_progress_modes = ["blocking", "polling", "thread", "thread-polling"]
             if not isinstance(progress_mode, str) or not any(
                 progress_mode == m for m in valid_progress_modes
             ):
@@ -464,6 +467,8 @@ class ApplicationContext:
             task = ThreadMode(self.worker, loop, polling_mode=True)
         elif self.progress_mode == "polling":
             task = PollingMode(self.worker, loop)
+        elif self.progress_mode == "blocking":
+            task = BlockingMode(self.worker, loop)
 
         self.progress_tasks[loop] = task
 
