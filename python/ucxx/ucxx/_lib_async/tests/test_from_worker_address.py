@@ -11,6 +11,7 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop, hash64bits
+from ucxx.testing import join_processes, terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -90,11 +91,9 @@ def test_from_worker_address():
     )
     client.start()
 
-    client.join()
-    server.join()
-
-    assert not server.exitcode
-    assert not client.exitcode
+    join_processes([client, server], timeout=30)
+    terminate_process(client)
+    terminate_process(server)
 
 
 def _get_address_info(address=None):
@@ -259,10 +258,7 @@ def test_from_worker_address_multinode(num_nodes):
         client.start()
         clients.append(client)
 
+    join_processes(clients + [server], timeout=30)
     for client in clients:
-        client.join()
-
-    server.join()
-
-    assert not server.exitcode
-    assert not client.exitcode
+        terminate_process(client)
+    terminate_process(server)
