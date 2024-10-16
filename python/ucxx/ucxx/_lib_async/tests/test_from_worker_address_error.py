@@ -12,6 +12,7 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
+from ucxx.testing import join_processes, terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -174,18 +175,19 @@ def test_from_worker_address_error(error_type):
     )
     client.start()
 
-    server.join()
-    client.join()
-
-    assert not server.exitcode
-
-    if ucxx.get_ucx_version() < (1, 12, 0) and client.exitcode == 1:
-        if all(t in error_type for t in ["timeout", "send"]):
-            pytest.xfail(
-                "Requires https://github.com/openucx/ucx/pull/7527 with rc/ud."
-            )
-        elif all(t in error_type for t in ["timeout", "recv"]):
-            pytest.xfail(
-                "Requires https://github.com/openucx/ucx/pull/7531 with rc/ud."
-            )
-    assert not client.exitcode
+    join_processes([client, server], timeout=30)
+    terminate_process(server)
+    try:
+        terminate_process(client)
+    except RuntimeError as e:
+        if ucxx.get_ucx_version() < (1, 12, 0):
+            if all(t in error_type for t in ["timeout", "send"]):
+                pytest.xfail(
+                    "Requires https://github.com/openucx/ucx/pull/7527 with rc/ud."
+                )
+            elif all(t in error_type for t in ["timeout", "recv"]):
+                pytest.xfail(
+                    "Requires https://github.com/openucx/ucx/pull/7531 with rc/ud."
+                )
+        else:
+            raise e

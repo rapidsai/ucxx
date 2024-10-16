@@ -7,7 +7,7 @@ import pytest
 
 from ucxx._lib import libucxx as ucx_api
 from ucxx._lib.arr import Array
-from ucxx.testing import terminate_process, wait_requests
+from ucxx.testing import join_processes, terminate_process, wait_requests
 
 mp = mp.get_context("spawn")
 
@@ -128,7 +128,6 @@ def test_message_probe(transfer_api):
     server.start()
     client = mp.Process(target=_client_probe, args=(queue, transfer_api))
     client.start()
-    client.join(timeout=10)
-    server.join(timeout=10)
+    join_processes([client + server], timeout=10)
     terminate_process(client)
     terminate_process(server)

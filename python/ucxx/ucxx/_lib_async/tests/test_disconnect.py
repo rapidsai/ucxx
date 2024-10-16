@@ -13,6 +13,7 @@ import pytest
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx.testing import terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -127,9 +128,9 @@ def test_shutdown_unexpected_closed_peer(caplog, endpoint_error_handling):
         args=(client_queue, server_queue, endpoint_error_handling),
     )
     p2.start()
-    p2.join()
+    p2.join(timeout=30)
     server_queue.put("client is down")
-    p1.join()
+    p1.join(timeout=30)
 
-    assert not p1.exitcode
-    assert not p2.exitcode
+    terminate_process(p2)
+    terminate_process(p1)
