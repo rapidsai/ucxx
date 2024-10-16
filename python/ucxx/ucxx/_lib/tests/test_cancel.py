@@ -80,6 +80,6 @@ def test_message_probe():
         args=(queue,),
     )
     client.start()
-    join_processes([client + server], timeout=10)
+    join_processes([client, server], timeout=10)
     terminate_process(client)
     terminate_process(server)

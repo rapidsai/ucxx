@@ -128,6 +128,6 @@ def test_message_probe(transfer_api):
     server.start()
     client = mp.Process(target=_client_probe, args=(queue, transfer_api))
     client.start()
-    join_processes([client + server], timeout=10)
+    join_processes([client, server], timeout=10)
     terminate_process(client)
     terminate_process(server)

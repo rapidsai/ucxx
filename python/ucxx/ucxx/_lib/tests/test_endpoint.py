@@ -108,6 +108,6 @@ def test_close_callback(server_close_callback):
         args=(port, server_close_callback),
     )
     client.start()
-    join_processes([client + server], timeout=10)
+    join_processes([client, server], timeout=10)
     terminate_process(client)
     terminate_process(server)
