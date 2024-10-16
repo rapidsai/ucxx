@@ -6,6 +6,30 @@ from multiprocessing.process import BaseProcess
 from typing import Type, Union
 
 
+def join_processes(
+    processes: list[Type[BaseProcess]],
+    timeout: Union[float, int],
+) -> None:
+    """
+    Join a list of processes with a combined timeout.
+
+    Join a list of processes with a combined timeout, for each process `join()`
+    is called with a timeout equal to the difference of `timeout` and the time
+    elapsed since this function was called.
+
+    Parameters
+    ----------
+    processes:
+        The list of processes to be joined.
+    timeout: float or integer
+        Maximum time to wait for all the processes to be joined.
+    """
+    start = time.monotonic()
+    for p in processes:
+        t = timeout - (time.monotonic() - start)
+        p.join(timeout=t)
+
+
 def terminate_process(
     process: Type[BaseProcess], kill_wait: Union[float, int] = 3.0
 ) -> None:
