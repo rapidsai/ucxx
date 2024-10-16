@@ -5,4 +5,4 @@ set -euo pipefail
 
 package_dir="python/distributed-ucxx"
 
-./ci/build_wheel.sh distributed-ucxx ${package_dir}
+./ci/build_wheel.sh distributed-ucxx "${package_dir}" python

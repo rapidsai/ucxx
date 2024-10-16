@@ -5,4 +5,6 @@ set -euo pipefail
 
 package_dir="python/libucxx"
 
-./ci/build_wheel.sh libucxx ${package_dir}
+export SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON"
+
+./ci/build_wheel.sh libucxx "${package_dir}" cpp
