@@ -6,6 +6,7 @@
 #include <tuple>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
@@ -66,6 +67,8 @@ class WorkerProgressTest : public WorkerTest,
     _progressWorker = getProgressFunction(_worker, _progressMode);
   }
 };
+
+class WorkerGenericCallbackTest : public WorkerProgressTest {};
 
 TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr); }
 
@@ -320,6 +323,97 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
   }
 }
 
+TEST_P(WorkerGenericCallbackTest, RegisterGenericPre)
+{
+  bool done     = false;
+  auto callback = [&done]() { done = true; };
+
+  ASSERT_TRUE(_worker->registerGenericPre(callback));
+  ASSERT_TRUE(done);
+}
+
+TEST_P(WorkerGenericCallbackTest, RegisterGenericPost)
+{
+  bool done     = false;
+  auto callback = [&done]() { done = true; };
+
+  ASSERT_TRUE(_worker->registerGenericPost(callback));
+  ASSERT_TRUE(done);
+}
+
+TEST_P(WorkerGenericCallbackTest, RegisterGenericPrePost)
+{
+  bool donePre      = false;
+  bool donePost     = false;
+  auto callbackPre  = [&donePre]() { donePre = true; };
+  auto callbackPost = [&donePost]() { donePost = true; };
+
+  ASSERT_TRUE(_worker->registerGenericPre(callbackPre));
+  ASSERT_TRUE(_worker->registerGenericPost(callbackPost));
+  ASSERT_TRUE(donePre);
+  ASSERT_TRUE(donePost);
+}
+
+TEST_P(WorkerGenericCallbackTest, RegisterGenericPreCancel)
+{
+  bool threadStarted   = false;
+  bool terminateThread = false;
+  bool done            = false;
+  auto callback        = [&done] { done = true; };
+
+  std::mutex m{};
+  std::condition_variable conditionVariable{};
+
+  std::thread thread =
+    std::thread([this, &threadStarted, &terminateThread, &m, &conditionVariable]() {
+      auto threadCallback = [&threadStarted, &terminateThread, &m, &conditionVariable]() {
+        // Allow main thread to test for generic callback cancelation.
+        threadStarted = true;
+        conditionVariable.notify_one();
+
+        {
+          std::unique_lock l(m);
+          // Wait until the main thread had a generic callback cancelled
+          conditionVariable.wait(l, [&terminateThread] { return terminateThread; });
+        }
+      };
+
+      ASSERT_TRUE(_worker->registerGenericPre(threadCallback));
+    });
+
+  {
+    std::unique_lock l(m);
+    // Wait until thread starts and blocks.
+    conditionVariable.wait(l, [&threadStarted] { return threadStarted; });
+  }
+
+  // The thread should be running, therefore the callback will be canceled before running.
+  ASSERT_FALSE(_worker->registerGenericPre(callback, 1));
+  ASSERT_FALSE(done);
+
+  // Unblock thread to terminate.
+  terminateThread = true;
+  conditionVariable.notify_one();
+  thread.join();
+
+  // Nothing should be blocking the progress thread now, the callback should succeed.
+  ASSERT_TRUE(_worker->registerGenericPre(callback));
+  ASSERT_TRUE(done);
+}
+
+TEST_P(WorkerGenericCallbackTest, RegisterGenericPreUncancelable)
+{
+  testing::internal::CaptureStdout();
+
+  auto callback = []() { std::this_thread::sleep_for(std::chrono::seconds(3)); };
+
+  ASSERT_TRUE(_worker->registerGenericPre(callback, 1000000000));
+  auto captured = testing::internal::GetCapturedStdout();
+  EXPECT_THAT(captured,
+              ::testing::ContainsRegex("Could not cancel after .* attempts, the callback has not "
+                                       "returned and the process may stop responding."));
+}
+
 INSTANTIATE_TEST_SUITE_P(ProgressModes,
                          WorkerProgressTest,
                          Combine(Values(false),
@@ -328,6 +422,11 @@ INSTANTIATE_TEST_SUITE_P(ProgressModes,
                                         ProgressMode::Wait,
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking)));
+
+INSTANTIATE_TEST_SUITE_P(
+  GenericCallbacks,
+  WorkerGenericCallbackTest,
+  Combine(Values(false), Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking)));
 
 INSTANTIATE_TEST_SUITE_P(
   DelayedSubmission,
