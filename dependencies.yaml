@@ -124,6 +124,13 @@ files:
       table: build-system
     includes:
       - rapids_build_setuptools
+  py_rapids_build_distributed_ucxx:
+    output: pyproject
+    pyproject_dir: python/distributed-ucxx
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
+    includes: []
   py_run_distributed_ucxx:
     output: pyproject
     pyproject_dir: python/distributed-ucxx
