@@ -403,15 +403,44 @@ TEST_P(WorkerGenericCallbackTest, RegisterGenericPreCancel)
 
 TEST_P(WorkerGenericCallbackTest, RegisterGenericPreUncancelable)
 {
-  testing::internal::CaptureStdout();
+  bool terminateThread = false;
+  bool match           = false;
 
-  auto callback = []() { std::this_thread::sleep_for(std::chrono::seconds(3)); };
+  std::mutex m{};
+  std::condition_variable conditionVariable{};
 
-  ASSERT_TRUE(_worker->registerGenericPre(callback, 1000000000));
-  auto captured = testing::internal::GetCapturedStdout();
-  EXPECT_THAT(captured,
-              ::testing::ContainsRegex("Could not cancel after .* attempts, the callback has not "
-                                       "returned and the process may stop responding."));
+  std::thread thread = std::thread([this, &terminateThread, &m, &conditionVariable]() {
+    auto threadCallback = [&terminateThread, &m, &conditionVariable]() {
+      {
+        std::unique_lock l(m);
+        conditionVariable.wait(l, [&terminateThread] { return terminateThread; });
+      }
+    };
+
+    // This will submit the callback and attempt to cancel once every 1ms,
+    // a warning is logged when multiples of 10 attempts to cancel are made.
+    ASSERT_TRUE(_worker->registerGenericPre(threadCallback, 1000000 /* 1ms */));
+  });
+
+  loopWithTimeout(std::chrono::milliseconds(5000), [&match] {
+    testing::internal::CaptureStdout();
+
+    // We need to allow some time for stdout to be populated,
+    // `GetCapturedStdout()` does not return the cumulative log.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    match = ::testing::Matches(::testing::ContainsRegex(
+      "Could not cancel after .* attempts, the callback has not returned and the process may stop "
+      "responding."))(::testing::internal::GetCapturedStdout());
+    return match;
+  });
+
+  // Unblock thread to terminate.
+  terminateThread = true;
+  conditionVariable.notify_one();
+  thread.join();
+
+  ASSERT_TRUE(match);
 }
 
 INSTANTIATE_TEST_SUITE_P(ProgressModes,
