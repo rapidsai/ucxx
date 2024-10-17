@@ -381,7 +381,7 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
       auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
       try {
-        if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
+        if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
         return ret;
       } catch (const std::runtime_error& e) {
         if (++retryCount % 10 == 0)
