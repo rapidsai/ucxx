@@ -45,6 +45,8 @@ class BaseDelayedSubmissionCollection {
   std::string _name{"undefined"};  ///< The human-readable name of the collection, used for logging
   bool _enabled{true};    ///< Whether the resource required to process the collection is enabled.
   ItemIdType _itemId{0};  ///< The item ID counter, used to allow cancelation.
+  std::optional<ItemIdType> _processing{
+    std::nullopt};  ///< The ID of the item being processed, if any.
   std::deque<std::pair<ItemIdType, T>> _collection{};  ///< The collection.
   std::set<ItemIdType> _canceled{};                    ///< IDs of canceled items.
   std::mutex _mutex{};  ///< Mutex to provide access to `_collection`.
@@ -150,9 +152,16 @@ class BaseDelayedSubmissionCollection {
         item = std::move(_collection.front());
         _collection.pop_front();
         if (_canceled.erase(item.first)) continue;
+        _processing = std::optional<ItemIdType>{item.first};
       }
 
       processItem(item.first, item.second);
+    }
+
+    {
+      // Clear the value of `_processing` as no more requests will be processed.
+      std::lock_guard<std::mutex> lock(_mutex);
+      _processing = std::nullopt;
     }
   }
 
@@ -162,17 +171,17 @@ class BaseDelayedSubmissionCollection {
    * Cancel a pending callback and thus do not execute it, unless the execution has
    * already begun, in which case cancelation cannot be done.
    *
+   * @throws std::runtime_error if the item is being processed and canceling is not
+   *                            possible anymore.
+   *
    * @param[in] id        the ID of the scheduled item, as returned by `schedule()`.
    */
   void cancel(ItemIdType id)
   {
     std::lock_guard<std::mutex> lock(_mutex);
-    // TODO: Check if not cancellable anymore? Will likely need a separate set to keep
-    // track of registered items.
-    //
-    // If the callback is already running
-    // and the user has no way of knowing that but still destroys it, undefined
-    // behavior may occur.
+    if (_processing.has_value() && _processing.value() == id)
+      throw std::runtime_error("Cannot cancel, item is being processed.");
+
     _canceled.insert(id);
     ucxx_trace_req("Canceled item: %lu", id);
   }
