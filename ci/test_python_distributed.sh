@@ -10,6 +10,8 @@ source "$(dirname "$0")/test_common.sh"
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
+UCXX_VERSION="$(head -1 ./VERSION)"
+
 rapids-dependency-file-generator \
   --output conda \
   --file-key test_python_distributed \
@@ -27,7 +29,9 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  libucxx ucxx distributed-ucxx
+  "libucxx=${UCXX_VERSION}" \
+  "ucxx=${UCXX_VERSION}" \
+  "distributed-ucxx=${UCXX_VERSION}"
 
 print_ucx_config
 

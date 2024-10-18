@@ -8,11 +8,13 @@ See :ref:`communications` for more.
 from __future__ import annotations
 
 import functools
+import itertools
 import logging
 import os
 import struct
 import weakref
 from collections.abc import Awaitable, Callable, Collection
+from threading import Lock
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
@@ -48,6 +50,13 @@ device_array = None
 pre_existing_cuda_context = False
 cuda_context_created = False
 multi_buffer = None
+# Lock protecting access to _resources dict
+_resources_lock = Lock()
+# Mapping from UCXX context handles to sets of registered dask resource IDs
+# Used to track when there are no more users of the context, at which point
+# its progress task and notification thread can be shut down.
+# See _register_dask_resource and _deregister_dask_resource.
+_resources = dict()
 
 
 _warning_suffix = (
@@ -88,6 +97,81 @@ def synchronize_stream(stream=0):
     cu_stream = numba.cuda.driver.drvapi.cu_stream(stream)
     stream = numba.cuda.driver.Stream(ctx, cu_stream, None)
     stream.synchronize()
+
+
+def make_register():
+    count = itertools.count()
+
+    def register() -> int:
+        """Register a Dask resource with the resource tracker.
+
+        Generate a unique ID for the resource and register it with the resource
+        tracker. The resource ID is later used to deregister the resource from
+        the tracker calling `_deregister_dask_resource(resource_id)`, which
+        stops the notifier thread and progress tasks when no more UCXX resources
+        are alive.
+
+        Returns
+        -------
+        resource_id: int
+            The ID of the registered resource that should be used with
+            `_deregister_dask_resource` during stop/destruction of the resource.
+        """
+        ctx = ucxx.core._get_ctx()
+        handle = ctx.context.handle
+        with _resources_lock:
+            if handle not in _resources:
+                _resources[handle] = set()
+
+            resource_id = next(count)
+            _resources[handle].add(resource_id)
+            ctx.start_notifier_thread()
+            ctx.continuous_ucx_progress()
+            return resource_id
+
+    return register
+
+
+_register_dask_resource = make_register()
+
+del make_register
+
+
+def _deregister_dask_resource(resource_id):
+    """Deregister a Dask resource from the resource tracker.
+
+    Deregister a Dask resource from the resource tracker with given ID, and if
+    no resources remain after deregistration, stop the notifier thread and
+    progress tasks.
+
+    Parameters
+    ----------
+    resource_id: int
+        The unique ID of the resource returned by `_register_dask_resource` upon
+        registration.
+    """
+    if ucxx.core._ctx is None:
+        # Prevent creation of context if it was already destroyed, all
+        # registered references are already gone.
+        return
+
+    ctx = ucxx.core._get_ctx()
+    handle = ctx.context.handle
+
+    # Check if the attribute exists first, in tests the UCXX context may have
+    # been reset before some resources are deregistered.
+    with _resources_lock:
+        try:
+            _resources[handle].remove(resource_id)
+        except KeyError:
+            pass
+
+        # Stop notifier thread and progress tasks if no Dask resources using
+        # UCXX communicators are running anymore.
+        if handle in _resources and len(_resources[handle]) == 0:
+            ctx.stop_notifier_thread()
+            ctx.progress_tasks.clear()
+            del _resources[handle]
 
 
 def init_once():
@@ -279,7 +363,11 @@ class UCXX(Comm):
         else:
             self._has_close_callback = False
 
+        self._resource_id = _register_dask_resource()
+
         logger.debug("UCX.__init__ %s", self)
+
+        weakref.finalize(self, _deregister_dask_resource, self._resource_id)
 
     def __del__(self) -> None:
         self.abort()
@@ -488,6 +576,7 @@ class UCXX(Comm):
         if self._ep is not None:
             self._ep.abort()
             self._ep = None
+            _deregister_dask_resource(self._resource_id)
 
     def closed(self):
         if self._has_close_callback is True:
@@ -522,15 +611,19 @@ class UCXXConnector(Connector):
         init_once()
 
         try:
+            self._resource_id = _register_dask_resource()
             ep = await ucxx.create_endpoint(ip, port)
         except (
             ucxx.exceptions.UCXCloseError,
             ucxx.exceptions.UCXCanceledError,
             ucxx.exceptions.UCXConnectionResetError,
+            ucxx.exceptions.UCXMessageTruncatedError,
             ucxx.exceptions.UCXNotConnectedError,
             ucxx.exceptions.UCXUnreachableError,
         ):
             raise CommClosedError("Connection closed before handshake completed")
+        finally:
+            _deregister_dask_resource(self._resource_id)
         return self.comm_class(
             ep,
             local_addr="",
@@ -588,10 +681,13 @@ class UCXXListener(Listener):
                 await self.comm_handler(ucx)
 
         init_once()
+        self._resource_id = _register_dask_resource()
+        weakref.finalize(self, _deregister_dask_resource, self._resource_id)
         self.ucxx_server = ucxx.create_listener(serve_forever, port=self._input_port)
 
     def stop(self):
         self.ucxx_server = None
+        _deregister_dask_resource(self._resource_id)
 
     def get_host_port(self):
         # TODO: TCP raises if this hasn't started yet.

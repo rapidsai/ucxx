@@ -50,9 +50,13 @@ def _server(queue, server_close_callback):
     while ep[0] is None:
         worker.progress()
 
-    wireup_msg = Array(bytearray(WireupMessageSize))
-    wireup_request = ep[0].tag_recv(wireup_msg, tag=ucx_api.UCXXTag(0))
-    wait_requests(worker, "blocking", wireup_request)
+    wireup_msg_recv = Array(bytearray(WireupMessageSize))
+    wireup_msg_send = Array(bytes(os.urandom(WireupMessageSize)))
+    wireup_requests = [
+        ep[0].tag_recv(wireup_msg_recv, tag=ucx_api.UCXXTag(0)),
+        ep[0].tag_send(wireup_msg_send, tag=ucx_api.UCXXTag(0)),
+    ]
+    wait_requests(worker, "blocking", wireup_requests)
 
     if server_close_callback is True:
         while closed[0] is False:
@@ -72,13 +76,20 @@ def _client(port, server_close_callback):
         port,
         endpoint_error_handling=True,
     )
-    worker.progress()
-    wireup_msg = Array(bytes(os.urandom(WireupMessageSize)))
-    wireup_request = ep.tag_send(wireup_msg, tag=ucx_api.UCXXTag(0))
-    wait_requests(worker, "blocking", wireup_request)
     if server_close_callback is False:
         closed = [False]
         ep.set_close_callback(_close_callback, cb_args=(closed,))
+    worker.progress()
+
+    wireup_msg_send = Array(bytes(os.urandom(WireupMessageSize)))
+    wireup_msg_recv = Array(bytearray(WireupMessageSize))
+    wireup_requests = [
+        ep.tag_send(wireup_msg_send, tag=ucx_api.UCXXTag(0)),
+        ep.tag_recv(wireup_msg_recv, tag=ucx_api.UCXXTag(0)),
+    ]
+    wait_requests(worker, "blocking", wireup_requests)
+
+    if server_close_callback is False:
         while closed[0] is False:
             worker.progress()
 
