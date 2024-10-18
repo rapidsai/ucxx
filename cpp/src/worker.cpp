@@ -170,7 +170,7 @@ Worker::~Worker()
       "unintended effects, such as destructor being called from that thread.");
     stopProgressThreadNoWarn();
   }
-  if (_notifier) {
+  if (_notifier && _notifier->isRunning()) {
     ucxx_warn(
       "The notifier thread should be explicitly stopped with `stopNotifierThread()` to prevent "
       "unintended effects, such as destructor being called from that thread.");
