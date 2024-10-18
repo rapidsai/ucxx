@@ -65,6 +65,13 @@ class WorkerProgressTest : public WorkerTest,
 
     _progressWorker = getProgressFunction(_worker, _progressMode);
   }
+
+  void TearDown()
+  {
+    if (_progressMode == ProgressMode::ThreadPolling ||
+        _progressMode == ProgressMode::ThreadBlocking)
+      _worker->stopProgressThread();
+  }
 };
 
 TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr); }

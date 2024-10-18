@@ -97,6 +97,13 @@ class Notifier {
    * it should stop and exit.
    */
   virtual void stopRequestNotifierThread() = 0;
+
+  /**
+   * @brief Returns whether the thread is running.
+   *
+   * @returns Whether the thread is running.
+   */
+  [[nodiscard]] virtual bool isRunning() const = 0;
 };
 
 }  // namespace ucxx

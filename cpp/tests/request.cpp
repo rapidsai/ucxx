@@ -89,6 +89,13 @@ class RequestTest : public ::testing::TestWithParam<
     _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
   }
 
+  void TearDown()
+  {
+    if (_progressMode == ProgressMode::ThreadPolling ||
+        _progressMode == ProgressMode::ThreadBlocking)
+      _worker->stopProgressThread();
+  }
+
   void allocate(const size_t numBuffers = 1, const bool allocateRecvBuffer = true)
   {
     _numBuffers = numBuffers;

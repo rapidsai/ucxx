@@ -122,6 +122,12 @@ void Notifier::stopRequestNotifierThread()
   _notifierThreadConditionVariable.notify_all();
 }
 
+bool Notifier::isRunning() const
+{
+  return _notifierThreadFutureStatusReady ||
+         _notifierThreadFutureStatusFinished == RequestNotifierThreadState::Running;
+}
+
 }  // namespace python
 
 }  // namespace ucxx

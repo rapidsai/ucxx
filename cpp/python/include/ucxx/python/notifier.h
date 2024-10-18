@@ -139,6 +139,13 @@ class Notifier : public ::ucxx::Notifier {
    * that it should stop and exit.
    */
   void stopRequestNotifierThread() override;
+
+  /**
+   * @brief Returns whether the thread is running.
+   *
+   * @returns Whether the thread is running.
+   */
+  [[nodiscard]] bool isRunning() const override;
 };
 
 }  // namespace python
