@@ -10,6 +10,8 @@ import numpy as np
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
+from ucxx.benchmarks.backends.asyncio import AsyncioClient, AsyncioServer
+from ucxx.benchmarks.backends.socket import SocketClient, SocketServer
 from ucxx.benchmarks.backends.ucxx_async import (
     UCXPyAsyncClient,
     UCXPyAsyncServer,
@@ -30,13 +32,22 @@ def _get_backend_implementation(backend):
         return {"client": UCXPyAsyncClient, "server": UCXPyAsyncServer}
     elif backend == "ucxx-core":
         return {"client": UCXPyCoreClient, "server": UCXPyCoreServer}
+    elif backend == "asyncio":
+        return {"client": AsyncioClient, "server": AsyncioServer}
+    elif backend == "socket":
+        return {"client": SocketClient, "server": SocketServer}
     elif backend == "tornado":
-        from ucxx.benchmarks.backends.tornado import (
-            TornadoClient,
-            TornadoServer,
-        )
+        try:
+            import tornado  # noqa: F401
+        except ImportError as e:
+            raise e
+        else:
+            from ucxx.benchmarks.backends.tornado import (
+                TornadoClient,
+                TornadoServer,
+            )
 
-        return {"client": TornadoClient, "server": TornadoServer}
+            return {"client": TornadoClient, "server": TornadoServer}
 
     raise ValueError(f"Unknown backend {backend}")
 
@@ -289,7 +300,7 @@ def parse_args():
         default="ucxx-async",
         type=str,
         help="Backend Library (-l) to use, options are: 'ucxx-async' (default), "
-        "'ucxx-core' and 'tornado'.",
+        "'ucxx-core', 'asyncio', 'socket' and 'tornado'.",
     )
     parser.add_argument(
         "--progress-mode",
