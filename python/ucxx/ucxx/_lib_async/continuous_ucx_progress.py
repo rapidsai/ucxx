@@ -114,6 +114,8 @@ class BlockingMode(ProgressTask):
         super().__init__(worker, event_loop)
         self._progress_timeout = progress_timeout
 
+        self.worker.init_blocking_progress_mode()
+
         # Creating a job that is ready straight away but with low priority.
         # Calling `await self.event_loop.sock_recv(self.rsock, 1)` will
         # return when all non-IO tasks are finished.
@@ -123,7 +125,7 @@ class BlockingMode(ProgressTask):
         wsock.setblocking(0)
         wsock.close()
 
-        epoll_fd = worker.epoll_file_descriptor
+        epoll_fd = self.worker.epoll_file_descriptor
 
         # Bind an asyncio reader to a UCX epoll file descriptor
         event_loop.add_reader(epoll_fd, self._fd_reader_callback)

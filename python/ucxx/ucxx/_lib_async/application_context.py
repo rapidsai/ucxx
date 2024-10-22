@@ -56,12 +56,9 @@ class ApplicationContext:
         self.context = ucx_api.UCXContext(config_dict)
         self.worker = ucx_api.UCXWorker(
             self.context,
-            enable_delayed_submission=self._enable_delayed_submission,
-            enable_python_future=self._enable_python_future,
+            enable_delayed_submission=self.enable_delayed_submission,
+            enable_python_future=self.enable_python_future,
         )
-
-        if self.progress_mode == "blocking":
-            self.worker.init_blocking_progress_mode()
 
         self.start_notifier_thread()
 
@@ -90,7 +87,7 @@ class ApplicationContext:
                 progress_mode == m for m in valid_progress_modes
             ):
                 raise ValueError(
-                    f"Unknown progress mode {progress_mode}, valid modes are: "
+                    f"Unknown progress mode '{progress_mode}', valid modes are: "
                     "'blocking', 'polling', 'thread' or 'thread-polling'"
                 )
 
@@ -124,8 +121,9 @@ class ApplicationContext:
                 and explicit_enable_delayed_submission
             ):
                 raise ValueError(
-                    f"Delayed submission requested, but {self.progress_mode} does not "
-                    "support it, 'thread' or 'thread-polling' progress mode required."
+                    f"Delayed submission requested, but '{self.progress_mode}' does "
+                    "not support it, 'thread' or 'thread-polling' progress mode "
+                    "required."
                 )
 
             self._enable_delayed_submission = explicit_enable_delayed_submission
@@ -156,7 +154,7 @@ class ApplicationContext:
                 and explicit_enable_python_future
             ):
                 logger.warning(
-                    f"Notifier thread requested, but {self.progress_mode} does not "
+                    f"Notifier thread requested, but '{self.progress_mode}' does not "
                     "support it, using Python wait_yield()."
                 )
                 explicit_enable_python_future = False
