@@ -305,8 +305,8 @@ def parse_args():
     parser.add_argument(
         "--progress-mode",
         default="thread",
-        help="Progress mode for the UCP worker. Valid options are: "
-        "'thread' (default) and 'blocking'.",
+        help="Progress mode for the UCP worker. Valid options are: 'blocking, "
+        "'polling', 'thread' and 'thread-polling. (Default: 'thread')'",
         type=str,
     )
     parser.add_argument(
@@ -361,8 +361,6 @@ def parse_args():
 
     if args.progress_mode not in ["blocking", "polling", "thread", "thread-polling"]:
         raise RuntimeError(f"Invalid `--progress-mode`: '{args.progress_mode}'")
-    if args.progress_mode == "blocking" and args.backend == "ucxx-async":
-        raise RuntimeError("Blocking progress mode not supported for ucxx-async yet")
     if args.asyncio_wait and not args.progress_mode.startswith("thread"):
         raise RuntimeError(
             "`--asyncio-wait` requires `--progress-mode=thread` or "

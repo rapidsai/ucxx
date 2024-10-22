@@ -14,7 +14,6 @@ import os
 import struct
 import weakref
 from collections.abc import Awaitable, Callable, Collection
-from threading import Lock
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
@@ -50,13 +49,6 @@ device_array = None
 pre_existing_cuda_context = False
 cuda_context_created = False
 multi_buffer = None
-# Lock protecting access to _resources dict
-_resources_lock = Lock()
-# Mapping from UCXX context handles to sets of registered dask resource IDs
-# Used to track when there are no more users of the context, at which point
-# its progress task and notification thread can be shut down.
-# See _register_dask_resource and _deregister_dask_resource.
-_resources = dict()
 
 
 _warning_suffix = (
@@ -103,13 +95,13 @@ def make_register():
     count = itertools.count()
 
     def register() -> int:
-        """Register a Dask resource with the resource tracker.
+        """Register a Dask resource with the UCXX context.
 
-        Generate a unique ID for the resource and register it with the resource
-        tracker. The resource ID is later used to deregister the resource from
-        the tracker calling `_deregister_dask_resource(resource_id)`, which
-        stops the notifier thread and progress tasks when no more UCXX resources
-        are alive.
+        Register a Dask resource with the UCXX context and keep track of it with the
+        use of a unique ID for the resource. The resource ID is later used to
+        deregister the resource from the UCXX context calling
+        `_deregister_dask_resource(resource_id)`, which stops the notifier thread
+        and progress tasks when no more UCXX resources are alive.
 
         Returns
         -------
@@ -118,13 +110,9 @@ def make_register():
             `_deregister_dask_resource` during stop/destruction of the resource.
         """
         ctx = ucxx.core._get_ctx()
-        handle = ctx.context.handle
-        with _resources_lock:
-            if handle not in _resources:
-                _resources[handle] = set()
-
+        with ctx._dask_resources_lock:
             resource_id = next(count)
-            _resources[handle].add(resource_id)
+            ctx._dask_resources.add(resource_id)
             ctx.start_notifier_thread()
             ctx.continuous_ucx_progress()
             return resource_id
@@ -138,11 +126,11 @@ del make_register
 
 
 def _deregister_dask_resource(resource_id):
-    """Deregister a Dask resource from the resource tracker.
+    """Deregister a Dask resource with the UCXX context.
 
-    Deregister a Dask resource from the resource tracker with given ID, and if
-    no resources remain after deregistration, stop the notifier thread and
-    progress tasks.
+    Deregister a Dask resource from the UCXX context with given ID, and if no
+    resources remain after deregistration, stop the notifier thread and progress
+    tasks.
 
     Parameters
     ----------
@@ -156,22 +144,40 @@ def _deregister_dask_resource(resource_id):
         return
 
     ctx = ucxx.core._get_ctx()
-    handle = ctx.context.handle
 
     # Check if the attribute exists first, in tests the UCXX context may have
     # been reset before some resources are deregistered.
-    with _resources_lock:
-        try:
-            _resources[handle].remove(resource_id)
-        except KeyError:
-            pass
+    if hasattr(ctx, "_dask_resources_lock"):
+        with ctx._dask_resources_lock:
+            try:
+                ctx._dask_resources.remove(resource_id)
+            except KeyError:
+                pass
 
-        # Stop notifier thread and progress tasks if no Dask resources using
-        # UCXX communicators are running anymore.
-        if handle in _resources and len(_resources[handle]) == 0:
-            ctx.stop_notifier_thread()
-            ctx.progress_tasks.clear()
-            del _resources[handle]
+            # Stop notifier thread and progress tasks if no Dask resources using
+            # UCXX communicators are running anymore.
+            if len(ctx._dask_resources) == 0:
+                ctx.stop_notifier_thread()
+                ctx.progress_tasks.clear()
+
+
+def _allocate_dask_resources_tracker() -> None:
+    """Allocate Dask resources tracker.
+
+    Allocate a Dask resources tracker in the UCXX context. This is useful to
+    track Distributed communicators so that progress and notifier threads can
+    be cleanly stopped when no UCXX communicators are alive anymore.
+    """
+    ctx = ucxx.core._get_ctx()
+    if not hasattr(ctx, "_dask_resources"):
+        # TODO: Move the `Lock` to a file/module-level variable for true
+        # lock-safety. The approach implemented below could cause race
+        # conditions if this function is called simultaneously by multiple
+        # threads.
+        from threading import Lock
+
+        ctx._dask_resources = set()
+        ctx._dask_resources_lock = Lock()
 
 
 def init_once():
@@ -181,6 +187,11 @@ def init_once():
     global multi_buffer
 
     if ucxx is not None:
+        # Ensure reallocation of Dask resources tracker if the UCXX context was
+        # reset since the previous `init_once()` call. This may happen in tests,
+        # where the `ucxx_loop` fixture will reset the context after each test.
+        _allocate_dask_resources_tracker()
+
         return
 
     # remove/process dask.ucx flags for valid ucx options
@@ -243,6 +254,7 @@ def init_once():
         # environment, so the user's external environment can safely
         # override things here.
         ucxx.init(options=ucx_config, env_takes_precedence=True)
+        _allocate_dask_resources_tracker()
 
     pool_size_str = dask.config.get("distributed.rmm.pool-size")
 

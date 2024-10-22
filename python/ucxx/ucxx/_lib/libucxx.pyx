@@ -617,6 +617,23 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().initBlockingProgressMode()
 
+    def arm(self) -> bool:
+        cdef bint armed
+
+        with nogil:
+            armed = self._worker.get().arm()
+
+        return armed
+
+    @property
+    def epoll_file_descriptor(self) -> int:
+        cdef int epoll_file_descriptor = 0
+
+        with nogil:
+            epoll_file_descriptor = self._worker.get().getEpollFileDescriptor()
+
+        return epoll_file_descriptor
+
     def progress(self) -> None:
         with nogil:
             self._worker.get().progress()
