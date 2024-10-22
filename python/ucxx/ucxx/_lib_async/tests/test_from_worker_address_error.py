@@ -62,6 +62,11 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                 #    "Endpoint timeout" after UCX_UD_TIMEOUT seconds have passed.
                 #    We need to keep progressing ucxx until timeout is raised.
                 ep = await ucxx.create_endpoint_from_worker_address(remote_address)
+                while ep.alive:
+                    await asyncio.sleep(0)
+                    if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
+                        ucxx.progress()
+                ep._ep.raise_on_error()
         else:
             # Create endpoint to remote worker, and:
             #
