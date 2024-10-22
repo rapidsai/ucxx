@@ -411,7 +411,10 @@ async def test_comm_closed_on_read_error():
     with pytest.raises((asyncio.TimeoutError, CommClosedError)):
         await wait_for(reader.read(), 0.01)
 
+    await writer.close()
+
     assert reader.closed()
+    assert writer.closed()
 
 
 @pytest.mark.flaky(
