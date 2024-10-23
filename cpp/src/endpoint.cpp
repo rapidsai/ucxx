@@ -97,8 +97,6 @@ void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
                ep,
                status,
                ucs_status_string(status));
-
-  std::swap(endpoint->_handle, endpoint->_originalHandle);
 }
 
 Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener, bool endpointErrorHandling)
