@@ -347,11 +347,21 @@ bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t
     }
     signalWorkerFunction();
 
-    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+    size_t retryCount = 0;
+    while (true) {
+      auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
-    if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
-
-    return ret;
+      try {
+        if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
+        return ret;
+      } catch (const std::runtime_error& e) {
+        if (++retryCount % 10 == 0)
+          ucxx_warn(
+            "Could not cancel after %lu attempts, the callback has not returned and the process "
+            "may stop responding.",
+            retryCount);
+      }
+    }
   }
 }
 
@@ -384,11 +394,21 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
     }
     signalWorkerFunction();
 
-    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+    size_t retryCount = 0;
+    while (true) {
+      auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
-    if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
-
-    return ret;
+      try {
+        if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
+        return ret;
+      } catch (const std::runtime_error& e) {
+        if (++retryCount % 10 == 0)
+          ucxx_warn(
+            "Could not cancel after %lu attempts, the callback has not returned and the process "
+            "may stop responding.",
+            retryCount);
+      }
+    }
   }
 }
 
