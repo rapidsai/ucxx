@@ -106,6 +106,7 @@ def client(queue, port, server_address, args):
     print_key_value(key="Number of buffers", value=f"{args.n_buffers}")
     print_key_value(key="Object type", value=f"{args.object_type}")
     print_key_value(key="Reuse allocation", value=f"{args.reuse_alloc}")
+    print_key_value(key="Backend", value=f"{args.backend}")
     client.print_backend_specific_config()
     print_separator(separator="=")
     if args.object_type == "numpy":
