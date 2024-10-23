@@ -771,9 +771,6 @@ cdef class UCXWorker():
         cdef Tag cpp_tag = <Tag><size_t>tag.value
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
 
-        if not self._context_feature_flags & Feature.TAG.value:
-            raise ValueError("UCXContext must be created with `Feature.TAG`")
-
         with nogil:
             req = self._worker.get().tagRecv(
                 buf,
@@ -789,6 +786,7 @@ cdef class UCXWorker():
 cdef class UCXRequest():
     cdef:
         shared_ptr[Request] _request
+        Request* _request_ptr
         bint _enable_python_future
         bint _completed
 
@@ -796,6 +794,8 @@ cdef class UCXRequest():
         self._request = deref(<shared_ptr[Request] *> shared_ptr_request)
         self._enable_python_future = enable_python_future
         self._completed = False
+        with nogil:
+            self._request_ptr = self._request.get()
 
     def __dealloc__(self) -> None:
         with nogil:
@@ -810,7 +810,7 @@ cdef class UCXRequest():
             return True
 
         with nogil:
-            completed = self._request.get().isCompleted()
+            completed = self._request_ptr.isCompleted()
 
         return completed
 
@@ -1407,8 +1407,6 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
         cdef Tag cpp_tag = <Tag><size_t>tag.value
 
-        if not self._context_feature_flags & Feature.TAG.value:
-            raise ValueError("UCXContext must be created with `Feature.TAG`")
         if arr.cuda and not self._cuda_support:
             raise ValueError(
                 "UCX is not configured with CUDA support, please ensure that the "
@@ -1439,8 +1437,6 @@ cdef class UCXEndpoint():
         cdef Tag cpp_tag = <Tag><size_t>tag.value
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
 
-        if not self._context_feature_flags & Feature.TAG.value:
-            raise ValueError("UCXContext must be created with `Feature.TAG`")
         if arr.cuda and not self._cuda_support:
             raise ValueError(
                 "UCX is not configured with CUDA support, please ensure that the "
