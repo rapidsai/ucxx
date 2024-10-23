@@ -162,6 +162,11 @@ class WorkerProgressThread {
    */
   [[nodiscard]] std::thread::id getId() const;
 
+  /**
+   * @brief Returns whether the thread is running.
+   *
+   * @returns Whether the thread is running.
+   */
   [[nodiscard]] bool isRunning() const;
 
   void stop();

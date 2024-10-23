@@ -136,10 +136,12 @@ void Endpoint::create(ucp_ep_params_t* params)
             3000000000 /* 3s */))
         break;
 
-      if (i == maxAttempts - 1)
+      if (i == maxAttempts - 1) {
+        status = UCS_ERR_TIMED_OUT;
         ucxx_error("Timeout waiting for ucp_ep_create, all attempts failed");
-      else
+      } else {
         ucxx_warn("Timeout waiting for ucp_ep_create, retrying");
+      }
     }
     utils::ucsErrorThrow(status);
   } else {
