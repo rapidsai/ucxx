@@ -117,11 +117,7 @@ void Request::checkError()
   utils::ucsErrorThrow(_status, _status == UCS_ERR_MESSAGE_TRUNCATED ? _status_msg : std::string());
 }
 
-bool Request::isCompleted()
-{
-  std::lock_guard<std::recursive_mutex> lock(_mutex);
-  return _status != UCS_INPROGRESS;
-}
+bool Request::isCompleted() { return _status != UCS_INPROGRESS; }
 
 void Request::callback(void* request, ucs_status_t status)
 {
