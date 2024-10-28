@@ -83,7 +83,7 @@ void WorkerProgressThread::stop()
   });
   _signalWorkerFunction();
   if (!callbackNotifierPost.wait(3000000000)) {
-    _delayedSubmissionCollection->cancelGenericPre(idPost);
+    _delayedSubmissionCollection->cancelGenericPost(idPost);
   }
 
   _thread.join();

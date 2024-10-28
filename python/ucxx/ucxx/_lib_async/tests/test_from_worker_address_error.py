@@ -12,6 +12,7 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
+from ucxx.testing import join_processes, terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -62,6 +63,11 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                 #    "Endpoint timeout" after UCX_UD_TIMEOUT seconds have passed.
                 #    We need to keep progressing ucxx until timeout is raised.
                 ep = await ucxx.create_endpoint_from_worker_address(remote_address)
+                while ep.alive:
+                    await asyncio.sleep(0)
+                    if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
+                        ucxx.progress()
+                ep._ep.raise_on_error()
         else:
             # Create endpoint to remote worker, and:
             #
@@ -174,18 +180,19 @@ def test_from_worker_address_error(error_type):
     )
     client.start()
 
-    server.join()
-    client.join()
-
-    assert not server.exitcode
-
-    if ucxx.get_ucx_version() < (1, 12, 0) and client.exitcode == 1:
-        if all(t in error_type for t in ["timeout", "send"]):
-            pytest.xfail(
-                "Requires https://github.com/openucx/ucx/pull/7527 with rc/ud."
-            )
-        elif all(t in error_type for t in ["timeout", "recv"]):
-            pytest.xfail(
-                "Requires https://github.com/openucx/ucx/pull/7531 with rc/ud."
-            )
-    assert not client.exitcode
+    join_processes([client, server], timeout=30)
+    terminate_process(server)
+    try:
+        terminate_process(client)
+    except RuntimeError as e:
+        if ucxx.get_ucx_version() < (1, 12, 0):
+            if all(t in error_type for t in ["timeout", "send"]):
+                pytest.xfail(
+                    "Requires https://github.com/openucx/ucx/pull/7527 with rc/ud."
+                )
+            elif all(t in error_type for t in ["timeout", "recv"]):
+                pytest.xfail(
+                    "Requires https://github.com/openucx/ucx/pull/7531 with rc/ud."
+                )
+        else:
+            raise e

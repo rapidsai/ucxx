@@ -254,6 +254,23 @@ class Worker : public Component {
   void initBlockingProgressMode();
 
   /**
+   * @brief Get the epoll file descriptor associated with the worker.
+   *
+   * Get the epoll file descriptor associated with the worker when running in blocking mode.
+   * The worker only has an associated epoll file descriptor after
+   * `initBlockingProgressMode()` is executed.
+   *
+   * The file descriptor is destroyed as part of the `ucxx::Worker` destructor, thus any
+   * reference to it shall not be used after that.
+   *
+   * @throws std::runtime_error if `initBlockingProgressMode()` was not executed to run the
+   *                            worker in blocking progress mode.
+   *
+   * @returns the file descriptor.
+   */
+  int getEpollFileDescriptor();
+
+  /**
    * @brief Arm the UCP worker.
    *
    * Wrapper for `ucp_worker_arm`, checking its return status for errors and raising an
@@ -420,8 +437,12 @@ class Worker : public Component {
    * If `period` is `0` this is a blocking call that only returns when the callback has been
    * executed and will always return `true`, and if `period` is a positive integer the time
    * in nanoseconds will be waited for the callback to complete and return `true` in the
-   * successful case or `false` otherwise. `period` only applies if the worker progress
-   * thread is running, otherwise the callback is immediately executed.
+   * successful case or `false` otherwise. However, if the callback is not cancelable
+   * anymore (i.e., it has already started), this method will keep retrying and may never
+   * return if the callback never completes, it is unsafe to return as this would allow the
+   * caller to destroy the callback and its resources causing undefined behavior. `period`
+   * only applies if the worker progress thread is running, otherwise the callback is
+   * immediately executed.
    *
    * @param[in] callback  the callback to execute before progressing the worker.
    * @param[in] period    the time in nanoseconds to wait for the callback to complete.
@@ -445,8 +466,12 @@ class Worker : public Component {
    * If `period` is `0` this is a blocking call that only returns when the callback has been
    * executed and will always return `true`, and if `period` is a positive integer the time
    * in nanoseconds will be waited for the callback to complete and return `true` in the
-   * successful case or `false` otherwise. `period` only applies if the worker progress
-   * thread is running, otherwise the callback is immediately executed.
+   * successful case or `false` otherwise. However, if the callback is not cancelable
+   * anymore (i.e., it has already started), this method will keep retrying and may never
+   * return if the callback never completes, it is unsafe to return as this would allow the
+   * caller to destroy the callback and its resources causing undefined behavior. `period`
+   * only applies if the worker progress thread is running, otherwise the callback is
+   * immediately executed.
    *
    * @param[in] callback  the callback to execute before progressing the worker.
    * @param[in] period    the time in nanoseconds to wait for the callback to complete.
