@@ -18,4 +18,13 @@ export PIP_CONSTRAINT="/tmp/constraints.txt"
 
 export SKBUILD_CMAKE_ARGS="-DFIND_UCXX_CPP=ON;-DCMAKE_INSTALL_LIBDIR=ucxx/lib64;-DCMAKE_INSTALL_INCLUDEDIR=ucxx/include"
 
-./ci/build_wheel.sh ucxx "${package_dir}" python
+./ci/build_wheel.sh ucxx "${package_dir}"
+
+mkdir -p "${package_dir}/final_dist"
+python -m auditwheel repair \
+    --exclude "libucp.so.0" \
+    --exclude "libucxx.so" \
+    -w "${package_dir}/final_dist" \
+    ${package_dir}/dist/*
+
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python "${package_dir}/final_dist"

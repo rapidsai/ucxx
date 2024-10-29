@@ -27,4 +27,12 @@ export PIP_NO_BUILD_ISOLATION=0
 
 export SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON"
 
-./ci/build_wheel.sh "${package_name}" "${package_dir}" cpp
+./ci/build_wheel.sh "${package_name}" "${package_dir}"
+
+mkdir -p "${package_dir}/final_dist"
+python -m auditwheel repair \
+    --exclude "libucp.so.0" \
+    -w "${package_dir}/final_dist" \
+    ${package_dir}/dist/*
+
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp "${package_dir}/final_dist"

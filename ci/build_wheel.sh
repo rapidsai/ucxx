@@ -5,29 +5,6 @@ set -euo pipefail
 
 package_name=$1
 package_dir=$2
-package_type=$3
-underscore_package_name=$(echo "${package_name}" | tr "-" "_")
-
-# The list of shared libraries to exclude from wheels varies by project.
-#
-# Capturing that here in argument-parsing to allow this build_wheel.sh
-# script to be re-used by all wheel builds in the project.
-case "${package_dir}" in
-  python/libucxx)
-    EXCLUDE_ARGS=(
-      --exclude "libucp.so.0"
-    )
-  ;;
-  python/ucxx)
-    EXCLUDE_ARGS=(
-      --exclude "libucp.so.0"
-      --exclude "libucxx.so"
-    )
-  ;;
-  *)
-    EXCLUDE_ARGS=()
-  ;;
-esac
 
 source rapids-configure-sccache
 source rapids-date-string
@@ -49,11 +26,3 @@ python -m pip wheel \
     .
 
 sccache --show-adv-stats
-
-mkdir -p final_dist
-python -m auditwheel repair \
-    "${EXCLUDE_ARGS[@]}" \
-    -w final_dist \
-    dist/*
-
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 "${package_type}" final_dist
