@@ -3,6 +3,7 @@
 
 set -euo pipefail
 
+package_name="ucxx"
 package_dir="python/ucxx"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
@@ -18,7 +19,7 @@ export PIP_CONSTRAINT="/tmp/constraints.txt"
 
 export SKBUILD_CMAKE_ARGS="-DFIND_UCXX_CPP=ON;-DCMAKE_INSTALL_LIBDIR=ucxx/lib64;-DCMAKE_INSTALL_INCLUDEDIR=ucxx/include"
 
-./ci/build_wheel.sh ucxx "${package_dir}"
+./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 mkdir -p "${package_dir}/final_dist"
 python -m auditwheel repair \
