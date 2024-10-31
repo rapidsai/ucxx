@@ -134,7 +134,8 @@ class BlockingMode(ProgressTask):
         weakref.finalize(self, event_loop.remove_reader, epoll_fd)
         weakref.finalize(self, self.rsock.close)
 
-        self.blocking_asyncio_task = None
+        self.armed = False
+        self.blocking_asyncio_task = self.event_loop.create_task(self._arm_worker())
         self.last_progress_time = time.monotonic() - self._progress_timeout
         self.asyncio_task = event_loop.create_task(self._progress_with_timeout())
 
@@ -146,10 +147,9 @@ class BlockingMode(ProgressTask):
         """
         self.worker.progress()
 
-        # Notice, we can safely overwrite `self.blocking_asyncio_task`
-        # since previous arm task is finished by now.
-        assert self.blocking_asyncio_task is None or self.blocking_asyncio_task.done()
-        self.blocking_asyncio_task = self.event_loop.create_task(self._arm_worker())
+        assert not self.armed
+
+        self.armed = False
 
     async def _arm_worker(self):
         """Progress the worker and rearm.
@@ -163,6 +163,9 @@ class BlockingMode(ProgressTask):
         #    so that the asyncio's next state is epoll wait.
         #    See <https://github.com/rapidsai/ucx-py/issues/413>
         while True:
+            if self.armed:
+                continue
+
             self.last_progress_time = time.monotonic()
             self.worker.progress()
 
