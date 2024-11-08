@@ -154,6 +154,26 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
              requestData);
 }
 
+void RequestAm::cancel()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  if (_status == UCS_INPROGRESS) {
+    /**
+     * This is needed to ensure AM requests are cancelable, since they do not
+     * use the `_request`, thus `ucp_request_cancel()` cannot cancel them.
+     */
+    setStatus(UCS_ERR_CANCELED);
+  } else {
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
+                     _request,
+                     _operationName.c_str(),
+                     "already completed with status: %d (%s)",
+                     _status,
+                     ucs_status_string(_status));
+  }
+}
+
 static void _amSendCallback(void* request, ucs_status_t status, void* user_data)
 {
   Request* req = reinterpret_cast<Request*>(user_data);

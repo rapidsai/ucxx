@@ -120,7 +120,7 @@ class Request : public Component {
   /**
    * @brief Cancel the request.
    *
-   * Cancel the request. Often called by the an error handler or parent's object
+   * Cancel the request. Often called by the error handler or parent's object
    * destructor but may be called by the user to cancel the request as well.
    */
   virtual void cancel();
