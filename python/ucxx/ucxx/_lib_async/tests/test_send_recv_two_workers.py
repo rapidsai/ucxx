@@ -207,9 +207,6 @@ def cupy_obj():
 )
 @pytest.mark.parametrize("comm_api", ["tag", "am"])
 def test_send_recv_cu(cuda_obj_generator, comm_api):
-    if comm_api == "am":
-        pytest.skip("AM not implemented yet")
-
     base_env = os.environ
     env_client = base_env.copy()
     # grab first two devices
