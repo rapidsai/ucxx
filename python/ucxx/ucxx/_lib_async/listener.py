@@ -30,37 +30,37 @@ class ActiveClients:
         self._locks = dict()
         self._active_clients = dict()
 
-    def add_listener(self, id: int) -> None:
-        if id in self._active_clients:
-            raise ValueError("Listener {id} is already registered in ActiveClients.")
+    def add_listener(self, ident: int) -> None:
+        if ident in self._active_clients:
+            raise ValueError("Listener {ident} is already registered in ActiveClients.")
 
-        self._locks[id] = threading.Lock()
-        self._active_clients[id] = 0
+        self._locks[ident] = threading.Lock()
+        self._active_clients[ident] = 0
 
-    def remove_listener(self, id: int) -> None:
-        with self._locks[id]:
-            active_clients = self.get_active(id)
+    def remove_listener(self, ident: int) -> None:
+        with self._locks[ident]:
+            active_clients = self.get_active(ident)
             if active_clients > 0:
                 raise RuntimeError(
-                    "Listener {id} is being removed from ActiveClients, but "
+                    "Listener {ident} is being removed from ActiveClients, but "
                     f"{active_clients} active client(s) is(are) still accounted for."
                 )
 
-        del self._locks[id]
-        del self._active_clients[id]
+        del self._locks[ident]
+        del self._active_clients[ident]
 
-    def inc(self, id: int) -> None:
-        with self._locks[id]:
-            self._active_clients[id] += 1
+    def inc(self, ident: int) -> None:
+        with self._locks[ident]:
+            self._active_clients[ident] += 1
 
-    def dec(self, id: int) -> None:
-        with self._locks[id]:
-            if self._active_clients[id] == 0:
-                raise ValueError(f"There are no active clients for listener {id}")
-            self._active_clients[id] -= 1
+    def dec(self, ident: int) -> None:
+        with self._locks[ident]:
+            if self._active_clients[ident] == 0:
+                raise ValueError(f"There are no active clients for listener {ident}")
+            self._active_clients[ident] -= 1
 
-    def get_active(self, id: int) -> int:
-        return self._active_clients[id]
+    def get_active(self, ident: int) -> int:
+        return self._active_clients[ident]
 
 
 class Listener:
@@ -70,21 +70,21 @@ class Listener:
     Please use `create_listener()` to create an Listener.
     """
 
-    def __init__(self, listener, id, active_clients):
+    def __init__(self, listener, ident, active_clients):
         if not isinstance(listener, ucx_api.UCXListener):
             raise ValueError("listener must be an instance of UCXListener")
 
         self._listener = listener
 
-        active_clients.add_listener(id)
-        self._id = id
+        active_clients.add_listener(ident)
+        self._ident = ident
         self._active_clients = active_clients
 
     def __del__(self):
         try:
-            self._active_clients.remove_listener(self._id)
+            self._active_clients.remove_listener(self._ident)
         except RuntimeError:
-            active_clients = self._active_clients.get_active(self._id)
+            active_clients = self._active_clients.get_active(self._ident)
             logger.warning(
                 f"Listener object is being destroyed, but {active_clients} client "
                 "handler(s) is(are) still alive. This usually indicates the Listener "
@@ -108,7 +108,7 @@ class Listener:
 
     @property
     def active_clients(self):
-        return self._active_clients.get_active(self._id)
+        return self._active_clients.get_active(self._ident)
 
     def close(self):
         """Closing the listener"""
@@ -121,11 +121,11 @@ async def _listener_handler_coroutine(
     func,
     endpoint_error_handling,
     exchange_peer_info_timeout,
-    id,
+    ident,
     active_clients,
 ):
     # def _listener_handler_coroutine(
-    #     conn_request, ctx, func, endpoint_error_handling, id, active_clients
+    #     conn_request, ctx, func, endpoint_error_handling, ident, active_clients
     # ):
     # We create the Endpoint in five steps:
     #  1) Create endpoint from conn_request
@@ -133,7 +133,7 @@ async def _listener_handler_coroutine(
     #  3) Exchange endpoint info such as tags
     #  4) Setup control receive callback
     #  5) Execute the listener's callback function
-    active_clients.inc(id)
+    active_clients.inc(ident)
     endpoint = conn_request
 
     seed = os.urandom(16)
@@ -186,7 +186,7 @@ async def _listener_handler_coroutine(
     else:
         func(ep)
 
-    active_clients.dec(id)
+    active_clients.dec(ident)
 
     # Ensure `ep` is destroyed and `__del__` is called
     del ep
@@ -199,7 +199,7 @@ def _listener_handler(
     ctx,
     endpoint_error_handling,
     exchange_peer_info_timeout,
-    id,
+    ident,
     active_clients,
 ):
     asyncio.run_coroutine_threadsafe(
@@ -209,7 +209,7 @@ def _listener_handler(
             callback_func,
             endpoint_error_handling,
             exchange_peer_info_timeout,
-            id,
+            ident,
             active_clients,
         ),
         event_loop,
