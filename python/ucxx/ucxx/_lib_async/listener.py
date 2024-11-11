@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 import threading
+import weakref
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx.exceptions import UCXMessageTruncatedError
@@ -63,6 +64,31 @@ class ActiveClients:
         return self._active_clients[ident]
 
 
+def _finalizer(ident: int, active_clients: ActiveClients) -> None:
+    """Listener finalizer.
+
+    Finalize the listener and remove it from the `ActiveClients`. If there are
+    active clients, a warning is logged.
+
+    Parameters
+    ----------
+    ident: int
+        The unique identifier of the `Listener`.
+    active_clients: ActiveClients
+        Instance of `ActiveClients` owned by the parent `ApplicationContext`
+        from which to remove the `Listener`.
+    """
+    try:
+        active_clients.remove_listener(ident)
+    except RuntimeError:
+        active_clients = active_clients.get_active(ident)
+        logger.warning(
+            f"Listener object is being destroyed, but {active_clients} client "
+            "handler(s) is(are) still alive. This usually indicates the Listener "
+            "was prematurely destroyed."
+        )
+
+
 class Listener:
     """A handle to the listening service started by `create_listener()`
 
@@ -80,16 +106,7 @@ class Listener:
         self._ident = ident
         self._active_clients = active_clients
 
-    def __del__(self):
-        try:
-            self._active_clients.remove_listener(self._ident)
-        except RuntimeError:
-            active_clients = self._active_clients.get_active(self._ident)
-            logger.warning(
-                f"Listener object is being destroyed, but {active_clients} client "
-                "handler(s) is(are) still alive. This usually indicates the Listener "
-                "was prematurely destroyed."
-            )
+        weakref.finalize(self, _finalizer, ident, active_clients)
 
     @property
     def closed(self):
@@ -188,7 +205,7 @@ async def _listener_handler_coroutine(
 
     active_clients.dec(ident)
 
-    # Ensure `ep` is destroyed and `__del__` is called
+    # Ensure no references to `ep` remain to permit garbage collection.
     del ep
 
 
