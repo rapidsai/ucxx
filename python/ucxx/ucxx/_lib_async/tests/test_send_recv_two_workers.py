@@ -20,6 +20,7 @@ from ucxx._lib_async.utils_test import (
     send,
     wait_listener_client_handlers,
 )
+from ucxx.testing import join_processes, terminate_process
 
 cupy = pytest.importorskip("cupy")
 rmm = pytest.importorskip("rmm")
@@ -240,8 +241,6 @@ def test_send_recv_cu(cuda_obj_generator, comm_api):
     os.environ.update(env_client)
     client_process.start()
 
-    server_process.join()
-    client_process.join()
-
-    assert server_process.exitcode == 0
-    assert client_process.exitcode == 0
+    join_processes([client, server], timeout=30)
+    terminate_process(client)
+    terminate_process(server)

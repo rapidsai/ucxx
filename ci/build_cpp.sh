@@ -17,7 +17,11 @@ rapids-print-env
 
 rapids-logger "Begin C++ and Python builds"
 
+sccache --zero-stats
+
 rapids-conda-retry mambabuild \
   conda/recipes/ucxx
+
+sccache --show-adv-stats
 
 rapids-upload-conda-to-s3 cpp

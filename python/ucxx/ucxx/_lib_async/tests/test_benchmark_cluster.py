@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from ucxx.benchmarks.utils import _run_cluster_server, _run_cluster_workers
+from ucxx.testing import join_processes, terminate_process
 
 
 async def _worker(rank, eps, args):
@@ -46,9 +47,7 @@ async def test_benchmark_cluster(n_chunks=1, n_nodes=2, n_workers=2):
         )
     )
 
+    join_processes(workers + [server], timeout=30)
     for worker in workers:
-        worker.join()
-        assert not worker.exitcode
-
-    server.join()
-    assert not server.exitcode
+        terminate_process(worker)
+    terminate_process(server)
