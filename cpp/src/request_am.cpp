@@ -268,19 +268,29 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       amHeader.memoryType = UCS_MEMORY_TYPE_HOST;
     }
 
-    std::shared_ptr<Buffer> buf = amData->_allocators.at(amHeader.memoryType)(length);
+    try {
+      buf = amData->_allocators.at(amHeader.memoryType)(length);
+    } catch (const std::exception& e) {
+      ucxx_debug("Exception calling allocator: %s", e.what());
+    }
 
     auto recvAmMessage =
       std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf, receiverCallback);
 
-    ucp_request_param_t request_param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                                                         UCP_OP_ATTR_FIELD_USER_DATA |
-                                                         UCP_OP_ATTR_FLAG_NO_IMM_CMPL,
-                                         .cb        = {.recv_am = _recvCompletedCallback},
-                                         .user_data = recvAmMessage.get()};
+    ucp_request_param_t requestParam = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                                                        UCP_OP_ATTR_FIELD_USER_DATA |
+                                                        UCP_OP_ATTR_FLAG_NO_IMM_CMPL,
+                                        .cb        = {.recv_am = _recvCompletedCallback},
+                                        .user_data = recvAmMessage.get()};
+
+    if (buf == nullptr) {
+      ucxx_debug("Failed to allocate %lu bytes of memory", length);
+      recvAmMessage->_request->setStatus(UCS_ERR_NO_MEMORY);
+      return UCS_ERR_NO_MEMORY;
+    }
 
     ucs_status_ptr_t status =
-      ucp_am_recv_data_nbx(worker->getHandle(), data, buf->data(), length, &request_param);
+      ucp_am_recv_data_nbx(worker->getHandle(), data, buf->data(), length, &requestParam);
 
     if (req->_enablePythonFuture)
       ucxx_trace_req_f(ownerString.c_str(),
@@ -322,7 +332,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       return UCS_INPROGRESS;
     }
   } else {
-    std::shared_ptr<Buffer> buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
+    buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
     if (length > 0) memcpy(buf->data(), data, length);
 
     if (req->_enablePythonFuture)
