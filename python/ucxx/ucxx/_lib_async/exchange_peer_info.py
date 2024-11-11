@@ -13,28 +13,28 @@ from .utils import hash64bits
 logger = logging.getLogger("ucx")
 
 
-async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener, stream_timeout=5.0):
+async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener, timeout=5.0):
     """Help function that exchange endpoint information"""
 
     # Pack peer information incl. a checksum
     fmt = "QQQ"
     my_info = struct.pack(fmt, msg_tag, ctrl_tag, hash64bits(msg_tag, ctrl_tag))
-    peer_info = bytearray(len(my_info))
     my_info_arr = Array(my_info)
-    peer_info_arr = Array(peer_info)
 
     # Send/recv peer information. Notice, we force an `await` between the two
     # streaming calls (see <https://github.com/rapidsai/ucx-py/pull/509>)
     if listener is True:
-        req = endpoint.stream_send(my_info_arr)
-        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
-        req = endpoint.stream_recv(peer_info_arr)
-        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
+        req = endpoint.am_send(my_info_arr)
+        await asyncio.wait_for(req.wait(), timeout=timeout)
+        req = endpoint.am_recv()
+        await asyncio.wait_for(req.wait(), timeout=timeout)
+        peer_info = req.recv_buffer
     else:
-        req = endpoint.stream_recv(peer_info_arr)
-        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
-        req = endpoint.stream_send(my_info_arr)
-        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
+        req = endpoint.am_recv()
+        await asyncio.wait_for(req.wait(), timeout=timeout)
+        peer_info = req.recv_buffer
+        req = endpoint.am_send(my_info_arr)
+        await asyncio.wait_for(req.wait(), timeout=timeout)
 
     # Unpacking and sanity check of the peer information
     ret = {}

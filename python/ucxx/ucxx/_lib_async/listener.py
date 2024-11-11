@@ -146,7 +146,7 @@ async def _listener_handler_coroutine(
             msg_tag=msg_tag,
             ctrl_tag=ctrl_tag,
             listener=True,
-            stream_timeout=exchange_peer_info_timeout,
+            timeout=exchange_peer_info_timeout,
         )
     except UCXMessageTruncatedError:
         # A truncated message occurs if the remote endpoint closed before
