@@ -66,5 +66,3 @@ def _notifierThread(event_loop, worker, q):
     # Clear all Python futures to ensure no references are held to the
     # `ucxx::Worker` that will prevent destructors from running.
     worker.clear_python_futures_pool()
-
-    worker.stop_request_notifier_thread()
