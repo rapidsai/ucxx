@@ -201,6 +201,10 @@ class ApplicationContext:
     def worker_address(self):
         return self.worker.address
 
+    def clear_progress_tasks(self) -> None:
+        global ProgressTasks
+        ProgressTasks.clear()
+
     def start_notifier_thread(self):
         if self.worker.enable_python_future and self.notifier_thread is None:
             logger.debug("UCXX_ENABLE_PYTHON available, enabling notifier thread")

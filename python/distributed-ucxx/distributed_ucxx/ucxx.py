@@ -157,8 +157,8 @@ def _deregister_dask_resource(resource_id):
             # Stop notifier thread and progress tasks if no Dask resources using
             # UCXX communicators are running anymore.
             if len(ctx._dask_resources) == 0:
-                ctx.stop_notifier_thread()
-                ctx.progress_tasks.clear()
+                ucxx.stop_notifier_thread()
+                ctx.clear_progress_tasks()
 
 
 def _allocate_dask_resources_tracker() -> None:
