@@ -95,20 +95,9 @@ def _get_host_buffer(uintptr_t recv_buffer_ptr):
     return np.asarray(HostBufferAdapter._from_host_buffer(host_buffer))
 
 
-# A pure C++ is used here for the allocator, a Cython function always raises
-# exceptions back to Python, but the allocator here is executed as a callback
-# directly in C++, therefore exceptions have to be raised to the C++ caller
-# directly.
-cdef extern from *:
-    """
-    #include <memory>
-    #include <ucxx/buffer.h>
-
-    std::shared_ptr<ucxx::Buffer> _rmm_am_allocator(size_t length) {
-        return std::make_shared<ucxx::RMMBuffer>(length);
-    }
-    """
-    void _rmm_am_allocator(int) except+*
+cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length) noexcept nogil:
+    cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
+    return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
 
 
 ###############################################################################
