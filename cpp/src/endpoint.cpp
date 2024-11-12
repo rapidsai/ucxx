@@ -262,8 +262,8 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
   if (_endpointErrorHandling)
     param = {.op_attr_mask = UCP_OP_ATTR_FIELD_FLAGS, .flags = UCP_EP_CLOSE_FLAG_FORCE};
 
-  auto worker = ::ucxx::getWorker(_parent);
-  ucs_status_ptr_t status;
+  auto worker             = ::ucxx::getWorker(_parent);
+  ucs_status_ptr_t status = nullptr;
 
   if (worker->isProgressThreadRunning()) {
     bool closeSuccess = false;

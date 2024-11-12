@@ -96,6 +96,14 @@ class RequestAm : public Request {
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
 
+  /**
+   * @brief Cancel the request.
+   *
+   * Cancel the request. Often called by the error handler or parent's object
+   * destructor but may be called by the user to cancel the request as well.
+   */
+  void cancel() override;
+
   void populateDelayedSubmission() override;
 
   /**
