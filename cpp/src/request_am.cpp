@@ -333,6 +333,14 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     }
   } else {
     buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
+
+    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf, receiverCallback);
+    if (buf == nullptr) {
+      ucxx_debug("Failed to allocate %lu bytes of memory", length);
+      recvAmMessage._request->setStatus(UCS_ERR_NO_MEMORY);
+      return UCS_ERR_NO_MEMORY;
+    }
+
     if (length > 0) memcpy(buf->data(), data, length);
 
     if (req->_enablePythonFuture)
@@ -356,7 +364,6 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        buf->data(),
                        length);
 
-    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf, receiverCallback);
     recvAmMessage.callback(nullptr, UCS_OK);
     return UCS_OK;
   }
