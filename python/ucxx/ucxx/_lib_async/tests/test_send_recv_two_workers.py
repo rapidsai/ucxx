@@ -132,7 +132,7 @@ def server(port, func, comm_api):
                         try:
                             await am_send(ep, frames)
                         except ucxx.exceptions.UCXNoMemoryError as e:
-                            # Memory pressure due to client taking long to
+                            # Memory pressure due to client taking too long to
                             # receive will raise an exception.
                             print_with_pid(f"Listener exception: {type(e)} {e}")
                         else:
