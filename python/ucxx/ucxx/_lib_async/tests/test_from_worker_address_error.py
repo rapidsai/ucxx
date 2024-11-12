@@ -162,9 +162,6 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
     },
 )
 def test_from_worker_address_error(error_type):
-    if error_type in ["timeout_am_send", "timeout_am_recv"]:
-        pytest.skip("AM not implemented yet")
-
     q1 = mp.Queue()
     q2 = mp.Queue()
 
