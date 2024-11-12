@@ -395,6 +395,7 @@ class UCXX(Comm):
             self._has_close_callback = False
 
         resource_id = _register_dask_resource()
+        self._resource_id = resource_id
 
         logger.debug("UCX.__init__ %s", self)
 
