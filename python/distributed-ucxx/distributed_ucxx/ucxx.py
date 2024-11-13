@@ -408,9 +408,6 @@ class UCXX(Comm):
             self._ep = None
             _deregister_dask_resource(self._resource_id)
 
-    def __del__(self) -> None:
-        self.abort()
-
     @property
     def local_address(self) -> str:
         return self._local_addr
