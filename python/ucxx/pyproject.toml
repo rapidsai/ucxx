@@ -79,3 +79,11 @@ wheel.exclude = ["*.pyx", "CMakeLists.txt"]
 provider = "scikit_build_core.metadata.regex"
 input = "ucxx/VERSION"
 regex = "(?P<value>.*)"
+
+[tool.pydistcheck]
+select = [
+    "distro-too-large-compressed",
+]
+
+# PyPI limit is 100 MiB, fail CI before we get too close to that
+max_allowed_size_compressed = '75M'
