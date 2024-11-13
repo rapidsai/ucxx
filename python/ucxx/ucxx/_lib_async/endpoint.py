@@ -29,7 +29,7 @@ def _finalizer(endpoint: ucx_api.UCXEndpoint) -> None:
         The endpoint to close.
     """
     if endpoint is not None:
-        logger.debug(f"Endpoint _finalize(): {endpoint.handle:#x)}")
+        logger.debug(f"Endpoint _finalize(): {endpoint.handle:#x}")
         # Wait for a maximum of `period` ns
         endpoint.close_blocking(period=10**10, max_attempts=1)
         endpoint.remove_close_callback()
