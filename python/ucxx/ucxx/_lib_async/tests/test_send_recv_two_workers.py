@@ -9,7 +9,7 @@ import random
 import numpy as np
 import pytest
 
-import ucxx as ucxx
+import ucxx
 from ucxx._lib_async.utils import get_event_loop
 from ucxx._lib_async.utils_test import (
     am_recv,
@@ -27,7 +27,15 @@ rmm = pytest.importorskip("rmm")
 distributed = pytest.importorskip("distributed")
 cloudpickle = pytest.importorskip("cloudpickle")
 
+# Enable for additional debug output
+VERBOSE = False
+
 ITERATIONS = 30
+
+
+def print_with_pid(msg):
+    if VERBOSE:
+        print(f"[{os.getpid()}] {msg}")
 
 
 async def get_ep(name, port):
@@ -36,40 +44,37 @@ async def get_ep(name, port):
     return ep
 
 
-def register_am_allocators():
-    ucxx.register_am_allocator(lambda n: np.empty(n, dtype=np.uint8), "host")
-    ucxx.register_am_allocator(lambda n: rmm.DeviceBuffer(size=n), "cuda")
-
-
 def client(port, func, comm_api):
-    # wait for server to come up
-    # receive cudf object
-    # deserialize
-    # assert deserialized msg is cdf
-    # send receipt
+    # 1. Wait for server to come up
+    # 2. Loop receiving object multiple times from server
+    # 3. Send close message
+    # 4. Assert last received message has correct content
     from distributed.utils import nbytes
-
-    ucxx.init()
-
-    if comm_api == "am":
-        register_am_allocators()
 
     # must create context before importing
     # cudf/cupy/etc
 
+    ucxx.init()
+
     async def read():
         await asyncio.sleep(1)
         ep = await get_ep("client", port)
-        msg = None
-        import cupy
 
-        cupy.cuda.set_allocator(None)
         for i in range(ITERATIONS):
-            print(f"Client iteration {i}")
+            print_with_pid(f"Client iteration {i}")
             if comm_api == "tag":
                 frames, msg = await recv(ep)
             else:
-                frames, msg = await am_recv(ep)
+                while True:
+                    try:
+                        frames, msg = await am_recv(ep)
+                    except ucxx.exceptions.UCXNoMemoryError as e:
+                        # Client didn't receive/consume messages quickly enough,
+                        # new AM failed to allocate memory and raised this
+                        # exception, we need to keep trying.
+                        print_with_pid(f"Client exception: {type(e)} {e}")
+                    else:
+                        break
 
         close_msg = b"shutdown listener"
 
@@ -81,13 +86,13 @@ def client(port, func, comm_api):
         else:
             await ep.am_send(close_msg)
 
-        print("Shutting Down Client...")
+        print_with_pid("Shutting Down Client...")
         return msg["data"]
 
     rx_cuda_obj = get_event_loop().run_until_complete(read())
     rx_cuda_obj + rx_cuda_obj
     num_bytes = nbytes(rx_cuda_obj)
-    print(f"TOTAL DATA RECEIVED: {num_bytes}")
+    print_with_pid(f"TOTAL DATA RECEIVED: {num_bytes}")
 
     cuda_obj_generator = cloudpickle.loads(func)
     pure_cuda_obj = cuda_obj_generator()
@@ -101,39 +106,39 @@ def client(port, func, comm_api):
 
 
 def server(port, func, comm_api):
-    # create listener receiver
-    # write cudf object
-    # confirm message is sent correctly
+    # 1. Create listener receiver
+    # 2. Loop sending object multiple times to connected client
+    # 3. Receive close message and close listener
     from distributed.comm.utils import to_frames
     from distributed.protocol import to_serialize
 
     ucxx.init()
 
-    if comm_api == "am":
-        register_am_allocators()
-
     async def f(listener_port):
-        # coroutine shows up when the client asks
-        # to connect
+        # Coroutine shows up when the client asks to connect
         async def write(ep):
-            import cupy
-
-            cupy.cuda.set_allocator(None)
-
-            print("CREATING CUDA OBJECT IN SERVER...")
+            print_with_pid("CREATING CUDA OBJECT IN SERVER...")
             cuda_obj_generator = cloudpickle.loads(func)
             cuda_obj = cuda_obj_generator()
             msg = {"data": to_serialize(cuda_obj)}
             frames = await to_frames(msg, serializers=("cuda", "dask", "pickle"))
             for i in range(ITERATIONS):
-                print(f"Server iteration {i}")
+                print_with_pid(f"Server iteration {i}")
                 # Send meta data
                 if comm_api == "tag":
                     await send(ep, frames)
                 else:
-                    await am_send(ep, frames)
+                    while True:
+                        try:
+                            await am_send(ep, frames)
+                        except ucxx.exceptions.UCXNoMemoryError as e:
+                            # Memory pressure due to client taking too long to
+                            # receive will raise an exception.
+                            print_with_pid(f"Listener exception: {type(e)} {e}")
+                        else:
+                            break
 
-            print("CONFIRM RECEIPT")
+            print_with_pid("CONFIRM RECEIPT")
             close_msg = b"shutdown listener"
 
             if comm_api == "tag":
@@ -147,7 +152,7 @@ def server(port, func, comm_api):
 
             recv_msg = msg.tobytes()
             assert recv_msg == close_msg
-            print("Shutting Down Server...")
+            print_with_pid("Shutting Down Server...")
             await ep.close()
             lf.close()
 
@@ -156,10 +161,8 @@ def server(port, func, comm_api):
         try:
             while not lf.closed:
                 await asyncio.sleep(0.1)
-        # except ucxx.UCXCloseError:
-        #     pass
-        except Exception as e:
-            print(f"Exception: {e=}")
+        except ucxx.UCXCloseError:
+            pass
 
     loop = get_event_loop()
     loop.run_until_complete(f(port))
@@ -199,33 +202,28 @@ def cupy_obj():
 
 
 @pytest.mark.slow
-@pytest.mark.skipif(
-    get_num_gpus() <= 2, reason="Machine does not have more than two GPUs"
-)
+@pytest.mark.skipif(get_num_gpus() <= 2, reason="Machine needs at least two GPUs")
 @pytest.mark.parametrize(
     "cuda_obj_generator", [dataframe, empty_dataframe, series, cupy_obj]
 )
 @pytest.mark.parametrize("comm_api", ["tag", "am"])
 def test_send_recv_cu(cuda_obj_generator, comm_api):
-    if comm_api == "am":
-        pytest.skip("AM not implemented yet")
-
     base_env = os.environ
     env_client = base_env.copy()
-    # grab first two devices
+    # Grab first two devices
     cvd = get_cuda_devices()[:2]
     cvd = ",".join(map(str, cvd))
-    # reverse CVD for other worker
+    # Reverse CVD for client
     env_client["CUDA_VISIBLE_DEVICES"] = cvd[::-1]
 
     port = random.randint(13000, 15500)
-    # serialize function and send to the client and server
-    # server will use the return value of the contents,
-    # serialize the values, then send serialized values to client.
-    # client will compare return values of the deserialized
-    # data sent from the server
 
+    # Serialize function and send to the client and server. The server will use
+    # the return value of the contents, serialize the values, then send
+    # serialized values to client. The client will compare return values of the
+    # deserialized data sent from the server.
     func = cloudpickle.dumps(cuda_obj_generator)
+
     ctx = multiprocessing.get_context("spawn")
     server_process = ctx.Process(
         name="server", target=server, args=[port, func, comm_api]
@@ -235,12 +233,12 @@ def test_send_recv_cu(cuda_obj_generator, comm_api):
     )
 
     server_process.start()
-    # cudf will ping the driver for validity of device
-    # this will influence device on which a cuda context is created.
-    # work around is to update env with new CVD before spawning
+    # cuDF will ping the driver for validity of device, this will influence
+    # device on which a cuda context is created. Workaround is to update
+    # env with new CVD before spawning
     os.environ.update(env_client)
     client_process.start()
 
-    join_processes([client, server], timeout=30)
-    terminate_process(client)
-    terminate_process(server)
+    join_processes([client_process, server_process], timeout=3000)
+    terminate_process(client_process)
+    terminate_process(server_process)

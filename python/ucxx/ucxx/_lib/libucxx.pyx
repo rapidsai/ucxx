@@ -95,7 +95,7 @@ def _get_host_buffer(uintptr_t recv_buffer_ptr):
     return np.asarray(HostBufferAdapter._from_host_buffer(host_buffer))
 
 
-cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length):
+cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length) noexcept nogil:
     cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
     return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
 
