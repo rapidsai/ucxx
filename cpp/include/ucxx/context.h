@@ -72,7 +72,8 @@ class Context : public Component {
    * @param[in] featureFlags feature flags to be used at UCP context construction time.
    * @return The `shared_ptr<ucxx::Context>` object
    */
-  friend std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
+  [[nodiscard]] friend std::shared_ptr<Context> createContext(ConfigMap ucxConfig,
+                                                              const uint64_t featureFlags);
 
   /**
    * @brief `ucxx::Context` destructor
@@ -92,7 +93,7 @@ class Context : public Component {
    *
    * @return A `ConfigMap` corresponding to the context's configuration.
    */
-  ConfigMap getConfig();
+  [[nodiscard]] ConfigMap getConfig();
 
   /**
    * @brief Get the underlying `ucp_context_h` handle
@@ -109,7 +110,7 @@ class Context : public Component {
    *
    * @return The underlying `ucp_context_h` handle
    */
-  ucp_context_h getHandle();
+  [[nodiscard]] ucp_context_h getHandle();
 
   /**
    * @brief Get information from UCP context.
@@ -125,7 +126,7 @@ class Context : public Component {
    *
    * @return String containing context information
    */
-  std::string getInfo();
+  [[nodiscard]] std::string getInfo();
 
   /**
    * @brief Get feature flags that were used to construct the UCP context.
@@ -141,7 +142,7 @@ class Context : public Component {
    *
    * @return Feature flags for this context
    */
-  uint64_t getFeatureFlags() const;
+  [[nodiscard]] uint64_t getFeatureFlags() const;
 
   /**
    * @brief Query whether CUDA support is available.
@@ -157,7 +158,7 @@ class Context : public Component {
    *
    * @return Whether CUDA support is available.
    */
-  bool hasCudaSupport() const;
+  [[nodiscard]] bool hasCudaSupport() const;
 
   /**
    * @brief Create a new `ucxx::Worker`.
@@ -177,8 +178,8 @@ class Context : public Component {
    *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    * @return Shared pointer to the `ucxx::Worker` object.
    */
-  std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
-                                       const bool enableFuture            = false);
+  [[nodiscard]] std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
+                                                     const bool enableFuture            = false);
 
   /**
    * @brief Create a new `std::shared_ptr<ucxx::memoryHandle>`.
@@ -210,13 +211,15 @@ class Context : public Component {
    *
    * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
    *
-   * @param[in] size    the minimum size of the memory allocation
-   * @param[in] buffer  the pointer to an existing allocation or `nullptr` to allocate a
-   *                    new memory region.
+   * @param[in] size        the minimum size of the memory allocation.
+   * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
+   *                        new memory region.
+   * @param[in] memoryType  the type of memory the handle points to.
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
-  std::shared_ptr<MemoryHandle> createMemoryHandle(const size_t size, void* buffer);
+  [[nodiscard]] std::shared_ptr<MemoryHandle> createMemoryHandle(
+    const size_t size, void* buffer, const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
 };
 
 }  // namespace ucxx

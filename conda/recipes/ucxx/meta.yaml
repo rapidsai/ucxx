@@ -96,10 +96,20 @@ outputs:
           then:
             - conda-forge::cudatoolkit
       run:
+<<<<<<< HEAD
         - ${{ pin_compatible('cuda-version', upper_bound='x', lower_bound='x') }}
         - conda-forge::ucx >=1.15.0,<1.16.0
     tests:
       - script:
+=======
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% endif %}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        - ucx >=1.15.0,<1.18.0
+    test:
+      commands:
+>>>>>>> 73e2102406a78527b1f4c1ca4bde29158bee06a1
         - test -f $PREFIX/lib/libucxx.so
         - test -f $PREFIX/include/ucxx/utils/python.h
         - test -f $PREFIX/include/ucxx/utils/file_descriptor.h
@@ -248,12 +258,17 @@ outputs:
       host:
         - python
         - pip
-        - scikit-build-core >=0.7.0
+        - scikit-build-core >=0.10.0
         - cython >=3.0.0
+<<<<<<< HEAD
         - ${{ pin_subpackage('libucxx', exact=True) }}
         # Channel priority strikes again (we should inherit ucx from libucxx,
         # but we can't inherit the channel specifier).
         - conda-forge::ucx
+=======
+        - {{ pin_subpackage('libucxx', exact=True) }}
+        - ucx
+>>>>>>> 73e2102406a78527b1f4c1ca4bde29158bee06a1
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
         - rmm ${{ rapids_version }}
         - cuda-version ${{ cuda_version }}
@@ -264,11 +279,24 @@ outputs:
             - conda-forge::cudatoolkit
       run:
         - python * *_cpython
+<<<<<<< HEAD
         # Channel priority strikes again (we should inherit ucx from libucxx,
         # but we can't inherit the channel specifier).
         - conda-forge::ucx >=1.15.0,<1.16.0
         - ${{ pin_compatible('rmm', upper_bound='x.x') }}
         - numpy >=1.23,<2.0a0
+=======
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% else %}
+        - cuda-cudart
+        {% endif %}
+        - ucx >=1.15.0,<1.18.0
+        - {{ pin_subpackage('libucxx', exact=True) }}
+        - {{ pin_compatible('rmm', max_pin='x.x') }}
+        - numpy>=1.23,<3.0a0
+>>>>>>> 73e2102406a78527b1f4c1ca4bde29158bee06a1
         - pynvml >=11.4.1
       run_constraints:
         - cupy >=9.5.0

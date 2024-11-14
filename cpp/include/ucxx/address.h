@@ -63,7 +63,8 @@ class Address : public Component {
    *
    * @returns The `shared_ptr<ucxx::Address>` object.
    */
-  friend std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
+  [[nodiscard]] friend std::shared_ptr<Address> createAddressFromWorker(
+    std::shared_ptr<Worker> worker);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Address>` from string.
@@ -75,7 +76,7 @@ class Address : public Component {
    *
    * @returns The `shared_ptr<ucxx::Address>` object.
    */
-  friend std::shared_ptr<Address> createAddressFromString(std::string addressString);
+  [[nodiscard]] friend std::shared_ptr<Address> createAddressFromString(std::string addressString);
 
   /**
    * @brief Get the underlying `ucp_address_t*` handle.
@@ -92,7 +93,7 @@ class Address : public Component {
    *
    * @returns The underlying `ucp_address_t` handle.
    */
-  ucp_address_t* getHandle() const;
+  [[nodiscard]] ucp_address_t* getHandle() const;
 
   /**
    * @brief Get the length of the `ucp_address_t*` handle.
@@ -102,7 +103,7 @@ class Address : public Component {
    *
    * @returns The length of the `ucp_address_t*` handle in bytes.
    */
-  size_t getLength() const;
+  [[nodiscard]] size_t getLength() const;
 
   /**
    * @brief Get the address as a string.
@@ -112,7 +113,7 @@ class Address : public Component {
    *
    * @returns The underlying `ucp_address_t` handle.
    */
-  std::string getString() const;
+  [[nodiscard]] std::string getString() const;
 };
 
 }  // namespace ucxx

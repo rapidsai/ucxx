@@ -20,6 +20,8 @@ rapids-logger "Begin C++ and Python builds"
 # TODO: Upstream this to the image.
 mamba install rattler-build -c conda-forge
 
+RAPIDS_CHANNEL=$(rapids-is-release-build && "rapidsa" || "rapidsai-nightly")
+
 # Notes on the comments in the command below (some things like file renamings
 # should be done before merging):
 # - rattler-build uses recipe.yaml by default, not meta.yaml.
@@ -33,12 +35,14 @@ mamba install rattler-build -c conda-forge
 RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rattler-build build \
     --recipe conda/recipes/ucxx/meta.yaml \
     --variant-config conda/recipes/ucxx/conda_build_config.yaml \
-    -c rapidsai-nightly -c conda-forge \
+    -c ${RAPIDS_CHANNEL} -c conda-forge \
     --output-dir ${RAPIDS_CONDA_BLD_OUTPUT_DIR} \
     --experimental \
     --no-build-id
 
 echo "sccache stats:"
 sccache -s
+
+sccache --show-adv-stats
 
 rapids-upload-conda-to-s3 cpp

@@ -75,7 +75,7 @@ void raise_py_error();
  *
  * @param[in] status UCS status from which to get exception.
  */
-PyObject* get_python_exception_from_ucs_status(ucs_status_t status);
+[[nodiscard]] PyObject* get_python_exception_from_ucs_status(ucs_status_t status);
 
 }  // namespace python
 

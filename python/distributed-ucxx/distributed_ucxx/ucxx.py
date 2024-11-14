@@ -8,6 +8,7 @@ See :ref:`communications` for more.
 from __future__ import annotations
 
 import functools
+import itertools
 import logging
 import os
 import struct
@@ -90,6 +91,95 @@ def synchronize_stream(stream=0):
     stream.synchronize()
 
 
+def make_register():
+    count = itertools.count()
+
+    def register() -> int:
+        """Register a Dask resource with the UCXX context.
+
+        Register a Dask resource with the UCXX context and keep track of it with the
+        use of a unique ID for the resource. The resource ID is later used to
+        deregister the resource from the UCXX context calling
+        `_deregister_dask_resource(resource_id)`, which stops the notifier thread
+        and progress tasks when no more UCXX resources are alive.
+
+        Returns
+        -------
+        resource_id: int
+            The ID of the registered resource that should be used with
+            `_deregister_dask_resource` during stop/destruction of the resource.
+        """
+        ctx = ucxx.core._get_ctx()
+        with ctx._dask_resources_lock:
+            resource_id = next(count)
+            ctx._dask_resources.add(resource_id)
+            ctx.start_notifier_thread()
+            ctx.continuous_ucx_progress()
+            return resource_id
+
+    return register
+
+
+_register_dask_resource = make_register()
+
+del make_register
+
+
+def _deregister_dask_resource(resource_id):
+    """Deregister a Dask resource with the UCXX context.
+
+    Deregister a Dask resource from the UCXX context with given ID, and if no
+    resources remain after deregistration, stop the notifier thread and progress
+    tasks.
+
+    Parameters
+    ----------
+    resource_id: int
+        The unique ID of the resource returned by `_register_dask_resource` upon
+        registration.
+    """
+    if ucxx.core._ctx is None:
+        # Prevent creation of context if it was already destroyed, all
+        # registered references are already gone.
+        return
+
+    ctx = ucxx.core._get_ctx()
+
+    # Check if the attribute exists first, in tests the UCXX context may have
+    # been reset before some resources are deregistered.
+    if hasattr(ctx, "_dask_resources_lock"):
+        with ctx._dask_resources_lock:
+            try:
+                ctx._dask_resources.remove(resource_id)
+            except KeyError:
+                pass
+
+            # Stop notifier thread and progress tasks if no Dask resources using
+            # UCXX communicators are running anymore.
+            if len(ctx._dask_resources) == 0:
+                ctx.stop_notifier_thread()
+                ctx.progress_tasks.clear()
+
+
+def _allocate_dask_resources_tracker() -> None:
+    """Allocate Dask resources tracker.
+
+    Allocate a Dask resources tracker in the UCXX context. This is useful to
+    track Distributed communicators so that progress and notifier threads can
+    be cleanly stopped when no UCXX communicators are alive anymore.
+    """
+    ctx = ucxx.core._get_ctx()
+    if not hasattr(ctx, "_dask_resources"):
+        # TODO: Move the `Lock` to a file/module-level variable for true
+        # lock-safety. The approach implemented below could cause race
+        # conditions if this function is called simultaneously by multiple
+        # threads.
+        from threading import Lock
+
+        ctx._dask_resources = set()
+        ctx._dask_resources_lock = Lock()
+
+
 def init_once():
     global ucxx, device_array
     global ucx_create_endpoint, ucx_create_listener
@@ -97,6 +187,11 @@ def init_once():
     global multi_buffer
 
     if ucxx is not None:
+        # Ensure reallocation of Dask resources tracker if the UCXX context was
+        # reset since the previous `init_once()` call. This may happen in tests,
+        # where the `ucxx_loop` fixture will reset the context after each test.
+        _allocate_dask_resources_tracker()
+
         return
 
     # remove/process dask.ucx flags for valid ucx options
@@ -159,6 +254,7 @@ def init_once():
         # environment, so the user's external environment can safely
         # override things here.
         ucxx.init(options=ucx_config, env_takes_precedence=True)
+        _allocate_dask_resources_tracker()
 
     pool_size_str = dask.config.get("distributed.rmm.pool-size")
 
@@ -279,7 +375,11 @@ class UCXX(Comm):
         else:
             self._has_close_callback = False
 
+        self._resource_id = _register_dask_resource()
+
         logger.debug("UCX.__init__ %s", self)
+
+        weakref.finalize(self, _deregister_dask_resource, self._resource_id)
 
     def __del__(self) -> None:
         self.abort()
@@ -488,6 +588,7 @@ class UCXX(Comm):
         if self._ep is not None:
             self._ep.abort()
             self._ep = None
+            _deregister_dask_resource(self._resource_id)
 
     def closed(self):
         if self._has_close_callback is True:
@@ -522,15 +623,19 @@ class UCXXConnector(Connector):
         init_once()
 
         try:
+            self._resource_id = _register_dask_resource()
             ep = await ucxx.create_endpoint(ip, port)
         except (
             ucxx.exceptions.UCXCloseError,
             ucxx.exceptions.UCXCanceledError,
             ucxx.exceptions.UCXConnectionResetError,
+            ucxx.exceptions.UCXMessageTruncatedError,
             ucxx.exceptions.UCXNotConnectedError,
             ucxx.exceptions.UCXUnreachableError,
         ):
             raise CommClosedError("Connection closed before handshake completed")
+        finally:
+            _deregister_dask_resource(self._resource_id)
         return self.comm_class(
             ep,
             local_addr="",
@@ -588,10 +693,13 @@ class UCXXListener(Listener):
                 await self.comm_handler(ucx)
 
         init_once()
+        self._resource_id = _register_dask_resource()
+        weakref.finalize(self, _deregister_dask_resource, self._resource_id)
         self.ucxx_server = ucxx.create_listener(serve_forever, port=self._input_port)
 
     def stop(self):
         self.ucxx_server = None
+        _deregister_dask_resource(self._resource_id)
 
     def get_host_port(self):
         # TODO: TCP raises if this hasn't started yet.

@@ -4,4 +4,4 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 cp -r ${PREFIX}/tmp/install/python/* ${PREFIX}/
-./build.sh ucxx
+./build.sh ucxx --cmake-args="\"-DFIND_UCXX_PYTHON=ON -Ducxx-python_DIR=$(realpath ./cpp/python/build)\""
