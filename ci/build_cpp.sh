@@ -20,7 +20,7 @@ rapids-logger "Begin C++ and Python builds"
 # TODO: Upstream this to the image.
 mamba install rattler-build -c conda-forge
 
-RAPIDS_CHANNEL=$(rapids-is-release-build && "rapidsa" || "rapidsai-nightly")
+RAPIDS_CHANNEL=$(rapids-is-release-build && echo "rapidsa" || echo "rapidsai-nightly")
 
 # Notes on the comments in the command below (some things like file renamings
 # should be done before merging):
