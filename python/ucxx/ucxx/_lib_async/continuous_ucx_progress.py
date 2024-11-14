@@ -64,9 +64,7 @@ class ThreadMode(ProgressTask):
         super().__init__(worker, event_loop)
         worker.set_progress_thread_start_callback(_create_context)
         worker.start_progress_thread(polling_mode=polling_mode, epoll_timeout=1)
-
-    def __del__(self):
-        self.worker.stop_progress_thread()
+        weakref.finalize(self, worker.stop_progress_thread)
 
 
 class PollingMode(ProgressTask):
