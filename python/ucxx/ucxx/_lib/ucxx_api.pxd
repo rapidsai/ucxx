@@ -251,6 +251,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         void runRequestNotifier() except +raise_py_error
         void populateFuturesPool() except +raise_py_error
+        void clearFuturesPool()
         shared_ptr[Request] tagRecv(
             void* buffer,
             size_t length,

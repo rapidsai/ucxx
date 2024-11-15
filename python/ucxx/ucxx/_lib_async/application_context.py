@@ -23,6 +23,14 @@ from .utils import get_event_loop, hash64bits
 logger = logging.getLogger("ucx")
 
 
+ProgressTasks = dict()
+
+
+def clear_progress_tasks():
+    global ProgressTasks
+    ProgressTasks.clear()
+
+
 class ApplicationContext:
     """
     The context of the Asyncio interface of UCX.
@@ -40,7 +48,6 @@ class ApplicationContext:
         enable_python_future=None,
         exchange_peer_info_timeout=10.0,
     ):
-        self.progress_tasks = dict()
         self.notifier_thread_q = None
         self.notifier_thread = None
         self._listener_active_clients = ActiveClients()
@@ -62,7 +69,7 @@ class ApplicationContext:
 
         self.start_notifier_thread()
 
-        weakref.finalize(self, self.progress_tasks.clear)
+        weakref.finalize(self, clear_progress_tasks)
 
         # Ensure progress even before Endpoints get created, for example to
         # receive messages directly on a worker after a remote endpoint
@@ -193,6 +200,10 @@ class ApplicationContext:
     @property
     def worker_address(self):
         return self.worker.address
+
+    def clear_progress_tasks(self) -> None:
+        global ProgressTasks
+        ProgressTasks.clear()
 
     def start_notifier_thread(self):
         if self.worker.enable_python_future and self.notifier_thread is None:
@@ -456,7 +467,8 @@ class ApplicationContext:
             Python 3.10+) is used.
         """
         loop = event_loop if event_loop is not None else get_event_loop()
-        if loop in self.progress_tasks:
+        global ProgressTasks
+        if loop in ProgressTasks:
             return  # Progress has already been guaranteed for the current event loop
 
         if self.progress_mode == "thread":
@@ -468,7 +480,7 @@ class ApplicationContext:
         elif self.progress_mode == "blocking":
             task = BlockingMode(self.worker, loop)
 
-        self.progress_tasks[loop] = task
+        ProgressTasks[loop] = task
 
     def get_ucp_worker(self):
         """Returns the underlying UCP worker handle (ucp_worker_h)
