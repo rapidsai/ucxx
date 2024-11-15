@@ -10,6 +10,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  telemetry-setup:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+        OTEL_SERVICE_NAME: "pr-ucxx"
+    steps:
+      - name: Telemetry setup
+        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   pr-builder:
     needs:
       - changed-files
@@ -24,12 +32,15 @@ jobs:
       - wheel-tests-ucxx
       - wheel-build-distributed-ucxx
       - wheel-tests-distributed-ucxx
+      - telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.12
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
   changed-files:
+    needs:
+      - telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@branch-24.12
     with:
@@ -46,10 +57,13 @@ jobs:
           - '!README.md'
           - '!docs/**'
   checks:
+    needs:
+      - telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-24.12
     with:
       enable_check_generated_files: false
+      ignored_pr_jobs: telemetry-summarize
   conda-cpp-build:
     needs: checks
     secrets: inherit
@@ -130,3 +144,17 @@ jobs:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_wheel_distributed_ucxx.sh
+  telemetry-summarize:
+    runs-on: ubuntu-latest
+    needs: pr-builder
+    if: always()
+    continue-on-error: true
+    steps:
+      - name: Load stashed telemetry env vars
+        uses: rapidsai/shared-actions/telemetry-dispatch-load-base-env-vars@main
+        with:
+            load_service_name: true
+      - name: Telemetry summarize
+        uses: rapidsai/shared-actions/telemetry-dispatch-write-summary@main
+        with:
+          cert_concat: "${{ secrets.OTEL_EXPORTER_OTLP_CA_CERTIFICATE }};${{ secrets.OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE }};${{ secrets.OTEL_EXPORTER_OTLP_CLIENT_KEY }}"
