@@ -47,7 +47,7 @@ def _notifierThread(event_loop, worker, q):
                 )
 
         if state == ucx_api.PythonRequestNotifierWaitState.Shutdown or shutdown is True:
-            return
+            break
         elif state == ucx_api.PythonRequestNotifierWaitState.Timeout:
             continue
 
@@ -62,3 +62,7 @@ def _notifierThread(event_loop, worker, q):
             logger.debug("Notifier Thread Result Timeout")
         except Exception as e:
             logger.debug(f"Notifier Thread Result Exception: {e}")
+
+    # Clear all Python futures to ensure no references are held to the
+    # `ucxx::Worker` that will prevent destructors from running.
+    worker.clear_python_futures_pool()

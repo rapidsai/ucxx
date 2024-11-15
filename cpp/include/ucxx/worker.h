@@ -500,7 +500,7 @@ class Worker : public Component {
   [[nodiscard]] bool isFutureEnabled() const;
 
   /**
-   * @brief Populate the future pool.
+   * @brief Populate the futures pool.
    *
    * To avoid taking blocking resources (such as the Python GIL) for every new future
    * required by each `ucxx::Request`, the `ucxx::Worker` maintains a pool of futures
@@ -511,6 +511,17 @@ class Worker : public Component {
    * @throws std::runtime_error if future support is not implemented.
    */
   virtual void populateFuturesPool();
+
+  /**
+   * @brief Clear the futures pool.
+   *
+   * Clear the futures pool, ensuring all references are removed and thus avoiding
+   * reference cycles that prevent the `ucxx::Worker` and other resources from cleaning
+   * up on time.
+   *
+   * @throws std::runtime_error if future support is not implemented.
+   */
+  virtual void clearFuturesPool();
 
   /**
    * @brief Get a future from the pool.

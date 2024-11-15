@@ -741,6 +741,10 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().populateFuturesPool()
 
+    def clear_python_futures_pool(self) -> None:
+        with nogil:
+            self._worker.get().clearFuturesPool()
+
     def is_delayed_submission_enabled(self) -> bool:
         warnings.warn(
             "UCXWorker.is_delayed_submission_enabled() is deprecated and will soon "
