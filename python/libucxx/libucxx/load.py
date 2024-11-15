@@ -85,5 +85,5 @@ def load_library():
 
     # The caller almost never needs to do anything with this library, but no
     # harm in offering the option since this object at least provides a handle
-    # to inspect where the libucxx was loaded from.
+    # to inspect where libucxx was loaded from.
     return libucxx_lib
