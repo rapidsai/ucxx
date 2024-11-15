@@ -29,10 +29,8 @@ class Config {
    *
    * @param[in] userOptions user-defined options overriding defaults and environment
    *                        variable modifiers.
-   *
-   * @returns The handle to the UCP configurations defined for the process.
    */
-  ucp_config_t* readUCXConfig(ConfigMap userOptions);
+  void readUCXConfig(ConfigMap userOptions);
 
   /**
    * @brief Parse UCP configurations and convert them to a map.
@@ -42,7 +40,7 @@ class Config {
    *
    * @returns The map to the UCP configurations defined for the process.
    */
-  ConfigMap ucxConfigToMap();
+  [[nodiscard]] ConfigMap ucxConfigToMap();
 
  public:
   Config()                         = delete;
@@ -72,7 +70,7 @@ class Config {
    *
    * @returns The map to the UCP configurations defined for the process.
    */
-  ConfigMap get();
+  [[nodiscard]] ConfigMap get();
 
   /**
    * @brief Get the underlying `ucp_config_t*` handle
@@ -89,7 +87,7 @@ class Config {
    *
    * @return The underlying `ucp_config_t*` handle.
    */
-  ucp_config_t* getHandle();
+  [[nodiscard]] ucp_config_t* getHandle();
 };
 
 }  // namespace ucxx

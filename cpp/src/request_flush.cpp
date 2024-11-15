@@ -39,13 +39,15 @@ RequestFlush::RequestFlush(std::shared_ptr<Component> endpointOrWorker,
                            const bool enablePythonFuture,
                            RequestCallbackUserFunction callbackFunction,
                            RequestCallbackUserData callbackData)
-  : Request(endpointOrWorker, requestData, operationName, enablePythonFuture)
+  : Request(endpointOrWorker,
+            requestData,
+            operationName,
+            enablePythonFuture,
+            callbackFunction,
+            callbackData)
 {
   if (_endpoint == nullptr && _worker == nullptr)
     throw ucxx::Error("A valid endpoint or worker is required for a flush operation.");
-
-  _callback     = callbackFunction;
-  _callbackData = callbackData;
 }
 
 void RequestFlush::flushCallback(void* request, ucs_status_t status, void* arg)

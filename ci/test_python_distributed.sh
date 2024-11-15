@@ -10,9 +10,11 @@ source "$(dirname "$0")/test_common.sh"
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
+UCXX_VERSION="$(head -1 ./VERSION)"
+
 rapids-dependency-file-generator \
   --output conda \
-  --file_key test_python_distributed \
+  --file-key test_python_distributed \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
@@ -27,12 +29,15 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  libucxx ucxx distributed-ucxx
+  "libucxx=${UCXX_VERSION}" \
+  "ucxx=${UCXX_VERSION}" \
+  "distributed-ucxx=${UCXX_VERSION}"
 
 print_ucx_config
 
 rapids-logger "Run distributed-ucxx tests with conda package"
 # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests      blocking        0                           0
 run_distributed_ucxx_tests      polling         0                           0
 run_distributed_ucxx_tests      thread          0                           0
 run_distributed_ucxx_tests      thread          0                           1
@@ -42,6 +47,7 @@ run_distributed_ucxx_tests      thread          1                           1
 install_distributed_dev_mode
 
 # run_distributed_ucxx_tests_internal   PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
+run_distributed_ucxx_tests_internal     blocking        0                           0
 run_distributed_ucxx_tests_internal     polling         0                           0
 run_distributed_ucxx_tests_internal     thread          0                           0
 run_distributed_ucxx_tests_internal     thread          0                           1

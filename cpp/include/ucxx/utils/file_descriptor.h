@@ -21,7 +21,7 @@ namespace utils {
  *
  * @returns The file descriptor created.
  */
-FILE* createTextFileDescriptor();
+[[nodiscard]] FILE* createTextFileDescriptor();
 
 /**
  * @brief Decode text file descriptor.
@@ -32,7 +32,7 @@ FILE* createTextFileDescriptor();
  *
  * @returns The string with a copy of the file descriptor contents.
  */
-std::string decodeTextFileDescriptor(FILE* textFileDescriptor);
+[[nodiscard]] std::string decodeTextFileDescriptor(FILE* textFileDescriptor);
 
 }  // namespace utils
 

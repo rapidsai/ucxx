@@ -82,7 +82,9 @@ class Request : public Component {
   Request(std::shared_ptr<Component> endpointOrWorker,
           const data::RequestData requestData,
           const std::string operationName,
-          const bool enablePythonFuture = false);
+          const bool enablePythonFuture                = false,
+          RequestCallbackUserFunction callbackFunction = nullptr,
+          RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Perform initial processing of the request to determine if immediate completion.
@@ -144,7 +146,7 @@ class Request : public Component {
   /**
    * @brief Cancel the request.
    *
-   * Cancel the request. Often called by the an error handler or parent's object
+   * Cancel the request. Often called by the error handler or parent's object
    * destructor but may be called by the user to cancel the request as well.
    */
   virtual void cancel();
@@ -158,7 +160,7 @@ class Request : public Component {
    *
    * @return the current status of the request.
    */
-  ucs_status_t getStatus();
+  [[nodiscard]] ucs_status_t getStatus();
 
   /**
    * @brief Return the future used to check on state.
@@ -168,7 +170,7 @@ class Request : public Component {
    *
    * @returns the Python future object or `nullptr`.
    */
-  void* getFuture();
+  [[nodiscard]] void* getFuture();
 
   /**
    * @brief Check whether the request completed with an error.
@@ -192,7 +194,7 @@ class Request : public Component {
    *
    * @return whether the request has completed.
    */
-  bool isCompleted();
+  [[nodiscard]] bool isCompleted();
 
   /**
    * @brief Callback executed by UCX when request is completed.
@@ -231,7 +233,7 @@ class Request : public Component {
    *
    * @returns the formatted string containing the owner type and its handle.
    */
-  const std::string& getOwnerString() const;
+  [[nodiscard]] const std::string& getOwnerString() const;
 
   /**
    * @brief Get the received buffer.
@@ -245,7 +247,7 @@ class Request : public Component {
    *
    * @return The received buffer (if applicable) or `nullptr`.
    */
-  virtual std::shared_ptr<Buffer> getRecvBuffer();
+  [[nodiscard]] virtual std::shared_ptr<Buffer> getRecvBuffer();
 };
 
 }  // namespace ucxx

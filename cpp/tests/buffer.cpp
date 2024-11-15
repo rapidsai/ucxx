@@ -125,7 +125,7 @@ TEST_P(BufferAllocator, TestThrowAfterRelease)
     auto releasedBuffer = buffer->release();
 
     EXPECT_THROW(buffer->data(), std::runtime_error);
-    EXPECT_THROW(buffer->release(), std::runtime_error);
+    EXPECT_THROW(std::ignore = buffer->release(), std::runtime_error);
 
     free(releasedBuffer);
   } else if (_type == ucxx::BufferType::RMM) {

@@ -50,7 +50,9 @@ void CallbackNotifier::set()
   }
 }
 
-bool CallbackNotifier::wait(uint64_t period)
+bool CallbackNotifier::wait(uint64_t period,
+                            std::function<void(void)> signalWorkerFunction,
+                            uint64_t signalInterval)
 {
   if (_useSpinlock) {
     while (!_flag.load(std::memory_order_acquire)) {}
@@ -58,12 +60,26 @@ bool CallbackNotifier::wait(uint64_t period)
     std::unique_lock lock(_mutex);
     // Likewise here, the mutex provides ordering.
     if (period > 0) {
-      return _conditionVariable.wait_for(
-        lock, std::chrono::duration<uint64_t, std::nano>(period), [this]() {
-          return _flag.load(std::memory_order_relaxed);
-        });
+      if (signalInterval > 0) {
+        auto attempts = (period + signalInterval - 1) / signalInterval;
+        bool ret      = false;
+        for (size_t i = 0; i < attempts; ++i) {
+          ret = _conditionVariable.wait_for(
+            lock, std::chrono::duration<uint64_t, std::nano>(signalInterval), [this]() {
+              return _flag.load(std::memory_order_relaxed) == true;
+            });
+          if (signalWorkerFunction) signalWorkerFunction();
+        }
+        return ret;
+      } else {
+        return _conditionVariable.wait_for(
+          lock, std::chrono::duration<uint64_t, std::nano>(period), [this]() {
+            return _flag.load(std::memory_order_relaxed);
+          });
+      }
     } else {
-      _conditionVariable.wait(lock, [this]() { return _flag.load(std::memory_order_relaxed); });
+      _conditionVariable.wait(lock,
+                              [this]() { return _flag.load(std::memory_order_relaxed) == true; });
     }
   }
   return true;

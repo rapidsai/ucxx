@@ -59,15 +59,23 @@ class CallbackNotifier {
    * @brief Wait until `set()` has been called or period has elapsed.
    *
    * Wait until `set()` has been called, or period (in nanoseconds) has elapsed (only
-   * applicable if using glibc 2.25 and higher).
+   * applicable if using glibc 2.25 and higher). Optionally may receive a function to
+   * periodically signal the worker to wake the progress event, thus preventing potential
+   * deadlocks when the worker hasn't woken up for too long due to lack of UCX communication
+   * events.
    *
    * See also `std::condition_variable::wait`.
    *
    * @param[in] period  maximum period in nanoseconds to wait for or `0` to wait forever.
+   * @param[in] signalWorkerFunction  function to signal worker to wake the progress event when in
+   * blocking mode.
+   * @param[in] signalRerun           interval to rerun the signal worker function.
    *
    * @return  `true` if waiting finished or `false` if a timeout occurred.
    */
-  bool wait(uint64_t period = 0);
+  bool wait(uint64_t period                                = 0,
+            std::function<void(void)> signalWorkerFunction = nullptr,
+            uint64_t signalRerun                           = 100000000);
 };
 
 }  // namespace utils

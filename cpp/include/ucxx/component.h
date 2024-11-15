@@ -37,7 +37,7 @@ class Component : public std::enable_shared_from_this<Component> {
    *
    * @returns the reference-counted pointer to the parent.
    */
-  std::shared_ptr<Component> getParent() const;
+  [[nodiscard]] std::shared_ptr<Component> getParent() const;
 };
 
 }  // namespace ucxx

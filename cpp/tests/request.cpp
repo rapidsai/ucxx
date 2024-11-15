@@ -89,6 +89,13 @@ class RequestTest : public ::testing::TestWithParam<
     _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
   }
 
+  void TearDown()
+  {
+    if (_progressMode == ProgressMode::ThreadPolling ||
+        _progressMode == ProgressMode::ThreadBlocking)
+      _worker->stopProgressThread();
+  }
+
   void allocate(const size_t numBuffers = 1, const bool allocateRecvBuffer = true)
   {
     _numBuffers = numBuffers;
@@ -111,20 +118,14 @@ class RequestTest : public ::testing::TestWithParam<
       if (_bufferType == ucxx::BufferType::Host) {
         _sendBuffer[i] = std::make_unique<ucxx::HostBuffer>(_messageSize);
         if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<ucxx::HostBuffer>(_messageSize);
-
-        std::copy(_send[i].begin(), _send[i].end(), reinterpret_cast<int*>(_sendBuffer[i]->data()));
 #if UCXX_ENABLE_RMM
       } else if (_bufferType == ucxx::BufferType::RMM) {
         _sendBuffer[i] = std::make_unique<ucxx::RMMBuffer>(_messageSize);
         if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<ucxx::RMMBuffer>(_messageSize);
-
-        RMM_CUDA_TRY(cudaMemcpyAsync(_sendBuffer[i]->data(),
-                                     _send[i].data(),
-                                     _messageSize,
-                                     cudaMemcpyDefault,
-                                     rmm::cuda_stream_default.value()));
 #endif
       }
+
+      copyMemoryTypeAware(_sendBuffer[i]->data(), _send[i].data(), _messageSize, false);
 
       _sendPtr[i] = _sendBuffer[i]->data();
       if (allocateRecvBuffer) _recvPtr[i] = _recvBuffer[i]->data();
@@ -136,24 +137,24 @@ class RequestTest : public ::testing::TestWithParam<
 
   void copyResults()
   {
-    for (size_t i = 0; i < _numBuffers; ++i) {
-      if (_bufferType == ucxx::BufferType::Host) {
-        std::copy(reinterpret_cast<int*>(_recvPtr[i]),
-                  reinterpret_cast<int*>(_recvPtr[i]) + _messageLength,
-                  _recv[i].begin());
-#if UCXX_ENABLE_RMM
-      } else if (_bufferType == ucxx::BufferType::RMM) {
-        RMM_CUDA_TRY(cudaMemcpyAsync(_recv[i].data(),
-                                     _recvPtr[i],
-                                     _messageSize,
-                                     cudaMemcpyDefault,
-                                     rmm::cuda_stream_default.value()));
-#endif
-      }
-    }
+    for (size_t i = 0; i < _numBuffers; ++i)
+      copyMemoryTypeAware(_recv[i].data(), _recvPtr[i], _messageSize, false);
 #if UCXX_ENABLE_RMM
     if (_bufferType == ucxx::BufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
 #endif
+  }
+
+  void copyMemoryTypeAware(void* dst, const void* src, size_t size, bool synchronize = true)
+  {
+    if (_memoryType == UCS_MEMORY_TYPE_HOST) {
+      memcpy(dst, src, size);
+#if UCXX_ENABLE_RMM
+    } else if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
+      RMM_CUDA_TRY(
+        cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, rmm::cuda_stream_default.value()));
+      if (synchronize) rmm::cuda_stream_default.synchronize();
+#endif
+    }
   }
 };
 
@@ -369,6 +370,49 @@ TEST_P(RequestTest, TagUserCallback)
 
   for (const auto request : requests)
     ASSERT_THAT(request->getStatus(), UCS_OK);
+  for (const auto status : requestStatus)
+    ASSERT_THAT(status, UCS_OK);
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, TagUserCallbackDiscardReturn)
+{
+  allocate();
+
+  std::vector<ucs_status_t> requestStatus(2, UCS_INPROGRESS);
+
+  auto checkStatus = [&requestStatus](ucs_status_t status, ::ucxx::RequestCallbackUserData data) {
+    auto idx           = *std::static_pointer_cast<size_t>(data);
+    requestStatus[idx] = status;
+  };
+
+  auto checkCompletion = [&requestStatus, this]() {
+    std::vector<size_t> completed(2, 0);
+    while (std::accumulate(completed.begin(), completed.end(), 0) != 2) {
+      _progressWorker();
+      std::transform(
+        requestStatus.begin(), requestStatus.end(), completed.begin(), [](ucs_status_t status) {
+          return status == UCS_INPROGRESS ? 0 : 1;
+        });
+    }
+  };
+
+  auto sendIndex = std::make_shared<size_t>(0u);
+  auto recvIndex = std::make_shared<size_t>(1u);
+
+  // Submit and wait for transfers to complete
+  std::ignore =
+    _ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}, false, checkStatus, sendIndex);
+  std::ignore = _ep->tagRecv(
+    _recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull, false, checkStatus, recvIndex);
+  checkCompletion();
+
+  copyResults();
+
+  for (const auto status : requestStatus)
+    ASSERT_THAT(status, UCS_OK);
 
   // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
@@ -376,14 +420,15 @@ TEST_P(RequestTest, TagUserCallback)
 
 TEST_P(RequestTest, MemoryGet)
 {
-  if (_bufferType == ucxx::BufferType::RMM)
-    GTEST_SKIP() << "CUDA memory support not implemented yet";
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr);
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  // If message size is 0, there's no allocation and memory type is then "host" by default.
+  if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
   // Fill memory handle with send data
-  memcpy(reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
+  copyMemoryTypeAware(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
   auto localRemoteKey      = memoryHandle->createRemoteKey();
   auto serializedRemoteKey = localRemoteKey->serialize();
@@ -402,11 +447,11 @@ TEST_P(RequestTest, MemoryGet)
 
 TEST_P(RequestTest, MemoryGetPreallocated)
 {
-  if (_bufferType == ucxx::BufferType::RMM)
-    GTEST_SKIP() << "CUDA memory support not implemented yet";
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, _sendPtr[0]);
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, _sendPtr[0], _memoryType);
+  // If message size is 0, there's no allocation and memory type is then "host" by default.
+  if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
   auto localRemoteKey      = memoryHandle->createRemoteKey();
   auto serializedRemoteKey = localRemoteKey->serialize();
@@ -425,18 +470,19 @@ TEST_P(RequestTest, MemoryGetPreallocated)
 
 TEST_P(RequestTest, MemoryGetWithOffset)
 {
-  if (_bufferType == ucxx::BufferType::RMM)
-    GTEST_SKIP() << "CUDA memory support not implemented yet";
   if (_messageLength < 2) GTEST_SKIP() << "Message too small to perform operations with offsets";
   allocate();
 
   size_t offset      = 1;
   size_t offsetBytes = offset * sizeof(_send[0][0]);
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr);
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  // If message size is 0, there's no allocation and memory type is then "host" by default.
+  if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
   // Fill memory handle with send data
-  memcpy(reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
+  copyMemoryTypeAware(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
   auto localRemoteKey      = memoryHandle->createRemoteKey();
   auto serializedRemoteKey = localRemoteKey->serialize();
@@ -460,11 +506,11 @@ TEST_P(RequestTest, MemoryGetWithOffset)
 
 TEST_P(RequestTest, MemoryPut)
 {
-  if (_bufferType == ucxx::BufferType::RMM)
-    GTEST_SKIP() << "CUDA memory support not implemented yet";
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr);
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  // If message size is 0, there's no allocation and memory type is then "host" by default.
+  if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
   auto localRemoteKey      = memoryHandle->createRemoteKey();
   auto serializedRemoteKey = localRemoteKey->serialize();
@@ -476,7 +522,8 @@ TEST_P(RequestTest, MemoryPut)
   waitRequests(_worker, requests, _progressWorker);
 
   // Copy memory handle data to receive buffer
-  memcpy(_recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
+  copyMemoryTypeAware(
+    _recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
 
   copyResults();
 
@@ -486,11 +533,11 @@ TEST_P(RequestTest, MemoryPut)
 
 TEST_P(RequestTest, MemoryPutPreallocated)
 {
-  if (_bufferType == ucxx::BufferType::RMM)
-    GTEST_SKIP() << "CUDA memory support not implemented yet";
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, _recvPtr[0]);
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, _recvPtr[0], _memoryType);
+  // If message size is 0, there's no allocation and memory type is then "host" by default.
+  if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
   auto localRemoteKey      = memoryHandle->createRemoteKey();
   auto serializedRemoteKey = localRemoteKey->serialize();
@@ -509,15 +556,15 @@ TEST_P(RequestTest, MemoryPutPreallocated)
 
 TEST_P(RequestTest, MemoryPutWithOffset)
 {
-  if (_bufferType == ucxx::BufferType::RMM)
-    GTEST_SKIP() << "CUDA memory support not implemented yet";
   if (_messageLength < 2) GTEST_SKIP() << "Message too small to perform operations with offsets";
   allocate();
 
   size_t offset      = 1;
   size_t offsetBytes = offset * sizeof(_send[0][0]);
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr);
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  // If message size is 0, there's no allocation and memory type is then "host" by default.
+  if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
   auto localRemoteKey      = memoryHandle->createRemoteKey();
   auto serializedRemoteKey = localRemoteKey->serialize();
@@ -532,9 +579,8 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   waitRequests(_worker, requests, _progressWorker);
 
   // Copy memory handle data to receive buffer
-  memcpy(reinterpret_cast<char*>(_recvPtr[0]),
-         reinterpret_cast<void*>(memoryHandle->getBaseAddress()),
-         _messageSize);
+  copyMemoryTypeAware(
+    _recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
 
   copyResults();
 

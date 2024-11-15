@@ -88,7 +88,7 @@ class RequestMem : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestTag>` object
    */
-  friend std::shared_ptr<RequestMem> createRequestMem(
+  [[nodiscard]] friend std::shared_ptr<RequestMem> createRequestMem(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::MemPut, data::MemGet> requestData,
     const bool enablePythonFuture,

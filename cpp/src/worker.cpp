@@ -48,7 +48,7 @@ Worker::Worker(std::shared_ptr<Context> context,
     unsigned int AM_MSG_ID            = 0;
     _amData                           = std::make_shared<internal::AmData>();
     _amData->_registerInflightRequest = [this](std::shared_ptr<Request> req) {
-      this->registerInflightRequest(req);
+      return registerInflightRequest(req);
     };
     registerAmAllocator(UCS_MEMORY_TYPE_HOST,
                         [](size_t length) { return std::make_shared<HostBuffer>(length); });
@@ -164,8 +164,18 @@ Worker::~Worker()
              _handle,
              canceled);
 
-  stopProgressThreadNoWarn();
-  if (_notifier) _notifier->stopRequestNotifierThread();
+  if (_progressThread.isRunning()) {
+    ucxx_warn(
+      "The progress thread should be explicitly stopped with `stopProgressThread()` to prevent "
+      "unintended effects, such as destructors being called from that thread.");
+    stopProgressThreadNoWarn();
+  }
+  if (_notifier && _notifier->isRunning()) {
+    ucxx_warn(
+      "The notifier thread should be explicitly stopped with `stopNotifierThread()` to prevent "
+      "unintended effects, such as destructors being called from that thread.");
+    _notifier->stopRequestNotifierThread();
+  }
 
   drainWorkerTagRecv();
 
@@ -218,6 +228,14 @@ void Worker::initBlockingProgressMode()
   if (err != 0) {
     throw std::ios_base::failure(std::string("epoll_ctl() returned ") + std::to_string(err));
   }
+}
+
+int Worker::getEpollFileDescriptor()
+{
+  if (_epollFileDescriptor == 0)
+    throw std::runtime_error("Worker not running in blocking progress mode");
+
+  return _epollFileDescriptor;
 }
 
 bool Worker::arm()
@@ -300,7 +318,7 @@ void Worker::registerDelayedSubmission(std::shared_ptr<Request> request,
   }
 }
 
-void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
+bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t period)
 {
   if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
@@ -308,18 +326,46 @@ void Worker::registerGenericPre(DelayedSubmissionCallbackType callback)
      * listener callback), execute it immediately.
      */
     callback();
+
+    return true;
   } else {
-    _delayedSubmissionCollection->registerGenericPre(callback);
+    utils::CallbackNotifier callbackNotifier{};
+    auto notifiableCallback = [&callback, &callbackNotifier]() {
+      callback();
+      callbackNotifier.set();
+    };
+
+    auto id = _delayedSubmissionCollection->registerGenericPre(notifiableCallback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must signal the progress task so
      * it will ensure the request is dispatched.
      */
-    signal();
+    std::function<void()> signalWorkerFunction = []() {};
+    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+      signalWorkerFunction = [this]() { return this->signal(); };
+    }
+    signalWorkerFunction();
+
+    size_t retryCount = 0;
+    while (true) {
+      auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+
+      try {
+        if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
+        return ret;
+      } catch (const std::runtime_error& e) {
+        if (++retryCount % 10 == 0)
+          ucxx_warn(
+            "Could not cancel after %lu attempts, the callback has not returned and the process "
+            "may stop responding.",
+            retryCount);
+      }
+    }
   }
 }
 
-void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
+bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_t period)
 {
   if (std::this_thread::get_id() == getProgressThreadId()) {
     /**
@@ -327,14 +373,42 @@ void Worker::registerGenericPost(DelayedSubmissionCallbackType callback)
      * listener callback), execute it immediately.
      */
     callback();
+
+    return true;
   } else {
-    _delayedSubmissionCollection->registerGenericPost(callback);
+    utils::CallbackNotifier callbackNotifier{};
+    auto notifiableCallback = [&callback, &callbackNotifier]() {
+      callback();
+      callbackNotifier.set();
+    };
+
+    auto id = _delayedSubmissionCollection->registerGenericPost(notifiableCallback);
 
     /* Waking the progress event is needed here because the UCX request is
      * not dispatched immediately. Thus we must signal the progress task so
      * it will ensure the request is dispatched.
      */
-    signal();
+    std::function<void()> signalWorkerFunction = []() {};
+    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+      signalWorkerFunction = [this]() { return this->signal(); };
+    }
+    signalWorkerFunction();
+
+    size_t retryCount = 0;
+    while (true) {
+      auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+
+      try {
+        if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
+        return ret;
+      } catch (const std::runtime_error& e) {
+        if (++retryCount % 10 == 0)
+          ucxx_warn(
+            "Could not cancel after %lu attempts, the callback has not returned and the process "
+            "may stop responding.",
+            retryCount);
+      }
+    }
   }
 }
 
@@ -367,7 +441,7 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
 
 void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
-  if (_progressThread) {
+  if (_progressThread.isRunning()) {
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread "
       "already running",
@@ -388,26 +462,22 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
     signalWorkerFunction = [this]() { return this->signal(); };
   }
 
-  _progressThread = std::make_shared<WorkerProgressThread>(pollingMode,
-                                                           progressFunction,
-                                                           signalWorkerFunction,
-                                                           _progressThreadStartCallback,
-                                                           _progressThreadStartCallbackArg,
-                                                           _delayedSubmissionCollection);
+  auto setThreadId = [this]() { _progressThreadId = std::this_thread::get_id(); };
 
-  /**
-   * Ensure the progress thread's ID is available allowing generic callbacks to run
-   * successfully even after `_progressThread == nullptr`, which may occur before
-   * `WorkerProgressThreads`'s destructor completes.
-   */
-  _progressThreadId = _progressThread->getId();
+  _progressThread = WorkerProgressThread(pollingMode,
+                                         progressFunction,
+                                         signalWorkerFunction,
+                                         setThreadId,
+                                         _progressThreadStartCallback,
+                                         _progressThreadStartCallbackArg,
+                                         _delayedSubmissionCollection);
 }
 
-void Worker::stopProgressThreadNoWarn() { _progressThread = nullptr; }
+void Worker::stopProgressThreadNoWarn() { _progressThread.stop(); }
 
 void Worker::stopProgressThread()
 {
-  if (!_progressThread)
+  if (!_progressThread.isRunning())
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread not "
       "running or already stopped",
@@ -418,7 +488,7 @@ void Worker::stopProgressThread()
     stopProgressThreadNoWarn();
 }
 
-bool Worker::isProgressThreadRunning() { return _progressThread != nullptr; }
+bool Worker::isProgressThreadRunning() { return _progressThread.isRunning(); }
 
 std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
 
@@ -439,20 +509,19 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
   } else if (isProgressThreadRunning()) {
     bool cancelSuccess = false;
     for (uint64_t i = 0; i < maxAttempts && !cancelSuccess; ++i) {
-      utils::CallbackNotifier callbackNotifierPre{};
-      registerGenericPre([&callbackNotifierPre, &canceled, &inflightRequestsToCancel]() {
-        canceled += inflightRequestsToCancel->cancelAll();
-        callbackNotifierPre.set();
-      });
-      if (!callbackNotifierPre.wait(period)) continue;
+      if (!registerGenericPre(
+            [&canceled, &inflightRequestsToCancel]() {
+              canceled += inflightRequestsToCancel->cancelAll();
+            },
+            period))
+        continue;
 
-      utils::CallbackNotifier callbackNotifierPost{};
-      registerGenericPost(
-        [this, &callbackNotifierPost, &inflightRequestsToCancel, &cancelSuccess]() {
-          cancelSuccess = inflightRequestsToCancel->getCancelingSize() == 0;
-          callbackNotifierPost.set();
-        });
-      if (!callbackNotifierPost.wait(period)) continue;
+      if (!registerGenericPost(
+            [this, &inflightRequestsToCancel, &cancelSuccess]() {
+              cancelSuccess = inflightRequestsToCancel->getCancelingSize() == 0;
+            },
+            period))
+        continue;
     }
 
     if (!cancelSuccess)
@@ -484,7 +553,7 @@ void Worker::scheduleRequestCancel(TrackedRequestsPtr trackedRequests)
       __func__,
       this,
       _handle,
-      trackedRequests->_inflight->size() + trackedRequests->_canceling->size());
+      trackedRequests->_inflight.size() + trackedRequests->_canceling.size());
     _inflightRequestsToCancel->merge(std::move(trackedRequests));
   }
 }
@@ -518,12 +587,8 @@ bool Worker::tagProbe(const Tag tag)
      * indicate the progress thread has immediately finished executing and post-progress
      * ran without a further progress operation.
      */
-    utils::CallbackNotifier callbackNotifierPre{};
-    registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.set(); });
-    callbackNotifierPre.wait();
-    utils::CallbackNotifier callbackNotifierPost{};
-    registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
-    callbackNotifierPost.wait();
+    std::ignore = registerGenericPre([]() {}, 3000000000 /* 3s */);
+    std::ignore = registerGenericPost([]() {}, 3000000000 /* 3s */);
   }
 
   ucp_tag_recv_info_t info;

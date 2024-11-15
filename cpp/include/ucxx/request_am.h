@@ -89,12 +89,20 @@ class RequestAm : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
-  friend std::shared_ptr<RequestAm> createRequestAm(
+  [[nodiscard]] friend std::shared_ptr<RequestAm> createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
+
+  /**
+   * @brief Cancel the request.
+   *
+   * Cancel the request. Often called by the error handler or parent's object
+   * destructor but may be called by the user to cancel the request as well.
+   */
+  void cancel() override;
 
   void populateDelayedSubmission() override;
 
@@ -135,14 +143,14 @@ class RequestAm : public Request {
    * param[in] length the length in bytes of the message to be received.
    * param[in] param  UCP parameters of the active message being received.
    */
-  static ucs_status_t recvCallback(void* arg,
-                                   const void* header,
-                                   size_t header_length,
-                                   void* data,
-                                   size_t length,
-                                   const ucp_am_recv_param_t* param);
+  [[nodiscard]] static ucs_status_t recvCallback(void* arg,
+                                                 const void* header,
+                                                 size_t header_length,
+                                                 void* data,
+                                                 size_t length,
+                                                 const ucp_am_recv_param_t* param);
 
-  std::shared_ptr<Buffer> getRecvBuffer() override;
+  [[nodiscard]] std::shared_ptr<Buffer> getRecvBuffer() override;
 };
 
 }  // namespace ucxx

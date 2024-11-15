@@ -9,9 +9,15 @@ source "$(dirname "$0")/test_common.sh"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
-ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./local-ucxx-dep)
-python -m pip install "${package_name}-${RAPIDS_PY_CUDA_SUFFIX}[test]>=0.0.0a0" --find-links dist/ --find-links "${ucxx_wheelhouse}"
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./dist
+ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="ucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./local-ucxx-dep)
+libucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp ./local-libucxx-dep)
+
+python -m pip install \
+    -v \
+    "${libucxx_wheelhouse}"/libucxx_${RAPIDS_PY_CUDA_SUFFIX}*.whl \
+    "${ucxx_wheelhouse}"/ucxx_${RAPIDS_PY_CUDA_SUFFIX}*.whl \
+    "$(echo ./dist/${package_name}_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
 rapids-logger "Distributed Tests"
 

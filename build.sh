@@ -40,9 +40,10 @@ HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [distributed_ucxx] [benchmark
    default action (no args) is to build and install 'libucxx' and 'libucxx_python', then 'ucxx' targets, and finally 'distributed_ucxx'
 "
 LIB_BUILD_DIR=${LIB_BUILD_DIR:=${REPODIR}/cpp/build}
-UCXX_BUILD_DIR=${REPODIR}/python/build
+PYTHON_BUILD_DIR=${PYTHON_BUILD_DIR:=${REPODIR}/cpp/python/build}
+UCXX_BUILD_DIR=${REPODIR}/python/ucxx/build
 
-BUILD_DIRS="${LIB_BUILD_DIR} ${UCXX_BUILD_DIR}"
+BUILD_DIRS="${LIB_BUILD_DIR} ${PYTHON_BUILD_DIR} ${UCXX_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
 VERBOSE_FLAG=""
@@ -53,7 +54,6 @@ BUILD_TESTS=OFF
 BUILD_EXAMPLES=OFF
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_COMPILE_COMMANDS=OFF
-UCXX_ENABLE_PYTHON=OFF
 UCXX_ENABLE_RMM=OFF
 
 # Set defaults for vars that may not have been defined externally
@@ -139,7 +139,6 @@ if hasArg --show_depr_warn; then
 fi
 
 if buildAll || hasArg libucxx_python; then
-  UCXX_ENABLE_PYTHON=ON
   UCXX_ENABLE_RMM=ON
 fi
 
@@ -168,7 +167,6 @@ fi
 
 if buildAll || hasArg libucxx; then
     CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
-    pwd
     cmake -S $REPODIR/cpp -B ${LIB_BUILD_DIR} \
           -G${CMAKE_GENERATOR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
@@ -178,16 +176,12 @@ if buildAll || hasArg libucxx; then
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
-          -DUCXX_ENABLE_PYTHON=${UCXX_ENABLE_PYTHON} \
           -DUCXX_ENABLE_RMM=${UCXX_ENABLE_RMM} \
           ${EXTRA_CMAKE_ARGS}
 
     cd ${LIB_BUILD_DIR}
 
-    compile_start=$(date +%s)
     cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
-    compile_end=$(date +%s)
-    compile_total=$(( compile_end - compile_start ))
 
     if [[ ${BUILD_COMPILE_COMMANDS} == "ON" ]]; then
       cp compile_commands.json ..
@@ -195,9 +189,6 @@ if buildAll || hasArg libucxx; then
 
     if [[ ${INSTALL_TARGET} != "" ]]; then
         cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
-        if [[ ${UCXX_ENABLE_PYTHON} == "ON" ]]; then
-          cmake --install . --component python
-        fi
         if [[ ${BUILD_BENCHMARKS} == "ON" ]]; then
           cmake --install . --component benchmarks
         fi
@@ -218,20 +209,44 @@ fi
 # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
 SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
 
+# Build and install libucxx_python.so
+if buildAll || hasArg libucxx_python; then
+    CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
+    cmake -S $REPODIR/cpp/python -B ${PYTHON_BUILD_DIR} \
+          -G${CMAKE_GENERATOR} \
+          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
+          ${EXTRA_CMAKE_ARGS}
+
+    cd ${PYTHON_BUILD_DIR}
+
+    cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
+
+    if [[ ${BUILD_COMPILE_COMMANDS} == "ON" ]]; then
+      cp compile_commands.json ..
+    fi
+
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
+    fi
+fi
+
 # Build and install the UCXX Python package
 if buildAll || hasArg ucxx; then
     if hasArg -g; then
         export SKBUILD_INSTALL_STRIP=${SKBUILD_INSTALL_STRIP:-false}
     fi
 
-    cd ${REPODIR}/python/
+    cd ${REPODIR}/python/ucxx/
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps .
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
 fi
 
 # Build and install the distributed_ucxx Python package
 if buildAll || hasArg distributed_ucxx; then
 
     cd ${REPODIR}/python/distributed-ucxx/
-    python -m pip install --no-build-isolation --no-deps .
+    python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
 fi

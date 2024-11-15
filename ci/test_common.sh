@@ -35,10 +35,17 @@ run_cpp_tests() {
   RUNTIME_PATH=${CONDA_PREFIX:-./}
   BINARY_PATH=${RUNTIME_PATH}/bin
 
-  CMD_LINE="timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
+  # Disable memory get/put with RMM in protov1, it always segfaults.
+  CMD_LINE="timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST --gtest_filter=-*RMM*Memory*"
 
   log_command "${CMD_LINE}"
   UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}
+
+  # Only test memory get/put with RMM in protov2, as protov1 segfaults.
+  CMD_LINE="timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST --gtest_filter=*RMM*Memory*"
+
+  log_command "${CMD_LINE}"
+  UCX_PROTO_ENABLE=y UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}
 }
 
 run_cpp_benchmark() {
@@ -110,9 +117,9 @@ run_cpp_port_retry() {
 
 #################################### Python ####################################
 run_py_tests() {
-  CMD_LINE="timeout 2m python -m pytest -vs python/ucxx/_lib/tests/"
+  CMD_LINE="timeout 2m python -m pytest -vs python/ucxx/ucxx/_lib/tests/"
   log_command "${CMD_LINE}"
-  timeout 2m python -m pytest -vs python/ucxx/_lib/tests/
+  timeout 2m python -m pytest -vs python/ucxx/ucxx/_lib/tests/
 }
 
 run_py_tests_async() {
@@ -121,13 +128,13 @@ run_py_tests_async() {
   ENABLE_PYTHON_FUTURE=$3
   SKIP=$4
 
-  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 20m python -m pytest -vs python/ucxx/_lib_async/tests/ --durations=50"
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 30m python -m pytest -vs python/ucxx/ucxx/_lib_async/tests/ --runslow"
 
   if [ $SKIP -ne 0 ]; then
     echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
   else
     log_command "${CMD_LINE}"
-    UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 20m python -m pytest -vs python/ucxx/_lib_async/tests/ --durations=50
+    UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 30m python -m pytest -vs python/ucxx/ucxx/_lib_async/tests/ --runslow
   fi
 }
 
@@ -166,7 +173,23 @@ install_distributed_dev_mode() {
   # to run non-public API tests in CI.
 
   rapids-logger "Install Distributed in developer mode"
-  git clone https://github.com/dask/distributed /tmp/distributed -b 2024.1.1
+  MAX_ATTEMPTS=5
+  for attempt in $(seq 1 $MAX_ATTEMPTS); do
+    rm -rf /tmp/distributed
+
+    if git clone https://github.com/dask/distributed /tmp/distributed -b 2024.1.1; then
+      break
+    else
+
+      if [ $attempt -eq $MAX_ATTEMPTS ]; then
+        rapids-logger "Maximum number of attempts to clone Distributed failed."
+        exit 1
+      fi
+
+      sleep 1
+    fi
+  done
+
   pip install -e /tmp/distributed
   # `pip install -e` removes files under `distributed` but not the directory, later
   # causing failures to import modules.
