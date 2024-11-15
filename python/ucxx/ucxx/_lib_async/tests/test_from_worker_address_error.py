@@ -50,6 +50,9 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
     async def run():
         # Receive worker address from server via multiprocessing.Queue
         remote_address = ucxx.get_ucx_address_from_buffer(q1.get())
+        if error_type == "unreachable":
+            server_closed = q1.get()
+            assert server_closed == "Server closed"
 
         if error_type == "unreachable":
             with pytest.raises(
@@ -176,6 +179,10 @@ def test_from_worker_address_error(error_type):
         args=(q1, q2, error_type),
     )
     client.start()
+
+    if error_type == "unreachable":
+        server.join()
+        q1.put("Server closed")
 
     join_processes([client, server], timeout=30)
     terminate_process(server)
