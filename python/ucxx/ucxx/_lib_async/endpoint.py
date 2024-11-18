@@ -6,6 +6,7 @@ import array
 import asyncio
 import logging
 import warnings
+import weakref
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
@@ -15,6 +16,23 @@ from ucxx.types import Tag, TagMaskFull
 from .utils import hash64bits
 
 logger = logging.getLogger("ucx")
+
+
+def _finalizer(endpoint: ucx_api.UCXEndpoint) -> None:
+    """Endpoint finalizer.
+
+    Attempt to close the endpoint if it's still alive.
+
+    Parameters
+    ----------
+    endpoint: ucx_api.UCXEndpoint
+        The endpoint to close.
+    """
+    if endpoint is not None:
+        logger.debug(f"Endpoint _finalize(): {endpoint.handle:#x}")
+        # Wait for a maximum of `period` ns
+        endpoint.close_blocking(period=10**10, max_attempts=1)
+        endpoint.remove_close_callback()
 
 
 class Endpoint:
@@ -41,8 +59,7 @@ class Endpoint:
         self._close_after_n_recv = None
         self._tags = tags
 
-    def __del__(self):
-        self.abort()
+        weakref.finalize(self, _finalizer, endpoint)
 
     @property
     def alive(self):
@@ -107,7 +124,7 @@ class Endpoint:
             if worker is running a progress thread and `period > 0`.
         """
         if self._ep is not None:
-            logger.debug("Endpoint.abort(): 0x%x" % self.uid)
+            logger.debug(f"Endpoint.abort(): {self.uid:#x}")
             # Wait for a maximum of `period` ns
             self._ep.close_blocking(period=period, max_attempts=max_attempts)
             self._ep.remove_close_callback()

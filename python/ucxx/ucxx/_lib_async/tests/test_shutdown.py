@@ -35,8 +35,6 @@ async def _shutdown_recv(ep, message_type):
 @pytest.mark.parametrize("message_type", ["tag", "am"])
 async def test_server_shutdown(message_type):
     """The server calls shutdown"""
-    if message_type == "am":
-        pytest.skip("AM not implemented yet")
 
     async def server_node(ep):
         with pytest.raises(ucxx.exceptions.UCXCanceledError):
@@ -67,8 +65,6 @@ async def test_server_shutdown(message_type):
 @pytest.mark.parametrize("message_type", ["tag", "am"])
 async def test_client_shutdown(message_type):
     """The client calls shutdown"""
-    if message_type == "am":
-        pytest.skip("AM not implemented yet")
 
     async def client_node(port):
         ep = await ucxx.create_endpoint(
@@ -96,8 +92,6 @@ async def test_client_shutdown(message_type):
 @pytest.mark.parametrize("message_type", ["tag", "am"])
 async def test_listener_close(message_type):
     """The server close the listener"""
-    if message_type == "am":
-        pytest.skip("AM not implemented yet")
 
     async def client_node(listener):
         ep = await ucxx.create_endpoint(
@@ -125,8 +119,6 @@ async def test_listener_close(message_type):
 @pytest.mark.parametrize("message_type", ["tag", "am"])
 async def test_listener_del(message_type):
     """The client delete the listener"""
-    if message_type == "am":
-        pytest.skip("AM not implemented yet")
 
     async def server_node(ep):
         await _shutdown_send(ep, message_type)
@@ -156,8 +148,6 @@ async def test_listener_del(message_type):
 @pytest.mark.parametrize("message_type", ["tag", "am"])
 async def test_close_after_n_recv(message_type):
     """The Endpoint.close_after_n_recv()"""
-    if message_type == "am":
-        pytest.skip("AM not implemented yet")
 
     async def server_node(ep):
         for _ in range(10):

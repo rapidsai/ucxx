@@ -157,8 +157,8 @@ def _deregister_dask_resource(resource_id):
             # Stop notifier thread and progress tasks if no Dask resources using
             # UCXX communicators are running anymore.
             if len(ctx._dask_resources) == 0:
-                ctx.stop_notifier_thread()
-                ctx.progress_tasks.clear()
+                ucxx.stop_notifier_thread()
+                ctx.clear_progress_tasks()
 
 
 def _allocate_dask_resources_tracker() -> None:
@@ -307,6 +307,25 @@ def _close_comm(ref):
         comm._closed = True
 
 
+def _finalizer(endpoint: ucxx.Endpoint, resource_id: int) -> None:
+    """UCXX comms object finalizer.
+
+    Attempt to close the UCXX endpoint if it's still alive, and deregister Dask
+    resource.
+
+    Parameters
+    ----------
+    endpoint: ucx_api.UCXEndpoint
+        The endpoint to close.
+    resource_id: int
+        The unique ID of the resource returned by `_register_dask_resource` upon
+        registration.
+    """
+    if endpoint is not None:
+        endpoint.abort()
+    _deregister_dask_resource(resource_id)
+
+
 class UCXX(Comm):
     """Comm object using UCXX.
 
@@ -375,14 +394,19 @@ class UCXX(Comm):
         else:
             self._has_close_callback = False
 
-        self._resource_id = _register_dask_resource()
+        resource_id = _register_dask_resource()
+        self._resource_id = resource_id
 
         logger.debug("UCX.__init__ %s", self)
 
-        weakref.finalize(self, _deregister_dask_resource, self._resource_id)
+        weakref.finalize(self, _finalizer, ep, resource_id)
 
-    def __del__(self) -> None:
-        self.abort()
+    def abort(self):
+        self._closed = True
+        if self._ep is not None:
+            self._ep.abort()
+            self._ep = None
+            _deregister_dask_resource(self._resource_id)
 
     @property
     def local_address(self) -> str:
