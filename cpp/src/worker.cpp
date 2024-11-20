@@ -422,6 +422,8 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
 
 void Worker::populateFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
+void Worker::clearFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
+
 std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
