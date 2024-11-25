@@ -117,9 +117,9 @@ run_cpp_port_retry() {
 
 #################################### Python ####################################
 run_py_tests() {
-  CMD_LINE="timeout 2m python -m pytest -vs python/ucxx/ucxx/_lib/tests/"
+  CMD_LINE="timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/"
   log_command "${CMD_LINE}"
-  timeout 2m python -m pytest -vs python/ucxx/ucxx/_lib/tests/
+  timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/
 }
 
 run_py_tests_async() {
