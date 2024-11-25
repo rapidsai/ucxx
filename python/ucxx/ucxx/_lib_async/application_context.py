@@ -376,7 +376,7 @@ class ApplicationContext:
                 msg_tag=msg_tag,
                 ctrl_tag=ctrl_tag,
                 listener=False,
-                stream_timeout=exchange_peer_info_timeout,
+                timeout=exchange_peer_info_timeout,
             )
         except UCXMessageTruncatedError as e:
             # A truncated message occurs if the remote endpoint closed before
