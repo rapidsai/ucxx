@@ -67,10 +67,24 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
 
 Request::~Request()
 {
+  if (_cancelCallback != nullptr) {
+    auto completed  = _cancelCallbackNotifier.wait(1000000000 /* 1s */);
+    _cancelCallback = nullptr;
+  }
+  if (UCS_PTR_IS_PTR(_request)) {
+    ucxx_warn("ucxx::Request (%s) freeing: %p", _operationName.c_str(), _request);
+    ucp_request_free(_request);
+  }
   ucxx_trace("ucxx::Request destroyed (%s): %p", _operationName.c_str(), this);
 }
 
-void Request::cancel()
+void Request::removeInflightRequest()
+{
+  if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
+  _worker->removeInflightRequest(this);
+}
+
+void Request::cancelImpl()
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);
   if (_status == UCS_INPROGRESS) {
@@ -84,8 +98,21 @@ void Request::cancel()
                        status,
                        ucs_status_string(status));
     } else {
-      ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "canceling");
-      if (_request != nullptr) ucp_request_cancel(_worker->getHandle(), _request);
+      if (_request != nullptr) {
+        ucs_status_t status = UCS_PTR_STATUS(_request);
+        ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "canceling");
+        ucp_request_cancel(_worker->getHandle(), _request);
+        status = UCS_PTR_STATUS(_request);
+
+        /**
+         * Tag send requests cannot be canceled: https://github.com/openucx/ucx/issues/1162
+         * This can be problematic for unmatched rendezvous tag send messages as it would
+         * otherwise not complete cancelation, so we forcefully "cancel" the requests which
+         * ultimately leads it reaching `ucp_request_free`. This currently causes the UCX
+         * warnings "was not returned to mpool ucp_requests", which is likely a UCX bug.
+         */
+        if (_operationName == "tagSend") { setStatus(UCS_ERR_CANCELED); }
+      }
     }
   } else {
     ucxx_trace_req_f(_ownerString.c_str(),
@@ -95,6 +122,35 @@ void Request::cancel()
                      "already completed with status: %d (%s)",
                      _status,
                      ucs_status_string(_status));
+
+    /**
+     * Ensure the request is removed from the parent in case it got re-registered while it
+     * was completing.
+     */
+    removeInflightRequest();
+  }
+
+  _cancelCallback = nullptr;
+}
+
+void Request::cancel()
+{
+  if (_worker->isProgressThreadRunning()) {
+    _cancelCallback = [this]() {
+      /**
+       * FIXME: Check the callback hasn't run and object hasn't been destroyed. Long-term
+       * fix is to allow deregistering generic callbacks with the worker.
+       */
+      if (_cancelCallback == nullptr) return;
+
+      cancelImpl();
+      _cancelCallbackNotifier.set();
+    };
+    // The Cancel callback is store in an attributed, thus we do not need to
+    // cancel it if it fails to run immediately.
+    std::ignore = _worker->registerGenericPre(_cancelCallback);
+  } else {
+    cancelImpl();
   }
 }
 
@@ -147,7 +203,10 @@ void Request::callback(void* request, ucs_status_t status)
                      status,
                      ucs_status_string(status));
 
-  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
+  if (UCS_PTR_IS_PTR(_request)) {
+    ucp_request_free(request);
+    _request = nullptr;
+  }
 
   ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "completed");
   setStatus(status);
@@ -201,8 +260,7 @@ void Request::setStatus(ucs_status_t status)
   {
     std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-    if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
-    _worker->removeInflightRequest(this);
+    removeInflightRequest();
 
     ucxx_trace_req_f(_ownerString.c_str(),
                      this,

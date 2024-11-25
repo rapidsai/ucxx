@@ -60,9 +60,15 @@ class Endpoint : public Component {
                                     ///< that may run asynchronously on another thread.
   ucs_status_t _status{UCS_INPROGRESS};  ///< Endpoint status
   std::atomic<bool> _closing{false};     ///< Prevent calling close multiple concurrent times.
+  std::atomic<bool> _stopping{false};    ///< Signal whether endpoint is stopping.
   EndpointCloseCallbackUserFunction _closeCallback{nullptr};  ///< Close callback to call
   EndpointCloseCallbackUserData _closeCallbackArg{
     nullptr};  ///< Argument to be passed to close callback
+  GenericCallbackUserFunction _cancelInflightCallback{
+    nullptr};  ///< The wrapper to the callback registered via `cancelInflightRequests()` that will
+               ///< deregister once the callback is called.
+  GenericCallbackUserFunction _cancelInflightCallbackOriginal{
+    nullptr};  ///< The original user callback registered via `cancelInflightRequests()`
 
   /**
    * @brief Private constructor of `ucxx::Endpoint`.
@@ -273,9 +279,21 @@ class Endpoint : public Component {
    * progress the worker and check the result of `getCancelingSize()`, all requests are only
    * canceled when `getCancelingSize()` returns `0`.
    *
+   * Supports an optional callback function to be called exclusively if there are no
+   * more requests inflight or canceling. Be advised that before the callback is called the
+   * mutex that controls inflight requests is released to prevent deadlocks in case the
+   * callback happens to register a new inflight request, therefore there's no guarantee
+   * that another inflight request won't be registered between the time in which the mutex
+   * is released and the callback is executed, the user is thus responsible to prevent such
+   * situations and the use of `stop()` before `cancelInflightRequests()` is highly
+   * advisable.
+   *
+   * @param[in] callbackFunction  function to be called upon termination and only if no
+   *                              further requests inflight or canceling remain.
+   *
    * @returns Number of requests that were scheduled for cancelation.
    */
-  size_t cancelInflightRequests();
+  size_t cancelInflightRequests(GenericCallbackUserFunction callbackFunction = nullptr);
 
   /**
    * @brief Check the number of inflight requests being canceled.
@@ -287,6 +305,16 @@ class Endpoint : public Component {
    * @returns Number of requests that are in process of cancelation.
    */
   [[nodiscard]] size_t getCancelingSize() const;
+
+  /**
+   * @brief Check the number of inflight requests waiting for completion.
+   *
+   * Check the number of inflight requests that were posted but have not yet completed nor
+   * have been scheduled for cancelation.
+   *
+   * @returns Number of inflight requests that are waiting for completion.
+   */
+  size_t getInflightSize() const;
 
   /**
    * @brief Cancel inflight requests.
@@ -349,6 +377,8 @@ class Endpoint : public Component {
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
    *
+   * @throws  ucxx::RejectedError if `stop()` was already called.
+   *
    * @param[in] buffer                  a raw pointer to the data to be sent.
    * @param[in] length                  the size in bytes of the tag message to be sent.
    * @param[in] memoryType              the memory type of the buffer.
@@ -409,6 +439,8 @@ class Endpoint : public Component {
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
    *
+   * @throws  ucxx::RejectedError if `stop()` was already called.
+   *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the tag message to be sent.
    * @param[in] remoteAddr          the destination remote memory address to write to.
@@ -439,6 +471,8 @@ class Endpoint : public Component {
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @throws  ucxx::RejectedError if `stop()` was already called.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the tag message to be sent.
@@ -473,6 +507,8 @@ class Endpoint : public Component {
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
    *
+   * @throws  ucxx::RejectedError if `stop()` was already called.
+   *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the tag message to be sent.
    * @param[in] remoteAddr          the source remote memory address to read from.
@@ -503,6 +539,8 @@ class Endpoint : public Component {
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @throws  ucxx::RejectedError if `stop()` was already called.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the tag message to be sent.
@@ -537,6 +575,8 @@ class Endpoint : public Component {
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
    *
+   * @throws  ucxx::RejectedError if `stop()` was already called.
+   *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the tag message to be sent.
    * @param[in] enablePythonFuture  whether a python future should be created and
@@ -546,7 +586,7 @@ class Endpoint : public Component {
    */
   [[nodiscard]] std::shared_ptr<Request> streamSend(void* buffer,
                                                     size_t length,
-                                                    const bool enablePythonFuture);
+                                                    const bool enablePythonFuture = false);
 
   /**
    * @brief Enqueue a stream receive operation.
@@ -560,6 +600,8 @@ class Endpoint : public Component {
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
    *
+   * @throws  ucxx::RejectedError if `stop()` was already called.
+   *
    * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
    *                                data will be stored.
    * @param[in] length              the size in bytes of the tag message to be received.
@@ -570,7 +612,7 @@ class Endpoint : public Component {
    */
   [[nodiscard]] std::shared_ptr<Request> streamRecv(void* buffer,
                                                     size_t length,
-                                                    const bool enablePythonFuture);
+                                                    const bool enablePythonFuture = false);
 
   /**
    * @brief Enqueue a tag send operation.
@@ -583,6 +625,8 @@ class Endpoint : public Component {
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @throws  ucxx::RejectedError if `stop()` was already called.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the tag message to be sent.
@@ -655,6 +699,7 @@ class Endpoint : public Component {
    * ensure the transfer has completed. Requires UCXX Python support.
    *
    * @throws  std::runtime_error  if sizes of `buffer`, `size` and `isCUDA` do not match.
+   * @throws  ucxx::RejectedError if `stop()` was already called.
    *
    * @param[in] buffer              a vector of raw pointers to the data frames to be sent.
    * @param[in] size                a vector of size in bytes of each frame to be sent.
@@ -672,7 +717,7 @@ class Endpoint : public Component {
                                                       const std::vector<size_t>& size,
                                                       const std::vector<int>& isCUDA,
                                                       const Tag tag,
-                                                      const bool enablePythonFuture);
+                                                      const bool enablePythonFuture = false);
 
   /**
    * @brief Enqueue a multi-buffer tag receive operation.
@@ -698,7 +743,7 @@ class Endpoint : public Component {
    */
   [[nodiscard]] std::shared_ptr<Request> tagMultiRecv(const Tag tag,
                                                       const TagMask tagMask,
-                                                      const bool enablePythonFuture);
+                                                      const bool enablePythonFuture = false);
 
   /**
    * @brief Enqueue a flush operation.
@@ -743,7 +788,23 @@ class Endpoint : public Component {
    *
    * Enqueue a non-blocking endpoint close operation, which will close the endpoint without
    * requiring to destroy the object. This may be useful when other
-   * `std::shared_ptr<ucxx::Request>` objects are still alive, such as inflight transfers.
+   * `std::shared_ptr<ucxx::Request>` objects are still alive, such as inflight transfers,
+   * or the user wants to have more control over cancelation and closing order.
+   *
+   * @warning Unlike its `closeBlocking()` counterpart, this method does not cancel any
+   * inflight requests prior to submitting the UCP close request. Before scheduling the
+   * endpoint close request, the caller is advised to first call `stop()` to prevent new
+   * requests that require an active endpoint from being registered and once `stop()` is
+   * called, the user may call `cancelInflightRequests()` specifying a callback that can
+   * be used to submit a `close()` request, or may check for the number of inflight and
+   * canceling requests via `getInflightSize()` and `getCancelingSize()` methods,
+   * respectively, and issue the non-blocking `close()` of the worker once both return
+   * `0` or after a certain period of time has elapsed and the application cannot wait
+   * anymore for their completion. Note that `cancelInflightRequests()` callback is not
+   * guaranteed to be called, nor are `getCancelingSize()` and `getInflightSize()`
+   * guaranteed to go to `0` depending on the requests being handled, and thus the user is
+   * advised to provide a forceful termination mechanism in case the requests can never
+   * complete.
    *
    * This method returns a `std::shared<ucxx::Request>` that can be later awaited and
    * checked for errors. This is a non-blocking operation, and the status of closing the
@@ -763,11 +824,6 @@ class Endpoint : public Component {
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
    * ensure the close operation has completed. Requires UCXX Python support.
-   *
-   * @warning Unlike its `closeBlocking()` counterpart, this method does not cancel any
-   * inflight requests prior to submitting the UCP close request. Before scheduling the
-   * endpoint close request, the caller must first call `cancelInflightRequests()` and
-   * progress the worker until `getCancelingSize()` returns `0`.
    *
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
@@ -807,6 +863,59 @@ class Endpoint : public Component {
    *                        if worker is running a progress thread and `period > 0`.
    */
   void closeBlocking(uint64_t period = 0, uint64_t maxAttempts = 1);
+
+  /**
+   * @brief Signal wish to close the endpoint, but does not close it.
+   *
+   * Signal the wish to close the endpoint without closing it such that no new requests can
+   * be issued that require the endpoint to complete. This method is useful when the user
+   * needs control of the non-blocking closing process with `close()`, and thus allow
+   * requests to complete before issuing the close request. Once this is called, the user
+   * may call `cancelInflightRequests()` specifying a callback that can be used to submit
+   * a `close()` request, or may check for the number of inflight and canceling requests
+   * via `getInflightSize()` and `getCancelingSize()` methods, respectively, and issue the
+   * non-blocking `close()` of the worker once both return `0` or after a certain period of
+   * time has elapsed and the application cannot wait anymore for their completion. Note
+   * that `cancelInflightRequests()` callback is not guaranteed to be called, nor are
+   * `getCancelingSize()` and `getInflightSize()` guaranteed to go to `0` depending on the
+   * requests being handled, and thus the user is advised to provide a forceful termination
+   * mechanism in case the requests can never complete.
+   *
+   * After this is called certain requests are not anymore accepted because they require a
+   * valid endpoint to complete. The requests that are not accepted are:
+   *
+   * - `amSend()`
+   * - `memGet()`
+   * - `memPut()`
+   * - `streamSend()`
+   * - `streamRecv()`
+   * - `tagSend()`
+   * - `tagMultiSend()`
+   *
+   * If the user attempts to call any of the methods above after this method a
+   * `ucxx::RejectError` exception is thrown. The user is also able to check whether this
+   * method was already called by checking the result of `isStopping()`.
+   *
+   * The following requests are handled by the underlying `ucxx::Worker` and only matched
+   * to the `ucxx::Endpoint` object and thus can still be called after the present method
+   * is called to allow draining them:
+   *
+   * - `amRecv()`
+   * - `tagRecv()`
+   * - `tagMultiRecv()`
+   */
+  void stop();
+
+  /**
+   * @brief Check whether the endpoint was signaled the wish to close.
+   *
+   * Check whether the endpoint was signaled the wish to close after calling `stop()`. This
+   * result is useful to identify the stage where the endpoint finds itself, if this method
+   * returns `True`, the process to ultimately close the endpoint has begun.
+   *
+   * @return Whether the endpoint was signaled the wish to close.
+   */
+  bool isStopping();
 };
 
 }  // namespace ucxx

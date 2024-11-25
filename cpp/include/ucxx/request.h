@@ -16,6 +16,7 @@
 #include <ucxx/future.h>
 #include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
+#include <ucxx/utils/callback_notifier.h>
 
 #define ucxx_trace_req_f(_owner, _req, _handle, _name, _message, ...)          \
   ucxx_trace_req("ucxx::Request: %p on %s, UCP handle: %p, op: %s, " _message, \
@@ -54,6 +55,10 @@ class Request : public Component {
     "request_undefined"};          ///< Human-readable operation name, mostly used for log messages
   std::recursive_mutex _mutex{};   ///< Mutex to prevent checking status while it's being set
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
+  DelayedSubmissionCallbackType
+    _cancelCallback{};  ///< Callback function to use when canceling in thread progress mode.
+  utils::CallbackNotifier _cancelCallbackNotifier{};  ///< Callback notifier to use when canceling
+                                                      ///< in thread progress mode.
 
   /**
    * @brief Protected constructor of an abstract `ucxx::Request`.
@@ -101,6 +106,27 @@ class Request : public Component {
    * @param[in] status the status of the request to be set.
    */
   void setStatus(ucs_status_t status);
+
+ private:
+  /**
+   * @brief Remove reference to request from endpoint and worker.
+   *
+   * Remove the reference to the request from the endpoint and worker. This should be called
+   * when a request has completed and the parent `ucxx::Endpoint` or `ucxx::Worker` does not
+   * need to keep track of it anymore. This is called during `setStatus()` and also during
+   * `cancel()` in case the request was scheduled for cancelation while it completed, which
+   * may have duplicated the canceling request tracking.
+   */
+  void removeInflightRequest();
+
+  /**
+   * @brief Implementation of the request cancelation.
+   *
+   * Cancel the request, called by `cancel()` which will submit it for execution from the
+   * worker progress thread when active as it is unsafe to do so from the application thread
+   * given it `ucp_request_cancel` requires the UCS spinlock. When no worker progress thread
+   */
+  void cancelImpl();
 
  public:
   Request()                          = delete;
