@@ -471,6 +471,8 @@ class ApplicationContext:
         if loop in ProgressTasks:
             return  # Progress has already been guaranteed for the current event loop
 
+        logger.info(f"Starting progress in '{self.progress_mode}' mode")
+
         if self.progress_mode == "thread":
             task = ThreadMode(self.worker, loop, polling_mode=False)
         elif self.progress_mode == "thread-polling":
