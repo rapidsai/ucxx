@@ -453,12 +453,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12==1.15.0
+              - libucx-cu12==1.15.0.post2
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu11==1.15.0
+              - libucx-cu12==1.15.0.post2
           - matrix: null
             packages:
               - libucx==1.15.0
@@ -479,12 +479,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.15.0,<1.18
+              - libucx-cu12==1.15.0.post2
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu11>=1.15.0,<1.18
+              - libucx-cu12==1.15.0.post2
           - matrix: null
             packages:
               - libucx>=1.15.0,<1.18
