@@ -24,7 +24,7 @@ RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1739 python)
 
 rapids-conda-retry mambabuild \
   conda/recipes/ucxx \
-  --channel "${LIBRMM_CHANNEL}" \
+  --channel "${LIBRMM_CHANNEL}"
   --channel "${RMM_CHANNEL}"
 
 sccache --show-adv-stats
