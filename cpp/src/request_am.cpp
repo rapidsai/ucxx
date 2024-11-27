@@ -4,9 +4,11 @@
  */
 #include <cstdio>
 #include <memory>
+#include <queue>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
