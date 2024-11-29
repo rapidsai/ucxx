@@ -42,8 +42,7 @@ GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(const std
 {
 }
 
-void GenericDelayedSubmissionCollection::scheduleLog(ItemIdType id,
-                                                     DelayedSubmissionCallbackType item)
+void GenericDelayedSubmissionCollection::scheduleLog(ItemIdType id, DelayedSubmissionCallbackType)
 {
   ucxx_trace_req("Registered %s [%lu]", _name.c_str(), id);
 }

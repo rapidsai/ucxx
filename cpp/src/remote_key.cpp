@@ -92,8 +92,13 @@ SerializedRemoteKey RemoteKey::serialize() const
 {
   std::stringstream ss;
 
+  if (_packedRemoteKeySize > std::numeric_limits<std::streamsize>::max())
+    // We should never have a remote key this big, but just in case.
+    throw std::overflow_error("Remote key is too large to deserialize");
+
   ss.write(reinterpret_cast<char const*>(&_packedRemoteKeySize), sizeof(_packedRemoteKeySize));
-  ss.write(reinterpret_cast<char const*>(_packedRemoteKey), _packedRemoteKeySize);
+  ss.write(reinterpret_cast<char const*>(_packedRemoteKey),
+           static_cast<std::streamsize>(_packedRemoteKeySize));
   ss.write(reinterpret_cast<char const*>(&_memoryBaseAddress), sizeof(_memoryBaseAddress));
   ss.write(reinterpret_cast<char const*>(&_memorySize), sizeof(_memorySize));
 
@@ -133,7 +138,12 @@ void RemoteKey::deserialize(const SerializedRemoteKey& serializedRemoteKey)
   _packedRemoteKeyVector = std::vector<char>(_packedRemoteKeySize);
   _packedRemoteKey       = _packedRemoteKeyVector.data();
 
-  ss.read(reinterpret_cast<char*>(_packedRemoteKey), _packedRemoteKeySize);
+  if (_packedRemoteKeySize > std::numeric_limits<std::streamsize>::max())
+    // We should never have a remote key this big, but just in case.
+    throw std::overflow_error("Remote key is too large to deserialize");
+
+  ss.read(reinterpret_cast<char*>(_packedRemoteKey),
+          static_cast<std::streamsize>(_packedRemoteKeySize));
   ss.read(reinterpret_cast<char*>(&_memoryBaseAddress), sizeof(_memoryBaseAddress));
   ss.read(reinterpret_cast<char*>(&_memorySize), sizeof(_memorySize));
 }
