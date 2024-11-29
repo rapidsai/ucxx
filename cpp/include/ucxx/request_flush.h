@@ -86,7 +86,7 @@ class RequestFlush : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestFlush>` object
    */
-  [[nodiscard]] friend std::shared_ptr<RequestFlush> createRequestFlush(
+  friend std::shared_ptr<RequestFlush> createRequestFlush(
     std::shared_ptr<Component> endpointOrWorker,
     const data::Flush requestData,
     const bool enablePythonFuture,
