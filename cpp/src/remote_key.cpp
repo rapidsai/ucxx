@@ -66,7 +66,7 @@ RemoteKey::~RemoteKey()
     // Only destroy remote key if this was created from a `SerializedRemoteKey`, i.e., the
     // buffer is remote.
     ucp_rkey_destroy(_remoteKey);
-    ucxx_trace("ucxx::RemoteKey destroyed (deserialized): %p, UCP handle: %p", _remoteKey);
+    ucxx_trace("ucxx::RemoteKey destroyed (deserialized): %p, UCP handle: %p", this, _remoteKey);
   }
 }
 

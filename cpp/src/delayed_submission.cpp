@@ -57,8 +57,8 @@ void GenericDelayedSubmissionCollection::processItem(ItemIdType id,
 }
 
 DelayedSubmissionCollection::DelayedSubmissionCollection(bool enableDelayedRequestSubmission)
-  : _enableDelayedRequestSubmission(enableDelayedRequestSubmission),
-    _requests(RequestDelayedSubmissionCollection{"request", enableDelayedRequestSubmission})
+  : _requests(RequestDelayedSubmissionCollection{"request", enableDelayedRequestSubmission}),
+    _enableDelayedRequestSubmission(enableDelayedRequestSubmission)
 {
 }
 

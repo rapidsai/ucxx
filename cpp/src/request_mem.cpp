@@ -122,8 +122,6 @@ void RequestMem::request()
   _request = request;
 }
 
-static void logPopulateDelayedSubmission() {}
-
 void RequestMem::populateDelayedSubmission()
 {
   bool terminate =

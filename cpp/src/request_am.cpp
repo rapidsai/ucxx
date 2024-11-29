@@ -223,7 +223,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       try {
         return amData->_receiverCallbacks.at(amHeader.receiverCallbackInfo->owner)
           .at(amHeader.receiverCallbackInfo->id);
-      } catch (std::out_of_range) {
+      } catch (const std::out_of_range& e) {
         ucxx_error("No AM receiver callback registered for owner '%s' with id %lu",
                    std::string(amHeader.receiverCallbackInfo->owner).data(),
                    amHeader.receiverCallbackInfo->id);
