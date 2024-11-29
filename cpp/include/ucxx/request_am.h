@@ -89,7 +89,7 @@ class RequestAm : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
-  [[nodiscard]] friend std::shared_ptr<RequestAm> createRequestAm(
+  friend std::shared_ptr<RequestAm> createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,
     const bool enablePythonFuture,
