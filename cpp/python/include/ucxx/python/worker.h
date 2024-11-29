@@ -82,8 +82,9 @@ class Worker : public ::ucxx::Worker {
    *
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
-  [[nodiscard]] friend std::shared_ptr<::ucxx::Worker> createWorker(
-    std::shared_ptr<Context> context, const bool enableDelayedSubmission, const bool enableFuture);
+  friend std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
+                                                      const bool enableDelayedSubmission,
+                                                      const bool enableFuture);
 
   /**
    * @brief Populate the Python futures pool.
