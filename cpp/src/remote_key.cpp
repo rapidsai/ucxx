@@ -6,6 +6,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -84,7 +85,7 @@ std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(std::shared_ptr<Endpoin
 
 size_t RemoteKey::getSize() const { return _memorySize; }
 
-uint64_t RemoteKey::getBaseAddress() { return (uint64_t)_memoryBaseAddress; }
+uint64_t RemoteKey::getBaseAddress() { return _memoryBaseAddress; }
 
 ucp_rkey_h RemoteKey::getHandle() { return _remoteKey; }
 

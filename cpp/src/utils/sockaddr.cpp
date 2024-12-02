@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <arpa/inet.h>
+#include <cstdio>
+#include <cstring>
 #include <memory>
 #include <netdb.h>
-#include <stdlib.h>
-#include <string.h>
+#include <string>
 #include <sys/socket.h>
 
 #include <ucxx/exception.h>
