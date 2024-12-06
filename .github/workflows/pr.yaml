@@ -45,6 +45,7 @@ jobs:
           - '!.pre-commit-config.yaml'
           - '!README.md'
           - '!docs/**'
+
   checks:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@no-certs
