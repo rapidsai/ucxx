@@ -25,13 +25,13 @@ jobs:
       - wheel-build-distributed-ucxx
       - wheel-tests-distributed-ucxx
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@gate-telemetry-summarize
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
   changed-files:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@gate-telemetry-summarize
     with:
       files_yaml: |
         test_cpp:
@@ -48,19 +48,19 @@ jobs:
 
   checks:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@gate-telemetry-summarize
     with:
       enable_check_generated_files: false
   conda-cpp-build:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@gate-telemetry-summarize
     with:
       build_type: pull-request
   docs-build:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@gate-telemetry-summarize
     with:
       build_type: pull-request
       node_type: "gpu-v100-latest-1"
@@ -70,7 +70,7 @@ jobs:
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@gate-telemetry-summarize
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
     with:
       build_type: pull-request
@@ -78,7 +78,7 @@ jobs:
   conda-python-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@gate-telemetry-summarize
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
@@ -86,7 +86,7 @@ jobs:
   conda-python-distributed-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@gate-telemetry-summarize
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
@@ -95,39 +95,14 @@ jobs:
   wheel-build-libucxx:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@gate-telemetry-summarize
     with:
       build_type: pull-request
       script: ci/build_wheel_libucxx.sh
   wheel-build-ucxx:
     needs: wheel-build-libucxx
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@no-certs
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@gate-telemetry-summarize
     with:
       build_type: pull-request
       script: ci/build_wheel_ucxx.sh
-  wheel-tests-ucxx:
-    needs: [wheel-build-ucxx, changed-files]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@no-certs
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
-    with:
-      build_type: pull-request
-      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_wheel_ucxx.sh
-  wheel-build-distributed-ucxx:
-    needs: checks
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@no-certs
-    with:
-      build_type: pull-request
-      script: ci/build_wheel_distributed_ucxx.sh
-  wheel-tests-distributed-ucxx:
-    needs: [wheel-build-ucxx, wheel-build-distributed-ucxx, changed-files]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@no-certs
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
-    with:
-      build_type: pull-request
-      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_wheel_distributed_ucxx.sh
