@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -31,7 +31,7 @@ from libcpp.vector cimport vector
 
 import numpy as np
 
-from rmm._lib.device_buffer cimport DeviceBuffer
+from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
 from .arr cimport Array
 from .ucxx_api cimport *
@@ -95,7 +95,7 @@ def _get_host_buffer(uintptr_t recv_buffer_ptr):
     return np.asarray(HostBufferAdapter._from_host_buffer(host_buffer))
 
 
-cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length):
+cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length) noexcept nogil:
     cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
     return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
 
@@ -617,6 +617,23 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().initBlockingProgressMode()
 
+    def arm(self) -> bool:
+        cdef bint armed
+
+        with nogil:
+            armed = self._worker.get().arm()
+
+        return armed
+
+    @property
+    def epoll_file_descriptor(self) -> int:
+        cdef int epoll_file_descriptor = 0
+
+        with nogil:
+            epoll_file_descriptor = self._worker.get().getEpollFileDescriptor()
+
+        return epoll_file_descriptor
+
     def progress(self) -> None:
         with nogil:
             self._worker.get().progress()
@@ -723,6 +740,10 @@ cdef class UCXWorker():
     def populate_python_futures_pool(self) -> None:
         with nogil:
             self._worker.get().populateFuturesPool()
+
+    def clear_python_futures_pool(self) -> None:
+        with nogil:
+            self._worker.get().clearFuturesPool()
 
     def is_delayed_submission_enabled(self) -> bool:
         warnings.warn(

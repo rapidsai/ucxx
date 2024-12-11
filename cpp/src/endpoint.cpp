@@ -136,10 +136,12 @@ void Endpoint::create(ucp_ep_params_t* params)
             3000000000 /* 3s */))
         break;
 
-      if (i == maxAttempts - 1)
+      if (i == maxAttempts - 1) {
+        status = UCS_ERR_TIMED_OUT;
         ucxx_error("Timeout waiting for ucp_ep_create, all attempts failed");
-      else
+      } else {
         ucxx_warn("Timeout waiting for ucp_ep_create, retrying");
+      }
     }
     utils::ucsErrorThrow(status);
   } else {
@@ -260,8 +262,8 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
   if (_endpointErrorHandling)
     param = {.op_attr_mask = UCP_OP_ATTR_FIELD_FLAGS, .flags = UCP_EP_CLOSE_FLAG_FORCE};
 
-  auto worker = ::ucxx::getWorker(_parent);
-  ucs_status_ptr_t status;
+  auto worker             = ::ucxx::getWorker(_parent);
+  ucs_status_ptr_t status = nullptr;
 
   if (worker->isProgressThreadRunning()) {
     bool closeSuccess = false;

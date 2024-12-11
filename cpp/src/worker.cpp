@@ -164,8 +164,18 @@ Worker::~Worker()
              _handle,
              canceled);
 
-  stopProgressThreadNoWarn();
-  if (_notifier) _notifier->stopRequestNotifierThread();
+  if (_progressThread.isRunning()) {
+    ucxx_warn(
+      "The progress thread should be explicitly stopped with `stopProgressThread()` to prevent "
+      "unintended effects, such as destructors being called from that thread.");
+    stopProgressThreadNoWarn();
+  }
+  if (_notifier && _notifier->isRunning()) {
+    ucxx_warn(
+      "The notifier thread should be explicitly stopped with `stopNotifierThread()` to prevent "
+      "unintended effects, such as destructors being called from that thread.");
+    _notifier->stopRequestNotifierThread();
+  }
 
   drainWorkerTagRecv();
 
@@ -218,6 +228,14 @@ void Worker::initBlockingProgressMode()
   if (err != 0) {
     throw std::ios_base::failure(std::string("epoll_ctl() returned ") + std::to_string(err));
   }
+}
+
+int Worker::getEpollFileDescriptor()
+{
+  if (_epollFileDescriptor == 0)
+    throw std::runtime_error("Worker not running in blocking progress mode");
+
+  return _epollFileDescriptor;
 }
 
 bool Worker::arm()
@@ -329,11 +347,21 @@ bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t
     }
     signalWorkerFunction();
 
-    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+    size_t retryCount = 0;
+    while (true) {
+      auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
-    if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
-
-    return ret;
+      try {
+        if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
+        return ret;
+      } catch (const std::runtime_error& e) {
+        if (++retryCount % 10 == 0)
+          ucxx_warn(
+            "Could not cancel after %lu attempts, the callback has not returned and the process "
+            "may stop responding.",
+            retryCount);
+      }
+    }
   }
 }
 
@@ -366,11 +394,21 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
     }
     signalWorkerFunction();
 
-    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+    size_t retryCount = 0;
+    while (true) {
+      auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
-    if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
-
-    return ret;
+      try {
+        if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
+        return ret;
+      } catch (const std::runtime_error& e) {
+        if (++retryCount % 10 == 0)
+          ucxx_warn(
+            "Could not cancel after %lu attempts, the callback has not returned and the process "
+            "may stop responding.",
+            retryCount);
+      }
+    }
   }
 }
 
@@ -383,6 +421,8 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
   } while (0)
 
 void Worker::populateFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
+
+void Worker::clearFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 

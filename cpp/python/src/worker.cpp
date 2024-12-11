@@ -71,6 +71,21 @@ void Worker::populateFuturesPool()
   }
 }
 
+void Worker::clearFuturesPool()
+{
+  if (_enableFuture) {
+    ucxx_trace_req("ucxx::python::Worker::%s, Worker: %p, populateFuturesPool: %p",
+                   __func__,
+                   this,
+                   shared_from_this().get());
+    std::lock_guard<std::mutex> lock(_futuresPoolMutex);
+    PyGILState_STATE state = PyGILState_Ensure();
+    decltype(_futuresPool) newFuturesPool;
+    std::swap(_futuresPool, newFuturesPool);
+    PyGILState_Release(state);
+  }
+}
+
 std::shared_ptr<::ucxx::Future> Worker::getFuture()
 {
   if (_enableFuture) {

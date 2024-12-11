@@ -86,14 +86,27 @@ class Worker : public ::ucxx::Worker {
     std::shared_ptr<Context> context, const bool enableDelayedSubmission, const bool enableFuture);
 
   /**
-   * @brief Populate the Python future pool.
+   * @brief Populate the Python futures pool.
    *
    * To avoid taking the Python GIL for every new future required by each `ucxx::Request`,
    * the `ucxx::python::Worker` maintains a pool of futures that can be acquired when a new
    * `ucxx::Request` is created. Currently the pool has a maximum size of 100 objects, and
    * will refill once it goes under 50, otherwise calling this functions results in a no-op.
+   *
+   * @throws std::runtime_error if object was created with `enableFuture=false`.
    */
   void populateFuturesPool() override;
+
+  /**
+   * @brief Clear the futures pool.
+   *
+   * Clear the futures pool, ensuring all references are removed and thus avoiding
+   * reference cycles that prevent the `ucxx::Worker` and other resources from cleaning
+   * up on time.
+   *
+   * This method is safe to be called even if object was created with `enableFuture=false`.
+   */
+  void clearFuturesPool() override;
 
   /**
    * @brief Get a Python future from the pool.

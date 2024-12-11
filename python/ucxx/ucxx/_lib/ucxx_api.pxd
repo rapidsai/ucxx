@@ -155,7 +155,7 @@ cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
         void* data() except +raise_py_error
 
     cdef cppclass RMMBuffer:
-        RMMBuffer(const size_t size_t)
+        RMMBuffer(const size_t size_t) except +raise_py_error
         BufferType getType()
         size_t getSize()
         unique_ptr[device_buffer] release() except +raise_py_error
@@ -229,6 +229,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args
         ) except +raise_py_error
         void initBlockingProgressMode() except +raise_py_error
+        int getEpollFileDescriptor()
+        bint arm() except +raise_py_error
         void progress()
         bint progressOnce()
         void progressWorkerEvent(int epoll_timeout)
@@ -249,6 +251,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         void runRequestNotifier() except +raise_py_error
         void populateFuturesPool() except +raise_py_error
+        void clearFuturesPool()
         shared_ptr[Request] tagRecv(
             void* buffer,
             size_t length,

@@ -154,6 +154,26 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
              requestData);
 }
 
+void RequestAm::cancel()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  if (_status == UCS_INPROGRESS) {
+    /**
+     * This is needed to ensure AM requests are cancelable, since they do not
+     * use the `_request`, thus `ucp_request_cancel()` cannot cancel them.
+     */
+    setStatus(UCS_ERR_CANCELED);
+  } else {
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
+                     _request,
+                     _operationName.c_str(),
+                     "already completed with status: %d (%s)",
+                     _status,
+                     ucs_status_string(_status));
+  }
+}
+
 static void _amSendCallback(void* request, ucs_status_t status, void* user_data)
 {
   Request* req = reinterpret_cast<Request*>(user_data);
@@ -248,19 +268,29 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       amHeader.memoryType = UCS_MEMORY_TYPE_HOST;
     }
 
-    std::shared_ptr<Buffer> buf = amData->_allocators.at(amHeader.memoryType)(length);
+    try {
+      buf = amData->_allocators.at(amHeader.memoryType)(length);
+    } catch (const std::exception& e) {
+      ucxx_debug("Exception calling allocator: %s", e.what());
+    }
 
     auto recvAmMessage =
       std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf, receiverCallback);
 
-    ucp_request_param_t request_param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                                                         UCP_OP_ATTR_FIELD_USER_DATA |
-                                                         UCP_OP_ATTR_FLAG_NO_IMM_CMPL,
-                                         .cb        = {.recv_am = _recvCompletedCallback},
-                                         .user_data = recvAmMessage.get()};
+    ucp_request_param_t requestParam = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                                                        UCP_OP_ATTR_FIELD_USER_DATA |
+                                                        UCP_OP_ATTR_FLAG_NO_IMM_CMPL,
+                                        .cb        = {.recv_am = _recvCompletedCallback},
+                                        .user_data = recvAmMessage.get()};
+
+    if (buf == nullptr) {
+      ucxx_debug("Failed to allocate %lu bytes of memory", length);
+      recvAmMessage->_request->setStatus(UCS_ERR_NO_MEMORY);
+      return UCS_ERR_NO_MEMORY;
+    }
 
     ucs_status_ptr_t status =
-      ucp_am_recv_data_nbx(worker->getHandle(), data, buf->data(), length, &request_param);
+      ucp_am_recv_data_nbx(worker->getHandle(), data, buf->data(), length, &requestParam);
 
     if (req->_enablePythonFuture)
       ucxx_trace_req_f(ownerString.c_str(),
@@ -302,7 +332,15 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       return UCS_INPROGRESS;
     }
   } else {
-    std::shared_ptr<Buffer> buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
+    buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
+
+    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf, receiverCallback);
+    if (buf == nullptr) {
+      ucxx_debug("Failed to allocate %lu bytes of memory", length);
+      recvAmMessage._request->setStatus(UCS_ERR_NO_MEMORY);
+      return UCS_ERR_NO_MEMORY;
+    }
+
     if (length > 0) memcpy(buf->data(), data, length);
 
     if (req->_enablePythonFuture)
@@ -326,7 +364,6 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        buf->data(),
                        length);
 
-    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf, receiverCallback);
     recvAmMessage.callback(nullptr, UCS_OK);
     return UCS_OK;
   }
