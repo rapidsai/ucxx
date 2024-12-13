@@ -45,7 +45,7 @@ MemoryHandle::MemoryHandle(std::shared_ptr<Context> context,
 
   utils::ucsErrorThrow(ucp_mem_query(_handle, &attr));
 
-  _baseAddress = (uint64_t)attr.address;
+  _baseAddress = reinterpret_cast<uint64_t>(attr.address);
   _size        = attr.length;
   _memoryType  = attr.mem_type;
 

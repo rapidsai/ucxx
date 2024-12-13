@@ -67,7 +67,7 @@ class RequestStream : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestStream>` object
    */
-  [[nodiscard]] friend std::shared_ptr<RequestStream> createRequestStream(
+  friend std::shared_ptr<RequestStream> createRequestStream(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::StreamSend, data::StreamReceive> requestData,
     const bool enablePythonFuture);

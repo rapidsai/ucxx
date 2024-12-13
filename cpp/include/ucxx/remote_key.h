@@ -112,7 +112,7 @@ class RemoteKey : public Component {
    *
    * @returns The `shared_ptr<ucxx::RemoteKey>` object
    */
-  [[nodiscard]] friend std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
+  friend std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
     std::shared_ptr<MemoryHandle> memoryHandle);
 
   /**
@@ -140,7 +140,7 @@ class RemoteKey : public Component {
    *
    * @returns The `shared_ptr<ucxx::RemoteKey>` object
    */
-  [[nodiscard]] friend std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
+  friend std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
     std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
 
   ~RemoteKey();

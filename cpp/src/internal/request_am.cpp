@@ -8,6 +8,8 @@
 #include <ucxx/request_am.h>
 #include <ucxx/typedefs.h>
 
+#include <memory>
+
 namespace ucxx {
 
 namespace internal {

@@ -109,11 +109,10 @@ class MemoryHandle : public Component {
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
-  [[nodiscard]] friend std::shared_ptr<MemoryHandle> createMemoryHandle(
-    std::shared_ptr<Context> context,
-    const size_t size,
-    void* buffer,
-    const ucs_memory_type_t memoryType);
+  friend std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
+                                                          const size_t size,
+                                                          void* buffer,
+                                                          const ucs_memory_type_t memoryType);
 
   ~MemoryHandle();
 
