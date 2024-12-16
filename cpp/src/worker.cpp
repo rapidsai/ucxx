@@ -427,7 +427,7 @@ void Worker::clearFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t /* periodNs */)
+RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
 {
   THROW_FUTURE_NOT_IMPLEMENTED();
 }

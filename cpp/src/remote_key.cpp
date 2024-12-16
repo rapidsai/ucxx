@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
