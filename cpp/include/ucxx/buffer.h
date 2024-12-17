@@ -9,9 +9,9 @@
 
 #include <ucxx/log.h>
 
-#if UCXX_ENABLE_RMM
-#include <rmm/device_buffer.hpp>
-#endif
+namespace rmm {
+class device_buffer;
+}
 
 namespace ucxx {
 

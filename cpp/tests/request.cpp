@@ -20,6 +20,10 @@
 #include "ucxx/constructors.h"
 #include "ucxx/utils/ucx.h"
 
+#if UCXX_ENABLE_RMM
+#include <rmm/device_buffer.hpp>
+#endif
+
 namespace {
 
 using ::testing::Combine;
