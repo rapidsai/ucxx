@@ -9,9 +9,10 @@
 
 #include <ucxx/log.h>
 
-#if UCXX_ENABLE_RMM
-#include <rmm/device_buffer.hpp>
-#endif
+namespace rmm {
+// Forward declaration to prevent symbols from being added to symbol table unnecessarily.
+class device_buffer;
+}  // namespace rmm
 
 namespace ucxx {
 

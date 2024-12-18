@@ -188,8 +188,7 @@ target_compile_definitions(
 # Enable RMM if necessary
 if(UCXX_ENABLE_RMM)
     target_link_libraries(ucxx
-      PUBLIC rmm::rmm rmm::rmm_logger
-      PRIVATE rmm::rmm_logger_impl
+      PUBLIC rmm::rmm
     )
 
     # Define spdlog level

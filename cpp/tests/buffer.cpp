@@ -11,6 +11,10 @@
 
 #include <ucxx/api.h>
 
+#if UCXX_ENABLE_RMM
+#include <rmm/device_buffer.hpp>
+#endif
+
 namespace {
 
 class BufferAllocator : public ::testing::Test,
