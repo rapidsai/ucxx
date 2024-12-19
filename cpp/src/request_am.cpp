@@ -147,11 +147,11 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
             callbackData)
 {
   std::visit(data::dispatch{
-               [this](data::AmSend amSend) {
+               [this](data::AmSend) {
                  if (_endpoint == nullptr)
                    throw ucxx::Error("An endpoint is required to send active messages");
                },
-               [](data::AmReceive amReceive) {},
+               [](data::AmReceive) {},
              },
              requestData);
 }
@@ -185,7 +185,7 @@ static void _amSendCallback(void* request, ucs_status_t status, void* user_data)
 
 static void _recvCompletedCallback(void* request,
                                    ucs_status_t status,
-                                   size_t length,
+                                   size_t /* length */,
                                    void* user_data)
 {
   internal::RecvAmMessage* recvAmMessage = static_cast<internal::RecvAmMessage*>(user_data);
@@ -225,7 +225,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       try {
         return amData->_receiverCallbacks.at(amHeader.receiverCallbackInfo->owner)
           .at(amHeader.receiverCallbackInfo->id);
-      } catch (std::out_of_range) {
+      } catch (const std::out_of_range& e) {
         ucxx_error("No AM receiver callback registered for owner '%s' with id %lu",
                    std::string(amHeader.receiverCallbackInfo->owner).data(),
                    amHeader.receiverCallbackInfo->id);
@@ -417,7 +417,7 @@ void RequestAm::populateDelayedSubmission()
 {
   bool terminate =
     std::visit(data::dispatch{
-                 [this](data::AmSend amSend) {
+                 [this](data::AmSend) {
                    if (_endpoint->getHandle() == nullptr) {
                      ucxx_warn("Endpoint was closed before message could be sent");
                      Request::callback(this, UCS_ERR_CANCELED);

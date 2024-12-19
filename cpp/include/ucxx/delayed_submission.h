@@ -145,7 +145,7 @@ class BaseDelayedSubmissionCollection {
       toProcess = _collection.size();
     }
 
-    for (auto i = 0; i < toProcess; ++i) {
+    for (size_t i = 0; i < toProcess; ++i) {
       std::pair<ItemIdType, T> item;
       {
         std::lock_guard<std::mutex> lock(_mutex);

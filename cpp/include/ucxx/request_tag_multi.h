@@ -198,9 +198,8 @@ class RequestTagMulti : public Request {
    * may still verify each of the underlying requests individually.
    *
    * @param[in] status the status of the request being completed.
-   * @param[in] request the `ucxx::BufferRequest` object containing a single tag .
    */
-  void markCompleted(ucs_status_t status, RequestCallbackUserData request);
+  void markCompleted(ucs_status_t status);
 
   /**
    * @brief Callback to submit request to receive new header or frames.

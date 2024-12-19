@@ -76,8 +76,6 @@ void RequestFlush::request()
   _request = request;
 }
 
-static void logPopulateDelayedSubmission() {}
-
 void RequestFlush::populateDelayedSubmission()
 {
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {

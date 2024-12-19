@@ -75,8 +75,8 @@ Worker::Worker(std::shared_ptr<Context> context,
 
 static void _drainCallback(void* request,
                            ucs_status_t status,
-                           const ucp_tag_recv_info_t* info,
-                           void* arg)
+                           const ucp_tag_recv_info_t* /* info */,
+                           void* /* arg */)
 {
   *reinterpret_cast<ucs_status_t*>(request) = status;
 }
@@ -427,10 +427,7 @@ void Worker::clearFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
-{
-  THROW_FUTURE_NOT_IMPLEMENTED();
-}
+RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t) { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 void Worker::runRequestNotifier() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
@@ -595,7 +592,7 @@ bool Worker::tagProbe(const Tag tag)
   }
 
   ucp_tag_recv_info_t info;
-  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);
+  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, TagMaskFull, 0, &info);
 
   return tag_message != NULL;
 }

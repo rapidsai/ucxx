@@ -23,11 +23,11 @@ FILE* createTextFileDescriptor()
 
 std::string decodeTextFileDescriptor(FILE* textFileDescriptor)
 {
-  size_t size;
-
   rewind(textFileDescriptor);
   fseek(textFileDescriptor, 0, SEEK_END);
-  size = ftell(textFileDescriptor);
+  int64_t pos = ftell(textFileDescriptor);
+  if (pos == -1L) throw std::ios_base::failure("ftell() failed");
+  size_t size = static_cast<size_t>(pos);
   rewind(textFileDescriptor);
 
   std::string textString(size, '\0');

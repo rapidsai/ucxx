@@ -140,8 +140,8 @@ void RequestTagMulti::recvFrames()
         tagPair.first,
         tagPair.second,
         false,
-        [this](ucs_status_t status, RequestCallbackUserData arg) {
-          return this->markCompleted(status, arg);
+        [this](ucs_status_t status, RequestCallbackUserData /* callbackData */) {
+          return this->markCompleted(status);
         },
         bufferRequest);
       bufferRequest->buffer = buf;
@@ -168,7 +168,7 @@ void RequestTagMulti::recvFrames()
                    _isFilled);
 };
 
-void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData request)
+void RequestTagMulti::markCompleted(ucs_status_t status)
 {
   /**
    * Prevent reference count to self from going to zero and thus cause self to be destroyed
@@ -257,7 +257,7 @@ void RequestTagMulti::recvHeader()
                        tagPair.first,
                        tagPair.second,
                        false,
-                       [this](ucs_status_t status, RequestCallbackUserData arg) {
+                       [this](ucs_status_t status, RequestCallbackUserData /* callbackData */) {
                          return this->recvCallback(status);
                        });
 
@@ -349,14 +349,14 @@ void RequestTagMulti::send()
         for (size_t i = 0; i < _totalFrames; ++i) {
           auto bufferRequest = std::make_shared<BufferRequest>();
           _bufferRequests.push_back(bufferRequest);
-          bufferRequest->request =
-            _endpoint->tagSend(tagMultiSend._buffer[i],
-                               tagMultiSend._length[i],
-                               tagMultiSend._tag,
-                               false,
-                               [this](ucs_status_t status, RequestCallbackUserData arg) {
-                                 return this->markCompleted(status, arg);
-                               });
+          bufferRequest->request = _endpoint->tagSend(
+            tagMultiSend._buffer[i],
+            tagMultiSend._length[i],
+            tagMultiSend._tag,
+            false,
+            [this](ucs_status_t status, RequestCallbackUserData /* callbackData */) {
+              return this->markCompleted(status);
+            });
         }
 
         _isFilled = true;

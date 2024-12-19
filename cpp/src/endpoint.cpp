@@ -230,7 +230,8 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
   bool force    = _endpointErrorHandling;
 
   auto combineCallbacksFunction = [this, &callbackFunction, &callbackData](
-                                    ucs_status_t status, EndpointCloseCallbackUserData unused) {
+                                    ucs_status_t status,
+                                    EndpointCloseCallbackUserData /* callbackData */) {
     _status = status;
     if (callbackFunction) callbackFunction(status, callbackData);
     {
