@@ -19,11 +19,11 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
   : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
 {
   std::visit(data::dispatch{
-               [this](data::StreamSend streamSend) {
+               [this](data::StreamSend) {
                  if (_endpoint == nullptr)
                    throw ucxx::Error("A valid endpoint is required to send stream messages.");
                },
-               [this](data::StreamReceive streamReceive) {
+               [this](data::StreamReceive) {
                  if (_endpoint == nullptr)
                    throw ucxx::Error("A valid endpoint is required to receive stream messages.");
                },
@@ -97,7 +97,7 @@ void RequestStream::populateDelayedSubmission()
 {
   bool terminate =
     std::visit(data::dispatch{
-                 [this](data::StreamSend streamSend) {
+                 [this](data::StreamSend) {
                    if (_endpoint->getHandle() == nullptr) {
                      ucxx_warn("Endpoint was closed before message could be sent");
                      Request::callback(this, UCS_ERR_CANCELED);
@@ -105,7 +105,7 @@ void RequestStream::populateDelayedSubmission()
                    }
                    return false;
                  },
-                 [this](data::StreamReceive streamReceive) {
+                 [this](data::StreamReceive) {
                    if (_worker->getHandle() == nullptr) {
                      ucxx_warn("Worker was closed before message could be received");
                      Request::callback(this, UCS_ERR_CANCELED);
@@ -163,10 +163,13 @@ void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 
                  if (status == UCS_ERR_MESSAGE_TRUNCATED) {
                    const char* fmt = "length mismatch: %llu (got) != %llu (expected)";
-                   size_t len      = std::snprintf(nullptr, 0, fmt, length, streamReceive._length);
-                   _status_msg     = std::string(len + 1, '\0');  // +1 for null terminator
-                   std::snprintf(
-                     _status_msg.data(), _status_msg.size(), fmt, length, streamReceive._length);
+                   int charsLen    = std::snprintf(nullptr, 0, fmt, length, streamReceive._length);
+                   if (charsLen > 0) {
+                     _status_msg = std::string(static_cast<size_t>(charsLen) + 1,
+                                               '\0');  // +1 for null terminator
+                     std::snprintf(
+                       _status_msg.data(), _status_msg.size(), fmt, length, streamReceive._length);
+                   }
                  }
 
                  Request::callback(request, status);

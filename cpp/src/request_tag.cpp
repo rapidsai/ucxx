@@ -67,16 +67,16 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
             callbackData)
 {
   std::visit(data::dispatch{
-               [this](data::TagSend tagSend) {
+               [this](data::TagSend) {
                  if (_endpoint == nullptr)
                    throw ucxx::Error("An endpoint is required to send tag messages");
                },
-               [](data::TagReceive tagReceive) {},
+               [](data::TagReceive) {},
              },
              requestData);
 }
 
-void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* info)
+void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* /* info */)
 {
   // TODO: Decide on behavior. See https://github.com/rapidsai/ucxx/issues/104 .
   // if (status != UCS_ERR_CANCELED && info->length != _length) {
@@ -143,7 +143,7 @@ void RequestTag::populateDelayedSubmission()
 {
   bool terminate =
     std::visit(data::dispatch{
-                 [this](data::TagSend tagSend) {
+                 [this](data::TagSend) {
                    if (_endpoint->getHandle() == nullptr) {
                      ucxx_warn("Endpoint was closed before message could be sent");
                      Request::callback(this, UCS_ERR_CANCELED);
@@ -151,7 +151,7 @@ void RequestTag::populateDelayedSubmission()
                    }
                    return false;
                  },
-                 [this](data::TagReceive tagReceive) {
+                 [this](data::TagReceive) {
                    if (_worker->getHandle() == nullptr) {
                      ucxx_warn("Worker was closed before message could be received");
                      Request::callback(this, UCS_ERR_CANCELED);

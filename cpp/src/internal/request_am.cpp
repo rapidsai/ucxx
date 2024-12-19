@@ -39,7 +39,7 @@ void RecvAmMessage::setUcpRequest(void* request) { _request->_request = request;
 void RecvAmMessage::callback(void* request, ucs_status_t status)
 {
   std::visit(data::dispatch{
-               [this, request, status](data::AmReceive amReceive) {
+               [this, request, status](data::AmReceive) {
                  _request->callback(request, status);
                  {
                    std::lock_guard<std::mutex> lock(_amData->_mutex);

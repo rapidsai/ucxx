@@ -30,7 +30,9 @@ std::unique_ptr<struct addrinfo, void (*)(struct addrinfo*)> get_addrinfo(const 
     // Except, port is numeric, address may be NULL meaning the
     // returned address is the wildcard.
     hints.ai_flags = AI_NUMERICSERV | AI_PASSIVE;
-    if (::snprintf(ports, sizeof(ports), "%u", port) > sizeof(ports))
+
+    int portsLength = ::snprintf(ports, sizeof(ports), "%u", port);
+    if (portsLength < 0 || static_cast<size_t>(portsLength) > sizeof(ports))
       throw ucxx::Error(std::string("Invalid port"));
     if (::getaddrinfo(ip_address, ports, &hints, &result))
       throw ucxx::Error(std::string("Invalid IP address or hostname"));
