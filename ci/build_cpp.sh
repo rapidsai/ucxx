@@ -19,8 +19,13 @@ rapids-logger "Begin C++ and Python builds"
 
 sccache --zero-stats
 
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1740 cpp)
+RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1740 python)
+
 rapids-conda-retry mambabuild \
-  conda/recipes/ucxx
+  conda/recipes/ucxx \
+  --channel "${LIBRMM_CHANNEL}" \
+  --channel "${RMM_CHANNEL}"
 
 sccache --show-adv-stats
 
