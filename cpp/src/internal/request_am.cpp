@@ -29,7 +29,7 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
 
   if (receiverCallback) {
     _request->_callback = [this, receiverCallback](ucs_status_t, std::shared_ptr<void>) {
-      receiverCallback(_request);
+      receiverCallback(_request, _ep);
     };
   }
 }

@@ -126,7 +126,7 @@ typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
  * Type for a custom Active Message receiver callback, executed by the remote worker upon
  * Active Message request completion.
  */
-typedef std::function<void(std::shared_ptr<Request>)> AmReceiverCallbackType;
+typedef std::function<void(std::shared_ptr<Request>, ucp_ep_h)> AmReceiverCallbackType;
 
 /**
  * @brief Active Message receiver callback owner name.

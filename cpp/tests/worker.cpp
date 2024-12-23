@@ -189,7 +189,7 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
   // Define AM receiver callback and register with worker
   std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
   auto callback = ucxx::AmReceiverCallbackType(
-    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req) {
+    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req, ucp_ep_h) {
       {
         std::lock_guard<std::mutex> lock(mutex);
         receivedRequests.push_back(req);
