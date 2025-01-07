@@ -65,6 +65,14 @@ enum Tag : ucp_tag_t {};
  */
 enum TagMask : ucp_tag_t {};
 
+struct TagRecvInfo {
+  Tag senderTag;  ///< Sender tag
+  size_t length;  ///< The size of the received data
+
+  TagRecvInfo() = delete;
+  explicit TagRecvInfo(const ucp_tag_recv_info_t&);
+};
+
 /**
  * @brief A full UCP tag mask.
  *

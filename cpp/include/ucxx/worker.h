@@ -10,6 +10,7 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -698,7 +699,8 @@ class Worker : public Component {
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
    */
-  [[nodiscard]] bool tagProbe(const Tag tag);
+  [[nodiscard]] std::pair<bool, TagRecvInfo> tagProbe(const Tag tag,
+                                                      const TagMask tagMask = TagMaskFull);
 
   /**
    * @brief Enqueue a tag receive operation.

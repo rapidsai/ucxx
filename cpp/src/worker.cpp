@@ -576,7 +576,12 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(const Tag tag)
+TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
+  : senderTag(Tag(info.sender_tag)), length(info.length)
+{
+}
+
+std::pair<bool, TagRecvInfo> Worker::tagProbe(const Tag tag, const TagMask tagMask)
 {
   if (!isProgressThreadRunning()) {
     progress();
@@ -592,9 +597,9 @@ bool Worker::tagProbe(const Tag tag)
   }
 
   ucp_tag_recv_info_t info;
-  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, TagMaskFull, 0, &info);
+  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, 0, &info);
 
-  return tag_message != NULL;
+  return {tag_message != NULL, TagRecvInfo(info)};
 }
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,
