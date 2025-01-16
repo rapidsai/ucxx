@@ -83,7 +83,6 @@ class TagRecvInfo {
   Tag senderTag;  ///< Sender tag
   size_t length;  ///< The size of the received data
 
-  TagRecvInfo() = delete;
   explicit TagRecvInfo(const ucp_tag_recv_info_t&);
 };
 
