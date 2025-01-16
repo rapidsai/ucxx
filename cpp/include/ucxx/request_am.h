@@ -31,6 +31,9 @@ class RequestAm : public Request {
  private:
   friend class internal::RecvAmMessage;
 
+  std::string _header{};  ///< Retain copy of header for send requests as workaround for
+                          ///< https://github.com/openucx/ucx/issues/10424
+
   /**
    * @brief Private constructor of `ucxx::RequestAm`.
    *

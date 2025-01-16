@@ -389,18 +389,18 @@ void RequestAm::request()
         ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                      UCP_OP_ATTR_FIELD_FLAGS |
                                                      UCP_OP_ATTR_FIELD_USER_DATA,
-                                     .flags = UCP_AM_SEND_FLAG_REPLY | UCP_AM_SEND_FLAG_COPY_HEADER,
+                                     .flags     = UCP_AM_SEND_FLAG_REPLY,
                                      .datatype  = ucp_dt_make_contig(1),
                                      .user_data = this};
 
-        param.cb.send         = _amSendCallback;
-        AmHeader header       = {.memoryType           = amSend._memoryType,
-                                 .receiverCallbackInfo = amSend._receiverCallbackInfo};
-        auto headerSerialized = header.serialize();
-        void* request         = ucp_am_send_nbx(_endpoint->getHandle(),
+        param.cb.send   = _amSendCallback;
+        AmHeader header = {.memoryType           = amSend._memoryType,
+                           .receiverCallbackInfo = amSend._receiverCallbackInfo};
+        _header         = header.serialize();
+        void* request   = ucp_am_send_nbx(_endpoint->getHandle(),
                                         0,
-                                        headerSerialized.data(),
-                                        headerSerialized.size(),
+                                        _header.data(),
+                                        _header.size(),
                                         amSend._buffer,
                                         amSend._length,
                                         &param);
