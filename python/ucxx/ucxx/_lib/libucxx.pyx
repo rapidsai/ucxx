@@ -25,6 +25,7 @@ from libcpp.memory cimport (
     unique_ptr,
 )
 from libcpp.optional cimport nullopt
+from libcpp.pair cimport pair
 from libcpp.string cimport string
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
@@ -684,13 +685,25 @@ cdef class UCXWorker():
 
         return num_canceled
 
-    def tag_probe(self, UCXXTag tag) -> bool:
-        cdef bint tag_matched
+    def tag_probe(self, UCXXTag tag, UCXXTagMask tag_mask = UCXXTagMaskFull) -> bool:
         cdef Tag cpp_tag = <Tag><size_t>tag.value
+        cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
+        cdef ucp_tag_recv_info_t empty_tag_recv_info
+        cdef pair[bint, TagRecvInfo]* probed
+        cdef bint tag_matched = False
 
         with nogil:
-            tag_matched = self._worker.get().tagProbe(cpp_tag)
+            # TagRecvInfo is not default-construtible, therefore we need to use a
+            # pointer, allocating it using a temporary ucp_tag_recv_info_t object
+            probed = new pair[bint, TagRecvInfo](
+                False,
+                TagRecvInfo(empty_tag_recv_info)
+            )
+            probed[0] = self._worker.get().tagProbe(cpp_tag, cpp_tag_mask)
+            tag_matched = probed[0].first
+            del probed
 
+        # TODO: Come up with good interface to expose TagRecvInfo as well
         return tag_matched
 
     def set_progress_thread_start_callback(

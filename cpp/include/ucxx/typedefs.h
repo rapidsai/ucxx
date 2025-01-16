@@ -73,6 +73,20 @@ enum TagMask : ucp_tag_t {};
 static constexpr TagMask TagMaskFull{std::numeric_limits<std::underlying_type_t<TagMask>>::max()};
 
 /**
+ * @brief Information about probed tag message.
+ *
+ * Contains information returned when probing by a tag message received by the worker but
+ * not yet consumed.
+ */
+class TagRecvInfo {
+ public:
+  Tag senderTag;  ///< Sender tag
+  size_t length;  ///< The size of the received data
+
+  explicit TagRecvInfo(const ucp_tag_recv_info_t&);
+};
+
+/**
  * @brief A UCP configuration map.
  *
  * A UCP configuration map, with keys being the configuration name and value being the
@@ -124,9 +138,10 @@ typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
  * @brief Active Message receiver callback.
  *
  * Type for a custom Active Message receiver callback, executed by the remote worker upon
- * Active Message request completion.
+ * Active Message request completion. The first parameter is the request that completed,
+ * the second is the handle of the UCX endpoint of the sender.
  */
-typedef std::function<void(std::shared_ptr<Request>)> AmReceiverCallbackType;
+typedef std::function<void(std::shared_ptr<Request>, ucp_ep_h)> AmReceiverCallbackType;
 
 /**
  * @brief Active Message receiver callback owner name.

@@ -10,6 +10,7 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -684,21 +685,29 @@ class Worker : public Component {
    *
    * Checks the worker for any uncaught tag messages. An uncaught tag message is any
    * tag message that has been fully or partially received by the worker, but not matched
-   * by a corresponding `ucp_tag_recv_*` call.
+   * by a corresponding `ucp_tag_recv_*` call. Additionally, returns information about the
+   * tag message.
    *
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`
-   * assert(!worker->tagProbe(0));
+   * auto probe = worker->tagProbe(0);
+   * assert(!probe.first)
    *
    * // `ep` is a remote `std::shared_ptr<ucxx::Endpoint` to the local `worker`
    * ep->tagSend(buffer, length, 0);
    *
-   * assert(worker->tagProbe(0));
+   * probe = worker->tagProbe(0);
+   * assert(probe.first);
+   * assert(probe.second.tag == 0);
+   * assert(probe.second.length == length);
    * @endcode
    *
-   * @returns `true` if any uncaught messages were received, `false` otherwise.
+   * @returns pair where first elements is `true` if any uncaught messages were received,
+   *          `false` otherwise, and second element contain the information from the tag
+   *          receive.
    */
-  [[nodiscard]] bool tagProbe(const Tag tag);
+  [[nodiscard]] std::pair<bool, TagRecvInfo> tagProbe(const Tag tag,
+                                                      const TagMask tagMask = TagMaskFull);
 
   /**
    * @brief Enqueue a tag receive operation.
