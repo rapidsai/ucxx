@@ -288,7 +288,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numba numba>=0.57.1
+          - &numba numba>=0.59.1.1,<0.61.0a0
           - rapids-dask-dependency==25.2.*,>=0.0.0a0
   test_cpp:
     common:

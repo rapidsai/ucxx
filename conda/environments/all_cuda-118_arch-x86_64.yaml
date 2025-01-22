@@ -25,7 +25,7 @@ dependencies:
 - librmm==25.2.*,>=0.0.0a0
 - libtool
 - ninja
-- numba>=0.57.1
+- numba>=0.59.1.1,<0.61.0a0
 - numpy>=1.23,<3.0a0
 - pip
 - pkg-config
