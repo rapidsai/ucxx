@@ -41,5 +41,5 @@ dependencies:
 - scikit-build-core>=0.10.0
 - setuptools>=64.0.0
 - spdlog>=1.14.1,<1.15
-- ucx>=1.15.0,<1.18
+- ucx>=1.15.0,<1.19
 name: all_cuda-125_arch-x86_64
