@@ -32,7 +32,7 @@ function(ConfigureBench CMAKE_BENCH_NAME)
   add_custom_command(
     OUTPUT UCXX_BENCHMARKS
     # COMMAND ${CMAKE_BENCH_NAME} --benchmark_out_format=json
-    # --benchmark_out=results/${CMAKE_BENCH_NAME}.json
+    #         --benchmark_out=results/${CMAKE_BENCH_NAME}.json
     COMMAND ${CMAKE_BENCH_NAME}
     APPEND
     COMMENT "Adding ${CMAKE_BENCH_NAME}"

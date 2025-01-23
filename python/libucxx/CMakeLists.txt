@@ -37,8 +37,8 @@ project(
   LANGUAGES CXX
 )
 
-# Check if ucxx is already available. If so, it's the user's responsibility to ensure that the CMake
-# package is also available at build time of the Python ucxx package.
+# Check if ucxx is already available. If so, it's the user's responsibility to ensure that the
+# CMake package is also available at build time of the Python ucxx package.
 find_package(ucxx "${ucxx_version}")
 
 if(ucxx_FOUND)
