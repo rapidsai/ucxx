@@ -40,9 +40,7 @@ include(../cmake/thirdparty/get_rmm.cmake)
 
 if(FIND_UCXX_CPP)
   rapids_find_package(
-    ucxx REQUIRED
-    BUILD_EXPORT_SET ucxx-python-exports
-    INSTALL_EXPORT_SET ucxx-python-exports
+    ucxx REQUIRED BUILD_EXPORT_SET ucxx-python-exports INSTALL_EXPORT_SET ucxx-python-exports
   )
 else()
   set(UCXX_ENABLE_RMM ON)
@@ -50,9 +48,8 @@ else()
 endif()
 
 rapids_find_package(
-  Python3 REQUIRED COMPONENTS Development
-  BUILD_EXPORT_SET ucxx-python-exports
-  INSTALL_EXPORT_SET ucxx-python-exports
+  Python3 REQUIRED COMPONENTS Development BUILD_EXPORT_SET ucxx-python-exports INSTALL_EXPORT_SET
+  ucxx-python-exports
 )
 set(UCXX_PYTHON_LIB Python3::Python)
 
@@ -128,17 +125,11 @@ install(
 )
 
 rapids_export(
-  INSTALL ucxx-python
-  EXPORT_SET ucxx-python-exports
-  GLOBAL_TARGETS python
-  NAMESPACE ucxx::
+  INSTALL ucxx-python EXPORT_SET ucxx-python-exports GLOBAL_TARGETS python NAMESPACE ucxx::
 )
 
 # ##################################################################################################
 # * build export -------------------------------------------------------------------------------
 rapids_export(
-  BUILD ucxx-python
-  EXPORT_SET ucxx-python-exports
-  GLOBAL_TARGETS python
-  NAMESPACE ucxx::
+  BUILD ucxx-python EXPORT_SET ucxx-python-exports GLOBAL_TARGETS python NAMESPACE ucxx::
 )

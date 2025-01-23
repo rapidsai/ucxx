@@ -97,11 +97,7 @@ endif()
 # * dependencies ----------------------------------------------------------------------------------
 
 # find Threads (needed by ucxxtestutil)
-rapids_find_package(
-  Threads REQUIRED
-  BUILD_EXPORT_SET ucxx-exports
-  INSTALL_EXPORT_SET ucxx-exports
-)
+rapids_find_package(Threads REQUIRED BUILD_EXPORT_SET ucxx-exports INSTALL_EXPORT_SET ucxx-exports)
 
 # add third party dependencies using CPM
 rapids_cpm_init()
@@ -266,21 +262,15 @@ targets:
 )
 
 rapids_export(
-  INSTALL ucxx
-  EXPORT_SET ucxx-exports ${_components_export_string}
-  GLOBAL_TARGETS ucxx
-  NAMESPACE ucxx::
-  DOCUMENTATION doc_string
+  INSTALL ucxx EXPORT_SET ucxx-exports ${_components_export_string} GLOBAL_TARGETS ucxx NAMESPACE
+  ucxx:: DOCUMENTATION doc_string
 )
 
 # ##################################################################################################
 # * build export -------------------------------------------------------------------------------
 rapids_export(
-  BUILD ucxx
-  EXPORT_SET ucxx-exports ${_components_export_string}
-  GLOBAL_TARGETS ucxx
-  NAMESPACE ucxx::
-  DOCUMENTATION doc_string
+  BUILD ucxx EXPORT_SET ucxx-exports ${_components_export_string} GLOBAL_TARGETS ucxx NAMESPACE
+  ucxx:: DOCUMENTATION doc_string
 )
 
 # ##################################################################################################
