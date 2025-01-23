@@ -28,14 +28,11 @@ function(ConfigureBench CMAKE_BENCH_NAME)
                CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
   )
-  target_link_libraries(
-    ${CMAKE_BENCH_NAME} PRIVATE ucxx
-                                $<TARGET_NAME_IF_EXISTS:conda_env>
-  )
+  target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE ucxx $<TARGET_NAME_IF_EXISTS:conda_env>)
   add_custom_command(
     OUTPUT UCXX_BENCHMARKS
     # COMMAND ${CMAKE_BENCH_NAME} --benchmark_out_format=json
-    #         --benchmark_out=results/${CMAKE_BENCH_NAME}.json
+    # --benchmark_out=results/${CMAKE_BENCH_NAME}.json
     COMMAND ${CMAKE_BENCH_NAME}
     APPEND
     COMMENT "Adding ${CMAKE_BENCH_NAME}"

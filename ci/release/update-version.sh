@@ -69,6 +69,7 @@ done
 
 # rapids-cmake version
 sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_RAPIDS_SHORT_TAG}\/RAPIDS.cmake"'/g' fetch_rapids.cmake
+sed_runner "s/branch-[[:digit:]]\{2\}.[[:digit:]]\{2\}/branch-${NEXT_RAPIDS_SHORT_TAG}/g" ./ci/check_style.sh
 
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_RAPIDS_SHORT_TAG}/g" "${FILE}"

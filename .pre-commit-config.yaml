@@ -49,7 +49,7 @@ repos:
                 - --fix
                 - --rapids-version=25.02
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.16.0
+        rev: v1.17.0
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
@@ -63,6 +63,30 @@ repos:
               language: system
               pass_filenames: false
               verbose: true
+            - id: cmake-format
+              name: cmake-format
+              entry: ./cpp/scripts/run-cmake-format.sh cmake-format
+              language: python
+              types: [cmake]
+              #exclude: .*/thirdparty/.*
+              # Note that pre-commit autoupdate does not update the versions
+              # of dependencies, so we'll have to update this manually.
+              additional_dependencies:
+                - cmakelang==0.6.13
+              verbose: true
+              require_serial: true
+            - id: cmake-lint
+              name: cmake-lint
+              entry: ./cpp/scripts/run-cmake-format.sh cmake-lint
+              language: python
+              types: [cmake]
+              #exclude: .*/thirdparty/.*
+              # Note that pre-commit autoupdate does not update the versions
+              # of dependencies, so we'll have to update this manually.
+              additional_dependencies:
+                - cmakelang==0.6.13
+              verbose: true
+              require_serial: true
       - repo: https://github.com/codespell-project/codespell
         rev: v2.2.2
         hooks:
