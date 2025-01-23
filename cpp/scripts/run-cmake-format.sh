@@ -35,7 +35,7 @@ fi
 
 if ! [ ${status} -eq 0 ]; then
     if [[ ${UCXX_BUILD_DIR} == *"not a git repository"* ]]; then
-        echo "This script must be run inside the cugraph-gnn repository, or the UCXX_ROOT environment variable must be set."
+        echo "This script must be run inside the ucxx repository, or the UCXX_ROOT environment variable must be set."
     else
         echo "Script failed with unknown error attempting to determine project root:"
         echo ${UCXX_BUILD_DIR}
