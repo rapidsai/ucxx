@@ -53,6 +53,16 @@ repos:
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
+      - repo: local
+        hooks:
+            - id: doxygen-check
+              name: doxygen-check
+              entry: ./ci/checks/doxygen.sh
+              files: ^cpp/include/
+              types_or: [file]
+              language: system
+              pass_filenames: false
+              verbose: true
       - repo: https://github.com/codespell-project/codespell
         rev: v2.2.2
         hooks:
