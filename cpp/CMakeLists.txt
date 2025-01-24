@@ -16,10 +16,7 @@ if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
   set(libucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
 else()
   string(REPLACE "\n" "\n  " _version_contents_formatted "${_version_contents}")
-  message(
-    FATAL_ERROR
-      "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}"
-  )
+  message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
 endif()
 
 project(
@@ -59,9 +56,7 @@ set(UCXX_BUILD_TESTS ${BUILD_TESTS})
 set(UCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
 set(UCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
 
-set(UCXX_CXX_FLAGS -Wall -Wattributes -Werror -Wextra -Wsign-conversion
-                   -Wno-missing-field-initializers
-)
+set(UCXX_CXX_FLAGS -Wall -Wattributes -Werror -Wextra -Wsign-conversion -Wno-missing-field-initializers)
 set(UCXX_CXX_DEFINITIONS "")
 
 # Set RMM logging level
@@ -174,7 +169,9 @@ set_target_properties(
              INTERFACE_POSITION_INDEPENDENT_CODE ON
 )
 
-target_compile_options(ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>")
+target_compile_options(
+  ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
+)
 
 # Specify include paths for the current target and dependents
 target_include_directories(
@@ -184,20 +181,23 @@ target_include_directories(
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
-target_compile_definitions(ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>")
+target_compile_definitions(
+  ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
+)
 
 # Enable RMM if necessary
 if(UCXX_ENABLE_RMM)
-  target_link_libraries(ucxx PUBLIC rmm::rmm)
+    target_link_libraries(ucxx
+      PUBLIC rmm::rmm
+    )
 
-  # Define spdlog level
-  target_compile_definitions(
-    ucxx PUBLIC UCXX_ENABLE_RMM "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}"
-  )
+    # Define spdlog level
+    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
 endif()
 
 # Specify the target module library dependencies
 target_link_libraries(ucxx PUBLIC ucx::ucp)
+
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
@@ -251,7 +251,9 @@ install(
   EXPORT ucxx-exports
 )
 
-install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx
+                  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
 set(doc_string
     [=[

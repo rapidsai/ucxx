@@ -16,10 +16,7 @@ if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
   set(libucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
 else()
   string(REPLACE "\n" "\n  " _version_contents_formatted "${_version_contents}")
-  message(
-    FATAL_ERROR
-      "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}"
-  )
+  message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
 endif()
 
 project(
@@ -81,8 +78,13 @@ endif()
 # ##################################################################################################
 # * python library --------------------------------------------------------------------------------
 add_library(
-  ucxx_python src/exception.cpp src/future.cpp src/notifier.cpp src/python_future.cpp
-              src/python_future_task_collector.cpp src/worker.cpp
+  ucxx_python
+  src/exception.cpp
+  src/future.cpp
+  src/notifier.cpp
+  src/python_future.cpp
+  src/python_future_task_collector.cpp
+  src/worker.cpp
 )
 
 set_target_properties(
@@ -97,28 +99,34 @@ set_target_properties(
              INTERFACE_POSITION_INDEPENDENT_CODE ON
 )
 
-target_compile_options(ucxx_python PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>")
+target_compile_options(
+  ucxx_python PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
+)
 
 get_filename_component(ucxx_dir "${CMAKE_CURRENT_SOURCE_DIR}" DIRECTORY)
 
 # Specify include paths for the current target and dependents
 target_include_directories(
   ucxx_python
-  PUBLIC "$<BUILD_INTERFACE:${ucxx_dir}/include>" "$<BUILD_INTERFACE:${ucxx_dir}/python/include>"
+  PUBLIC "$<BUILD_INTERFACE:${ucxx_dir}/include>"
+         "$<BUILD_INTERFACE:${ucxx_dir}/python/include>"
   PRIVATE "$<BUILD_INTERFACE:${ucxx_dir}/src>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
-target_compile_definitions(ucxx_python PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>")
+target_compile_definitions(
+  ucxx_python PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
+)
 
 target_compile_definitions(ucxx_python PUBLIC UCXX_ENABLE_PYTHON)
 # Define spdlog level
-target_compile_definitions(
-  ucxx_python PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}"
-)
+target_compile_definitions(ucxx_python PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
 
 # Specify the target module library dependencies
-target_link_libraries(ucxx_python PUBLIC rmm::rmm ucx::ucp ucxx::ucxx ${UCXX_PYTHON_LIB})
+target_link_libraries(
+  ucxx_python
+  PUBLIC rmm::rmm ucx::ucp ucxx::ucxx ${UCXX_PYTHON_LIB}
+)
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
@@ -127,12 +135,10 @@ endif()
 
 include(GNUInstallDirs)
 add_library(ucxx::python ALIAS ucxx_python)
-install(DIRECTORY ${ucxx_dir}/python/include/ucxx DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(
-  TARGETS ucxx_python
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  EXPORT ucxx-python-exports
+install(DIRECTORY ${ucxx_dir}/python/include/ucxx
+                  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+install(TARGETS ucxx_python DESTINATION ${CMAKE_INSTALL_LIBDIR} EXPORT ucxx-python-exports)
 
 rapids_export(
   INSTALL ucxx-python

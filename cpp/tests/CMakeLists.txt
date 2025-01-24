@@ -19,8 +19,8 @@ function(ConfigureTest CMAKE_TEST_NAME)
   )
 
   target_include_directories(
-    ${CMAKE_TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}>"
-                              "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
+      ${CMAKE_TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}>"
+                                "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
   )
 
   target_link_libraries(
@@ -43,8 +43,17 @@ endfunction()
 # ##################################################################################################
 # * ucxx tests ------------------------------------------------------------------------------------
 ConfigureTest(
-  UCXX_TEST buffer.cpp config.cpp context.cpp endpoint.cpp header.cpp listener.cpp request.cpp
-  rma.cpp utils.cpp worker.cpp
+  UCXX_TEST
+  buffer.cpp
+  config.cpp
+  context.cpp
+  endpoint.cpp
+  header.cpp
+  listener.cpp
+  request.cpp
+  rma.cpp
+  utils.cpp
+  worker.cpp
 )
 
 # ##################################################################################################
