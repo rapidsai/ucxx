@@ -156,10 +156,8 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - &cmake_ver cmake>=3.26.4,!=3.30.0
-          - fmt>=11.0.2,<12
           - librmm==25.4.*,>=0.0.0a0
           - ninja
-          - spdlog>=1.14.1,<1.15
       - output_types: [requirements, pyproject]
         packages:
           - *cmake_ver

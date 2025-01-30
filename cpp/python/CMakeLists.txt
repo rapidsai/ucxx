@@ -118,9 +118,7 @@ target_compile_definitions(
   ucxx_python PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
 )
 
-target_compile_definitions(ucxx_python PUBLIC UCXX_ENABLE_PYTHON)
-# Define spdlog level
-target_compile_definitions(ucxx_python PUBLIC "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
+target_compile_definitions(ucxx_python PUBLIC UCXX_ENABLE_PYTHON "RMM_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LEVEL_${RMM_LOGGING_LEVEL}")
 
 # Specify the target module library dependencies
 target_link_libraries(
