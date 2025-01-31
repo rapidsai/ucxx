@@ -16,6 +16,7 @@ jobs:
       - changed-files
       - checks
       - conda-cpp-build
+      - devcontainer
       - docs-build
       - conda-cpp-tests
       - conda-python-tests
@@ -49,12 +50,14 @@ jobs:
       files_yaml: |
         test_cpp:
           - '**'
+          - '!.devcontainer/**'
           - '!.pre-commit-config.yaml'
           - '!README.md'
           - '!docs/**'
           - '!python/**'
         test_python:
           - '**'
+          - '!.devcontainer/**'
           - '!.pre-commit-config.yaml'
           - '!README.md'
           - '!docs/**'
@@ -145,3 +148,14 @@ jobs:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_wheel_distributed_ucxx.sh
+  devcontainer:
+    secrets: inherit
+    needs: checks
+    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.04
+    with:
+      arch: '["amd64"]'
+      cuda: '["12.8"]'
+      build_command: |
+        sccache -z;
+        build-all --verbose;
+        sccache -s;
