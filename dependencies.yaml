@@ -79,6 +79,7 @@ files:
     extras:
       table: project
     includes:
+      - depends_on_librmm
       - depends_on_ucx_run
   py_build_ucxx:
     output: pyproject

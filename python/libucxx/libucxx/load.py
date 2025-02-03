@@ -44,6 +44,11 @@ def _load_wheel_installation(soname: str):
 
 def load_library():
     """Dynamically load libucxx.so and its dependencies"""
+    try:
+        import librmm  # noqa: F401
+    except ModuleNotFoundError:
+        pass
+
     # If libucx was installed as a wheel, we must request it to load the library
     # symbols. Otherwise, we assume that the library was installed in a system path
     # that ld can find.
