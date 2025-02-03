@@ -28,9 +28,13 @@ BINARY_PATH=${CONDA_PREFIX}/bin
 
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+LIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 cpp conda)
+PYLIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 python conda)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
+  --channel "${LIBRMM_CHANNEL}" \
+  --channel "${PYLIBRMM_CHANNEL}" \
   "libucxx=${UCXX_VERSION}" \
   "libucxx-examples=${UCXX_VERSION}" \
   "libucxx-tests=${UCXX_VERSION}"
