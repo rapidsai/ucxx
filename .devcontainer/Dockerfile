@@ -8,11 +8,6 @@ FROM ${BASE} as pip-base
 ENV DEFAULT_VIRTUAL_ENV=rapids
 ENV RAPIDS_LIBUCX_PREFER_SYSTEM_LIBRARY=true
 
-RUN apt update -y \
- && DEBIAN_FRONTEND=noninteractive apt install -y \
-    libblas-dev liblapack-dev \
- && rm -rf /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*;
-
 FROM ${BASE} as conda-base
 
 ENV DEFAULT_CONDA_ENV=rapids
