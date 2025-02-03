@@ -214,7 +214,8 @@ outputs:
         - {{ pin_subpackage('libucxx', exact=True) }}
         - ucx
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
-        - rmm {{ rapids_version }}
+        # TODO: Remove after testing
+        - rmm =25.04.00a27
         - cuda-version {{ cuda_version }}
       run:
         - python * *_cpython
@@ -226,7 +227,8 @@ outputs:
         {% endif %}
         - ucx >=1.15.0,<1.19.0
         - {{ pin_subpackage('libucxx', exact=True) }}
-        - {{ pin_compatible('rmm', max_pin='x.x') }}
+        # TODO: Remove after testing
+        - rmm =25.04.00a27
         - numpy >=1.23,<3.0a0
         - pynvml >=12.0.0,<13.0.0a0
       run_constrained:
