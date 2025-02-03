@@ -29,6 +29,7 @@ mkdir -p "${package_dir}/final_dist"
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
     --exclude "libucxx.so" \
+    --exclude librapids_logger.so \
     -w "${package_dir}/final_dist" \
     ${package_dir}/dist/*
 
