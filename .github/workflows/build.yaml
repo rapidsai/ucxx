@@ -28,7 +28,7 @@ concurrency:
 jobs:
   conda-cpp-build:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-25.02
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@nvks-runners
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -38,20 +38,20 @@ jobs:
     if: github.ref_type == 'branch'
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-25.02
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@nvks-runners
     with:
       arch: "amd64"
       branch: ${{ inputs.branch }}
       build_type: ${{ inputs.build_type || 'branch' }}
       container_image: "rapidsai/ci-conda:latest"
       date: ${{ inputs.date }}
-      node_type: "gpu-v100-latest-1"
+      node_type: "gpu-l4-latest-1"
       run_script: "ci/build_docs.sh"
       sha: ${{ inputs.sha }}
   upload-conda:
     needs: [conda-cpp-build]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@branch-25.02
+    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@nvks-runners
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -59,7 +59,7 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-libucxx:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@nvks-runners
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -71,7 +71,7 @@ jobs:
   wheel-publish-libucxx:
     needs: wheel-build-libucxx
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-25.02
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@nvks-runners
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -82,7 +82,7 @@ jobs:
   wheel-build-ucxx:
     needs: wheel-build-libucxx
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@nvks-runners
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -92,7 +92,7 @@ jobs:
   wheel-publish-ucxx:
     needs: wheel-build-ucxx
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-25.02
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@nvks-runners
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -102,7 +102,7 @@ jobs:
       package-type: python
   wheel-build-distributed-ucxx:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@nvks-runners
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -112,7 +112,7 @@ jobs:
   wheel-publish-distributed-ucxx:
     needs: [wheel-build-ucxx, wheel-build-distributed-ucxx]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-25.02
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@nvks-runners
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
