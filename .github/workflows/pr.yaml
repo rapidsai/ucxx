@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  RAPIDS_CONDA_RETRY_TIMEOUT: '13s'
+
 jobs:
   pr-builder:
     needs:
