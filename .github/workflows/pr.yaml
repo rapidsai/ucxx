@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RAPIDS_CONDA_RETRY_TIMEOUT: '13s'
+  RAPIDS_CONDA_RETRY_TIMEOUT: 120
 
 jobs:
   pr-builder:
