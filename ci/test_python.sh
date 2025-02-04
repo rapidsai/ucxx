@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+source ./ci/use_gha_tools_from_branch.sh
+
 source "$(dirname "$0")/test_common.sh"
 
 rapids-logger "Create test conda environment"

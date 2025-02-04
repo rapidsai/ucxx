@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+source ./ci/use_gha_tools_from_branch.sh
+
 
 ################################### Common #####################################
 log_command() {

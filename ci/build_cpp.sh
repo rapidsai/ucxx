@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+source ./ci/use_gha_tools_from_branch.sh
+
 rapids-configure-conda-channels
 
 source rapids-configure-sccache
