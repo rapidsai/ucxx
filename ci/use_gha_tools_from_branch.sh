@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export RAPIDS_CONDA_RETRY_TIMEOUT=120
+export RAPIDS_MAMBA_RETRY_TIMEOUT=146
 
 # fill these in
 GHA_TOOLS_BRANCH='conda-install-timeout'
