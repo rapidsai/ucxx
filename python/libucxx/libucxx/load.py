@@ -48,6 +48,9 @@ def load_library():
         import librmm  # noqa: F401
     except ModuleNotFoundError:
         pass
+    else:
+        librmm.load_library()
+        del librmm
 
     # If libucx was installed as a wheel, we must request it to load the library
     # symbols. Otherwise, we assume that the library was installed in a system path
