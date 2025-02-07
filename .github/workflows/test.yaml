@@ -19,7 +19,7 @@ on:
 jobs:
   conda-cpp-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-25.04
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -28,7 +28,7 @@ jobs:
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   conda-python-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.04
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -37,7 +37,7 @@ jobs:
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   conda-python-distributed-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.04
     with:
       build_type: ${{ inputs.build_type }}
       script: "ci/test_python_distributed.sh"
@@ -47,7 +47,7 @@ jobs:
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   wheel-tests-ucxx:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.04
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
@@ -57,7 +57,7 @@ jobs:
       script: ci/test_wheel_ucxx.sh
   wheel-tests-distributed-ucxx:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.04
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
