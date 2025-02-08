@@ -19,7 +19,7 @@ rapids-logger "Begin C++ and Python builds"
 
 sccache --zero-stats
 
-rapids-conda-retry mambabuild \
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild \
   conda/recipes/ucxx
 
 sccache --show-adv-stats
