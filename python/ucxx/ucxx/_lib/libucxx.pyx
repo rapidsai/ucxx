@@ -351,6 +351,18 @@ cdef class UCXContext():
         return int(<uintptr_t>handle)
 
     @property
+    def ucxx_ptr(self) -> int:
+        cdef Context* context
+
+        with nogil:
+            context = self._context.get()
+
+        return int(<uintptr_t>context)
+
+    cdef shared_ptr[Context] get_ucxx_shared_ptr(self) nogil:
+        return self._context
+
+    @property
     def info(self) -> str:
         cdef Context* ucxx_context
         cdef string info
@@ -431,6 +443,18 @@ cdef class UCXAddress():
     @property
     def address(self) -> int:
         return int(<uintptr_t>self._handle)
+
+    @property
+    def ucxx_ptr(self) -> int:
+        cdef Address* address
+
+        with nogil:
+            address = self._address.get()
+
+        return int(<uintptr_t>address)
+
+    cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil:
+        return self._address
 
     @property
     def length(self) -> int:
@@ -536,6 +560,9 @@ cdef class UCXWorker():
             worker = self._worker.get()
 
         return int(<uintptr_t>worker)
+
+    cdef shared_ptr[Worker] get_ucxx_shared_ptr(self) nogil:
+        return self._worker
 
     @property
     def info(self) -> str:
@@ -787,6 +814,18 @@ cdef class UCXRequest():
             self._request.reset()
 
     @property
+    def ucxx_ptr(self) -> int:
+        cdef Request* request
+
+        with nogil:
+            request = self._request.get()
+
+        return int(<uintptr_t>request)
+
+    cdef shared_ptr[Request] get_ucxx_shared_ptr(self) nogil:
+        return self._request
+
+    @property
     def completed(self) -> bool:
         cdef bint completed
 
@@ -974,6 +1013,18 @@ cdef class UCXBufferRequests:
             ])
 
             self._requests = tuple([br.request for br in self._buffer_requests])
+
+    @property
+    def ucxx_ptr(self) -> int:
+        cdef RequestTagMulti* request_tag_multi
+
+        with nogil:
+            request_tag_multi = self._ucxx_request_tag_multi.get()
+
+        return int(<uintptr_t>request_tag_multi)
+
+    cdef RequestTagMultiPtr get_ucxx_shared_ptr(self) nogil:
+        return self._ucxx_request_tag_multi
 
     @property
     def completed(self) -> bool:
@@ -1230,6 +1281,9 @@ cdef class UCXEndpoint():
             endpoint = self._endpoint.get()
 
         return int(<uintptr_t>endpoint)
+
+    cdef shared_ptr[Endpoint] get_ucxx_shared_ptr(self) nogil:
+        return self._endpoint
 
     @property
     def worker_handle(self) -> int:
@@ -1602,6 +1656,18 @@ cdef class UCXListener():
             )
 
         return listener
+
+    @property
+    def ucxx_ptr(self) -> int:
+        cdef Listener* listener
+
+        with nogil:
+            listener = self._listener.get()
+
+        return int(<uintptr_t>listener)
+
+    cdef shared_ptr[Listener] get_ucxx_shared_ptr(self) nogil:
+        return self._listener
 
     @property
     def port(self) -> int:
