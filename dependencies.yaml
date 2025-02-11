@@ -240,6 +240,7 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-cudart-dev
+              - cuda-nvcc
   dev:
     common:
       - output_types: [conda]
