@@ -21,7 +21,6 @@ dependencies:
 - dask-cuda==25.4.*,>=0.0.0a0
 - dask-cudf==25.4.*,>=0.0.0a0
 - doxygen=1.9.1
-- fmt>=11.0.2,<12
 - librmm==25.4.*,>=0.0.0a0
 - libtool
 - ninja
@@ -40,6 +39,5 @@ dependencies:
 - rmm==25.4.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
 - setuptools>=64.0.0
-- spdlog>=1.14.1,<1.15
 - ucx>=1.15.0,<1.19
 name: all_cuda-118_arch-x86_64
