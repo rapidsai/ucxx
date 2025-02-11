@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,10 +48,12 @@ def load_library():
     # symbols. Otherwise, we assume that the library was installed in a system path
     # that ld can find.
     try:
+        import librmm
         import libucx
     except ModuleNotFoundError:
         pass
     else:
+        librmm.load_library()
         libucx.load_library()
         del libucx
 
