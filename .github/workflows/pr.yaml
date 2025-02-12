@@ -26,6 +26,7 @@ jobs:
       - wheel-tests-ucxx
       - wheel-build-distributed-ucxx
       - wheel-tests-distributed-ucxx
+      - telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-25.04
     if: always()
@@ -43,8 +44,21 @@ jobs:
         uses: rapidsai/shared-actions/check_nightly_success/dispatch@main
         with:
           repo: ucxx
+
+  telemetry-setup:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      OTEL_SERVICE_NAME: "pr-ucxx"
+    steps:
+      - name: Telemetry setup
+        # This gate is here and not at the job level because we need the job to not be skipped,
+        # since other jobs depend on it.
+        if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
+        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   changed-files:
     secrets: inherit
+    needs: telemetry-setup
     uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@branch-25.04
     with:
       files_yaml: |
@@ -64,8 +78,10 @@ jobs:
   checks:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-25.04
+    needs: telemetry-setup
     with:
       enable_check_generated_files: false
+      ignored_pr_jobs: telemetry-summarize
   conda-cpp-build:
     needs: checks
     secrets: inherit
@@ -150,7 +166,7 @@ jobs:
       script: ci/test_wheel_distributed_ucxx.sh
   devcontainer:
     secrets: inherit
-    needs: checks
+    needs: [checks, telemetry-setup]
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.04
     with:
       arch: '["amd64"]'
@@ -159,3 +175,13 @@ jobs:
         sccache -z;
         build-all --verbose;
         sccache -s;
+
+  telemetry-summarize:
+    # This job must use a self-hosted runner to record telemetry traces.
+    runs-on: linux-amd64-cpu4
+    needs: pr-builder
+    if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
+    continue-on-error: true
+    steps:
+      - name: Telemetry summarize
+        uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main
