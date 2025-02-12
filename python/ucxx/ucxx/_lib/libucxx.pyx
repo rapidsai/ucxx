@@ -1015,18 +1015,6 @@ cdef class UCXBufferRequests:
             self._requests = tuple([br.request for br in self._buffer_requests])
 
     @property
-    def ucxx_ptr(self) -> int:
-        cdef RequestTagMulti* request_tag_multi
-
-        with nogil:
-            request_tag_multi = self._ucxx_request_tag_multi.get()
-
-        return int(<uintptr_t>request_tag_multi)
-
-    cdef RequestTagMultiPtr get_ucxx_shared_ptr(self) nogil:
-        return self._ucxx_request_tag_multi
-
-    @property
     def completed(self) -> bool:
         cdef bint completed
 

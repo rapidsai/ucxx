@@ -1,15 +1,19 @@
-from libc.stdint cimport uint64_t
+from libc.stdint cimport uint64_t, uintptr_t
 from libcpp.memory cimport shared_ptr, unique_ptr
 
 from .ucxx_api cimport *
 
 
 cdef class HostBufferAdapter:
-    cdef Py_ssize_t _size
-    cdef void* _ptr
-    cdef Py_ssize_t[1] _shape
-    cdef Py_ssize_t[1] _strides
-    cdef Py_ssize_t _itemsize
+    cdef:
+        Py_ssize_t _size
+        void* _ptr
+        Py_ssize_t[1] _shape
+        Py_ssize_t[1] _strides
+        Py_ssize_t _itemsize
+
+    @staticmethod
+    cdef _from_host_buffer(HostBuffer* host_buffer)
 
 
 cdef class UCXConfig:
@@ -24,6 +28,10 @@ cdef class UCXContext:
         shared_ptr[Context] _context
         dict _config
 
+    cpdef dict get_config(self)
+
+    cdef shared_ptr[Context] get_ucxx_shared_ptr(self) nogil
+
 
 cdef class UCXAddress:
     cdef:
@@ -31,6 +39,8 @@ cdef class UCXAddress:
         size_t _length
         ucp_address_t *_handle
         string _string
+
+    cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil
 
 
 cdef class UCXWorker:
@@ -41,12 +51,15 @@ cdef class UCXWorker:
         bint _enable_python_future
         uint64_t _context_feature_flags
 
+    cdef shared_ptr[Worker] get_ucxx_shared_ptr(self) nogil
 
 cdef class UCXRequest:
     cdef:
         shared_ptr[Request] _request
         bint _enable_python_future
         bint _completed
+
+    cdef shared_ptr[Request] get_ucxx_shared_ptr(self) nogil
 
 
 cdef class UCXBufferRequest:
@@ -73,6 +86,8 @@ cdef class UCXEndpoint:
         dict _close_cb_data
         shared_ptr[uintptr_t] _close_cb_data_ptr
 
+    cdef shared_ptr[Endpoint] get_ucxx_shared_ptr(self) nogil
+
 
 cdef class UCXListener:
     cdef:
@@ -80,3 +95,5 @@ cdef class UCXListener:
         bint _enable_python_future
         dict _cb_data
         object __weakref__
+
+    cdef shared_ptr[Listener] get_ucxx_shared_ptr(self) nogil
