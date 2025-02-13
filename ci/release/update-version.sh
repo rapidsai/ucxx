@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 ########################
 # UCXX Version Updater #
 ########################
@@ -46,9 +50,11 @@ DEPENDENCIES=(
   rmm
 )
 UCXX_DEPENDENCIES=(
-  libucxx
-  ucxx
   distributed-ucxx
+  libucxx
+  libucxx-examples
+  libucxx-tests
+  ucxx
 )
 for FILE in dependencies.yaml conda/environments/*.yaml; do
   for DEP in "${DEPENDENCIES[@]}"; do

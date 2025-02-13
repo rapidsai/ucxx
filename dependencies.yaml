@@ -30,6 +30,9 @@ files:
     includes:
       - cuda_version
       - test_cpp
+      - depends_on_libucxx
+      - depends_on_libucxx_examples
+      - depends_on_libucxx_tests
   test_python:
     output: none
     includes:
@@ -38,6 +41,8 @@ files:
       - test_python_ucxx
       - depends_on_cupy
       - depends_on_cudf
+      - depends_on_libucxx
+      - depends_on_ucxx
   test_python_distributed:
     output: none
     includes:
@@ -46,6 +51,9 @@ files:
       - test_python_distributed_ucxx
       - depends_on_cupy
       - depends_on_cudf
+      - depends_on_libucxx
+      - depends_on_ucxx
+      - depends_on_distributed_ucxx
   checks:
     output: none
     includes:
@@ -399,7 +407,16 @@ dependencies:
             packages:
               - cudf-cu11==25.4.*,>=0.0.0a0
           - {matrix: null, packages: [*cudf_unsuffixed]}
+  depends_on_distributed_ucxx:
+    common:
+      - output_types: conda
+        packages:
+          - distributed-ucxx==0.43.*,>=0.0.0a0
   depends_on_libucxx:
+    common:
+      - output_types: conda
+        packages:
+          - libucxx==0.43.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -416,6 +433,16 @@ dependencies:
           - matrix:
             packages:
               - libucxx==0.43.*,>=0.0.0a0
+  depends_on_libucxx_examples:
+    common:
+      - output_types: conda
+        packages:
+          - libucxx-examples==0.43.*,>=0.0.0a0
+  depends_on_libucxx_tests:
+    common:
+      - output_types: conda
+        packages:
+          - libucxx-tests==0.43.*,>=0.0.0a0
   depends_on_ucxx:
     common:
       - output_types: conda
