@@ -3,12 +3,17 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
+#include <memory>
 #include <numeric>
 #include <utility>
 
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
+
+#if UCXX_ENABLE_RMM
+#include <rmm/device_buffer.hpp>
+#endif
 
 namespace {
 

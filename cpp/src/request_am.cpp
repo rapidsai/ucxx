@@ -4,9 +4,11 @@
  */
 #include <cstdio>
 #include <memory>
+#include <queue>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -145,11 +147,11 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
             callbackData)
 {
   std::visit(data::dispatch{
-               [this](data::AmSend amSend) {
+               [this](data::AmSend) {
                  if (_endpoint == nullptr)
                    throw ucxx::Error("An endpoint is required to send active messages");
                },
-               [](data::AmReceive amReceive) {},
+               [](data::AmReceive) {},
              },
              requestData);
 }
@@ -183,7 +185,7 @@ static void _amSendCallback(void* request, ucs_status_t status, void* user_data)
 
 static void _recvCompletedCallback(void* request,
                                    ucs_status_t status,
-                                   size_t length,
+                                   size_t /* length */,
                                    void* user_data)
 {
   internal::RecvAmMessage* recvAmMessage = static_cast<internal::RecvAmMessage*>(user_data);
@@ -223,7 +225,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       try {
         return amData->_receiverCallbacks.at(amHeader.receiverCallbackInfo->owner)
           .at(amHeader.receiverCallbackInfo->id);
-      } catch (std::out_of_range) {
+      } catch (const std::out_of_range& e) {
         ucxx_error("No AM receiver callback registered for owner '%s' with id %lu",
                    std::string(amHeader.receiverCallbackInfo->owner).data(),
                    amHeader.receiverCallbackInfo->id);
@@ -387,18 +389,18 @@ void RequestAm::request()
         ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                      UCP_OP_ATTR_FIELD_FLAGS |
                                                      UCP_OP_ATTR_FIELD_USER_DATA,
-                                     .flags = UCP_AM_SEND_FLAG_REPLY | UCP_AM_SEND_FLAG_COPY_HEADER,
+                                     .flags     = UCP_AM_SEND_FLAG_REPLY,
                                      .datatype  = ucp_dt_make_contig(1),
                                      .user_data = this};
 
-        param.cb.send         = _amSendCallback;
-        AmHeader header       = {.memoryType           = amSend._memoryType,
-                                 .receiverCallbackInfo = amSend._receiverCallbackInfo};
-        auto headerSerialized = header.serialize();
-        void* request         = ucp_am_send_nbx(_endpoint->getHandle(),
+        param.cb.send   = _amSendCallback;
+        AmHeader header = {.memoryType           = amSend._memoryType,
+                           .receiverCallbackInfo = amSend._receiverCallbackInfo};
+        _header         = header.serialize();
+        void* request   = ucp_am_send_nbx(_endpoint->getHandle(),
                                         0,
-                                        headerSerialized.data(),
-                                        headerSerialized.size(),
+                                        _header.data(),
+                                        _header.size(),
                                         amSend._buffer,
                                         amSend._length,
                                         &param);
@@ -415,7 +417,7 @@ void RequestAm::populateDelayedSubmission()
 {
   bool terminate =
     std::visit(data::dispatch{
-                 [this](data::AmSend amSend) {
+                 [this](data::AmSend) {
                    if (_endpoint->getHandle() == nullptr) {
                      ucxx_warn("Endpoint was closed before message could be sent");
                      Request::callback(this, UCS_ERR_CANCELED);

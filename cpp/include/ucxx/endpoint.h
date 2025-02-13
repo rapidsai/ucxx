@@ -55,9 +55,9 @@ class Endpoint : public Component {
   bool _endpointErrorHandling{true};  ///< Whether the endpoint enables error handling
   std::unique_ptr<InflightRequests> _inflightRequests{
     std::make_unique<InflightRequests>()};  ///< The inflight requests
-  std::mutex _mutex{std::mutex()};  ///< Mutex used during close to prevent race conditions between
-                                    ///< application thread and `ucxx::Endpoint::setCloseCallback()`
-                                    ///< that may run asynchronously on another thread.
+  std::mutex _mutex{};  ///< Mutex used during close to prevent race conditions between
+                        ///< application thread and `ucxx::Endpoint::setCloseCallback()`
+                        ///< that may run asynchronously on another thread.
   ucs_status_t _status{UCS_INPROGRESS};  ///< Endpoint status
   std::atomic<bool> _closing{false};     ///< Prevent calling close multiple concurrent times.
   EndpointCloseCallbackUserFunction _closeCallback{nullptr};  ///< Close callback to call
@@ -157,11 +157,10 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  [[nodiscard]] friend std::shared_ptr<Endpoint> createEndpointFromHostname(
-    std::shared_ptr<Worker> worker,
-    std::string ipAddress,
-    uint16_t port,
-    bool endpointErrorHandling);
+  friend std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
+                                                              std::string ipAddress,
+                                                              uint16_t port,
+                                                              bool endpointErrorHandling);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -185,8 +184,9 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  [[nodiscard]] friend std::shared_ptr<Endpoint> createEndpointFromConnRequest(
-    std::shared_ptr<Listener> listener, ucp_conn_request_h connRequest, bool endpointErrorHandling);
+  friend std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener> listener,
+                                                                 ucp_conn_request_h connRequest,
+                                                                 bool endpointErrorHandling);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -207,8 +207,9 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  [[nodiscard]] friend std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
-    std::shared_ptr<Worker> worker, std::shared_ptr<Address> address, bool endpointErrorHandling);
+  friend std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker> worker,
+                                                                   std::shared_ptr<Address> address,
+                                                                   bool endpointErrorHandling);
 
   /**
    * @brief Get the underlying `ucp_ep_h` handle.

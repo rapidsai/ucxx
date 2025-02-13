@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <stdexcept>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 

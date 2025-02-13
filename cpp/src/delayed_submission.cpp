@@ -4,6 +4,7 @@
  */
 #include <memory>
 #include <mutex>
+#include <string>
 #include <utility>
 
 #include <ucp/api/ucp.h>
@@ -42,8 +43,7 @@ GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(const std
 {
 }
 
-void GenericDelayedSubmissionCollection::scheduleLog(ItemIdType id,
-                                                     DelayedSubmissionCallbackType item)
+void GenericDelayedSubmissionCollection::scheduleLog(ItemIdType id, DelayedSubmissionCallbackType)
 {
   ucxx_trace_req("Registered %s [%lu]", _name.c_str(), id);
 }
@@ -57,8 +57,8 @@ void GenericDelayedSubmissionCollection::processItem(ItemIdType id,
 }
 
 DelayedSubmissionCollection::DelayedSubmissionCollection(bool enableDelayedRequestSubmission)
-  : _enableDelayedRequestSubmission(enableDelayedRequestSubmission),
-    _requests(RequestDelayedSubmissionCollection{"request", enableDelayedRequestSubmission})
+  : _requests(RequestDelayedSubmissionCollection{"request", enableDelayedRequestSubmission}),
+    _enableDelayedRequestSubmission(enableDelayedRequestSubmission)
 {
 }
 

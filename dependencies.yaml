@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.5"]
+      cuda: ["11.8", "12.8"]
       arch: [x86_64]
     includes:
       - build_cpp
@@ -157,7 +157,7 @@ dependencies:
           - cxx-compiler
           - &cmake_ver cmake>=3.26.4,!=3.30.0
           - fmt>=11.0.2,<12
-          - librmm==24.12.*
+          - librmm==25.2.*,>=0.0.0a0
           - ninja
           - spdlog>=1.14.1,<1.15
       - output_types: [requirements, pyproject]
@@ -225,6 +225,10 @@ dependencies:
               cuda: "12.5"
             packages:
               - cuda-version=12.5
+          - matrix:
+              cuda: "12.8"
+            packages:
+              - cuda-version=12.8
   cuda:
     specific:
       - output_types: conda
@@ -244,8 +248,8 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==24.12.*
-          - dask-cudf==24.12.*
+          - dask-cuda==25.2.*,>=0.0.0a0
+          - dask-cudf==25.2.*,>=0.0.0a0
           # UCX Build
           - libtool
           - automake
@@ -283,13 +287,13 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &numpy numpy>=1.23,<3.0a0
-          - pynvml>=11.4.1,<12.0.0a0
+          - pynvml>=12.0.0,<13.0.0a0
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numba numba>=0.57.1
-          - rapids-dask-dependency==24.12.*
+          - &numba numba>=0.59.1,<0.61.0a0
+          - rapids-dask-dependency==25.2.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -304,7 +308,7 @@ dependencies:
           - pytest==7.*
           - pytest-asyncio
           - pytest-rerunfailures
-          - rapids-dask-dependency==24.12.*
+          - rapids-dask-dependency==25.2.*,>=0.0.0a0
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -331,7 +335,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &librmm_unsuffixed librmm==24.12.*
+          - &librmm_unsuffixed librmm==25.2.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -342,16 +346,16 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - librmm-cu12==24.12.*
+              - librmm-cu12==25.2.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
-              - librmm-cu11==24.12.*
+              - librmm-cu11==25.2.*,>=0.0.0a0
           - {matrix: null, packages: [*librmm_unsuffixed]}
   depends_on_rmm:
     common:
       - output_types: conda
         packages:
-          - &rmm_unsuffixed rmm==24.12.*
+          - &rmm_unsuffixed rmm==25.2.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -364,18 +368,18 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - rmm-cu12==24.12.*
+              - rmm-cu12==25.2.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - rmm-cu11==24.12.*
+              - rmm-cu11==25.2.*,>=0.0.0a0
           - {matrix: null, packages: [*rmm_unsuffixed]}
   depends_on_cudf:
     common:
       - output_types: conda
         packages:
-          - &cudf_unsuffixed cudf==24.12.*
+          - &cudf_unsuffixed cudf==25.2.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -388,12 +392,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - cudf-cu12==24.12.*
+              - cudf-cu12==25.2.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - cudf-cu11==24.12.*
+              - cudf-cu11==25.2.*,>=0.0.0a0
           - {matrix: null, packages: [*cudf_unsuffixed]}
   depends_on_libucxx:
     specific:
@@ -403,20 +407,20 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucxx-cu12==0.41.*
+              - libucxx-cu12==0.42.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libucxx-cu11==0.41.*
+              - libucxx-cu11==0.42.*,>=0.0.0a0
           - matrix:
             packages:
-              - libucxx==0.41.*
+              - libucxx==0.42.*,>=0.0.0a0
   depends_on_ucxx:
     common:
       - output_types: conda
         packages:
-          - &ucxx_unsuffixed ucxx==0.41.*
+          - &ucxx_unsuffixed ucxx==0.42.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -429,12 +433,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - ucxx-cu12==0.41.*
+              - ucxx-cu12==0.42.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - ucxx-cu11==0.41.*
+              - ucxx-cu11==0.42.*,>=0.0.0a0
           - {matrix: null, packages: [*ucxx_unsuffixed]}
   depends_on_ucx_build:
     common:
@@ -466,7 +470,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - ucx>=1.15.0,<1.18
+          - ucx>=1.15.0,<1.19
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -479,12 +483,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.15.0,<1.18
+              - libucx-cu12>=1.15.0,<1.19
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu11>=1.15.0,<1.18
+              - libucx-cu11>=1.15.0,<1.19
           - matrix: null
             packages:
-              - libucx>=1.15.0,<1.18
+              - libucx>=1.15.0,<1.19

@@ -31,6 +31,9 @@ class RequestAm : public Request {
  private:
   friend class internal::RecvAmMessage;
 
+  std::string _header{};  ///< Retain copy of header for send requests as workaround for
+                          ///< https://github.com/openucx/ucx/issues/10424
+
   /**
    * @brief Private constructor of `ucxx::RequestAm`.
    *
@@ -89,7 +92,7 @@ class RequestAm : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
-  [[nodiscard]] friend std::shared_ptr<RequestAm> createRequestAm(
+  friend std::shared_ptr<RequestAm> createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,
     const bool enablePythonFuture,

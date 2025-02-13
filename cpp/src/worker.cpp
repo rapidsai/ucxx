@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdio>
 #include <functional>
 #include <ios>
 #include <memory>
@@ -74,8 +75,8 @@ Worker::Worker(std::shared_ptr<Context> context,
 
 static void _drainCallback(void* request,
                            ucs_status_t status,
-                           const ucp_tag_recv_info_t* info,
-                           void* arg)
+                           const ucp_tag_recv_info_t* /* info */,
+                           void* /* arg */)
 {
   *reinterpret_cast<ucs_status_t*>(request) = status;
 }
@@ -426,10 +427,7 @@ void Worker::clearFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
-{
-  THROW_FUTURE_NOT_IMPLEMENTED();
-}
+RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t) { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 void Worker::runRequestNotifier() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
@@ -578,7 +576,12 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(const Tag tag)
+TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
+  : senderTag(Tag(info.sender_tag)), length(info.length)
+{
+}
+
+std::pair<bool, TagRecvInfo> Worker::tagProbe(const Tag tag, const TagMask tagMask)
 {
   if (!isProgressThreadRunning()) {
     progress();
@@ -594,9 +597,9 @@ bool Worker::tagProbe(const Tag tag)
   }
 
   ucp_tag_recv_info_t info;
-  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);
+  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, 0, &info);
 
-  return tag_message != NULL;
+  return {tag_message != NULL, TagRecvInfo(info)};
 }
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,

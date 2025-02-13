@@ -56,7 +56,7 @@ set(UCXX_BUILD_TESTS ${BUILD_TESTS})
 set(UCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
 set(UCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
 
-set(UCXX_CXX_FLAGS "")
+set(UCXX_CXX_FLAGS -Wall -Wattributes -Werror -Wextra -Wsign-conversion -Wno-missing-field-initializers)
 set(UCXX_CXX_DEFINITIONS "")
 
 # Set RMM logging level
@@ -187,7 +187,9 @@ target_compile_definitions(
 
 # Enable RMM if necessary
 if(UCXX_ENABLE_RMM)
-    target_link_libraries(ucxx PUBLIC rmm::rmm)
+    target_link_libraries(ucxx
+      PUBLIC rmm::rmm
+    )
 
     # Define spdlog level
     target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")

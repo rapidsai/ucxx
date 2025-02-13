@@ -20,6 +20,10 @@
 #include "ucxx/constructors.h"
 #include "ucxx/utils/ucx.h"
 
+#if UCXX_ENABLE_RMM
+#include <rmm/device_buffer.hpp>
+#endif
+
 namespace {
 
 using ::testing::Combine;
@@ -55,17 +59,18 @@ class RequestTest : public ::testing::TestWithParam<
 
   void SetUp()
   {
+    std::tie(_bufferType,
+             _registerCustomAmAllocator,
+             _enableDelayedSubmission,
+             _progressMode,
+             _messageLength) = GetParam();
+
     if (_bufferType == ucxx::BufferType::RMM) {
 #if !UCXX_ENABLE_RMM
       GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
     }
 
-    std::tie(_bufferType,
-             _registerCustomAmAllocator,
-             _enableDelayedSubmission,
-             _progressMode,
-             _messageLength) = GetParam();
     _memoryType =
       (_bufferType == ucxx::BufferType::RMM) ? UCS_MEMORY_TYPE_CUDA : UCS_MEMORY_TYPE_HOST;
     _messageSize = _messageLength * sizeof(int);
@@ -164,13 +169,14 @@ TEST_P(RequestTest, ProgressAm)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
-#if !UCXX_ENABLE_RMM
-  GTEST_SKIP() << "UCXX was not built with RMM support";
-#else
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if !UCXX_ENABLE_RMM
+    GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
     _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
       return std::make_shared<ucxx::RMMBuffer>(length);
     });
+#endif
   }
 
   allocate(1, false);
@@ -194,7 +200,6 @@ TEST_P(RequestTest, ProgressAm)
 
   // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
-#endif
 }
 
 TEST_P(RequestTest, ProgressAmReceiverCallback)
@@ -203,13 +208,14 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
-#if !UCXX_ENABLE_RMM
-  GTEST_SKIP() << "UCXX was not built with RMM support";
-#else
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if !UCXX_ENABLE_RMM
+    GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
     _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
       return std::make_shared<ucxx::RMMBuffer>(length);
     });
+#endif
   }
 
   // Define AM receiver callback's owner and id for callback
@@ -222,7 +228,7 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
   // Define AM receiver callback and register with worker
   std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
   auto callback = ucxx::AmReceiverCallbackType(
-    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req) {
+    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req, ucp_ep_h) {
       {
         std::lock_guard<std::mutex> lock(mutex);
         receivedRequests.push_back(req);
@@ -256,7 +262,6 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
 
   // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
-#endif
 }
 
 TEST_P(RequestTest, ProgressStream)
