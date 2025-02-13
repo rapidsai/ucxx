@@ -152,11 +152,19 @@ outputs:
       name: ucxx
       version: ${{ version }}
     build:
-      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      string: cuda${{ cuda_major }}_py${{ python | replace(".", "") }}_${{ date_string }}_${{ head_rev }}
       script:
         - cmake --install cpp/python/build
         - ./build.sh ucxx --cmake-args="\"-DFIND_UCXX_PYTHON=ON -Ducxx-python_DIR=$(realpath ./cpp/python/build)\""
     requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ninja
+        - ${{ compiler("c") }}
+        - ${{ compiler("cxx") }}
+        - ${{ compiler("cuda") }}
+        - cuda-version =${{ cuda_version }}
+        - ${{ stdlib("c") }}
       host:
         - python
         - pip
