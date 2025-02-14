@@ -1,0 +1,245 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/prefix-dev/recipe-format/main/schema.json
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+
+context:
+  version: ${{ env.get("RAPIDS_PACKAGE_VERSION") }}
+  cuda_version: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[:2] | join(".") }}
+  cuda_major: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}
+  date_string: ${{ env.get("RAPIDS_DATE_STRING") }}
+  py_version: ${{ env.get("RAPIDS_PY_VERSION") }}
+  head_rev: ${{ git.head_rev(".")[:8] }}
+
+recipe:
+  name: libucxx-split
+
+cache:
+  source:
+    path: ../../..
+
+  requirements:
+    build:
+      - cmake ${{ cmake_version }}
+      - ninja
+      - ${{ compiler("c") }}
+      - ${{ compiler("cxx") }}
+      - ${{ compiler("cuda") }}
+      - cuda-version =${{ cuda_version }}
+      - ${{ stdlib("c") }}
+    host:
+      - cuda-version =${{ cuda_version }}
+      - if: cuda_major == "11"
+        then: cuda-cudart-dev =${{ cuda_version }}
+      - rapids-build-backend >=0.3.0,<0.4.0.dev0
+      - ucx
+      - python
+      - librmm ${{ rapids_version }}
+
+  build:
+    script:
+      file: build.sh
+      secrets:
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY
+        - AWS_SESSION_TOKEN
+
+      env:
+        CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
+        CMAKE_CUDA_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CUDA_COMPILER_LAUNCHER") }}
+        CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CXX_COMPILER_LAUNCHER") }}
+        CMAKE_GENERATOR: ${{ env.get("CMAKE_GENERATOR") }}
+        PARALLEL_LEVEL: ${{ env.get("PARALLEL_LEVEL") }}
+        SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET") }}
+        SCCACHE_IDLE_TIMEOUT: ${{ env.get("SCCACHE_IDLE_TIMEOUT") }}
+        SCCACHE_REGION: ${{ env.get("SCCACHE_REGION") }}
+        SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
+        SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
+        SCCACHE_S3_KEY_PREFIX: libucxx-${{ env.get("RAPIDS_CONDA_ARCH") }}
+
+outputs:
+  - package:
+      name: libucxx
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      script: install_libucxx.sh
+    requirements:
+      host:
+        - ucx
+        - cuda-version =${{ cuda_version }}
+        - cmake ${{ cmake_version }}
+      run:
+        - if: cuda_major == "11"
+          then: cudatoolkit
+        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+        - ucx >=1.15.0,<1.19.0
+    tests:
+      - package_contents:
+          files:
+            - lib/libucxx.so
+            - include/ucxx/utils/python.h
+            - include/ucxx/utils/file_descriptor.h
+            - include/ucxx/utils/sockaddr.h
+            - include/ucxx/utils/ucx.h
+            - include/ucxx/notifier.h
+            - include/ucxx/address.h
+            - include/ucxx/component.h
+            - include/ucxx/delayed_submission.h
+            - include/ucxx/inflight_requests.h
+            - include/ucxx/listener.h
+            - include/ucxx/api.h
+            - include/ucxx/request_helper.h
+            - include/ucxx/request_stream.h
+            - include/ucxx/request_tag.h
+            - include/ucxx/typedefs.h
+            - include/ucxx/context.h
+            - include/ucxx/endpoint.h
+            - include/ucxx/request.h
+            - include/ucxx/worker_progress_thread.h
+            - include/ucxx/constructors.h
+            - include/ucxx/request_tag_multi.h
+            - include/ucxx/buffer.h
+            - include/ucxx/config.h
+            - include/ucxx/future.h
+            - include/ucxx/header.h
+            - include/ucxx/worker.h
+            - include/ucxx/exception.h
+            - include/ucxx/log.h
+    about:
+      homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
+      summary: ${{ load_from_file("python/libucxx/pyproject.toml").project.description }}
+  - package:
+      name: libucxx-examples
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      script: cmake --install cpp/build --component examples
+    requirements:
+      host:
+        - cuda-version =${{ cuda_version }}
+        - cmake ${{ cmake_version }}
+      run:
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+    about:
+      homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
+      summary: libucxx examples executables
+  - package:
+      name: libucxx-tests
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      script: cmake --install cpp/build --component testing
+    requirements:
+      host:
+        - cuda-version =${{ cuda_version }}
+        - cmake ${{ cmake_version }}
+      run:
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+        - if: cuda_major == "11"
+          then:
+            - cudatoolkit
+          else:
+            - cuda-cudart
+        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+      ignore_run_exports:
+        from_package:
+          - ${{ compiler("cuda") }}
+    about:
+      homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
+      summary: libucxx tests executables
+  - package:
+      name: ucxx
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_py${{ python | replace(".", "") }}_${{ date_string }}_${{ head_rev }}
+      script:
+        - cmake --install cpp/python/build
+        - ./build.sh ucxx --cmake-args="\"-DFIND_UCXX_PYTHON=ON -Ducxx-python_DIR=$(realpath ./cpp/python/build)\""
+    requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ninja
+        - ${{ compiler("c") }}
+        - ${{ compiler("cxx") }}
+        - ${{ compiler("cuda") }}
+        - cuda-version =${{ cuda_version }}
+        - ${{ stdlib("c") }}
+      host:
+        - python
+        - pip
+        - scikit-build-core >=0.10.0
+        - cython >=3.0.0
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+        - ucx
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rmm ${{ rapids_version }}
+        - cuda-version =${{ cuda_version }}
+        - cmake ${{ cmake_version }}
+        # Without this we get an error that there is no build program corresponding to "Unix Makefiles"
+        - make
+      run:
+        - python * *_cpython
+        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+        - if: cuda_major == "11"
+          then:
+            - cudatoolkit
+          else:
+            - cuda-cudart
+        - ucx >=1.15.0,<1.19.0
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+        - ${{ pin_compatible("rmm", upper_bound="x.x") }}
+        - numpy >=1.23,<3.0a0
+        - pynvml >=12.0.0,<13.0.0a0
+      run_constraints:
+        - cupy >=9.5.0
+        - numba >=0.59.1,<0.61.0a0
+      ignore_run_exports:
+        from_package:
+          - ${{ compiler("cuda") }}
+          - ucx
+    tests:
+      - script:
+        - test -f $PREFIX/lib/libucxx_python.so
+        - test -f $PREFIX/include/ucxx/python/exception.h
+        - test -f $PREFIX/include/ucxx/python/future.h
+        - test -f $PREFIX/include/ucxx/python/api.h
+        - test -f $PREFIX/include/ucxx/python/constructors.h
+        - test -f $PREFIX/include/ucxx/python/notifier.h
+        - test -f $PREFIX/include/ucxx/python/python_future.h
+        - test -f $PREFIX/include/ucxx/python/worker.h
+      - python:
+          imports:
+            - ucxx
+          pip_check: false
+    about:
+      homepage: ${{ load_from_file("python/ucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license.text }}
+      summary: ${{ load_from_file("python/ucxx/pyproject.toml").project.description }}
+  - package:
+      name: distributed-ucxx
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      script: ./build.sh distributed_ucxx
+    requirements:
+      host:
+        - python
+        - pip
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - setuptools
+        - wheel
+      run:
+        - python * *_cpython
+        - rapids-dask-dependency ${{ rapids_version }}
+        - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
+    tests:
+      - python:
+          imports:
+            - distributed_ucxx
+          pip_check: false
+    about:
+      homepage: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.license.text }}
+      summary: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.description }}
