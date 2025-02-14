@@ -21,8 +21,7 @@ rapids-dependency-file-generator \
   | tee env.yaml
 
 # Heinous hack time!
-UCXX_VERSION="$(head -1 ./VERSION)"
-sed -i "s#0.43.*,>=0.0.0a0#${UCXX_VERSION}#" env.yaml
+sed -i "s#- libucxx#$- ${CPP_CHANNEL}::libucxx#" env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 conda activate test
