@@ -30,9 +30,9 @@ files:
     includes:
       - cuda_version
       - test_cpp
-      - depends_on_libucxx
-      - depends_on_libucxx_examples
-      - depends_on_libucxx_tests
+      # - depends_on_libucxx
+      # - depends_on_libucxx_examples
+      # - depends_on_libucxx_tests
   test_python:
     output: none
     includes:
