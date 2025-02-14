@@ -9,6 +9,7 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
+export UCXX_VERSION="$(head -1 ./VERSION)"
 UCXX_VERSION_MAJOR_MINOR="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*$/\1.\2/' VERSION)"
 
 ENV_YAML_DIR="$(mktemp -d)"
