@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp.memory cimport shared_ptr, unique_ptr
 
