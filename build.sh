@@ -241,11 +241,19 @@ if buildAll || hasArg ucxx; then
     fi
     if hasArg ucxx_tests; then
       SKBUILD_EXTRA_CMAKE_ARGS=$(echo "${SKBUILD_EXTRA_CMAKE_ARGS};-DUCXX_BUILD_TESTS=ON")
+      SKBUILD_EXTRA_PIP_ARGS=$(echo "${SKBUILD_EXTRA_PIP_ARGS} --config-settings skbuild.install.components=testing")
     fi
 
     cd ${REPODIR}/python/ucxx/
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
+        python -m pip install \
+            --no-build-isolation \
+            --no-deps \
+            --config-settings rapidsai.disable-cuda=true \
+            --config-settings skbuild.install.components=ucxx \
+            --config-settings skbuild.install.components=examples \
+            ${SKBUILD_EXTRA_PIP_ARGS} \
+            .
 fi
 
 # Build and install the distributed_ucxx Python package

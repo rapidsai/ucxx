@@ -1,5 +1,5 @@
 # =================================================================================
-# SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD 3-Clause License
 # =================================================================================
 
@@ -11,4 +11,5 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${linked_libraries}"
   ASSOCIATED_TARGETS ucxx ucxx_python
+  COMPONENT ucxx
 )

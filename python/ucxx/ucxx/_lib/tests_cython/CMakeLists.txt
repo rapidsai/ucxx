@@ -11,6 +11,7 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${linked_libraries}"
   ASSOCIATED_TARGETS ucxx ucxx_python
+  COMPONENT testing
 )
 
 target_include_directories(test_cython PRIVATE ".")

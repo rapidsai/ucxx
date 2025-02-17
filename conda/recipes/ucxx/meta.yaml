@@ -253,7 +253,7 @@ outputs:
 
   - name: ucxx-tests
     version: {{ version }}
-    script: build_and_install_ucxx.sh
+    script: build_and_install_ucxx_tests.sh
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_py{{ python }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
