@@ -18,13 +18,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libucxx libucxx_python ucxx distributed_ucxx benchmarks tests examples -v -g -n -c --show_depr_warn -h"
-HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [distributed_ucxx] [benchmarks] [tests] [examples] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
+VALIDARGS="clean libucxx libucxx_python ucxx ucxx_tests distributed_ucxx benchmarks tests examples -v -g -n -c --show_depr_warn -h"
+HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [ucxx_tests] [distributed_ucxx] [benchmarks] [tests] [examples] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
    libucxx                       - build the UCXX C++ module
    libucxx_python                - build the UCXX C++ Python support module
    ucxx                          - build the ucxx Python package
+   ucxx_tests                    - build the ucxx Cython tests
    distributed_ucxx              - build the distributed_ucxx (Dask Distributed module) Python package
    benchmarks                    - build benchmarks
    tests                         - build tests
@@ -237,6 +238,9 @@ fi
 if buildAll || hasArg ucxx; then
     if hasArg -g; then
         export SKBUILD_INSTALL_STRIP=${SKBUILD_INSTALL_STRIP:-false}
+    fi
+    if hasArg ucxx_tests; then
+      SKBUILD_EXTRA_CMAKE_ARGS=$(echo "${SKBUILD_EXTRA_CMAKE_ARGS};-DUCXX_BUILD_TESTS=ON")
     fi
 
     cd ${REPODIR}/python/ucxx/

@@ -52,9 +52,9 @@ message(
 
 # Set a default build type if none was specified
 rapids_cmake_build_type("Release")
-set(UCXX_BUILD_TESTS ${BUILD_TESTS})
-set(UCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
-set(UCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
+set(LIBUCXX_BUILD_TESTS ${BUILD_TESTS})
+set(LIBUCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
+set(LIBUCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
 
 set(UCXX_CXX_FLAGS -Wall -Wattributes -Werror -Wextra -Wsign-conversion -Wno-missing-field-initializers)
 set(UCXX_CXX_DEFINITIONS "")
@@ -213,7 +213,7 @@ add_library(ucxx::ucxx ALIAS ucxx)
 # ##################################################################################################
 # * add tests -------------------------------------------------------------------------------------
 
-if(UCXX_BUILD_TESTS)
+if(LIBUCXX_BUILD_TESTS)
   # include CTest module -- automatically calls enable_testing()
   include(CTest)
 
@@ -225,14 +225,14 @@ endif()
 # ##################################################################################################
 # * add benchmarks --------------------------------------------------------------------------------
 
-if(UCXX_BUILD_BENCHMARKS)
+if(LIBUCXX_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
 endif()
 
 # ##################################################################################################
 # * add examples ----------------------------------------------------------------------------------
 
-if(UCXX_BUILD_EXAMPLES)
+if(LIBUCXX_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 

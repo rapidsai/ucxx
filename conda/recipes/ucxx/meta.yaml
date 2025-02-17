@@ -252,6 +252,52 @@ outputs:
       summary: UCX Python interface built on top of the libucxx C++ implementation
 
 
+  - name: ucxx-tests
+    version: {{ version }}
+    script: build_and_install_ucxx.sh
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_py{{ python }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
+    requirements:
+      build:
+        - cmake
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        {% endif %}
+        - cuda-version ={{ cuda_version }}
+        - ninja
+        - {{ stdlib("c") }}
+      host:
+        - python
+        - pip
+        - scikit-build-core >=0.10.0
+        - cython >=3.0.0
+        - {{ pin_subpackage('ucxx', exact=True) }}
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - cuda-version {{ cuda_version }}
+      run:
+        - python * *_cpython
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% else %}
+        - cuda-cudart
+        {% endif %}
+        - {{ pin_subpackage('ucxx', exact=True) }}
+    about:
+      home: https://rapids.ai/
+      license: BSD-3-Clause
+      license_family: BSD
+      license_file: ../../../LICENSE
+      summary: UCXX Cython tests
+
+
   - name: distributed-ucxx
     version: {{ version }}
     script: build_and_install_distributed_ucxx.sh
