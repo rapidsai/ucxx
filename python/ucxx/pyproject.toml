@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 [build-system]
@@ -74,8 +74,6 @@ sdist.exclude = ["*tests*"]
 sdist.reproducible = true
 wheel.packages = ["ucxx"]
 wheel.exclude = ["*.pyx", "CMakeLists.txt"]
-build.verbose = true
-logging.level = "INFO"
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
