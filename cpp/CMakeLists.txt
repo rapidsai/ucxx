@@ -1,5 +1,5 @@
 # =================================================================================
-# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD 3-Clause License
 # =================================================================================
 
@@ -192,7 +192,7 @@ if(UCXX_ENABLE_RMM)
     )
 
     # Define spdlog level
-    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
+    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "RMM_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LEVEL_${RMM_LOGGING_LEVEL}")
 endif()
 
 # Specify the target module library dependencies

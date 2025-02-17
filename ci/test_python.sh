@@ -1,21 +1,24 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
 
 source "$(dirname "$0")/test_common.sh"
 
+rapids-logger "Downloading artifacts from previous jobs"
+CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
-
-UCXX_VERSION="$(head -1 ./VERSION)"
 
 rapids-dependency-file-generator \
   --output conda \
   --file-key test_python \
-  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
+  --prepend-channel "${CPP_CHANNEL}" \
+  | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 conda activate test
@@ -23,14 +26,6 @@ conda activate test
 rapids-print-env
 
 print_system_stats
-
-rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-
-rapids-mamba-retry install \
-  --channel "${CPP_CHANNEL}" \
-  "libucxx=${UCXX_VERSION}" \
-  "ucxx=${UCXX_VERSION}"
 
 print_ucx_config
 

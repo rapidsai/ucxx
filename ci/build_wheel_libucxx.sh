@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -18,7 +18,7 @@ rapids-dependency-file-generator \
 | tee /tmp/requirements-build.txt
 
 rapids-logger "Installing build requirements"
-python -m pip install \
+rapids-pip-retry install \
     -v \
     --prefer-binary \
     -r /tmp/requirements-build.txt
@@ -34,6 +34,7 @@ export SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON"
 mkdir -p "${package_dir}/final_dist"
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
+    --exclude librapids_logger.so \
     -w "${package_dir}/final_dist" \
     ${package_dir}/dist/*
 
