@@ -43,6 +43,7 @@ files:
       - depends_on_cudf
       - depends_on_libucxx
       - depends_on_ucxx
+      - depends_on_ucxx_tests
   test_python_distributed:
     output: none
     includes:
@@ -467,6 +468,11 @@ dependencies:
             packages:
               - ucxx-cu11==0.43.*,>=0.0.0a0
           - {matrix: null, packages: [*ucxx_unsuffixed]}
+  depends_on_ucxx_tests:
+    common:
+      - output_types: conda
+        packages:
+          - ucxx-tests==0.43.*,>=0.0.0a0
   depends_on_ucx_build:
     common:
       - output_types: conda
