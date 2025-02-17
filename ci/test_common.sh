@@ -117,9 +117,17 @@ run_cpp_port_retry() {
 
 #################################### Python ####################################
 run_py_tests() {
-  CMD_LINE="timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/"
+  RUN_CYTHON=$1
+
+  if [ $RUN_CYTHON -ne 0 ]; then
+    ARGS="--run-cython"
+  else
+    ARGS=""
+  fi
+
+  CMD_LINE="timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/ ${ARGS}"
   log_command "${CMD_LINE}"
-  timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/
+  timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/ ${ARGS}
 }
 
 run_py_tests_async() {
