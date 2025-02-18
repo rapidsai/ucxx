@@ -65,6 +65,7 @@ files:
     includes:
       - docs
       - py_version
+      - depends_on_libucxx
   py_build_libucxx:
     output: pyproject
     pyproject_dir: python/libucxx
