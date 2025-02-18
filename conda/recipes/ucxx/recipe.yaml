@@ -131,6 +131,10 @@ outputs:
         - cmake ${{ cmake_version }}
       run:
         - ${{ pin_subpackage("libucxx", exact=True) }}
+      ignore_run_exports:
+        from_package:
+          - ${{ compiler("cuda") }}
+          - cuda-version
     about:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
