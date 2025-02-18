@@ -121,7 +121,6 @@ outputs:
       script: cmake --install cpp/build --component examples
     requirements:
       host:
-        - cuda-version =${{ cuda_version }}
         - cmake ${{ cmake_version }}
       run:
         - ${{ pin_subpackage("libucxx", exact=True) }}
