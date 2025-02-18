@@ -9,7 +9,6 @@ source "$(dirname "$0")/test_common.sh"
 
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-export UCXX_VERSION="$(head -1 ./VERSION)"
 
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
@@ -18,15 +17,14 @@ rapids-dependency-file-generator \
   --output conda \
   --file-key test_cpp \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" \
+  --prepend-channel "${CPP_CHANNEL}" \
   | tee env.yaml
+
+# Heinous hack time!
+sed -i "s#- libucxx#$- ${CPP_CHANNEL}::libucxx#" env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 conda activate test
-
-rapids-mamba-retry install \
-  --channel "${CPP_CHANNEL}" \
-  "libucxx=${UCXX_VERSION}"
-
 
 rapids-print-env
 
