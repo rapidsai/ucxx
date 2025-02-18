@@ -72,6 +72,10 @@ outputs:
           then: cudatoolkit
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ucx >=1.15.0,<1.19.0
+      ignore_run_exports:
+        from_package:
+          - ${{ compiler("cuda") }}
+          - ucx
     tests:
       - package_contents:
           files:
