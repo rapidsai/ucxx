@@ -1,5 +1,5 @@
 # =================================================================================
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD 3-Clause License
 # =================================================================================
 
@@ -24,7 +24,6 @@ project(
 option(FIND_UCXX_PYTHON "Search for existing UCXX Python library installations before defaulting to local files"
        OFF
 )
-option(UCXX_BUILD_TESTS "Configure CMake to build Cython tests" OFF)
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_PYTHON)
@@ -33,8 +32,6 @@ if(FIND_UCXX_PYTHON)
 else()
   set(ucxx-python_FOUND OFF)
 endif()
-
-message(ucxx-python_FOUND="${ucxx-python_FOUND}")
 
 include(rapids-cython-core)
 
@@ -54,9 +51,6 @@ find_package(
 )
 add_subdirectory(ucxx/examples)
 add_subdirectory(ucxx/_lib)
-if (UCXX_BUILD_TESTS)
-  add_subdirectory(ucxx/_lib/tests_cython)
-endif()
 
 if(NOT ucxx-python_FOUND)
   rapids_cython_add_rpath_entries(TARGET ucxx_python PATHS ${CMAKE_INSTALL_LIBDIR})

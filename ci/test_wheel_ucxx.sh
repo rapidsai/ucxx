@@ -18,8 +18,7 @@ rapids-pip-retry install \
     "$(echo ./dist/${package_name}_${RAPIDS_PY_CUDA_SUFFIX}*.whl)[test]"
 
 rapids-logger "Python Core Tests"
-# run_py_tests RUN_CYTHON
-run_py_tests   0
+run_py_tests
 
 rapids-logger "Python Async Tests"
 # run_py_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP

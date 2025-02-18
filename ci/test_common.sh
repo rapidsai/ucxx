@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -117,17 +117,9 @@ run_cpp_port_retry() {
 
 #################################### Python ####################################
 run_py_tests() {
-  RUN_CYTHON=$1
-
-  if [ $RUN_CYTHON -ne 0 ]; then
-    ARGS="--run-cython"
-  else
-    ARGS=""
-  fi
-
-  CMD_LINE="timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/ ${ARGS}"
+  CMD_LINE="timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/"
   log_command "${CMD_LINE}"
-  timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/ ${ARGS}
+  timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/
 }
 
 run_py_tests_async() {
