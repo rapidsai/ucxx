@@ -155,6 +155,7 @@ outputs:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
       summary: libucxx tests executables
+
   - package:
       name: ucxx
       version: ${{ version }}
@@ -223,11 +224,12 @@ outputs:
       homepage: ${{ load_from_file("python/ucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license.text }}
       summary: ${{ load_from_file("python/ucxx/pyproject.toml").project.description }}
+
   - package:
       name: distributed-ucxx
       version: ${{ version }}
     build:
-      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      string: py${{ python }}_${{ date_string }}_${{ head_rev }}
       script: ./build.sh distributed_ucxx
     requirements:
       host:
