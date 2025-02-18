@@ -63,10 +63,17 @@ outputs:
       string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
       script: install_libucxx.sh
     requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ninja
+        - ${{ compiler("c") }}
+        - ${{ compiler("cxx") }}
+        - ${{ compiler("cuda") }}
+        - cuda-version =${{ cuda_version }}
+        - ${{ stdlib("c") }}
       host:
         - ucx
         - cuda-version =${{ cuda_version }}
-        - cmake ${{ cmake_version }}
       run:
         - if: cuda_major == "11"
           then: cudatoolkit
@@ -120,7 +127,7 @@ outputs:
       string: ${{ date_string }}_${{ head_rev }}
       script: cmake --install cpp/build --component examples
     requirements:
-      host:
+      build:
         - cmake ${{ cmake_version }}
       run:
         - ${{ pin_subpackage("libucxx", exact=True) }}
@@ -136,9 +143,16 @@ outputs:
       string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
       script: cmake --install cpp/build --component testing
     requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ninja
+        - ${{ compiler("c") }}
+        - ${{ compiler("cxx") }}
+        - ${{ compiler("cuda") }}
+        - cuda-version =${{ cuda_version }}
+        - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
-        - cmake ${{ cmake_version }}
       run:
         - ${{ pin_subpackage("libucxx", exact=True) }}
         - if: cuda_major == "11"
