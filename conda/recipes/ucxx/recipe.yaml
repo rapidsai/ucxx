@@ -108,11 +108,12 @@ outputs:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
       summary: ${{ load_from_file("python/libucxx/pyproject.toml").project.description }}
+
   - package:
       name: libucxx-examples
       version: ${{ version }}
     build:
-      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      string: ${{ date_string }}_${{ head_rev }}
       script: cmake --install cpp/build --component examples
     requirements:
       host:
@@ -124,6 +125,7 @@ outputs:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
       summary: libucxx examples executables
+
   - package:
       name: libucxx-tests
       version: ${{ version }}
