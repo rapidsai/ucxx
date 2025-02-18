@@ -20,9 +20,6 @@ rapids-dependency-file-generator \
   --prepend-channel "${CPP_CHANNEL}" \
   | tee env.yaml
 
-# Heinous hack time!
-sed -i "s#- libucxx#$- ${CPP_CHANNEL}::libucxx#" env.yaml
-
 rapids-mamba-retry env create --yes -f env.yaml -n test
 conda activate test
 
