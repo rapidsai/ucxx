@@ -76,8 +76,9 @@ outputs:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       ignore_run_exports:
         from_package:
-          - ${{ compiler("cuda") }}
           - ucx
+        by_name:
+          - cuda-version
     tests:
       - package_contents:
           files:
@@ -153,8 +154,8 @@ outputs:
             - cuda-cudart
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
       ignore_run_exports:
-        from_package:
-          - ${{ compiler("cuda") }}
+        by_name:
+          - cuda-version
     about:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
@@ -206,8 +207,9 @@ outputs:
         - numba >=0.59.1,<0.61.0a0
       ignore_run_exports:
         from_package:
-          - ${{ compiler("cuda") }}
           - ucx
+        by_name:
+          - cuda-version
     tests:
       - script:
         - test -f $PREFIX/lib/libucxx_python.so
@@ -246,8 +248,9 @@ outputs:
         - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
       ignore_run_exports:
         from_package:
-          - ${{ compiler("cuda") }}
           - ucx
+        by_name:
+          - cuda-version
 
     tests:
       - python:
