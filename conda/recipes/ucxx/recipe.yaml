@@ -169,6 +169,14 @@ outputs:
         - cmake --install cpp/python/build
         - ./build.sh ucxx --cmake-args="\"-DFIND_UCXX_PYTHON=ON -Ducxx-python_DIR=$(realpath ./cpp/python/build)\""
     requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ninja
+        - ${{ compiler("c") }}
+        - ${{ compiler("cxx") }}
+        - ${{ compiler("cuda") }}
+        - cuda-version =${{ cuda_version }}
+        - ${{ stdlib("c") }}
       host:
         - python
         - pip
@@ -179,8 +187,6 @@ outputs:
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
         - rmm ${{ rapids_version }}
         - cuda-version =${{ cuda_version }}
-        - cmake ${{ cmake_version }}
-        # Without this we get an error that there is no build program corresponding to "Unix Makefiles"
         - make
       run:
         - python * *_cpython
