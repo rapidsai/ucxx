@@ -79,6 +79,7 @@ outputs:
       ignore_run_exports:
         from_package:
           - ucx
+          - cuda-cudart-dev
         by_name:
           - cuda-version
     tests:
@@ -158,6 +159,8 @@ outputs:
             - cuda-cudart
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
       ignore_run_exports:
+        from_package:
+          - cuda-cudart-dev
         by_name:
           - cuda-version
     about:
@@ -211,6 +214,7 @@ outputs:
         - numba >=0.59.1,<0.61.0a0
       ignore_run_exports:
         from_package:
+          - cuda-cudart-dev
           - ucx
         by_name:
           - cuda-version
