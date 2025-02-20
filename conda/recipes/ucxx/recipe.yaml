@@ -79,6 +79,7 @@ outputs:
       ignore_run_exports:
         from_package:
           - ucx
+          - python
           - cuda-cudart-dev
         by_name:
           - cuda-version
@@ -133,6 +134,7 @@ outputs:
       ignore_run_exports:
         from_package:
           - cuda-cudart-dev
+          - python
           - ucx
         by_name:
           - cuda-version
@@ -162,6 +164,7 @@ outputs:
       ignore_run_exports:
         from_package:
           - cuda-cudart-dev
+          - python
           - ucx
         by_name:
           - cuda-version
