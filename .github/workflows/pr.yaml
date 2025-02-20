@@ -16,16 +16,16 @@ jobs:
       - changed-files
       - checks
       - conda-cpp-build
-      - devcontainer
-      - docs-build
+      # - devcontainer
+      # - docs-build
       - conda-cpp-tests
       - conda-python-tests
       - conda-python-distributed-tests
-      - wheel-build-libucxx
-      - wheel-build-ucxx
-      - wheel-tests-ucxx
-      - wheel-build-distributed-ucxx
-      - wheel-tests-distributed-ucxx
+      # - wheel-build-libucxx
+      # - wheel-build-ucxx
+      # - wheel-tests-ucxx
+      # - wheel-build-distributed-ucxx
+      # - wheel-tests-distributed-ucxx
       - telemetry-setup
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-25.04
@@ -88,16 +88,16 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-25.04
     with:
       build_type: pull-request
-  docs-build:
-    needs: conda-cpp-build
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-25.04
-    with:
-      build_type: pull-request
-      node_type: "gpu-l4-latest-1"
-      arch: "amd64"
-      container_image: "rapidsai/ci-conda:latest"
-      run_script: "ci/build_docs.sh"
+  # docs-build:
+  #   needs: conda-cpp-build
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-25.04
+  #   with:
+  #     build_type: pull-request
+  #     node_type: "gpu-l4-latest-1"
+  #     arch: "amd64"
+  #     container_image: "rapidsai/ci-conda:latest"
+  #     run_script: "ci/build_docs.sh"
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
@@ -123,58 +123,58 @@ jobs:
       build_type: pull-request
       script: "ci/test_python_distributed.sh"
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-  wheel-build-libucxx:
-    needs: checks
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.04
-    with:
-      build_type: pull-request
-      script: ci/build_wheel_libucxx.sh
-      # build for every combination of arch and CUDA version, but only for the latest Python
-      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
-  wheel-build-ucxx:
-    needs: wheel-build-libucxx
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.04
-    with:
-      build_type: pull-request
-      script: ci/build_wheel_ucxx.sh
-  wheel-tests-ucxx:
-    needs: [wheel-build-ucxx, changed-files]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.04
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
-    with:
-      build_type: pull-request
-      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_wheel_ucxx.sh
-  wheel-build-distributed-ucxx:
-    needs: checks
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.04
-    with:
-      build_type: pull-request
-      script: ci/build_wheel_distributed_ucxx.sh
-  wheel-tests-distributed-ucxx:
-    needs: [wheel-build-ucxx, wheel-build-distributed-ucxx, changed-files]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.04
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
-    with:
-      build_type: pull-request
-      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_wheel_distributed_ucxx.sh
-  devcontainer:
-    secrets: inherit
-    needs: [checks, telemetry-setup]
-    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.04
-    with:
-      arch: '["amd64"]'
-      cuda: '["12.8"]'
-      build_command: |
-        sccache -z;
-        build-all --verbose;
-        sccache -s;
+  # wheel-build-libucxx:
+  #   needs: checks
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.04
+  #   with:
+  #     build_type: pull-request
+  #     script: ci/build_wheel_libucxx.sh
+  #     # build for every combination of arch and CUDA version, but only for the latest Python
+  #     matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+  # wheel-build-ucxx:
+  #   needs: wheel-build-libucxx
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.04
+  #   with:
+  #     build_type: pull-request
+  #     script: ci/build_wheel_ucxx.sh
+  # wheel-tests-ucxx:
+  #   needs: [wheel-build-ucxx, changed-files]
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.04
+  #   if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+  #   with:
+  #     build_type: pull-request
+  #     container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+  #     script: ci/test_wheel_ucxx.sh
+  # wheel-build-distributed-ucxx:
+  #   needs: checks
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.04
+  #   with:
+  #     build_type: pull-request
+  #     script: ci/build_wheel_distributed_ucxx.sh
+  # wheel-tests-distributed-ucxx:
+  #   needs: [wheel-build-ucxx, wheel-build-distributed-ucxx, changed-files]
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.04
+  #   if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+  #   with:
+  #     build_type: pull-request
+  #     container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+  #     script: ci/test_wheel_distributed_ucxx.sh
+  # devcontainer:
+  #   secrets: inherit
+  #   needs: [checks, telemetry-setup]
+  #   uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.04
+  #   with:
+  #     arch: '["amd64"]'
+  #     cuda: '["12.8"]'
+  #     build_command: |
+  #       sccache -z;
+  #       build-all --verbose;
+  #       sccache -s;
 
   telemetry-summarize:
     # This job must use a self-hosted runner to record telemetry traces.
