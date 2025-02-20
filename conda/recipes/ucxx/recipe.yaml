@@ -251,11 +251,6 @@ outputs:
         - python
         - rapids-dask-dependency ${{ rapids_version }}
         - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
-      ignore_run_exports:
-        from_package:
-          - ucx
-        by_name:
-          - cuda-version
 
     tests:
       - python:
