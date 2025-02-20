@@ -133,6 +133,7 @@ outputs:
       ignore_run_exports:
         from_package:
           - cuda-cudart-dev
+          - ucx
         by_name:
           - cuda-version
     about:
@@ -161,6 +162,7 @@ outputs:
       ignore_run_exports:
         from_package:
           - cuda-cudart-dev
+          - ucx
         by_name:
           - cuda-version
     about:
@@ -172,7 +174,7 @@ outputs:
       name: ucxx
       version: ${{ version }}
     build:
-      string: cuda${{ cuda_major }}_py${{ python | replace(".", "") }}_${{ date_string }}_${{ head_rev }}
+      string: cuda${{ cuda_major }}_py${{ py_version }}_${{ date_string }}_${{ head_rev }}
       script:
         - cmake --install cpp/python/build
         - ./build.sh ucxx --cmake-args="\"-DFIND_UCXX_PYTHON=ON\""
@@ -216,6 +218,7 @@ outputs:
         from_package:
           - cuda-cudart-dev
           - ucx
+          - libucxx
         by_name:
           - cuda-version
     tests:
