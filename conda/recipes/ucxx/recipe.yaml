@@ -235,7 +235,8 @@ outputs:
       name: distributed-ucxx
       version: ${{ version }}
     build:
-      string: py${{ python }}_${{ date_string }}_${{ head_rev }}
+      noarch: python
+      string: ${{ date_string }}_${{ head_rev }}
       script: ./build.sh distributed_ucxx
     requirements:
       host:
@@ -245,7 +246,7 @@ outputs:
         - setuptools
         - wheel
       run:
-        - python * *_cpython
+        - python
         - rapids-dask-dependency ${{ rapids_version }}
         - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
       ignore_run_exports:
