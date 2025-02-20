@@ -130,6 +130,8 @@ outputs:
       run:
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
+        from_package:
+          - cuda-cudart-dev
         by_name:
           - cuda-version
     about:
