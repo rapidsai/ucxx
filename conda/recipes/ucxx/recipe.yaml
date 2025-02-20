@@ -36,7 +36,9 @@ cache:
 
   build:
     script:
-      file: build.sh
+      content:
+        - export ucxx_ROOT="$(realpath ./cpp/build)"
+        - ./build.sh -n -v libucxx libucxx_python benchmarks examples tests --cmake-args=\"-DCMAKE_INSTALL_LIBDIR=lib\"
       secrets:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
