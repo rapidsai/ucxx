@@ -139,6 +139,12 @@ if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
 fi
 
+# New condition to check for ucxx_tests without ucxx
+if hasArg ucxx_tests && ! hasArg ucxx; then
+  echo "Error: 'ucxx_tests' requires 'ucxx' to be specified."
+  exit 1
+fi
+
 if buildAll || hasArg libucxx_python; then
   UCXX_ENABLE_RMM=ON
 fi
