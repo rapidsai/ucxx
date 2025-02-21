@@ -86,35 +86,35 @@ outputs:
     tests:
       - package_contents:
           files:
-            - lib/libucxx.so
-            - include/ucxx/utils/python.h
-            - include/ucxx/utils/file_descriptor.h
-            - include/ucxx/utils/sockaddr.h
-            - include/ucxx/utils/ucx.h
-            - include/ucxx/notifier.h
             - include/ucxx/address.h
+            - include/ucxx/api.h
+            - include/ucxx/buffer.h
             - include/ucxx/component.h
+            - include/ucxx/config.h
+            - include/ucxx/constructors.h
+            - include/ucxx/context.h
             - include/ucxx/delayed_submission.h
+            - include/ucxx/endpoint.h
+            - include/ucxx/exception.h
+            - include/ucxx/future.h
+            - include/ucxx/header.h
             - include/ucxx/inflight_requests.h
             - include/ucxx/listener.h
-            - include/ucxx/api.h
+            - include/ucxx/log.h
+            - include/ucxx/notifier.h
+            - include/ucxx/request.h
             - include/ucxx/request_helper.h
             - include/ucxx/request_stream.h
             - include/ucxx/request_tag.h
-            - include/ucxx/typedefs.h
-            - include/ucxx/context.h
-            - include/ucxx/endpoint.h
-            - include/ucxx/request.h
-            - include/ucxx/worker_progress_thread.h
-            - include/ucxx/constructors.h
             - include/ucxx/request_tag_multi.h
-            - include/ucxx/buffer.h
-            - include/ucxx/config.h
-            - include/ucxx/future.h
-            - include/ucxx/header.h
+            - include/ucxx/typedefs.h
+            - include/ucxx/utils/file_descriptor.h
+            - include/ucxx/utils/python.h
+            - include/ucxx/utils/sockaddr.h
+            - include/ucxx/utils/ucx.h
             - include/ucxx/worker.h
-            - include/ucxx/exception.h
-            - include/ucxx/log.h
+            - include/ucxx/worker_progress_thread.h
+            - lib/libucxx.so
     about:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
@@ -261,7 +261,6 @@ outputs:
         - python
         - rapids-dask-dependency ${{ rapids_version }}
         - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
-
     tests:
       - python:
           imports:
