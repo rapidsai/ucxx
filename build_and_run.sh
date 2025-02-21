@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 NUMARGS=$#
@@ -10,8 +10,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="cpp_tests py_tests cpp_examples py_async_tests py_bench py_async_bench -v -g -n -c --show_depr_warn -h"
-HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_bench] [py_async_bench]
+VALIDARGS="cpp_tests py_tests cpp_examples py_async_tests py_bench py_async_bench cython_tests -v -g -n -c --show_depr_warn -h"
+HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_bench] [py_async_bench] [cython_tests]
    cpp_tests                     - run all C++ tests
    cpp_bench                     - run C++ benchmarks
    cpp_example                   - run C++ example
@@ -19,12 +19,9 @@ HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_
    py_async_tests                - run all Python async tests
    py_bench                      - run Python core benchmarks
    py_async_bench                - run Python async benchmarks
+   cython_tests                  - run all Python tests of public Cython API
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
-   libucxx                       - build the UCXX C++ module
-   libucxx_python                - build the UCXX C++ Python support module
-   ucxx                          - build the ucxx Python package
-   tests                         - build tests
    -v                            - verbose build mode
    -g                            - build for debug
    -n                            - no install step
@@ -45,6 +42,7 @@ RUN_PY_TESTS=0
 RUN_PY_ASYNC_TESTS=0
 RUN_PY_BENCH=0
 RUN_PY_ASYNC_BENCH=0
+RUN_CYTHON_TESTS=0
 
 BINARY_PATH=${CONDA_PREFIX}/bin
 
@@ -95,11 +93,17 @@ fi
 if runAll || hasArg py_async_bench; then
     RUN_PY_ASYNC_BENCH=1
 fi
+if runAll || hasArg cython_tests; then
+    RUN_CYTHON_TESTS=1
+fi
 
 # Exit if a building error occurs
 set -e
 
-(cd ${REPODIR}; ./build.sh ${BUILD_ARGS} libucxx libucxx_python ucxx benchmarks tests examples)
+(
+  cd ${REPODIR}
+  ./build.sh ${BUILD_ARGS}
+)
 
 # Let all tests run even if they fail
 set +e
@@ -190,8 +194,14 @@ if [[ $RUN_CPP_EXAMPLE != 0 ]]; then
   run_cpp_example   wait
 fi
 if [[ $RUN_PY_TESTS != 0 ]]; then
-  echo -e "\e[1mRunning: pytest-vs python/ucxx/ucxx/_lib/tests/\e[0m"
-  pytest -vs python/ucxx/ucxx/_lib/tests/
+  if [ $RUN_CYTHON_TESTS -ne 0 ]; then
+    ARGS="--run-cython"
+  else
+    ARGS=""
+  fi
+
+  echo -e "\e[1mRunning: pytest-vs python/ucxx/ucxx/_lib/tests/ ${ARGS}\e[0m"
+  pytest -vs python/ucxx/ucxx/_lib/tests/ ${ARGS}
 fi
 if [[ $RUN_PY_ASYNC_TESTS != 0 ]]; then
   # run_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
