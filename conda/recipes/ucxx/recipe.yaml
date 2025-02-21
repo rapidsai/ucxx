@@ -28,7 +28,7 @@ cache:
     host:
       - cuda-version =${{ cuda_version }}
       - if: cuda_major != "11"
-        then: cuda-cudart-dev =${{ cuda_version }}
+        then: cuda-cudart-dev
       - rapids-build-backend >=0.3.0,<0.4.0.dev0
       - ucx
       - python
