@@ -135,7 +135,6 @@ def start_dask_scheduler(env: list[str], max_attempts: int = 5, timeout: int = 1
     retry_count = 0
 
     port = open_port()
-    port = 9999
     while retry_count < max_attempts:
         with popen(
             [
