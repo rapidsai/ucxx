@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import os
-import select
 from contextlib import contextmanager
 from time import sleep, time
 
@@ -157,23 +156,17 @@ def start_dask_scheduler(env: list[str], max_attempts: int = 5, timeout: int = 1
                         raise TimeoutError("Timeout while waiting for scheduler output")
 
                     # Use select to wait for data with a timeout
-                    ready, _, _ = select.select(
-                        [scheduler_process.stdout], [], [], timeout
-                    )
-                    if scheduler_process.stdout in ready:
-                        line = scheduler_process.stdout.readline()
-                        if not line:
-                            break  # End of output
-                        print(
-                            line.decode(), end=""
-                        )  # Since capture_output=True, print the line here
-                        if b"Scheduler at:" in line:
-                            # Scheduler is now listening
-                            break
-                        elif b"UCXXBusyError" in line:
-                            raise Exception(
-                                "UCXXBusyError detected in scheduler output"
-                            )
+                    line = scheduler_process.stdout.readline()
+                    if not line:
+                        break  # End of output
+                    print(
+                        line.decode(), end=""
+                    )  # Since capture_output=True, print the line here
+                    if b"Scheduler at:" in line:
+                        # Scheduler is now listening
+                        break
+                    elif b"UCXXBusyError" in line:
+                        raise Exception("UCXXBusyError detected in scheduler output")
             except Exception:
                 retry_count += 1
                 port += 1
