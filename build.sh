@@ -18,18 +18,18 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libucxx libucxx_python ucxx ucxx_tests distributed_ucxx benchmarks tests examples -v -g -n -c --show_depr_warn -h"
-HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [ucxx_tests] [distributed_ucxx] [benchmarks] [tests] [examples] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
+VALIDARGS="clean libucxx libucxx_python libucxx_benchmarks libucxx_examples libucxx_tests ucxx ucxx_tests distributed_ucxx -v -g -n -c --show_depr_warn -h"
+HELP="$0 [clean] [libucxx] [libucxx_python] [libucxx_benchmarks] [libucxx_examples] [libucxx_tests] [ucxx] [ucxx_tests] [distributed_ucxx] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
-   libucxx                       - build the UCXX C++ module
-   libucxx_python                - build the UCXX C++ Python support module
+   libucxx                       - build the libucxx C++ module
+   libucxx_python                - build the libucxx C++ Python support module
+   libucxx_benchmarks            - build the libucxx C++ benchmarks
+   libucxx_examples              - build the libucxx C++ examples
+   libucxx_tests                 - build the libucxx C++ tests
    ucxx                          - build the ucxx Python package
    ucxx_tests                    - build the ucxx Cython tests
    distributed_ucxx              - build the distributed_ucxx (Dask Distributed module) Python package
-   benchmarks                    - build benchmarks
-   tests                         - build tests
-   examples                      - build examples
    -v                            - verbose build mode
    -g                            - build for debug
    -n                            - no install step
@@ -126,14 +126,14 @@ fi
 if hasArg -c; then
     BUILD_COMPILE_COMMANDS=ON
 fi
-if hasArg benchmarks; then
+if hasArg libucxx_benchmarks; then
     BUILD_BENCHMARKS=ON
 fi
-if hasArg tests; then
-    BUILD_TESTS=ON
-fi
-if hasArg examples; then
+if hasArg libucxx_examples; then
     BUILD_EXAMPLES=ON
+fi
+if hasArg libucxx_tests; then
+    BUILD_TESTS=ON
 fi
 if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNINGS=OFF

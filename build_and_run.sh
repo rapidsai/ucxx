@@ -31,7 +31,7 @@ HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_
    -h | --h[elp]                 - print this text
 
    default action (no args) is to build (with command below) and run all tests and benchmarks.
-     ./build.sh libucxx libucxx_python ucxx tests
+     ./build.sh
 "
 BUILD_ARGS=""
 
