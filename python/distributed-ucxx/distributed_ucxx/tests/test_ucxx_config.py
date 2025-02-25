@@ -131,10 +131,8 @@ def start_dask_scheduler(env: list[str], max_attempts: int = 5, timeout: int = 1
     timeout: int
         Time to wait while reading stdout/stderr of subprocess.
     """
-    retry_count = 0
-
     port = open_port()
-    while retry_count < max_attempts:
+    for _ in range(max_attempts):
         with popen(
             [
                 "dask",
@@ -168,13 +166,10 @@ def start_dask_scheduler(env: list[str], max_attempts: int = 5, timeout: int = 1
                     elif b"UCXXBusyError" in line:
                         raise Exception("UCXXBusyError detected in scheduler output")
             except Exception:
-                retry_count += 1
                 port += 1
-                continue
-
-            yield scheduler_process, port
-
-            return
+            else:
+                yield scheduler_process, port
+                return
     else:
         pytest.fail(f"Failed to start dask scheduler after {max_attempts} attempts.")
 
