@@ -38,8 +38,10 @@ function sed_runner() {
 # Centralized version file update
 echo "${NEXT_FULL_TAG}" > VERSION
 
-# bump RAPIDS libs
-sed_runner "/^rapids_version:$/ {n;s/.*/  - \"${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/}" conda/recipes/ucxx/conda_build_config.yaml
+# Update RAPIDS version
+for FILE in conda/recipes/*/conda_build_config.yaml; do
+  sed_runner "/^rapids_version:$/ {n;s/.*/  - \"${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/}" "${FILE}"
+done
 
 DEPENDENCIES=(
   cudf
