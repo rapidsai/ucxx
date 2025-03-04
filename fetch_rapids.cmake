@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -11,8 +11,6 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 # =============================================================================
-set(rapids-cmake-url "https://github.com/pentschev/rapids-cmake/archive/refs/heads/cython-component.zip")
-
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/UCXX_RAPIDS.cmake)
   file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-25.04/RAPIDS.cmake
        ${CMAKE_CURRENT_BINARY_DIR}/UCXX_RAPIDS.cmake
