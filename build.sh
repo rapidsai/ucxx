@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # UCXX build script
@@ -18,17 +18,18 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libucxx libucxx_python ucxx distributed_ucxx benchmarks tests examples -v -g -n -c --show_depr_warn -h"
-HELP="$0 [clean] [libucxx] [libucxx_python] [ucxx] [distributed_ucxx] [benchmarks] [tests] [examples] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
+VALIDARGS="clean libucxx libucxx_python libucxx_benchmarks libucxx_examples libucxx_tests ucxx ucxx_tests distributed_ucxx -v -g -n -c --show_depr_warn -h"
+HELP="$0 [clean] [libucxx] [libucxx_python] [libucxx_benchmarks] [libucxx_examples] [libucxx_tests] [ucxx] [ucxx_tests] [distributed_ucxx] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
-   libucxx                       - build the UCXX C++ module
-   libucxx_python                - build the UCXX C++ Python support module
+   libucxx                       - build the libucxx C++ module
+   libucxx_python                - build the libucxx C++ Python support module
+   libucxx_benchmarks            - build the libucxx C++ benchmarks
+   libucxx_examples              - build the libucxx C++ examples
+   libucxx_tests                 - build the libucxx C++ tests
    ucxx                          - build the ucxx Python package
+   ucxx_tests                    - build the ucxx Cython tests
    distributed_ucxx              - build the distributed_ucxx (Dask Distributed module) Python package
-   benchmarks                    - build benchmarks
-   tests                         - build tests
-   examples                      - build examples
    -v                            - verbose build mode
    -g                            - build for debug
    -n                            - no install step
@@ -125,17 +126,23 @@ fi
 if hasArg -c; then
     BUILD_COMPILE_COMMANDS=ON
 fi
-if hasArg benchmarks; then
+if hasArg libucxx_benchmarks; then
     BUILD_BENCHMARKS=ON
 fi
-if hasArg tests; then
-    BUILD_TESTS=ON
-fi
-if hasArg examples; then
+if hasArg libucxx_examples; then
     BUILD_EXAMPLES=ON
+fi
+if hasArg libucxx_tests; then
+    BUILD_TESTS=ON
 fi
 if hasArg --show_depr_warn; then
     BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
+fi
+
+# New condition to check for ucxx_tests without ucxx
+if hasArg ucxx_tests && ! hasArg ucxx; then
+  echo "Error: 'ucxx_tests' requires 'ucxx' to be specified."
+  exit 1
 fi
 
 if buildAll || hasArg libucxx_python; then
@@ -238,10 +245,21 @@ if buildAll || hasArg ucxx; then
     if hasArg -g; then
         export SKBUILD_INSTALL_STRIP=${SKBUILD_INSTALL_STRIP:-false}
     fi
+    if hasArg ucxx_tests; then
+      SKBUILD_EXTRA_CMAKE_ARGS=$(echo "${SKBUILD_EXTRA_CMAKE_ARGS};-DUCXX_BUILD_TESTS=ON")
+      SKBUILD_EXTRA_PIP_ARGS=$(echo "${SKBUILD_EXTRA_PIP_ARGS} --config-settings skbuild.install.components=testing")
+    fi
 
     cd ${REPODIR}/python/ucxx/
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
+        python -m pip install \
+            --no-build-isolation \
+            --no-deps \
+            --config-settings rapidsai.disable-cuda=true \
+            --config-settings skbuild.install.components=ucxx \
+            --config-settings skbuild.install.components=examples \
+            ${SKBUILD_EXTRA_PIP_ARGS} \
+            .
 fi
 
 # Build and install the distributed_ucxx Python package
