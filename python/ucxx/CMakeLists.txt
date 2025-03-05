@@ -34,8 +34,6 @@ else()
   set(ucxx-python_FOUND OFF)
 endif()
 
-message(ucxx-python_FOUND="${ucxx-python_FOUND}")
-
 include(rapids-cython-core)
 
 if(NOT ucxx-python_FOUND)
