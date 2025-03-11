@@ -87,6 +87,7 @@ function cmakeArgs {
             EXTRA_CMAKE_ARGS=$(echo "$EXTRA_CMAKE_ARGS" | grep -Eo "\".+\"" | sed -e 's/^"//' -e 's/"$//')
         fi
     fi
+    read -ra EXTRA_CMAKE_ARGS <<< "$EXTRA_CMAKE_ARGS"
 }
 
 function buildAll {
@@ -173,7 +174,6 @@ fi
 ################################################################################
 # Configure, build, and install libucxxx
 
-
 if buildAll || hasArg libucxx; then
     CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
     cmake -S "$REPODIR/cpp" -B "${LIB_BUILD_DIR}" \
@@ -186,7 +186,7 @@ if buildAll || hasArg libucxx; then
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
           -DUCXX_ENABLE_RMM=${UCXX_ENABLE_RMM} \
-          "${EXTRA_CMAKE_ARGS}"
+          "${EXTRA_CMAKE_ARGS[@]}"
 
     cd "${LIB_BUILD_DIR}"
 
@@ -211,12 +211,13 @@ if buildAll || hasArg libucxx; then
 fi
 
 # Append `-DFIND_UCXX_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
-if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_UCXX_CPP"* ]]; then
-    EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_UCXX_CPP=ON"
+# Join EXTRA_CMAKE_ARGS into a string for an easier existence check for the option
+if [[ "${EXTRA_CMAKE_ARGS[*]}" != *"DFIND_UCXX_CPP"* ]]; then
+    EXTRA_CMAKE_ARGS+=("-DFIND_UCXX_CPP=ON")
 fi
 
 # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
-SKBUILD_EXTRA_CMAKE_ARGS=${EXTRA_CMAKE_ARGS// /;}
+SKBUILD_EXTRA_CMAKE_ARGS=("${EXTRA_CMAKE_ARGS[@]// /;}")
 
 # Build and install libucxx_python.so
 if buildAll || hasArg libucxx_python; then
@@ -227,7 +228,7 @@ if buildAll || hasArg libucxx_python; then
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
-          "${EXTRA_CMAKE_ARGS}"
+          "${EXTRA_CMAKE_ARGS[@]}"
 
     cd "${PYTHON_BUILD_DIR}"
 
@@ -244,24 +245,29 @@ fi
 
 # Build and install the UCXX Python package
 if buildAll || hasArg ucxx; then
+    read -ra SKBUILD_EXTRA_PIP_ARGS <<< "$SKBUILD_EXTRA_PIP_ARGS"
     if hasArg -g; then
         export SKBUILD_INSTALL_STRIP=${SKBUILD_INSTALL_STRIP:-false}
     fi
     if hasArg ucxx_tests; then
-      SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS};-DUCXX_BUILD_TESTS=ON"
-      SKBUILD_EXTRA_PIP_ARGS="${SKBUILD_EXTRA_PIP_ARGS} --config-settings skbuild.install.components=testing"
+      SKBUILD_EXTRA_CMAKE_ARGS+=("-DUCXX_BUILD_TESTS=ON")
+      SKBUILD_EXTRA_PIP_ARGS+=("--config-settings" "skbuild.install.components=testing")
     fi
 
     cd "${REPODIR}/python/ucxx/"
-    SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
+    # set field split/join character to semicolon for cmake args
+    IFS=";"
+    SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS[*]}" \
         python -m pip install \
             --no-build-isolation \
             --no-deps \
             --config-settings rapidsai.disable-cuda=true \
             --config-settings skbuild.install.components=ucxx \
             --config-settings skbuild.install.components=examples \
-            "${SKBUILD_EXTRA_PIP_ARGS}" \
+            "${SKBUILD_EXTRA_PIP_ARGS[@]}" \
             .
+    # restore to default space
+    IFS=" "
 fi
 
 # Build and install the distributed_ucxx Python package
