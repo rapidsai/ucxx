@@ -90,7 +90,7 @@ function cmakeArgs {
 }
 
 function buildAll {
-    ((NUMARGS == 0 )) || ! (echo " ${ARGS} " | grep -q " [^-]\+ ")
+    (( NUMARGS == 0 )) || ! (echo " ${ARGS} " | grep -q " [^-]\+ ")
 }
 
 if hasArg -h || hasArg --h || hasArg --help; then
@@ -222,7 +222,7 @@ SKBUILD_EXTRA_CMAKE_ARGS=${EXTRA_CMAKE_ARGS// /;}
 if buildAll || hasArg libucxx_python; then
     CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
     cmake -S "$REPODIR/cpp/python" -B "${PYTHON_BUILD_DIR}" \
-          -G"{CMAKE_GENERATOR}" \
+          -G"${CMAKE_GENERATOR}" \
           -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
@@ -231,7 +231,7 @@ if buildAll || hasArg libucxx_python; then
 
     cd "${PYTHON_BUILD_DIR}"
 
-    cmake --build . "-j{PARALLEL_LEVEL}" ${VERBOSE_FLAG}
+    cmake --build . "-j${PARALLEL_LEVEL}" ${VERBOSE_FLAG}
 
     if [[ ${BUILD_COMPILE_COMMANDS} == "ON" ]]; then
       cp compile_commands.json ..
