@@ -16,7 +16,7 @@ ARGS=$*
 
 # NOTE: ensure all dir changes are relative to the location of this
 # script, and that this script resides in the repo dir!
-REPODIR=$(cd $(dirname $0); pwd)
+REPODIR=$(cd "$(dirname "$0")"; pwd)
 
 VALIDARGS="clean libucxx libucxx_python libucxx_benchmarks libucxx_examples libucxx_tests ucxx ucxx_tests distributed_ucxx -v -g -n -c --show_depr_warn -h"
 HELP="$0 [clean] [libucxx] [libucxx_python] [libucxx_benchmarks] [libucxx_examples] [libucxx_tests] [ucxx] [ucxx_tests] [distributed_ucxx] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
@@ -64,33 +64,33 @@ INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=$(nproc)}
 
 function hasArg {
-    (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
+    (( NUMARGS != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
 function cmakeArgs {
     # Check for multiple cmake args options
-    if [[ $(echo $ARGS | { grep -Eo "\-\-cmake\-args" || true; } | wc -l ) -gt 1 ]]; then
+    if [[ $(echo "$ARGS" | { grep -Eo "\-\-cmake\-args" || true; } | wc -l ) -gt 1 ]]; then
         echo "Multiple --cmake-args options were provided, please provide only one: ${ARGS}"
         exit 1
     fi
 
     # Check for cmake args option
-    if [[ -n $(echo $ARGS | { grep -E "\-\-cmake\-args" || true; } ) ]]; then
+    if [[ -n $(echo "$ARGS" | { grep -E "\-\-cmake\-args" || true; } ) ]]; then
         # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
         # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
         # on the invalid option error
-        EXTRA_CMAKE_ARGS=$(echo $ARGS | { grep -Eo "\-\-cmake\-args=\".+\"" || true; })
+        EXTRA_CMAKE_ARGS=$(echo "$ARGS" | { grep -Eo "\-\-cmake\-args=\".+\"" || true; })
         if [[ -n ${EXTRA_CMAKE_ARGS} ]]; then
             # Remove the full  EXTRA_CMAKE_ARGS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//$EXTRA_CMAKE_ARGS/}
             # Filter the full argument down to just the extra string that will be added to cmake call
-            EXTRA_CMAKE_ARGS=$(echo $EXTRA_CMAKE_ARGS | grep -Eo "\".+\"" | sed -e 's/^"//' -e 's/"$//')
+            EXTRA_CMAKE_ARGS=$(echo "$EXTRA_CMAKE_ARGS" | grep -Eo "\".+\"" | sed -e 's/^"//' -e 's/"$//')
         fi
     fi
 }
 
 function buildAll {
-    ((${NUMARGS} == 0 )) || !(echo " ${ARGS} " | grep -q " [^-]\+ ")
+    ((NUMARGS == 0 )) || ! (echo " ${ARGS} " | grep -q " [^-]\+ ")
 }
 
 if hasArg -h || hasArg --h || hasArg --help; then
@@ -99,7 +99,7 @@ if hasArg -h || hasArg --h || hasArg --help; then
 fi
 
 # Check for valid usage
-if (( ${NUMARGS} != 0 )); then
+if (( NUMARGS != 0 )); then
     # Check for cmake args
     cmakeArgs
     for a in ${ARGS}; do
@@ -121,6 +121,8 @@ if hasArg -n; then
     INSTALL_TARGET=""
     LIBUCXX_BUILD_DIR=${LIB_BUILD_DIR}
 else
+    # TODO: should this be passed to cmake below instead of `LIB_BUILD_DIR`?
+    # shellcheck disable=SC2034
     LIBUCXX_BUILD_DIR=${CONDA_PREFIX}/lib
 fi
 if hasArg -c; then
@@ -156,14 +158,14 @@ if hasArg clean; then
     # The find removes all contents but leaves the dirs, the rmdir
     # attempts to remove the dirs but can fail safely.
     for bd in ${BUILD_DIRS}; do
-    if [ -d ${bd} ]; then
-        find ${bd} -mindepth 1 -delete
-        rmdir ${bd} || true
+    if [ -d "${bd}" ]; then
+        find "${bd}" -mindepth 1 -delete
+        rmdir "${bd}" || true
     fi
     done
 
     # Cleaning up python artifacts
-    find ${REPODIR}/python/ | grep -E "(__pycache__|\.pyc|\.pyo|\.so|\_skbuild$)"  | xargs rm -rf
+    find "${REPODIR}/python/" | grep -E "(__pycache__|\.pyc|\.pyo|\.so|\_skbuild$)"  | xargs rm -rf
 
 fi
 
@@ -174,9 +176,9 @@ fi
 
 if buildAll || hasArg libucxx; then
     CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
-    cmake -S $REPODIR/cpp -B ${LIB_BUILD_DIR} \
-          -G${CMAKE_GENERATOR} \
-          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+    cmake -S "$REPODIR/cpp" -B "${LIB_BUILD_DIR}" \
+          -G"${CMAKE_GENERATOR}" \
+          -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
           -DBUILD_BENCHMARKS=${BUILD_BENCHMARKS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_EXAMPLES=${BUILD_EXAMPLES} \
@@ -184,18 +186,18 @@ if buildAll || hasArg libucxx; then
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
           -DUCXX_ENABLE_RMM=${UCXX_ENABLE_RMM} \
-          ${EXTRA_CMAKE_ARGS}
+          "${EXTRA_CMAKE_ARGS}"
 
-    cd ${LIB_BUILD_DIR}
+    cd "${LIB_BUILD_DIR}"
 
-    cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
+    cmake --build . "-j${PARALLEL_LEVEL}" ${VERBOSE_FLAG}
 
     if [[ ${BUILD_COMPILE_COMMANDS} == "ON" ]]; then
       cp compile_commands.json ..
     fi
 
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
+        cmake --build . "-j${PARALLEL_LEVEL}" --target install ${VERBOSE_FLAG}
         if [[ ${BUILD_BENCHMARKS} == "ON" ]]; then
           cmake --install . --component benchmarks
         fi
@@ -214,29 +216,29 @@ if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_UCXX_CPP"* ]]; then
 fi
 
 # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
-SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
+SKBUILD_EXTRA_CMAKE_ARGS=${EXTRA_CMAKE_ARGS// /;}
 
 # Build and install libucxx_python.so
 if buildAll || hasArg libucxx_python; then
     CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
-    cmake -S $REPODIR/cpp/python -B ${PYTHON_BUILD_DIR} \
-          -G${CMAKE_GENERATOR} \
-          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+    cmake -S "$REPODIR/cpp/python" -B "${PYTHON_BUILD_DIR}" \
+          -G"{CMAKE_GENERATOR}" \
+          -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
-          ${EXTRA_CMAKE_ARGS}
+          "${EXTRA_CMAKE_ARGS}"
 
-    cd ${PYTHON_BUILD_DIR}
+    cd "${PYTHON_BUILD_DIR}"
 
-    cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
+    cmake --build . "-j{PARALLEL_LEVEL}" ${VERBOSE_FLAG}
 
     if [[ ${BUILD_COMPILE_COMMANDS} == "ON" ]]; then
       cp compile_commands.json ..
     fi
 
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
+        cmake --build . "-j${PARALLEL_LEVEL}" --target install ${VERBOSE_FLAG}
     fi
 fi
 
@@ -246,11 +248,11 @@ if buildAll || hasArg ucxx; then
         export SKBUILD_INSTALL_STRIP=${SKBUILD_INSTALL_STRIP:-false}
     fi
     if hasArg ucxx_tests; then
-      SKBUILD_EXTRA_CMAKE_ARGS=$(echo "${SKBUILD_EXTRA_CMAKE_ARGS};-DUCXX_BUILD_TESTS=ON")
-      SKBUILD_EXTRA_PIP_ARGS=$(echo "${SKBUILD_EXTRA_PIP_ARGS} --config-settings skbuild.install.components=testing")
+      SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS};-DUCXX_BUILD_TESTS=ON"
+      SKBUILD_EXTRA_PIP_ARGS="${SKBUILD_EXTRA_PIP_ARGS} --config-settings skbuild.install.components=testing"
     fi
 
-    cd ${REPODIR}/python/ucxx/
+    cd "${REPODIR}/python/ucxx/"
     SKBUILD_CMAKE_ARGS="-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX};-DCMAKE_BUILD_TYPE=${BUILD_TYPE};${SKBUILD_EXTRA_CMAKE_ARGS}" \
         python -m pip install \
             --no-build-isolation \
@@ -258,13 +260,13 @@ if buildAll || hasArg ucxx; then
             --config-settings rapidsai.disable-cuda=true \
             --config-settings skbuild.install.components=ucxx \
             --config-settings skbuild.install.components=examples \
-            ${SKBUILD_EXTRA_PIP_ARGS} \
+            "${SKBUILD_EXTRA_PIP_ARGS}" \
             .
 fi
 
 # Build and install the distributed_ucxx Python package
 if buildAll || hasArg distributed_ucxx; then
 
-    cd ${REPODIR}/python/distributed-ucxx/
+    cd "${REPODIR}/python/distributed-ucxx/"
     python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
 fi
