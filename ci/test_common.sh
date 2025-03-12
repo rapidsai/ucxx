@@ -175,7 +175,7 @@ run_py_benchmark() {
   UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
   UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
   timeout 2m python -m ucxx.benchmarks.send_recv --backend "${BACKEND}" \
-  -o cupy --reuse-alloc -n 8MiB --n-buffers "$N_BUFFERS" --progress-mode "${PROGRESS_MODE}" ${ASYNCIO_WAIT}
+  -o cupy --reuse-alloc -n 8MiB --n-buffers "$N_BUFFERS" --progress-mode "${PROGRESS_MODE}" "${ASYNCIO_WAIT}"
 }
 
 ################################## Distributed #################################

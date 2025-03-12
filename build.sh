@@ -120,11 +120,6 @@ if hasArg -g; then
 fi
 if hasArg -n; then
     INSTALL_TARGET=""
-    LIBUCXX_BUILD_DIR=${LIB_BUILD_DIR}
-else
-    # TODO: should this be passed to cmake below instead of `LIB_BUILD_DIR`?
-    # shellcheck disable=SC2034
-    LIBUCXX_BUILD_DIR=${CONDA_PREFIX}/lib
 fi
 if hasArg -c; then
     BUILD_COMPILE_COMMANDS=ON
