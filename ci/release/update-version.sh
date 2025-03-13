@@ -57,6 +57,7 @@ UCXX_DEPENDENCIES=(
   libucxx-examples
   libucxx-tests
   ucxx
+  ucxx-tests
 )
 for FILE in dependencies.yaml conda/environments/*.yaml; do
   for DEP in "${DEPENDENCIES[@]}"; do
