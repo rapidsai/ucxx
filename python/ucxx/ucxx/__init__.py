@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 """UCXX: Python bindings for the Unified Communication X library (UCX <www.openucx.org>)"""
@@ -95,7 +95,11 @@ if "UCX_MAX_RNDV_RAILS" not in os.environ and get_ucx_version() >= (1, 12, 0):
     logger.info("Setting UCX_MAX_RNDV_RAILS=1")
     os.environ["UCX_MAX_RNDV_RAILS"] = "1"
 
-if "UCX_PROTO_ENABLE" not in os.environ:
+if (
+    "UCX_PROTO_ENABLE" not in os.environ
+    and get_ucx_version() >= (1, 12, 0)
+    and get_ucx_version() < (1, 18, 0)
+):
     # UCX protov2 still doesn't support CUDA async/managed memory
     logger.info("Setting UCX_PROTO_ENABLE=n")
     os.environ["UCX_PROTO_ENABLE"] = "n"
