@@ -85,18 +85,18 @@ run_cpp_port_retry() {
   PROGRESS_MODE=${3}
 
   set +e
-  for attempt in $(seq 1 ${MAX_ATTEMPTS}); do
+  for attempt in $(seq 1 "${MAX_ATTEMPTS}"); do
     echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run ${RUN_TYPE}"
 
     _SERVER_PORT=$((_SERVER_PORT + 1))    # Use different ports every time to prevent `Device is busy`
 
     if [[ "${RUN_TYPE}" == "benchmark" ]]; then
-      run_cpp_benchmark ${_SERVER_PORT} ${PROGRESS_MODE}
+      run_cpp_benchmark ${_SERVER_PORT} "${PROGRESS_MODE}"
     elif [[ "${RUN_TYPE}" == "example" ]]; then
-      run_cpp_example ${_SERVER_PORT} ${PROGRESS_MODE}
+      run_cpp_example ${_SERVER_PORT} "${PROGRESS_MODE}"
     else
       set -e
-      echo "Unknown test type "${RUN_TYPE}""
+      echo "Unknown test type ${RUN_TYPE}"
       exit 1
     fi
 
@@ -108,9 +108,9 @@ run_cpp_port_retry() {
   done
   set -e
 
-  if [ ${LAST_STATUS} -ne 0 ]; then
+  if [ "${LAST_STATUS}" -ne 0 ]; then
     echo "Failure running benchmark client after ${MAX_ATTEMPTS} attempts"
-    exit $LAST_STATUS
+    exit "$LAST_STATUS"
   fi
 }
 
@@ -119,13 +119,13 @@ run_cpp_port_retry() {
 run_py_tests() {
   RUN_CYTHON=$1
 
-  if [ $RUN_CYTHON -ne 0 ]; then
+  if [ "$RUN_CYTHON" -ne 0 ]; then
     ARGS=("--run-cython")
   else
     ARGS=()
   fi
 
-  CMD_LINE="timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/ ${ARGS[@]}"
+  CMD_LINE="timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/ ${ARGS[*]}"
   log_command "${CMD_LINE}"
   timeout 4m python -m pytest -vs python/ucxx/ucxx/_lib/tests/ "${ARGS[@]}"
 }
@@ -138,7 +138,7 @@ run_py_tests_async() {
 
   CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 30m python -m pytest -vs python/ucxx/ucxx/_lib_async/tests/ --runslow"
 
-  if [ $SKIP -ne 0 ]; then
+  if [ "$SKIP" -ne 0 ]; then
     echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
   else
     log_command "${CMD_LINE}"
@@ -155,7 +155,7 @@ run_py_benchmark() {
   N_BUFFERS=$6
   SLOW=$7
 
-  if [ $ASYNCIO_WAIT -ne 0 ]; then
+  if [ "$ASYNCIO_WAIT" -ne 0 ]; then
     ASYNCIO_WAIT="--asyncio-wait"
   else
     ASYNCIO_WAIT=""
@@ -167,11 +167,15 @@ run_py_benchmark() {
   CMD_LINE="UCX_KEEPALIVE_INTERVAL=1ms ${CMD_LINE}"
 
   log_command "${CMD_LINE}"
-  if [ $SLOW -ne 0 ]; then
+  if [ "$SLOW" -ne 0 ]; then
     echo -e "\e[1;33mSLOW BENCHMARK: it may seem like a deadlock but will eventually complete.\e[0m"
   fi
 
-  UCX_KEEPALIVE_INTERVAL=1ms UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 2m python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}
+  UCX_KEEPALIVE_INTERVAL=1ms \
+  UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
+  UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
+  timeout 2m python -m ucxx.benchmarks.send_recv --backend "${BACKEND}" \
+  -o cupy --reuse-alloc -n 8MiB --n-buffers "$N_BUFFERS" --progress-mode "${PROGRESS_MODE}" ${ASYNCIO_WAIT}
 }
 
 ################################## Distributed #################################
@@ -189,7 +193,7 @@ install_distributed_dev_mode() {
       break
     else
 
-      if [ $attempt -eq $MAX_ATTEMPTS ]; then
+      if [ "$attempt" -eq $MAX_ATTEMPTS ]; then
         rapids-logger "Maximum number of attempts to clone Distributed failed."
         exit 1
       fi
@@ -202,7 +206,7 @@ install_distributed_dev_mode() {
   # `pip install -e` removes files under `distributed` but not the directory, later
   # causing failures to import modules.
   PYTHON_ENV_PATH=${CONDA_PREFIX:-/pyenv}
-  rm -rf $(find ${PYTHON_ENV_PATH} -type d -iname "site-packages")/distributed
+  rm -rf "$(find "${PYTHON_ENV_PATH}" -type d -iname "site-packages")/distributed"
 }
 
 run_distributed_ucxx_tests() {

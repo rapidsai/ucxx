@@ -27,8 +27,6 @@ rapids-print-env
 
 print_system_stats
 
-BINARY_PATH=${CONDA_PREFIX}/bin
-
 print_ucx_config
 
 rapids-logger "Run tests with conda package"

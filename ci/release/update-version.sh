@@ -16,12 +16,12 @@
 NEXT_FULL_TAG=$1
 
 # Get <major>.<minor> for next version
-NEXT_MAJOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[1]}')
-NEXT_MINOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[2]}')
+NEXT_MAJOR=$(echo "$NEXT_FULL_TAG" | awk '{split($0, a, "."); print a[1]}')
+NEXT_MINOR=$(echo "$NEXT_FULL_TAG" | awk '{split($0, a, "."); print a[2]}')
 NEXT_SHORT_TAG=${NEXT_MAJOR}.${NEXT_MINOR}
 
 # Get RAPIDS version associated w/ ucx-py version
-NEXT_RAPIDS_SHORT_TAG="$(curl -sL https://version.gpuci.io/ucx-py/${NEXT_SHORT_TAG})"
+NEXT_RAPIDS_SHORT_TAG="$(curl -sL "https://version.gpuci.io/ucx-py/${NEXT_SHORT_TAG}")"
 
 # Need to distutils-normalize the versions for some use cases
 NEXT_SHORT_TAG_PEP440=$(python -c "from packaging.version import Version; print(Version('${NEXT_SHORT_TAG}'))")
@@ -32,7 +32,7 @@ echo "Preparing release: $NEXT_FULL_TAG"
 
 # Inplace sed replace; workaround for Linux and Mac
 function sed_runner() {
-    sed -i.bak ''"$1"'' $2 && rm -f ${2}.bak
+    sed -i.bak ''"$1"'' "$2" && rm -f "${2}".bak
 }
 
 # Centralized version file update

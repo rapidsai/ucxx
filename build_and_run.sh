@@ -8,7 +8,7 @@ ARGS=$*
 
 # NOTE: ensure all dir changes are relative to the location of this
 # script, and that this script resides in the repo dir!
-REPODIR=$(cd $(dirname $0); pwd)
+REPODIR=$(cd "$(dirname "$0")"; pwd)
 
 VALIDARGS="cpp_tests py_tests cpp_examples py_async_tests py_bench py_async_bench cython_tests -v -g -n -c --show_depr_warn -h"
 HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_bench] [py_async_bench] [cython_tests]
@@ -47,16 +47,28 @@ RUN_CYTHON_TESTS=0
 BINARY_PATH=${CONDA_PREFIX}/bin
 
 function hasArg {
-    (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
+    (( NUMARGS != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
 function runAll {
-    ((${NUMARGS} == 0 )) || !(echo " ${ARGS} " | grep -q " [^-]\+ ")
+    (( NUMARGS == 0 )) || ! (echo " ${ARGS} " | grep -q " [^-]\+ ")
 }
 
 if hasArg -h || hasArg --h || hasArg --help; then
     echo "${HELP}"
     exit 0
+fi
+
+# Check for valid usage
+if (( NUMARGS != 0 )); then
+    # Check for cmake args
+    cmakeArgs
+    for a in ${ARGS}; do
+    if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
+        echo "Invalid option or formatting, check --help: ${a}"
+        exit 1
+    fi
+    done
 fi
 
 if hasArg -v; then
@@ -101,8 +113,8 @@ fi
 set -e
 
 (
-  cd ${REPODIR}
-  ./build.sh ${BUILD_ARGS}
+  cd "${REPODIR}"
+  ./build.sh "${BUILD_ARGS}"
 )
 
 # Let all tests run even if they fail
@@ -117,8 +129,8 @@ run_cpp_benchmark() {
   CMD_LINE_CLIENT="${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1"
 
   echo -e "\e[1mRunning: \n  - ${CMD_LINE_SERVER}\n  - ${CMD_LINE_CLIENT}\e[0m"
-  UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} &
-  ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} 127.0.0.1
+  UCX_TCP_CM_REUSEADDR=y "${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest" -s 8388608 -r -n 20 -m "${PROGRESS_MODE}" &
+  "${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest" -s 8388608 -r -n 20 -m "${PROGRESS_MODE}" 127.0.0.1
 }
 
 run_cpp_example() {
@@ -129,7 +141,7 @@ run_cpp_example() {
   CMD_LINE="UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE}"
 
   echo -e "\e[1mRunning: \n  - ${CMD_LINE}\e[0m"
-  UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE}
+  UCX_TCP_CM_REUSEADDR=y "${BINARY_PATH}/examples/libucxx/ucxx_example_basic" -m "${PROGRESS_MODE}"
 }
 
 run_tests_async() {
@@ -140,7 +152,7 @@ run_tests_async() {
 
   CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} pytest -vs python/ucxx/ucxx/_lib_async/tests/"
 
-  if [ $SKIP -ne 0 ]; then
+  if [ "$SKIP" -ne 0 ]; then
     echo -e "\e[31;1mSkipping unstable test: ${CMD_LINE}\e[0m"
   else
     echo -e "\e[1mRunning: ${CMD_LINE}\e[0m"
@@ -157,7 +169,7 @@ run_py_benchmark() {
   N_BUFFERS=$6
   SLOW=$7
 
-  if [ $ASYNCIO_WAIT -ne 0 ]; then
+  if [ "$ASYNCIO_WAIT" -ne 0 ]; then
     ASYNCIO_WAIT="--asyncio-wait"
   else
     ASYNCIO_WAIT=""
@@ -166,16 +178,19 @@ run_py_benchmark() {
   CMD_LINE="UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -d 0 -e 1 -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}"
 
   echo -e "\e[1mRunning: ${CMD_LINE}\e[0m"
-  if [ $SLOW -ne 0 ]; then
+  if [ "$SLOW" -ne 0 ]; then
     echo -e "\e[31;1mSLOW BENCHMARK: it may seem like a deadlock but will eventually complete.\e[0m"
   fi
-  UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -d 0 -e 1 -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}
+  UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
+    UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
+    python -m ucxx.benchmarks.send_recv --backend "${BACKEND}" -o cupy \
+    --reuse-alloc -d 0 -e 1 -n 8MiB --n-buffers "$N_BUFFERS" --progress-mode "${PROGRESS_MODE}" ${ASYNCIO_WAIT}
 }
 
 if [[ $RUN_CPP_TESTS != 0 ]]; then
   # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
   # `TIME_WAIT` timeout
-  UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/gtests/libucxx/UCXX_TEST
+  UCX_TCP_CM_REUSEADDR=y "${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
 fi
 if [[ $RUN_CPP_BENCH != 0 ]]; then
   # run_cpp_benchmark PROGRESS_MODE
