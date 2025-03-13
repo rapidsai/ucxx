@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -25,7 +25,8 @@ async def test_message_probe(transfer_api):
             assert ep._ep.am_probe() is True
             received = bytes(await ep.am_recv())
         else:
-            assert ep._ctx.worker.tag_probe(Tag(ep._tags["msg_recv"])) is True
+            while ep._ctx.worker.tag_probe(Tag(ep._tags["msg_recv"])) is False:
+                ucxx.progress()
             received = bytearray(10)
             await ep.recv(received)
         assert received == msg
