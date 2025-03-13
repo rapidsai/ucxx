@@ -688,6 +688,10 @@ class Worker : public Component {
    * by a corresponding `ucp_tag_recv_*` call. Additionally, returns information about the
    * tag message.
    *
+   * Note this is a non-blocking call, if this is being used to actively check for an
+   * incoming message the worker should be constantly progress until a valid probe is
+   * returned.
+   *
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`
    * auto probe = worker->tagProbe(0);

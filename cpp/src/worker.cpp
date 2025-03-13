@@ -583,19 +583,6 @@ TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
 
 std::pair<bool, TagRecvInfo> Worker::tagProbe(const Tag tag, const TagMask tagMask)
 {
-  if (!isProgressThreadRunning()) {
-    progress();
-  } else {
-    /**
-     * To ensure the worker was progressed at least once, we must make sure a callback runs
-     * pre-progressing, and another one runs post-progress. Running post-progress only may
-     * indicate the progress thread has immediately finished executing and post-progress
-     * ran without a further progress operation.
-     */
-    std::ignore = registerGenericPre([]() {}, 3000000000 /* 3s */);
-    std::ignore = registerGenericPost([]() {}, 3000000000 /* 3s */);
-  }
-
   ucp_tag_recv_info_t info;
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, 0, &info);
 
