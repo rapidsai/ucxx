@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -44,7 +44,7 @@ async def get_ep(name, port):
     return ep
 
 
-def client(port, func, comm_api):
+def client(port, func, comm_api, timeout):
     # 1. Wait for server to come up
     # 2. Loop receiving object multiple times from server
     # 3. Send close message
@@ -89,7 +89,8 @@ def client(port, func, comm_api):
         print_with_pid("Shutting Down Client...")
         return msg["data"]
 
-    rx_cuda_obj = get_event_loop().run_until_complete(read())
+    loop = get_event_loop()
+    rx_cuda_obj = loop.run_until_complete(asyncio.wait_for(read(), timeout=timeout))
     rx_cuda_obj + rx_cuda_obj
     num_bytes = nbytes(rx_cuda_obj)
     print_with_pid(f"TOTAL DATA RECEIVED: {num_bytes}")
@@ -105,7 +106,7 @@ def client(port, func, comm_api):
         assert_eq(rx_cuda_obj, pure_cuda_obj)
 
 
-def server(port, func, comm_api):
+def server(port, func, comm_api, timeout):
     # 1. Create listener receiver
     # 2. Loop sending object multiple times to connected client
     # 3. Receive close message and close listener
@@ -165,7 +166,7 @@ def server(port, func, comm_api):
             pass
 
     loop = get_event_loop()
-    loop.run_until_complete(f(port))
+    loop.run_until_complete(asyncio.wait_for(f(port), timeout=timeout))
 
 
 def dataframe():
@@ -208,6 +209,7 @@ def cupy_obj():
 )
 @pytest.mark.parametrize("comm_api", ["tag", "am"])
 def test_send_recv_cu(cuda_obj_generator, comm_api):
+    timeout = 3000
     base_env = os.environ
     env_client = base_env.copy()
     # Grab first two devices
@@ -226,10 +228,10 @@ def test_send_recv_cu(cuda_obj_generator, comm_api):
 
     ctx = multiprocessing.get_context("spawn")
     server_process = ctx.Process(
-        name="server", target=server, args=[port, func, comm_api]
+        name="server", target=server, args=(port, func, comm_api, timeout)
     )
     client_process = ctx.Process(
-        name="client", target=client, args=[port, func, comm_api]
+        name="client", target=client, args=(port, func, comm_api, timeout)
     )
 
     server_process.start()
@@ -239,6 +241,8 @@ def test_send_recv_cu(cuda_obj_generator, comm_api):
     os.environ.update(env_client)
     client_process.start()
 
-    join_processes([client_process, server_process], timeout=3000)
+    # Increase timeout by an additional 5s to give subprocesses a chance to
+    # timeout before being forcefully terminated.
+    join_processes([client_process, server_process], timeout=timeout + 5)
     terminate_process(client_process)
     terminate_process(server_process)
