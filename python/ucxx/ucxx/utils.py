@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import fcntl
@@ -126,7 +126,7 @@ def get_ucxpy_logger():
     return logger
 
 
-def get_address(ifname=None):
+def get_address(ifname=None, use_ipv6=False):
     """
     Get the address associated with a network interface.
 
@@ -137,6 +137,9 @@ def get_address(ifname=None):
         If None, it uses the value of environment variable `UCXPY_IFNAME`
         and if `UCXPY_IFNAME` is not set it defaults to "ib0"
         An OSError is raised for invalid interfaces.
+    use_ipv6 : bool
+        Whether to get IPv6 addresses instead of the IPv4 default.
+        NOTE: Requires the `psutil` package.
 
     Returns
     -------
@@ -150,16 +153,31 @@ def get_address(ifname=None):
 
     >>> get_address(ifname='lo')
     '127.0.0.1'
+
+    >>> get_address(ifname='lo', use_ipv6=True)
+    '::1'
     """
 
     def _get_address(ifname):
-        ifname = ifname.encode()
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            return socket.inet_ntoa(
-                fcntl.ioctl(
-                    s.fileno(), 0x8915, struct.pack("256s", ifname[:15])  # SIOCGIFADDR
-                )[20:24]
-            )
+        if use_ipv6:
+            import psutil
+
+            addrs = psutil.net_if_addrs()
+            if ifname in addrs:
+                for addr in addrs[ifname]:
+                    if addr.family == socket.AF_INET6:
+                        return addr.address.split("%")[0]
+            return None
+        else:
+            ifname = ifname.encode()
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                return socket.inet_ntoa(
+                    fcntl.ioctl(
+                        s.fileno(),
+                        0x8915,  # SIOCGIFADDR
+                        struct.pack("256s", ifname[:15]),
+                    )[20:24]
+                )
 
     def _try_interfaces():
         prefix_priority = ["ib", "eth", "en"]
