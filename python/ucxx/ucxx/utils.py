@@ -141,6 +141,12 @@ def get_address(ifname=None, use_ipv6=False):
         Whether to get IPv6 addresses instead of the IPv4 default.
         NOTE: Requires the `psutil` package.
 
+    Raises
+    ------
+    OSError
+        If no device was found with the specified `ifname`, or no suitable
+        devices were found when `ifname=None`.
+
     Returns
     -------
     address : str
@@ -167,7 +173,7 @@ def get_address(ifname=None, use_ipv6=False):
                 for addr in addrs[ifname]:
                     if addr.family == socket.AF_INET6:
                         return addr.address.split("%")[0]
-            return None
+            raise OSError("No such device")
         else:
             ifname = ifname.encode()
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -195,6 +201,7 @@ def get_address(ifname=None, use_ipv6=False):
                     return _get_address(i)
                 except OSError:
                     pass
+        raise OSError("No devices found")
 
     if ifname is None:
         ifname = os.environ.get("UCXPY_IFNAME")
