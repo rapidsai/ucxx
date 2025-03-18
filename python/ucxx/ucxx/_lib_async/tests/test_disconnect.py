@@ -12,7 +12,10 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
-from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import (
+    compute_timeouts,
+    wait_listener_client_handlers,
+)
 from ucxx.testing import terminate_process
 
 mp = mp.get_context("spawn")
@@ -101,7 +104,7 @@ def _test_shutdown_unexpected_closed_peer_client(
 
 
 @pytest.mark.parametrize("endpoint_error_handling", [True, False])
-def test_shutdown_unexpected_closed_peer(caplog, endpoint_error_handling):
+def test_shutdown_unexpected_closed_peer(pytestconfig, caplog, endpoint_error_handling):
     """
     Test clean server shutdown after unexpected peer close
 
@@ -109,7 +112,7 @@ def test_shutdown_unexpected_closed_peer(caplog, endpoint_error_handling):
     The main goal is to assert that the processes exit without errors
     despite a somewhat messy initial state.
     """
-    timeout = 30
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
     if endpoint_error_handling is False:
         pytest.xfail(
             "Temporarily xfailing, due to https://github.com/rapidsai/ucxx/issues/21"
@@ -130,20 +133,20 @@ def test_shutdown_unexpected_closed_peer(caplog, endpoint_error_handling):
     server_queue = mp.Queue()
     p1 = mp.Process(
         target=_test_shutdown_unexpected_closed_peer_server,
-        args=(client_queue, server_queue, endpoint_error_handling, timeout),
+        args=(client_queue, server_queue, endpoint_error_handling, async_timeout),
     )
     p1.start()
     p2 = mp.Process(
         target=_test_shutdown_unexpected_closed_peer_client,
-        args=(client_queue, server_queue, endpoint_error_handling, timeout),
+        args=(client_queue, server_queue, endpoint_error_handling, async_timeout),
     )
     p2.start()
 
     # Increase timeout by an additional 5s to give subprocesses a chance to
     # timeout before being forcefully terminated.
-    p2.join(timeout=timeout + 5)
+    p2.join(timeout=join_timeout)
     server_queue.put("client is down")
-    p1.join(timeout=timeout + 5)
+    p1.join(timeout=join_timeout)
 
     terminate_process(p2)
     terminate_process(p1)
