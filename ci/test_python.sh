@@ -31,7 +31,8 @@ print_ucx_config
 
 rapids-logger "Run tests with conda package"
 rapids-logger "Python Core Tests"
-run_py_tests
+# run_py_tests RUN_CYTHON
+run_py_tests   1
 
 rapids-logger "Python Async Tests"
 # run_py_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
