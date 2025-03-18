@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -12,12 +12,13 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
+from ucxx._lib_async.utils_test import compute_timeouts
 from ucxx.testing import join_processes, terminate_process
 
 mp = mp.get_context("spawn")
 
 
-def _test_from_worker_address_error_server(q1, q2, error_type):
+def _test_from_worker_address_error_server(q1, q2, error_type, timeout):
     async def run():
         address = bytearray(ucxx.get_worker_address())
 
@@ -39,14 +40,15 @@ def _test_from_worker_address_error_server(q1, q2, error_type):
             # q1.put("disconnected")
 
     loop = get_event_loop()
-    loop.run_until_complete(run())
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+    finally:
+        ucxx.stop_notifier_thread()
 
-    ucxx.stop_notifier_thread()
-
-    loop.close()
+        loop.close()
 
 
-def _test_from_worker_address_error_client(q1, q2, error_type):
+def _test_from_worker_address_error_client(q1, q2, error_type, timeout):
     async def run():
         # Receive worker address from server via multiprocessing.Queue
         remote_address = ucxx.get_ucx_address_from_buffer(q1.get())
@@ -138,11 +140,12 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                     await task
 
     loop = get_event_loop()
-    loop.run_until_complete(run())
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+    finally:
+        ucxx.stop_notifier_thread()
 
-    ucxx.stop_notifier_thread()
-
-    loop.close()
+        loop.close()
 
 
 @pytest.mark.parametrize(
@@ -164,19 +167,21 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
         "UCX_UD_TIMEOUT": "100ms",
     },
 )
-def test_from_worker_address_error(error_type):
+def test_from_worker_address_error(pytestconfig, error_type):
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
+
     q1 = mp.Queue()
     q2 = mp.Queue()
 
     server = mp.Process(
         target=_test_from_worker_address_error_server,
-        args=(q1, q2, error_type),
+        args=(q1, q2, error_type, async_timeout),
     )
     server.start()
 
     client = mp.Process(
         target=_test_from_worker_address_error_client,
-        args=(q1, q2, error_type),
+        args=(q1, q2, error_type, async_timeout),
     )
     client.start()
 
@@ -184,7 +189,7 @@ def test_from_worker_address_error(error_type):
         server.join()
         q1.put("Server closed")
 
-    join_processes([client, server], timeout=30)
+    join_processes([client, server], timeout=join_timeout)
     terminate_process(server)
     try:
         terminate_process(client)
