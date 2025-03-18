@@ -41,7 +41,7 @@ def get_cuda_devices():
         return list(range(ngpus))
 
 
-def compute_timeouts(pytestconfig: pytest.pytestconfig) -> tuple(float, float):
+def compute_timeouts(pytestconfig: pytest.Config) -> tuple[float, float]:
     """
     Calculate low and high timeouts.
 

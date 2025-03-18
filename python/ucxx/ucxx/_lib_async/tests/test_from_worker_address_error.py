@@ -12,7 +12,7 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
-from ucxx._lib_async.utils_tests import compute_timeouts
+from ucxx._lib_async.utils_test import compute_timeouts
 from ucxx.testing import join_processes, terminate_process
 
 mp = mp.get_context("spawn")
