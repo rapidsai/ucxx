@@ -12,6 +12,7 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
+from ucxx._lib_async.utils_tests import compute_timeouts
 from ucxx.testing import join_processes, terminate_process
 
 mp = mp.get_context("spawn")
@@ -166,20 +167,21 @@ def _test_from_worker_address_error_client(q1, q2, error_type, timeout):
         "UCX_UD_TIMEOUT": "100ms",
     },
 )
-def test_from_worker_address_error(error_type):
-    timeout = 30
+def test_from_worker_address_error(pytestconfig, error_type):
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
+
     q1 = mp.Queue()
     q2 = mp.Queue()
 
     server = mp.Process(
         target=_test_from_worker_address_error_server,
-        args=(q1, q2, error_type, timeout),
+        args=(q1, q2, error_type, async_timeout),
     )
     server.start()
 
     client = mp.Process(
         target=_test_from_worker_address_error_client,
-        args=(q1, q2, error_type, timeout),
+        args=(q1, q2, error_type, async_timeout),
     )
     client.start()
 
@@ -187,9 +189,7 @@ def test_from_worker_address_error(error_type):
         server.join()
         q1.put("Server closed")
 
-    # Increase timeout by an additional 5s to give subprocesses a chance to
-    # timeout before being forcefully terminated.
-    join_processes([client, server], timeout=timeout + 5)
+    join_processes([client, server], timeout=join_timeout)
     terminate_process(server)
     try:
         terminate_process(client)

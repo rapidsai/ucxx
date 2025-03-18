@@ -14,6 +14,7 @@ from ucxx._lib_async.utils import get_event_loop
 from ucxx._lib_async.utils_test import (
     am_recv,
     am_send,
+    compute_timeouts,
     get_cuda_devices,
     get_num_gpus,
     recv,
@@ -208,8 +209,9 @@ def cupy_obj():
     "cuda_obj_generator", [dataframe, empty_dataframe, series, cupy_obj]
 )
 @pytest.mark.parametrize("comm_api", ["tag", "am"])
-def test_send_recv_cu(cuda_obj_generator, comm_api):
-    timeout = 3000
+def test_send_recv_cu(pytestconfig, cuda_obj_generator, comm_api):
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
+
     base_env = os.environ
     env_client = base_env.copy()
     # Grab first two devices
@@ -228,10 +230,10 @@ def test_send_recv_cu(cuda_obj_generator, comm_api):
 
     ctx = multiprocessing.get_context("spawn")
     server_process = ctx.Process(
-        name="server", target=server, args=(port, func, comm_api, timeout)
+        name="server", target=server, args=(port, func, comm_api, async_timeout)
     )
     client_process = ctx.Process(
-        name="client", target=client, args=(port, func, comm_api, timeout)
+        name="client", target=client, args=(port, func, comm_api, async_timeout)
     )
 
     server_process.start()
@@ -243,6 +245,6 @@ def test_send_recv_cu(cuda_obj_generator, comm_api):
 
     # Increase timeout by an additional 5s to give subprocesses a chance to
     # timeout before being forcefully terminated.
-    join_processes([client_process, server_process], timeout=timeout + 5)
+    join_processes([client_process, server_process], timeout=join_timeout)
     terminate_process(client_process)
     terminate_process(server_process)

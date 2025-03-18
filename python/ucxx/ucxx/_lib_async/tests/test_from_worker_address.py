@@ -11,6 +11,7 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop, hash64bits
+from ucxx._lib_async.utils_tests import compute_timeouts
 from ucxx.testing import join_processes, terminate_process
 
 mp = mp.get_context("spawn")
@@ -78,25 +79,24 @@ def _test_from_worker_address_client(queue, timeout):
         loop.close()
 
 
-def test_from_worker_address():
-    timeout = 30
+def test_from_worker_address(pytestconfig):
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
+
     queue = mp.Queue()
 
     server = mp.Process(
         target=_test_from_worker_address_server,
-        args=(queue, timeout),
+        args=(queue, async_timeout),
     )
     server.start()
 
     client = mp.Process(
         target=_test_from_worker_address_client,
-        args=(queue, timeout),
+        args=(queue, async_timeout),
     )
     client.start()
 
-    # Increase timeout by an additional 5s to give subprocesses a chance to
-    # timeout before being forcefully terminated.
-    join_processes([client, server], timeout=timeout + 5)
+    join_processes([client, server], timeout=join_timeout)
     terminate_process(client)
     terminate_process(server)
 
@@ -246,28 +246,29 @@ def _test_from_worker_address_client_fixedsize(queue, timeout):
         loop.close()
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("num_nodes", [1, 2, 4, 8])
-def test_from_worker_address_multinode(num_nodes):
-    timeout = 30
+def test_from_worker_address_multinode(pytestconfig, num_nodes):
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
+
     queue = mp.Queue()
 
     server = mp.Process(
         target=_test_from_worker_address_server_fixedsize,
-        args=(num_nodes, queue, timeout),
+        args=(num_nodes, queue, async_timeout),
     )
     server.start()
 
     clients = []
     for i in range(num_nodes):
         client = mp.Process(
-            target=_test_from_worker_address_client_fixedsize, args=(queue, timeout)
+            target=_test_from_worker_address_client_fixedsize,
+            args=(queue, async_timeout),
         )
         client.start()
         clients.append(client)
 
-    # Increase timeout by an additional 5s to give subprocesses a chance to
-    # timeout before being forcefully terminated.
-    join_processes(clients + [server], timeout=timeout + 5)
+    join_processes(clients + [server], timeout=join_timeout)
     for client in clients:
         terminate_process(client)
     terminate_process(server)

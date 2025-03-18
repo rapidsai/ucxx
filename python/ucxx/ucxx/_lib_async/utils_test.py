@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -39,6 +39,35 @@ def get_cuda_devices():
     else:
         ngpus = get_num_gpus()
         return list(range(ngpus))
+
+
+def compute_timeouts(pytestconfig: pytest.pytestconfig) -> tuple(float, float):
+    """
+    Calculate low and high timeouts.
+
+    The purpose of those timeouts is ensuring internal tasks can have timeouts
+    adjusted based on the total test timeout, for example using low for async
+    tasks and high for subprocesses, ensuring timeouts occur in the order: low
+    timeout, high timeout and finally test timeout. This is useful to preserve
+    information such as async stack and the process that timed out, this can aid
+    in resolving issues.
+
+    Parameters
+    ----------
+    pytestconfig : pytestconfig
+        The pytestconfig object retrieved by the object when the fixture with
+        same name is added as argument to that function.
+
+    Returns
+    -------
+    tuple: floats
+        Element 0 is the low timeout, and element 1 is the high timeout.
+    """
+    plugin_timeout = pytestconfig.cache.get("asyncio_timeout", {})["timeout"]
+    async_timeout = max(plugin_timeout * 0.8, plugin_timeout - 10)
+    join_timeout = max(plugin_timeout * 0.9, plugin_timeout - 5)
+
+    return (async_timeout, join_timeout)
 
 
 @contextmanager
