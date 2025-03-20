@@ -463,6 +463,9 @@ cdef class UCXAddress():
     def __bytes__(self) -> bytes:
         return bytes(self._string)
 
+    def __str__(self) -> str:
+        return self._string.decode('utf-8')
+
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
         if bool(flags & PyBUF_WRITABLE):
             raise BufferError("Requested writable view on readonly data")
