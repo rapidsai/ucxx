@@ -405,20 +405,8 @@ cdef class UCXAddress():
         return address
 
     @classmethod
-    def create_from_string(cls, string address_str) -> UCXAddress:
-        cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
-        cdef string cpp_address_str = address_str
-
-        with nogil:
-            address._address = createAddressFromString(cpp_address_str)
-            address._handle = address._address.get().getHandle()
-            address._length = address._address.get().getLength()
-            address._string = address._address.get().getString()
-
-        return address
-
-    @classmethod
     def create_from_buffer(cls, bytes buffer) -> UCXAddress:
+        cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
         cdef string address_str
 
         buf = Array(buffer)
@@ -426,7 +414,13 @@ cdef class UCXAddress():
 
         address_str = string(<char*>buf.ptr, <size_t>buf.nbytes)
 
-        return UCXAddress.create_from_string(address_str)
+        with nogil:
+            address._address = createAddressFromString(address_str)
+            address._handle = address._address.get().getHandle()
+            address._length = address._address.get().getLength()
+            address._string = address._address.get().getString()
+
+        return address
 
     # For old UCX-Py API compatibility
     @classmethod
@@ -462,9 +456,6 @@ cdef class UCXAddress():
 
     def __bytes__(self) -> bytes:
         return bytes(self._string)
-
-    def __str__(self) -> str:
-        return self._string.decode('utf-8')
 
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
         if bool(flags & PyBUF_WRITABLE):

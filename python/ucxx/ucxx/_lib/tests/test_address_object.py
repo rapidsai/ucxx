@@ -9,17 +9,6 @@ import ucxx._lib.libucxx as ucx_api
 mp = mp.get_context("spawn")
 
 
-def test_ucx_address_string():
-    ctx = ucx_api.UCXContext()
-    worker = ucx_api.UCXWorker(ctx)
-    org_address = worker.address
-    org_address_str = str(org_address)
-    new_address = ucx_api.UCXAddress.create_from_string(org_address_str)
-    new_address_str = str(new_address)
-    assert hash(org_address) == hash(new_address)
-    assert org_address_str == new_address_str
-
-
 def test_ucx_address_bytes():
     ctx = ucx_api.UCXContext()
     worker = ucx_api.UCXWorker(ctx)
