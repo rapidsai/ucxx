@@ -460,8 +460,7 @@ cdef class UCXAddress():
     def length(self) -> int:
         return int(self._length)
 
-    @property
-    def string(self) -> bytes:
+    def __bytes__(self) -> bytes:
         return bytes(self._string)
 
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
@@ -489,10 +488,10 @@ cdef class UCXAddress():
         pass
 
     def __reduce__(self) -> tuple:
-        return (UCXAddress.create_from_buffer, (self.string,))
+        return (UCXAddress.create_from_buffer, (bytes(self),))
 
     def __hash__(self) -> int:
-        return hash(bytes(self.string))
+        return hash(bytes(self))
 
 
 cdef void _generic_callback(void *args) with gil:
