@@ -23,7 +23,6 @@ export SKBUILD_CMAKE_ARGS="-DFIND_UCXX_CPP=ON;-DCMAKE_INSTALL_LIBDIR=ucxx/lib64;
 
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
-mkdir -p "${package_dir}/final_dist"
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
     --exclude "libucxx.so" \
