@@ -40,8 +40,8 @@ std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
 
 std::shared_ptr<Address> createAddressFromString(std::string_view addressString)
 {
-  ucp_address_t* address = reinterpret_cast<ucp_address_t*>(new char[addressString.length()]);
   size_t length          = addressString.length();
+  ucp_address_t* address = reinterpret_cast<ucp_address_t*>(new char[length]);
   memcpy(address, addressString.data(), length);
   return std::shared_ptr<Address>(new Address(nullptr, address, length));
 }
