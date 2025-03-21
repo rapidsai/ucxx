@@ -405,14 +405,9 @@ cdef class UCXAddress():
         return address
 
     @classmethod
-    def create_from_buffer(cls, bytes buffer) -> UCXAddress:
+    def create_from_buffer(cls, bytes buf) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
-        cdef string address_str
-
-        buf = Array(buffer)
-        assert buf.c_contiguous
-
-        address_str = string(<char*>buf.ptr, <size_t>buf.nbytes)
+        cdef string address_str = string(<const char*>buf, len(buf))
 
         with nogil:
             address._address = createAddressFromString(address_str)
