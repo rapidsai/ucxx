@@ -5,7 +5,7 @@
 #pragma once
 
 #include <memory>
-#include <string>
+#include <string_view>
 
 #include <ucp/api/ucp.h>
 
@@ -75,7 +75,7 @@ class Address : public Component {
    *
    * @returns The `shared_ptr<ucxx::Address>` object.
    */
-  friend std::shared_ptr<Address> createAddressFromString(std::string addressString);
+  friend std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
 
   /**
    * @brief Get the underlying `ucp_address_t*` handle.
@@ -112,7 +112,7 @@ class Address : public Component {
    *
    * @returns The underlying `ucp_address_t` handle.
    */
-  [[nodiscard]] std::string getString() const;
+  [[nodiscard]] std::string_view getString() const;
 };
 
 }  // namespace ucxx
