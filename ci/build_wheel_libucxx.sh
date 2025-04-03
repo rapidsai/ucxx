@@ -6,8 +6,6 @@ set -euo pipefail
 package_name="libucxx"
 package_dir="python/libucxx"
 
-wheel_dir=${RAPIDS_WHEEL_BLD_OUTPUT_DIR}
-
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 rapids-logger "Generating build requirements"
@@ -36,9 +34,9 @@ export SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON"
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
     --exclude librapids_logger.so \
-    -w "${wheel_dir}" \
+    -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" \
     ${package_dir}/dist/*
 
-./ci/validate_wheel.sh "${package_dir}" "${wheel_dir}"
+./ci/validate_wheel.sh "${package_dir}" "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp "${wheel_dir}"
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
