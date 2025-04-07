@@ -110,6 +110,8 @@ outputs:
           - if: cuda_major == "11"
             then: cudatoolkit
     tests:
+      - script:
+          - "[ ! -f lib/libucxx_python.so ]"
       - package_contents:
           files:
             - include/ucxx/address.h
