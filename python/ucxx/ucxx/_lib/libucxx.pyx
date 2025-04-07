@@ -405,28 +405,17 @@ cdef class UCXAddress():
         return address
 
     @classmethod
-    def create_from_string(cls, string address_str) -> UCXAddress:
+    def create_from_buffer(cls, bytes buf) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
-        cdef string cpp_address_str = address_str
+        cdef string address_str = string(<const char*>buf, len(buf))
 
         with nogil:
-            address._address = createAddressFromString(cpp_address_str)
+            address._address = createAddressFromString(address_str)
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
             address._string = address._address.get().getString()
 
         return address
-
-    @classmethod
-    def create_from_buffer(cls, bytes buffer) -> UCXAddress:
-        cdef string address_str
-
-        buf = Array(buffer)
-        assert buf.c_contiguous
-
-        address_str = string(<char*>buf.ptr, <size_t>buf.nbytes)
-
-        return UCXAddress.create_from_string(address_str)
 
     # For old UCX-Py API compatibility
     @classmethod
@@ -460,8 +449,7 @@ cdef class UCXAddress():
     def length(self) -> int:
         return int(self._length)
 
-    @property
-    def string(self) -> bytes:
+    def __bytes__(self) -> bytes:
         return bytes(self._string)
 
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
@@ -489,10 +477,10 @@ cdef class UCXAddress():
         pass
 
     def __reduce__(self) -> tuple:
-        return (UCXAddress.create_from_buffer, (self.string,))
+        return (UCXAddress.create_from_buffer, (bytes(self),))
 
     def __hash__(self) -> int:
-        return hash(bytes(self.string))
+        return hash(bytes(self))
 
 
 cdef void _generic_callback(void *args) with gil:
