@@ -13,7 +13,6 @@ cpp/tests/CMakeLists.txt                 @rapidsai/ucxx-cmake-codeowners
 python/ucxx/CMakeLists.txt               @rapidsai/ucxx-cmake-codeowners
 python/ucxx/ucxx/examples/CMakeLists.txt @rapidsai/ucxx-cmake-codeowners
 python/ucxx/ucxx/_lib/CMakeLists.txt     @rapidsai/ucxx-cmake-codeowners
-fetch_rapids.cmake                       @rapidsai/ucxx-cmake-codeowners
 **/cmake/                                @rapidsai/ucxx-cmake-codeowners
 
 #CI code owners
