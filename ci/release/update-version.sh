@@ -78,7 +78,7 @@ for FILE in python/*/pyproject.toml; do
 done
 
 # rapids-cmake version
-sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_RAPIDS_SHORT_TAG}\/RAPIDS.cmake"'/g' cmake/rapids_config.cmake
+sed_runner 's/'"set(rapids-cmake-version.*"'/'"set(rapids-cmake-version ${NEXT_RAPIDS_SHORT_TAG})"'/g' cmake/RAPIDS.cmake
 
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_RAPIDS_SHORT_TAG}/g" "${FILE}"
