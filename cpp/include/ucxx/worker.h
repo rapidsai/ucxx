@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -687,6 +687,10 @@ class Worker : public Component {
    * tag message that has been fully or partially received by the worker, but not matched
    * by a corresponding `ucp_tag_recv_*` call. Additionally, returns information about the
    * tag message.
+   *
+   * Note this is a non-blocking call, if this is being used to actively check for an
+   * incoming message the worker should be constantly progress until a valid probe is
+   * returned.
    *
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`

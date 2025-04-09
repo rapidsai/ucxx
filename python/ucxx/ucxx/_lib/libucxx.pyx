@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -22,7 +22,6 @@ from libcpp.memory cimport (
     make_unique,
     shared_ptr,
     static_pointer_cast,
-    unique_ptr,
 )
 from libcpp.optional cimport nullopt
 from libcpp.pair cimport pair
@@ -44,11 +43,6 @@ logger = logging.getLogger("ucx")
 
 cdef class HostBufferAdapter:
     """A simple adapter around HostBuffer implementing the buffer protocol"""
-    cdef Py_ssize_t _size
-    cdef void* _ptr
-    cdef Py_ssize_t[1] _shape
-    cdef Py_ssize_t[1] _strides
-    cdef Py_ssize_t _itemsize
 
     @staticmethod
     cdef _from_host_buffer(HostBuffer* host_buffer):
@@ -256,11 +250,6 @@ class PythonRequestNotifierWaitState(enum.Enum):
 ###############################################################################
 
 cdef class UCXConfig():
-    cdef:
-        unique_ptr[Config] _config
-        bint _enable_python_future
-        dict _cb_data
-
     def __init__(self, ConfigMap user_options=ConfigMap()) -> None:
         # TODO: Replace unique_ptr by stack object. Rule-of-five is not allowed
         # by Config, and Cython seems not to handle constructors without moving
@@ -299,10 +288,6 @@ cdef class UCXContext():
     feature_flags: Iterable[Feature]
         Tuple of UCX feature flags
     """
-    cdef:
-        shared_ptr[Context] _context
-        dict _config
-
     def __init__(
         self,
         dict config_dict=None,
@@ -366,6 +351,18 @@ cdef class UCXContext():
         return int(<uintptr_t>handle)
 
     @property
+    def ucxx_ptr(self) -> int:
+        cdef Context* context
+
+        with nogil:
+            context = self._context.get()
+
+        return int(<uintptr_t>context)
+
+    cdef shared_ptr[Context] get_ucxx_shared_ptr(self) nogil:
+        return self._context
+
+    @property
     def info(self) -> str:
         cdef Context* ucxx_context
         cdef string info
@@ -387,12 +384,6 @@ cdef class UCXContext():
 
 
 cdef class UCXAddress():
-    cdef:
-        shared_ptr[Address] _address
-        size_t _length
-        ucp_address_t *_handle
-        string _string
-
     def __init__(self) -> None:
         raise TypeError("UCXListener cannot be instantiated directly.")
 
@@ -454,6 +445,18 @@ cdef class UCXAddress():
         return int(<uintptr_t>self._handle)
 
     @property
+    def ucxx_ptr(self) -> int:
+        cdef Address* address
+
+        with nogil:
+            address = self._address.get()
+
+        return int(<uintptr_t>address)
+
+    cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil:
+        return self._address
+
+    @property
     def length(self) -> int:
         return int(self._length)
 
@@ -507,13 +510,6 @@ cdef void _generic_callback(void *args) with gil:
 
 cdef class UCXWorker():
     """Python representation of `ucp_worker_h`"""
-    cdef:
-        shared_ptr[Worker] _worker
-        dict _progress_thread_start_cb_data
-        bint _enable_delayed_submission
-        bint _enable_python_future
-        uint64_t _context_feature_flags
-
     def __init__(
             self,
             UCXContext context,
@@ -564,6 +560,9 @@ cdef class UCXWorker():
             worker = self._worker.get()
 
         return int(<uintptr_t>worker)
+
+    cdef shared_ptr[Worker] get_ucxx_shared_ptr(self) nogil:
+        return self._worker
 
     @property
     def info(self) -> str:
@@ -804,11 +803,6 @@ cdef class UCXWorker():
 
 
 cdef class UCXRequest():
-    cdef:
-        shared_ptr[Request] _request
-        bint _enable_python_future
-        bint _completed
-
     def __init__(self, uintptr_t shared_ptr_request, bint enable_python_future) -> None:
         self._request = deref(<shared_ptr[Request] *> shared_ptr_request)
         self._enable_python_future = enable_python_future
@@ -818,6 +812,18 @@ cdef class UCXRequest():
         with nogil:
             self._request.get().cancel()
             self._request.reset()
+
+    @property
+    def ucxx_ptr(self) -> int:
+        cdef Request* request
+
+        with nogil:
+            request = self._request.get()
+
+        return int(<uintptr_t>request)
+
+    cdef shared_ptr[Request] get_ucxx_shared_ptr(self) nogil:
+        return self._request
 
     @property
     def completed(self) -> bool:
@@ -920,10 +926,6 @@ cdef class UCXRequest():
 
 
 cdef class UCXBufferRequest:
-    cdef:
-        BufferRequestPtr _buffer_request
-        bint _enable_python_future
-
     def __init__(
             self,
             uintptr_t shared_ptr_buffer_request,
@@ -980,13 +982,6 @@ cdef class UCXBufferRequest:
 
 
 cdef class UCXBufferRequests:
-    cdef:
-        RequestTagMultiPtr _ucxx_request_tag_multi
-        bint _enable_python_future
-        bint _completed
-        tuple _buffer_requests
-        tuple _requests
-
     def __init__(
         self,
         uintptr_t unique_ptr_buffer_requests,
@@ -1166,14 +1161,6 @@ cdef void _endpoint_close_callback(ucs_status_t status, shared_ptr[void] args) w
 
 
 cdef class UCXEndpoint():
-    cdef:
-        shared_ptr[Endpoint] _endpoint
-        uint64_t _context_feature_flags
-        bint _cuda_support
-        bint _enable_python_future
-        dict _close_cb_data
-        shared_ptr[uintptr_t] _close_cb_data_ptr
-
     def __init__(self) -> None:
         raise TypeError("UCXListener cannot be instantiated directly.")
 
@@ -1282,6 +1269,9 @@ cdef class UCXEndpoint():
             endpoint = self._endpoint.get()
 
         return int(<uintptr_t>endpoint)
+
+    cdef shared_ptr[Endpoint] get_ucxx_shared_ptr(self) nogil:
+        return self._endpoint
 
     @property
     def worker_handle(self) -> int:
@@ -1611,12 +1601,6 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
 
 
 cdef class UCXListener():
-    cdef:
-        shared_ptr[Listener] _listener
-        bint _enable_python_future
-        dict _cb_data
-        object __weakref__
-
     def __init__(self) -> None:
         raise TypeError("UCXListener cannot be instantiated directly.")
 
@@ -1660,6 +1644,18 @@ cdef class UCXListener():
             )
 
         return listener
+
+    @property
+    def ucxx_ptr(self) -> int:
+        cdef Listener* listener
+
+        with nogil:
+            listener = self._listener.get()
+
+        return int(<uintptr_t>listener)
+
+    cdef shared_ptr[Listener] get_ucxx_shared_ptr(self) nogil:
+        return self._listener
 
     @property
     def port(self) -> int:

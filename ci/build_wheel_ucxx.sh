@@ -1,12 +1,12 @@
 #!/bin/bash
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
 package_name="ucxx"
 package_dir="python/ucxx"
 
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 # Downloads libucxx wheel from this current build,
 # then ensures 'ucxx' wheel builds always use the 'libucxx' just built in the same CI run.
@@ -25,6 +25,7 @@ mkdir -p "${package_dir}/final_dist"
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
     --exclude "libucxx.so" \
+    --exclude librapids_logger.so \
     -w "${package_dir}/final_dist" \
     ${package_dir}/dist/*
 
