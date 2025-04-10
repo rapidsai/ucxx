@@ -25,4 +25,5 @@ else()
       "Could not determine RAPIDS version. Contents of RAPIDS_VERSION file:\n${_rapids_version_formatted}")
 endif()
 
+set(rapids-cmake-version "${RAPIDS_VERSION_MAJOR_MINOR}")
 include("${CMAKE_CURRENT_LIST_DIR}/RAPIDS.cmake")
