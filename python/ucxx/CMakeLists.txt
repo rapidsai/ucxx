@@ -13,7 +13,7 @@ else()
   message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
 endif()
 
-include(../../fetch_rapids.cmake)
+include(../../cmake/rapids_config.cmake)
 
 project(
   ucxx-python
