@@ -4,7 +4,7 @@ files:
     output: conda
     matrix:
       cuda: ["11.8", "12.8"]
-      arch: [x86_64]
+      arch: [x86_64, aarch64]
     includes:
       - build_cpp
       - build_python_ucxx
@@ -497,7 +497,7 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - libucx-cu11==1.15.0
-          - matrix: null
+          - matrix:
             packages:
               - libucx==1.15.0
   depends_on_ucx_run:
@@ -523,6 +523,6 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - libucx-cu11>=1.15.0,<1.19
-          - matrix: null
+          - matrix:
             packages:
               - libucx>=1.15.0,<1.19
