@@ -5,15 +5,17 @@ cpp/                                @rapidsai/ucxx-cpp-codeowners
 python/                             @rapidsai/ucxx-python-codeowners
 
 #cmake code owners
-cpp/CMakeLists.txt                       @rapidsai/ucxx-cmake-codeowners
-cpp/python/CMakeLists.txt                @rapidsai/ucxx-cmake-codeowners
-cpp/examples/CMakeLists.txt              @rapidsai/ucxx-cmake-codeowners
-cpp/benchmarks/CMakeLists.txt            @rapidsai/ucxx-cmake-codeowners
-cpp/tests/CMakeLists.txt                 @rapidsai/ucxx-cmake-codeowners
-python/ucxx/CMakeLists.txt               @rapidsai/ucxx-cmake-codeowners
-python/ucxx/ucxx/examples/CMakeLists.txt @rapidsai/ucxx-cmake-codeowners
-python/ucxx/ucxx/_lib/CMakeLists.txt     @rapidsai/ucxx-cmake-codeowners
-**/cmake/                                @rapidsai/ucxx-cmake-codeowners
+cpp/CMakeLists.txt                                  @rapidsai/ucxx-cmake-codeowners
+cpp/python/CMakeLists.txt                           @rapidsai/ucxx-cmake-codeowners
+cpp/examples/CMakeLists.txt                         @rapidsai/ucxx-cmake-codeowners
+cpp/benchmarks/CMakeLists.txt                       @rapidsai/ucxx-cmake-codeowners
+cpp/tests/CMakeLists.txt                            @rapidsai/ucxx-cmake-codeowners
+python/libucxx/CMakeLists.txt                       @rapidsai/ucxx-cmake-codeowners
+python/ucxx/CMakeLists.txt                          @rapidsai/ucxx-cmake-codeowners
+python/ucxx/ucxx/examples/CMakeLists.txt            @rapidsai/ucxx-cmake-codeowners
+python/ucxx/ucxx/_lib/CMakeLists.txt                @rapidsai/ucxx-cmake-codeowners
+python/ucxx/ucxx/_lib/tests_cython/CMakeLists.txt   @rapidsai/ucxx-cmake-codeowners
+**/cmake/                                           @rapidsai/ucxx-cmake-codeowners
 
 #CI code owners
 /.github/                @rapidsai/ci-codeowners
