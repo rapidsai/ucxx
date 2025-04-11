@@ -21,14 +21,13 @@ export SKBUILD_CMAKE_ARGS="-DFIND_UCXX_CPP=ON;-DCMAKE_INSTALL_LIBDIR=ucxx/lib64;
 
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
-mkdir -p "${package_dir}/final_dist"
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
     --exclude "libucxx.so" \
     --exclude librapids_logger.so \
-    -w "${package_dir}/final_dist" \
+    -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" \
     ${package_dir}/dist/*
 
-./ci/validate_wheel.sh "${package_dir}" final_dist
+./ci/validate_wheel.sh "${package_dir}" "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python "${package_dir}/final_dist"
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
