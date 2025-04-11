@@ -171,6 +171,7 @@ outputs:
           - librmm
           - libucxx
           - python_abi
+          - ucx
           - if: cuda_major == "11"
             then: cudatoolkit
     about:
