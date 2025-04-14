@@ -1,0 +1,352 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+
+context:
+  version: ${{ env.get("RAPIDS_PACKAGE_VERSION") }}
+  minor_version: ${{ (version | split("."))[:2] | join(".") }}
+  cuda_version: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[:2] | join(".") }}
+  cuda_major: '${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}'
+  date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
+  py_version: ${{ env.get("RAPIDS_PY_VERSION") }}
+  py_buildstring: ${{ py_version | version_to_buildstring }}
+  head_rev: ${{ git.head_rev(".")[:8] }}
+
+recipe:
+  name: libucxx-split
+
+cache:
+  source:
+    path: ../../..
+
+  build:
+    script:
+      content: |
+        # Remove `-fdebug-prefix-map` line from CFLAGS and CXXFLAGS so the
+        # incrementing version number in the compile line doesn't break the
+        # cache
+        set -x
+        export CFLAGS=$(echo $CFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
+        export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
+        set +x
+
+        ucxx_ROOT="$(realpath ./cpp/build)"
+        export ucxx_ROOT
+
+        ./build.sh -n -v libucxx libucxx_python libucxx_benchmarks libucxx_examples libucxx_tests --cmake-args=\"-DCMAKE_INSTALL_LIBDIR=lib\"
+      secrets:
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY
+        - AWS_SESSION_TOKEN
+      env:
+        CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
+        CMAKE_CUDA_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CUDA_COMPILER_LAUNCHER") }}
+        CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CXX_COMPILER_LAUNCHER") }}
+        CMAKE_GENERATOR: ${{ env.get("CMAKE_GENERATOR") }}
+        PARALLEL_LEVEL: ${{ env.get("PARALLEL_LEVEL") }}
+        SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET") }}
+        SCCACHE_IDLE_TIMEOUT: ${{ env.get("SCCACHE_IDLE_TIMEOUT") }}
+        SCCACHE_REGION: ${{ env.get("SCCACHE_REGION") }}
+        SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
+        SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
+        SCCACHE_S3_KEY_PREFIX: libucxx/${{ env.get("RAPIDS_CONDA_ARCH") }}/cuda${{ cuda_major }}
+
+  requirements:
+    build:
+      - ${{ compiler("c") }}
+      - ${{ compiler("cxx") }}
+      - ${{ compiler("cuda") }}
+      - cmake ${{ cmake_version }}
+      - cuda-version =${{ cuda_version }}
+      - ninja
+      - ${{ stdlib("c") }}
+    host:
+      - cuda-version =${{ cuda_version }}
+      - librmm ${{ rapids_version }}
+      - python =${{ py_version }}
+      - rapids-build-backend >=0.3.0,<0.4.0.dev0
+      - ucx
+      - if: cuda_major != "11"
+        then: cuda-cudart-dev
+
+outputs:
+  - package:
+      name: libucxx
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      script:
+        content: |
+          cmake --install cpp/build
+          cmake --install cpp/build --component benchmarks
+      dynamic_linking:
+        overlinking_behavior: "error"
+      prefix_detection:
+        ignore:
+          - lib/libucxx.so
+    requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ${{ stdlib("c") }}
+      host:
+        - cuda-version =${{ cuda_version }}
+        - librmm
+        - ucx
+        - if: cuda_major == "11"
+          then: cudatoolkit
+      run:
+        - if: cuda_major == "11"
+          then: cudatoolkit
+        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+        - ${{ pin_compatible("librmm", upper_bound="x.x") }}
+        - ucx >=1.15.0,<1.19.0
+      run_exports:
+        - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
+      ignore_run_exports:
+        by_name:
+          - cuda-cudart
+          - cuda-version
+          - librmm
+          - python_abi
+          - ucx
+          - if: cuda_major == "11"
+            then: cudatoolkit
+    tests:
+      - script:
+          - "[ ! -f lib/libucxx_python.so ]"
+      - package_contents:
+          files:
+            - include/ucxx/address.h
+            - include/ucxx/api.h
+            - include/ucxx/buffer.h
+            - include/ucxx/component.h
+            - include/ucxx/config.h
+            - include/ucxx/constructors.h
+            - include/ucxx/context.h
+            - include/ucxx/delayed_submission.h
+            - include/ucxx/endpoint.h
+            - include/ucxx/exception.h
+            - include/ucxx/future.h
+            - include/ucxx/header.h
+            - include/ucxx/inflight_requests.h
+            - include/ucxx/listener.h
+            - include/ucxx/log.h
+            - include/ucxx/notifier.h
+            - include/ucxx/request.h
+            - include/ucxx/request_helper.h
+            - include/ucxx/request_stream.h
+            - include/ucxx/request_tag.h
+            - include/ucxx/request_tag_multi.h
+            - include/ucxx/typedefs.h
+            - include/ucxx/utils/file_descriptor.h
+            - include/ucxx/utils/python.h
+            - include/ucxx/utils/sockaddr.h
+            - include/ucxx/utils/ucx.h
+            - include/ucxx/worker.h
+            - include/ucxx/worker_progress_thread.h
+            - lib/libucxx.so
+    about:
+      homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
+      summary: ${{ load_from_file("python/libucxx/pyproject.toml").project.description }}
+
+  - package:
+      name: libucxx-examples
+      version: ${{ version }}
+    build:
+      string: ${{ date_string }}_${{ head_rev }}
+      script: cmake --install cpp/build --component examples
+      dynamic_linking:
+        overlinking_behavior: "error"
+    requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ${{ stdlib("c") }}
+      host:
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+      run:
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+      ignore_run_exports:
+        by_name:
+          - cuda-cudart
+          - cuda-version
+          - librmm
+          - libucxx
+          - python_abi
+          - ucx
+          - if: cuda_major == "11"
+            then: cudatoolkit
+    about:
+      homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
+      summary: libucxx examples executables
+
+  - package:
+      name: libucxx-tests
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      script: cmake --install cpp/build --component testing
+      dynamic_linking:
+        overlinking_behavior: "error"
+    requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ${{ stdlib("c") }}
+      host:
+        - cuda-version =${{ cuda_version }}
+        - if: cuda_major == "11"
+          then: cudatoolkit
+          else: cuda-cudart-dev
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+      run:
+        - if: cuda_major == "11"
+          then: cudatoolkit
+        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+      ignore_run_exports:
+        by_name:
+          - cuda-cudart
+          - cuda-version
+          - librmm
+          - libucxx
+          - python_abi
+          - ucx
+          - if: cuda_major == "11"
+            then: cudatoolkit
+    about:
+      homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
+      summary: libucxx tests executables
+
+  - package:
+      name: ucxx
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_py${{ py_version }}_${{ date_string }}_${{ head_rev }}
+      dynamic_linking:
+        overlinking_behavior: "error"
+        missing_dso_allowlist:
+          - lib/libpython*.so.*
+      prefix_detection:
+        ignore:
+          - lib/libucxx_python.so
+      script:
+        content: |
+          # Remove `-fdebug-prefix-map` line from CFLAGS and CXXFLAGS so the
+          # incrementing version number in the compile line doesn't break the
+          # cache
+          set -x
+          export CFLAGS=$(echo $CFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
+          export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
+          set +x
+
+          cmake --install cpp/python/build
+          ./build.sh ucxx --cmake-args="\"-DFIND_UCXX_PYTHON=ON -Ducxx-python_DIR=$(realpath ./cpp/python/build)\""
+        secrets:
+          - AWS_ACCESS_KEY_ID
+          - AWS_SECRET_ACCESS_KEY
+          - AWS_SESSION_TOKEN
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
+          CMAKE_CUDA_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CUDA_COMPILER_LAUNCHER") }}
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CXX_COMPILER_LAUNCHER") }}
+          CMAKE_GENERATOR: ${{ env.get("CMAKE_GENERATOR") }}
+          PARALLEL_LEVEL: ${{ env.get("PARALLEL_LEVEL") }}
+          SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET") }}
+          SCCACHE_IDLE_TIMEOUT: ${{ env.get("SCCACHE_IDLE_TIMEOUT") }}
+          SCCACHE_REGION: ${{ env.get("SCCACHE_REGION") }}
+          SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
+          SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
+          SCCACHE_S3_KEY_PREFIX: ucxx/${{ env.get("RAPIDS_CONDA_ARCH") }}/cuda${{ cuda_major }}
+    requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ninja
+        - ${{ compiler("c") }}
+        - ${{ compiler("cxx") }}
+        - ${{ compiler("cuda") }}
+        - cuda-version =${{ cuda_version }}
+        - ${{ stdlib("c") }}
+      host:
+        - cuda-version =${{ cuda_version }}
+        - cython >=3.0.0
+        - pip
+        - pynvml >=12.0.0,<13.0.0a0
+        - python =${{ py_version }}
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rmm ${{ rapids_version }}
+        - scikit-build-core >=0.10.0
+        - ucx
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+      run:
+        - numpy >=1.23,<3.0a0
+        - pynvml >=12.0.0,<13.0.0a0
+        - python
+        - ucx >=1.15.0,<1.19.0
+        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+        - ${{ pin_compatible("rmm", upper_bound="x.x") }}
+        - ${{ pin_subpackage("libucxx", exact=True) }}
+        - if: cuda_major == "11"
+          then: cudatoolkit
+      run_constraints:
+        - cupy >=9.5.0
+        - numba >=0.59.1,<0.61.0a0
+      ignore_run_exports:
+        by_name:
+          - cuda-cudart
+          - cuda-version
+          - librmm
+          - libucxx
+          - ucx
+          - if: cuda_major == "11"
+            then: cudatoolkit
+    tests:
+      - script:
+        - test -f $PREFIX/lib/libucxx_python.so
+        - test -f $PREFIX/include/ucxx/python/exception.h
+        - test -f $PREFIX/include/ucxx/python/future.h
+        - test -f $PREFIX/include/ucxx/python/api.h
+        - test -f $PREFIX/include/ucxx/python/constructors.h
+        - test -f $PREFIX/include/ucxx/python/notifier.h
+        - test -f $PREFIX/include/ucxx/python/python_future.h
+        - test -f $PREFIX/include/ucxx/python/worker.h
+      - python:
+          imports:
+            - ucxx
+          pip_check: false
+    about:
+      homepage: ${{ load_from_file("python/ucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license.text }}
+      summary: ${{ load_from_file("python/ucxx/pyproject.toml").project.description }}
+
+  - package:
+      name: distributed-ucxx
+      version: ${{ version }}
+    build:
+      noarch: python
+      string: ${{ date_string }}_${{ head_rev }}
+      script: ./build.sh distributed_ucxx
+    requirements:
+      host:
+        - pip
+        - python
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - setuptools
+        - wheel
+      run:
+        - python
+        - rapids-dask-dependency ${{ rapids_version }}
+        - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
+      ignore_run_exports:
+        by_name:
+          - librmm
+          - libucxx
+          - ucx
+    tests:
+      - python:
+          imports:
+            - distributed_ucxx
+          pip_check: false
+    about:
+      homepage: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.license.text }}
+      summary: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.description }}
