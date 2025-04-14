@@ -59,7 +59,7 @@ files:
     output: none
     includes:
       - checks
-      - doxygen
+      - dev
       - py_version
   docs:
     output: none
