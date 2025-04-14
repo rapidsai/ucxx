@@ -161,7 +161,7 @@ outputs:
         - cmake ${{ cmake_version }}
         - ${{ stdlib("c") }}
       host:
-        - libucxx
+        - ${{ pin_subpackage("libucxx", exact=True) }}
       run:
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
@@ -196,7 +196,7 @@ outputs:
         - if: cuda_major == "11"
           then: cudatoolkit
           else: cuda-cudart-dev
-        - libucxx
+        - ${{ pin_subpackage("libucxx", exact=True) }}
       run:
         - if: cuda_major == "11"
           then: cudatoolkit
