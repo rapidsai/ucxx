@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -16,6 +16,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Type for hashing serialized remote keys.
+ *
+ * A size_t type used to store hash values of serialized remote keys, enabling
+ * efficient comparison and lookup of remote key objects.
+ */
 typedef size_t SerializedRemoteKeyHash;
 
 /**
