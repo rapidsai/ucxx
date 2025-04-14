@@ -22,7 +22,8 @@ else()
   string(REPLACE "\n" "\n  " _rapids_version_formatted "  ${_rapids_version}")
   message(
     FATAL_ERROR
-      "Could not determine RAPIDS version. Contents of RAPIDS_VERSION file:\n${_rapids_version_formatted}")
+      "Could not determine RAPIDS version. Contents of RAPIDS_VERSION file:\n${_rapids_version_formatted}"
+  )
 endif()
 
 set(rapids-cmake-version "${RAPIDS_VERSION_MAJOR_MINOR}")
