@@ -885,7 +885,6 @@ class Worker : public Component {
    * the registered callback cannot be changed, thus calling this method with the same
    * given owner and identifier will throw `std::runtime_error`.
    *
-   *
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`
    * auto callback = [](std::shared_ptr<ucxx::Request> req) {
@@ -899,10 +898,8 @@ class Worker : public Component {
    *                            already registered, or if the reserved owner name "ucxx"
    *                            is specified.
    *
-   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
-                                        callback.
-   * @param[in] callback                the callback to execute when the active message is
-   *                                    received.
+   * @param[in] info      the owner name and unique identifier of the receiver callback.
+   * @param[in] callback  the callback to execute when the active message is received.
    */
   void registerAmReceiverCallback(AmReceiverCallbackInfo info, AmReceiverCallbackType callback);
 
@@ -929,7 +926,7 @@ class Worker : public Component {
 
   /**
    * @brief Enqueue a flush operation.
-
+   *
    * Enqueue request to flush outstanding AMO (Atomic Memory Operation) and RMA (Remote
    * Memory Access) operations on the worker, returning a pointer to a request object that
    * can be later awaited and checked for errors. This is a non-blocking operation, and its
@@ -940,7 +937,6 @@ class Worker : public Component {
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
    *
-   * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    * @param[in] callbackFunction    user-defined callback function to call upon completion.

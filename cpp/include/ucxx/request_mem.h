@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -21,6 +21,12 @@ namespace internal {
 class RecvMemMessage;
 }  // namespace internal
 
+/**
+ * @brief Send or receive a message with the UCX RMA API.
+ *
+ * Send or receive a message with the UCX RMA API, using non-blocking UCP calls
+ * `ucp_put_nbx` or `ucp_get_nbx`.
+ */
 class RequestMem : public Request {
  private:
   friend class internal::RecvMemMessage;
@@ -76,9 +82,7 @@ class RequestMem : public Request {
    *                      `std::shared_ptr<ucxx::Endpoint>` or
    *                      `std::shared_ptr<ucxx::Worker>`.
    *
-   * @param[in] endpointOrWorker    the parent component, which may either be a
-   *                                `std::shared_ptr<Endpoint>` or
-   *                                `std::shared_ptr<Worker>`.
+   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component.
    * @param[in] requestData         container of the specified message type, including all
    *                                type-specific data.
    * @param[in] enablePythonFuture  whether a python future should be created and
@@ -86,7 +90,7 @@ class RequestMem : public Request {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns The `shared_ptr<ucxx::RequestTag>` object
+   * @returns The `shared_ptr<ucxx::RequestMem>` object
    */
   friend std::shared_ptr<RequestMem> createRequestMem(
     std::shared_ptr<Endpoint> endpoint,
