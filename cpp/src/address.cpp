@@ -1,9 +1,9 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
-#include <string>
+#include <string_view>
 
 #include <ucxx/address.h>
 #include <ucxx/utils/ucx.h>
@@ -38,11 +38,11 @@ std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
   return std::shared_ptr<Address>(new Address(worker, address, length));
 }
 
-std::shared_ptr<Address> createAddressFromString(std::string addressString)
+std::shared_ptr<Address> createAddressFromString(std::string_view addressString)
 {
-  ucp_address_t* address = reinterpret_cast<ucp_address_t*>(new char[addressString.length()]);
   size_t length          = addressString.length();
-  memcpy(address, addressString.c_str(), length);
+  ucp_address_t* address = reinterpret_cast<ucp_address_t*>(new char[length]);
+  memcpy(address, addressString.data(), length);
   return std::shared_ptr<Address>(new Address(nullptr, address, length));
 }
 
@@ -50,9 +50,9 @@ ucp_address_t* Address::getHandle() const { return _handle; }
 
 size_t Address::getLength() const { return _length; }
 
-std::string Address::getString() const
+std::string_view Address::getString() const
 {
-  return std::string{reinterpret_cast<char*>(_handle), _length};
+  return std::string_view{reinterpret_cast<const char*>(_handle), _length};
 }
 
 }  // namespace ucxx
