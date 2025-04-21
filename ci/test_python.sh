@@ -8,7 +8,7 @@ set -euo pipefail
 source "$(dirname "$0")/test_common.sh"
 
 rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
