@@ -68,8 +68,8 @@ jobs:
       script: ci/build_wheel_libucxx.sh
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      package-name: libucxx
       package-type: cpp
-      wheel-name: libucxx
   wheel-publish-libucxx:
     needs: wheel-build-libucxx
     secrets: inherit
@@ -91,8 +91,8 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       script: ci/build_wheel_ucxx.sh
+      package-name: ucxx
       package-type: python
-      wheel-name: ucxx
   wheel-publish-ucxx:
     needs: wheel-build-ucxx
     secrets: inherit
@@ -113,8 +113,8 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       script: ci/build_wheel_distributed_ucxx.sh
+      package-name: distributed_ucxx
       package-type: python
-      wheel-name: distributed_ucxx
   wheel-publish-distributed-ucxx:
     needs: [wheel-build-ucxx, wheel-build-distributed-ucxx]
     secrets: inherit
