@@ -17,8 +17,15 @@
 
 namespace ucxx {
 
+class MemoryHandle;
 class Worker;
 
+/**
+ * @brief Component encapsulating the UCP context.
+ *
+ * The UCP layer provides a handle to access its context in form of `ucp_context_h` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Context : public Component {
  private:
   ucp_context_h _handle{nullptr};  ///< The UCP context handle
@@ -40,13 +47,14 @@ class Context : public Component {
 
  public:
   static constexpr uint64_t defaultFeatureFlags =
-    UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
+    UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM |
+    UCP_FEATURE_RMA;  ///< Suggested default context feature flags to use.
 
-  Context()               = delete;
-  Context(const Context&) = delete;
+  Context()                          = delete;
+  Context(const Context&)            = delete;
   Context& operator=(Context const&) = delete;
   Context(Context&& o)               = delete;
-  Context& operator=(Context&& o) = delete;
+  Context& operator=(Context&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::Context>`.
@@ -84,7 +92,7 @@ class Context : public Component {
    *
    * @return A `ConfigMap` corresponding to the context's configuration.
    */
-  ConfigMap getConfig();
+  [[nodiscard]] ConfigMap getConfig();
 
   /**
    * @brief Get the underlying `ucp_context_h` handle
@@ -101,7 +109,7 @@ class Context : public Component {
    *
    * @return The underlying `ucp_context_h` handle
    */
-  ucp_context_h getHandle();
+  [[nodiscard]] ucp_context_h getHandle();
 
   /**
    * @brief Get information from UCP context.
@@ -117,7 +125,7 @@ class Context : public Component {
    *
    * @return String containing context information
    */
-  std::string getInfo();
+  [[nodiscard]] std::string getInfo();
 
   /**
    * @brief Get feature flags that were used to construct the UCP context.
@@ -133,7 +141,23 @@ class Context : public Component {
    *
    * @return Feature flags for this context
    */
-  uint64_t getFeatureFlags() const;
+  [[nodiscard]] uint64_t getFeatureFlags() const;
+
+  /**
+   * @brief Query whether CUDA support is available.
+   *
+   * Query whether the UCP context has CUDA support available. This is a done through a
+   * combination of verifying whether CUDA memory support is available and `UCX_TLS` allows
+   * CUDA to be enabled, essentially `UCX_TLS` must explicitly be one of the following:
+   *
+   * 1. Exactly `all`;
+   * 2. Contain a field starting with `cuda`;
+   * 3. Start with `^` (disable all listed transports) and _NOT_ contain a field named
+   *    either `cuda` or `cuda_copy`.
+   *
+   * @return Whether CUDA support is available.
+   */
+  [[nodiscard]] bool hasCudaSupport() const;
 
   /**
    * @brief Create a new `ucxx::Worker`.
@@ -149,9 +173,52 @@ class Context : public Component {
    *
    * @param[in] enableDelayedSubmission whether the worker should delay
    *                                    transfer requests to the worker thread.
+   * @param[in] enableFuture if `true`, notifies the future associated with each
+   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    * @return Shared pointer to the `ucxx::Worker` object.
    */
-  std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false);
+  [[nodiscard]] std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
+                                                     const bool enableFuture            = false);
+
+  /**
+   * @brief Create a new `std::shared_ptr<ucxx::memoryHandle>`.
+   *
+   * Create a new `std::shared_ptr<ucxx::MemoryHandle>` as a child of the current
+   * `ucxx::Context`.  The `ucxx::Context` will retain ownership of the underlying
+   * `ucxx::MemoryHandle` and will not be destroyed until all `ucxx::MemoryHandle`
+   * objects are destroyed first.
+   *
+   * The allocation requires a `size` and a `buffer`. The actual size of the allocation may
+   * be larger than requested, and can later be found calling the `getSize()` method. The
+   * `buffer` provided may be either a `nullptr`, in which case UCP will allocate a new
+   * memory region for it, or an already existing allocation, in which case UCP will only
+   * map it for RMA and it's the caller's responsibility to keep `buffer` alive until this
+   * object is destroyed.
+   *
+   * @code{.cpp}
+   * // `context` is `std::shared_ptr<ucxx::Context>`
+   * // Allocate a 128-byte buffer with UCP.
+   * auto memoryHandle = context->createMemoryHandle(128, nullptr);
+   *
+   * // Map an existing 128-byte buffer with UCP.
+   * size_t allocationSize = 128;
+   * auto buffer = new uint8_t[allocationSize];
+   * auto memoryHandleFromBuffer = context->createMemoryHandle(
+   *    allocationSize * sizeof(*buffer), reinterpret_cast<void*>(buffer)
+   * );
+   * @endcode
+   *
+   * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
+   *
+   * @param[in] size        the minimum size of the memory allocation.
+   * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
+   *                        new memory region.
+   * @param[in] memoryType  the type of memory the handle points to.
+   *
+   * @returns The `shared_ptr<ucxx::MemoryHandle>` object
+   */
+  [[nodiscard]] std::shared_ptr<MemoryHandle> createMemoryHandle(
+    const size_t size, void* buffer, const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
 };
 
 }  // namespace ucxx

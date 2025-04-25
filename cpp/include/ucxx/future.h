@@ -12,6 +12,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Represent a future that may be notified by a specialized notifier.
+ *
+ * Represent a future object that may postpone notification of its status to a more
+ * appropriate stage by a specialize notifier, such as `ucxx::Notifier`.
+ */
 class Future : public std::enable_shared_from_this<Future> {
  protected:
   std::shared_ptr<Notifier> _notifier{nullptr};  ///< The notifier object
@@ -29,11 +35,11 @@ class Future : public std::enable_shared_from_this<Future> {
   explicit Future(std::shared_ptr<Notifier> notifier) : _notifier(notifier) {}
 
  public:
-  Future()              = delete;
-  Future(const Future&) = delete;
+  Future()                         = delete;
+  Future(const Future&)            = delete;
   Future& operator=(Future const&) = delete;
   Future(Future&& o)               = delete;
-  Future& operator=(Future&& o) = delete;
+  Future& operator=(Future&& o)    = delete;
 
   /**
    * @brief Virtual destructor.
@@ -79,7 +85,7 @@ class Future : public std::enable_shared_from_this<Future> {
    *
    * @returns The underlying handle.
    */
-  virtual void* getHandle() = 0;
+  [[nodiscard]] virtual void* getHandle() = 0;
 
   /**
    * @brief Get the underlying handle and release ownership.
@@ -92,7 +98,7 @@ class Future : public std::enable_shared_from_this<Future> {
    *
    * @returns The underlying handle.
    */
-  virtual void* release() = 0;
+  [[nodiscard]] virtual void* release() = 0;
 };
 
 }  // namespace ucxx

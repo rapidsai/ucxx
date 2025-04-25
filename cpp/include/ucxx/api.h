@@ -16,7 +16,10 @@
 #include <ucxx/header.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/listener.h>
+#include <ucxx/memory_handle.h>
+#include <ucxx/remote_key.h>
 #include <ucxx/request.h>
 #include <ucxx/request_tag_multi.h>
 #include <ucxx/typedefs.h>
+#include <ucxx/utils/callback_notifier.h>
 #include <ucxx/worker.h>

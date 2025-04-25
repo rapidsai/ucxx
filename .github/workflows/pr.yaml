@@ -12,35 +12,182 @@ concurrency:
 jobs:
   pr-builder:
     needs:
+      - check-nightly-ci
+      - changed-files
       - checks
       - conda-cpp-build
+      - devcontainer
+      - docs-build
       - conda-cpp-tests
       - conda-python-tests
+      - conda-python-distributed-tests
+      - wheel-build-libucxx
+      - wheel-build-ucxx
+      - wheel-tests-ucxx
+      - wheel-build-distributed-ucxx
+      - wheel-tests-distributed-ucxx
+      - telemetry-setup
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@branch-23.04
+    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-25.06
+    if: always()
+    with:
+      needs: ${{ toJSON(needs) }}
+  check-nightly-ci:
+    # Switch to ubuntu-latest once it defaults to a version of Ubuntu that
+    # provides at least Python 3.11 (see
+    # https://docs.python.org/3/library/datetime.html#datetime.date.fromisoformat)
+    runs-on: ubuntu-24.04
+    env:
+      RAPIDS_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check if nightly CI is passing
+        uses: rapidsai/shared-actions/check_nightly_success/dispatch@main
+        with:
+          repo: ucxx
+
+  telemetry-setup:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      OTEL_SERVICE_NAME: "pr-ucxx"
+    steps:
+      - name: Telemetry setup
+        # This gate is here and not at the job level because we need the job to not be skipped,
+        # since other jobs depend on it.
+        if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
+        uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
+  changed-files:
+    secrets: inherit
+    needs: telemetry-setup
+    uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@branch-25.06
+    with:
+      files_yaml: |
+        test_cpp:
+          - '**'
+          - '!.devcontainer/**'
+          - '!.pre-commit-config.yaml'
+          - '!README.md'
+          - '!docs/**'
+          - '!python/**'
+        test_python:
+          - '**'
+          - '!.devcontainer/**'
+          - '!.pre-commit-config.yaml'
+          - '!README.md'
+          - '!docs/**'
   checks:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.04
+    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-25.06
+    needs: telemetry-setup
     with:
       enable_check_generated_files: false
+      ignored_pr_jobs: telemetry-summarize
   conda-cpp-build:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.04
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-25.06
     with:
       build_type: pull-request
-      matrix_filter: map(select(.ARCH != "arm64"))
+  docs-build:
+    needs: conda-cpp-build
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-25.06
+    with:
+      build_type: pull-request
+      node_type: "gpu-l4-latest-1"
+      arch: "amd64"
+      container_image: "rapidsai/ci-conda:latest"
+      run_script: "ci/build_docs.sh"
   conda-cpp-tests:
-    needs: conda-cpp-build
+    needs: [conda-cpp-build, changed-files]
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.04
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-25.06
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
     with:
       build_type: pull-request
-      matrix_filter: map(select(.ARCH != "arm64"))
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   conda-python-tests:
-    needs: conda-cpp-build
+    needs: [conda-cpp-build, changed-files]
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.04
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.06
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
-      matrix_filter: map(select(.ARCH != "arm64"))
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+  conda-python-distributed-tests:
+    needs: [conda-cpp-build, changed-files]
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.06
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    with:
+      build_type: pull-request
+      script: "ci/test_python_distributed.sh"
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+  wheel-build-libucxx:
+    needs: checks
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.06
+    with:
+      build_type: pull-request
+      script: ci/build_wheel_libucxx.sh
+      # build for every combination of arch and CUDA version, but only for the latest Python
+      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      package-name: libucxx
+      package-type: cpp
+  wheel-build-ucxx:
+    needs: wheel-build-libucxx
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.06
+    with:
+      build_type: pull-request
+      script: ci/build_wheel_ucxx.sh
+      package-name: ucxx
+      package-type: python
+  wheel-tests-ucxx:
+    needs: [wheel-build-ucxx, changed-files]
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.06
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    with:
+      build_type: pull-request
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      script: ci/test_wheel_ucxx.sh
+  wheel-build-distributed-ucxx:
+    needs: checks
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.06
+    with:
+      build_type: pull-request
+      script: ci/build_wheel_distributed_ucxx.sh
+      package-name: distributed_ucxx
+      package-type: python
+  wheel-tests-distributed-ucxx:
+    needs: [wheel-build-ucxx, wheel-build-distributed-ucxx, changed-files]
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.06
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    with:
+      build_type: pull-request
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      script: ci/test_wheel_distributed_ucxx.sh
+  devcontainer:
+    secrets: inherit
+    needs: [checks, telemetry-setup]
+    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.06
+    with:
+      arch: '["amd64"]'
+      cuda: '["12.8"]'
+      build_command: |
+        sccache -z;
+        build-all --verbose;
+        sccache -s;
+
+  telemetry-summarize:
+    # This job must use a self-hosted runner to record telemetry traces.
+    runs-on: linux-amd64-cpu4
+    needs: pr-builder
+    if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
+    continue-on-error: true
+    steps:
+      - name: Telemetry summarize
+        uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main

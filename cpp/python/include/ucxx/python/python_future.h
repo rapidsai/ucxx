@@ -19,9 +19,16 @@ namespace ucxx {
 
 namespace python {
 
+/**
+ * @brief Specialized Python implementation of a `ucxx::Future`.
+ *
+ * Specialized Python implementation of a `ucxx::Future`, where the future being handled is
+ * an instance of `asyncio.Future`.
+ */
 class Future : public ::ucxx::Future {
  private:
-  PyObject* _handle{create_python_future()};  ///< The handle to the Python future
+  PyObject* _asyncioEventLoop{nullptr};  ///< The asyncio event loop the Python future belongs to.
+  PyObject* _handle{nullptr};            ///< The handle to the Python future
 
   /**
    * @brief Construct a future that may be notified from a notifier thread.
@@ -32,16 +39,19 @@ class Future : public ::ucxx::Future {
    * This class may also be used to set the result or exception from any thread, but that
    * currently requires explicitly taking the GIL before calling `set()`.
    *
+   * @param[in] asyncioEventLoop pointer to a valid Python object containing the event loop
+   *                             that the application is using, to which the future will
+   *                             belong to.
    * @param[in] notifier  notifier object running on a separate thread.
    */
-  explicit Future(std::shared_ptr<::ucxx::Notifier> notifier);
+  explicit Future(PyObject* asyncioEventLoop, std::shared_ptr<::ucxx::Notifier> notifier);
 
  public:
-  Future()              = delete;
-  Future(const Future&) = delete;
+  Future()                         = delete;
+  Future(const Future&)            = delete;
   Future& operator=(Future const&) = delete;
   Future(Future&& o)               = delete;
-  Future& operator=(Future&& o) = delete;
+  Future& operator=(Future&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::python::Future>`.
@@ -55,6 +65,23 @@ class Future : public ::ucxx::Future {
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
   friend std::shared_ptr<::ucxx::Future> createFuture(std::shared_ptr<::ucxx::Notifier> notifier);
+
+  /**
+   * @brief Constructor of `shared_ptr<ucxx::python::Future>`.
+   *
+   * The constructor for a `shared_ptr<ucxx::python::Future>` object. The default
+   * constructor is made private to ensure all UCXX objects are shared pointers and correct
+   * lifetime management.
+   *
+   * @param[in] asyncioEventLoop  pointer to a valid Python object containing the event loop
+   *                              that the application is using, to which the future will
+   *                              belong to.
+   * @param[in] notifier          notifier object running on a separate thread.
+   *
+   * @returns The `shared_ptr<ucxx::python::Worker>` object
+   */
+  friend std::shared_ptr<::ucxx::Future> createFutureWithEventLoop(
+    PyObject* asyncioEventLoop, std::shared_ptr<::ucxx::Notifier> notifier);
 
   /**
    * @brief Virtual destructor.
@@ -100,7 +127,7 @@ class Future : public ::ucxx::Future {
    *
    * @returns The underlying `PyObject*` handle.
    */
-  void* getHandle();
+  [[nodiscard]] void* getHandle();
 
   /**
    * @brief Get the underlying `PyObject*` handle and release ownership.
@@ -113,7 +140,7 @@ class Future : public ::ucxx::Future {
    *
    * @returns The underlying `PyObject*` handle.
    */
-  void* release();
+  [[nodiscard]] void* release();
 };
 
 }  // namespace python

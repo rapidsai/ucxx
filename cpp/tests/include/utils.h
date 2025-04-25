@@ -22,13 +22,25 @@ enum class ProgressMode {
 
 void createCudaContextCallback(void* callbackArg);
 
-void waitRequests(std::shared_ptr<ucxx::Worker> worker,
-                  const std::vector<std::shared_ptr<ucxx::Request>>& requests,
-                  const std::function<void()>& progressWorker);
-
-void waitRequestsTagMulti(std::shared_ptr<ucxx::Worker> worker,
-                          const std::vector<std::shared_ptr<ucxx::RequestTagMulti>>& requests,
-                          const std::function<void()>& progressWorker);
+template <typename RequestType>
+inline void waitRequests(std::shared_ptr<ucxx::Worker> worker,
+                         const std::vector<std::shared_ptr<RequestType>>& requests,
+                         const std::function<void()>& progressWorker)
+{
+  auto remainingRequests = requests;
+  while (!remainingRequests.empty()) {
+    auto updatedRequests = std::exchange(remainingRequests, decltype(remainingRequests)());
+    for (auto const& r : updatedRequests) {
+      if (progressWorker) progressWorker();
+      if (!r->isCompleted())
+        remainingRequests.push_back(r);
+      else
+        r->checkError();
+    }
+  }
+}
 
 std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
                                           ProgressMode progressMode);
+
+bool loopWithTimeout(std::chrono::milliseconds timeout, std::function<bool()> f);

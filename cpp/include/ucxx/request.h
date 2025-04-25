@@ -14,32 +14,46 @@
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/future.h>
+#include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
 
-#define ucxx_trace_req_f(_owner, _req, _name, _message, ...) \
-  ucxx_trace_req("%s, req %p, op %s: " _message, (_owner), (_req), (_name), ##__VA_ARGS__)
+#define ucxx_trace_req_f(_owner, _req, _handle, _name, _message, ...)          \
+  ucxx_trace_req("ucxx::Request: %p on %s, UCP handle: %p, op: %s, " _message, \
+                 (_req),                                                       \
+                 (_owner),                                                     \
+                 (_handle),                                                    \
+                 (_name),                                                      \
+                 ##__VA_ARGS__)
 
 namespace ucxx {
 
+/**
+ * @brief Base type for a UCXX transfer request.
+ *
+ * Base type for one of the multiple UCXX transfer requests. Encapsulates information such
+ * as the UCP request pointer, the current status, a future to notify and a callback to
+ * execute upon completion, as well operation-specific data and to maintain a reference to
+ * its parent until completion.
+ */
 class Request : public Component {
  protected:
-  std::atomic<ucs_status_t> _status{UCS_INPROGRESS};  ///< Requests status
-  std::string _status_msg{};                          ///< Human-readable status message
-  void* _request{nullptr};                            ///< Pointer to UCP request
-  std::shared_ptr<Future> _future{nullptr};           ///< Future to notify upon completion
-  std::function<void(std::shared_ptr<void>)> _callback{nullptr};  ///< Completion callback
-  std::shared_ptr<void> _callbackData{nullptr};                   ///< Completion callback data
+  ucs_status_t _status{UCS_INPROGRESS};      ///< Requests status
+  std::string _status_msg{};                 ///< Human-readable status message
+  void* _request{nullptr};                   ///< Pointer to UCP request
+  std::shared_ptr<Future> _future{nullptr};  ///< Future to notify upon completion
   std::shared_ptr<Worker> _worker{
     nullptr};  ///< Worker that generated request (if not from endpoint)
   std::shared_ptr<Endpoint> _endpoint{
     nullptr};  ///< Endpoint that generated request (if not from worker)
   std::string _ownerString{
-    "undetermined owner"};  ///< String to print owner (endpoint or worker) when logging
-  std::shared_ptr<DelayedSubmission> _delayedSubmission{
-    nullptr};  ///< The submission object that will dispatch the request
+    "undetermined owner"};           ///< String to print owner (endpoint or worker) when logging
+  std::recursive_mutex _mutex{};     ///< Mutex to prevent checking status while it's being set
+  data::RequestData _requestData{};  ///< The operation-specific data to be used in the request
   std::string _operationName{
     "request_undefined"};          ///< Human-readable operation name, mostly used for log messages
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
+  RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
+  RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
 
   /**
    * @brief Protected constructor of an abstract `ucxx::Request`.
@@ -54,16 +68,18 @@ class Request : public Component {
    * @param[in] endpointOrWorker    the parent component, which may either be a
    *                                `std::shared_ptr<Endpoint>` or
    *                                `std::shared_ptr<Worker>`.
-   * @param[in] delayedSubmission   the object to manage request submission.
+   * @param[in] requestData         the operation-specific data to be used in the request.
    * @param[in] operationName       a human-readable operation name to help identifying
    *                                requests by their types when UCXX logging is enabled.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    */
   Request(std::shared_ptr<Component> endpointOrWorker,
-          std::shared_ptr<DelayedSubmission> delayedSubmission,
+          const data::RequestData requestData,
           const std::string operationName,
-          const bool enablePythonFuture = false);
+          const bool enablePythonFuture                = false,
+          RequestCallbackUserFunction callbackFunction = nullptr,
+          RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Perform initial processing of the request to determine if immediate completion.
@@ -87,11 +103,11 @@ class Request : public Component {
   void setStatus(ucs_status_t status);
 
  public:
-  Request()               = delete;
-  Request(const Request&) = delete;
+  Request()                          = delete;
+  Request(const Request&)            = delete;
   Request& operator=(Request const&) = delete;
   Request(Request&& o)               = delete;
-  Request& operator=(Request&& o) = delete;
+  Request& operator=(Request&& o)    = delete;
 
   /**
    * @brief `ucxx::Request` destructor.
@@ -104,10 +120,10 @@ class Request : public Component {
   /**
    * @brief Cancel the request.
    *
-   * Cancel the request. Often called by the an error handler or parent's object
+   * Cancel the request. Often called by the error handler or parent's object
    * destructor but may be called by the user to cancel the request as well.
    */
-  void cancel();
+  virtual void cancel();
 
   /**
    * @brief Return the status of the request.
@@ -118,7 +134,7 @@ class Request : public Component {
    *
    * @return the current status of the request.
    */
-  ucs_status_t getStatus();
+  [[nodiscard]] ucs_status_t getStatus();
 
   /**
    * @brief Return the future used to check on state.
@@ -128,7 +144,7 @@ class Request : public Component {
    *
    * @returns the Python future object or `nullptr`.
    */
-  void* getFuture();
+  [[nodiscard]] void* getFuture();
 
   /**
    * @brief Check whether the request completed with an error.
@@ -152,7 +168,7 @@ class Request : public Component {
    *
    * @return whether the request has completed.
    */
-  bool isCompleted();
+  [[nodiscard]] bool isCompleted();
 
   /**
    * @brief Callback executed by UCX when request is completed.
@@ -191,7 +207,21 @@ class Request : public Component {
    *
    * @returns the formatted string containing the owner type and its handle.
    */
-  const std::string& getOwnerString() const;
+  [[nodiscard]] const std::string& getOwnerString() const;
+
+  /**
+   * @brief Get the received buffer.
+   *
+   * This method is used to get the received buffer for applicable derived classes (e.g.,
+   * `RequestAm` receive operations), in all other cases this will return `nullptr`. Before
+   * getting the received buffer it's necessary to check that the request completed
+   * successfully either by validating `getStatus() == UCS_OK` or by checking the request
+   * completed with `isCompleted() == true` and that it did not error with `checkError()`,
+   * if any of those is unsuccessful this call returns `nullptr`.
+   *
+   * @return The received buffer (if applicable) or `nullptr`.
+   */
+  [[nodiscard]] virtual std::shared_ptr<Buffer> getRecvBuffer();
 };
 
 }  // namespace ucxx

@@ -4,6 +4,7 @@
  */
 #include <memory>
 #include <mutex>
+#include <string>
 #include <utility>
 
 #include <ucp/api/ucp.h>
@@ -13,47 +14,86 @@
 
 namespace ucxx {
 
-DelayedSubmission::DelayedSubmission(const bool send,
-                                     void* buffer,
-                                     const size_t length,
-                                     const ucp_tag_t tag)
-  : _send(send), _buffer(buffer), _length(length), _tag(tag)
+RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(const std::string name,
+                                                                       const bool enabled)
+  : BaseDelayedSubmissionCollection<
+      std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>{name, enabled}
 {
 }
 
-void DelayedSubmissionCollection::process()
+void RequestDelayedSubmissionCollection::scheduleLog(
+  ItemIdType id, std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
 {
-  if (_collection.size() > 0) {
-    ucxx_trace_req("Submitting %lu requests", _collection.size());
-
-    // Move _collection to a local copy in order to to hold the lock for as
-    // short as possible
-    decltype(_collection) toProcess;
-    {
-      std::lock_guard<std::mutex> lock(_mutex);
-      toProcess = std::move(_collection);
-    }
-
-    for (auto& callbackPtr : toProcess) {
-      auto& callback = *callbackPtr;
-
-      ucxx_trace_req("Submitting request: %p", callback.target<void (*)(std::shared_ptr<void>)>());
-
-      if (callback) callback();
-    }
-  }
+  ucxx_trace_req("Registered %s [%lu]: %p", _name.c_str(), id, item.first.get());
 }
 
-void DelayedSubmissionCollection::registerRequest(DelayedSubmissionCallbackType callback)
+void RequestDelayedSubmissionCollection::processItem(
+  ItemIdType id, std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType> item)
 {
-  auto r = std::make_shared<DelayedSubmissionCallbackType>(callback);
+  auto& req      = item.first;
+  auto& callback = item.second;
 
-  {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _collection.push_back(r);
-  }
-  ucxx_trace_req("Registered submit request: %p",
-                 callback.target<void (*)(std::shared_ptr<void>)>());
+  ucxx_trace_req("Submitting %s [%lu] callback: %p", _name.c_str(), id, req.get());
+
+  if (callback) callback();
 }
+
+GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(const std::string name)
+  : BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType>{name, true}
+{
+}
+
+void GenericDelayedSubmissionCollection::scheduleLog(ItemIdType id, DelayedSubmissionCallbackType)
+{
+  ucxx_trace_req("Registered %s [%lu]", _name.c_str(), id);
+}
+
+void GenericDelayedSubmissionCollection::processItem(ItemIdType id,
+                                                     DelayedSubmissionCallbackType callback)
+{
+  ucxx_trace_req("Submitting %s [%lu] callback", _name.c_str(), id);
+
+  if (callback) callback();
+}
+
+DelayedSubmissionCollection::DelayedSubmissionCollection(bool enableDelayedRequestSubmission)
+  : _requests(RequestDelayedSubmissionCollection{"request", enableDelayedRequestSubmission}),
+    _enableDelayedRequestSubmission(enableDelayedRequestSubmission)
+{
+}
+
+bool DelayedSubmissionCollection::isDelayedRequestSubmissionEnabled() const
+{
+  return _enableDelayedRequestSubmission;
+}
+
+void DelayedSubmissionCollection::processPre()
+{
+  _requests.process();
+
+  _genericPre.process();
+}
+
+void DelayedSubmissionCollection::processPost() { _genericPost.process(); }
+
+void DelayedSubmissionCollection::registerRequest(std::shared_ptr<Request> request,
+                                                  DelayedSubmissionCallbackType callback)
+{
+  std::ignore = _requests.schedule({request, callback});
+}
+
+ItemIdType DelayedSubmissionCollection::registerGenericPre(DelayedSubmissionCallbackType callback)
+{
+  return _genericPre.schedule(callback);
+}
+
+ItemIdType DelayedSubmissionCollection::registerGenericPost(DelayedSubmissionCallbackType callback)
+{
+  return _genericPost.schedule(callback);
+}
+
+void DelayedSubmissionCollection::cancelGenericPre(ItemIdType id) { _genericPre.cancel(id); }
+
+void DelayedSubmissionCollection::cancelGenericPost(ItemIdType id) { _genericPost.cancel(id); }
 
 }  // namespace ucxx

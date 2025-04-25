@@ -30,20 +30,21 @@ enum class ProgressMode {
 enum transfer_type_t { SEND, RECV };
 
 typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
-typedef std::unordered_map<transfer_type_t, ucp_tag_t> TagMap;
+typedef std::unordered_map<transfer_type_t, ucxx::Tag> TagMap;
 
 typedef std::shared_ptr<BufferMap> BufferMapPtr;
 typedef std::shared_ptr<TagMap> TagMapPtr;
 
 struct app_context_t {
-  ProgressMode progress_mode = ProgressMode::Blocking;
-  const char* server_addr    = NULL;
-  uint16_t listener_port     = 12345;
-  size_t message_size        = 8;
-  size_t n_iter              = 100;
-  size_t warmup_iter         = 3;
-  bool reuse_alloc           = false;
-  bool verify_results        = false;
+  ProgressMode progress_mode   = ProgressMode::Blocking;
+  const char* server_addr      = NULL;
+  uint16_t listener_port       = 12345;
+  size_t message_size          = 8;
+  size_t n_iter                = 100;
+  size_t warmup_iter           = 3;
+  bool endpoint_error_handling = false;
+  bool reuse_alloc             = false;
+  bool verify_results          = false;
 };
 
 class ListenerContext {
@@ -52,9 +53,13 @@ class ListenerContext {
   std::shared_ptr<ucxx::Endpoint> _endpoint{nullptr};
   std::shared_ptr<ucxx::Listener> _listener{nullptr};
   std::atomic<bool> _isAvailable{true};
+  bool _endpointErrorHandling{false};
 
  public:
-  explicit ListenerContext(std::shared_ptr<ucxx::Worker> worker) : _worker{worker} {}
+  ListenerContext(std::shared_ptr<ucxx::Worker> worker, bool endpointErrorHandling)
+    : _worker{worker}, _endpointErrorHandling(endpointErrorHandling)
+  {
+  }
 
   ~ListenerContext() { releaseEndpoint(); }
 
@@ -70,8 +75,7 @@ class ListenerContext {
   {
     if (!isAvailable()) throw std::runtime_error("Listener context already has an endpoint");
 
-    static bool endpoint_error_handling = true;
-    _endpoint    = _listener->createEndpointFromConnRequest(conn_request, endpoint_error_handling);
+    _endpoint    = _listener->createEndpointFromConnRequest(conn_request, _endpointErrorHandling);
     _isAvailable = false;
   }
 
@@ -120,6 +124,7 @@ static void printUsage()
   std::cerr << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
             << std::endl;
   std::cerr << "  -t          use thread progress mode (disabled)" << std::endl;
+  std::cerr << "  -e          create endpoints with error handling support (disabled)" << std::endl;
   std::cerr << "  -p <port>   port number to listen at (12345)" << std::endl;
   std::cerr << "  -s <bytes>  message size (8)" << std::endl;
   std::cerr << "  -n <int>    number of iterations to run (100)" << std::endl;
@@ -134,7 +139,7 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "m:p:s:w:n:rvh")) != -1) {
+  while ((c = getopt(argc, argv, "m:p:s:w:n:ervh")) != -1) {
     switch (c) {
       case 'm':
         if (strcmp(optarg, "blocking") == 0) {
@@ -185,6 +190,7 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
           return UCS_ERR_INVALID_PARAM;
         }
         break;
+      case 'e': app_context->endpoint_error_handling = true; break;
       case 'r': app_context->reuse_alloc = true; break;
       case 'v': app_context->verify_results = true; break;
       case 'h':
@@ -203,7 +209,7 @@ std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
   switch (progressMode) {
     case ProgressMode::Polling: return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
     case ProgressMode::Blocking:
-      return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
+      return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker, -1);
     case ProgressMode::Wait: return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
     default: return []() {};
   }
@@ -267,7 +273,8 @@ auto doTransfer(const app_context_t& app_context,
   auto start                                           = std::chrono::high_resolution_clock::now();
   std::vector<std::shared_ptr<ucxx::Request>> requests = {
     endpoint->tagSend((*bufferMap)[SEND].data(), app_context.message_size, (*tagMap)[SEND]),
-    endpoint->tagRecv((*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV])};
+    endpoint->tagRecv(
+      (*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
 
   // Wait for requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);
@@ -292,15 +299,15 @@ int main(int argc, char** argv)
 
   bool is_server = app_context.server_addr == NULL;
   auto tagMap    = std::make_shared<TagMap>(TagMap{
-    {SEND, is_server ? 0 : 1},
-    {RECV, is_server ? 1 : 0},
+       {SEND, is_server ? ucxx::Tag{0} : ucxx::Tag{1}},
+       {RECV, is_server ? ucxx::Tag{1} : ucxx::Tag{0}},
   });
 
   std::shared_ptr<ListenerContext> listener_ctx;
   std::shared_ptr<ucxx::Endpoint> endpoint;
   std::shared_ptr<ucxx::Listener> listener;
   if (is_server) {
-    listener_ctx = std::make_unique<ListenerContext>(worker);
+    listener_ctx = std::make_unique<ListenerContext>(worker, app_context.endpoint_error_handling);
     listener = worker->createListener(app_context.listener_port, listener_cb, listener_ctx.get());
     listener_ctx->setListener(listener);
   }
@@ -322,8 +329,8 @@ int main(int argc, char** argv)
   if (is_server)
     endpoint = listener_ctx->getEndpoint();
   else
-    endpoint =
-      worker->createEndpointFromHostname(app_context.server_addr, app_context.listener_port, true);
+    endpoint = worker->createEndpointFromHostname(
+      app_context.server_addr, app_context.listener_port, app_context.endpoint_error_handling);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
 
@@ -337,7 +344,8 @@ int main(int argc, char** argv)
                                        (*tagMap)[SEND]));
   requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
                                        (*wireupBufferMap)[RECV].size() * sizeof(int),
-                                       (*tagMap)[RECV]));
+                                       (*tagMap)[RECV],
+                                       ucxx::TagMaskFull));
 
   // Wait for wireup requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);

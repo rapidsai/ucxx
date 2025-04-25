@@ -17,6 +17,12 @@ namespace ucxx {
 
 namespace python {
 
+/**
+ * @brief Specialized Python implementation of a `ucxx::Notifier`.
+ *
+ * Specialized Python implementation of a `ucxx::Notifier`, providing support for notifying
+ * Python futures.
+ */
 class Notifier : public ::ucxx::Notifier {
  private:
   std::mutex _notifierThreadMutex{};  ///< Mutex to access thread's resources
@@ -45,7 +51,7 @@ class Notifier : public ::ucxx::Notifier {
    * WARNING: Use with caution, if no event ever occurs it will be impossible to continue
    * the thread.
    */
-  RequestNotifierWaitState waitRequestNotifierWithoutTimeout();
+  [[nodiscard]] RequestNotifierWaitState waitRequestNotifierWithoutTimeout();
 
   /**
    * @brief Wait for a new event with a timeout.
@@ -55,13 +61,13 @@ class Notifier : public ::ucxx::Notifier {
    *
    * @param[in] period the time to wait for an event before unblocking.
    */
-  RequestNotifierWaitState waitRequestNotifierWithTimeout(uint64_t period);
+  [[nodiscard]] RequestNotifierWaitState waitRequestNotifierWithTimeout(uint64_t period);
 
  public:
-  Notifier(const Notifier&) = delete;
+  Notifier(const Notifier&)            = delete;
   Notifier& operator=(Notifier const&) = delete;
   Notifier(Notifier&& o)               = delete;
-  Notifier& operator=(Notifier&& o) = delete;
+  Notifier& operator=(Notifier&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::python::Notifier>`.
@@ -114,7 +120,7 @@ class Notifier : public ::ucxx::Notifier {
    *
    * @param[in] period the time in nanoseconds to wait for an event before unblocking.
    */
-  RequestNotifierWaitState waitRequestNotifier(uint64_t period) override;
+  [[nodiscard]] RequestNotifierWaitState waitRequestNotifier(uint64_t period) override;
 
   /**
    * @brief Notify event loop of all pending completed Python futures.
@@ -133,6 +139,13 @@ class Notifier : public ::ucxx::Notifier {
    * that it should stop and exit.
    */
   void stopRequestNotifierThread() override;
+
+  /**
+   * @brief Returns whether the thread is running.
+   *
+   * @returns Whether the thread is running.
+   */
+  [[nodiscard]] bool isRunning() const override;
 };
 
 }  // namespace python

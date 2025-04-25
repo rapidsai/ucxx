@@ -13,6 +13,11 @@
 
 namespace ucxx {
 
+/**
+ * @brief The UCXX log level component configuration.
+ *
+ * The type with the UCXX log level component configuration.
+ */
 extern ucs_log_component_config_t ucxx_log_component_config;
 
 // Macros
@@ -60,7 +65,12 @@ extern ucs_log_component_config_t ucxx_log_component_config;
   ucxx_log(ucxx::UCXX_LOG_LEVEL_TRACE_FUNC, "%s(" _fmt ")", __FUNCTION__, ##__VA_ARGS__)
 #define ucxx_trace_poll(_fmt, ...) ucxx_log(ucxx::UCXX_LOG_LEVEL_TRACE_POLL, _fmt, ##__VA_ARGS__)
 
-// Constants
+/**
+ * @brief Map of log level names to their respective types.
+ *
+ * Map of log level names, used by the user to specify levels to enable, to their respective
+ * internal types.
+ */
 const std::unordered_map<std::string, ucxx_log_level_t> logLevelNames = {
   {"FATAL", UCXX_LOG_LEVEL_FATAL},
   {"ERROR", UCXX_LOG_LEVEL_ERROR},
@@ -69,17 +79,35 @@ const std::unordered_map<std::string, ucxx_log_level_t> logLevelNames = {
   {"INFO", UCXX_LOG_LEVEL_INFO},
   {"DEBUG", UCXX_LOG_LEVEL_DEBUG},
   {"TRACE", UCXX_LOG_LEVEL_TRACE},
-  {"TRACE_REQ", UCXX_LOG_LEVEL_TRACE_REQ},
-  {"TRACE_DATA", UCXX_LOG_LEVEL_TRACE_DATA},
-  {"TRACE_ASYNC", UCXX_LOG_LEVEL_TRACE_ASYNC},
-  {"TRACE_FUNC", UCXX_LOG_LEVEL_TRACE_FUNC},
-  {"TRACE_POLL", UCXX_LOG_LEVEL_TRACE_POLL},
+  {"REQ", UCXX_LOG_LEVEL_TRACE_REQ},
+  {"DATA", UCXX_LOG_LEVEL_TRACE_DATA},
+  {"ASYNC", UCXX_LOG_LEVEL_TRACE_ASYNC},
+  {"FUNC", UCXX_LOG_LEVEL_TRACE_FUNC},
+  {"POLL", UCXX_LOG_LEVEL_TRACE_POLL},
+  {"", UCXX_LOG_LEVEL_LAST},
   {"PRINT", UCXX_LOG_LEVEL_PRINT}};
 
-const char logLevelNameDefault[]      = "WARN";
+/**
+ * @brief The name of the default log level.
+ *
+ * The name of default log level, must be one of the keys in `logLevelNames`.
+ */
+const char logLevelNameDefault[] = "WARN";
+
+/**
+ * @brief The type of the default log level.
+ *
+ * The type of default log level, automatically set based on the value of
+ * `logLevelNameDefault`.
+ */
 const ucs_log_level_t logLevelDefault = (ucs_log_level_t)logLevelNames.at(logLevelNameDefault);
 
-// Functions
+/**
+ * @brief Parse the active log level.
+ *
+ * Parse the active log level and set appropriate internal values to match the specified
+ * level.
+ */
 void parseLogLevel();
 
 }  // namespace ucxx

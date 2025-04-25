@@ -17,16 +17,20 @@
 namespace ucxx {
 
 Request::Request(std::shared_ptr<Component> endpointOrWorker,
-                 std::shared_ptr<DelayedSubmission> delayedSubmission,
+                 const data::RequestData requestData,
                  const std::string operationName,
-                 const bool enablePythonFuture)
-  : _delayedSubmission(delayedSubmission),
+                 const bool enablePythonFuture,
+                 RequestCallbackUserFunction callbackFunction,
+                 RequestCallbackUserData callbackData)
+  : _requestData(requestData),
     _operationName(operationName),
-    _enablePythonFuture(enablePythonFuture)
+    _enablePythonFuture(enablePythonFuture),
+    _callback(callbackFunction),
+    _callbackData(callbackData)
 {
   _endpoint = std::dynamic_pointer_cast<Endpoint>(endpointOrWorker);
-  _worker   = _endpoint ? Endpoint::getWorker(_endpoint->getParent())
-                        : std::dynamic_pointer_cast<Worker>(endpointOrWorker);
+  _worker =
+    _endpoint ? _endpoint->getWorker() : std::dynamic_pointer_cast<Worker>(endpointOrWorker);
 
   if (_worker == nullptr || _worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
@@ -36,84 +40,126 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
   _enablePythonFuture &= _worker->isFutureEnabled();
   if (_enablePythonFuture) {
     _future = _worker->getFuture();
-    ucxx_trace_req("req: %p, _future: %p", _request, _future.get());
+    ucxx_trace_req_f(
+      _ownerString.c_str(), this, _request, _operationName.c_str(), "future: %p", _future.get());
   }
 
   std::stringstream ss;
 
   if (_endpoint) {
     setParent(_endpoint);
-    ss << "ep " << _endpoint->getHandle();
+    ss << "ucxx::Endpoint: " << _endpoint->getHandle();
+    ucxx_trace("ucxx::Request created (%s): %p on ucxx::Endpoint: %p",
+               _operationName.c_str(),
+               this,
+               _endpoint.get());
   } else {
     setParent(_worker);
-    ss << "worker " << _worker->getHandle();
+    ss << "ucxx::Worker: " << _worker->getHandle();
+    ucxx_trace("ucxx::Request created (%s): %p on ucxx::Worker: %p",
+               _operationName.c_str(),
+               this,
+               _worker.get());
   }
 
   _ownerString = ss.str();
-
-  ucxx_trace("Request created: %p, %s", this, _operationName.c_str());
 }
 
-Request::~Request() { ucxx_trace("Request destroyed: %p, %s", this, _operationName.c_str()); }
+Request::~Request()
+{
+  ucxx_trace("ucxx::Request destroyed (%s): %p", _operationName.c_str(), this);
+}
 
 void Request::cancel()
 {
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
   if (_status == UCS_INPROGRESS) {
     if (UCS_PTR_IS_ERR(_request)) {
       ucs_status_t status = UCS_PTR_STATUS(_request);
       ucxx_trace_req_f(_ownerString.c_str(),
+                       this,
                        _request,
                        _operationName.c_str(),
                        "unprocessed request during cancelation contains error: %d (%s)",
                        status,
                        ucs_status_string(status));
     } else {
-      ucxx_trace_req_f(_ownerString.c_str(), _request, _operationName.c_str(), "canceling");
-      ucp_request_cancel(_worker->getHandle(), _request);
+      ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "canceling");
+      if (_request != nullptr) ucp_request_cancel(_worker->getHandle(), _request);
     }
   } else {
-    auto status = _status.load();
     ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
                      _request,
                      _operationName.c_str(),
                      "already completed with status: %d (%s)",
-                     status,
-                     ucs_status_string(status));
+                     _status,
+                     ucs_status_string(_status));
   }
 }
 
-ucs_status_t Request::getStatus() { return _status; }
+ucs_status_t Request::getStatus()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  return _status;
+}
 
-void* Request::getFuture() { return _future ? _future->getHandle() : nullptr; }
+void* Request::getFuture()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  return _future ? _future->getHandle() : nullptr;
+}
 
 void Request::checkError()
 {
-  // Only load the atomic variable once
-  auto status = _status.load();
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-  utils::ucsErrorThrow(status, status == UCS_ERR_MESSAGE_TRUNCATED ? _status_msg : std::string());
+  utils::ucsErrorThrow(_status, _status == UCS_ERR_MESSAGE_TRUNCATED ? _status_msg : std::string());
 }
 
-bool Request::isCompleted() { return _status != UCS_INPROGRESS; }
+bool Request::isCompleted()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  return _status != UCS_INPROGRESS;
+}
 
 void Request::callback(void* request, ucs_status_t status)
 {
+  /**
+   * Prevent reference count to self from going to zero and thus cause self to be destroyed
+   * while `callback()` executes.
+   */
+  decltype(shared_from_this()) selfReference = nullptr;
+  try {
+    selfReference = shared_from_this();
+  } catch (std::bad_weak_ptr& exception) {
+    ucxx_debug("ucxx::Request: %p destroyed before callback() was executed", this);
+    return;
+  }
+  if (_status != UCS_INPROGRESS)
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
+                     _request,
+                     _operationName.c_str(),
+                     "has status already set to %d (%s), callback setting %d (%s)",
+                     _status,
+                     ucs_status_string(_status),
+                     status,
+                     ucs_status_string(status));
+
+  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
+
+  ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "completed");
   setStatus(status);
-
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   request,
-                   _operationName.c_str(),
-                   "callback %p",
-                   _callback.target<void (*)(void)>());
-  if (_callback) _callback(_callbackData);
-
-  ucp_request_free(request);
-  ucxx_trace("Request completed: %p, handle: %p", this, request);
+  ucxx_trace_req_f(
+    _ownerString.c_str(), this, _request, _operationName.c_str(), "isCompleted: %d", isCompleted());
 }
 
 void Request::process()
 {
-  ucs_status_t status = _status.load();
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  ucs_status_t status = UCS_INPROGRESS;
 
   if (UCS_PTR_IS_ERR(_request)) {
     // Operation errored immediately
@@ -121,10 +167,10 @@ void Request::process()
   } else if (UCS_PTR_IS_PTR(_request)) {
     // Completion will be handled by callback
     ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
                      _request,
                      _operationName.c_str(),
                      "completion will be handled by callback");
-    ucxx_trace("Request submitted: %p, handle: %p", this, _request);
     return;
   } else {
     // Operation completed immediately
@@ -132,25 +178,19 @@ void Request::process()
   }
 
   ucxx_trace_req_f(_ownerString.c_str(),
+                   this,
                    _request,
                    _operationName.c_str(),
                    "status %d (%s)",
                    status,
                    ucs_status_string(status));
 
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   _request,
-                   _operationName.c_str(),
-                   "callback %p",
-                   _callback.target<void (*)(void)>());
-  if (_callback) _callback(_callbackData);
-
   if (status != UCS_OK) {
-    ucxx_error(
+    ucxx_debug(
       "error on %s with status %d (%s)", _operationName.c_str(), status, ucs_status_string(status));
   } else {
     ucxx_trace_req_f(
-      _ownerString.c_str(), _request, _operationName.c_str(), "completed immediately");
+      _ownerString.c_str(), this, _request, _operationName.c_str(), "completed immediately");
   }
 
   setStatus(status);
@@ -158,30 +198,46 @@ void Request::process()
 
 void Request::setStatus(ucs_status_t status)
 {
-  if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
-  _worker->removeInflightRequest(this);
+  {
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-  if (_status == UCS_INPROGRESS) {
-    // If the status is not `UCS_INPROGRESS`, the derived class has already set the
-    // status, a truncated message for example.
-    _status.store(status);
-  }
+    if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
+    _worker->removeInflightRequest(this);
 
-  ucs_status_t s = _status;
+    ucxx_trace_req_f(_ownerString.c_str(),
+                     this,
+                     _request,
+                     _operationName.c_str(),
+                     "setStatus called with status %d (%s)",
+                     status,
+                     ucs_status_string(status));
 
-  ucxx_trace_req_f(_ownerString.c_str(),
-                   _request,
-                   _operationName.c_str(),
-                   "callback called with status %d (%s)",
-                   s,
-                   ucs_status_string(s));
+    if (_status != UCS_INPROGRESS)
+      ucxx_error(
+        "ucxx::Request: %p, setStatus called with status: %d (%s) but status: %d (%s) was "
+        "already set",
+        this,
+        status,
+        ucs_status_string(status),
+        _status,
+        ucs_status_string(_status));
+    _status = status;
 
-  if (_enablePythonFuture) {
-    auto future = std::static_pointer_cast<ucxx::Future>(_future);
-    future->notify(status);
+    if (_enablePythonFuture) {
+      auto future = std::static_pointer_cast<ucxx::Future>(_future);
+      future->notify(status);
+    }
+
+    if (_callback) {
+      ucxx_trace_req_f(
+        _ownerString.c_str(), this, _request, _operationName.c_str(), "invoking user callback");
+      _callback(status, _callbackData);
+    }
   }
 }
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
+
+std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }
 
 }  // namespace ucxx

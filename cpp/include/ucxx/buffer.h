@@ -9,18 +9,32 @@
 
 #include <ucxx/log.h>
 
-#if UCXX_ENABLE_RMM
-#include <rmm/device_buffer.hpp>
-#endif
+namespace rmm {
+// Forward declaration to prevent symbols from being added to symbol table unnecessarily.
+class device_buffer;
+}  // namespace rmm
 
 namespace ucxx {
 
+/**
+ * @brief The type of a buffer.
+ *
+ * The type of a buffer that can be used to match among the different supported types.
+ */
 enum class BufferType {
   Host = 0,
   RMM,
   Invalid,
 };
 
+/**
+ * @brief A simple object to simplify managing buffers.
+ *
+ * UCXX can work with raw pointers in most cases, but in some circumstances it's required
+ * to know more information about the buffer, such as with `ucxx::RequestTagMulti`. In such
+ * circumstances it may need to allocate buffers internally and UCXX can utilize objects of
+ * this type to describe the internally-allocated buffers.
+ */
 class Buffer {
  protected:
   BufferType _bufferType{BufferType::Invalid};  ///< Buffer type
@@ -38,11 +52,11 @@ class Buffer {
   Buffer(const BufferType bufferType, const size_t size);
 
  public:
-  Buffer()              = delete;
-  Buffer(const Buffer&) = delete;
+  Buffer()                         = delete;
+  Buffer(const Buffer&)            = delete;
   Buffer& operator=(Buffer const&) = delete;
   Buffer(Buffer&& o)               = delete;
-  Buffer& operator=(Buffer&& o) = delete;
+  Buffer& operator=(Buffer&& o)    = delete;
 
   /**
    * @brief Virtual destructor.
@@ -59,7 +73,7 @@ class Buffer {
    *
    * @return the type of buffer the object holds
    */
-  BufferType getType() const noexcept;
+  [[nodiscard]] BufferType getType() const noexcept;
 
   /**
    * @brief Get the size of the contained buffer.
@@ -68,7 +82,7 @@ class Buffer {
    *
    * @return the size of the contained buffer.
    */
-  size_t getSize() const noexcept;
+  [[nodiscard]] size_t getSize() const noexcept;
 
   /**
    * @brief Abstract method returning void pointer to buffer.
@@ -79,19 +93,24 @@ class Buffer {
    *
    * @return the void pointer to the buffer.
    */
-  virtual void* data() = 0;
+  [[nodiscard]] virtual void* data() = 0;
 };
 
+/**
+ * @brief A simple object containing a host buffer.
+ *
+ * A buffer encapsulating a host buffer with its properties.
+ */
 class HostBuffer : public Buffer {
  private:
   void* _buffer;  ///< Pointer to the allocated buffer
 
  public:
-  HostBuffer()                  = delete;
-  HostBuffer(const HostBuffer&) = delete;
+  HostBuffer()                             = delete;
+  HostBuffer(const HostBuffer&)            = delete;
   HostBuffer& operator=(HostBuffer const&) = delete;
   HostBuffer(HostBuffer&& o)               = delete;
-  HostBuffer& operator=(HostBuffer&& o) = delete;
+  HostBuffer& operator=(HostBuffer&& o)    = delete;
 
   /**
    * @brief Constructor of concrete type `HostBuffer`.
@@ -141,7 +160,7 @@ class HostBuffer : public Buffer {
    *
    * @return the void pointer to the buffer.
    */
-  void* release();
+  [[nodiscard]] void* release();
 
   /**
    * @brief Get a pointer to the allocated raw host buffer.
@@ -162,20 +181,25 @@ class HostBuffer : public Buffer {
    *
    * @return the void pointer to the buffer.
    */
-  virtual void* data();
+  [[nodiscard]] virtual void* data();
 };
 
 #if UCXX_ENABLE_RMM
+/**
+ * @brief A simple object containing a RMM (CUDA) buffer.
+ *
+ * A buffer encapsulating an RMM (CUDA) buffer with its properties.
+ */
 class RMMBuffer : public Buffer {
  private:
   std::unique_ptr<rmm::device_buffer> _buffer;  ///< RMM-allocated device buffer
 
  public:
-  RMMBuffer()                 = delete;
-  RMMBuffer(const RMMBuffer&) = delete;
+  RMMBuffer()                            = delete;
+  RMMBuffer(const RMMBuffer&)            = delete;
   RMMBuffer& operator=(RMMBuffer const&) = delete;
   RMMBuffer(RMMBuffer&& o)               = delete;
-  RMMBuffer& operator=(RMMBuffer&& o) = delete;
+  RMMBuffer& operator=(RMMBuffer&& o)    = delete;
 
   /**
    * @brief Constructor of concrete type `RMMBuffer`.
@@ -219,7 +243,7 @@ class RMMBuffer : public Buffer {
    *
    * @return the void pointer to the buffer.
    */
-  std::unique_ptr<rmm::device_buffer> release();
+  [[nodiscard]] std::unique_ptr<rmm::device_buffer> release();
 
   /**
    * @brief Get a pointer to the allocated raw device buffer.
@@ -241,10 +265,21 @@ class RMMBuffer : public Buffer {
    *
    * @return the void pointer to the device buffer.
    */
-  virtual void* data();
+  [[nodiscard]] virtual void* data();
 };
 #endif
 
-Buffer* allocateBuffer(BufferType bufferType, const size_t size);
+/**
+ * @brief Allocate a buffer of specified type and size.
+ *
+ * Allocate a buffer of the specified type and size pair, returning the `ucxx::Buffer`
+ * object wrapped in a `std::shared_ptr`.
+ *
+ * @param[in] bufferType  the type of buffer to allocate.
+ * @param[in] size        the size (in bytes) of the buffer to allocate.
+ *
+ * @returns the `std::shared_ptr` to the allocated buffer.
+ */
+[[nodiscard]] std::shared_ptr<Buffer> allocateBuffer(BufferType bufferType, const size_t size);
 
 }  // namespace ucxx

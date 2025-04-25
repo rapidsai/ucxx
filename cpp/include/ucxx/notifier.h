@@ -11,21 +11,39 @@
 
 namespace ucxx {
 
+/**
+ * @brief The state of the notifier thread.
+ *
+ * The current state of the notifier thread.
+ */
 enum class RequestNotifierThreadState { NotRunning = 0, Running, Stopping };
 
+/**
+ * @brief The state with which a wait operation completed.
+ *
+ * The state with which a blocking call to wait for the request notifier completed.
+ */
 enum class RequestNotifierWaitState { Ready = 0, Timeout, Shutdown };
 
 class Future;
 
+/**
+ * @brief Notifier for status of futures.
+ *
+ * A notifier used to delay notification of futures to a more appropriate stage of the
+ * program execution, such as when it will be less resource intensive or free of risks of
+ * effects such as deadlocks, for example when notifying Python futures where the GIL is
+ * required.
+ */
 class Notifier {
  protected:
   Notifier() = default;
 
  public:
-  Notifier(const Notifier&) = delete;
+  Notifier(const Notifier&)            = delete;
   Notifier& operator=(Notifier const&) = delete;
   Notifier(Notifier&& o)               = delete;
-  Notifier& operator=(Notifier&& o) = delete;
+  Notifier& operator=(Notifier&& o)    = delete;
 
   /**
    * @brief Virtual destructor.
@@ -60,7 +78,7 @@ class Notifier {
    *
    * @param[in] period the time in nanoseconds to wait for an event before unblocking.
    */
-  virtual RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs) = 0;
+  virtual RequestNotifierWaitState waitRequestNotifier(uint64_t period) = 0;
 
   /**
    * @brief Notify event loop of all pending completed futures.
@@ -79,6 +97,13 @@ class Notifier {
    * it should stop and exit.
    */
   virtual void stopRequestNotifierThread() = 0;
+
+  /**
+   * @brief Returns whether the thread is running.
+   *
+   * @returns Whether the thread is running.
+   */
+  [[nodiscard]] virtual bool isRunning() const = 0;
 };
 
 }  // namespace ucxx

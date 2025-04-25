@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdio>
 #include <sstream>
 #include <string>
 
@@ -12,7 +13,7 @@
 
 namespace ucxx {
 
-ucp_config_t* Config::readUCXConfig(ConfigMap userOptions)
+void Config::readUCXConfig(ConfigMap userOptions)
 {
   ucs_status_t status;
 
@@ -32,8 +33,6 @@ ucp_config_t* Config::readUCXConfig(ConfigMap userOptions)
         utils::ucsErrorThrow(status);
     }
   }
-
-  return _handle;
 }
 
 ConfigMap Config::ucxConfigToMap()
@@ -60,7 +59,7 @@ Config::Config(ConfigMap userOptions) { readUCXConfig(userOptions); }
 
 Config::~Config()
 {
-  if (this->_handle != nullptr) ucp_config_release(this->_handle);
+  if (_handle != nullptr) ucp_config_release(_handle);
 }
 
 ConfigMap Config::get() { return ucxConfigToMap(); }

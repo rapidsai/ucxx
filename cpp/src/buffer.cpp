@@ -27,7 +27,7 @@ size_t Buffer::getSize() const noexcept { return _size; }
 
 HostBuffer::HostBuffer(const size_t size) : Buffer(BufferType::Host, size), _buffer{malloc(size)}
 {
-  ucxx_trace_data("HostBuffer(%lu), _buffer: %p", size, _buffer);
+  ucxx_trace_data("ucxx::HostBuffer created: %p, buffer: %p, size: %lu", this, _buffer, size);
 }
 
 HostBuffer::~HostBuffer()
@@ -37,7 +37,7 @@ HostBuffer::~HostBuffer()
 
 void* HostBuffer::release()
 {
-  ucxx_trace_data("HostBuffer::release(), _buffer: %p", _buffer);
+  ucxx_trace_data("ucxx::HostBuffer::%s, HostBuffer: %p, buffer: %p", __func__, this, _buffer);
   if (!_buffer) throw std::runtime_error("Invalid object or already released");
 
   _bufferType = ucxx::BufferType::Invalid;
@@ -48,7 +48,7 @@ void* HostBuffer::release()
 
 void* HostBuffer::data()
 {
-  ucxx_trace_data("HostBuffer::data(), _buffer: %p", _buffer);
+  ucxx_trace_data("ucxx::HostBuffer::%s, HostBuffer: %p, buffer: %p", __func__, this, _buffer);
   if (!_buffer) throw std::runtime_error("Invalid object or already released");
 
   return _buffer;
@@ -59,12 +59,12 @@ RMMBuffer::RMMBuffer(const size_t size)
   : Buffer(BufferType::RMM, size),
     _buffer{std::make_unique<rmm::device_buffer>(size, rmm::cuda_stream_default)}
 {
-  ucxx_trace_data("RMMBuffer(%lu), _buffer: %p", size, _buffer.get());
+  ucxx_trace_data("ucxx::RMMBuffer created: %p, buffer: %p, size: %lu", this, _buffer.get(), size);
 }
 
 std::unique_ptr<rmm::device_buffer> RMMBuffer::release()
 {
-  ucxx_trace_data("RMMBuffer::release(), _buffer: %p", _buffer.get());
+  ucxx_trace_data("ucxx::RMMBuffer::%s, RMMBuffer: %p, _buffer: %p", __func__, this, _buffer.get());
   if (!_buffer) throw std::runtime_error("Invalid object or already released");
 
   _bufferType = ucxx::BufferType::Invalid;
@@ -75,24 +75,24 @@ std::unique_ptr<rmm::device_buffer> RMMBuffer::release()
 
 void* RMMBuffer::data()
 {
-  ucxx_trace_data("RMMBuffer::data(), _buffer: %p", _buffer.get());
+  ucxx_trace_data("ucxx::RMMBuffer::%s, RMMBuffer: %p, buffer: %p", __func__, this, _buffer.get());
   if (!_buffer) throw std::runtime_error("Invalid object or already released");
 
   return _buffer->data();
 }
 #endif
 
-Buffer* allocateBuffer(const BufferType bufferType, const size_t size)
+std::shared_ptr<Buffer> allocateBuffer(const BufferType bufferType, const size_t size)
 {
 #if UCXX_ENABLE_RMM
   if (bufferType == BufferType::RMM)
-    return new RMMBuffer(size);
+    return std::make_shared<RMMBuffer>(size);
   else
 #else
   if (bufferType == BufferType::RMM)
     throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
 #endif
-    return new HostBuffer(size);
+    return std::make_shared<HostBuffer>(size);
 }
 
 }  // namespace ucxx

@@ -10,8 +10,16 @@
 
 namespace ucxx {
 
-const size_t HeaderFramesSize = 100;
+const size_t HeaderFramesSize =
+  100;  ///< The number of buffers contained in a single `ucxx::Header` object.
 
+/**
+ * @brief A serializable object containing metadata of multiple buffers.
+ *
+ * A serializable object containing metadata of a pre-defined number of buffers used to
+ * inform the remote endpoint of multiple incoming messages from buffers of given
+ * properties.
+ */
 class Header {
  private:
   /**
@@ -70,7 +78,7 @@ class Header {
    *
    * @returns the size of the underlying data.
    */
-  static size_t dataSize();
+  [[nodiscard]] static size_t dataSize();
 
   /**
    * @brief Get the serialized data.
@@ -79,7 +87,7 @@ class Header {
    *
    * @returns the serialized data.
    */
-  const std::string serialize() const;
+  [[nodiscard]] const std::string serialize() const;
 
   /**
    * @brief Convenience method to build headers given arbitrary-sized input.
@@ -93,8 +101,8 @@ class Header {
    *
    * @returns A vector of one or more `ucxx::Header` objects.
    */
-  static std::vector<Header> buildHeaders(const std::vector<size_t>& size,
-                                          const std::vector<int>& isCUDA);
+  [[nodiscard]] static std::vector<Header> buildHeaders(const std::vector<size_t>& size,
+                                                        const std::vector<int>& isCUDA);
 };
 
 }  // namespace ucxx

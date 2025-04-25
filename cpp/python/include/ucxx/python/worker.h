@@ -20,6 +20,12 @@ namespace ucxx {
 
 namespace python {
 
+/**
+ * @brief Specialized Python implementation of a `ucxx::Worker`.
+ *
+ * Specialized Python implementation of a `ucxx::Worker`, providing Python-specific
+ * functionality, such as notification of Python futures.
+ */
 class Worker : public ::ucxx::Worker {
  private:
   /**
@@ -42,11 +48,11 @@ class Worker : public ::ucxx::Worker {
          const bool enableFuture            = false);
 
  public:
-  Worker()              = delete;
-  Worker(const Worker&) = delete;
+  Worker()                         = delete;
+  Worker(const Worker&)            = delete;
   Worker& operator=(Worker const&) = delete;
   Worker(Worker&& o)               = delete;
-  Worker& operator=(Worker&& o) = delete;
+  Worker& operator=(Worker&& o)    = delete;
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::python::Worker>`.
@@ -60,6 +66,11 @@ class Worker : public ::ucxx::Worker {
    * auto worker = ucxx::createWorker(context, false, false);
    * @endcode
    *
+   * @cond Doxygen_Suppress
+   *
+   * Note: this parameter list is suppressed due to a warning in doxygen 1.9.1.
+   * It appears to conflict with the ucxx::createWorker docstring.
+   *
    * @param[in] context the context from which to create the worker.
    * @param[in] enableDelayedSubmission if `true`, each `ucxx::Request` will not be
    *                                    submitted immediately, but instead delayed to
@@ -67,6 +78,8 @@ class Worker : public ::ucxx::Worker {
    *                                    progress thread.
    * @param[in] enableFuture if `true`, notifies the Python future associated with each
    *                         `ucxx::Request`.
+   * @endcond
+   *
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
   friend std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
@@ -74,14 +87,27 @@ class Worker : public ::ucxx::Worker {
                                                       const bool enableFuture);
 
   /**
-   * @brief Populate the Python future pool.
+   * @brief Populate the Python futures pool.
    *
    * To avoid taking the Python GIL for every new future required by each `ucxx::Request`,
    * the `ucxx::python::Worker` maintains a pool of futures that can be acquired when a new
    * `ucxx::Request` is created. Currently the pool has a maximum size of 100 objects, and
    * will refill once it goes under 50, otherwise calling this functions results in a no-op.
+   *
+   * @throws std::runtime_error if object was created with `enableFuture=false`.
    */
   void populateFuturesPool() override;
+
+  /**
+   * @brief Clear the futures pool.
+   *
+   * Clear the futures pool, ensuring all references are removed and thus avoiding
+   * reference cycles that prevent the `ucxx::Worker` and other resources from cleaning
+   * up on time.
+   *
+   * This method is safe to be called even if object was created with `enableFuture=false`.
+   */
+  void clearFuturesPool() override;
 
   /**
    * @brief Get a Python future from the pool.
@@ -92,7 +118,7 @@ class Worker : public ::ucxx::Worker {
    *
    * @returns The `shared_ptr<ucxx::python::Future>` object
    */
-  std::shared_ptr<::ucxx::Future> getFuture() override;
+  [[nodiscard]] std::shared_ptr<::ucxx::Future> getFuture() override;
 
   /**
    * @brief Block until a request event.
@@ -106,7 +132,7 @@ class Worker : public ::ucxx::Worker {
    *          `RequestNotifierWaitStats::Timeout` if a timeout occurred, or
    *          `RequestNotifierWaitStats::Shutdown` if shutdown has initiated.
    */
-  RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs) override;
+  [[nodiscard]] RequestNotifierWaitState waitRequestNotifier(uint64_t periodNs) override;
 
   /**
    * @brief Notify Python futures of each completed communication request.

@@ -13,39 +13,24 @@ void createCudaContextCallback(void* callbackArg)
   cudaFree(0);
 }
 
-void waitRequests(std::shared_ptr<ucxx::Worker> worker,
-                  const std::vector<std::shared_ptr<ucxx::Request>>& requests,
-                  const std::function<void()>& progressWorker)
-{
-  for (auto& r : requests) {
-    do {
-      if (progressWorker) progressWorker();
-    } while (!r->isCompleted());
-    r->checkError();
-  }
-}
-
-void waitRequestsTagMulti(std::shared_ptr<ucxx::Worker> worker,
-                          const std::vector<std::shared_ptr<ucxx::RequestTagMulti>>& requests,
-                          const std::function<void()>& progressWorker)
-{
-  for (auto& r : requests) {
-    do {
-      if (progressWorker) progressWorker();
-    } while (!r->isCompleted());
-    r->checkError();
-  }
-}
-
 std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,
                                           ProgressMode progressMode)
 {
-  if (progressMode == ProgressMode::Polling)
-    return std::bind(std::mem_fn(&ucxx::Worker::progress), worker);
-  else if (progressMode == ProgressMode::Blocking)
-    return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), worker);
-  else if (progressMode == ProgressMode::Wait)
-    return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), worker);
-  else
-    return std::function<void()>();
+  switch (progressMode) {
+    case ProgressMode::Polling: return [worker]() { worker->progress(); };
+    case ProgressMode::Blocking: return [worker]() { worker->progressWorkerEvent(-1); };
+    case ProgressMode::Wait: return [worker]() { worker->waitProgress(); };
+    default: return []() {};
+  }
+}
+
+bool loopWithTimeout(std::chrono::milliseconds timeout, std::function<bool()> f)
+{
+  auto startTime = std::chrono::system_clock::now();
+  auto endTime   = startTime + std::chrono::milliseconds(timeout);
+
+  while (std::chrono::system_clock::now() < endTime) {
+    if (f()) return true;
+  }
+  return false;
 }

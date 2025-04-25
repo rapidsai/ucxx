@@ -15,26 +15,24 @@ repos:
         hooks:
               - id: black
                 files: python/.*
-      - repo: https://github.com/PyCQA/flake8
-        rev: 5.0.4
+      - repo: https://github.com/astral-sh/ruff-pre-commit
+        rev: v0.0.278
         hooks:
-              - id: flake8
-                args: ["--config=python/.flake8"]
-                files: python/.*\.py$
-                types: [python]
-              - id: flake8
-                args: ["--config=python/.flake8.cython"]
-                types: [cython]
-                additional_dependencies: ["flake8-force"]
+              - id: ruff
+                files: python/.*$
+      - repo: https://github.com/MarcoGorelli/cython-lint
+        rev: v0.15.0
+        hooks:
+              - id: cython-lint
       - repo: https://github.com/pre-commit/mirrors-clang-format
-        rev: v11.1.0
+        rev: v16.0.6
         hooks:
               - id: clang-format
                 files: \.(h|cpp)$
                 types_or: [file]
                 args: ['-fallback-style=none', '-style=file', '-i']
       - repo: https://github.com/cpplint/cpplint
-        rev: 1.6.1
+        rev: 2.0.0
         hooks:
               - id: cpplint
                 name: cpplint
@@ -43,13 +41,67 @@ repos:
                 # language: system
                 files: \.(h|cpp)$
                 # exclude: path/to/myfile.h
+      - repo: https://github.com/rapidsai/pre-commit-hooks
+        rev: v0.4.0
+        hooks:
+            - id: verify-copyright
+            - id: verify-alpha-spec
+              args:
+                - --fix
+                - --rapids-version=25.06
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.5.1
+        rev: v1.16.0
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
-
-
+      - repo: local
+        hooks:
+            - id: cmake-format
+              name: cmake-format
+              entry: ./cmake/scripts/run-cmake-format.sh cmake-format
+              language: python
+              types: [cmake]
+              # Note that pre-commit autoupdate does not update the versions
+              # of dependencies, so we'll have to update this manually.
+              additional_dependencies:
+                - cmakelang==0.6.13
+              verbose: true
+              require_serial: true
+            - id: cmake-lint
+              name: cmake-lint
+              entry: ./cmake/scripts/run-cmake-format.sh cmake-lint
+              language: python
+              types: [cmake]
+              # Note that pre-commit autoupdate does not update the versions
+              # of dependencies, so we'll have to update this manually.
+              additional_dependencies:
+                - cmakelang==0.6.13
+              verbose: true
+              require_serial: true
+            - id: doxygen-check
+              name: doxygen-check
+              entry: ./ci/checks/doxygen.sh
+              files: ^cpp/include/
+              types_or: [file]
+              language: system
+              pass_filenames: false
+              verbose: true
+      - repo: https://github.com/codespell-project/codespell
+        rev: v2.2.2
+        hooks:
+            - id: codespell
+              additional_dependencies: [tomli]
+              args: ["--toml", "python/pyproject.toml"]
+              exclude: |
+                (?x)^(
+                  .*test.*|
+                  ^CHANGELOG.md$
+                )
+      - repo: https://github.com/shellcheck-py/shellcheck-py
+        rev: v0.10.0.1
+        hooks:
+          - id: shellcheck
+            args: ["--severity=warning"]
 
 default_language_version:
       python: python3

@@ -14,14 +14,17 @@
 
 namespace ucxx {
 
-void ucpListenerDestructor(ucp_listener_h ptr);
-
+/**
+ * @brief Component encapsulating a UCP listener.
+ *
+ * The UCP layer provides a handle to access listeners in form of `ucp_listener_h` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Listener : public Component {
  private:
-  std::unique_ptr<ucp_listener, void (*)(ucp_listener_h)> _handle{
-    nullptr, ucpListenerDestructor};  ///< The UCP listener handle
-  std::string _ip{};                  ///< The IP address to which the listener is bound to
-  uint16_t _port{0};                  ///< The port to which the listener is bound to
+  ucp_listener_h _handle{nullptr};  ///< The UCP listener handle
+  std::string _ip{};                ///< The IP address to which the listener is bound to
+  uint16_t _port{0};                ///< The port to which the listener is bound to
 
   /**
    * @brief Private constructor of `ucxx::Listener`.
@@ -43,11 +46,11 @@ class Listener : public Component {
            void* callbackArgs);
 
  public:
-  Listener()                = delete;
-  Listener(const Listener&) = delete;
+  Listener()                           = delete;
+  Listener(const Listener&)            = delete;
   Listener& operator=(Listener const&) = delete;
   Listener(Listener&& o)               = delete;
-  Listener& operator=(Listener&& o) = delete;
+  Listener& operator=(Listener&& o)    = delete;
 
   ~Listener();
 
@@ -115,8 +118,8 @@ class Listener : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object.
    */
-  std::shared_ptr<Endpoint> createEndpointFromConnRequest(ucp_conn_request_h connRequest,
-                                                          bool endpointErrorHandling = true);
+  [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromConnRequest(
+    ucp_conn_request_h connRequest, bool endpointErrorHandling = true);
 
   /**
    * @brief Get the underlying `ucp_listener_h` handle.
@@ -133,7 +136,7 @@ class Listener : public Component {
    *
    * @returns The underlying `ucp_listener_h` handle.
    */
-  ucp_listener_h getHandle();
+  [[nodiscard]] ucp_listener_h getHandle();
 
   /**
    * @brief Get the port to which the listener is bound to.
@@ -142,7 +145,7 @@ class Listener : public Component {
    *
    * @returns the port to which the listener is bound to.
    */
-  uint16_t getPort();
+  [[nodiscard]] uint16_t getPort();
 
   /**
    * @brief Get the IP address to which the listener is bound to.
@@ -151,7 +154,7 @@ class Listener : public Component {
    *
    * @returns the IP address to which the listener is bound to.
    */
-  std::string getIp();
+  [[nodiscard]] std::string getIp();
 };
 
 }  // namespace ucxx

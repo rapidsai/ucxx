@@ -10,6 +10,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Component encapsulating the UCP configuration.
+ *
+ * The UCP layer provides a handle to its configuration in form of `ucp_config_t*` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Config {
  private:
   ucp_config_t* _handle{nullptr};  ///< Handle to the UCP config
@@ -23,10 +29,8 @@ class Config {
    *
    * @param[in] userOptions user-defined options overriding defaults and environment
    *                        variable modifiers.
-   *
-   * @returns The handle to the UCP configurations defined for the process.
    */
-  ucp_config_t* readUCXConfig(ConfigMap userOptions);
+  void readUCXConfig(ConfigMap userOptions);
 
   /**
    * @brief Parse UCP configurations and convert them to a map.
@@ -36,14 +40,14 @@ class Config {
    *
    * @returns The map to the UCP configurations defined for the process.
    */
-  ConfigMap ucxConfigToMap();
+  [[nodiscard]] ConfigMap ucxConfigToMap();
 
  public:
-  Config()              = delete;
-  Config(const Config&) = delete;
+  Config()                         = delete;
+  Config(const Config&)            = delete;
   Config& operator=(Config const&) = delete;
   Config(Config&& o)               = delete;
-  Config& operator=(Config&& o) = delete;
+  Config& operator=(Config&& o)    = delete;
 
   /**
    * @brief Constructor that reads the UCX configuration and apply user options.
@@ -66,7 +70,7 @@ class Config {
    *
    * @returns The map to the UCP configurations defined for the process.
    */
-  ConfigMap get();
+  [[nodiscard]] ConfigMap get();
 
   /**
    * @brief Get the underlying `ucp_config_t*` handle
@@ -83,7 +87,7 @@ class Config {
    *
    * @return The underlying `ucp_config_t*` handle.
    */
-  ucp_config_t* getHandle();
+  [[nodiscard]] ucp_config_t* getHandle();
 };
 
 }  // namespace ucxx

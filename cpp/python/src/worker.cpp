@@ -6,9 +6,12 @@
 #include <ios>
 #include <memory>
 #include <mutex>
+#include <sstream>
+#include <utility>
 
 #include <Python.h>
 
+#include <ucxx/internal/request_am.h>
 #include <ucxx/python/constructors.h>
 #include <ucxx/python/future.h>
 #include <ucxx/python/worker.h>
@@ -22,7 +25,7 @@ namespace python {
 Worker::Worker(std::shared_ptr<Context> context,
                const bool enableDelayedSubmission,
                const bool enableFuture)
-  : ::ucxx::Worker(context, enableDelayedSubmission)
+  : ::ucxx::Worker(context, enableDelayedSubmission, enableFuture)
 {
   if (_enableFuture) _notifier = createNotifier();
 }
@@ -31,14 +34,29 @@ std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
                                              const bool enableDelayedSubmission,
                                              const bool enableFuture)
 {
-  return std::shared_ptr<::ucxx::Worker>(
+  auto worker = std::shared_ptr<::ucxx::python::Worker>(
     new ::ucxx::python::Worker(context, enableDelayedSubmission, enableFuture));
+
+  // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
+  // been created, thus this cannot be in the constructor.
+  if (worker->_amData != nullptr) {
+    worker->_amData->_worker = worker;
+
+    std::stringstream ownerStream;
+    ownerStream << "worker " << worker->getHandle();
+    worker->_amData->_ownerString = ownerStream.str();
+  }
+
+  return worker;
 }
 
 void Worker::populateFuturesPool()
 {
   if (_enableFuture) {
-    ucxx_trace_req("populateFuturesPool: %p %p", this, shared_from_this().get());
+    ucxx_trace_req("ucxx::python::Worker::%s, Worker: %p, populateFuturesPool: %p",
+                   __func__,
+                   this,
+                   shared_from_this().get());
     // If the pool goes under half expected size, fill it up again.
     if (_futuresPool.size() < 50) {
       std::lock_guard<std::mutex> lock(_futuresPoolMutex);
@@ -51,6 +69,21 @@ void Worker::populateFuturesPool()
     throw std::runtime_error(
       "Worker future support disabled, please set enableFuture=true when creating the "
       "Worker to use this method.");
+  }
+}
+
+void Worker::clearFuturesPool()
+{
+  if (_enableFuture) {
+    ucxx_trace_req("ucxx::python::Worker::%s, Worker: %p, populateFuturesPool: %p",
+                   __func__,
+                   this,
+                   shared_from_this().get());
+    std::lock_guard<std::mutex> lock(_futuresPoolMutex);
+    PyGILState_STATE state = PyGILState_Ensure();
+    decltype(_futuresPool) newFuturesPool;
+    std::swap(_futuresPool, newFuturesPool);
+    PyGILState_Release(state);
   }
 }
 

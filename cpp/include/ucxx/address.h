@@ -14,6 +14,12 @@
 
 namespace ucxx {
 
+/**
+ * @brief Component encapsulating the address of a UCP worker.
+ *
+ * A UCP worker has a unique address that can is contained in a `ucp_address_t*` object,
+ * this class encapsulates that object and provides methods to simplify its handling.
+ */
 class Address : public Component {
  private:
   ucp_address_t* _handle{nullptr};
@@ -39,11 +45,11 @@ class Address : public Component {
   Address(std::shared_ptr<Worker> worker, ucp_address_t* address, size_t length);
 
  public:
-  Address()               = delete;
-  Address(const Address&) = delete;
+  Address()                          = delete;
+  Address(const Address&)            = delete;
   Address& operator=(Address const&) = delete;
   Address(Address&& o)               = delete;
-  Address& operator=(Address&& o) = delete;
+  Address& operator=(Address&& o)    = delete;
 
   ~Address();
 
@@ -86,7 +92,7 @@ class Address : public Component {
    *
    * @returns The underlying `ucp_address_t` handle.
    */
-  ucp_address_t* getHandle() const;
+  [[nodiscard]] ucp_address_t* getHandle() const;
 
   /**
    * @brief Get the length of the `ucp_address_t*` handle.
@@ -96,7 +102,7 @@ class Address : public Component {
    *
    * @returns The length of the `ucp_address_t*` handle in bytes.
    */
-  size_t getLength() const;
+  [[nodiscard]] size_t getLength() const;
 
   /**
    * @brief Get the address as a string.
@@ -106,7 +112,7 @@ class Address : public Component {
    *
    * @returns The underlying `ucp_address_t` handle.
    */
-  std::string getString() const;
+  [[nodiscard]] std::string getString() const;
 };
 
 }  // namespace ucxx
