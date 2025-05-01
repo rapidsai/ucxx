@@ -28,7 +28,8 @@ cache:
         ucxx_ROOT="$(realpath ./cpp/build)"
         export ucxx_ROOT
 
-        ./build.sh -n -v libucxx libucxx_python libucxx_benchmarks libucxx_examples libucxx_tests --cmake-args=\"-DCMAKE_INSTALL_LIBDIR=lib\"
+        # Don't build `libucxx_python` here because we need to build it against each Python variant
+        ./build.sh -n -v libucxx libucxx_benchmarks libucxx_examples libucxx_tests --cmake-args=\"-DCMAKE_INSTALL_LIBDIR=lib\"
       secrets:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
@@ -58,9 +59,6 @@ cache:
     host:
       - cuda-version =${{ cuda_version }}
       - librmm ${{ rapids_version }}
-      # Pin this to a specific Python because we only want one build of it
-      # and if it's "bare" we'll get several variants
-      - python =3.10
       - rapids-build-backend >=0.3.0,<0.4.0.dev0
       - ucx
       - if: cuda_major != "11"
@@ -104,7 +102,6 @@ outputs:
           - cuda-cudart
           - cuda-version
           - librmm
-          - python_abi
           - ucx
           - if: cuda_major == "11"
             then: cudatoolkit
@@ -169,7 +166,6 @@ outputs:
           - cuda-version
           - librmm
           - libucxx
-          - python_abi
           - ucx
           - if: cuda_major == "11"
             then: cudatoolkit
@@ -207,7 +203,6 @@ outputs:
           - cuda-version
           - librmm
           - libucxx
-          - python_abi
           - ucx
           - if: cuda_major == "11"
             then: cudatoolkit
@@ -238,8 +233,10 @@ outputs:
           export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
           set +x
 
-          cmake --install cpp/python/build
-          ./build.sh libucxx_python ucxx --cmake-args="\"-DFIND_UCXX_PYTHON=ON -Ducxx-python_DIR=$(realpath ./cpp/python/build)\""
+          # We rebuild libucxx_python here so we can link against the correct `libpython`
+          ucxx_ROOT="$(realpath ./cpp/build)"
+          export ucxx_ROOT
+          ./build.sh libucxx_python ucxx
         secrets:
           - AWS_ACCESS_KEY_ID
           - AWS_SECRET_ACCESS_KEY
@@ -331,9 +328,7 @@ outputs:
     requirements:
       host:
         - pip
-        # Pin this to a specific Python because we only need one build of it,
-        # then ignore the `python_abi` run export so that it can be used with
-        # any version of `ucxx`
+        # Pin this to a specific Python because we only need one build of it
         - python =3.10
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
         - setuptools
@@ -346,7 +341,6 @@ outputs:
         by_name:
           - librmm
           - libucxx
-          - python_abi
           - ucx
     tests:
       - python:
