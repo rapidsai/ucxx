@@ -326,7 +326,10 @@ outputs:
     requirements:
       host:
         - pip
-        - python
+        # Pin this to a specific Python because we only need one build of it,
+        # then ignore the `python_abi` run export so that it can be used with
+        # any version of `ucxx`
+        - python =3.12
         - rapids-build-backend >=0.3.0,<0.4.0.dev0
         - setuptools
         - wheel
@@ -338,6 +341,7 @@ outputs:
         by_name:
           - librmm
           - libucxx
+          - python_abi
           - ucx
     tests:
       - python:
