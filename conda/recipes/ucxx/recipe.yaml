@@ -86,7 +86,7 @@ outputs:
         - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
-        - librmm
+        - librmm ${{ rapids_version }}
         - ucx
         - if: cuda_major == "11"
           then: cudatoolkit
