@@ -58,7 +58,9 @@ cache:
     host:
       - cuda-version =${{ cuda_version }}
       - librmm ${{ rapids_version }}
-      - python
+      # Pin this to a specific Python because we only want one build of it
+      # and if it's "bare" we'll get several variants
+      - python =3.10
       - rapids-build-backend >=0.3.0,<0.4.0.dev0
       - ucx
       - if: cuda_major != "11"
