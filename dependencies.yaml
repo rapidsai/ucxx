@@ -59,6 +59,7 @@ files:
     output: none
     includes:
       - checks
+      - dev
       - py_version
   docs:
     output: none
