@@ -319,6 +319,84 @@ outputs:
       summary: ${{ load_from_file("python/ucxx/pyproject.toml").project.description }}
 
   - package:
+      name: ucxx-tests
+      version: ${{ version }}
+    build:
+      string: cuda${{ cuda_major }}_py${{ python | version_to_buildstring }}_${{ date_string }}_${{ head_rev }}
+      dynamic_linking:
+        overlinking_behavior: "error"
+        missing_dso_allowlist:
+          - lib/libpython*.so.*
+      script:
+        content: |
+          # Remove `-fdebug-prefix-map` line from CFLAGS and CXXFLAGS so the
+          # incrementing version number in the compile line doesn't break the
+          # cache
+          set -x
+          export CFLAGS=$(echo $CFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
+          export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
+          set +x
+
+          # We rebuild libucxx_python here so we can link against the correct `libpython`
+          ucxx_ROOT="$(realpath ./cpp/build)"
+          export ucxx_ROOT
+          ./build.sh libucxx_python ucxx ucxx_tests
+        secrets:
+          - AWS_ACCESS_KEY_ID
+          - AWS_SECRET_ACCESS_KEY
+          - AWS_SESSION_TOKEN
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ${{ env.get("CMAKE_C_COMPILER_LAUNCHER") }}
+          CMAKE_CUDA_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CUDA_COMPILER_LAUNCHER") }}
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ env.get("CMAKE_CXX_COMPILER_LAUNCHER") }}
+          CMAKE_GENERATOR: ${{ env.get("CMAKE_GENERATOR") }}
+          PARALLEL_LEVEL: ${{ env.get("PARALLEL_LEVEL") }}
+          SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET") }}
+          SCCACHE_IDLE_TIMEOUT: ${{ env.get("SCCACHE_IDLE_TIMEOUT") }}
+          SCCACHE_REGION: ${{ env.get("SCCACHE_REGION") }}
+          SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL") }}
+          SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS") }}
+          SCCACHE_S3_KEY_PREFIX: ucxx-tests/${{ env.get("RAPIDS_CONDA_ARCH") }}/cuda${{ cuda_major }}
+    requirements:
+      build:
+        - cmake ${{ cmake_version }}
+        - ninja
+        - ${{ compiler("c") }}
+        - ${{ compiler("cxx") }}
+        - ${{ compiler("cuda") }}
+        - cuda-version =${{ cuda_version }}
+        - ${{ stdlib("c") }}
+      host:
+        - ${{ pin_subpackage("ucxx", exact=True) }}
+        - cuda-version =${{ cuda_version }}
+        - cython >=3.0.0
+        - pip
+        - python =${{ python }}
+        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - scikit-build-core >=0.10.0
+      run:
+        - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
+        - python =${{ python }}
+        - ${{ pin_subpackage("ucxx", exact=True) }}
+        - if: cuda_major == "11"
+          then: cudatoolkit
+          else: cuda-cudart
+      ignore_run_exports:
+        by_name:
+          - cuda-cudart
+          - cuda-version
+          - librmm
+          - python_abi
+          - ucx
+          - if: cuda_major == "11"
+            then: cudatoolkit
+    about:
+      homepage: ${{ load_from_file("python/ucxx/pyproject.toml").project.urls.Homepage }}
+      license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license.text }}
+      summary: UCXX Cython tests
+
+
+  - package:
       name: distributed-ucxx
       version: ${{ version }}
     build:
