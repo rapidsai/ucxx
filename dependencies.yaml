@@ -291,8 +291,12 @@ dependencies:
             packages:
               - python=3.12
           - matrix:
+              py: "3.13"
             packages:
-              - python>=3.10,<3.13
+              - python=3.13
+          - matrix:
+            packages:
+              - python>=3.10,<3.14
   run_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -303,7 +307,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numba numba>=0.59.1,<0.61.0a0
+          - &numba numba>=0.59.1,<0.62.0a0
           - rapids-dask-dependency==25.8.*,>=0.0.0a0
   test_cpp:
     common:
