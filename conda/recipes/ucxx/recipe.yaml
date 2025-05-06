@@ -401,7 +401,7 @@ outputs:
       version: ${{ version }}
     build:
       noarch: python
-      string: ${{ date_string }}_${{ head_rev }}
+      string: py${{ python | version_to_buildstring }}_${{ date_string }}_${{ head_rev }}
       script: ./build.sh distributed_ucxx
     requirements:
       host:
