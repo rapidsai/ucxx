@@ -109,7 +109,7 @@ jobs:
   conda-python-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.06
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@python-3.13
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
@@ -117,7 +117,7 @@ jobs:
   conda-python-distributed-tests:
     needs: [conda-cpp-build, changed-files]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.06
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@python-3.13
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
@@ -146,7 +146,7 @@ jobs:
   wheel-tests-ucxx:
     needs: [wheel-build-ucxx, changed-files]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.06
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@python-3.13
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
@@ -164,7 +164,7 @@ jobs:
   wheel-tests-distributed-ucxx:
     needs: [wheel-build-ucxx, wheel-build-distributed-ucxx, changed-files]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.06
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@python-3.13
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
     with:
       build_type: pull-request
