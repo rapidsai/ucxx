@@ -15,7 +15,7 @@ $ conda env create -n ucxx -f conda/environments/all_cuda-118_arch-x86_64.yaml
 Or for CUDA 12.x:
 
 ```
-$ conda env create -n ucxx -f conda/environments/all_cuda-128_arch-x86_64.yaml
+$ conda env create -n ucxx -f conda/environments/all_cuda-129_arch-x86_64.yaml
 ```
 
 And then activate the newly created environment:
