@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -184,16 +184,15 @@ void RequestTagMulti::markCompleted(ucs_status_t status)
     return;
   }
 
-  TagPair tagPair = std::visit(data::dispatch{
-                                 [](data::TagMultiSend tagMultiSend) {
-                                   return TagPair{tagMultiSend._tag, TagMaskFull};
-                                 },
-                                 [](data::TagMultiReceive tagMultiReceive) {
-                                   return TagPair{tagMultiReceive._tag, tagMultiReceive._tagMask};
-                                 },
-                                 [](auto) -> TagPair { throw std::runtime_error("Unreachable"); },
-                               },
-                               _requestData);
+  TagPair tagPair = std::visit(
+    data::dispatch{
+      [](data::TagMultiSend tagMultiSend) { return TagPair{tagMultiSend._tag, TagMaskFull}; },
+      [](data::TagMultiReceive tagMultiReceive) {
+        return TagPair{tagMultiReceive._tag, tagMultiReceive._tagMask};
+      },
+      [](auto) -> TagPair { throw std::runtime_error("Unreachable"); },
+    },
+    _requestData);
 
   ucxx_trace_req_f(_ownerString.c_str(),
                    this,
