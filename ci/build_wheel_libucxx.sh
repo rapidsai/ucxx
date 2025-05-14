@@ -33,7 +33,8 @@ export SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON"
 
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
-    --exclude librapids_logger.so \
+    --exclude "librapids_logger.so" \
+    --exclude "librmm.so" \
     -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" \
     ${package_dir}/dist/*
 
