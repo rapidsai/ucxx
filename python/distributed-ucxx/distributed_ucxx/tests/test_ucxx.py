@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from __future__ import annotations
 
 import asyncio
@@ -7,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 import dask
-from distributed import Client, Scheduler, wait
+from distributed import Client, Scheduler
 from distributed.comm import connect, listen, parse_address
 from distributed.comm.core import CommClosedError
 from distributed.comm.registry import get_backend
@@ -299,17 +302,17 @@ async def test_stress(
         asynchronous=True,
         host=HOST,
     ) as cluster:
-        async with Client(cluster, asynchronous=True):
+        async with Client(cluster, asynchronous=True) as client:
             rs = da.random.RandomState()
             x = rs.random((10000, 10000), chunks=(-1, chunksize))
-            x = x.persist()
-            await wait(x)
+            [x] = client.persist([x])
+            await x
 
             for _ in range(10):
                 x = x.rechunk((chunksize, -1))
                 x = x.rechunk((-1, chunksize))
-                x = x.persist()
-                await wait(x)
+                [x] = client.persist([x])
+                await x
 
 
 @gen_test()
@@ -373,9 +376,9 @@ async def test_transpose(
     async with LocalCluster(
         protocol="ucxx", n_workers=2, threads_per_worker=2, asynchronous=True
     ) as cluster:
-        async with Client(cluster, asynchronous=True):
+        async with Client(cluster, asynchronous=True) as client:
             assert cluster.scheduler_address.startswith("ucxx://")
-            x = da.ones((10000, 10000), chunks=(1000, 1000)).persist()
+            [x] = client.persist([da.ones((10000, 10000), chunks=(1000, 1000))])
             await x
             y = (x + x.T).sum()
             await y
