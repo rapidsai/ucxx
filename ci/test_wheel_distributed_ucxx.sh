@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+source rapids-init-pip
+
 package_name="distributed_ucxx"
 
 source "$(dirname "$0")/test_common.sh"
