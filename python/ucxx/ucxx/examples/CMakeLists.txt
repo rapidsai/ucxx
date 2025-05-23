@@ -4,7 +4,7 @@
 # =================================================================================
 
 set(cython_sources python_future_task_app.pyx)
-set(linked_libraries ucxx::ucxx ucxx::python Python3::Python)
+set(linked_libraries ucxx::ucxx ucxx::python)
 
 rapids_cython_create_modules(
   CXX
