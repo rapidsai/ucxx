@@ -54,8 +54,6 @@ rapids_find_package(
   BUILD_EXPORT_SET ucxx-python-exports
   INSTALL_EXPORT_SET ucxx-python-exports
 )
-set(UCXX_PYTHON_LIB Python3::Python)
-
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
 #   Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx dependency because
@@ -109,8 +107,13 @@ target_compile_definitions(
                      "RMM_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LEVEL_${RMM_LOGGING_LEVEL}"
 )
 
-# Specify the target module library dependencies
-target_link_libraries(ucxx_python PUBLIC rmm::rmm ucx::ucp ucxx::ucxx ${UCXX_PYTHON_LIB})
+# Specify the target module library dependencies. We use COMPILE_ONLY for Python because Python does
+# not need to be linked since its symbols will always be available at runtime since we are running
+# inide the Python interpreter, and setting it up this way ensures that we will work if the
+# interpreter links to Python statically instead of dynamically.
+target_link_libraries(
+  ucxx_python PUBLIC rmm::rmm ucx::ucp ucxx::ucxx "$<COMPILE_ONLY:Python3::Python>"
+)
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
