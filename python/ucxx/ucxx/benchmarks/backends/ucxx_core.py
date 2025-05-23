@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
@@ -146,7 +146,10 @@ class UCXPyCoreServer(BaseServer):
             )
 
         listener = ucx_api.UCXListener.create(
-            worker=worker, port=self.args.port or 0, cb_func=_listener_handler
+            worker=worker,
+            port=self.args.port or 0,
+            endpoint_error_handling=True,
+            cb_func=_listener_handler,
         )
         self.queue.put(listener.port)
 

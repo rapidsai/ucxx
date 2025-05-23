@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
@@ -304,6 +304,7 @@ class ApplicationContext:
             ucx_api.UCXListener.create(
                 worker=self.worker,
                 port=port,
+                endpoint_error_handling=endpoint_error_handling,
                 cb_func=_listener_handler,
                 cb_args=(
                     loop,

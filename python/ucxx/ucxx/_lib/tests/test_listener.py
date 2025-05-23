@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import ucxx._lib.libucxx as ucx_api
@@ -12,7 +12,7 @@ def test_listener_ip_port():
         pass
 
     listener = ucx_api.UCXListener.create(
-        worker=worker, port=0, cb_func=_listener_handler
+        worker=worker, port=0, endpoint_error_handling=True, cb_func=_listener_handler
     )
 
     assert isinstance(listener.ip, str) and listener.ip

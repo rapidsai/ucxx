@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import multiprocessing as mp
@@ -68,7 +68,7 @@ def _echo_server(get_queue, put_queue, transfer_api, msg_size, progress_mode):
         ep[0] = listener.create_endpoint_from_conn_request(conn_request, True)
 
     listener = ucx_api.UCXListener.create(
-        worker=worker, port=0, cb_func=_listener_handler
+        worker=worker, port=0, endpoint_error_handling=True, cb_func=_listener_handler
     )
     put_queue.put(listener.port)
 
