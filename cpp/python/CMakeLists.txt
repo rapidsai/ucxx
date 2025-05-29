@@ -93,11 +93,12 @@ target_compile_options(ucxx_python PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX
 get_filename_component(ucxx_dir "${CMAKE_CURRENT_SOURCE_DIR}" DIRECTORY)
 
 # Specify include paths for the current target and dependents
+include(GNUInstallDirs)
 target_include_directories(
   ucxx_python
   PUBLIC "$<BUILD_INTERFACE:${ucxx_dir}/include>" "$<BUILD_INTERFACE:${ucxx_dir}/python/include>"
   PRIVATE "$<BUILD_INTERFACE:${ucxx_dir}/src>"
-  INTERFACE "$<INSTALL_INTERFACE:include>"
+  INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
 target_compile_definitions(ucxx_python PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>")
@@ -120,7 +121,6 @@ if(TARGET conda_env)
   target_link_libraries(ucxx_python PRIVATE conda_env)
 endif()
 
-include(GNUInstallDirs)
 add_library(ucxx::python ALIAS ucxx_python)
 install(DIRECTORY ${ucxx_dir}/python/include/ucxx DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(
