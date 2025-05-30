@@ -47,16 +47,14 @@ run_py_benchmark    ucxx-core thread          1             0                   
 
 for progress_mode in "blocking" "thread"; do
   for nbuf in 1 8; do
-    if [[ ! $RAPIDS_CUDA_VERSION =~ 11.2.* ]]; then
+    # run_py_benchmark  BACKEND     PROGRESS_MODE     ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
+    run_py_benchmark    ucxx-async  ${progress_mode}  0             0                         0                    ${nbuf}  0
+    run_py_benchmark    ucxx-async  ${progress_mode}  0             0                         1                    ${nbuf}  0
+    if [[ ${progress_mode} != "blocking" ]]; then
+      # Delayed submission isn't support by blocking progress mode
       # run_py_benchmark  BACKEND     PROGRESS_MODE     ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
-      run_py_benchmark    ucxx-async  ${progress_mode}  0             0                         0                    ${nbuf}  0
-      run_py_benchmark    ucxx-async  ${progress_mode}  0             0                         1                    ${nbuf}  0
-      if [[ ${progress_mode} != "blocking" ]]; then
-        # Delayed submission isn't support by blocking progress mode
-        # run_py_benchmark  BACKEND     PROGRESS_MODE     ASYNCIO_WAIT  ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE NBUFFERS SLOW
-        run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         0                    ${nbuf}  0
-        run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         1                    ${nbuf}  0
-      fi
+      run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         0                    ${nbuf}  0
+      run_py_benchmark    ucxx-async  ${progress_mode}  0             1                         1                    ${nbuf}  0
     fi
   done
 done
