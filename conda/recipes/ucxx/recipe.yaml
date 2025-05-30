@@ -94,10 +94,7 @@ outputs:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       ignore_run_exports:
         from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
           - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -160,10 +157,7 @@ outputs:
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
         from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
           - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -196,10 +190,7 @@ outputs:
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
         from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
           - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -287,10 +278,7 @@ outputs:
         - numba >=0.59.1,<0.62.0a0
       ignore_run_exports:
         from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
           - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -380,10 +368,7 @@ outputs:
         - cuda-cudart
       ignore_run_exports:
         from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
           - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -401,7 +386,7 @@ outputs:
       version: ${{ version }}
     build:
       noarch: python
-      string: py_${{ date_string }}_${{ head_rev }}
+      string: ${{ date_string }}_${{ head_rev }}
       script: ./build.sh distributed_ucxx
     requirements:
       host:
