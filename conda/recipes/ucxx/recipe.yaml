@@ -61,8 +61,7 @@ cache:
       - librmm ${{ rapids_version }}
       - rapids-build-backend >=0.3.0,<0.4.0.dev0
       - ucx
-      - if: cuda_major != "11"
-        then: cuda-cudart-dev
+      - cuda-cudart-dev
 
 outputs:
   - package:
@@ -87,24 +86,23 @@ outputs:
         - cuda-version =${{ cuda_version }}
         - librmm ${{ rapids_version }}
         - ucx
-        - if: cuda_major == "11"
-          then: cudatoolkit
       run:
-        - if: cuda_major == "11"
-          then: cudatoolkit
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_compatible("librmm", upper_bound="x.x") }}
         - ucx >=1.15.0,<1.19.0
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
           - librmm
           - ucx
-          - if: cuda_major == "11"
-            then: cudatoolkit
     tests:
       - script:
           - "[ ! -f lib/libucxx_python.so ]"
@@ -161,14 +159,17 @@ outputs:
       run:
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
           - librmm
           - libucxx
           - ucx
-          - if: cuda_major == "11"
-            then: cudatoolkit
     about:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
@@ -188,24 +189,23 @@ outputs:
         - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
-        - if: cuda_major == "11"
-          then: cudatoolkit
-          else: cuda-cudart-dev
+        - cuda-cudart-dev
         - ${{ pin_subpackage("libucxx", exact=True) }}
       run:
-        - if: cuda_major == "11"
-          then: cudatoolkit
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
           - librmm
           - libucxx
           - ucx
-          - if: cuda_major == "11"
-            then: cudatoolkit
     about:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
@@ -273,9 +273,7 @@ outputs:
         - scikit-build-core >=0.10.0
         - ucx
         - ${{ pin_subpackage("libucxx", exact=True) }}
-        - if: cuda_major == "11"
-          then: cudatoolkit
-          else: cuda-cudart-dev
+        - cuda-cudart-dev
       run:
         - numpy >=1.23,<3.0a0
         - pynvml >=12.0.0,<13.0.0a0
@@ -284,12 +282,15 @@ outputs:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_compatible("rmm", upper_bound="x.x") }}
         - ${{ pin_subpackage("libucxx", exact=True) }}
-        - if: cuda_major == "11"
-          then: cudatoolkit
       run_constraints:
         - cupy >=9.5.0
         - numba >=0.59.1,<0.62.0a0
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -297,8 +298,6 @@ outputs:
           - libucxx
           - python_abi
           - ucx
-          - if: cuda_major == "11"
-            then: cudatoolkit
     tests:
       - script:
         - test -f $PREFIX/lib/libucxx_python.so
@@ -378,18 +377,19 @@ outputs:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - python =${{ python }}
         - ${{ pin_subpackage("ucxx", exact=True) }}
-        - if: cuda_major == "11"
-          then: cudatoolkit
-          else: cuda-cudart
+        - cuda-cudart
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
           - librmm
           - python_abi
           - ucx
-          - if: cuda_major == "11"
-            then: cudatoolkit
     about:
       homepage: ${{ load_from_file("python/ucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license.text }}
@@ -416,6 +416,11 @@ outputs:
         - rapids-dask-dependency ${{ rapids_version }}
         - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
       ignore_run_exports:
+        from_package:
+          - ${{ compiler("c") }}
+          - ${{ compiler("cxx") }}
+          - ${{ compiler("cuda") }}
+          - ${{ stdlib("c") }}
         by_name:
           - librmm
           - libucxx
