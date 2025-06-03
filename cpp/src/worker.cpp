@@ -195,6 +195,16 @@ std::string Worker::getInfo()
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 
+ucp_worker_attr_t Worker::queryAttributes() const
+{
+  ucp_worker_attr_t attr = {
+    .field_mask = UCP_WORKER_ATTR_FIELD_THREAD_MODE  // Request thread mode info
+  };
+
+  utils::ucsErrorThrow(ucp_worker_query(_handle, &attr));
+  return attr;
+}
+
 bool Worker::isDelayedRequestSubmissionEnabled() const
 {
   return _delayedSubmissionCollection->isDelayedRequestSubmissionEnabled();

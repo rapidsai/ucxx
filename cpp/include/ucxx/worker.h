@@ -935,7 +935,7 @@ class Worker : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
+   * ensure the transfer has completed.
    *
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
@@ -948,6 +948,17 @@ class Worker : public Component {
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Query worker attributes.
+   *
+   * Queries the worker attributes using ucp_worker_query. This provides information about
+   * the worker's thread mode and other attributes.
+   *
+   * @returns The worker attributes structure.
+   * @throws ucxx::Error if an error occurred while querying worker attributes.
+   */
+  [[nodiscard]] ucp_worker_attr_t queryAttributes() const;
 };
 
 }  // namespace ucxx
