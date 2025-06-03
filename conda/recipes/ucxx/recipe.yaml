@@ -93,11 +93,6 @@ outputs:
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       ignore_run_exports:
-        from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
-          - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -159,11 +154,6 @@ outputs:
       run:
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
-        from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
-          - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -195,11 +185,6 @@ outputs:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
-        from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
-          - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -286,11 +271,6 @@ outputs:
         - cupy >=9.5.0
         - numba >=0.59.1,<0.62.0a0
       ignore_run_exports:
-        from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
-          - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -379,11 +359,6 @@ outputs:
         - ${{ pin_subpackage("ucxx", exact=True) }}
         - cuda-cudart
       ignore_run_exports:
-        from_package:
-          - ${{ compiler("c") }}
-          - ${{ compiler("cxx") }}
-          - ${{ compiler("cuda") }}
-          - ${{ stdlib("c") }}
         by_name:
           - cuda-cudart
           - cuda-version
@@ -401,7 +376,7 @@ outputs:
       version: ${{ version }}
     build:
       noarch: python
-      string: py_${{ date_string }}_${{ head_rev }}
+      string: py_${{ date_string }}_${{ head_rev }}_h${{ hash }}
       script: ./build.sh distributed_ucxx
     requirements:
       host:
