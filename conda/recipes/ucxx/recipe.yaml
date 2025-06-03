@@ -376,7 +376,7 @@ outputs:
       version: ${{ version }}
     build:
       noarch: python
-      string: ${{ date_string }}_${{ head_rev }}
+      string: py_${{ date_string }}_${{ head_rev }}_h${{ hash }}
       script: ./build.sh distributed_ucxx
     requirements:
       host:
