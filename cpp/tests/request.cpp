@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
@@ -294,6 +294,10 @@ TEST_P(RequestTest, ProgressTag)
   requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
   requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
   waitRequests(_worker, requests, _progressWorker);
+
+  for (const auto& request : requests) {
+    std::cout << request->getDebugString() << std::endl;
+  }
 
   copyResults();
 

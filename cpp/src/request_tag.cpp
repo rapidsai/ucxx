@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -123,20 +123,22 @@ void RequestTag::request()
                    _endpoint->getHandle(), tagSend._buffer, tagSend._length, tagSend._tag, &param);
                },
                [this, &request, &param](data::TagReceive tagReceive) {
-                 param.cb.recv = tagRecvCallback;
-                 request       = ucp_tag_recv_nbx(_worker->getHandle(),
+                 param.cb.recv        = tagRecvCallback;
+                 request              = ucp_tag_recv_nbx(_worker->getHandle(),
                                             tagReceive._buffer,
                                             tagReceive._length,
                                             tagReceive._tag,
                                             tagReceive._tagMask,
                                             &param);
+                 _cached_request_attr = queryRequestAttributes();
                },
                [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _requestData);
 
   std::lock_guard<std::recursive_mutex> lock(_mutex);
-  _request = request;
+  _request             = request;
+  _cached_request_attr = queryRequestAttributes();
 }
 
 void RequestTag::populateDelayedSubmission()

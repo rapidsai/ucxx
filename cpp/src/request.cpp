@@ -151,7 +151,7 @@ void Request::callback(void* request, ucs_status_t status)
 
   if (UCS_PTR_IS_PTR(_request)) {
     // Query request attributes before freeing
-    _cached_request_attr = queryRequestAttributes();
+    // _cached_request_attr = queryRequestAttributes();
     ucp_request_free(request);
   }
 
@@ -288,7 +288,8 @@ std::string Request::getDebugString() const
   if (!_status_msg.empty()) { ss << "  status_msg: " << _status_msg << "\n"; }
 
   // Use cached request attributes if available
-  if (_cached_request_attr.query_status == UCS_OK) {
+  // if (_cached_request_attr.query_status == UCS_OK) {
+  if (true) {
     const auto& attr = _cached_request_attr.attributes;
     if (attr.field_mask & UCP_REQUEST_ATTR_FIELD_STATUS) {
       ss << "  request_status: " << attr.status << " (" << ucs_status_string(attr.status) << ")\n";
