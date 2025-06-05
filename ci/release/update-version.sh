@@ -37,6 +37,7 @@ function sed_runner() {
 
 # Centralized version file update
 echo "${NEXT_FULL_TAG}" > VERSION
+echo "${NEXT_RAPIDS_SHORT_TAG}.00" > RAPIDS_VERSION
 
 # Update RAPIDS version
 for FILE in conda/recipes/*/conda_build_config.yaml; do
@@ -75,9 +76,6 @@ for FILE in python/*/pyproject.toml; do
     sed_runner "/\"${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*,>=0.0.0a0\"/g" "${FILE}"
   done
 done
-
-# rapids-cmake version
-sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_RAPIDS_SHORT_TAG}\/RAPIDS.cmake"'/g' fetch_rapids.cmake
 
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_RAPIDS_SHORT_TAG}/g" "${FILE}"

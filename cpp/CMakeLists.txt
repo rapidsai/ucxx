@@ -5,7 +5,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-include(../fetch_rapids.cmake)
+include(../cmake/rapids_config.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-export)
@@ -16,7 +16,10 @@ if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
   set(libucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
 else()
   string(REPLACE "\n" "\n  " _version_contents_formatted "${_version_contents}")
-  message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
+  message(
+    FATAL_ERROR
+      "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}"
+  )
 endif()
 
 project(
@@ -56,7 +59,9 @@ set(LIBUCXX_BUILD_TESTS ${BUILD_TESTS})
 set(LIBUCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
 set(LIBUCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
 
-set(UCXX_CXX_FLAGS -Wall -Wattributes -Werror -Wextra -Wsign-conversion -Wno-missing-field-initializers)
+set(UCXX_CXX_FLAGS -Wall -Wattributes -Werror -Wextra -Wsign-conversion
+                   -Wno-missing-field-initializers
+)
 set(UCXX_CXX_DEFINITIONS "")
 
 # Set RMM logging level
@@ -75,25 +80,18 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
-# Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx
-# dependency because users would then have no control over whether ucx is found
-# multiple times, causing potential configure errors. Therefore, we use a raw
-# find_package call instead of rapids_find_package and skip exporting the ucx
-# dependency. Consumers of ucxx must find ucx themselves. Once we move the
-# minimum version to UCX 1.16 we can remove the above find_package in favor of
-# the commented out lines below. For the same reason, we must also gate this
-# find_package call behind a check for the target already existing so that
-# consumers can use tools like CPM.cmake to either find or build ucxx from
-# source if it cannot be found (i.e. both cases must allow prior finding of
-# ucx).
+#   Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx dependency because
+#   users would then have no control over whether ucx is found multiple times, causing potential
+#   configure errors. Therefore, we use a raw find_package call instead of rapids_find_package and
+#   skip exporting the ucx dependency. Consumers of ucxx must find ucx themselves. Once we move the
+#   minimum version to UCX 1.16 we can remove the above find_package in favor of the commented out
+#   lines below. For the same reason, we must also gate this find_package call behind a check for
+#   the target already existing so that consumers can use tools like CPM.cmake to either find or
+#   build ucxx from source if it cannot be found (i.e. both cases must allow prior finding of ucx).
 if(NOT TARGET ucx::ucp)
   find_package(ucx REQUIRED)
 endif()
-#rapids_find_package(
-#  ucx REQUIRED
-#  BUILD_EXPORT_SET ucxx-exports
-#  INSTALL_EXPORT_SET ucxx-exports
-#)
+# rapids_find_package( ucx REQUIRED BUILD_EXPORT_SET ucxx-exports INSTALL_EXPORT_SET ucxx-exports )
 
 # ##################################################################################################
 # * dependencies ----------------------------------------------------------------------------------
@@ -169,9 +167,7 @@ set_target_properties(
              INTERFACE_POSITION_INDEPENDENT_CODE ON
 )
 
-target_compile_options(
-  ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
-)
+target_compile_options(ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>")
 
 # Specify include paths for the current target and dependents
 target_include_directories(
@@ -181,23 +177,20 @@ target_include_directories(
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
-target_compile_definitions(
-  ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
-)
+target_compile_definitions(ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>")
 
 # Enable RMM if necessary
 if(UCXX_ENABLE_RMM)
-    target_link_libraries(ucxx
-      PUBLIC rmm::rmm
-    )
+  target_link_libraries(ucxx PUBLIC rmm::rmm)
 
-    # Define spdlog level
-    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "RMM_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LEVEL_${RMM_LOGGING_LEVEL}")
+  # Define spdlog level
+  target_compile_definitions(
+    ucxx PUBLIC UCXX_ENABLE_RMM "RMM_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LEVEL_${RMM_LOGGING_LEVEL}"
+  )
 endif()
 
 # Specify the target module library dependencies
 target_link_libraries(ucxx PUBLIC ucx::ucp)
-
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
@@ -251,9 +244,7 @@ install(
   EXPORT ucxx-exports
 )
 
-install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx
-                  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 set(doc_string
     [=[

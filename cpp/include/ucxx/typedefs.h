@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -83,7 +83,13 @@ class TagRecvInfo {
   Tag senderTag;  ///< Sender tag
   size_t length;  ///< The size of the received data
 
-  explicit TagRecvInfo(const ucp_tag_recv_info_t&);
+  /**
+   * @brief Construct a TagRecvInfo object from a UCP tag receive info structure.
+   *
+   * @param[in] info  The UCP tag receive info structure containing the sender tag and
+   *                  received data length.
+   */
+  explicit TagRecvInfo(const ucp_tag_recv_info_t& info);
 };
 
 /**
@@ -159,6 +165,12 @@ typedef std::string AmReceiverCallbackOwnerType;
  */
 typedef uint64_t AmReceiverCallbackIdType;
 
+/**
+ * @brief Serialized form of Active Message receiver callback information.
+ *
+ * A string type representing the serialized form of an Active Message receiver callback's
+ * information, used for transmission and storage.
+ */
 typedef const std::string AmReceiverCallbackInfoSerialized;
 
 /**
@@ -168,13 +180,26 @@ typedef const std::string AmReceiverCallbackInfoSerialized;
  */
 class AmReceiverCallbackInfo {
  public:
-  const AmReceiverCallbackOwnerType owner;
-  const AmReceiverCallbackIdType id;
+  const AmReceiverCallbackOwnerType owner;  ///< The owner name of the callback
+  const AmReceiverCallbackIdType id;        ///< The unique identifier of the callback
 
   AmReceiverCallbackInfo() = delete;
+
+  /**
+   * @brief Construct an AmReceiverCallbackInfo object.
+   *
+   * @param[in] owner  The owner name of the callback.
+   * @param[in] id     The unique identifier of the callback.
+   */
   AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id);
 };
 
+/**
+ * @brief Serialized form of a remote key.
+ *
+ * A string type representing the serialized form of a remote key, used for transmission
+ * and storage of remote memory access information.
+ */
 typedef const std::string SerializedRemoteKey;
 
 }  // namespace ucxx

@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+source rapids-init-pip
+
 package_name="libucxx"
 package_dir="python/libucxx"
 
@@ -31,13 +33,13 @@ export SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON"
 
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
-mkdir -p "${package_dir}/final_dist"
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
-    --exclude librapids_logger.so \
-    -w "${package_dir}/final_dist" \
+    --exclude "librapids_logger.so" \
+    --exclude "librmm.so" \
+    -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" \
     ${package_dir}/dist/*
 
-./ci/validate_wheel.sh "${package_dir}" final_dist
+./ci/validate_wheel.sh "${package_dir}" "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp "${package_dir}/final_dist"
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 cpp "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
