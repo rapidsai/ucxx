@@ -149,7 +149,11 @@ void Request::callback(void* request, ucs_status_t status)
                      status,
                      ucs_status_string(status));
 
-  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
+  if (UCS_PTR_IS_PTR(_request)) {
+    // Query request attributes before freeing
+    _cached_request_attr = queryRequestAttributes();
+    ucp_request_free(request);
+  }
 
   ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "completed");
   setStatus(status);
@@ -240,9 +244,9 @@ void Request::setStatus(ucs_status_t status)
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
 
-std::pair<ucs_status_t, ucp_request_attr_t> Request::queryRequestAttributes() const
+Request::CachedRequestAttributes Request::queryRequestAttributes() const
 {
-  ucp_request_attr_t attr;
+  CachedRequestAttributes result;
 
   // Get the debug string size from worker attributes
   auto worker_attr = _worker->queryAttributes();
@@ -250,23 +254,25 @@ std::pair<ucs_status_t, ucp_request_attr_t> Request::queryRequestAttributes() co
   // Allocate buffer for debug string with size from worker attributes
   std::vector<char> debug_str(worker_attr.max_debug_string, '\0');
 
-  attr.field_mask = UCP_REQUEST_ATTR_FIELD_STATUS |           // Request status
-                    UCP_REQUEST_ATTR_FIELD_MEM_TYPE |         // Memory type
-                    UCP_REQUEST_ATTR_FIELD_INFO_STRING |      // Debug string
-                    UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;  // Debug string size
+  result.attributes.field_mask = UCP_REQUEST_ATTR_FIELD_STATUS |           // Request status
+                                 UCP_REQUEST_ATTR_FIELD_MEM_TYPE |         // Memory type
+                                 UCP_REQUEST_ATTR_FIELD_INFO_STRING |      // Debug string
+                                 UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;  // Debug string size
 
   // Set up the debug string buffer
-  attr.debug_string      = debug_str.data();
-  attr.debug_string_size = debug_str.size();
+  result.attributes.debug_string      = debug_str.data();
+  result.attributes.debug_string_size = debug_str.size();
 
-  ucs_status_t status = UCS_OK;
   if (UCS_PTR_IS_PTR(_request)) {
-    status = ucp_request_query(_request, &attr);
+    result.query_status = ucp_request_query(_request, &result.attributes);
+    if (result.query_status == UCS_OK && result.attributes.debug_string != nullptr) {
+      result.debug_string = std::string(result.attributes.debug_string);
+    }
   } else {
-    status = UCS_ERR_INVALID_PARAM;
+    result.query_status = UCS_ERR_INVALID_PARAM;
   }
 
-  return {status, attr};
+  return result;
 }
 
 std::string Request::getDebugString() const
@@ -281,10 +287,23 @@ std::string Request::getDebugString() const
 
   if (!_status_msg.empty()) { ss << "  status_msg: " << _status_msg << "\n"; }
 
-  // Query UCP request attributes if available
-  if (UCS_PTR_IS_PTR(_request)) {
-    auto [query_status, attr] = queryRequestAttributes();
-    if (query_status == UCS_OK) {
+  // Use cached request attributes if available
+  if (_cached_request_attr.query_status == UCS_OK) {
+    const auto& attr = _cached_request_attr.attributes;
+    if (attr.field_mask & UCP_REQUEST_ATTR_FIELD_STATUS) {
+      ss << "  request_status: " << attr.status << " (" << ucs_status_string(attr.status) << ")\n";
+    }
+    if (attr.field_mask & UCP_REQUEST_ATTR_FIELD_MEM_TYPE) {
+      ss << "  memory_type: " << attr.mem_type << "\n";
+    }
+    if (!_cached_request_attr.debug_string.empty()) {
+      ss << "  debug_string: " << _cached_request_attr.debug_string << "\n";
+    }
+  } else if (UCS_PTR_IS_PTR(_request)) {
+    // If request is still available, query it directly
+    auto result = queryRequestAttributes();
+    if (result.query_status == UCS_OK) {
+      const auto& attr = result.attributes;
       if (attr.field_mask & UCP_REQUEST_ATTR_FIELD_STATUS) {
         ss << "  request_status: " << attr.status << " (" << ucs_status_string(attr.status)
            << ")\n";
@@ -292,13 +311,9 @@ std::string Request::getDebugString() const
       if (attr.field_mask & UCP_REQUEST_ATTR_FIELD_MEM_TYPE) {
         ss << "  memory_type: " << attr.mem_type << "\n";
       }
-      if ((attr.field_mask & UCP_REQUEST_ATTR_FIELD_INFO_STRING) &&
-          (attr.field_mask & UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE) &&
-          attr.debug_string != nullptr) {
-        ss << "  debug_string: " << attr.debug_string << "\n";
-      }
+      if (!result.debug_string.empty()) { ss << "  debug_string: " << result.debug_string << "\n"; }
     } else {
-      ss << "  request_query_failed: " << ucs_status_string(query_status) << "\n";
+      ss << "  request_query_failed: " << ucs_status_string(result.query_status) << "\n";
     }
   }
 

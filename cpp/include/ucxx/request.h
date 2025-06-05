@@ -38,6 +38,13 @@ namespace ucxx {
  */
 class Request : public Component {
  protected:
+  /// Structure to hold cached request attributes including the debug string
+  struct CachedRequestAttributes {
+    ucs_status_t query_status{UCS_INPROGRESS};  ///< Status of the query operation
+    ucp_request_attr_t attributes{};            ///< UCP request attributes
+    std::string debug_string{};                 ///< Stored debug string
+  };
+
   ucs_status_t _status{UCS_INPROGRESS};      ///< Requests status
   std::string _status_msg{};                 ///< Human-readable status message
   void* _request{nullptr};                   ///< Pointer to UCP request
@@ -55,6 +62,8 @@ class Request : public Component {
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
   RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
   RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
+  CachedRequestAttributes
+    _cached_request_attr{};  ///< Cached request attributes queried before request is freed
 
   /**
    * @brief Protected constructor of an abstract `ucxx::Request`.
@@ -254,10 +263,12 @@ class Request : public Component {
    * Currently queries for:
    * - Request status
    * - Memory type
+   * - Debug string
    *
-   * @return A pair containing the query status and the request attributes.
+   * @return A CachedRequestAttributes containing the query status, request attributes and debug
+   * string.
    */
-  [[nodiscard]] std::pair<ucs_status_t, ucp_request_attr_t> queryRequestAttributes() const;
+  [[nodiscard]] CachedRequestAttributes queryRequestAttributes() const;
 };
 
 }  // namespace ucxx
