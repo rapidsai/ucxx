@@ -23,13 +23,20 @@ jobs:
         # since other jobs depend on it.
         if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
         uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
+
   conda-cpp-build:
-    needs: telemetry-setup
+    needs: [telemetry-setup]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-25.08
     with:
       build_type: pull-request
       script: ci/build_cpp.sh
+
+  intentionally-failing-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Intentionally failing job
+        run: exit 1
 
   telemetry-summarize:
     # This job must use a self-hosted runner to record telemetry traces.
