@@ -8,6 +8,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -224,6 +225,39 @@ class Request : public Component {
    * @return The received buffer (if applicable) or `nullptr`.
    */
   [[nodiscard]] virtual std::shared_ptr<Buffer> getRecvBuffer();
+
+  /**
+   * @brief Get a debug string containing information about the request.
+   *
+   * Returns a detailed string containing information about the request's current state
+   * by querying the underlying UCP request using ucp_request_query. The information includes:
+   * - Request memory address
+   * - Operation name
+   * - Current status
+   * - Owner information
+   * - UCP request handle
+   * - Completion status
+   * - Request status from UCP (if available)
+   * - Memory type from UCP (if available)
+   * - Python future status
+   * - Callback presence
+   *
+   * @return A string containing debug information about the request.
+   */
+  [[nodiscard]] std::string getDebugString() const;
+
+ protected:
+  /**
+   * @brief Query the UCP request attributes.
+   *
+   * Helper method that queries the UCP request for its attributes using ucp_request_query.
+   * Currently queries for:
+   * - Request status
+   * - Memory type
+   *
+   * @return A pair containing the query status and the request attributes.
+   */
+  [[nodiscard]] std::pair<ucs_status_t, ucp_request_attr_t> queryRequestAttributes() const;
 };
 
 }  // namespace ucxx

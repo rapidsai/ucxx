@@ -198,7 +198,8 @@ std::string Worker::getInfo()
 ucp_worker_attr_t Worker::queryAttributes() const
 {
   ucp_worker_attr_t attr = {
-    .field_mask = UCP_WORKER_ATTR_FIELD_THREAD_MODE  // Request thread mode info
+    .field_mask = UCP_WORKER_ATTR_FIELD_THREAD_MODE |    // Request thread mode info
+                  UCP_WORKER_ATTR_FIELD_MAX_INFO_STRING  // Request debug string size
   };
 
   utils::ucsErrorThrow(ucp_worker_query(_handle, &attr));
