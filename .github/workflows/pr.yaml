@@ -11,7 +11,7 @@ concurrency:
 
 env:
   SHARED_ACTIONS_REPO: rapidsai/shared-actions
-  SHARED_ACTIONS_REF: check-base-env-var-artifact
+  SHARED_ACTIONS_REF: main
 
 jobs:
   telemetry-setup:
