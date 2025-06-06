@@ -149,11 +149,7 @@ void Request::callback(void* request, ucs_status_t status)
                      status,
                      ucs_status_string(status));
 
-  if (UCS_PTR_IS_PTR(_request)) {
-    // Query request attributes before freeing
-    // _cached_request_attr = queryRequestAttributes();
-    ucp_request_free(request);
-  }
+  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
 
   ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "completed");
   setStatus(status);
@@ -244,9 +240,13 @@ void Request::setStatus(ucs_status_t status)
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
 
-Request::CachedRequestAttributes Request::queryRequestAttributes() const
+void Request::queryRequestAttributes()
 {
-  CachedRequestAttributes result;
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  if (_isRequestAttrValid) return;
+
+  ucp_request_attr_t result;
 
   // Get the debug string size from worker attributes
   auto worker_attr = _worker->queryAttributes();
@@ -254,75 +254,34 @@ Request::CachedRequestAttributes Request::queryRequestAttributes() const
   // Allocate buffer for debug string with size from worker attributes
   std::vector<char> debug_str(worker_attr.max_debug_string, '\0');
 
-  result.attributes.field_mask = UCP_REQUEST_ATTR_FIELD_STATUS |           // Request status
-                                 UCP_REQUEST_ATTR_FIELD_MEM_TYPE |         // Memory type
-                                 UCP_REQUEST_ATTR_FIELD_INFO_STRING |      // Debug string
-                                 UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;  // Debug string size
+  result.field_mask = UCP_REQUEST_ATTR_FIELD_STATUS |           // Request status
+                      UCP_REQUEST_ATTR_FIELD_MEM_TYPE |         // Memory type
+                      UCP_REQUEST_ATTR_FIELD_INFO_STRING |      // Debug string
+                      UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;  // Debug string size
 
   // Set up the debug string buffer
-  result.attributes.debug_string      = debug_str.data();
-  result.attributes.debug_string_size = debug_str.size();
+  result.debug_string      = debug_str.data();
+  result.debug_string_size = debug_str.size();
 
   if (UCS_PTR_IS_PTR(_request)) {
-    result.query_status = ucp_request_query(_request, &result.attributes);
-    if (result.query_status == UCS_OK && result.attributes.debug_string != nullptr) {
-      result.debug_string = std::string(result.attributes.debug_string);
+    result.status = ucp_request_query(_request, &result);
+    if (result.status == UCS_OK && result.debug_string != nullptr) {
+      _requestAttr.debugString = std::string(result.debug_string);
+      _requestAttr.memoryType  = result.mem_type;
+      _requestAttr.status      = result.status;
+      _isRequestAttrValid      = true;
     }
-  } else {
-    result.query_status = UCS_ERR_INVALID_PARAM;
   }
-
-  return result;
 }
 
-std::string Request::getDebugString() const
+Request::RequestAttributes Request::getRequestAttributes()
 {
-  std::stringstream ss;
-  ss << "Request[" << this << "] {\n"
-     << "  operation: " << _operationName << "\n"
-     << "  status: " << _status << " (" << ucs_status_string(_status) << ")\n"
-     << "  owner: " << _ownerString << "\n"
-     << "  UCP handle: " << _request << "\n"
-     << "  completed: " << (_status != UCS_INPROGRESS ? "yes" : "no") << "\n";
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-  if (!_status_msg.empty()) { ss << "  status_msg: " << _status_msg << "\n"; }
-
-  // Use cached request attributes if available
-  // if (_cached_request_attr.query_status == UCS_OK) {
-  if (true) {
-    const auto& attr = _cached_request_attr.attributes;
-    if (attr.field_mask & UCP_REQUEST_ATTR_FIELD_STATUS) {
-      ss << "  request_status: " << attr.status << " (" << ucs_status_string(attr.status) << ")\n";
-    }
-    if (attr.field_mask & UCP_REQUEST_ATTR_FIELD_MEM_TYPE) {
-      ss << "  memory_type: " << attr.mem_type << "\n";
-    }
-    if (!_cached_request_attr.debug_string.empty()) {
-      ss << "  debug_string: " << _cached_request_attr.debug_string << "\n";
-    }
-  } else if (UCS_PTR_IS_PTR(_request)) {
-    // If request is still available, query it directly
-    auto result = queryRequestAttributes();
-    if (result.query_status == UCS_OK) {
-      const auto& attr = result.attributes;
-      if (attr.field_mask & UCP_REQUEST_ATTR_FIELD_STATUS) {
-        ss << "  request_status: " << attr.status << " (" << ucs_status_string(attr.status)
-           << ")\n";
-      }
-      if (attr.field_mask & UCP_REQUEST_ATTR_FIELD_MEM_TYPE) {
-        ss << "  memory_type: " << attr.mem_type << "\n";
-      }
-      if (!result.debug_string.empty()) { ss << "  debug_string: " << result.debug_string << "\n"; }
-    } else {
-      ss << "  request_query_failed: " << ucs_status_string(result.query_status) << "\n";
-    }
-  }
-
-  ss << "  python_future: " << (_enablePythonFuture ? "enabled" : "disabled") << "\n"
-     << "  has_callback: " << (_callback ? "yes" : "no") << "\n"
-     << "}";
-
-  return ss.str();
+  if (_isRequestAttrValid)
+    return _requestAttr;
+  else
+    throw ucxx::Error("Request attributes not available yet");
 }
 
 std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }

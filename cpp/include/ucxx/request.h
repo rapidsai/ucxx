@@ -39,10 +39,10 @@ namespace ucxx {
 class Request : public Component {
  protected:
   /// Structure to hold cached request attributes including the debug string
-  struct CachedRequestAttributes {
-    ucs_status_t query_status{UCS_INPROGRESS};  ///< Status of the query operation
-    ucp_request_attr_t attributes{};            ///< UCP request attributes
-    std::string debug_string{};                 ///< Stored debug string
+  struct RequestAttributes {
+    ucs_status_t status{UCS_INPROGRESS};                  ///< Status of the request
+    ucs_memory_type memoryType{UCS_MEMORY_TYPE_UNKNOWN};  ///< Memory type of the request
+    std::string debugString{};                            ///< Stored debug string
   };
 
   ucs_status_t _status{UCS_INPROGRESS};      ///< Requests status
@@ -62,8 +62,8 @@ class Request : public Component {
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
   RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
   RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
-  CachedRequestAttributes
-    _cached_request_attr{};  ///< Cached request attributes queried before request is freed
+  RequestAttributes _requestAttr{};  ///< Request attributes queried when request is posted
+  bool _isRequestAttrValid{false};   ///< Whether the request attributes are valid
 
   /**
    * @brief Protected constructor of an abstract `ucxx::Request`.
@@ -236,24 +236,16 @@ class Request : public Component {
   [[nodiscard]] virtual std::shared_ptr<Buffer> getRecvBuffer();
 
   /**
-   * @brief Get a debug string containing information about the request.
+   * @brief Get the request attributes.
    *
-   * Returns a detailed string containing information about the request's current state
-   * by querying the underlying UCP request using ucp_request_query. The information includes:
-   * - Request memory address
-   * - Operation name
-   * - Current status
-   * - Owner information
-   * - UCP request handle
-   * - Completion status
-   * - Request status from UCP (if available)
-   * - Memory type from UCP (if available)
-   * - Python future status
-   * - Callback presence
+   * Get the request attributes. If the request attributes are not available yet, this
+   * method will throw an error.
    *
-   * @return A string containing debug information about the request.
+   * @throw ucxx::Error if the request attributes are not available yet.
+   *
+   * @return A RequestAttributes containing the request attributes.
    */
-  [[nodiscard]] std::string getDebugString() const;
+  [[nodiscard]] RequestAttributes getRequestAttributes();
 
  protected:
   /**
@@ -265,10 +257,10 @@ class Request : public Component {
    * - Memory type
    * - Debug string
    *
-   * @return A CachedRequestAttributes containing the query status, request attributes and debug
+   * @return A RequestAttributes containing the query status, request attributes and debug
    * string.
    */
-  [[nodiscard]] CachedRequestAttributes queryRequestAttributes() const;
+  void queryRequestAttributes();
 };
 
 }  // namespace ucxx
