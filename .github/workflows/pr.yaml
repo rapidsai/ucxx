@@ -44,6 +44,8 @@ jobs:
     needs: conda-cpp-build
     if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
     continue-on-error: true
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Telemetry summarize
         uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main
