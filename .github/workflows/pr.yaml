@@ -27,7 +27,7 @@ jobs:
   conda-cpp-build:
     needs: [telemetry-setup]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-25.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@msarahan-telemetry-obviate-download
     with:
       build_type: pull-request
       script: ci/build_cpp.sh
