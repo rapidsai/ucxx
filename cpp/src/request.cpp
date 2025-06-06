@@ -1,11 +1,13 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <chrono>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -237,6 +239,50 @@ void Request::setStatus(ucs_status_t status)
 }
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
+
+void Request::queryRequestAttributes()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  if (_isRequestAttrValid) return;
+
+  ucp_request_attr_t result;
+
+  // Get the debug string size from worker attributes
+  auto worker_attr = _worker->queryAttributes();
+
+  // Allocate buffer for debug string with size from worker attributes
+  std::vector<char> debug_str(worker_attr.max_debug_string, '\0');
+
+  result.field_mask = UCP_REQUEST_ATTR_FIELD_STATUS |           // Request status
+                      UCP_REQUEST_ATTR_FIELD_MEM_TYPE |         // Memory type
+                      UCP_REQUEST_ATTR_FIELD_INFO_STRING |      // Debug string
+                      UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;  // Debug string size
+
+  // Set up the debug string buffer
+  result.debug_string      = debug_str.data();
+  result.debug_string_size = debug_str.size();
+
+  if (UCS_PTR_IS_PTR(_request)) {
+    result.status = ucp_request_query(_request, &result);
+    if (result.status == UCS_OK && result.debug_string != nullptr) {
+      _requestAttr.debugString = std::string(result.debug_string);
+      _requestAttr.memoryType  = result.mem_type;
+      _requestAttr.status      = result.status;
+      _isRequestAttrValid      = true;
+    }
+  }
+}
+
+Request::RequestAttributes Request::getRequestAttributes()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  if (_isRequestAttrValid)
+    return _requestAttr;
+  else
+    throw ucxx::Error("Request attributes not available yet");
+}
 
 std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }
 
