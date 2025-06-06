@@ -54,8 +54,8 @@ std::shared_ptr<RequestTag> createRequestTag(
 }
 
 RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
-                       const std::variant<data::TagSend, data::TagReceive> requestData,
-                       const std::string operationName,
+                       const std::variant<data::TagSend, data::TagReceive>& requestData,
+                       const std::string& operationName,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)

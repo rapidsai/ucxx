@@ -562,11 +562,13 @@ std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
                                            RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestTag(endpoint,
-                                                  data::TagSend(buffer, length, tag),
-                                                  enablePythonFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+  return registerInflightRequest(
+    createRequestTag(
+      request_tag_params::EndpointParam{endpoint},
+      request_tag_params::RequestDataParam{data::TagSend(buffer, length, tag)},
+      request_tag_params::EnablePythonFutureParam{enablePythonFuture},
+      request_tag_params::CallbackFunctionParam{callbackFunction},
+      request_tag_params::CallbackDataParam{callbackData}));
 }
 
 std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
@@ -578,11 +580,13 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
                                            RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestTag(endpoint,
-                                                  data::TagReceive(buffer, length, tag, tagMask),
-                                                  enablePythonFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+  return registerInflightRequest(
+    createRequestTag(
+      request_tag_params::EndpointParam{endpoint},
+      request_tag_params::RequestDataParam{data::TagReceive(buffer, length, tag, tagMask)},
+      request_tag_params::EnablePythonFutureParam{enablePythonFuture},
+      request_tag_params::CallbackFunctionParam{callbackFunction},
+      request_tag_params::CallbackDataParam{callbackData}));
 }
 
 std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
