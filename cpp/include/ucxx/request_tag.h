@@ -12,21 +12,9 @@
 
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
-#include <ucxx/request_tag_params.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
-
-// Forward declarations
-class RequestTag;
-
-// Forward declare the factory function to be friended
-template <typename... Options>
-std::enable_if_t<detail::contains_type<request_tag_params::EndpointParam, Options...>::value &&
-                   detail::contains_type<request_tag_params::RequestDataParam, Options...>::value &&
-                   detail::has_unique_types<detail::remove_cvref<Options>...>::value,
-                 std::shared_ptr<RequestTag>>
-createRequestTag(Options&&... opts);
 
 /**
  * @brief Send or receive a message with the UCX Tag API.

@@ -655,8 +655,7 @@ class Endpoint : public Component {
     }
 
     // Create the request with the collected parameters and register it
-    return registerInflightRequest(std::dynamic_pointer_cast<Request>(createRequestTag(
-      endpoint, *requestData, enablePythonFuture, callbackFunction, callbackData)));
+    return registerInflightRequest(createRequestTag(std::forward<Options>(opts)...));
   }
 
   // Overload for template-style parameters (deprecated)
@@ -744,8 +743,7 @@ class Endpoint : public Component {
     }
 
     // Create the request with the collected parameters and register it
-    return registerInflightRequest(std::dynamic_pointer_cast<Request>(createRequestTag(
-      endpoint, *requestData, enablePythonFuture, callbackFunction, callbackData)));
+    return registerInflightRequest(createRequestTag(std::forward<Options>(opts)...));
   }
 
   // Overload for template-style parameters (deprecated)

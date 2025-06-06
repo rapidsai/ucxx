@@ -14,6 +14,14 @@
 
 namespace ucxx {
 
+// Forward declare createRequestTag to return std::shared_ptr<Request>
+template <typename... Options>
+std::enable_if_t<detail::contains_type<request_tag_params::EndpointParam, Options...>::value &&
+                   detail::contains_type<request_tag_params::RequestDataParam, Options...>::value &&
+                   detail::has_unique_types<detail::remove_cvref<Options>...>::value,
+                 std::shared_ptr<Request>>
+createRequestTag(Options&&... opts);
+
 std::shared_ptr<RequestTag> createRequestTag(
   std::shared_ptr<Component> endpointOrWorker,
   const std::variant<data::TagSend, data::TagReceive> requestData,

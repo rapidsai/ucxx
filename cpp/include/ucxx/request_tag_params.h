@@ -15,8 +15,6 @@
 
 namespace ucxx {
 
-// Forward declarations
-
 namespace detail {
 // Helper to remove const, volatile and reference qualifiers (C++17 compatible version of
 // remove_cvref)
@@ -122,5 +120,15 @@ template <>
 struct is_request_data_param<request_tag_params::RequestDataParam> : std::true_type {};
 }  // namespace detail
 
+// Forward declarations
+class RequestTag;
+
+// Forward declare the factory function to be friended
+template <typename... Options>
+std::enable_if_t<detail::contains_type<request_tag_params::EndpointParam, Options...>::value &&
+                   detail::contains_type<request_tag_params::RequestDataParam, Options...>::value &&
+                   detail::has_unique_types<detail::remove_cvref<Options>...>::value,
+                 std::shared_ptr<RequestTag>>
+createRequestTag(Options&&... opts);
 
 }  // namespace ucxx

@@ -301,6 +301,35 @@ TEST_P(RequestTest, ProgressTag)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
+TEST_P(RequestTest, ProgressTagTemplated)
+{
+  allocate();
+
+  auto endpoint = std::dynamic_pointer_cast<ucxx::Endpoint>(_ep);
+
+  // Submit and wait for transfers to complete using the new templated API
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+
+  // Send using named parameters in arbitrary order
+  requests.push_back(_ep->tagSend(ucxx::request_tag_params::RequestDataParam{ucxx::data::TagSend{
+                                    _sendPtr[0], _messageSize, ucxx::Tag{0}}},
+                                  ucxx::request_tag_params::EndpointParam{endpoint},
+                                  ucxx::request_tag_params::EnablePythonFutureParam{false}));
+
+  // Receive using named parameters in different order
+  requests.push_back(_ep->tagRecv(ucxx::request_tag_params::EnablePythonFutureParam{false},
+                                  ucxx::request_tag_params::EndpointParam{endpoint},
+                                  ucxx::request_tag_params::RequestDataParam{ucxx::data::TagReceive{
+                                    _recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull}}));
+
+  waitRequests(_worker, requests, _progressWorker);
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
 TEST_P(RequestTest, ProgressTagMulti)
 {
   if (_progressMode == ProgressMode::Wait) {
