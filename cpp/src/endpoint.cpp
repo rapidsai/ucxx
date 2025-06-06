@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -561,14 +561,25 @@ std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(
-    createRequestTag(
-      request_tag_params::EndpointParam{endpoint},
-      request_tag_params::RequestDataParam{data::TagSend(buffer, length, tag)},
-      request_tag_params::EnablePythonFutureParam{enablePythonFuture},
-      request_tag_params::CallbackFunctionParam{callbackFunction},
-      request_tag_params::CallbackDataParam{callbackData}));
+  return registerInflightRequest(createRequestTag(shared_from_this(),
+                                                  data::TagSend{buffer, length, tag},
+                                                  enablePythonFuture,
+                                                  callbackFunction,
+                                                  callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::tagSend(
+  request_tag_params::EndpointParam&& endpointParam,
+  request_tag_params::RequestDataParam&& requestDataParam,
+  request_tag_params::EnablePythonFutureParam&& enablePythonFutureParam,
+  request_tag_params::CallbackFunctionParam&& callbackFunctionParam,
+  request_tag_params::CallbackDataParam&& callbackDataParam)
+{
+  return registerInflightRequest(createRequestTag(endpointParam.value,
+                                                  requestDataParam.value,
+                                                  enablePythonFutureParam.value,
+                                                  callbackFunctionParam.value,
+                                                  callbackDataParam.value));
 }
 
 std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
@@ -579,14 +590,25 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(
-    createRequestTag(
-      request_tag_params::EndpointParam{endpoint},
-      request_tag_params::RequestDataParam{data::TagReceive(buffer, length, tag, tagMask)},
-      request_tag_params::EnablePythonFutureParam{enablePythonFuture},
-      request_tag_params::CallbackFunctionParam{callbackFunction},
-      request_tag_params::CallbackDataParam{callbackData}));
+  return registerInflightRequest(createRequestTag(shared_from_this(),
+                                                  data::TagReceive{buffer, length, tag, tagMask},
+                                                  enablePythonFuture,
+                                                  callbackFunction,
+                                                  callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::tagRecv(
+  request_tag_params::EndpointParam&& endpointParam,
+  request_tag_params::RequestDataParam&& requestDataParam,
+  request_tag_params::EnablePythonFutureParam&& enablePythonFutureParam,
+  request_tag_params::CallbackFunctionParam&& callbackFunctionParam,
+  request_tag_params::CallbackDataParam&& callbackDataParam)
+{
+  return registerInflightRequest(createRequestTag(endpointParam.value,
+                                                  requestDataParam.value,
+                                                  enablePythonFutureParam.value,
+                                                  callbackFunctionParam.value,
+                                                  callbackDataParam.value));
 }
 
 std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
