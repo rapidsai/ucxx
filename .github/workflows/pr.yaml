@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SHARED_ACTIONS_REPO: rapidsai/shared-actions
-  SHARED_ACTIONS_REF: main
+  SHARED_ACTIONS_REPO: msarahan/shared-actions
+  SHARED_ACTIONS_REF: debug-otel-service-name-and-traceparent
 
 jobs:
   telemetry-setup:
