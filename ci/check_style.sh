@@ -17,7 +17,7 @@ rapids-mamba-retry env create --yes -f env.yaml -n checks
 conda activate checks
 
 RAPIDS_VERSION_FILE="$(git rev-parse --show-toplevel)/RAPIDS_VERSION"
-RAPIDS_VERSION_MAJOR_MINOR="$(cat "${RAPIDS_VERSION_FILE}" | cut -d. -f1,2)"
+RAPIDS_VERSION_MAJOR_MINOR="$(cut -d. -f1,2 < "${RAPIDS_VERSION_FILE}")"
 
 FORMAT_FILE_URL="https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-${RAPIDS_VERSION_MAJOR_MINOR}/cmake-format-rapids-cmake.json"
 export RAPIDS_CMAKE_FORMAT_FILE=/tmp/rapids_cmake_ci/cmake-formats-rapids-cmake.json
