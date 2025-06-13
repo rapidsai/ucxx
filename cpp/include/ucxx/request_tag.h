@@ -1,10 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include <ucp/api/ucp.h>
@@ -53,37 +54,13 @@ class RequestTag : public Request {
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   RequestTag(std::shared_ptr<Component> endpointOrWorker,
-             const std::variant<data::TagSend, data::TagReceive> requestData,
-             const std::string operationName,
+             const std::variant<data::TagSend, data::TagReceive>& requestData,
+             const std::string& operationName,
              const bool enablePythonFuture                = false,
              RequestCallbackUserFunction callbackFunction = nullptr,
              RequestCallbackUserData callbackData         = nullptr);
 
- public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestTag>`.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RequestTag>` object, creating a send or
-   * receive tag request, returning a pointer to a request object that can be later awaited
-   * and checked for errors. This is a non-blocking operation, and the status of the
-   * transfer must be verified from the resulting request object before the data can be
-   * released (for a send operation) or consumed (for a receive operation).
-   *
-   * @throws ucxx::Error  if send is `true` and `endpointOrWorker` is not a
-   *                      `std::shared_ptr<ucxx::Endpoint>`.
-   *
-   * @param[in] endpointOrWorker    the parent component, which may either be a
-   *                                `std::shared_ptr<Endpoint>` or
-   *                                `std::shared_ptr<Worker>`.
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns The `shared_ptr<ucxx::RequestTag>` object
-   */
+  // Friend declarations for both createRequestTag functions
   friend std::shared_ptr<RequestTag> createRequestTag(
     std::shared_ptr<Component> endpointOrWorker,
     const std::variant<data::TagSend, data::TagReceive> requestData,
@@ -91,6 +68,16 @@ class RequestTag : public Request {
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
 
+  // Friend the templated version
+  template <typename... Options>
+  friend std::enable_if_t<
+    detail::contains_type<request_tag_params::EndpointParam, Options...>::value &&
+      detail::contains_type<request_tag_params::RequestDataParam, Options...>::value &&
+      detail::has_unique_types<detail::remove_cvref<Options>...>::value,
+    std::shared_ptr<RequestTag>>
+  createRequestTag(Options&&... opts);
+
+ public:
   virtual void populateDelayedSubmission();
 
   /**
@@ -159,5 +146,62 @@ class RequestTag : public Request {
    */
   void callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* info);
 };
+
+// Implementation of the templated createRequestTag function
+template <typename... Options>
+std::enable_if_t<detail::contains_type<request_tag_params::EndpointParam, Options...>::value &&
+                   detail::contains_type<request_tag_params::RequestDataParam, Options...>::value &&
+                   detail::has_unique_types<detail::remove_cvref<Options>...>::value,
+                 std::shared_ptr<RequestTag>>
+createRequestTag(Options&&... opts)
+{
+  // Default values for optional parameters
+  std::shared_ptr<Component> endpointOrWorker;
+  std::optional<std::variant<data::TagSend, data::TagReceive>> requestData;
+  bool enablePythonFuture                      = false;
+  RequestCallbackUserFunction callbackFunction = nullptr;
+  RequestCallbackUserData callbackData         = nullptr;
+  std::string operationName                    = "tagOp";
+
+  // Helper to set parameters
+  auto setParam = [&](auto&& param) {
+    using ParamType = std::decay_t<decltype(param)>;
+    if constexpr (std::is_same_v<ParamType, request_tag_params::EndpointParam>) {
+      endpointOrWorker = std::move(param.value);
+    } else if constexpr (std::is_same_v<ParamType, request_tag_params::RequestDataParam>) {
+      requestData.emplace(std::move(param.value));
+    } else if constexpr (std::is_same_v<ParamType, request_tag_params::EnablePythonFutureParam>) {
+      enablePythonFuture = param.value;
+    } else if constexpr (std::is_same_v<ParamType, request_tag_params::CallbackFunctionParam>) {
+      callbackFunction = param.value;
+    } else if constexpr (std::is_same_v<ParamType, request_tag_params::CallbackDataParam>) {
+      callbackData = param.value;
+    } else if constexpr (std::is_same_v<ParamType, request_tag_params::OperationNameParam>) {
+      operationName = std::move(param.value);
+    }
+  };
+
+  // Set all parameters
+  (setParam(std::forward<Options>(opts)), ...);
+
+  // Ensure required parameters are present
+  if (!endpointOrWorker || !requestData) {
+    throw std::runtime_error("Missing required parameters for RequestTag creation");
+  }
+
+  // Create the RequestTag with the collected parameters
+  auto req = std::shared_ptr<RequestTag>(new RequestTag(std::move(endpointOrWorker),
+                                                        std::move(*requestData),
+                                                        std::move(operationName),
+                                                        enablePythonFuture,
+                                                        callbackFunction,
+                                                        callbackData));
+
+  // Register delayed submission
+  req->_worker->registerDelayedSubmission(
+    req, std::bind(std::mem_fn(&Request::populateDelayedSubmission), req.get()));
+
+  return req;
+}
 
 }  // namespace ucxx

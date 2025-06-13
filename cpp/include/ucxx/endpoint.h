@@ -7,7 +7,9 @@
 #include <netdb.h>
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
@@ -18,6 +20,7 @@
 #include <ucxx/inflight_requests.h>
 #include <ucxx/listener.h>
 #include <ucxx/request.h>
+#include <ucxx/request_tag_params.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/worker.h>
@@ -611,6 +614,61 @@ class Endpoint : public Component {
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
 
+  // Template version with named parameters
+  template <typename... Options>
+  [[nodiscard]] std::enable_if_t<
+    detail::contains_type<request_tag_params::EndpointParam, Options...>::value &&
+      detail::contains_type<request_tag_params::RequestDataParam, Options...>::value &&
+      detail::has_unique_types<detail::remove_cvref<Options>...>::value,
+    std::shared_ptr<Request>>
+  tagSend(Options&&... opts)
+  {
+    // Default values for optional parameters
+    std::shared_ptr<Component> endpoint = nullptr;
+    std::optional<std::variant<data::TagSend, data::TagReceive>> requestData;
+    bool enablePythonFuture                      = false;
+    RequestCallbackUserFunction callbackFunction = nullptr;
+    RequestCallbackUserData callbackData         = nullptr;
+
+    // Helper to set parameters
+    auto setParam = [&](auto&& param) {
+      using ParamType = std::decay_t<decltype(param)>;
+      if constexpr (std::is_same_v<ParamType, request_tag_params::EndpointParam>) {
+        endpoint = std::move(param.value);
+      } else if constexpr (std::is_same_v<ParamType, request_tag_params::RequestDataParam>) {
+        requestData.emplace(std::move(param.value));
+      } else if constexpr (std::is_same_v<ParamType, request_tag_params::EnablePythonFutureParam>) {
+        enablePythonFuture = param.value;
+      } else if constexpr (std::is_same_v<ParamType, request_tag_params::CallbackFunctionParam>) {
+        callbackFunction = param.value;
+      } else if constexpr (std::is_same_v<ParamType, request_tag_params::CallbackDataParam>) {
+        callbackData = param.value;
+      }
+    };
+
+    // Set all parameters
+    (setParam(std::forward<Options>(opts)), ...);
+
+    // Ensure required parameters are present
+    if (!endpoint || !requestData) {
+      throw std::runtime_error("Missing required parameters for tagSend");
+    }
+
+    // Create the request with the collected parameters and register it
+    return registerInflightRequest(createRequestTag(std::forward<Options>(opts)...));
+  }
+
+  // Overload for template-style parameters (deprecated)
+  [[nodiscard]] std::shared_ptr<Request> tagSend(
+    request_tag_params::EndpointParam&& endpointParam,
+    request_tag_params::RequestDataParam&& requestDataParam,
+    request_tag_params::EnablePythonFutureParam&& enablePythonFutureParam =
+      request_tag_params::EnablePythonFutureParam{false},
+    request_tag_params::CallbackFunctionParam&& callbackFunctionParam =
+      request_tag_params::CallbackFunctionParam{nullptr},
+    request_tag_params::CallbackDataParam&& callbackDataParam =
+      request_tag_params::CallbackDataParam{nullptr});
+
   /**
    * @brief Enqueue a tag receive operation.
    *
@@ -643,6 +701,61 @@ class Endpoint : public Component {
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
+
+  // Template version with named parameters
+  template <typename... Options>
+  [[nodiscard]] std::enable_if_t<
+    detail::contains_type<request_tag_params::EndpointParam, Options...>::value &&
+      detail::contains_type<request_tag_params::RequestDataParam, Options...>::value &&
+      detail::has_unique_types<detail::remove_cvref<Options>...>::value,
+    std::shared_ptr<Request>>
+  tagRecv(Options&&... opts)
+  {
+    // Default values for optional parameters
+    std::shared_ptr<Component> endpoint = nullptr;
+    std::optional<std::variant<data::TagSend, data::TagReceive>> requestData;
+    bool enablePythonFuture                      = false;
+    RequestCallbackUserFunction callbackFunction = nullptr;
+    RequestCallbackUserData callbackData         = nullptr;
+
+    // Helper to set parameters
+    auto setParam = [&](auto&& param) {
+      using ParamType = std::decay_t<decltype(param)>;
+      if constexpr (std::is_same_v<ParamType, request_tag_params::EndpointParam>) {
+        endpoint = std::move(param.value);
+      } else if constexpr (std::is_same_v<ParamType, request_tag_params::RequestDataParam>) {
+        requestData.emplace(std::move(param.value));
+      } else if constexpr (std::is_same_v<ParamType, request_tag_params::EnablePythonFutureParam>) {
+        enablePythonFuture = param.value;
+      } else if constexpr (std::is_same_v<ParamType, request_tag_params::CallbackFunctionParam>) {
+        callbackFunction = param.value;
+      } else if constexpr (std::is_same_v<ParamType, request_tag_params::CallbackDataParam>) {
+        callbackData = param.value;
+      }
+    };
+
+    // Set all parameters
+    (setParam(std::forward<Options>(opts)), ...);
+
+    // Ensure required parameters are present
+    if (!endpoint || !requestData) {
+      throw std::runtime_error("Missing required parameters for tagRecv");
+    }
+
+    // Create the request with the collected parameters and register it
+    return registerInflightRequest(createRequestTag(std::forward<Options>(opts)...));
+  }
+
+  // Overload for template-style parameters (deprecated)
+  [[nodiscard]] std::shared_ptr<Request> tagRecv(
+    request_tag_params::EndpointParam&& endpointParam,
+    request_tag_params::RequestDataParam&& requestDataParam,
+    request_tag_params::EnablePythonFutureParam&& enablePythonFutureParam =
+      request_tag_params::EnablePythonFutureParam{false},
+    request_tag_params::CallbackFunctionParam&& callbackFunctionParam =
+      request_tag_params::CallbackFunctionParam{nullptr},
+    request_tag_params::CallbackDataParam&& callbackDataParam =
+      request_tag_params::CallbackDataParam{nullptr});
 
   /**
    * @brief Enqueue a multi-buffer tag send operation.
