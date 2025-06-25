@@ -157,7 +157,6 @@ files:
 channels:
   - rapidsai
   - rapidsai-nightly
-  - dask/label/dev
   - conda-forge
 dependencies:
   build_cpp:
