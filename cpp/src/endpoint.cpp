@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -229,7 +229,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   bool force    = _endpointErrorHandling;
 
-  auto combineCallbacksFunction = [this, &callbackFunction, &callbackData](
+  auto combineCallbacksFunction = [this, callbackFunction, callbackData](
                                     ucs_status_t status,
                                     EndpointCloseCallbackUserData /* callbackData */) {
     _status = status;
