@@ -30,7 +30,7 @@ jobs:
   conda-cpp-tests:
     needs: [conda-cpp-build]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@msarahan/add-prepare-conda-env
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@msarahan-add-prepare-conda-env
     with:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
