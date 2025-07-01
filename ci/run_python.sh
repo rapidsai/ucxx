@@ -11,7 +11,7 @@ source "$(dirname "$0")/test_common.sh"
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 run_py_tests() {
-  if [ "${DISABLE_CYTHON:-0}" -ne 0 ]; then
+  if [ "${DISABLE_CYTHON:-0}" -eq 0 ]; then
     ARGS=("--run-cython")
   else
     ARGS=()
