@@ -7,6 +7,9 @@ set -euo pipefail
 
 source "$(dirname "$0")/test_common.sh"
 
+# Support invoking run_pytests.sh outside the script directory
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
+
 install_distributed_dev_mode() {
   # Running Distributed tests which access its internals requires installing it in
   # developer mode. This isn't a great solution but it's what we can currently do

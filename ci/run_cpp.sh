@@ -7,6 +7,9 @@ set -euo pipefail
 
 source "$(dirname "$0")/test_common.sh"
 
+# Support invoking run_pytests.sh outside the script directory
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
+
 ##################################### C++ ######################################
 _SERVER_PORT=12345
 
