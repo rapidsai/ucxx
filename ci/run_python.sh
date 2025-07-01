@@ -11,9 +11,7 @@ source "$(dirname "$0")/test_common.sh"
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 run_py_tests() {
-  RUN_CYTHON=$1
-
-  if [ "$RUN_CYTHON" -ne 0 ]; then
+  if [ "${DISABLE_CYTHON:-0}" -ne 0 ]; then
     ARGS=("--run-cython")
   else
     ARGS=()
@@ -73,8 +71,7 @@ run_py_benchmark() {
 }
 
 log_message "Python Core Tests"
-# run_py_tests RUN_CYTHON
-run_py_tests   1
+run_py_tests
 
 log_message "Python Async Tests"
 # run_py_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP

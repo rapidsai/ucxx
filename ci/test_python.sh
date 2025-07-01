@@ -29,5 +29,5 @@ print_system_stats
 
 print_ucx_config
 
-rapids-logger "Run tests with conda package"
+rapids-logger "Run Python tests with conda package"
 ./ci/run_python.sh

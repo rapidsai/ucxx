@@ -20,4 +20,4 @@ rapids-pip-retry install \
     "$(echo "${ucxx_wheelhouse}"/"${package_name}_${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
 
 rapids-logger "Run Python tests with wheels"
-./ci/run_python.sh
+DISABLE_CYTHON=1 ./ci/run_python.sh
