@@ -19,10 +19,5 @@ rapids-pip-retry install \
     "${libucxx_wheelhouse}/libucxx_${RAPIDS_PY_CUDA_SUFFIX}"*.whl \
     "$(echo "${ucxx_wheelhouse}"/"${package_name}_${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
 
-rapids-logger "Python Core Tests"
-# run_py_tests RUN_CYTHON
-run_py_tests   0
-
-rapids-logger "Python Async Tests"
-# run_py_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
-run_py_tests_async   thread          1                         1                    0
+rapids-logger "Run Python tests with wheels"
+./ci/run_python.sh

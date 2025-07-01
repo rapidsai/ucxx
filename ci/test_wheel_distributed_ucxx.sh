@@ -21,12 +21,5 @@ rapids-pip-retry install \
     "${ucxx_wheelhouse}/ucxx_${RAPIDS_PY_CUDA_SUFFIX}"*.whl \
     "$(echo "${distributed_ucxx_wheelhouse}"/"${package_name}_${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
 
-rapids-logger "Distributed Tests"
-
-# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests      thread          1                           1
-
-install_distributed_dev_mode
-
-# run_distributed_ucxx_tests_internal PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests_internal   thread          1                           1
+rapids-logger "Run distributed-ucxx tests with wheels"
+./ci/run_python_distributed.sh
