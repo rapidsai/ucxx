@@ -452,10 +452,10 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12==1.15.0
+              - libucx-cu12>=1.15.0,<1.15.1a0
           - matrix:
             packages:
-              - libucx==1.15.0
+              - libucx>=1.15.0,<1.15.1a0
   depends_on_ucx_run:
     common:
       - output_types: conda
