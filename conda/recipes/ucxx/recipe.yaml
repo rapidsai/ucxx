@@ -88,7 +88,7 @@ outputs:
         - ucx
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - ${{ pin_compatible("librmm", upper_bound="x.x") }}
+        - ${{ pin_compatible("librmm", upper_bound="x.x", lower_bound="x.x.x") }}
         - ucx >=1.15.0,<1.19.0
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
