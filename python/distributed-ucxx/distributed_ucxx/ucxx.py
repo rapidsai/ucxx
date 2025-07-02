@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 :ref:`UCX`_ based communications for distributed.
 
@@ -253,7 +256,10 @@ def init_once():
         # that don't override ucx_config or existing slots in the
         # environment, so the user's external environment can safely
         # override things here.
-        ucxx.init(options=ucx_config, env_takes_precedence=True)
+        progress_mode = None if "UCXPY_PROGRESS_MODE" in os.environ else "blocking"
+        ucxx.init(
+            options=ucx_config, env_takes_precedence=True, progress_mode=progress_mode
+        )
         _allocate_dask_resources_tracker()
 
     pool_size_str = dask.config.get("distributed.rmm.pool-size")
