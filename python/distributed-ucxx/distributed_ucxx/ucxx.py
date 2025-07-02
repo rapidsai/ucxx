@@ -384,8 +384,8 @@ class UCXX(Comm):
         self._ep = ep
         self._ep_handle = int(self._ep._ep.handle)
         if local_addr:
-            assert local_addr.startswith("ucxx")
-        assert peer_addr.startswith("ucxx")
+            assert local_addr.startswith(("ucx://", "ucxx://"))
+        assert peer_addr.startswith(("ucx://", "ucxx://"))
         self._local_addr = local_addr
         self._peer_addr = peer_addr
         self.comm_flag = None
