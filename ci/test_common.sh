@@ -235,4 +235,6 @@ run_distributed_ucxx_tests_internal() {
 
 if [ -d /opt/conda ]; then
   conda init --all --system
+  . /etc/profile.d/conda.sh
+  hash -r
 fi
