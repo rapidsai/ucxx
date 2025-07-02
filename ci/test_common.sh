@@ -232,3 +232,7 @@ run_distributed_ucxx_tests_internal() {
   log_command "${CMD_LINE}"
   UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/
 }
+
+if [ -d /opt/conda ]; then
+  conda init --all --system
+fi
