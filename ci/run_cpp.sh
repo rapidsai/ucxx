@@ -37,8 +37,8 @@ run_cpp_benchmark() {
   RUNTIME_PATH=${CONDA_PREFIX:-./}
   BINARY_PATH=${RUNTIME_PATH}/bin
 
-  CMD_LINE_SERVER="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
-  CMD_LINE_CLIENT="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -m ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1"
+  CMD_LINE_SERVER="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -P ${PROGRESS_MODE} -p ${SERVER_PORT}"
+  CMD_LINE_CLIENT="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -P ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1"
 
   log_command "${CMD_LINE_SERVER}"
   UCX_TCP_CM_REUSEADDR=y ${CMD_LINE_SERVER} &

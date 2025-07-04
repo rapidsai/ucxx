@@ -32,6 +32,13 @@ enum class ProgressMode {
   ThreadBlocking,
 };
 
+#ifdef UCXX_ENABLE_RMM
+enum class MemoryType {
+  Host,
+  Cuda,
+};
+#endif
+
 enum transfer_type_t { SEND, RECV };
 
 // CUDA memory buffer structure (conditional)
@@ -99,7 +106,7 @@ struct app_context_t {
   bool reuse_alloc             = false;
   bool verify_results          = false;
 #ifdef UCXX_ENABLE_RMM
-  bool use_cuda_memory = false;  // New option for CUDA memory
+  MemoryType memory_type = MemoryType::Host;  // Memory type to use
 #endif
 };
 
@@ -175,7 +182,7 @@ static void printUsage()
   std::cerr << "Usage: basic [server-hostname] [options]" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
-  std::cerr << "  -m          progress mode to use, valid values are: 'polling', 'blocking',"
+  std::cerr << "  -P          progress mode to use, valid values are: 'polling', 'blocking',"
             << std::endl;
   std::cerr << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
             << std::endl;
@@ -188,7 +195,8 @@ static void printUsage()
   std::cerr << "  -v          verify results (disabled)" << std::endl;
   std::cerr << "  -w <int>    number of warmup iterations to run (3)" << std::endl;
 #ifdef UCXX_ENABLE_RMM
-  std::cerr << "  -c          use CUDA memory buffers (disabled)" << std::endl;
+  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default) and 'cuda'"
+            << std::endl;
 #endif
   std::cerr << "  -h          print this help" << std::endl;
   std::cerr << std::endl;
@@ -199,12 +207,12 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
   optind = 1;
   int c;
 #ifdef UCXX_ENABLE_RMM
-  while ((c = getopt(argc, argv, "m:p:s:w:n:ervch")) != -1) {
+  while ((c = getopt(argc, argv, "P:p:s:w:n:ervm:h")) != -1) {
 #else
-  while ((c = getopt(argc, argv, "m:p:s:w:n:ervh")) != -1) {
+  while ((c = getopt(argc, argv, "P:p:s:w:n:ervh")) != -1) {
 #endif
     switch (c) {
-      case 'm':
+      case 'P':
         if (strcmp(optarg, "blocking") == 0) {
           app_context->progress_mode = ProgressMode::Blocking;
           break;
@@ -257,7 +265,17 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
       case 'r': app_context->reuse_alloc = true; break;
       case 'v': app_context->verify_results = true; break;
 #ifdef UCXX_ENABLE_RMM
-      case 'c': app_context->use_cuda_memory = true; break;
+      case 'm':
+        if (strcmp(optarg, "host") == 0) {
+          app_context->memory_type = MemoryType::Host;
+          break;
+        } else if (strcmp(optarg, "cuda") == 0) {
+          app_context->memory_type = MemoryType::Cuda;
+          break;
+        } else {
+          std::cerr << "Invalid memory type: " << optarg << std::endl;
+          return UCS_ERR_INVALID_PARAM;
+        }
 #endif
       case 'h':
       default: printUsage(); return UCS_ERR_INVALID_PARAM;
@@ -353,7 +371,7 @@ auto doTransfer(const app_context_t& app_context,
                 BufferMapPtr bufferMapReuse)
 {
 #ifdef UCXX_ENABLE_RMM
-  if (app_context.use_cuda_memory) {
+  if (app_context.memory_type == MemoryType::Cuda) {
     // CUDA memory transfer
     static CudaBufferMapPtr cudaBufferMapReuse;
     CudaBufferMapPtr localCudaBufferMap;
@@ -433,7 +451,7 @@ int main(int argc, char** argv)
 
 #ifdef UCXX_ENABLE_RMM
   // Check CUDA support if CUDA memory is requested
-  if (app_context.use_cuda_memory) {
+  if (app_context.memory_type == MemoryType::Cuda) {
     cudaError_t err = cudaSetDevice(0);
     if (err != cudaSuccess) {
       std::cerr << "Failed to set CUDA device: " << cudaGetErrorString(err) << std::endl;
@@ -507,7 +525,7 @@ int main(int argc, char** argv)
   BufferMapPtr bufferMapReuse;
 #ifdef UCXX_ENABLE_RMM
   if (app_context.reuse_alloc) {
-    if (app_context.use_cuda_memory) {
+    if (app_context.memory_type == MemoryType::Cuda) {
       // CUDA reuse buffers are handled inside doTransfer
     } else {
       bufferMapReuse = allocateTransferBuffers(app_context.message_size);

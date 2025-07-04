@@ -79,23 +79,23 @@ The benchmark is composed of two processes: a server and a client. The server mu
 
 #### Basic Usage
 
-Below is an example of running a server first, followed by the client connecting to the server on the `localhost` (`127.0.0.1`). Both processes specify a list of parameters, which are the message size in bytes (`-s 8388608`), that allocations should be reused (`-r`), the number of iterations to perform (`-n 10`) and the progress mode (`-m polling`).
+Below is an example of running a server first, followed by the client connecting to the server on the `localhost` (`127.0.0.1`). Both processes specify a list of parameters, which are the message size in bytes (`-s 8388608`), that allocations should be reused (`-r`), the number of iterations to perform (`-n 10`) and the progress mode (`-P polling`).
 
 ```
-$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -s 800000000 -r -n 10 -m polling &
-$ ./benchmarks/ucxx_perftest -s 800000000 -r -n 10 -m polling 127.0.0.1
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -s 800000000 -r -n 10 -P polling &
+$ ./benchmarks/ucxx_perftest -s 800000000 -r -n 10 -P polling 127.0.0.1
 ```
 
 #### CUDA Memory Support
 
-When built with `UCXX_ENABLE_RMM=ON`, the benchmark supports CUDA memory transfers using the `-c` flag:
+When built with `UCXX_ENABLE_RMM=ON`, the benchmark supports CUDA memory transfers using the `-m cuda` flag:
 
 ```
 # Server with CUDA memory
-$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -c -s 1048576 -r -n 10 -m polling &
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda -s 1048576 -r -n 10 -P polling &
 
 # Client with CUDA memory
-$ ./benchmarks/ucxx_perftest -c -s 1048576 -r -n 10 -m polling 127.0.0.1
+$ ./benchmarks/ucxx_perftest -m cuda -s 1048576 -r -n 10 -P polling 127.0.0.1
 ```
 
 **Requirements for CUDA Support:**
