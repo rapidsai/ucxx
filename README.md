@@ -73,9 +73,11 @@ python setup.py install
 
 ### C++
 
-Currently there is only one C++ benchmark with few options. It can be found under `cpp/build/benchmarks/ucxx_perftest` and for a full list of options `--help` argument can be used.
+Currently there is one C++ benchmark with comprehensive options. It can be found under `cpp/build/benchmarks/ucxx_perftest` and for a full list of options `--help` argument can be used.
 
 The benchmark is composed of two processes: a server and a client. The server must not specify an IP address or hostname and will bind to all available interfaces, whereas the client must specify the IP address or hostname where the server can be reached.
+
+#### Basic Usage
 
 Below is an example of running a server first, followed by the client connecting to the server on the `localhost` (`127.0.0.1`). Both processes specify a list of parameters, which are the message size in bytes (`-s 8388608`), that allocations should be reused (`-r`), the number of iterations to perform (`-n 10`) and the progress mode (`-m polling`).
 
@@ -83,6 +85,24 @@ Below is an example of running a server first, followed by the client connecting
 $ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -s 800000000 -r -n 10 -m polling &
 $ ./benchmarks/ucxx_perftest -s 800000000 -r -n 10 -m polling 127.0.0.1
 ```
+
+#### CUDA Memory Support
+
+When built with `UCXX_ENABLE_RMM=ON`, the benchmark supports CUDA memory transfers using the `-c` flag:
+
+```
+# Server with CUDA memory
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -c -s 1048576 -r -n 10 -m polling &
+
+# Client with CUDA memory
+$ ./benchmarks/ucxx_perftest -c -s 1048576 -r -n 10 -m polling 127.0.0.1
+```
+
+**Requirements for CUDA Support:**
+- UCXX compiled with `UCXX_ENABLE_RMM=ON`
+- CUDA runtime available
+- UCX configured with CUDA transport support
+- Compatible CUDA devices on both endpoints
 
 It is recommended to use `UCX_TCP_CM_REUSEADDR=y` when binding to interfaces with TCP support to prevent waiting for the process' `TIME_WAIT` state to complete, which often takes 60 seconds after the server has terminated.
 

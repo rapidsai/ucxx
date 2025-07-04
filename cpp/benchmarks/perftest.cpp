@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <unistd.h>  // for getopt, optarg
@@ -15,6 +15,11 @@
 #include <unordered_map>
 #include <vector>
 
+// CUDA includes (conditional)
+#ifdef UCXX_ENABLE_RMM
+#include <cuda_runtime.h>
+#endif
+
 #include <ucxx/api.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
@@ -29,10 +34,58 @@ enum class ProgressMode {
 
 enum transfer_type_t { SEND, RECV };
 
+// CUDA memory buffer structure (conditional)
+#ifdef UCXX_ENABLE_RMM
+struct CudaBuffer {
+  void* ptr{nullptr};
+  size_t size{0};
+
+  CudaBuffer() = default;
+  explicit CudaBuffer(size_t buffer_size) : size(buffer_size)
+  {
+    cudaError_t err = cudaMalloc(&ptr, size);
+    if (err != cudaSuccess) {
+      throw std::runtime_error("Failed to allocate CUDA memory: " +
+                               std::string(cudaGetErrorString(err)));
+    }
+  }
+
+  ~CudaBuffer()
+  {
+    if (ptr) { cudaFree(ptr); }
+  }
+
+  CudaBuffer(const CudaBuffer&)            = delete;
+  CudaBuffer& operator=(const CudaBuffer&) = delete;
+  CudaBuffer(CudaBuffer&& other) noexcept : ptr(other.ptr), size(other.size)
+  {
+    other.ptr  = nullptr;
+    other.size = 0;
+  }
+  CudaBuffer& operator=(CudaBuffer&& other) noexcept
+  {
+    if (this != &other) {
+      if (ptr) cudaFree(ptr);
+      ptr        = other.ptr;
+      size       = other.size;
+      other.ptr  = nullptr;
+      other.size = 0;
+    }
+    return *this;
+  }
+};
+#endif
+
 typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
+#ifdef UCXX_ENABLE_RMM
+typedef std::unordered_map<transfer_type_t, CudaBuffer> CudaBufferMap;
+#endif
 typedef std::unordered_map<transfer_type_t, ucxx::Tag> TagMap;
 
 typedef std::shared_ptr<BufferMap> BufferMapPtr;
+#ifdef UCXX_ENABLE_RMM
+typedef std::shared_ptr<CudaBufferMap> CudaBufferMapPtr;
+#endif
 typedef std::shared_ptr<TagMap> TagMapPtr;
 
 struct app_context_t {
@@ -45,6 +98,9 @@ struct app_context_t {
   bool endpoint_error_handling = false;
   bool reuse_alloc             = false;
   bool verify_results          = false;
+#ifdef UCXX_ENABLE_RMM
+  bool use_cuda_memory = false;  // New option for CUDA memory
+#endif
 };
 
 class ListenerContext {
@@ -131,6 +187,9 @@ static void printUsage()
   std::cerr << "  -r          reuse memory allocation (disabled)" << std::endl;
   std::cerr << "  -v          verify results (disabled)" << std::endl;
   std::cerr << "  -w <int>    number of warmup iterations to run (3)" << std::endl;
+#ifdef UCXX_ENABLE_RMM
+  std::cerr << "  -c          use CUDA memory buffers (disabled)" << std::endl;
+#endif
   std::cerr << "  -h          print this help" << std::endl;
   std::cerr << std::endl;
 }
@@ -139,7 +198,11 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
 {
   optind = 1;
   int c;
+#ifdef UCXX_ENABLE_RMM
+  while ((c = getopt(argc, argv, "m:p:s:w:n:ervch")) != -1) {
+#else
   while ((c = getopt(argc, argv, "m:p:s:w:n:ervh")) != -1) {
+#endif
     switch (c) {
       case 'm':
         if (strcmp(optarg, "blocking") == 0) {
@@ -193,6 +256,9 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
       case 'e': app_context->endpoint_error_handling = true; break;
       case 'r': app_context->reuse_alloc = true; break;
       case 'v': app_context->verify_results = true; break;
+#ifdef UCXX_ENABLE_RMM
+      case 'c': app_context->use_cuda_memory = true; break;
+#endif
       case 'h':
       default: printUsage(); return UCS_ERR_INVALID_PARAM;
     }
@@ -260,38 +326,121 @@ BufferMapPtr allocateTransferBuffers(size_t message_size)
                                                {RECV, std::vector<char>(message_size)}});
 }
 
+#ifdef UCXX_ENABLE_RMM
+CudaBufferMapPtr allocateCudaTransferBuffers(size_t message_size)
+{
+  auto bufferMap     = std::make_shared<CudaBufferMap>();
+  (*bufferMap)[SEND] = CudaBuffer(message_size);
+  (*bufferMap)[RECV] = CudaBuffer(message_size);
+
+  // Initialize send buffer with pattern
+  std::vector<char> pattern(message_size, 0xaa);
+  cudaError_t err =
+    cudaMemcpy((*bufferMap)[SEND].ptr, pattern.data(), message_size, cudaMemcpyHostToDevice);
+  if (err != cudaSuccess) {
+    throw std::runtime_error("Failed to initialize CUDA send buffer: " +
+                             std::string(cudaGetErrorString(err)));
+  }
+
+  return bufferMap;
+}
+#endif
+
 auto doTransfer(const app_context_t& app_context,
                 std::shared_ptr<ucxx::Worker> worker,
                 std::shared_ptr<ucxx::Endpoint> endpoint,
                 TagMapPtr tagMap,
                 BufferMapPtr bufferMapReuse)
 {
-  BufferMapPtr localBufferMap;
-  if (!app_context.reuse_alloc) localBufferMap = allocateTransferBuffers(app_context.message_size);
-  BufferMapPtr bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
+#ifdef UCXX_ENABLE_RMM
+  if (app_context.use_cuda_memory) {
+    // CUDA memory transfer
+    static CudaBufferMapPtr cudaBufferMapReuse;
+    CudaBufferMapPtr localCudaBufferMap;
+    if (!app_context.reuse_alloc)
+      localCudaBufferMap = allocateCudaTransferBuffers(app_context.message_size);
+    CudaBufferMapPtr cudaBufferMap =
+      app_context.reuse_alloc ? cudaBufferMapReuse : localCudaBufferMap;
+    if (app_context.reuse_alloc && !cudaBufferMapReuse)
+      cudaBufferMapReuse = allocateCudaTransferBuffers(app_context.message_size);
 
-  auto start                                           = std::chrono::high_resolution_clock::now();
-  std::vector<std::shared_ptr<ucxx::Request>> requests = {
-    endpoint->tagSend((*bufferMap)[SEND].data(), app_context.message_size, (*tagMap)[SEND]),
-    endpoint->tagRecv(
-      (*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
+    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<std::shared_ptr<ucxx::Request>> requests = {
+      endpoint->tagSend((*cudaBufferMap)[SEND].ptr, app_context.message_size, (*tagMap)[SEND]),
+      endpoint->tagRecv(
+        (*cudaBufferMap)[RECV].ptr, app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
 
-  // Wait for requests and clear requests
-  waitRequests(app_context.progress_mode, worker, requests);
-  auto stop = std::chrono::high_resolution_clock::now();
+    // Wait for requests and clear requests
+    waitRequests(app_context.progress_mode, worker, requests);
+    auto stop = std::chrono::high_resolution_clock::now();
 
-  if (app_context.verify_results) {
-    for (size_t j = 0; j < (*bufferMap)[SEND].size(); ++j)
-      assert((*bufferMap)[RECV][j] == (*bufferMap)[RECV][j]);
+    if (app_context.verify_results) {
+      // Copy data back to host for verification
+      std::vector<char> send_data(app_context.message_size);
+      std::vector<char> recv_data(app_context.message_size);
+
+      cudaError_t err1 = cudaMemcpy(send_data.data(),
+                                    (*cudaBufferMap)[SEND].ptr,
+                                    app_context.message_size,
+                                    cudaMemcpyDeviceToHost);
+      cudaError_t err2 = cudaMemcpy(recv_data.data(),
+                                    (*cudaBufferMap)[RECV].ptr,
+                                    app_context.message_size,
+                                    cudaMemcpyDeviceToHost);
+
+      if (err1 != cudaSuccess || err2 != cudaSuccess) {
+        throw std::runtime_error("Failed to copy CUDA data for verification");
+      }
+
+      for (size_t j = 0; j < send_data.size(); ++j)
+        assert(recv_data[j] == send_data[j]);
+    }
+
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+  } else {
+#endif
+    // Host memory transfer
+    BufferMapPtr localBufferMap;
+    if (!app_context.reuse_alloc)
+      localBufferMap = allocateTransferBuffers(app_context.message_size);
+    BufferMapPtr bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<std::shared_ptr<ucxx::Request>> requests = {
+      endpoint->tagSend((*bufferMap)[SEND].data(), app_context.message_size, (*tagMap)[SEND]),
+      endpoint->tagRecv(
+        (*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
+
+    // Wait for requests and clear requests
+    waitRequests(app_context.progress_mode, worker, requests);
+    auto stop = std::chrono::high_resolution_clock::now();
+
+    if (app_context.verify_results) {
+      for (size_t j = 0; j < (*bufferMap)[SEND].size(); ++j)
+        assert((*bufferMap)[RECV][j] == (*bufferMap)[SEND][j]);
+    }
+
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+#ifdef UCXX_ENABLE_RMM
   }
-
-  return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+#endif
 }
 
 int main(int argc, char** argv)
 {
   app_context_t app_context;
   if (parseCommand(&app_context, argc, argv) != UCS_OK) return -1;
+
+#ifdef UCXX_ENABLE_RMM
+  // Check CUDA support if CUDA memory is requested
+  if (app_context.use_cuda_memory) {
+    cudaError_t err = cudaSetDevice(0);
+    if (err != cudaSuccess) {
+      std::cerr << "Failed to set CUDA device: " << cudaGetErrorString(err) << std::endl;
+      return -1;
+    }
+  }
+#endif
 
   // Setup: create UCP context, worker, listener and client endpoint.
   auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
@@ -356,7 +505,17 @@ int main(int argc, char** argv)
     assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
 
   BufferMapPtr bufferMapReuse;
+#ifdef UCXX_ENABLE_RMM
+  if (app_context.reuse_alloc) {
+    if (app_context.use_cuda_memory) {
+      // CUDA reuse buffers are handled inside doTransfer
+    } else {
+      bufferMapReuse = allocateTransferBuffers(app_context.message_size);
+    }
+  }
+#else
   if (app_context.reuse_alloc) bufferMapReuse = allocateTransferBuffers(app_context.message_size);
+#endif
 
   // Warmup
   for (size_t n = 0; n < app_context.warmup_iter; ++n)
