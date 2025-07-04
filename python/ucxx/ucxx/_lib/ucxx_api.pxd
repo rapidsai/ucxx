@@ -9,6 +9,7 @@ from libcpp cimport bool as cpp_bool
 from libcpp.functional cimport function
 from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.optional cimport nullopt_t, optional
+from libcpp.pair cimport pair
 from libcpp.string cimport string
 from libcpp.unordered_map cimport unordered_map as cpp_unordered_map
 from libcpp.vector cimport vector
@@ -53,6 +54,9 @@ cdef extern from "ucp/api/ucp.h" nogil:
         pass
 
     ctypedef uint64_t ucp_tag_t
+
+    ctypedef struct ucp_tag_recv_info_t:
+        pass
 
     ctypedef enum ucs_status_t:
         pass
@@ -155,7 +159,7 @@ cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
         void* data() except +raise_py_error
 
     cdef cppclass RMMBuffer:
-        RMMBuffer(const size_t size_t)
+        RMMBuffer(const size_t size_t) except +raise_py_error
         BufferType getType()
         size_t getSize()
         unique_ptr[device_buffer] release() except +raise_py_error
@@ -174,10 +178,12 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         pass
     cdef enum TagMask:
         pass
+    cdef cppclass TagRecvInfo:
+        TagRecvInfo(const ucp_tag_recv_info_t&)
+        Tag senderTag
+        size_t length
     cdef cppclass AmReceiverCallbackInfo:
         pass
-    # ctypedef Tag CppTag
-    # ctypedef TagMask CppTagMask
 
     # Using function[Buffer] here doesn't seem possible due to Cython bugs/limitations.
     # The workaround is to use a raw C function pointer and let it be parsed by the
@@ -229,6 +235,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args
         ) except +raise_py_error
         void initBlockingProgressMode() except +raise_py_error
+        int getEpollFileDescriptor()
+        bint arm() except +raise_py_error
         void progress()
         bint progressOnce()
         void progressWorkerEvent(int epoll_timeout)
@@ -239,7 +247,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         size_t cancelInflightRequests(
             uint64_t period, uint64_t maxAttempts
         ) except +raise_py_error
-        bint tagProbe(const Tag) const
+        pair[bint, TagRecvInfo] tagProbe(const Tag, const TagMask) const
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callbackArg
         )
@@ -249,6 +257,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         void runRequestNotifier() except +raise_py_error
         void populateFuturesPool() except +raise_py_error
+        void clearFuturesPool()
         shared_ptr[Request] tagRecv(
             void* buffer,
             size_t length,

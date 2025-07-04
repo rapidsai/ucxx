@@ -45,11 +45,11 @@ MemoryHandle::MemoryHandle(std::shared_ptr<Context> context,
 
   utils::ucsErrorThrow(ucp_mem_query(_handle, &attr));
 
-  _baseAddress = (uint64_t)attr.address;
+  _baseAddress = reinterpret_cast<uint64_t>(attr.address);
   _size        = attr.length;
   _memoryType  = attr.mem_type;
 
-  ucxx_trace("MemoryHandle created: %p, UCP handle: %p, base address: 0x%lx, size: %lu, type: %lu",
+  ucxx_trace("MemoryHandle created: %p, UCP handle: %p, base address: 0x%lx, size: %lu, type: %d",
              this,
              _handle,
              _baseAddress,
@@ -61,7 +61,7 @@ MemoryHandle::~MemoryHandle()
 {
   ucp_mem_unmap(std::dynamic_pointer_cast<Context>(getParent())->getHandle(), _handle);
   ucxx_trace(
-    "ucxx::MemoryHandle destroyed: %p, UCP handle: %p, base address: 0x%lx, size: %lu, type: %lu",
+    "ucxx::MemoryHandle destroyed: %p, UCP handle: %p, base address: 0x%lx, size: %lu, type: %d",
     this,
     _handle,
     _baseAddress,

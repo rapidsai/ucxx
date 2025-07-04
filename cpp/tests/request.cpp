@@ -20,6 +20,10 @@
 #include "ucxx/constructors.h"
 #include "ucxx/utils/ucx.h"
 
+#if UCXX_ENABLE_RMM
+#include <rmm/device_buffer.hpp>
+#endif
+
 namespace {
 
 using ::testing::Combine;
@@ -55,17 +59,18 @@ class RequestTest : public ::testing::TestWithParam<
 
   void SetUp()
   {
+    std::tie(_bufferType,
+             _registerCustomAmAllocator,
+             _enableDelayedSubmission,
+             _progressMode,
+             _messageLength) = GetParam();
+
     if (_bufferType == ucxx::BufferType::RMM) {
 #if !UCXX_ENABLE_RMM
       GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
     }
 
-    std::tie(_bufferType,
-             _registerCustomAmAllocator,
-             _enableDelayedSubmission,
-             _progressMode,
-             _messageLength) = GetParam();
     _memoryType =
       (_bufferType == ucxx::BufferType::RMM) ? UCS_MEMORY_TYPE_CUDA : UCS_MEMORY_TYPE_HOST;
     _messageSize = _messageLength * sizeof(int);
@@ -87,6 +92,13 @@ class RequestTest : public ::testing::TestWithParam<
     _progressWorker = getProgressFunction(_worker, _progressMode);
 
     _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  }
+
+  void TearDown()
+  {
+    if (_progressMode == ProgressMode::ThreadPolling ||
+        _progressMode == ProgressMode::ThreadBlocking)
+      _worker->stopProgressThread();
   }
 
   void allocate(const size_t numBuffers = 1, const bool allocateRecvBuffer = true)
@@ -157,13 +169,14 @@ TEST_P(RequestTest, ProgressAm)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
-#if !UCXX_ENABLE_RMM
-  GTEST_SKIP() << "UCXX was not built with RMM support";
-#else
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if !UCXX_ENABLE_RMM
+    GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
     _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
       return std::make_shared<ucxx::RMMBuffer>(length);
     });
+#endif
   }
 
   allocate(1, false);
@@ -187,7 +200,6 @@ TEST_P(RequestTest, ProgressAm)
 
   // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
-#endif
 }
 
 TEST_P(RequestTest, ProgressAmReceiverCallback)
@@ -196,13 +208,14 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
-#if !UCXX_ENABLE_RMM
-  GTEST_SKIP() << "UCXX was not built with RMM support";
-#else
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if !UCXX_ENABLE_RMM
+    GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
     _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
       return std::make_shared<ucxx::RMMBuffer>(length);
     });
+#endif
   }
 
   // Define AM receiver callback's owner and id for callback
@@ -215,7 +228,7 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
   // Define AM receiver callback and register with worker
   std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
   auto callback = ucxx::AmReceiverCallbackType(
-    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req) {
+    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req, ucp_ep_h) {
       {
         std::lock_guard<std::mutex> lock(mutex);
         receivedRequests.push_back(req);
@@ -249,7 +262,6 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
 
   // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
-#endif
 }
 
 TEST_P(RequestTest, ProgressStream)
@@ -363,6 +375,49 @@ TEST_P(RequestTest, TagUserCallback)
 
   for (const auto request : requests)
     ASSERT_THAT(request->getStatus(), UCS_OK);
+  for (const auto status : requestStatus)
+    ASSERT_THAT(status, UCS_OK);
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, TagUserCallbackDiscardReturn)
+{
+  allocate();
+
+  std::vector<ucs_status_t> requestStatus(2, UCS_INPROGRESS);
+
+  auto checkStatus = [&requestStatus](ucs_status_t status, ::ucxx::RequestCallbackUserData data) {
+    auto idx           = *std::static_pointer_cast<size_t>(data);
+    requestStatus[idx] = status;
+  };
+
+  auto checkCompletion = [&requestStatus, this]() {
+    std::vector<size_t> completed(2, 0);
+    while (std::accumulate(completed.begin(), completed.end(), 0) != 2) {
+      _progressWorker();
+      std::transform(
+        requestStatus.begin(), requestStatus.end(), completed.begin(), [](ucs_status_t status) {
+          return status == UCS_INPROGRESS ? 0 : 1;
+        });
+    }
+  };
+
+  auto sendIndex = std::make_shared<size_t>(0u);
+  auto recvIndex = std::make_shared<size_t>(1u);
+
+  // Submit and wait for transfers to complete
+  std::ignore =
+    _ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}, false, checkStatus, sendIndex);
+  std::ignore = _ep->tagRecv(
+    _recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull, false, checkStatus, recvIndex);
+  checkCompletion();
+
+  copyResults();
+
+  for (const auto status : requestStatus)
+    ASSERT_THAT(status, UCS_OK);
 
   // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));

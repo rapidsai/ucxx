@@ -1,5 +1,7 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
+
+# cython: language_level=3
 
 
 from libc.stdint cimport uintptr_t
@@ -22,3 +24,6 @@ cdef class Array:
     cpdef bint _f_contiguous(self)
     cpdef bint _contiguous(self)
     cpdef Py_ssize_t _nbytes(self)
+
+
+cpdef Array asarray(obj)

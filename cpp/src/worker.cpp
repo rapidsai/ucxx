@@ -1,7 +1,8 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdio>
 #include <functional>
 #include <ios>
 #include <memory>
@@ -74,8 +75,8 @@ Worker::Worker(std::shared_ptr<Context> context,
 
 static void _drainCallback(void* request,
                            ucs_status_t status,
-                           const ucp_tag_recv_info_t* info,
-                           void* arg)
+                           const ucp_tag_recv_info_t* /* info */,
+                           void* /* arg */)
 {
   *reinterpret_cast<ucs_status_t*>(request) = status;
 }
@@ -164,8 +165,18 @@ Worker::~Worker()
              _handle,
              canceled);
 
-  stopProgressThreadNoWarn();
-  if (_notifier) _notifier->stopRequestNotifierThread();
+  if (_progressThread.isRunning()) {
+    ucxx_warn(
+      "The progress thread should be explicitly stopped with `stopProgressThread()` to prevent "
+      "unintended effects, such as destructors being called from that thread.");
+    stopProgressThreadNoWarn();
+  }
+  if (_notifier && _notifier->isRunning()) {
+    ucxx_warn(
+      "The notifier thread should be explicitly stopped with `stopNotifierThread()` to prevent "
+      "unintended effects, such as destructors being called from that thread.");
+    _notifier->stopRequestNotifierThread();
+  }
 
   drainWorkerTagRecv();
 
@@ -218,6 +229,14 @@ void Worker::initBlockingProgressMode()
   if (err != 0) {
     throw std::ios_base::failure(std::string("epoll_ctl() returned ") + std::to_string(err));
   }
+}
+
+int Worker::getEpollFileDescriptor()
+{
+  if (_epollFileDescriptor == 0)
+    throw std::runtime_error("Worker not running in blocking progress mode");
+
+  return _epollFileDescriptor;
 }
 
 bool Worker::arm()
@@ -329,11 +348,21 @@ bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t
     }
     signalWorkerFunction();
 
-    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+    size_t retryCount = 0;
+    while (true) {
+      auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
-    if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
-
-    return ret;
+      try {
+        if (!ret) _delayedSubmissionCollection->cancelGenericPre(id);
+        return ret;
+      } catch (const std::runtime_error& e) {
+        if (++retryCount % 10 == 0)
+          ucxx_warn(
+            "Could not cancel after %lu attempts, the callback has not returned and the process "
+            "may stop responding.",
+            retryCount);
+      }
+    }
   }
 }
 
@@ -366,11 +395,21 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
     }
     signalWorkerFunction();
 
-    auto ret = callbackNotifier.wait(period, signalWorkerFunction);
+    size_t retryCount = 0;
+    while (true) {
+      auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
-    if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
-
-    return ret;
+      try {
+        if (!ret) _delayedSubmissionCollection->cancelGenericPost(id);
+        return ret;
+      } catch (const std::runtime_error& e) {
+        if (++retryCount % 10 == 0)
+          ucxx_warn(
+            "Could not cancel after %lu attempts, the callback has not returned and the process "
+            "may stop responding.",
+            retryCount);
+      }
+    }
   }
 }
 
@@ -384,12 +423,11 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
 
 void Worker::populateFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
+void Worker::clearFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
+
 std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
-{
-  THROW_FUTURE_NOT_IMPLEMENTED();
-}
+RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t) { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 void Worker::runRequestNotifier() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
@@ -538,25 +576,17 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(const Tag tag)
+TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
+  : senderTag(Tag(info.sender_tag)), length(info.length)
 {
-  if (!isProgressThreadRunning()) {
-    progress();
-  } else {
-    /**
-     * To ensure the worker was progressed at least once, we must make sure a callback runs
-     * pre-progressing, and another one runs post-progress. Running post-progress only may
-     * indicate the progress thread has immediately finished executing and post-progress
-     * ran without a further progress operation.
-     */
-    std::ignore = registerGenericPre([]() {}, 3000000000 /* 3s */);
-    std::ignore = registerGenericPost([]() {}, 3000000000 /* 3s */);
-  }
+}
 
+std::pair<bool, TagRecvInfo> Worker::tagProbe(const Tag tag, const TagMask tagMask)
+{
   ucp_tag_recv_info_t info;
-  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);
+  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, 0, &info);
 
-  return tag_message != NULL;
+  return {tag_message != NULL, TagRecvInfo(info)};
 }
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -93,13 +93,32 @@ class WorkerProgressThread {
   WorkerProgressThread()                                       = default;
   WorkerProgressThread(const WorkerProgressThread&)            = delete;
   WorkerProgressThread& operator=(WorkerProgressThread const&) = delete;
-  WorkerProgressThread(WorkerProgressThread&& o)               = default;
-  WorkerProgressThread& operator=(WorkerProgressThread&& o)    = default;
 
   /**
-   * @brief Constructor of `shared_ptr<ucxx::Worker>`.
+   * @brief Move constructor of `WorkerProgressThread`.
    *
-   * The constructor for a `shared_ptr<ucxx::Worker>` object. The default constructor is
+   * Transfers ownership of the progress thread resources from the source object to the
+   * newly constructed object. The source object is left in a valid but unspecified state.
+   *
+   * @param[in] o the source object to move from.
+   */
+  WorkerProgressThread(WorkerProgressThread&& o) = default;
+
+  /**
+   * @brief Move assignment operator of `WorkerProgressThread`.
+   *
+   * Transfers ownership of the progress thread resources from the source object to the
+   * target object. The source object is left in a valid but unspecified state.
+   *
+   * @param[in] o the source object to move from.
+   * @returns reference to the target object.
+   */
+  WorkerProgressThread& operator=(WorkerProgressThread&& o) = default;
+
+  /**
+   * @brief Constructor of `WorkerProgressThread`.
+   *
+   * The constructor for a `WorkerProgressThread` object. The default constructor is
    * made private to ensure all UCXX objects are shared pointers for correct
    * lifetime management.
    *
@@ -121,12 +140,12 @@ class WorkerProgressThread {
    * @param[in] pollingMode                 whether the thread should use polling mode to
    *                                        progress.
    * @param[in] progressFunction            user-defined progress function implementation.
+   * @param[in] signalWorkerFunction        user-defined function to wake the worker
+   *                                        progress event (when `pollingMode` is `false`).
    * @param[in] setThreadId                 callback function executed before the
    *                                        `startCallback` with a purpose of setting the
    *                                        thread ID with the parent so it is known before
    *                                        the progress loop starts.
-   * @param[in] signalWorkerFunction        user-defined function to wake the worker
-   *                                        progress event (when `pollingMode` is `false`).
    * @param[in] startCallback               user-defined callback function to be executed
    *                                        at the start of the progress thread.
    * @param[in] startCallbackArg            an argument to be passed to the start callback.
@@ -162,8 +181,18 @@ class WorkerProgressThread {
    */
   [[nodiscard]] std::thread::id getId() const;
 
+  /**
+   * @brief Returns whether the thread is running.
+   *
+   * @returns Whether the thread is running.
+   */
   [[nodiscard]] bool isRunning() const;
 
+  /**
+   * @brief Stop the progress thread.
+   *
+   * Raises the stop signal and joins the thread.
+   */
   void stop();
 };
 

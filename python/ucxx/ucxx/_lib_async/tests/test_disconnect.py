@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -12,7 +12,11 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
-from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import (
+    compute_timeouts,
+    wait_listener_client_handlers,
+)
+from ucxx.testing import terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -27,7 +31,7 @@ async def mp_queue_get_nowait(queue):
 
 
 def _test_shutdown_unexpected_closed_peer_server(
-    client_queue, server_queue, endpoint_error_handling
+    client_queue, server_queue, endpoint_error_handling, timeout
 ):
     global ep_alive
     ep_alive = None
@@ -60,20 +64,25 @@ def _test_shutdown_unexpected_closed_peer_server(
 
     log_stream = StringIO()
     logging.basicConfig(stream=log_stream, level=logging.DEBUG)
-    get_event_loop().run_until_complete(run())
-    log = log_stream.getvalue()
 
-    if endpoint_error_handling is True:
-        assert ep_alive is False
-    else:
-        assert ep_alive
-        assert log.find("""UCXError('<[Send shutdown]""") != -1
+    loop = get_event_loop()
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+        log = log_stream.getvalue()
 
-    ucxx.stop_notifier_thread()
+        if endpoint_error_handling is True:
+            assert ep_alive is False
+        else:
+            assert ep_alive
+            assert log.find("""UCXError('<[Send shutdown]""") != -1
+    finally:
+        ucxx.stop_notifier_thread()
+
+        loop.close()
 
 
 def _test_shutdown_unexpected_closed_peer_client(
-    client_queue, server_queue, endpoint_error_handling
+    client_queue, server_queue, endpoint_error_handling, timeout
 ):
     async def run():
         server_port = client_queue.get()
@@ -85,13 +94,17 @@ def _test_shutdown_unexpected_closed_peer_client(
         msg = np.empty(100, dtype=np.int64)
         await ep.recv(msg)
 
-    get_event_loop().run_until_complete(run())
+    loop = get_event_loop()
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+    finally:
+        ucxx.stop_notifier_thread()
 
-    ucxx.stop_notifier_thread()
+        loop.close()
 
 
 @pytest.mark.parametrize("endpoint_error_handling", [True, False])
-def test_shutdown_unexpected_closed_peer(caplog, endpoint_error_handling):
+def test_shutdown_unexpected_closed_peer(pytestconfig, caplog, endpoint_error_handling):
     """
     Test clean server shutdown after unexpected peer close
 
@@ -99,6 +112,7 @@ def test_shutdown_unexpected_closed_peer(caplog, endpoint_error_handling):
     The main goal is to assert that the processes exit without errors
     despite a somewhat messy initial state.
     """
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
     if endpoint_error_handling is False:
         pytest.xfail(
             "Temporarily xfailing, due to https://github.com/rapidsai/ucxx/issues/21"
@@ -119,17 +133,20 @@ def test_shutdown_unexpected_closed_peer(caplog, endpoint_error_handling):
     server_queue = mp.Queue()
     p1 = mp.Process(
         target=_test_shutdown_unexpected_closed_peer_server,
-        args=(client_queue, server_queue, endpoint_error_handling),
+        args=(client_queue, server_queue, endpoint_error_handling, async_timeout),
     )
     p1.start()
     p2 = mp.Process(
         target=_test_shutdown_unexpected_closed_peer_client,
-        args=(client_queue, server_queue, endpoint_error_handling),
+        args=(client_queue, server_queue, endpoint_error_handling, async_timeout),
     )
     p2.start()
-    p2.join()
-    server_queue.put("client is down")
-    p1.join()
 
-    assert not p1.exitcode
-    assert not p2.exitcode
+    # Increase timeout by an additional 5s to give subprocesses a chance to
+    # timeout before being forcefully terminated.
+    p2.join(timeout=join_timeout)
+    server_queue.put("client is down")
+    p1.join(timeout=join_timeout)
+
+    terminate_process(p2)
+    terminate_process(p1)

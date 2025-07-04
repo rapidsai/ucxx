@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -11,11 +11,13 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop, hash64bits
+from ucxx._lib_async.utils_test import compute_timeouts
+from ucxx.testing import join_processes, terminate_process
 
 mp = mp.get_context("spawn")
 
 
-def _test_from_worker_address_server(queue):
+def _test_from_worker_address_server(queue, timeout):
     async def run():
         # Send worker address to client process via multiprocessing.Queue
         address = ucxx.get_worker_address()
@@ -39,14 +41,15 @@ def _test_from_worker_address_server(queue):
         await ep.close()
 
     loop = get_event_loop()
-    loop.run_until_complete(run())
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+    finally:
+        ucxx.stop_notifier_thread()
 
-    ucxx.stop_notifier_thread()
-
-    loop.close()
+        loop.close()
 
 
-def _test_from_worker_address_client(queue):
+def _test_from_worker_address_client(queue, timeout):
     async def run():
         # Read local worker address
         address = ucxx.get_worker_address()
@@ -68,33 +71,34 @@ def _test_from_worker_address_client(queue):
         np.testing.assert_array_equal(recv_msg, np.arange(10, dtype=np.int64))
 
     loop = get_event_loop()
-    loop.run_until_complete(run())
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+    finally:
+        ucxx.stop_notifier_thread()
 
-    ucxx.stop_notifier_thread()
-
-    loop.close()
+        loop.close()
 
 
-def test_from_worker_address():
+def test_from_worker_address(pytestconfig):
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
+
     queue = mp.Queue()
 
     server = mp.Process(
         target=_test_from_worker_address_server,
-        args=(queue,),
+        args=(queue, async_timeout),
     )
     server.start()
 
     client = mp.Process(
         target=_test_from_worker_address_client,
-        args=(queue,),
+        args=(queue, async_timeout),
     )
     client.start()
 
-    client.join()
-    server.join()
-
-    assert not server.exitcode
-    assert not client.exitcode
+    join_processes([client, server], timeout=join_timeout)
+    terminate_process(client)
+    terminate_process(server)
 
 
 def _get_address_info(address=None):
@@ -158,7 +162,7 @@ def _unpack_address_and_tag(address_packed):
     }
 
 
-def _test_from_worker_address_server_fixedsize(num_nodes, queue):
+def _test_from_worker_address_server_fixedsize(num_nodes, queue, timeout):
     async def run():
         async def _handle_client(packed_remote_address):
             # Unpack the fixed-size address+tag buffer
@@ -199,14 +203,15 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue):
         await asyncio.gather(*server_tasks)
 
     loop = get_event_loop()
-    loop.run_until_complete(run())
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+    finally:
+        ucxx.stop_notifier_thread()
 
-    ucxx.stop_notifier_thread()
-
-    loop.close()
+        loop.close()
 
 
-def _test_from_worker_address_client_fixedsize(queue):
+def _test_from_worker_address_client_fixedsize(queue, timeout):
     async def run():
         # Read local worker address
         address = ucxx.get_worker_address()
@@ -233,20 +238,24 @@ def _test_from_worker_address_client_fixedsize(queue):
         await ep.send(send_msg, tag=send_tag, force_tag=True)
 
     loop = get_event_loop()
-    loop.run_until_complete(run())
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+    finally:
+        ucxx.stop_notifier_thread()
 
-    ucxx.stop_notifier_thread()
-
-    loop.close()
+        loop.close()
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("num_nodes", [1, 2, 4, 8])
-def test_from_worker_address_multinode(num_nodes):
+def test_from_worker_address_multinode(pytestconfig, num_nodes):
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
+
     queue = mp.Queue()
 
     server = mp.Process(
         target=_test_from_worker_address_server_fixedsize,
-        args=(num_nodes, queue),
+        args=(num_nodes, queue, async_timeout),
     )
     server.start()
 
@@ -254,15 +263,12 @@ def test_from_worker_address_multinode(num_nodes):
     for i in range(num_nodes):
         client = mp.Process(
             target=_test_from_worker_address_client_fixedsize,
-            args=(queue,),
+            args=(queue, async_timeout),
         )
         client.start()
         clients.append(client)
 
+    join_processes(clients + [server], timeout=join_timeout)
     for client in clients:
-        client.join()
-
-    server.join()
-
-    assert not server.exitcode
-    assert not client.exitcode
+        terminate_process(client)
+    terminate_process(server)

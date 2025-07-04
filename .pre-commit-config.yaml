@@ -1,4 +1,9 @@
 repos:
+      - repo: https://github.com/pre-commit/pre-commit-hooks
+        rev: v5.0.0
+        hooks:
+              - id: trailing-whitespace
+              - id: end-of-file-fixer
       - repo: https://github.com/pycqa/isort
         rev: 5.12.0
         hooks:
@@ -25,14 +30,14 @@ repos:
         hooks:
               - id: cython-lint
       - repo: https://github.com/pre-commit/mirrors-clang-format
-        rev: v16.0.6
+        rev: v20.1.4
         hooks:
               - id: clang-format
                 files: \.(h|cpp)$
                 types_or: [file]
                 args: ['-fallback-style=none', '-style=file', '-i']
       - repo: https://github.com/cpplint/cpplint
-        rev: 1.6.1
+        rev: 2.0.0
         hooks:
               - id: cpplint
                 name: cpplint
@@ -42,19 +47,42 @@ repos:
                 files: \.(h|cpp)$
                 # exclude: path/to/myfile.h
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.4.0
+        rev: v0.7.0
         hooks:
+            - id: verify-copyright
             - id: verify-alpha-spec
               args:
                 - --fix
-                - --rapids-version=24.12
+                - --rapids-version-file=RAPIDS_VERSION
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.13.11
+        rev: v1.19.0
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
       - repo: local
         hooks:
+            - id: cmake-format
+              name: cmake-format
+              entry: ./cmake/scripts/run-cmake-format.sh cmake-format
+              language: python
+              types: [cmake]
+              # Note that pre-commit autoupdate does not update the versions
+              # of dependencies, so we'll have to update this manually.
+              additional_dependencies:
+                - cmakelang==0.6.13
+              verbose: true
+              require_serial: true
+            - id: cmake-lint
+              name: cmake-lint
+              entry: ./cmake/scripts/run-cmake-format.sh cmake-lint
+              language: python
+              types: [cmake]
+              # Note that pre-commit autoupdate does not update the versions
+              # of dependencies, so we'll have to update this manually.
+              additional_dependencies:
+                - cmakelang==0.6.13
+              verbose: true
+              require_serial: true
             - id: doxygen-check
               name: doxygen-check
               entry: ./ci/checks/doxygen.sh
@@ -74,6 +102,10 @@ repos:
                   .*test.*|
                   ^CHANGELOG.md$
                 )
+      - repo: https://github.com/shellcheck-py/shellcheck-py
+        rev: v0.10.0.1
+        hooks:
+          - id: shellcheck
 
 default_language_version:
       python: python3

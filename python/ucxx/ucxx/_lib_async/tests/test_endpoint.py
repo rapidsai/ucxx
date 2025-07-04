@@ -58,9 +58,6 @@ async def test_close_callback(server_close_callback):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("transfer_api", ["am", "tag", "tag_multi"])
 async def test_cancel(transfer_api):
-    if transfer_api == "am":
-        pytest.skip("AM not implemented yet")
-
     q = Queue()
 
     async def server_node(ep):

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -12,11 +12,13 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
+from ucxx._lib_async.utils_test import compute_timeouts
+from ucxx.testing import join_processes, terminate_process
 
 mp = mp.get_context("spawn")
 
 
-def _test_from_worker_address_error_server(q1, q2, error_type):
+def _test_from_worker_address_error_server(q1, q2, error_type, timeout):
     async def run():
         address = bytearray(ucxx.get_worker_address())
 
@@ -38,17 +40,21 @@ def _test_from_worker_address_error_server(q1, q2, error_type):
             # q1.put("disconnected")
 
     loop = get_event_loop()
-    loop.run_until_complete(run())
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+    finally:
+        ucxx.stop_notifier_thread()
 
-    ucxx.stop_notifier_thread()
-
-    loop.close()
+        loop.close()
 
 
-def _test_from_worker_address_error_client(q1, q2, error_type):
+def _test_from_worker_address_error_client(q1, q2, error_type, timeout):
     async def run():
         # Receive worker address from server via multiprocessing.Queue
         remote_address = ucxx.get_ucx_address_from_buffer(q1.get())
+        if error_type == "unreachable":
+            server_closed = q1.get()
+            assert server_closed == "Server closed"
 
         if error_type == "unreachable":
             with pytest.raises(
@@ -62,6 +68,11 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                 #    "Endpoint timeout" after UCX_UD_TIMEOUT seconds have passed.
                 #    We need to keep progressing ucxx until timeout is raised.
                 ep = await ucxx.create_endpoint_from_worker_address(remote_address)
+                while ep.alive:
+                    await asyncio.sleep(0)
+                    if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
+                        ucxx.progress()
+                ep._ep.raise_on_error()
         else:
             # Create endpoint to remote worker, and:
             #
@@ -129,11 +140,12 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
                     await task
 
     loop = get_event_loop()
-    loop.run_until_complete(run())
+    try:
+        loop.run_until_complete(asyncio.wait_for(run(), timeout=timeout))
+    finally:
+        ucxx.stop_notifier_thread()
 
-    ucxx.stop_notifier_thread()
-
-    loop.close()
+        loop.close()
 
 
 @pytest.mark.parametrize(
@@ -155,37 +167,41 @@ def _test_from_worker_address_error_client(q1, q2, error_type):
         "UCX_UD_TIMEOUT": "100ms",
     },
 )
-def test_from_worker_address_error(error_type):
-    if error_type in ["timeout_am_send", "timeout_am_recv"]:
-        pytest.skip("AM not implemented yet")
+def test_from_worker_address_error(pytestconfig, error_type):
+    async_timeout, join_timeout = compute_timeouts(pytestconfig)
 
     q1 = mp.Queue()
     q2 = mp.Queue()
 
     server = mp.Process(
         target=_test_from_worker_address_error_server,
-        args=(q1, q2, error_type),
+        args=(q1, q2, error_type, async_timeout),
     )
     server.start()
 
     client = mp.Process(
         target=_test_from_worker_address_error_client,
-        args=(q1, q2, error_type),
+        args=(q1, q2, error_type, async_timeout),
     )
     client.start()
 
-    server.join()
-    client.join()
+    if error_type == "unreachable":
+        server.join()
+        q1.put("Server closed")
 
-    assert not server.exitcode
-
-    if ucxx.get_ucx_version() < (1, 12, 0) and client.exitcode == 1:
-        if all(t in error_type for t in ["timeout", "send"]):
-            pytest.xfail(
-                "Requires https://github.com/openucx/ucx/pull/7527 with rc/ud."
-            )
-        elif all(t in error_type for t in ["timeout", "recv"]):
-            pytest.xfail(
-                "Requires https://github.com/openucx/ucx/pull/7531 with rc/ud."
-            )
-    assert not client.exitcode
+    join_processes([client, server], timeout=join_timeout)
+    terminate_process(server)
+    try:
+        terminate_process(client)
+    except RuntimeError as e:
+        if ucxx.get_ucx_version() < (1, 12, 0):
+            if all(t in error_type for t in ["timeout", "send"]):
+                pytest.xfail(
+                    "Requires https://github.com/openucx/ucx/pull/7527 with rc/ud."
+                )
+            elif all(t in error_type for t in ["timeout", "recv"]):
+                pytest.xfail(
+                    "Requires https://github.com/openucx/ucx/pull/7531 with rc/ud."
+                )
+        else:
+            raise e

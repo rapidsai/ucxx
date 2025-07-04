@@ -84,7 +84,7 @@ class Notifier : public ::ucxx::Notifier {
    *
    * @returns The `shared_ptr<ucxx::python::Notifier>` object
    */
-  [[nodiscard]] friend std::shared_ptr<::ucxx::Notifier> createNotifier();
+  friend std::shared_ptr<::ucxx::Notifier> createNotifier();
 
   /**
    * @brief Virtual destructor.
@@ -139,6 +139,13 @@ class Notifier : public ::ucxx::Notifier {
    * that it should stop and exit.
    */
   void stopRequestNotifierThread() override;
+
+  /**
+   * @brief Returns whether the thread is running.
+   *
+   * @returns Whether the thread is running.
+   */
+  [[nodiscard]] bool isRunning() const override;
 };
 
 }  // namespace python
