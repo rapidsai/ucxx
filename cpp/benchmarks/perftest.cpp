@@ -375,12 +375,20 @@ auto doTransfer(const app_context_t& app_context,
     // CUDA memory transfer
     static CudaBufferMapPtr cudaBufferMapReuse;
     CudaBufferMapPtr localCudaBufferMap;
-    if (!app_context.reuse_alloc)
+
+    if (app_context.reuse_alloc) {
+      if (!cudaBufferMapReuse) {
+        cudaBufferMapReuse = allocateCudaTransferBuffers(app_context.message_size);
+      }
+    } else {
       localCudaBufferMap = allocateCudaTransferBuffers(app_context.message_size);
+    }
+
     CudaBufferMapPtr cudaBufferMap =
       app_context.reuse_alloc ? cudaBufferMapReuse : localCudaBufferMap;
-    if (app_context.reuse_alloc && !cudaBufferMapReuse)
-      cudaBufferMapReuse = allocateCudaTransferBuffers(app_context.message_size);
+
+    // Safety check to ensure we have a valid buffer map
+    if (!cudaBufferMap) { throw std::runtime_error("Failed to allocate CUDA buffer map"); }
 
     auto start = std::chrono::high_resolution_clock::now();
     std::vector<std::shared_ptr<ucxx::Request>> requests = {
