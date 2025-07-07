@@ -452,6 +452,34 @@ auto doTransfer(const app_context_t& app_context,
 #endif
 }
 
+void performWireup(const app_context_t& app_context,
+                   std::shared_ptr<ucxx::Worker> worker,
+                   std::shared_ptr<ucxx::Endpoint> endpoint,
+                   TagMapPtr tagMap)
+{
+  // Allocate wireup buffers
+  auto wireupBufferMap = std::make_shared<BufferMap>(
+    BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+
+  // Schedule small wireup messages to let UCX identify capabilities between endpoints
+  requests.push_back(endpoint->tagSend((*wireupBufferMap)[SEND].data(),
+                                       (*wireupBufferMap)[SEND].size() * sizeof(int),
+                                       (*tagMap)[SEND]));
+  requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
+                                       (*wireupBufferMap)[RECV].size() * sizeof(int),
+                                       (*tagMap)[RECV],
+                                       ucxx::TagMaskFull));
+
+  // Wait for wireup requests and clear requests
+  waitRequests(app_context.progress_mode, worker, requests);
+
+  // Verify wireup result
+  for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
+    assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
+}
+
 int main(int argc, char** argv)
 {
   app_context_t app_context;
@@ -507,28 +535,8 @@ int main(int argc, char** argv)
     endpoint = worker->createEndpointFromHostname(
       app_context.server_addr, app_context.listener_port, app_context.endpoint_error_handling);
 
-  std::vector<std::shared_ptr<ucxx::Request>> requests;
-
-  // Allocate wireup buffers
-  auto wireupBufferMap = std::make_shared<BufferMap>(
-    BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
-
-  // Schedule small wireup messages to let UCX identify capabilities between endpoints
-  requests.push_back(endpoint->tagSend((*wireupBufferMap)[SEND].data(),
-                                       (*wireupBufferMap)[SEND].size() * sizeof(int),
-                                       (*tagMap)[SEND]));
-  requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
-                                       (*wireupBufferMap)[RECV].size() * sizeof(int),
-                                       (*tagMap)[RECV],
-                                       ucxx::TagMaskFull));
-
-  // Wait for wireup requests and clear requests
-  waitRequests(app_context.progress_mode, worker, requests);
-  requests.clear();
-
-  // Verify wireup result
-  for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
-    assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
+  // Perform wireup to let UCX identify capabilities between endpoints
+  performWireup(app_context, worker, endpoint, tagMap);
 
   BufferMapPtr bufferMapReuse;
 #ifdef UCXX_ENABLE_RMM
