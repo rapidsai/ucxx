@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cstring>
 #include <future>
 #include <iostream>
 #include <memory>
@@ -37,6 +38,8 @@ enum class ProgressMode {
 enum class MemoryType {
   Host,
   Cuda,
+  CudaManaged,
+  CudaAsync,
 };
 #endif
 
@@ -82,17 +85,115 @@ struct CudaBuffer {
     return *this;
   }
 };
+
+// CUDA managed memory buffer structure
+struct CudaManagedBuffer {
+  void* ptr{nullptr};
+  size_t size{0};
+
+  CudaManagedBuffer() = default;
+  explicit CudaManagedBuffer(size_t buffer_size) : size(buffer_size)
+  {
+    cudaError_t err = cudaMallocManaged(&ptr, size);
+    if (err != cudaSuccess) {
+      throw std::runtime_error("Failed to allocate CUDA managed memory: " +
+                               std::string(cudaGetErrorString(err)));
+    }
+  }
+
+  ~CudaManagedBuffer()
+  {
+    if (ptr) { cudaFree(ptr); }
+  }
+
+  CudaManagedBuffer(const CudaManagedBuffer&)            = delete;
+  CudaManagedBuffer& operator=(const CudaManagedBuffer&) = delete;
+  CudaManagedBuffer(CudaManagedBuffer&& other) noexcept : ptr(other.ptr), size(other.size)
+  {
+    other.ptr  = nullptr;
+    other.size = 0;
+  }
+  CudaManagedBuffer& operator=(CudaManagedBuffer&& other) noexcept
+  {
+    if (this != &other) {
+      if (ptr) cudaFree(ptr);
+      ptr        = other.ptr;
+      size       = other.size;
+      other.ptr  = nullptr;
+      other.size = 0;
+    }
+    return *this;
+  }
+};
+
+// CUDA async memory buffer structure
+struct CudaAsyncBuffer {
+  void* ptr{nullptr};
+  size_t size{0};
+  cudaStream_t stream{nullptr};
+
+  CudaAsyncBuffer() = default;
+  explicit CudaAsyncBuffer(size_t buffer_size) : size(buffer_size)
+  {
+    cudaError_t err = cudaStreamCreate(&stream);
+    if (err != cudaSuccess) {
+      throw std::runtime_error("Failed to create CUDA stream: " +
+                               std::string(cudaGetErrorString(err)));
+    }
+
+    err = cudaMallocAsync(&ptr, size, stream);
+    if (err != cudaSuccess) {
+      cudaStreamDestroy(stream);
+      throw std::runtime_error("Failed to allocate CUDA async memory: " +
+                               std::string(cudaGetErrorString(err)));
+    }
+  }
+
+  ~CudaAsyncBuffer()
+  {
+    if (ptr) { cudaFreeAsync(ptr, stream); }
+    if (stream) { cudaStreamDestroy(stream); }
+  }
+
+  CudaAsyncBuffer(const CudaAsyncBuffer&)            = delete;
+  CudaAsyncBuffer& operator=(const CudaAsyncBuffer&) = delete;
+  CudaAsyncBuffer(CudaAsyncBuffer&& other) noexcept
+    : ptr(other.ptr), size(other.size), stream(other.stream)
+  {
+    other.ptr    = nullptr;
+    other.size   = 0;
+    other.stream = nullptr;
+  }
+  CudaAsyncBuffer& operator=(CudaAsyncBuffer&& other) noexcept
+  {
+    if (this != &other) {
+      if (ptr) cudaFreeAsync(ptr, stream);
+      if (stream) cudaStreamDestroy(stream);
+      ptr          = other.ptr;
+      size         = other.size;
+      stream       = other.stream;
+      other.ptr    = nullptr;
+      other.size   = 0;
+      other.stream = nullptr;
+    }
+    return *this;
+  }
+};
 #endif
 
 typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
 #ifdef UCXX_ENABLE_RMM
 typedef std::unordered_map<transfer_type_t, CudaBuffer> CudaBufferMap;
+typedef std::unordered_map<transfer_type_t, CudaManagedBuffer> CudaManagedBufferMap;
+typedef std::unordered_map<transfer_type_t, CudaAsyncBuffer> CudaAsyncBufferMap;
 #endif
 typedef std::unordered_map<transfer_type_t, ucxx::Tag> TagMap;
 
 typedef std::shared_ptr<BufferMap> BufferMapPtr;
 #ifdef UCXX_ENABLE_RMM
 typedef std::shared_ptr<CudaBufferMap> CudaBufferMapPtr;
+typedef std::shared_ptr<CudaManagedBufferMap> CudaManagedBufferMapPtr;
+typedef std::shared_ptr<CudaAsyncBufferMap> CudaAsyncBufferMapPtr;
 #endif
 typedef std::shared_ptr<TagMap> TagMapPtr;
 
@@ -196,7 +297,8 @@ static void printUsage()
   std::cerr << "  -v          verify results (disabled)" << std::endl;
   std::cerr << "  -w <int>    number of warmup iterations to run (3)" << std::endl;
 #ifdef UCXX_ENABLE_RMM
-  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default) and 'cuda'"
+  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default), 'cuda', "
+               "'cuda-managed', and 'cuda-async'"
             << std::endl;
 #endif
   std::cerr << "  -h          print this help" << std::endl;
@@ -272,6 +374,12 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
           break;
         } else if (strcmp(optarg, "cuda") == 0) {
           app_context->memory_type = MemoryType::Cuda;
+          break;
+        } else if (strcmp(optarg, "cuda-managed") == 0) {
+          app_context->memory_type = MemoryType::CudaManaged;
+          break;
+        } else if (strcmp(optarg, "cuda-async") == 0) {
+          app_context->memory_type = MemoryType::CudaAsync;
           break;
         } else {
           std::cerr << "Invalid memory type: " << optarg << std::endl;
@@ -363,6 +471,47 @@ CudaBufferMapPtr allocateCudaTransferBuffers(size_t message_size)
 
   return bufferMap;
 }
+
+CudaManagedBufferMapPtr allocateCudaManagedTransferBuffers(size_t message_size)
+{
+  auto bufferMap     = std::make_shared<CudaManagedBufferMap>();
+  (*bufferMap)[SEND] = CudaManagedBuffer(message_size);
+  (*bufferMap)[RECV] = CudaManagedBuffer(message_size);
+
+  // Initialize send buffer with pattern (managed memory can be accessed from host)
+  std::vector<char> pattern(message_size, 0xaa);
+  std::memcpy((*bufferMap)[SEND].ptr, pattern.data(), message_size);
+
+  return bufferMap;
+}
+
+CudaAsyncBufferMapPtr allocateCudaAsyncTransferBuffers(size_t message_size)
+{
+  auto bufferMap     = std::make_shared<CudaAsyncBufferMap>();
+  (*bufferMap)[SEND] = CudaAsyncBuffer(message_size);
+  (*bufferMap)[RECV] = CudaAsyncBuffer(message_size);
+
+  // Initialize send buffer with pattern using async copy
+  std::vector<char> pattern(message_size, 0xaa);
+  cudaError_t err = cudaMemcpyAsync((*bufferMap)[SEND].ptr,
+                                    pattern.data(),
+                                    message_size,
+                                    cudaMemcpyHostToDevice,
+                                    (*bufferMap)[SEND].stream);
+  if (err != cudaSuccess) {
+    throw std::runtime_error("Failed to initialize CUDA async send buffer: " +
+                             std::string(cudaGetErrorString(err)));
+  }
+
+  // Synchronize the stream to ensure the copy is complete
+  err = cudaStreamSynchronize((*bufferMap)[SEND].stream);
+  if (err != cudaSuccess) {
+    throw std::runtime_error("Failed to synchronize CUDA stream: " +
+                             std::string(cudaGetErrorString(err)));
+  }
+
+  return bufferMap;
+}
 #endif
 
 auto doTransfer(const app_context_t& app_context,
@@ -417,6 +566,119 @@ auto doTransfer(const app_context_t& app_context,
 
       if (err1 != cudaSuccess || err2 != cudaSuccess) {
         throw std::runtime_error("Failed to copy CUDA data for verification");
+      }
+
+      for (size_t j = 0; j < send_data.size(); ++j)
+        assert(recv_data[j] == send_data[j]);
+    }
+
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+  } else if (app_context.memory_type == MemoryType::CudaManaged) {
+    // CUDA managed memory transfer
+    static CudaManagedBufferMapPtr cudaManagedBufferMapReuse;
+    CudaManagedBufferMapPtr localCudaManagedBufferMap;
+
+    if (app_context.reuse_alloc) {
+      if (!cudaManagedBufferMapReuse) {
+        cudaManagedBufferMapReuse = allocateCudaManagedTransferBuffers(app_context.message_size);
+      }
+    } else {
+      localCudaManagedBufferMap = allocateCudaManagedTransferBuffers(app_context.message_size);
+    }
+
+    CudaManagedBufferMapPtr cudaManagedBufferMap =
+      app_context.reuse_alloc ? cudaManagedBufferMapReuse : localCudaManagedBufferMap;
+
+    // Safety check to ensure we have a valid buffer map
+    if (!cudaManagedBufferMap) {
+      throw std::runtime_error("Failed to allocate CUDA managed buffer map");
+    }
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<std::shared_ptr<ucxx::Request>> requests = {
+      endpoint->tagSend(
+        (*cudaManagedBufferMap)[SEND].ptr, app_context.message_size, (*tagMap)[SEND]),
+      endpoint->tagRecv((*cudaManagedBufferMap)[RECV].ptr,
+                        app_context.message_size,
+                        (*tagMap)[RECV],
+                        ucxx::TagMaskFull)};
+
+    // Wait for requests and clear requests
+    waitRequests(app_context.progress_mode, worker, requests);
+    auto stop = std::chrono::high_resolution_clock::now();
+
+    if (app_context.verify_results) {
+      // Managed memory can be accessed directly from host
+      std::vector<char> send_data(app_context.message_size);
+      std::vector<char> recv_data(app_context.message_size);
+
+      std::memcpy(send_data.data(), (*cudaManagedBufferMap)[SEND].ptr, app_context.message_size);
+      std::memcpy(recv_data.data(), (*cudaManagedBufferMap)[RECV].ptr, app_context.message_size);
+
+      for (size_t j = 0; j < send_data.size(); ++j)
+        assert(recv_data[j] == send_data[j]);
+    }
+
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+  } else if (app_context.memory_type == MemoryType::CudaAsync) {
+    // CUDA async memory transfer
+    static CudaAsyncBufferMapPtr cudaAsyncBufferMapReuse;
+    CudaAsyncBufferMapPtr localCudaAsyncBufferMap;
+
+    if (app_context.reuse_alloc) {
+      if (!cudaAsyncBufferMapReuse) {
+        cudaAsyncBufferMapReuse = allocateCudaAsyncTransferBuffers(app_context.message_size);
+      }
+    } else {
+      localCudaAsyncBufferMap = allocateCudaAsyncTransferBuffers(app_context.message_size);
+    }
+
+    CudaAsyncBufferMapPtr cudaAsyncBufferMap =
+      app_context.reuse_alloc ? cudaAsyncBufferMapReuse : localCudaAsyncBufferMap;
+
+    // Safety check to ensure we have a valid buffer map
+    if (!cudaAsyncBufferMap) {
+      throw std::runtime_error("Failed to allocate CUDA async buffer map");
+    }
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<std::shared_ptr<ucxx::Request>> requests = {
+      endpoint->tagSend((*cudaAsyncBufferMap)[SEND].ptr, app_context.message_size, (*tagMap)[SEND]),
+      endpoint->tagRecv((*cudaAsyncBufferMap)[RECV].ptr,
+                        app_context.message_size,
+                        (*tagMap)[RECV],
+                        ucxx::TagMaskFull)};
+
+    // Wait for requests and clear requests
+    waitRequests(app_context.progress_mode, worker, requests);
+    auto stop = std::chrono::high_resolution_clock::now();
+
+    if (app_context.verify_results) {
+      // Copy data back to host for verification using async copy
+      std::vector<char> send_data(app_context.message_size);
+      std::vector<char> recv_data(app_context.message_size);
+
+      cudaError_t err1 = cudaMemcpyAsync(send_data.data(),
+                                         (*cudaAsyncBufferMap)[SEND].ptr,
+                                         app_context.message_size,
+                                         cudaMemcpyDeviceToHost,
+                                         (*cudaAsyncBufferMap)[SEND].stream);
+      cudaError_t err2 = cudaMemcpyAsync(recv_data.data(),
+                                         (*cudaAsyncBufferMap)[RECV].ptr,
+                                         app_context.message_size,
+                                         cudaMemcpyDeviceToHost,
+                                         (*cudaAsyncBufferMap)[RECV].stream);
+
+      if (err1 != cudaSuccess || err2 != cudaSuccess) {
+        throw std::runtime_error("Failed to copy CUDA async data for verification");
+      }
+
+      // Synchronize streams
+      err1 = cudaStreamSynchronize((*cudaAsyncBufferMap)[SEND].stream);
+      err2 = cudaStreamSynchronize((*cudaAsyncBufferMap)[RECV].stream);
+
+      if (err1 != cudaSuccess || err2 != cudaSuccess) {
+        throw std::runtime_error("Failed to synchronize CUDA streams for verification");
       }
 
       for (size_t j = 0; j < send_data.size(); ++j)
@@ -513,7 +775,9 @@ int main(int argc, char** argv)
 
 #ifdef UCXX_ENABLE_RMM
   // Check CUDA support if CUDA memory is requested
-  if (app_context.memory_type == MemoryType::Cuda) {
+  if (app_context.memory_type == MemoryType::Cuda ||
+      app_context.memory_type == MemoryType::CudaManaged ||
+      app_context.memory_type == MemoryType::CudaAsync) {
     cudaError_t err = cudaSetDevice(0);
     if (err != cudaSuccess) {
       std::cerr << "Failed to set CUDA device: " << cudaGetErrorString(err) << std::endl;
@@ -528,8 +792,8 @@ int main(int argc, char** argv)
 
   bool is_server = app_context.server_addr == NULL;
   auto tagMap    = std::make_shared<TagMap>(TagMap{
-       {SEND, is_server ? ucxx::Tag{0} : ucxx::Tag{1}},
-       {RECV, is_server ? ucxx::Tag{1} : ucxx::Tag{0}},
+       {SEND, is_server ? ucxx::Tag(0) : ucxx::Tag(1)},
+       {RECV, is_server ? ucxx::Tag(1) : ucxx::Tag(0)},
   });
 
   std::shared_ptr<ListenerContext> listener_ctx;
@@ -570,7 +834,9 @@ int main(int argc, char** argv)
   BufferMapPtr bufferMapReuse;
 #ifdef UCXX_ENABLE_RMM
   if (app_context.reuse_alloc) {
-    if (app_context.memory_type == MemoryType::Cuda) {
+    if (app_context.memory_type == MemoryType::Cuda ||
+        app_context.memory_type == MemoryType::CudaManaged ||
+        app_context.memory_type == MemoryType::CudaAsync) {
       // CUDA reuse buffers are handled inside doTransfer
     } else {
       bufferMapReuse = allocateTransferBuffers(app_context.message_size);

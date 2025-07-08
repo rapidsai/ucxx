@@ -88,15 +88,33 @@ $ ./benchmarks/ucxx_perftest -s 800000000 -r -n 10 -P polling 127.0.0.1
 
 #### CUDA Memory Support
 
-When built with `UCXX_ENABLE_RMM=ON`, the benchmark supports CUDA memory transfers using the `-m cuda` flag:
+When built with `UCXX_ENABLE_RMM=ON`, the benchmark supports multiple CUDA memory types using the `-m` flag:
 
 ```
-# Server with CUDA memory
+# Server with CUDA device memory
 $ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda -s 1048576 -r -n 10 -P polling &
 
-# Client with CUDA memory
+# Client with CUDA device memory
 $ ./benchmarks/ucxx_perftest -m cuda -s 1048576 -r -n 10 -P polling 127.0.0.1
+
+# Server with CUDA managed memory (unified memory)
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda-managed -s 1048576 -r -n 10 -P polling &
+
+# Client with CUDA managed memory
+$ ./benchmarks/ucxx_perftest -m cuda-managed -s 1048576 -r -n 10 -P polling 127.0.0.1
+
+# Server with CUDA async memory (with streams)
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda-async -s 1048576 -r -n 10 -P polling &
+
+# Client with CUDA async memory
+$ ./benchmarks/ucxx_perftest -m cuda-async -s 1048576 -r -n 10 -P polling 127.0.0.1
 ```
+
+**Available Memory Types:**
+- `host` - Standard host memory allocation (default)
+- `cuda` - CUDA device memory allocation
+- `cuda-managed` - CUDA unified/managed memory allocation
+- `cuda-async` - CUDA device memory with asynchronous operations
 
 **Requirements for CUDA Support:**
 - UCXX compiled with `UCXX_ENABLE_RMM=ON`
