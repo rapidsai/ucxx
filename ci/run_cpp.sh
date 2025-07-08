@@ -17,7 +17,6 @@ run_cpp_tests() {
   RUNTIME_PATH=${CONDA_PREFIX:-./}
   BINARY_PATH=${RUNTIME_PATH}/bin
 
-  # Only test memory get/put with RMM in protov2, as protov1 segfaults.
   CMD_LINE="timeout 10m ${BINARY_PATH}/gtests/libucxx/UCXX_TEST"
 
   log_command "${CMD_LINE}"
