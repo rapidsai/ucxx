@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import multiprocessing as mp
@@ -15,16 +15,14 @@ WireupMessage = bytearray(b"wireup")
 DataMessage = bytearray(b"0" * 10)
 
 
-def _server_probe(queue, transfer_api):
+def _server_probe(queue, probe_type):
     """Server that probes and receives message after client disconnected.
 
     Note that since it is illegal to call progress() in callback functions,
     we keep a reference to the endpoint after the listener callback has
     terminated, this way we can progress even after Python blocking calls.
     """
-    feature_flags = (
-        ucx_api.Feature.AM if transfer_api == "am" else ucx_api.Feature.TAG,
-    )
+    feature_flags = (ucx_api.Feature.AM if probe_type == "am" else ucx_api.Feature.TAG,)
     ctx = ucx_api.UCXContext(feature_flags=feature_flags)
     worker = ucx_api.UCXWorker(ctx)
 
@@ -47,7 +45,7 @@ def _server_probe(queue, transfer_api):
     ep = ep[0]
 
     # Ensure wireup and inform client before it can disconnect
-    if transfer_api == "am":
+    if probe_type == "am":
         wireup_req = ep.am_recv()
         wait_requests(worker, "blocking", wireup_req)
         wireup = bytes(wireup_req.recv_buffer)
@@ -67,34 +65,44 @@ def _server_probe(queue, transfer_api):
         worker.progress()
 
     # Probe/receive message even after the remote endpoint has disconnected
-    if transfer_api == "am":
+    if probe_type == "am":
         while ep.am_probe() is False:
             worker.progress()
         recv_req = ep.am_recv()
         wait_requests(worker, "blocking", recv_req)
         received = bytes(recv_req.recv_buffer)
-    else:
-        while worker.tag_probe(ucx_api.UCXXTag(0)) is False:
+    elif probe_type == "tag":
+        while not worker.tag_probe(ucx_api.UCXXTag(0)).matched:
             worker.progress()
         received = bytearray(len(DataMessage))
         wait_requests(
             worker,
             "blocking",
-            ep.tag_recv(
+            worker.tag_recv(
                 Array(received),
                 tag=ucx_api.UCXXTag(0),
                 tag_mask=ucx_api.UCXXTagMaskFull,
             ),
+        )
+    elif probe_type == "tag_remove":
+        while True:
+            probe_info = worker.tag_probe(ucx_api.UCXXTag(0), remove=True)
+            if probe_info.matched:
+                break
+            worker.progress()
+        received = bytearray(len(DataMessage))
+        wait_requests(
+            worker,
+            "blocking",
+            worker.tag_recv_with_handle(Array(received), probe_info.handle),
         )
 
     assert wireup == WireupMessage
     assert received == DataMessage
 
 
-def _client_probe(queue, transfer_api):
-    feature_flags = (
-        ucx_api.Feature.AM if transfer_api == "am" else ucx_api.Feature.TAG,
-    )
+def _client_probe(queue, probe_type):
+    feature_flags = (ucx_api.Feature.AM if probe_type == "am" else ucx_api.Feature.TAG,)
     ctx = ucx_api.UCXContext(feature_flags=feature_flags)
     worker = ucx_api.UCXWorker(ctx)
     port = queue.get()
@@ -105,12 +113,17 @@ def _client_probe(queue, transfer_api):
         endpoint_error_handling=True,
     )
 
-    if transfer_api == "am":
+    if probe_type == "am":
         requests = [
             ep.am_send(Array(WireupMessage)),
             ep.am_send(Array(DataMessage)),
         ]
-    else:
+    elif probe_type == "tag":
+        requests = [
+            ep.tag_send(Array(WireupMessage), tag=ucx_api.UCXXTag(0)),
+            ep.tag_send(Array(DataMessage), tag=ucx_api.UCXXTag(0)),
+        ]
+    elif probe_type == "tag_remove":
         requests = [
             ep.tag_send(Array(WireupMessage), tag=ucx_api.UCXXTag(0)),
             ep.tag_send(Array(DataMessage), tag=ucx_api.UCXXTag(0)),
@@ -121,12 +134,12 @@ def _client_probe(queue, transfer_api):
     assert queue.get() == "wireup completed"
 
 
-@pytest.mark.parametrize("transfer_api", ["am", "tag"])
-def test_message_probe(transfer_api):
+@pytest.mark.parametrize("probe_type", ["am", "tag", "tag_remove"])
+def test_message_probe(probe_type):
     queue = mp.Queue()
-    server = mp.Process(target=_server_probe, args=(queue, transfer_api))
+    server = mp.Process(target=_server_probe, args=(queue, probe_type))
     server.start()
-    client = mp.Process(target=_client_probe, args=(queue, transfer_api))
+    client = mp.Process(target=_client_probe, args=(queue, probe_type))
     client.start()
     join_processes([client, server], timeout=10)
     terminate_process(client)

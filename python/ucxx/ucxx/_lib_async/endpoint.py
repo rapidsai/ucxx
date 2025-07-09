@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.)
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.)
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -407,7 +407,7 @@ class Endpoint:
         except Exception as e:
             # Only probe the worker as last resort. To be reliable, probing for the tag
             # requires progressing the worker, thus prevent that happening too often.
-            if not self._ctx.worker.tag_probe(tag):
+            if not self._ctx.worker.tag_probe(tag).matched:
                 raise e
 
         if not isinstance(buffer, Array):
@@ -468,7 +468,7 @@ class Endpoint:
         except Exception as e:
             # Only probe the worker as last resort. To be reliable, probing for the tag
             # requires progressing the worker, thus prevent that happening too often.
-            if not self._ctx.worker.tag_probe(tag):
+            if not self._ctx.worker.tag_probe(tag).matched:
                 raise e
 
         # Optimization to eliminate producing logger string overhead
