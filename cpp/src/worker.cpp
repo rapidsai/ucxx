@@ -581,7 +581,13 @@ TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
 {
 }
 
-std::pair<bool, std::variant<TagRecvInfo, ucp_tag_message_h>> Worker::tagProbe(
+TagRecvInfoWithHandle::TagRecvInfoWithHandle(const ucp_tag_recv_info_t& info,
+                                             ucp_tag_message_h handle)
+  : info(info), handle(handle)
+{
+}
+
+std::pair<bool, std::variant<TagRecvInfo, TagRecvInfoWithHandle>> Worker::tagProbe(
   const Tag tag, const TagMask tagMask, const bool remove)
 {
   ucp_tag_recv_info_t info;
@@ -589,7 +595,7 @@ std::pair<bool, std::variant<TagRecvInfo, ucp_tag_message_h>> Worker::tagProbe(
 
   if (tag_message != NULL) {
     if (remove) {
-      return {true, tag_message};
+      return {true, TagRecvInfoWithHandle(info, tag_message)};
     } else {
       return {true, TagRecvInfo(info)};
     }

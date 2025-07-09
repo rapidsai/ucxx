@@ -93,6 +93,26 @@ class TagRecvInfo {
 };
 
 /**
+ * @brief Information about probed tag message with message handle.
+ *
+ * Contains both the tag receive information and the message handle when probing with
+ * remove=true. This provides complete information about the probed message.
+ */
+class TagRecvInfoWithHandle {
+ public:
+  TagRecvInfo info;          ///< Tag receive information
+  ucp_tag_message_h handle;  ///< Message handle for efficient reception
+
+  /**
+   * @brief Construct a TagRecvInfoWithHandle object from UCP structures.
+   *
+   * @param[in] info    The UCP tag receive info structure.
+   * @param[in] handle  The UCP tag message handle.
+   */
+  TagRecvInfoWithHandle(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
+};
+
+/**
  * @brief A UCP configuration map.
  *
  * A UCP configuration map, with keys being the configuration name and value being the

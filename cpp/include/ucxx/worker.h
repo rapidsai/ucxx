@@ -719,9 +719,10 @@ class Worker : public Component {
    *
    * @returns pair where first element is `true` if any uncaught messages were received,
    *          `false` otherwise, and second element contains either the information from
-   *          the tag receive (when `remove=false`) or a message handle (when `remove=true`).
+   *          the tag receive (when `remove=false`) or both the information and message handle
+   *          (when `remove=true`).
    */
-  [[nodiscard]] std::pair<bool, std::variant<TagRecvInfo, ucp_tag_message_h>> tagProbe(
+  [[nodiscard]] std::pair<bool, std::variant<TagRecvInfo, TagRecvInfoWithHandle>> tagProbe(
     const Tag tag, const TagMask tagMask = TagMaskFull, const bool remove = false);
 
   /**

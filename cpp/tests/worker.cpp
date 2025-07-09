@@ -172,18 +172,19 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
   auto info1 = std::get<ucxx::TagRecvInfo>(probe1.second);
   EXPECT_EQ(info1.length, buf.size() * sizeof(int));
 
-  // Test that tagProbe with remove=true returns message handle
+  // Test that tagProbe with remove=true returns TagRecvInfoWithHandle
   auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
   EXPECT_TRUE(probe2.first);
-  EXPECT_TRUE(std::holds_alternative<ucp_tag_message_h>(probe2.second));
+  EXPECT_TRUE(std::holds_alternative<ucxx::TagRecvInfoWithHandle>(probe2.second));
 
-  auto message_handle = std::get<ucp_tag_message_h>(probe2.second);
-  EXPECT_NE(message_handle, nullptr);
+  auto info_with_handle = std::get<ucxx::TagRecvInfoWithHandle>(probe2.second);
+  EXPECT_EQ(info_with_handle.info.length, buf.size() * sizeof(int));
+  EXPECT_NE(info_with_handle.handle, nullptr);
 
   // Test receiving with the message handle
   std::vector<int> recv_buf(1);
-  auto recv_req =
-    _worker->tagRecvWithHandle(recv_buf.data(), recv_buf.size() * sizeof(int), message_handle);
+  auto recv_req = _worker->tagRecvWithHandle(
+    recv_buf.data(), recv_buf.size() * sizeof(int), info_with_handle.handle);
 
   // Progress until message is received
   while (!recv_req->isCompleted()) {
