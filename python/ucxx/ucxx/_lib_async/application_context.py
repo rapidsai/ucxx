@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
@@ -531,6 +531,37 @@ class ApplicationContext:
         )
         return self.worker.address
 
+    def tag_probe(self, tag, remove=False):
+        """Probe for tag messages directly on worker without a local Endpoint.
+
+        This method checks if a message with the specified tag is available
+        without actually receiving it. This is useful for non-blocking
+        message checking.
+
+        Parameters
+        ----------
+        tag: hashable
+            Set a tag that must match the received message.
+        remove: bool
+            If true, remove the message from the queue and return a
+            message handle for efficient reception. If false, leave
+            the message in the queue.
+
+        Returns
+        -------
+        TagProbeResult
+            A result object containing:
+            - matched: bool indicating if a message was found
+            - sender_tag: int sender tag (when matched=True)
+            - length: int message length in bytes (when matched=True)
+            - handle: int message handle for efficient reception (when matched=True and
+                      remove=True)
+        """
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
+
+        return self.worker.tag_probe(tag, remove=remove)
+
     # @ucx_api.nvtx_annotate("UCXPY_WORKER_RECV", color="red", domain="ucxpy")
     async def recv(self, buffer, tag):
         """Receive directly on worker without a local Endpoint into `buffer`.
@@ -557,4 +588,36 @@ class ApplicationContext:
         logger.debug(log)
 
         req = self.worker.tag_recv(buffer, tag)
+        return await req.wait()
+
+    async def recv_with_handle(self, buffer, message_handle):
+        """Receive tag message using message handle obtained from tag_probe.
+
+        This is more efficient than regular recv as it doesn't need to go through
+        the message matching queue again.
+
+        Parameters
+        ----------
+        buffer: exposing the buffer protocol or array/cuda interface
+            The buffer to receive into. Raise ValueError if buffer
+            is smaller than nbytes or read-only.
+        message_handle: int
+            The message handle obtained from tag_probe with remove=True.
+
+        Returns
+        -------
+        The received data
+        """
+        if not isinstance(buffer, Array):
+            buffer = Array(buffer)
+
+        nbytes = buffer.nbytes
+        log = "[Worker Recv With Handle] worker: %s, nbytes: %d, type: %s" % (
+            hex(self.worker.handle),
+            nbytes,
+            type(buffer.obj),
+        )
+        logger.debug(log)
+
+        req = self.worker.tag_recv_with_handle(buffer, message_handle)
         return await req.wait()

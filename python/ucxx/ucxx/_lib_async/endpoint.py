@@ -373,6 +373,49 @@ class Endpoint:
             self.abort()
         return buffer
 
+    def tag_probe(self, tag=None, force_tag=False, remove=False):
+        """Probe for tag messages without receiving them.
+
+        This method checks if a message with the specified tag is available
+        without actually receiving it. This is useful for non-blocking
+        message checking.
+
+        Parameters
+        ----------
+        tag: hashable, optional
+            Set a tag that must match the received message. Currently
+            the tag is hashed together with the internal Endpoint tag
+            that is agreed with the remote end at connection time.
+            To enforce using the user tag, make sure to specify
+            `force_tag=True`.
+        force_tag: bool
+            If true, force using `tag` as is, otherwise the value
+            specified with `tag` (if any) will be hashed with the
+            internal Endpoint tag.
+        remove: bool
+            If true, remove the message from the queue and return a
+            message handle for efficient reception. If false, leave
+            the message in the queue.
+
+        Returns
+        -------
+        TagProbeResult
+            A result object containing:
+            - matched: bool indicating if a message was found
+            - sender_tag: int sender tag (when matched=True)
+            - length: int message length in bytes (when matched=True)
+            - handle: int message handle for efficient reception (when matched=True and
+                      remove=True)
+        """
+        if tag is None:
+            tag = self._tags["msg_recv"]
+        elif not force_tag:
+            tag = hash64bits(self._tags["msg_recv"], hash(tag))
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
+
+        return self._ctx.worker.tag_probe(tag, remove=remove)
+
     # @ucx_api.nvtx_annotate("UCXPY_RECV", color="red", domain="ucxpy")
     async def recv(self, buffer, tag=None, force_tag=False):
         """Receive from connected peer into `buffer`.
@@ -428,6 +471,51 @@ class Endpoint:
         self._recv_count += 1
 
         req = self._ep.tag_recv(buffer, tag, TagMaskFull)
+        ret = await req.wait()
+
+        self._finished_recv_count += 1
+        if (
+            self._close_after_n_recv is not None
+            and self._finished_recv_count >= self._close_after_n_recv
+        ):
+            self.abort()
+        return ret
+
+    async def recv_with_handle(self, buffer, message_handle):
+        """Receive tag message using message handle obtained from tag_probe.
+
+        This is more efficient than regular recv as it doesn't need to go through
+        the message matching queue again.
+
+        Parameters
+        ----------
+        buffer: exposing the buffer protocol or array/cuda interface
+            The buffer to receive into. Raise ValueError if buffer
+            is smaller than nbytes or read-only.
+        message_handle: int
+            The message handle obtained from tag_probe with remove=True.
+
+        Returns
+        -------
+        The received data
+        """
+        if not isinstance(buffer, Array):
+            buffer = Array(buffer)
+
+        # Optimization to eliminate producing logger string overhead
+        if logger.isEnabledFor(logging.DEBUG):
+            nbytes = buffer.nbytes
+            log = "[Recv With Handle #%03d] ep: 0x%x, nbytes: %d, type: %s" % (
+                self._recv_count,
+                self.uid,
+                nbytes,
+                type(buffer.obj),
+            )
+            logger.debug(log)
+
+        self._recv_count += 1
+
+        req = self._ctx.worker.tag_recv_with_handle(buffer, message_handle)
         ret = await req.wait()
 
         self._finished_recv_count += 1

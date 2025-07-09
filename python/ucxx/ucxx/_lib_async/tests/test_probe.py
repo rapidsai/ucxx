@@ -11,8 +11,8 @@ from ucxx.types import Tag
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("transfer_api", ["am", "tag"])
-async def test_message_probe(transfer_api):
+@pytest.mark.parametrize("probe_type", ["am", "tag", "tag_remove"])
+async def test_message_probe(probe_type):
     msg = bytearray(b"0" * 10)
 
     async def server_node(ep):
@@ -21,14 +21,24 @@ async def test_message_probe(transfer_api):
         while not ep.closed:
             await asyncio.sleep(0)  # Yield task
 
-        if transfer_api == "am":
+        if probe_type == "am":
             assert ep._ep.am_probe() is True
             received = bytes(await ep.am_recv())
-        else:
+        elif probe_type == "tag":
             while not ep._ctx.worker.tag_probe(Tag(ep._tags["msg_recv"])).matched:
                 ucxx.progress()
             received = bytearray(10)
             await ep.recv(received)
+        elif probe_type == "tag_remove":
+            while True:
+                probe_info = ep._ctx.worker.tag_probe(
+                    Tag(ep._tags["msg_recv"]), remove=True
+                )
+                if probe_info.matched:
+                    break
+                ucxx.progress()
+            received = bytearray(10)
+            await ep.recv_with_handle(received, probe_info.handle)  # type: ignore
         assert received == msg
 
         await ep.close()
@@ -39,9 +49,9 @@ async def test_message_probe(transfer_api):
             ucxx.get_address(),
             port,
         )
-        if transfer_api == "am":
+        if probe_type == "am":
             await ep.am_send(msg)
-        else:
+        elif probe_type in ("tag", "tag_remove"):
             await ep.send(msg)
         await ep.close()
 
