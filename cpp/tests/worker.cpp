@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -126,8 +126,71 @@ TEST_F(WorkerTest, TagProbe)
 
   probed = _worker->tagProbe(ucxx::Tag{0});
   ASSERT_TRUE(probed.first);
-  ASSERT_EQ(probed.second.senderTag, ucxx::Tag{0});
-  ASSERT_EQ(probed.second.length, buf.size() * sizeof(int));
+  ASSERT_TRUE(std::holds_alternative<ucxx::TagRecvInfo>(probed.second));
+  auto info = std::get<ucxx::TagRecvInfo>(probed.second);
+  ASSERT_EQ(info.senderTag, ucxx::Tag{0});
+  ASSERT_EQ(info.length, buf.size() * sizeof(int));
+}
+
+TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
+{
+  // Test that tagProbe with remove=false works as before
+  auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
+  EXPECT_FALSE(probe1.first);
+  EXPECT_TRUE(std::holds_alternative<ucxx::TagRecvInfo>(probe1.second));
+
+  // Test that tagProbe with remove=true returns the correct variant type
+  auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+  EXPECT_FALSE(probe2.first);
+  EXPECT_TRUE(std::holds_alternative<ucxx::TagRecvInfo>(probe2.second));
+
+  // Test that when no message is found, both variants return TagRecvInfo
+  auto info1 = std::get<ucxx::TagRecvInfo>(probe1.second);
+  auto info2 = std::get<ucxx::TagRecvInfo>(probe2.second);
+  EXPECT_EQ(info1.length, 0);
+  EXPECT_EQ(info2.length, 0);
+}
+
+TEST_F(WorkerTest, TagProbeRemoveWithMessage)
+{
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  // Send a message
+  std::vector<int> buf{123};
+  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+
+  // Progress until message is sent
+  while (!send_req->isCompleted()) {
+    _worker->progress();
+  }
+
+  // Test that tagProbe with remove=false returns TagRecvInfo
+  auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
+  EXPECT_TRUE(probe1.first);
+  EXPECT_TRUE(std::holds_alternative<ucxx::TagRecvInfo>(probe1.second));
+
+  auto info1 = std::get<ucxx::TagRecvInfo>(probe1.second);
+  EXPECT_EQ(info1.length, buf.size() * sizeof(int));
+
+  // Test that tagProbe with remove=true returns message handle
+  auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+  EXPECT_TRUE(probe2.first);
+  EXPECT_TRUE(std::holds_alternative<ucp_tag_message_h>(probe2.second));
+
+  auto message_handle = std::get<ucp_tag_message_h>(probe2.second);
+  EXPECT_NE(message_handle, nullptr);
+
+  // Test receiving with the message handle
+  std::vector<int> recv_buf(1);
+  auto recv_req =
+    _worker->tagRecvWithHandle(recv_buf.data(), recv_buf.size() * sizeof(int), message_handle);
+
+  // Progress until message is received
+  while (!recv_req->isCompleted()) {
+    _worker->progress();
+  }
+
+  EXPECT_EQ(recv_buf[0], buf[0]);
 }
 
 TEST_F(WorkerTest, AmProbe)
