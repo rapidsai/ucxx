@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <stdexcept>
@@ -75,6 +75,13 @@ TagReceive::TagReceive(void* buffer,
                        const ::ucxx::Tag tag,
                        const ::ucxx::TagMask tagMask)
   : _buffer(buffer), _length(length), _tag(tag), _tagMask(tagMask)
+{
+}
+
+TagReceiveWithHandle::TagReceiveWithHandle(void* buffer,
+                                           const size_t length,
+                                           const ucp_tag_message_h messageHandle)
+  : _buffer(buffer), _length(length), _messageHandle(messageHandle)
 {
 }
 

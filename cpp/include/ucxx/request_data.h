@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -277,6 +277,34 @@ class TagReceive {
 };
 
 /**
+ * @brief Data for a Tag receive using a message handle.
+ *
+ * Type identifying a Tag receive operation using a message handle and containing data
+ * specific to this request type.
+ */
+class TagReceiveWithHandle {
+ public:
+  void* _buffer{nullptr};   ///< The raw pointer where received data should be stored.
+  const size_t _length{0};  ///< The length of the message.
+  const ucp_tag_message_h _messageHandle{};  ///< Message handle obtained from tagProbe
+
+  /**
+   * @brief Constructor for tag receive with handle-specific data.
+   *
+   * Construct an object containing tag receive with handle-specific data.
+   *
+   * @param[out] buffer         a raw pointer to the received data.
+   * @param[in]  length         the size in bytes of the tag message to be received.
+   * @param[in]  messageHandle  the message handle obtained from tagProbe with remove=true.
+   */
+  explicit TagReceiveWithHandle(decltype(_buffer) buffer,
+                                const decltype(_length) length,
+                                const decltype(_messageHandle) messageHandle);
+
+  TagReceiveWithHandle() = delete;
+};
+
+/**
  * @brief Data for a multi-buffer Tag send.
  *
  * Type identifying a multi-buffer Tag send operation and containing data specific to this
@@ -342,6 +370,7 @@ using RequestData = std::variant<std::monostate,
                                  StreamReceive,
                                  TagSend,
                                  TagReceive,
+                                 TagReceiveWithHandle,
                                  TagMultiSend,
                                  TagMultiReceive>;
 

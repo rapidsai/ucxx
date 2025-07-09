@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -100,7 +100,7 @@ class Worker;
 
 [[nodiscard]] std::shared_ptr<RequestTag> createRequestTag(
   std::shared_ptr<Component> endpointOrWorker,
-  const std::variant<data::TagSend, data::TagReceive> requestData,
+  const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
   const bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);

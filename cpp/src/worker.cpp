@@ -581,12 +581,21 @@ TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
 {
 }
 
-std::pair<bool, TagRecvInfo> Worker::tagProbe(const Tag tag, const TagMask tagMask)
+std::pair<bool, std::variant<TagRecvInfo, ucp_tag_message_h>> Worker::tagProbe(
+  const Tag tag, const TagMask tagMask, const bool remove)
 {
   ucp_tag_recv_info_t info;
-  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, 0, &info);
+  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
 
-  return {tag_message != NULL, TagRecvInfo(info)};
+  if (tag_message != NULL) {
+    if (remove) {
+      return {true, tag_message};
+    } else {
+      return {true, TagRecvInfo(info)};
+    }
+  } else {
+    return {false, TagRecvInfo(info)};
+  }
 }
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,
@@ -603,6 +612,22 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                                   enableFuture,
                                                   callbackFunction,
                                                   callbackData));
+}
+
+std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
+                                                   size_t length,
+                                                   ucp_tag_message_h messageHandle,
+                                                   const bool enableFuture,
+                                                   RequestCallbackUserFunction callbackFunction,
+                                                   RequestCallbackUserData callbackData)
+{
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  return registerInflightRequest(
+    createRequestTag(worker,
+                     data::TagReceiveWithHandle(buffer, length, messageHandle),
+                     enableFuture,
+                     callbackFunction,
+                     callbackData));
 }
 
 std::shared_ptr<Address> Worker::getAddress()
