@@ -717,13 +717,13 @@ class Worker : public Component {
    * @param[in] remove   if `true`, remove the message from the queue and return a message
    *                     handle; if `false`, leave the message in the queue.
    *
-   * @returns pair where first element is `true` if any uncaught messages were received,
-   *          `false` otherwise, and second element contains either the information from
-   *          the tag receive (when `remove=false`) or both the information and message handle
-   *          (when `remove=true`).
+   * @returns TagProbeInfo containing whether a message was matched, the tag receive information
+   *          (when matched=true), and optionally the message handle for efficient reception
+   *          (when matched=true and remove=true).
    */
-  [[nodiscard]] std::pair<bool, std::variant<TagRecvInfo, TagRecvInfoWithHandle>> tagProbe(
-    const Tag tag, const TagMask tagMask = TagMaskFull, const bool remove = false);
+  [[nodiscard]] TagProbeInfo tagProbe(const Tag tag,
+                                      const TagMask tagMask = TagMaskFull,
+                                      const bool remove     = false);
 
   /**
    * @brief Enqueue a tag receive operation.

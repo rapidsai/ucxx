@@ -93,23 +93,31 @@ class TagRecvInfo {
 };
 
 /**
- * @brief Information about probed tag message with message handle.
+ * @brief Information about probed tag message.
  *
- * Contains both the tag receive information and the message handle when probing with
- * remove=true. This provides complete information about the probed message.
+ * Contains complete information about a probed tag message, including whether a message
+ * was matched, the tag receive information, and optionally the message handle for efficient
+ * reception when remove=true.
  */
-class TagRecvInfoWithHandle {
+class TagProbeInfo {
  public:
-  TagRecvInfo info;          ///< Tag receive information
-  ucp_tag_message_h handle;  ///< Message handle for efficient reception
+  bool matched;      ///< Whether a message was matched
+  TagRecvInfo info;  ///< Tag receive information (valid when matched=true)
+  ucp_tag_message_h
+    handle;  ///< Message handle for efficient reception (valid when matched=true and remove=true)
 
   /**
-   * @brief Construct a TagRecvInfoWithHandle object from UCP structures.
+   * @brief Construct a TagProbeInfo object when no message is matched.
+   */
+  TagProbeInfo();
+
+  /**
+   * @brief Construct a TagProbeInfo object when a message is matched.
    *
    * @param[in] info    The UCP tag receive info structure.
-   * @param[in] handle  The UCP tag message handle.
+   * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
    */
-  TagRecvInfoWithHandle(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
+  TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
 };
 
 /**

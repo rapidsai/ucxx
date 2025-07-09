@@ -111,7 +111,7 @@ TEST_F(WorkerTest, TagProbe)
   auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
 
   auto probed = _worker->tagProbe(ucxx::Tag{0});
-  ASSERT_FALSE(probed.first);
+  ASSERT_FALSE(probed.matched);
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -121,34 +121,28 @@ TEST_F(WorkerTest, TagProbe)
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
     progressWorker();
     auto probed = _worker->tagProbe(ucxx::Tag{0});
-    return probed.first;
+    return probed.matched;
   });
 
   probed = _worker->tagProbe(ucxx::Tag{0});
-  ASSERT_TRUE(probed.first);
-  ASSERT_TRUE(std::holds_alternative<ucxx::TagRecvInfo>(probed.second));
-  auto info = std::get<ucxx::TagRecvInfo>(probed.second);
-  ASSERT_EQ(info.senderTag, ucxx::Tag{0});
-  ASSERT_EQ(info.length, buf.size() * sizeof(int));
+  ASSERT_TRUE(probed.matched);
+  ASSERT_EQ(probed.info.senderTag, ucxx::Tag{0});
+  ASSERT_EQ(probed.info.length, buf.size() * sizeof(int));
 }
 
 TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
 {
   // Test that tagProbe with remove=false works as before
   auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
-  EXPECT_FALSE(probe1.first);
-  EXPECT_TRUE(std::holds_alternative<ucxx::TagRecvInfo>(probe1.second));
+  EXPECT_FALSE(probe1.matched);
 
-  // Test that tagProbe with remove=true returns the correct variant type
+  // Test that tagProbe with remove=true returns the correct structure
   auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
-  EXPECT_FALSE(probe2.first);
-  EXPECT_TRUE(std::holds_alternative<ucxx::TagRecvInfo>(probe2.second));
+  EXPECT_FALSE(probe2.matched);
 
-  // Test that when no message is found, both variants return TagRecvInfo
-  // Note: When no message is found, the TagRecvInfo contains uninitialized data
-  auto info1 = std::get<ucxx::TagRecvInfo>(probe1.second);
-  auto info2 = std::get<ucxx::TagRecvInfo>(probe2.second);
-  // We don't check the length values since they're uninitialized when no message is found
+  // Test that when no message is matched, both return matched=false
+  EXPECT_EQ(probe1.handle, nullptr);
+  EXPECT_EQ(probe2.handle, nullptr);
 }
 
 TEST_F(WorkerTest, TagProbeRemoveWithMessage)
@@ -164,27 +158,22 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
     _worker->progress();
   }
 
-  // Test that tagProbe with remove=false returns TagRecvInfo
+  // Test that tagProbe with remove=false returns TagProbeInfo
   auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
-  EXPECT_TRUE(probe1.first);
-  EXPECT_TRUE(std::holds_alternative<ucxx::TagRecvInfo>(probe1.second));
+  EXPECT_TRUE(probe1.matched);
+  EXPECT_EQ(probe1.info.length, buf.size() * sizeof(int));
+  EXPECT_EQ(probe1.handle, nullptr);
 
-  auto info1 = std::get<ucxx::TagRecvInfo>(probe1.second);
-  EXPECT_EQ(info1.length, buf.size() * sizeof(int));
-
-  // Test that tagProbe with remove=true returns TagRecvInfoWithHandle
+  // Test that tagProbe with remove=true returns TagProbeInfo with handle
   auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
-  EXPECT_TRUE(probe2.first);
-  EXPECT_TRUE(std::holds_alternative<ucxx::TagRecvInfoWithHandle>(probe2.second));
-
-  auto info_with_handle = std::get<ucxx::TagRecvInfoWithHandle>(probe2.second);
-  EXPECT_EQ(info_with_handle.info.length, buf.size() * sizeof(int));
-  EXPECT_NE(info_with_handle.handle, nullptr);
+  EXPECT_TRUE(probe2.matched);
+  EXPECT_EQ(probe2.info.length, buf.size() * sizeof(int));
+  EXPECT_NE(probe2.handle, nullptr);
 
   // Test receiving with the message handle
   std::vector<int> recv_buf(1);
-  auto recv_req = _worker->tagRecvWithHandle(
-    recv_buf.data(), recv_buf.size() * sizeof(int), info_with_handle.handle);
+  auto recv_req =
+    _worker->tagRecvWithHandle(recv_buf.data(), recv_buf.size() * sizeof(int), probe2.handle);
 
   // Progress until message is received
   while (!recv_req->isCompleted()) {
