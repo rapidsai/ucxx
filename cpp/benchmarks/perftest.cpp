@@ -743,31 +743,6 @@ void performWireup(const app_context_t& app_context,
     assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
 }
 
-// Threaded version of wireup function
-std::future<void> performWireupAsync(const app_context_t& app_context,
-                                     std::shared_ptr<ucxx::Worker> worker,
-                                     std::shared_ptr<ucxx::Endpoint> endpoint,
-                                     TagMapPtr tagMap)
-{
-  return std::async(std::launch::async, [=]() {
-    cudaFree(0);
-    performWireup(app_context, worker, endpoint, tagMap);
-  });
-}
-
-// Threaded version of transfer function
-std::future<size_t> doTransferAsync(const app_context_t& app_context,
-                                    std::shared_ptr<ucxx::Worker> worker,
-                                    std::shared_ptr<ucxx::Endpoint> endpoint,
-                                    TagMapPtr tagMap,
-                                    BufferMapPtr bufferMapReuse)
-{
-  return std::async(std::launch::async, [=]() -> size_t {
-    cudaFree(0);
-    return doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
-  });
-}
-
 int main(int argc, char** argv)
 {
   app_context_t app_context;
@@ -825,11 +800,8 @@ int main(int argc, char** argv)
     endpoint = worker->createEndpointFromHostname(
       app_context.server_addr, app_context.listener_port, app_context.endpoint_error_handling);
 
-  // Perform wireup to let UCX identify capabilities between endpoints in a separate thread
-  auto wireup_future = performWireupAsync(app_context, worker, endpoint, tagMap);
-
-  // Wait for wireup to complete
-  wireup_future.get();
+  // Perform wireup to let UCX identify capabilities between endpoints
+  performWireup(app_context, worker, endpoint, tagMap);
 
   BufferMapPtr bufferMapReuse;
 #ifdef UCXX_ENABLE_RMM
@@ -846,24 +818,14 @@ int main(int argc, char** argv)
   if (app_context.reuse_alloc) bufferMapReuse = allocateTransferBuffers(app_context.message_size);
 #endif
 
-  // Warmup using threaded transfers
-  std::vector<std::future<size_t>> warmup_futures;
-  for (size_t n = 0; n < app_context.warmup_iter; ++n) {
-    warmup_futures.push_back(
-      doTransferAsync(app_context, worker, endpoint, tagMap, bufferMapReuse));
-  }
+  // Warmup
+  for (size_t n = 0; n < app_context.warmup_iter; ++n)
+    doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
 
-  // Wait for all warmup transfers to complete
-  for (auto& future : warmup_futures) {
-    future.get();
-  }
-
-  // Schedule send and recv messages on different tags and different ordering using threaded
-  // transfers
+  // Schedule send and recv messages on different tags and different ordering
   size_t total_duration_ns = 0;
   for (size_t n = 0; n < app_context.n_iter; ++n) {
-    auto transfer_future = doTransferAsync(app_context, worker, endpoint, tagMap, bufferMapReuse);
-    auto duration_ns     = transfer_future.get();
+    auto duration_ns = doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
     total_duration_ns += duration_ns;
     auto elapsed   = parseTime(duration_ns);
     auto bandwidth = parseBandwidth(app_context.message_size * 2, duration_ns);
