@@ -67,7 +67,7 @@ cdef class TagProbeResult:
         return self._probe_info.matched
 
     @property
-    def sender_tag(self) -> int:
+    def sender_tag(self) -> UCXXTag:
         """The sender tag of the matched message.
 
         Returns:
@@ -78,7 +78,7 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        return self._probe_info.info.senderTag
+        return UCXXTag(self._probe_info.info.senderTag)
 
     @property
     def length(self) -> int:
@@ -1597,7 +1597,7 @@ cdef class UCXEndpoint():
 
         with nogil:
             worker = self._endpoint.get().getWorker()
-            worker.get().tagRecvWithHandle(
+            req = worker.get().tagRecvWithHandle(
                 buf,
                 nbytes,
                 handle,

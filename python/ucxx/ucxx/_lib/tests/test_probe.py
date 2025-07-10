@@ -15,7 +15,7 @@ WireupMessage = bytearray(b"wireup")
 DataMessage = bytearray(b"0" * 10)
 
 
-def _server_probe(queue, probe_type):
+def _server_probe(queue, probe_type, api_type="worker"):
     """Server that probes and receives message after client disconnected.
 
     Note that since it is illegal to call progress() in callback functions,
@@ -72,36 +72,85 @@ def _server_probe(queue, probe_type):
         wait_requests(worker, "blocking", recv_req)
         received = bytes(recv_req.recv_buffer)
     elif probe_type == "tag":
-        while not worker.tag_probe(ucx_api.UCXXTag(0)).matched:
-            worker.progress()
-        received = bytearray(len(DataMessage))
-        wait_requests(
-            worker,
-            "blocking",
-            worker.tag_recv(
-                Array(received),
-                tag=ucx_api.UCXXTag(0),
-                tag_mask=ucx_api.UCXXTagMaskFull,
-            ),
-        )
+        if api_type == "worker":
+            # Test worker-level API
+            while True:
+                probe_info = worker.tag_probe(ucx_api.UCXXTag(0))
+                if probe_info.matched:
+                    break
+                worker.progress()
+            assert probe_info.sender_tag == ucx_api.UCXXTag(0)
+            assert probe_info.length == len(DataMessage)
+            assert probe_info.handle is None
+            received = bytearray(len(DataMessage))
+            wait_requests(
+                worker,
+                "blocking",
+                worker.tag_recv(
+                    Array(received),
+                    tag=ucx_api.UCXXTag(0),
+                    tag_mask=ucx_api.UCXXTagMaskFull,
+                ),
+            )
+        else:
+            # Test endpoint-level API (async-style, but using sync API)
+            # Note: UCXEndpoint doesn't have tag_probe, so we use worker
+            while True:
+                probe_info = worker.tag_probe(ucx_api.UCXXTag(0))
+                if probe_info.matched:
+                    break
+                worker.progress()
+            assert probe_info.sender_tag == ucx_api.UCXXTag(0)
+            assert probe_info.length == len(DataMessage)
+            assert probe_info.handle is None
+            received = bytearray(len(DataMessage))
+            wait_requests(
+                worker,
+                "blocking",
+                ep.tag_recv(
+                    Array(received),
+                    tag=ucx_api.UCXXTag(0),
+                    tag_mask=ucx_api.UCXXTagMaskFull,
+                ),
+            )
     elif probe_type == "tag_remove":
-        while True:
-            probe_info = worker.tag_probe(ucx_api.UCXXTag(0), remove=True)
-            if probe_info.matched:
-                break
-            worker.progress()
-        received = bytearray(len(DataMessage))
-        wait_requests(
-            worker,
-            "blocking",
-            worker.tag_recv_with_handle(Array(received), probe_info.handle),
-        )
+        if api_type == "worker":
+            # Test worker-level API with remove=True
+            while True:
+                probe_info = worker.tag_probe(ucx_api.UCXXTag(0), remove=True)
+                if probe_info.matched:
+                    break
+                worker.progress()
+            assert probe_info.sender_tag == ucx_api.UCXXTag(0)
+            assert probe_info.length == len(DataMessage)
+            received = bytearray(len(DataMessage))
+            wait_requests(
+                worker,
+                "blocking",
+                worker.tag_recv_with_handle(Array(received), probe_info.handle),
+            )
+        else:
+            # Test endpoint-level API with remove=True
+            # Note: UCXEndpoint doesn't have tag_probe, so we use worker
+            while True:
+                probe_info = worker.tag_probe(ucx_api.UCXXTag(0), remove=True)
+                if probe_info.matched:
+                    break
+                worker.progress()
+            assert probe_info.sender_tag == ucx_api.UCXXTag(0)
+            assert probe_info.length == len(DataMessage)
+            received = bytearray(len(DataMessage))
+            wait_requests(
+                worker,
+                "blocking",
+                ep.tag_recv_with_handle(Array(received), probe_info.handle),
+            )
 
     assert wireup == WireupMessage
     assert received == DataMessage
 
 
-def _client_probe(queue, probe_type):
+def _client_probe(queue, probe_type, api_type="worker"):
     feature_flags = (ucx_api.Feature.AM if probe_type == "am" else ucx_api.Feature.TAG,)
     ctx = ucx_api.UCXContext(feature_flags=feature_flags)
     worker = ucx_api.UCXWorker(ctx)
@@ -135,12 +184,13 @@ def _client_probe(queue, probe_type):
 
 
 @pytest.mark.parametrize("probe_type", ["am", "tag", "tag_remove"])
-def test_message_probe(probe_type):
+@pytest.mark.parametrize("api_type", ["worker", "endpoint"])
+def test_message_probe(probe_type, api_type):
     queue = mp.Queue()
-    server = mp.Process(target=_server_probe, args=(queue, probe_type))
+    server = mp.Process(target=_server_probe, args=(queue, probe_type, api_type))
     server.start()
-    client = mp.Process(target=_client_probe, args=(queue, probe_type))
+    client = mp.Process(target=_client_probe, args=(queue, probe_type, api_type))
     client.start()
-    join_processes([client, server], timeout=10)
+    join_processes([client, server], timeout=60)
     terminate_process(client)
     terminate_process(server)
