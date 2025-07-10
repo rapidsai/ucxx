@@ -32,17 +32,29 @@ async def _server_node(ep, listener=None, coroutine=None):
 
 async def _server_node_context_tag_coroutine(ep):
     ctx = ep._ctx
-    while not ctx.tag_probe(Tag(ep._tags["msg_recv"])).matched:
+    while True:
+        probe_info = ctx.tag_probe(Tag(ep._tags["msg_recv"]))
+        if probe_info.matched:
+            break
         ucxx.progress()
-    received = bytearray(10)
+    assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
+    assert probe_info.length == len(Message)
+    assert probe_info.handle is None
+    received = bytearray(len(Message))
     await ctx.recv(received, Tag(ep._tags["msg_recv"]))
     return received
 
 
 async def _server_node_endpoint_tag_coroutine(ep):
-    while not ep.tag_probe().matched:
+    while True:
+        probe_info = ep.tag_probe()
+        if probe_info.matched:
+            break
         ucxx.progress()
-    received = bytearray(10)
+    assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
+    assert probe_info.length == len(Message)
+    assert probe_info.handle is None
+    received = bytearray(len(Message))
     await ep.recv(received)
     return received
 
@@ -54,7 +66,9 @@ async def _server_node_context_tag_remove_coroutine(ep):
         if probe_info.matched:
             break
         ucxx.progress()
-    received = bytearray(10)
+    assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
+    assert probe_info.length == len(Message)
+    received = bytearray(len(Message))
     await ctx.recv_with_handle(received, probe_info.handle)  # type: ignore
     return received
 
@@ -65,7 +79,9 @@ async def _server_node_endpoint_tag_remove_coroutine(ep):
         if probe_info.matched:
             break
         ucxx.progress()
-    received = bytearray(10)
+    assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
+    assert probe_info.length == len(Message)
+    received = bytearray(len(Message))
     await ep.recv_with_handle(received, probe_info.handle)  # type: ignore
     return received
 
