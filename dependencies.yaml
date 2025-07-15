@@ -289,7 +289,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numba numba>=0.59.1,<0.62.0a0
+          - &numba-cuda numba-cuda>=0.16.0,<0.17.0a0
           - rapids-dask-dependency==25.8.*,>=0.0.0a0
   test_cpp:
     common:
@@ -301,7 +301,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - *numba
+          - *numba-cuda
           - pytest==7.*
           - pytest-asyncio
           - pytest-rerunfailures
