@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 :ref:`UCX`_ based communications for distributed.
 
@@ -8,6 +11,7 @@ See :ref:`communications` for more.
 from __future__ import annotations
 
 import functools
+import gc
 import itertools
 import logging
 import os
@@ -91,6 +95,17 @@ def synchronize_stream(stream=0):
     stream.synchronize()
 
 
+class gc_disabled:
+    def __enter__(self):
+        self.was_enabled = gc.isenabled()
+        if self.was_enabled:
+            gc.disable()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.was_enabled:
+            gc.enable()
+
+
 def make_register():
     count = itertools.count()
 
@@ -110,12 +125,16 @@ def make_register():
             `_deregister_dask_resource` during stop/destruction of the resource.
         """
         ctx = ucxx.core._get_ctx()
-        with ctx._dask_resources_lock:
-            resource_id = next(count)
-            ctx._dask_resources.add(resource_id)
-            ctx.start_notifier_thread()
-            ctx.continuous_ucx_progress()
-            return resource_id
+        with gc_disabled():
+            # Disable garbage collection to avoid deadlocks should the garbage collector
+            # run within the lock, where `_deregister_dask_resource` finalizer may be
+            # called.
+            with ctx._dask_resources_lock:
+                resource_id = next(count)
+                ctx._dask_resources.add(resource_id)
+                ctx.start_notifier_thread()
+                ctx.continuous_ucx_progress()
+                return resource_id
 
     return register
 
@@ -253,7 +272,10 @@ def init_once():
         # that don't override ucx_config or existing slots in the
         # environment, so the user's external environment can safely
         # override things here.
-        ucxx.init(options=ucx_config, env_takes_precedence=True)
+        progress_mode = None if "UCXPY_PROGRESS_MODE" in os.environ else "blocking"
+        ucxx.init(
+            options=ucx_config, env_takes_precedence=True, progress_mode=progress_mode
+        )
         _allocate_dask_resources_tracker()
 
     pool_size_str = dask.config.get("distributed.rmm.pool-size")
@@ -378,8 +400,8 @@ class UCXX(Comm):
         self._ep = ep
         self._ep_handle = int(self._ep._ep.handle)
         if local_addr:
-            assert local_addr.startswith("ucxx")
-        assert peer_addr.startswith("ucxx")
+            assert local_addr.startswith(("ucx://", "ucxx://"))
+        assert peer_addr.startswith(("ucx://", "ucxx://"))
         self._local_addr = local_addr
         self._peer_addr = peer_addr
         self.comm_flag = None
