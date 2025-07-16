@@ -15,7 +15,7 @@ install_distributed_dev_mode() {
   # developer mode. This isn't a great solution but it's what we can currently do
   # to run non-public API tests in CI.
 
-  rapids-logger "Install Distributed in developer mode"
+  log_message "Install Distributed in developer mode"
   MAX_ATTEMPTS=5
   for attempt in $(seq 1 $MAX_ATTEMPTS); do
     rm -rf /tmp/distributed
@@ -25,7 +25,7 @@ install_distributed_dev_mode() {
     else
 
       if [ "$attempt" -eq $MAX_ATTEMPTS ]; then
-        rapids-logger "Maximum number of attempts to clone Distributed failed."
+        log_message "Maximum number of attempts to clone Distributed failed."
         exit 1
       fi
 
