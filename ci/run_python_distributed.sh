@@ -36,10 +36,11 @@ install_distributed_dev_mode() {
   done
 
   pip install -e /tmp/distributed
-  # `pip install -e` removes files under `distributed` but not the directory, later
-  # causing failures to import modules.
-  PYTHON_ENV_PATH=${CONDA_PREFIX:-/pyenv}
-  rm -rf "$(find "${PYTHON_ENV_PATH}" -type d -iname "site-packages")/distributed"
+  # `pip install -e` removes files under `distributed` but not the directory if it
+  # contains `__pycache__`, later causing failures to import modules.
+  python -c "import os, shutil, site; \
+    [shutil.rmtree(os.path.join(p, 'distributed'), ignore_errors=True) \
+    for p in site.getsitepackages()]"
 }
 
 run_distributed_ucxx_tests() {
