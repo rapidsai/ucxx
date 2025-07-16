@@ -15,17 +15,19 @@ install_distributed_dev_mode() {
   # developer mode. This isn't a great solution but it's what we can currently do
   # to run non-public API tests in CI.
 
-  rapids-logger "Install Distributed in developer mode"
+  log_message "Install Distributed in developer mode"
   MAX_ATTEMPTS=5
   for attempt in $(seq 1 $MAX_ATTEMPTS); do
+    DISTRIBUTED_VERSION=$(pip list | grep distributed | grep "distributed.*20" | awk '{print $2}')
+
     rm -rf /tmp/distributed
 
-    if git clone https://github.com/dask/distributed /tmp/distributed -b 2024.1.1; then
+    if git clone https://github.com/dask/distributed /tmp/distributed -b "${DISTRIBUTED_VERSION}"; then
       break
     else
 
       if [ "$attempt" -eq $MAX_ATTEMPTS ]; then
-        rapids-logger "Maximum number of attempts to clone Distributed failed."
+        log_message "Maximum number of attempts to clone Distributed failed."
         exit 1
       fi
 
