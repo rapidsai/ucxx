@@ -292,13 +292,13 @@ dependencies:
           - rapids-dask-dependency==25.8.*,>=0.0.0a0
       - output_types: [conda]
         packages:
-          - &numba-cuda numba-cuda>=0.15.2,<0.16.0a0
+          - &numba-cuda numba-cuda>=0.14.0,<0.15.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - &numba-cuda-cu12-dep numba-cuda[cu12]>=0.15.2,<0.16.0a0
+              - &numba-cuda-cu12-dep numba-cuda[cu12]>=0.14.0,<0.15.0a0
           - matrix: # Fallback for no matrix
             packages:
               - *numba-cuda-cu12-dep
