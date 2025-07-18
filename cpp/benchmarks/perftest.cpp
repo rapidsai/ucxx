@@ -63,15 +63,6 @@ enum class ProgressMode {
   ThreadBlocking,
 };
 
-enum class MemoryType {
-  Host,
-#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  Cuda,
-  CudaManaged,
-  CudaAsync,
-#endif
-};
-
 struct app_context_t {
   ProgressMode progress_mode   = ProgressMode::Blocking;
   const char* server_addr      = NULL;
@@ -325,77 +316,20 @@ std::string parseBandwidth(size_t totalBytes, size_t countNs)
 auto doTransfer(const app_context_t& app_context,
                 std::shared_ptr<ucxx::Worker> worker,
                 std::shared_ptr<ucxx::Endpoint> endpoint,
-                TagMapPtr tagMap,
-                BufferMapPtr bufferMapReuse)
+                TagMapPtr tagMap)
 {
   std::unique_ptr<BufferInterface> bufferInterface;
 
   // Allocate buffers based on memory type
   if (app_context.memory_type == MemoryType::Host) {
-    BufferMapPtr localBufferMap;
-    if (!app_context.reuse_alloc)
-      localBufferMap = allocateTransferBuffers(app_context.message_size);
-    BufferMapPtr bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
-    bufferInterface        = std::make_unique<HostBufferInterface>(bufferMap);
+    // Use the factory method to create the appropriate host buffer interface
+    bufferInterface =
+      HostBufferInterface::createBufferInterface(app_context.message_size, app_context.reuse_alloc);
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  } else if (app_context.memory_type == MemoryType::Cuda) {
-    static CudaBufferMapPtr cudaBufferMapReuse;
-    CudaBufferMapPtr localCudaBufferMap;
-
-    if (app_context.reuse_alloc) {
-      if (!cudaBufferMapReuse) {
-        cudaBufferMapReuse = CudaDeviceBufferInterface::allocateBuffers(app_context.message_size);
-      }
-    } else {
-      localCudaBufferMap = CudaDeviceBufferInterface::allocateBuffers(app_context.message_size);
-    }
-
-    CudaBufferMapPtr cudaBufferMap =
-      app_context.reuse_alloc ? cudaBufferMapReuse : localCudaBufferMap;
-
-    if (!cudaBufferMap) { throw std::runtime_error("Failed to allocate CUDA buffer map"); }
-    bufferInterface = std::make_unique<CudaDeviceBufferInterface>(cudaBufferMap);
-  } else if (app_context.memory_type == MemoryType::CudaManaged) {
-    static CudaManagedBufferMapPtr cudaManagedBufferMapReuse;
-    CudaManagedBufferMapPtr localCudaManagedBufferMap;
-
-    if (app_context.reuse_alloc) {
-      if (!cudaManagedBufferMapReuse) {
-        cudaManagedBufferMapReuse =
-          CudaManagedBufferInterface::allocateBuffers(app_context.message_size);
-      }
-    } else {
-      localCudaManagedBufferMap =
-        CudaManagedBufferInterface::allocateBuffers(app_context.message_size);
-    }
-
-    CudaManagedBufferMapPtr cudaManagedBufferMap =
-      app_context.reuse_alloc ? cudaManagedBufferMapReuse : localCudaManagedBufferMap;
-
-    if (!cudaManagedBufferMap) {
-      throw std::runtime_error("Failed to allocate CUDA managed buffer map");
-    }
-    bufferInterface = std::make_unique<CudaManagedBufferInterface>(cudaManagedBufferMap);
-  } else if (app_context.memory_type == MemoryType::CudaAsync) {
-    static CudaAsyncBufferMapPtr cudaAsyncBufferMapReuse;
-    CudaAsyncBufferMapPtr localCudaAsyncBufferMap;
-
-    if (app_context.reuse_alloc) {
-      if (!cudaAsyncBufferMapReuse) {
-        cudaAsyncBufferMapReuse =
-          CudaAsyncBufferInterface::allocateBuffers(app_context.message_size);
-      }
-    } else {
-      localCudaAsyncBufferMap = CudaAsyncBufferInterface::allocateBuffers(app_context.message_size);
-    }
-
-    CudaAsyncBufferMapPtr cudaAsyncBufferMap =
-      app_context.reuse_alloc ? cudaAsyncBufferMapReuse : localCudaAsyncBufferMap;
-
-    if (!cudaAsyncBufferMap) {
-      throw std::runtime_error("Failed to allocate CUDA async buffer map");
-    }
-    bufferInterface = std::make_unique<CudaAsyncBufferInterface>(cudaAsyncBufferMap);
+  } else {
+    // Use the factory method to create the appropriate CUDA buffer interface
+    bufferInterface = CudaBufferInterfaceBase::createBufferInterface(
+      app_context.memory_type, app_context.message_size, app_context.reuse_alloc);
 #endif
   }
 
@@ -504,32 +438,18 @@ int main(int argc, char** argv)
   // Perform wireup to let UCX identify capabilities between endpoints
   UCXX_EXIT_ON_ERROR(performWireup(app_context, worker, endpoint, tagMap), "Wireup");
 
-  BufferMapPtr bufferMapReuse;
-#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  if (app_context.reuse_alloc) {
-    if (app_context.memory_type == MemoryType::Cuda ||
-        app_context.memory_type == MemoryType::CudaManaged ||
-        app_context.memory_type == MemoryType::CudaAsync) {
-      // CUDA reuse buffers are handled inside doTransfer
-    } else {
-      bufferMapReuse = allocateTransferBuffers(app_context.message_size);
-    }
-  }
-#else
-  if (app_context.reuse_alloc) bufferMapReuse = allocateTransferBuffers(app_context.message_size);
-#endif
+  // Buffer reuse is now handled by the factory methods
 
   // Warmup
   for (size_t n = 0; n < app_context.warmup_iter; ++n)
-    UCXX_EXIT_ON_ERROR(doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse),
+    UCXX_EXIT_ON_ERROR(doTransfer(app_context, worker, endpoint, tagMap),
                        "Warmup iteration " + std::to_string(n));
 
   // Schedule send and recv messages on different tags and different ordering
   size_t total_duration_ns = 0;
   for (size_t n = 0; n < app_context.n_iter; ++n) {
-    auto duration_ns =
-      UCXX_EXIT_ON_ERROR(doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse),
-                         "Transfer iteration " + std::to_string(n));
+    auto duration_ns = UCXX_EXIT_ON_ERROR(doTransfer(app_context, worker, endpoint, tagMap),
+                                          "Transfer iteration " + std::to_string(n));
     total_duration_ns += duration_ns;
     auto elapsed   = parseTime(duration_ns);
     auto bandwidth = parseBandwidth(app_context.message_size * 2, duration_ns);
