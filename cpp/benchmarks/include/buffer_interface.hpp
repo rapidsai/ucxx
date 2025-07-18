@@ -238,6 +238,9 @@ struct CudaBufferInterface : public BufferInterface {
     for (size_t j = 0; j < send_data.size(); ++j)
       assert(recv_data[j] == send_data[j]);
   }
+
+  // Static allocation methods
+  static std::shared_ptr<std::unordered_map<transfer_type_t, BufferType>> allocateBuffers(size_t message_size);
 };
 
 // Specialization for managed memory (no copy needed)
@@ -262,6 +265,20 @@ struct CudaBufferInterface<CudaManagedBuffer> : public BufferInterface {
     for (size_t j = 0; j < send_data.size(); ++j)
       assert(recv_data[j] == send_data[j]);
   }
+
+  // Static allocation method for managed memory
+  static CudaManagedBufferMapPtr allocateBuffers(size_t message_size)
+  {
+    auto bufferMap     = std::make_shared<CudaManagedBufferMap>();
+    (*bufferMap)[SEND] = CudaManagedBuffer(message_size);
+    (*bufferMap)[RECV] = CudaManagedBuffer(message_size);
+
+    // Initialize send buffer with pattern (managed memory can be accessed from host)
+    std::vector<char> pattern(message_size, 0xaa);
+    std::memcpy((*bufferMap)[SEND].ptr, pattern.data(), message_size);
+
+    return bufferMap;
+  }
 };
 
 // Type aliases for convenience
@@ -276,7 +293,9 @@ BufferMapPtr allocateTransferBuffers(size_t message_size)
                                                {RECV, std::vector<char>(message_size)}});
 }
 
-CudaBufferMapPtr allocateCudaTransferBuffers(size_t message_size)
+// Template specialization implementations for allocation methods
+template<>
+std::shared_ptr<CudaBufferMap> CudaBufferInterface<CudaBuffer>::allocateBuffers(size_t message_size)
 {
   auto bufferMap     = std::make_shared<CudaBufferMap>();
   (*bufferMap)[SEND] = CudaBuffer(message_size);
@@ -291,20 +310,8 @@ CudaBufferMapPtr allocateCudaTransferBuffers(size_t message_size)
   return bufferMap;
 }
 
-CudaManagedBufferMapPtr allocateCudaManagedTransferBuffers(size_t message_size)
-{
-  auto bufferMap     = std::make_shared<CudaManagedBufferMap>();
-  (*bufferMap)[SEND] = CudaManagedBuffer(message_size);
-  (*bufferMap)[RECV] = CudaManagedBuffer(message_size);
-
-  // Initialize send buffer with pattern (managed memory can be accessed from host)
-  std::vector<char> pattern(message_size, 0xaa);
-  std::memcpy((*bufferMap)[SEND].ptr, pattern.data(), message_size);
-
-  return bufferMap;
-}
-
-CudaAsyncBufferMapPtr allocateCudaAsyncTransferBuffers(size_t message_size)
+template<>
+std::shared_ptr<CudaAsyncBufferMap> CudaBufferInterface<CudaAsyncBuffer>::allocateBuffers(size_t message_size)
 {
   auto bufferMap     = std::make_shared<CudaAsyncBufferMap>();
   (*bufferMap)[SEND] = CudaAsyncBuffer(message_size);

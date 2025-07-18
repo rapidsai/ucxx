@@ -344,10 +344,10 @@ auto doTransfer(const app_context_t& app_context,
 
     if (app_context.reuse_alloc) {
       if (!cudaBufferMapReuse) {
-        cudaBufferMapReuse = allocateCudaTransferBuffers(app_context.message_size);
+        cudaBufferMapReuse = CudaDeviceBufferInterface::allocateBuffers(app_context.message_size);
       }
     } else {
-      localCudaBufferMap = allocateCudaTransferBuffers(app_context.message_size);
+      localCudaBufferMap = CudaDeviceBufferInterface::allocateBuffers(app_context.message_size);
     }
 
     CudaBufferMapPtr cudaBufferMap =
@@ -361,10 +361,12 @@ auto doTransfer(const app_context_t& app_context,
 
     if (app_context.reuse_alloc) {
       if (!cudaManagedBufferMapReuse) {
-        cudaManagedBufferMapReuse = allocateCudaManagedTransferBuffers(app_context.message_size);
+        cudaManagedBufferMapReuse =
+          CudaManagedBufferInterface::allocateBuffers(app_context.message_size);
       }
     } else {
-      localCudaManagedBufferMap = allocateCudaManagedTransferBuffers(app_context.message_size);
+      localCudaManagedBufferMap =
+        CudaManagedBufferInterface::allocateBuffers(app_context.message_size);
     }
 
     CudaManagedBufferMapPtr cudaManagedBufferMap =
@@ -380,10 +382,11 @@ auto doTransfer(const app_context_t& app_context,
 
     if (app_context.reuse_alloc) {
       if (!cudaAsyncBufferMapReuse) {
-        cudaAsyncBufferMapReuse = allocateCudaAsyncTransferBuffers(app_context.message_size);
+        cudaAsyncBufferMapReuse =
+          CudaAsyncBufferInterface::allocateBuffers(app_context.message_size);
       }
     } else {
-      localCudaAsyncBufferMap = allocateCudaAsyncTransferBuffers(app_context.message_size);
+      localCudaAsyncBufferMap = CudaAsyncBufferInterface::allocateBuffers(app_context.message_size);
     }
 
     CudaAsyncBufferMapPtr cudaAsyncBufferMap =
