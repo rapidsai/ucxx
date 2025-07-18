@@ -17,7 +17,6 @@
 #include <unordered_map>
 #include <vector>
 
-// CUDA includes (conditional)
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 #include <cuda_runtime.h>
 #endif
@@ -40,6 +39,19 @@
       std::exit(-1);                                                                            \
     }                                                                                           \
   })()
+
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+#define CUDA_EXIT_ON_ERROR(operation, context)                                                  \
+  ([&]() {                                                                                      \
+    cudaError_t err = operation;                                                                \
+    if (err != cudaSuccess) {                                                                   \
+      std::cerr << "CUDA error in " << context << " at " << __FILE__ << ":" << __LINE__ << ": " \
+                << cudaGetErrorString(err) << std::endl;                                        \
+      std::exit(-1);                                                                            \
+    }                                                                                           \
+    return err;                                                                                 \
+  })()
+#endif
 
 enum class ProgressMode {
   Polling,
@@ -69,11 +81,7 @@ struct CudaBuffer {
   CudaBuffer() = default;
   explicit CudaBuffer(size_t buffer_size) : size(buffer_size)
   {
-    cudaError_t err = cudaMalloc(&ptr, size);
-    if (err != cudaSuccess) {
-      throw std::runtime_error("Failed to allocate CUDA memory: " +
-                               std::string(cudaGetErrorString(err)));
-    }
+    CUDA_EXIT_ON_ERROR(cudaMalloc(&ptr, size), "CUDA memory allocation");
   }
 
   ~CudaBuffer()
@@ -109,11 +117,7 @@ struct CudaManagedBuffer {
   CudaManagedBuffer() = default;
   explicit CudaManagedBuffer(size_t buffer_size) : size(buffer_size)
   {
-    cudaError_t err = cudaMallocManaged(&ptr, size);
-    if (err != cudaSuccess) {
-      throw std::runtime_error("Failed to allocate CUDA managed memory: " +
-                               std::string(cudaGetErrorString(err)));
-    }
+    CUDA_EXIT_ON_ERROR(cudaMallocManaged(&ptr, size), "CUDA managed memory allocation");
   }
 
   ~CudaManagedBuffer()
@@ -150,18 +154,8 @@ struct CudaAsyncBuffer {
   CudaAsyncBuffer() = default;
   explicit CudaAsyncBuffer(size_t buffer_size) : size(buffer_size)
   {
-    cudaError_t err = cudaStreamCreate(&stream);
-    if (err != cudaSuccess) {
-      throw std::runtime_error("Failed to create CUDA stream: " +
-                               std::string(cudaGetErrorString(err)));
-    }
-
-    err = cudaMallocAsync(&ptr, size, stream);
-    if (err != cudaSuccess) {
-      cudaStreamDestroy(stream);
-      throw std::runtime_error("Failed to allocate CUDA async memory: " +
-                               std::string(cudaGetErrorString(err)));
-    }
+    CUDA_EXIT_ON_ERROR(cudaStreamCreate(&stream), "CUDA stream creation");
+    CUDA_EXIT_ON_ERROR(cudaMallocAsync(&ptr, size, stream), "CUDA async memory allocation");
   }
 
   ~CudaAsyncBuffer()
@@ -477,12 +471,9 @@ CudaBufferMapPtr allocateCudaTransferBuffers(size_t message_size)
 
   // Initialize send buffer with pattern
   std::vector<char> pattern(message_size, 0xaa);
-  cudaError_t err =
-    cudaMemcpy((*bufferMap)[SEND].ptr, pattern.data(), message_size, cudaMemcpyHostToDevice);
-  if (err != cudaSuccess) {
-    throw std::runtime_error("Failed to initialize CUDA send buffer: " +
-                             std::string(cudaGetErrorString(err)));
-  }
+  CUDA_EXIT_ON_ERROR(
+    cudaMemcpy((*bufferMap)[SEND].ptr, pattern.data(), message_size, cudaMemcpyHostToDevice),
+    "CUDA send buffer initialization");
 
   return bufferMap;
 }
@@ -508,22 +499,16 @@ CudaAsyncBufferMapPtr allocateCudaAsyncTransferBuffers(size_t message_size)
 
   // Initialize send buffer with pattern using async copy
   std::vector<char> pattern(message_size, 0xaa);
-  cudaError_t err = cudaMemcpyAsync((*bufferMap)[SEND].ptr,
-                                    pattern.data(),
-                                    message_size,
-                                    cudaMemcpyHostToDevice,
-                                    (*bufferMap)[SEND].stream);
-  if (err != cudaSuccess) {
-    throw std::runtime_error("Failed to initialize CUDA async send buffer: " +
-                             std::string(cudaGetErrorString(err)));
-  }
+  CUDA_EXIT_ON_ERROR(cudaMemcpyAsync((*bufferMap)[SEND].ptr,
+                                     pattern.data(),
+                                     message_size,
+                                     cudaMemcpyHostToDevice,
+                                     (*bufferMap)[SEND].stream),
+                     "CUDA async send buffer initialization");
 
   // Synchronize the stream to ensure the copy is complete
-  err = cudaStreamSynchronize((*bufferMap)[SEND].stream);
-  if (err != cudaSuccess) {
-    throw std::runtime_error("Failed to synchronize CUDA stream: " +
-                             std::string(cudaGetErrorString(err)));
-  }
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize((*bufferMap)[SEND].stream),
+                     "CUDA stream synchronization");
 
   return bufferMap;
 }
@@ -570,18 +555,16 @@ auto doTransfer(const app_context_t& app_context,
       std::vector<char> send_data(app_context.message_size);
       std::vector<char> recv_data(app_context.message_size);
 
-      cudaError_t err1 = cudaMemcpy(send_data.data(),
+      CUDA_EXIT_ON_ERROR(cudaMemcpy(send_data.data(),
                                     (*cudaBufferMap)[SEND].ptr,
                                     app_context.message_size,
-                                    cudaMemcpyDeviceToHost);
-      cudaError_t err2 = cudaMemcpy(recv_data.data(),
+                                    cudaMemcpyDeviceToHost),
+                         "CUDA send data copy for verification");
+      CUDA_EXIT_ON_ERROR(cudaMemcpy(recv_data.data(),
                                     (*cudaBufferMap)[RECV].ptr,
                                     app_context.message_size,
-                                    cudaMemcpyDeviceToHost);
-
-      if (err1 != cudaSuccess || err2 != cudaSuccess) {
-        throw std::runtime_error("Failed to copy CUDA data for verification");
-      }
+                                    cudaMemcpyDeviceToHost),
+                         "CUDA recv data copy for verification");
 
       for (size_t j = 0; j < send_data.size(); ++j)
         assert(recv_data[j] == send_data[j]);
@@ -673,28 +656,24 @@ auto doTransfer(const app_context_t& app_context,
       std::vector<char> send_data(app_context.message_size);
       std::vector<char> recv_data(app_context.message_size);
 
-      cudaError_t err1 = cudaMemcpyAsync(send_data.data(),
+      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(send_data.data(),
                                          (*cudaAsyncBufferMap)[SEND].ptr,
                                          app_context.message_size,
                                          cudaMemcpyDeviceToHost,
-                                         (*cudaAsyncBufferMap)[SEND].stream);
-      cudaError_t err2 = cudaMemcpyAsync(recv_data.data(),
+                                         (*cudaAsyncBufferMap)[SEND].stream),
+                         "CUDA async send data copy for verification");
+      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recv_data.data(),
                                          (*cudaAsyncBufferMap)[RECV].ptr,
                                          app_context.message_size,
                                          cudaMemcpyDeviceToHost,
-                                         (*cudaAsyncBufferMap)[RECV].stream);
-
-      if (err1 != cudaSuccess || err2 != cudaSuccess) {
-        throw std::runtime_error("Failed to copy CUDA async data for verification");
-      }
+                                         (*cudaAsyncBufferMap)[RECV].stream),
+                         "CUDA async recv data copy for verification");
 
       // Synchronize streams
-      err1 = cudaStreamSynchronize((*cudaAsyncBufferMap)[SEND].stream);
-      err2 = cudaStreamSynchronize((*cudaAsyncBufferMap)[RECV].stream);
-
-      if (err1 != cudaSuccess || err2 != cudaSuccess) {
-        throw std::runtime_error("Failed to synchronize CUDA streams for verification");
-      }
+      CUDA_EXIT_ON_ERROR(cudaStreamSynchronize((*cudaAsyncBufferMap)[SEND].stream),
+                         "CUDA send stream synchronization for verification");
+      CUDA_EXIT_ON_ERROR(cudaStreamSynchronize((*cudaAsyncBufferMap)[RECV].stream),
+                         "CUDA recv stream synchronization for verification");
 
       for (size_t j = 0; j < send_data.size(); ++j)
         assert(recv_data[j] == send_data[j]);
@@ -768,11 +747,7 @@ int main(int argc, char** argv)
   if (app_context.memory_type == MemoryType::Cuda ||
       app_context.memory_type == MemoryType::CudaManaged ||
       app_context.memory_type == MemoryType::CudaAsync) {
-    cudaError_t err = cudaSetDevice(0);
-    if (err != cudaSuccess) {
-      std::cerr << "Failed to set CUDA device: " << cudaGetErrorString(err) << std::endl;
-      return -1;
-    }
+    CUDA_EXIT_ON_ERROR(cudaSetDevice(0), "CUDA device initialization");
   }
 #endif
 
