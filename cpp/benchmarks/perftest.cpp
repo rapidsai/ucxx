@@ -49,14 +49,14 @@ enum class ProgressMode {
   ThreadBlocking,
 };
 
-#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 enum class MemoryType {
   Host,
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   Cuda,
   CudaManaged,
   CudaAsync,
-};
 #endif
+};
 
 enum transfer_type_t { SEND, RECV };
 
@@ -222,9 +222,7 @@ struct app_context_t {
   bool endpoint_error_handling = false;
   bool reuse_alloc             = false;
   bool verify_results          = false;
-#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  MemoryType memory_type = MemoryType::Host;  // Memory type to use
-#endif
+  MemoryType memory_type       = MemoryType::Host;
 };
 
 class ListenerContext {
@@ -300,8 +298,8 @@ static void printUsage()
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
   std::cerr << "  -P          progress mode to use, valid values are: 'polling', 'blocking',"
-            << std::endl;
-  std::cerr << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
+            << std::endl
+            << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
             << std::endl;
   std::cerr << "  -t          use thread progress mode (disabled)" << std::endl;
   std::cerr << "  -e          create endpoints with error handling support (disabled)" << std::endl;
@@ -313,8 +311,10 @@ static void printUsage()
   std::cerr << "  -w <int>    number of warmup iterations to run (3)" << std::endl;
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default), 'cuda', "
-               "'cuda-managed', and 'cuda-async'"
-            << std::endl;
+            << std::endl
+            << "              'cuda-managed', and 'cuda-async'" << std::endl;
+#else
+  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default)" << std::endl;
 #endif
   std::cerr << "  -h          print this help" << std::endl;
   std::cerr << std::endl;
@@ -382,11 +382,11 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
       case 'e': app_context->endpoint_error_handling = true; break;
       case 'r': app_context->reuse_alloc = true; break;
       case 'v': app_context->verify_results = true; break;
-#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
       case 'm':
         if (strcmp(optarg, "host") == 0) {
           app_context->memory_type = MemoryType::Host;
           break;
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
         } else if (strcmp(optarg, "cuda") == 0) {
           app_context->memory_type = MemoryType::Cuda;
           break;
@@ -396,11 +396,11 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
         } else if (strcmp(optarg, "cuda-async") == 0) {
           app_context->memory_type = MemoryType::CudaAsync;
           break;
+#endif
         } else {
           std::cerr << "Invalid memory type: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
-#endif
       case 'h':
       default: printUsage(); return UCS_ERR_INVALID_PARAM;
     }
