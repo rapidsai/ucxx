@@ -514,15 +514,135 @@ CudaAsyncBufferMapPtr allocateCudaAsyncTransferBuffers(size_t message_size)
 }
 #endif
 
+// Unified buffer interface for different memory types
+struct BufferInterface {
+  virtual void* getSendPtr()                      = 0;
+  virtual void* getRecvPtr()                      = 0;
+  virtual void verifyResults(size_t message_size) = 0;
+  virtual ~BufferInterface()                      = default;
+};
+
+// Host memory buffer implementation
+struct HostBufferInterface : public BufferInterface {
+  BufferMapPtr bufferMap;
+
+  explicit HostBufferInterface(BufferMapPtr buf) : bufferMap(buf) {}
+
+  void* getSendPtr() override { return (*bufferMap)[SEND].data(); }
+  void* getRecvPtr() override { return (*bufferMap)[RECV].data(); }
+
+  void verifyResults(size_t message_size) override
+  {
+    for (size_t j = 0; j < (*bufferMap)[SEND].size(); ++j)
+      assert((*bufferMap)[RECV][j] == (*bufferMap)[SEND][j]);
+  }
+};
+
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+// CUDA memory buffer implementation
+struct CudaBufferInterface : public BufferInterface {
+  CudaBufferMapPtr bufferMap;
+
+  explicit CudaBufferInterface(CudaBufferMapPtr buf) : bufferMap(buf) {}
+
+  void* getSendPtr() override { return (*bufferMap)[SEND].ptr; }
+  void* getRecvPtr() override { return (*bufferMap)[RECV].ptr; }
+
+  void verifyResults(size_t message_size) override
+  {
+    std::vector<char> send_data(message_size);
+    std::vector<char> recv_data(message_size);
+
+    CUDA_EXIT_ON_ERROR(
+      cudaMemcpy(send_data.data(), (*bufferMap)[SEND].ptr, message_size, cudaMemcpyDeviceToHost),
+      "CUDA send data copy for verification");
+    CUDA_EXIT_ON_ERROR(
+      cudaMemcpy(recv_data.data(), (*bufferMap)[RECV].ptr, message_size, cudaMemcpyDeviceToHost),
+      "CUDA recv data copy for verification");
+
+    for (size_t j = 0; j < send_data.size(); ++j)
+      assert(recv_data[j] == send_data[j]);
+  }
+};
+
+// CUDA managed memory buffer implementation
+struct CudaManagedBufferInterface : public BufferInterface {
+  CudaManagedBufferMapPtr bufferMap;
+
+  explicit CudaManagedBufferInterface(CudaManagedBufferMapPtr buf) : bufferMap(buf) {}
+
+  void* getSendPtr() override { return (*bufferMap)[SEND].ptr; }
+  void* getRecvPtr() override { return (*bufferMap)[RECV].ptr; }
+
+  void verifyResults(size_t message_size) override
+  {
+    std::vector<char> send_data(message_size);
+    std::vector<char> recv_data(message_size);
+
+    std::memcpy(send_data.data(), (*bufferMap)[SEND].ptr, message_size);
+    std::memcpy(recv_data.data(), (*bufferMap)[RECV].ptr, message_size);
+
+    for (size_t j = 0; j < send_data.size(); ++j)
+      assert(recv_data[j] == send_data[j]);
+  }
+};
+
+// CUDA async memory buffer implementation
+struct CudaAsyncBufferInterface : public BufferInterface {
+  CudaAsyncBufferMapPtr bufferMap;
+
+  explicit CudaAsyncBufferInterface(CudaAsyncBufferMapPtr buf) : bufferMap(buf) {}
+
+  void* getSendPtr() override { return (*bufferMap)[SEND].ptr; }
+  void* getRecvPtr() override { return (*bufferMap)[RECV].ptr; }
+
+  void verifyResults(size_t message_size) override
+  {
+    std::vector<char> send_data(message_size);
+    std::vector<char> recv_data(message_size);
+
+    CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(send_data.data(),
+                                       (*bufferMap)[SEND].ptr,
+                                       message_size,
+                                       cudaMemcpyDeviceToHost,
+                                       (*bufferMap)[SEND].stream),
+                       "CUDA async send data copy for verification");
+    CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recv_data.data(),
+                                       (*bufferMap)[RECV].ptr,
+                                       message_size,
+                                       cudaMemcpyDeviceToHost,
+                                       (*bufferMap)[RECV].stream),
+                       "CUDA async recv data copy for verification");
+
+    // Synchronize streams
+    CUDA_EXIT_ON_ERROR(cudaStreamSynchronize((*bufferMap)[SEND].stream),
+                       "CUDA send stream synchronization for verification");
+    CUDA_EXIT_ON_ERROR(cudaStreamSynchronize((*bufferMap)[RECV].stream),
+                       "CUDA recv stream synchronization for verification");
+
+    for (size_t j = 0; j < send_data.size(); ++j)
+      assert(recv_data[j] == send_data[j]);
+  }
+};
+#endif
+
 auto doTransfer(const app_context_t& app_context,
                 std::shared_ptr<ucxx::Worker> worker,
                 std::shared_ptr<ucxx::Endpoint> endpoint,
                 TagMapPtr tagMap,
                 BufferMapPtr bufferMapReuse)
 {
+  std::unique_ptr<BufferInterface> bufferInterface;
+
+  // Allocate buffers based on memory type
+  if (app_context.memory_type == MemoryType::Host) {
+    BufferMapPtr localBufferMap;
+    if (!app_context.reuse_alloc)
+      localBufferMap = allocateTransferBuffers(app_context.message_size);
+    BufferMapPtr bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
+    bufferInterface        = std::make_unique<HostBufferInterface>(bufferMap);
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  if (app_context.memory_type == MemoryType::Cuda) {
-    // CUDA memory transfer
+  } else if (app_context.memory_type == MemoryType::Cuda) {
     static CudaBufferMapPtr cudaBufferMapReuse;
     CudaBufferMapPtr localCudaBufferMap;
 
@@ -537,42 +657,9 @@ auto doTransfer(const app_context_t& app_context,
     CudaBufferMapPtr cudaBufferMap =
       app_context.reuse_alloc ? cudaBufferMapReuse : localCudaBufferMap;
 
-    // Safety check to ensure we have a valid buffer map
     if (!cudaBufferMap) { throw std::runtime_error("Failed to allocate CUDA buffer map"); }
-
-    auto start = std::chrono::high_resolution_clock::now();
-    std::vector<std::shared_ptr<ucxx::Request>> requests = {
-      endpoint->tagSend((*cudaBufferMap)[SEND].ptr, app_context.message_size, (*tagMap)[SEND]),
-      endpoint->tagRecv(
-        (*cudaBufferMap)[RECV].ptr, app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
-
-    // Wait for requests and clear requests
-    waitRequests(app_context.progress_mode, worker, requests);
-    auto stop = std::chrono::high_resolution_clock::now();
-
-    if (app_context.verify_results) {
-      // Copy data back to host for verification
-      std::vector<char> send_data(app_context.message_size);
-      std::vector<char> recv_data(app_context.message_size);
-
-      CUDA_EXIT_ON_ERROR(cudaMemcpy(send_data.data(),
-                                    (*cudaBufferMap)[SEND].ptr,
-                                    app_context.message_size,
-                                    cudaMemcpyDeviceToHost),
-                         "CUDA send data copy for verification");
-      CUDA_EXIT_ON_ERROR(cudaMemcpy(recv_data.data(),
-                                    (*cudaBufferMap)[RECV].ptr,
-                                    app_context.message_size,
-                                    cudaMemcpyDeviceToHost),
-                         "CUDA recv data copy for verification");
-
-      for (size_t j = 0; j < send_data.size(); ++j)
-        assert(recv_data[j] == send_data[j]);
-    }
-
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+    bufferInterface = std::make_unique<CudaBufferInterface>(cudaBufferMap);
   } else if (app_context.memory_type == MemoryType::CudaManaged) {
-    // CUDA managed memory transfer
     static CudaManagedBufferMapPtr cudaManagedBufferMapReuse;
     CudaManagedBufferMapPtr localCudaManagedBufferMap;
 
@@ -587,39 +674,11 @@ auto doTransfer(const app_context_t& app_context,
     CudaManagedBufferMapPtr cudaManagedBufferMap =
       app_context.reuse_alloc ? cudaManagedBufferMapReuse : localCudaManagedBufferMap;
 
-    // Safety check to ensure we have a valid buffer map
     if (!cudaManagedBufferMap) {
       throw std::runtime_error("Failed to allocate CUDA managed buffer map");
     }
-
-    auto start = std::chrono::high_resolution_clock::now();
-    std::vector<std::shared_ptr<ucxx::Request>> requests = {
-      endpoint->tagSend(
-        (*cudaManagedBufferMap)[SEND].ptr, app_context.message_size, (*tagMap)[SEND]),
-      endpoint->tagRecv((*cudaManagedBufferMap)[RECV].ptr,
-                        app_context.message_size,
-                        (*tagMap)[RECV],
-                        ucxx::TagMaskFull)};
-
-    // Wait for requests and clear requests
-    waitRequests(app_context.progress_mode, worker, requests);
-    auto stop = std::chrono::high_resolution_clock::now();
-
-    if (app_context.verify_results) {
-      // Managed memory can be accessed directly from host
-      std::vector<char> send_data(app_context.message_size);
-      std::vector<char> recv_data(app_context.message_size);
-
-      std::memcpy(send_data.data(), (*cudaManagedBufferMap)[SEND].ptr, app_context.message_size);
-      std::memcpy(recv_data.data(), (*cudaManagedBufferMap)[RECV].ptr, app_context.message_size);
-
-      for (size_t j = 0; j < send_data.size(); ++j)
-        assert(recv_data[j] == send_data[j]);
-    }
-
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+    bufferInterface = std::make_unique<CudaManagedBufferInterface>(cudaManagedBufferMap);
   } else if (app_context.memory_type == MemoryType::CudaAsync) {
-    // CUDA async memory transfer
     static CudaAsyncBufferMapPtr cudaAsyncBufferMapReuse;
     CudaAsyncBufferMapPtr localCudaAsyncBufferMap;
 
@@ -634,79 +693,27 @@ auto doTransfer(const app_context_t& app_context,
     CudaAsyncBufferMapPtr cudaAsyncBufferMap =
       app_context.reuse_alloc ? cudaAsyncBufferMapReuse : localCudaAsyncBufferMap;
 
-    // Safety check to ensure we have a valid buffer map
     if (!cudaAsyncBufferMap) {
       throw std::runtime_error("Failed to allocate CUDA async buffer map");
     }
-
-    auto start = std::chrono::high_resolution_clock::now();
-    std::vector<std::shared_ptr<ucxx::Request>> requests = {
-      endpoint->tagSend((*cudaAsyncBufferMap)[SEND].ptr, app_context.message_size, (*tagMap)[SEND]),
-      endpoint->tagRecv((*cudaAsyncBufferMap)[RECV].ptr,
-                        app_context.message_size,
-                        (*tagMap)[RECV],
-                        ucxx::TagMaskFull)};
-
-    // Wait for requests and clear requests
-    waitRequests(app_context.progress_mode, worker, requests);
-    auto stop = std::chrono::high_resolution_clock::now();
-
-    if (app_context.verify_results) {
-      // Copy data back to host for verification using async copy
-      std::vector<char> send_data(app_context.message_size);
-      std::vector<char> recv_data(app_context.message_size);
-
-      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(send_data.data(),
-                                         (*cudaAsyncBufferMap)[SEND].ptr,
-                                         app_context.message_size,
-                                         cudaMemcpyDeviceToHost,
-                                         (*cudaAsyncBufferMap)[SEND].stream),
-                         "CUDA async send data copy for verification");
-      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recv_data.data(),
-                                         (*cudaAsyncBufferMap)[RECV].ptr,
-                                         app_context.message_size,
-                                         cudaMemcpyDeviceToHost,
-                                         (*cudaAsyncBufferMap)[RECV].stream),
-                         "CUDA async recv data copy for verification");
-
-      // Synchronize streams
-      CUDA_EXIT_ON_ERROR(cudaStreamSynchronize((*cudaAsyncBufferMap)[SEND].stream),
-                         "CUDA send stream synchronization for verification");
-      CUDA_EXIT_ON_ERROR(cudaStreamSynchronize((*cudaAsyncBufferMap)[RECV].stream),
-                         "CUDA recv stream synchronization for verification");
-
-      for (size_t j = 0; j < send_data.size(); ++j)
-        assert(recv_data[j] == send_data[j]);
-    }
-
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
-  } else {
+    bufferInterface = std::make_unique<CudaAsyncBufferInterface>(cudaAsyncBufferMap);
 #endif
-    // Host memory transfer
-    BufferMapPtr localBufferMap;
-    if (!app_context.reuse_alloc)
-      localBufferMap = allocateTransferBuffers(app_context.message_size);
-    BufferMapPtr bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
-
-    auto start = std::chrono::high_resolution_clock::now();
-    std::vector<std::shared_ptr<ucxx::Request>> requests = {
-      endpoint->tagSend((*bufferMap)[SEND].data(), app_context.message_size, (*tagMap)[SEND]),
-      endpoint->tagRecv(
-        (*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
-
-    // Wait for requests and clear requests
-    waitRequests(app_context.progress_mode, worker, requests);
-    auto stop = std::chrono::high_resolution_clock::now();
-
-    if (app_context.verify_results) {
-      for (size_t j = 0; j < (*bufferMap)[SEND].size(); ++j)
-        assert((*bufferMap)[RECV][j] == (*bufferMap)[SEND][j]);
-    }
-
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
-#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   }
-#endif
+
+  // Unified transfer logic
+  auto start                                           = std::chrono::high_resolution_clock::now();
+  std::vector<std::shared_ptr<ucxx::Request>> requests = {
+    endpoint->tagSend(bufferInterface->getSendPtr(), app_context.message_size, (*tagMap)[SEND]),
+    endpoint->tagRecv(
+      bufferInterface->getRecvPtr(), app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
+
+  // Wait for requests and clear requests
+  waitRequests(app_context.progress_mode, worker, requests);
+  auto stop = std::chrono::high_resolution_clock::now();
+
+  if (app_context.verify_results) { bufferInterface->verifyResults(app_context.message_size); }
+
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
 }
 
 void performWireup(const app_context_t& app_context,
