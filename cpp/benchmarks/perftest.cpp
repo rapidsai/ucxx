@@ -26,6 +26,21 @@
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
+#define UCXX_EXIT_ON_ERROR(operation, context)                                                  \
+  ([&]() {                                                                                      \
+    try {                                                                                       \
+      return operation;                                                                         \
+    } catch (const ucxx::Error& e) {                                                            \
+      std::cerr << "UCXX error in " << context << " at " << __FILE__ << ":" << __LINE__ << ": " \
+                << e.what() << std::endl;                                                       \
+      std::exit(-1);                                                                            \
+    } catch (const std::exception& e) {                                                         \
+      std::cerr << "Unexpected error in " << context << " at " << __FILE__ << ":" << __LINE__   \
+                << ": " << e.what() << std::endl;                                               \
+      std::exit(-1);                                                                            \
+    }                                                                                           \
+  })()
+
 enum class ProgressMode {
   Polling,
   Blocking,
@@ -762,8 +777,9 @@ int main(int argc, char** argv)
 #endif
 
   // Setup: create UCP context, worker, listener and client endpoint.
-  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
-  auto worker  = context->createWorker();
+  auto context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucxx::Context::defaultFeatureFlags),
+                                    "Context creation");
+  auto worker  = UCXX_EXIT_ON_ERROR(context->createWorker(), "Worker creation");
 
   bool is_server = app_context.server_addr == NULL;
   auto tagMap    = std::make_shared<TagMap>(TagMap{
@@ -776,7 +792,9 @@ int main(int argc, char** argv)
   std::shared_ptr<ucxx::Listener> listener;
   if (is_server) {
     listener_ctx = std::make_unique<ListenerContext>(worker, app_context.endpoint_error_handling);
-    listener = worker->createListener(app_context.listener_port, listener_cb, listener_ctx.get());
+    listener     = UCXX_EXIT_ON_ERROR(
+      worker->createListener(app_context.listener_port, listener_cb, listener_ctx.get()),
+      "Listener creation");
     listener_ctx->setListener(listener);
   }
 
@@ -797,11 +815,13 @@ int main(int argc, char** argv)
   if (is_server)
     endpoint = listener_ctx->getEndpoint();
   else
-    endpoint = worker->createEndpointFromHostname(
-      app_context.server_addr, app_context.listener_port, app_context.endpoint_error_handling);
+    endpoint = UCXX_EXIT_ON_ERROR(
+      worker->createEndpointFromHostname(
+        app_context.server_addr, app_context.listener_port, app_context.endpoint_error_handling),
+      "Endpoint creation");
 
   // Perform wireup to let UCX identify capabilities between endpoints
-  performWireup(app_context, worker, endpoint, tagMap);
+  UCXX_EXIT_ON_ERROR(performWireup(app_context, worker, endpoint, tagMap), "Wireup");
 
   BufferMapPtr bufferMapReuse;
 #ifdef UCXX_ENABLE_RMM
@@ -820,12 +840,15 @@ int main(int argc, char** argv)
 
   // Warmup
   for (size_t n = 0; n < app_context.warmup_iter; ++n)
-    doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
+    UCXX_EXIT_ON_ERROR(doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse),
+                       "Warmup iteration " + std::to_string(n));
 
   // Schedule send and recv messages on different tags and different ordering
   size_t total_duration_ns = 0;
   for (size_t n = 0; n < app_context.n_iter; ++n) {
-    auto duration_ns = doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
+    auto duration_ns =
+      UCXX_EXIT_ON_ERROR(doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse),
+                         "Transfer iteration " + std::to_string(n));
     total_duration_ns += duration_ns;
     auto elapsed   = parseTime(duration_ns);
     auto bandwidth = parseBandwidth(app_context.message_size * 2, duration_ns);
