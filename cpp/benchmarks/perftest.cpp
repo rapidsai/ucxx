@@ -18,7 +18,7 @@
 #include <vector>
 
 // CUDA includes (conditional)
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 #include <cuda_runtime.h>
 #endif
 
@@ -49,7 +49,7 @@ enum class ProgressMode {
   ThreadBlocking,
 };
 
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 enum class MemoryType {
   Host,
   Cuda,
@@ -61,7 +61,7 @@ enum class MemoryType {
 enum transfer_type_t { SEND, RECV };
 
 // CUDA memory buffer structure (conditional)
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 struct CudaBuffer {
   void* ptr{nullptr};
   size_t size{0};
@@ -197,7 +197,7 @@ struct CudaAsyncBuffer {
 #endif
 
 typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 typedef std::unordered_map<transfer_type_t, CudaBuffer> CudaBufferMap;
 typedef std::unordered_map<transfer_type_t, CudaManagedBuffer> CudaManagedBufferMap;
 typedef std::unordered_map<transfer_type_t, CudaAsyncBuffer> CudaAsyncBufferMap;
@@ -205,7 +205,7 @@ typedef std::unordered_map<transfer_type_t, CudaAsyncBuffer> CudaAsyncBufferMap;
 typedef std::unordered_map<transfer_type_t, ucxx::Tag> TagMap;
 
 typedef std::shared_ptr<BufferMap> BufferMapPtr;
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 typedef std::shared_ptr<CudaBufferMap> CudaBufferMapPtr;
 typedef std::shared_ptr<CudaManagedBufferMap> CudaManagedBufferMapPtr;
 typedef std::shared_ptr<CudaAsyncBufferMap> CudaAsyncBufferMapPtr;
@@ -222,7 +222,7 @@ struct app_context_t {
   bool endpoint_error_handling = false;
   bool reuse_alloc             = false;
   bool verify_results          = false;
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   MemoryType memory_type = MemoryType::Host;  // Memory type to use
 #endif
 };
@@ -311,7 +311,7 @@ static void printUsage()
   std::cerr << "  -r          reuse memory allocation (disabled)" << std::endl;
   std::cerr << "  -v          verify results (disabled)" << std::endl;
   std::cerr << "  -w <int>    number of warmup iterations to run (3)" << std::endl;
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default), 'cuda', "
                "'cuda-managed', and 'cuda-async'"
             << std::endl;
@@ -324,7 +324,7 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
 {
   optind = 1;
   int c;
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   while ((c = getopt(argc, argv, "P:p:s:w:n:ervm:h")) != -1) {
 #else
   while ((c = getopt(argc, argv, "P:p:s:w:n:ervh")) != -1) {
@@ -382,7 +382,7 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
       case 'e': app_context->endpoint_error_handling = true; break;
       case 'r': app_context->reuse_alloc = true; break;
       case 'v': app_context->verify_results = true; break;
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
       case 'm':
         if (strcmp(optarg, "host") == 0) {
           app_context->memory_type = MemoryType::Host;
@@ -468,7 +468,7 @@ BufferMapPtr allocateTransferBuffers(size_t message_size)
                                                {RECV, std::vector<char>(message_size)}});
 }
 
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 CudaBufferMapPtr allocateCudaTransferBuffers(size_t message_size)
 {
   auto bufferMap     = std::make_shared<CudaBufferMap>();
@@ -535,7 +535,7 @@ auto doTransfer(const app_context_t& app_context,
                 TagMapPtr tagMap,
                 BufferMapPtr bufferMapReuse)
 {
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   if (app_context.memory_type == MemoryType::Cuda) {
     // CUDA memory transfer
     static CudaBufferMapPtr cudaBufferMapReuse;
@@ -725,7 +725,7 @@ auto doTransfer(const app_context_t& app_context,
     }
 
     return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   }
 #endif
 }
@@ -763,7 +763,7 @@ int main(int argc, char** argv)
   app_context_t app_context;
   if (parseCommand(&app_context, argc, argv) != UCS_OK) return -1;
 
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   // Check CUDA support if CUDA memory is requested
   if (app_context.memory_type == MemoryType::Cuda ||
       app_context.memory_type == MemoryType::CudaManaged ||
@@ -824,7 +824,7 @@ int main(int argc, char** argv)
   UCXX_EXIT_ON_ERROR(performWireup(app_context, worker, endpoint, tagMap), "Wireup");
 
   BufferMapPtr bufferMapReuse;
-#ifdef UCXX_ENABLE_RMM
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   if (app_context.reuse_alloc) {
     if (app_context.memory_type == MemoryType::Cuda ||
         app_context.memory_type == MemoryType::CudaManaged ||
