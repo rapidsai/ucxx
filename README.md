@@ -81,11 +81,11 @@ The benchmark is composed of two processes: a server and a client. The server mu
 
 #### Basic Usage
 
-Below is an example of running a server first, followed by the client connecting to the server on the `localhost` (`127.0.0.1`). Both processes specify a list of parameters, which are the message size in bytes (`-s 1000000000`), that allocations should be reused (`-r`), the number of iterations to perform (`-n 10`) and the progress mode (`-P polling`).
+Below is an example of running a server first, followed by the client connecting to the server on the `localhost` (same as `127.0.0.1`). Both processes specify a list of parameters, which are the message size in bytes (`-s 1000000000`), that allocations should be reused (`-r`), the number of iterations to perform (`-n 10`) and the progress mode (`-P polling`).
 
 ```
 $ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -s 1000000000 -r -n 10 -P polling &
-$ ./benchmarks/ucxx_perftest -s 1000000000 -r -n 10 -P polling 127.0.0.1
+$ ./benchmarks/ucxx_perftest -s 1000000000 -r -n 10 -P polling localhost
 ```
 
 #### CUDA Memory Support
@@ -119,7 +119,6 @@ $ ./benchmarks/ucxx_perftest -m cuda-async -s 1048576 -r -n 10 -P polling 127.0.
 - `cuda-async` - CUDA device memory with asynchronous operations
 
 **Requirements for CUDA Support:**
-- UCXX compiled with `UCXX_ENABLE_RMM=ON`
 - UCXX compiled with `UCXX_BENCHMARKS_ENABLE_CUDA=ON` (if building benchmarks)
 - CUDA runtime available
 - UCX configured with CUDA transport support
