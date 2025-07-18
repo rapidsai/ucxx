@@ -292,9 +292,9 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
 
 static void printUsage()
 {
-  std::cerr << " basic client/server example" << std::endl;
+  std::cerr << "Basic performance test" << std::endl;
   std::cerr << std::endl;
-  std::cerr << "Usage: basic [server-hostname] [options]" << std::endl;
+  std::cerr << "Usage: ucxx_perftest [server-hostname] [options]" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
   std::cerr << "  -P          progress mode to use, valid values are: 'polling', 'blocking',"
