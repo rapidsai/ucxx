@@ -292,13 +292,13 @@ dependencies:
           - rapids-dask-dependency==25.8.*,>=0.0.0a0
       - output_types: [conda]
         packages:
-          - &numba-cuda numba-cuda>=0.16.0,<0.17.0a0
+          - &numba-cuda numba-cuda>=0.14.0,<0.15.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - &numba-cuda-cu12-dep numba-cuda[cu12]>=0.16.0,<0.17.0a0
+              - &numba-cuda-cu12-dep numba-cuda[cu12]>=0.14.0,<0.15.0a0
           - matrix: # Fallback for no matrix
             packages:
               - *numba-cuda-cu12-dep
@@ -312,11 +312,13 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - *numba-cuda
           - pytest==7.*
           - pytest-asyncio
           - pytest-rerunfailures
           - rapids-dask-dependency==25.8.*,>=0.0.0a0
+      - output_types: [conda]
+        packages:
+          - *numba-cuda
     specific:
       - output_types: [requirements, pyproject]
         matrices:
