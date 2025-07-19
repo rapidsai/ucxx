@@ -58,7 +58,7 @@ struct CudaBuffer {
 
   ~CudaBuffer()
   {
-    if (ptr) { cudaFree(ptr); }
+    if (ptr) { CUDA_EXIT_ON_ERROR(cudaFree(ptr), "CUDA memory deallocation"); }
   }
 
   CudaBuffer(const CudaBuffer&)            = delete;
@@ -71,7 +71,7 @@ struct CudaBuffer {
   CudaBuffer& operator=(CudaBuffer&& other) noexcept
   {
     if (this != &other) {
-      if (ptr) cudaFree(ptr);
+      if (ptr) CUDA_EXIT_ON_ERROR(cudaFree(ptr), "CUDA memory deallocation");
       ptr        = other.ptr;
       size       = other.size;
       other.ptr  = nullptr;
@@ -94,7 +94,7 @@ struct CudaManagedBuffer {
 
   ~CudaManagedBuffer()
   {
-    if (ptr) { cudaFree(ptr); }
+    if (ptr) { CUDA_EXIT_ON_ERROR(cudaFree(ptr), "CUDA managed memory deallocation"); }
   }
 
   CudaManagedBuffer(const CudaManagedBuffer&)            = delete;
@@ -107,7 +107,7 @@ struct CudaManagedBuffer {
   CudaManagedBuffer& operator=(CudaManagedBuffer&& other) noexcept
   {
     if (this != &other) {
-      if (ptr) cudaFree(ptr);
+      if (ptr) CUDA_EXIT_ON_ERROR(cudaFree(ptr), "CUDA managed memory deallocation");
       ptr        = other.ptr;
       size       = other.size;
       other.ptr  = nullptr;
@@ -132,8 +132,8 @@ struct CudaAsyncBuffer {
 
   ~CudaAsyncBuffer()
   {
-    if (ptr) { cudaFreeAsync(ptr, stream); }
-    if (stream) { cudaStreamDestroy(stream); }
+    if (ptr) { CUDA_EXIT_ON_ERROR(cudaFreeAsync(ptr, stream), "CUDA async memory deallocation"); }
+    if (stream) { CUDA_EXIT_ON_ERROR(cudaStreamDestroy(stream), "CUDA stream destruction"); }
   }
 
   CudaAsyncBuffer(const CudaAsyncBuffer&)            = delete;
@@ -148,8 +148,8 @@ struct CudaAsyncBuffer {
   CudaAsyncBuffer& operator=(CudaAsyncBuffer&& other) noexcept
   {
     if (this != &other) {
-      if (ptr) cudaFreeAsync(ptr, stream);
-      if (stream) cudaStreamDestroy(stream);
+      if (ptr) CUDA_EXIT_ON_ERROR(cudaFreeAsync(ptr, stream), "CUDA async memory deallocation");
+      if (stream) CUDA_EXIT_ON_ERROR(cudaStreamDestroy(stream), "CUDA stream destruction");
       ptr          = other.ptr;
       size         = other.size;
       stream       = other.stream;
