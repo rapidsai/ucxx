@@ -421,6 +421,8 @@ class Application {
       case ProgressMode::Blocking:
         return std::bind(std::mem_fn(&ucxx::Worker::progressWorkerEvent), _worker, -1);
       case ProgressMode::Wait: return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), _worker);
+      case ProgressMode::ThreadBlocking:  // progress thread already running
+      case ProgressMode::ThreadPolling:   // progress thread already running
       default: return []() {};
     }
   }
