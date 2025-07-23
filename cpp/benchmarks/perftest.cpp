@@ -547,8 +547,8 @@ class Application {
                      double overheadOverall,
                      double bandwidthAverage,
                      double bandwidthOverall,
-                     size_t messageRateAverage,
-                     size_t messageRateOverall)
+                     double messageRateAverage,
+                     double messageRateOverall)
   {
     std::cout << "                " << appendSpaces(std::to_string(iteration), 15)
               << appendSpaces(floatToString(percentile, 3), 11)
@@ -661,12 +661,10 @@ class Application {
           results.current.duration.count() / results.current.iterations / factor * 1e6;
         auto totalLatency =
           results.total.duration.count() / results.total.iterations / factor * 1e6;
-        auto currentBandwidth = results.current.bytes / (results.current.duration.count() * 1e6);
-        auto totalBandwidth   = results.total.bytes / (results.total.duration.count() * 1e6);
-        auto currentMessageRate =
-          std::round(results.current.messages / (results.current.duration.count()));
-        auto totalMessageRate =
-          std::round(results.total.messages / (results.total.duration.count()));
+        auto currentBandwidth   = results.current.bytes / (results.current.duration.count() * 1e6);
+        auto totalBandwidth     = results.total.bytes / (results.total.duration.count() * 1e6);
+        auto currentMessageRate = results.current.messages / (results.current.duration.count());
+        auto totalMessageRate   = results.total.messages / (results.total.duration.count());
 
         printProgress(results.total.iterations,
                       percentile,
