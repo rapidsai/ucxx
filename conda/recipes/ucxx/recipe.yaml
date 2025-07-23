@@ -29,7 +29,7 @@ cache:
         export ucxx_ROOT
 
         # Don't build `libucxx_python` here because we need to build it against each Python variant
-        ./build.sh -n -v libucxx libucxx_benchmarks libucxx_examples libucxx_tests --cmake-args=\"-DCMAKE_INSTALL_LIBDIR=lib\"
+        ./build.sh -n -v libucxx libucxx_benchmarks_cuda libucxx_examples libucxx_tests --cmake-args=\"-DCMAKE_INSTALL_LIBDIR=lib\"
       secrets:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
