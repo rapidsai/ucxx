@@ -167,8 +167,7 @@ static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
   ucxx::utils::ucsErrorThrow(ucp_conn_request_query(connRequest, &attr));
   ucxx::utils::sockaddr_get_ip_port_str(
     &attr.client_address, ipString, portString, INET6_ADDRSTRLEN);
-  std::cout << "Server received a connection request from client at address " << ipString << ":"
-            << portString << std::endl;
+  std::cout << "Accepted connection from " << ipString << ":" << portString << std::endl;
 
   if (listenerContext->isAvailable()) {
     listenerContext->createEndpointFromConnRequest(connRequest);
@@ -520,10 +519,19 @@ class Application {
     return stop - start;
   }
 
-  void printHeader(std::string_view description,
-                   std::string_view category,
-                   MemoryType sendMemory,
-                   MemoryType recvMemory)
+  void printServerHeader(std::string_view description, MemoryType sendMemory, MemoryType recvMemory)
+  {
+    // clang-format off
+    std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
+    std::cout << "| Test:         " << appendSpaces(description) << "|" << std::endl;
+    std::cout << "| Send memory:  " << appendSpaces(getMemoryTypeString(sendMemory)) << "|" << std::endl;
+    std::cout << "| Recv memory:  " << appendSpaces(getMemoryTypeString(recvMemory)) << "|" << std::endl;
+    std::cout << "| Message size: " << appendSpaces(std::to_string(_appContext.messageSize)) << "|" << std::endl;
+    std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
+    // clang-format on
+  }
+
+  void printClientHeader(std::string_view category)
   {
     std::string categoryWithUnit = std::string(category) + std::string{" (usec)"};
     auto percentileRank          = floatToString(_appContext.percentileRank, 1);
@@ -535,11 +543,6 @@ class Application {
     std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
     std::cout << "|    Stage     | # iterations | " << percentileRank << "%ile | average | overall |  average |  overall |  average  |  overall  |" << std::endl;
     std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
-    std::cout << "| Test:         " << appendSpaces(description) << "|" << std::endl;
-    std::cout << "| Send memory:  " << appendSpaces(getMemoryTypeString(sendMemory)) << "|" << std::endl;
-    std::cout << "| Recv memory:  " << appendSpaces(getMemoryTypeString(recvMemory)) << "|" << std::endl;
-    std::cout << "| Message size: " << appendSpaces(std::to_string(_appContext.messageSize)) << "|" << std::endl;
-    std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
     // clang-format on
   }
 
@@ -575,11 +578,6 @@ class Application {
     }
 #endif
 
-    printHeader(appContext.testAttributes->description,
-                appContext.testAttributes->category,
-                appContext.memoryType,
-                appContext.memoryType);
-
     // Setup: create UCP context, worker, listener and client endpoint.
     _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, UCP_FEATURE_TAG), "Context creation");
     _worker  = UCXX_EXIT_ON_ERROR(_context->createWorker(), "Worker creation");
@@ -608,17 +606,25 @@ class Application {
 
     auto progress = getProgressFunction();
 
-    // Block until client connects
-    while (_isServer && _listenerContext->isAvailable())
-      progress();
+    if (_isServer) {
+      std::cout << "Waiting for connection..." << std::endl;
 
-    if (_isServer)
+      // Block until client connects
+      while (_listenerContext->isAvailable())
+        progress();
+    }
+
+    if (_isServer) {
       _endpoint = _listenerContext->getEndpoint();
-    else
+      printServerHeader(
+        appContext.testAttributes->description, appContext.memoryType, appContext.memoryType);
+    } else {
       _endpoint = UCXX_EXIT_ON_ERROR(
         _worker->createEndpointFromHostname(
           _appContext.serverAddress, _appContext.listenerPort, _appContext.endpointErrorHandling),
         "Endpoint creation");
+      printClientHeader(appContext.testAttributes->category);
+    }
   }
 
   ~Application()
