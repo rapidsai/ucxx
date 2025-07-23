@@ -665,7 +665,7 @@ class Application {
 
       if (!_isServer &&
           (elapsedTime.count() >= 1 || results.total.iterations == _appContext.numIterations)) {
-        auto percentile = results.calculatePercentile() / factor * 1e6;
+        auto percentile = results.calculatePercentile(_appContext.percentileRank) / factor * 1e6;
         auto currentLatency =
           results.current.duration.count() / results.current.iterations / factor * 1e6;
         auto totalLatency =
