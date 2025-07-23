@@ -449,15 +449,13 @@ class Application {
                                             {DirectionType::Recv, std::vector<char>(3, 0)}});
 
     // Schedule small wireup messages to let UCX identify capabilities between endpoints
-    requests.push_back(
-      _endpoint->tagSend((*wireupBufferMap)[DirectionType::Send].data(),
-                         (*wireupBufferMap)[DirectionType::Send].size() * sizeof(int),
-                         (*_tagMap)[DirectionType::Send]));
-    requests.push_back(
-      _endpoint->tagRecv((*wireupBufferMap)[DirectionType::Recv].data(),
-                         (*wireupBufferMap)[DirectionType::Recv].size() * sizeof(int),
-                         (*_tagMap)[DirectionType::Recv],
-                         ucxx::TagMaskFull));
+    requests.push_back(_endpoint->tagSend((*wireupBufferMap)[DirectionType::Send].data(),
+                                          (*wireupBufferMap)[DirectionType::Send].size(),
+                                          (*_tagMap)[DirectionType::Send]));
+    requests.push_back(_endpoint->tagRecv((*wireupBufferMap)[DirectionType::Recv].data(),
+                                          (*wireupBufferMap)[DirectionType::Recv].size(),
+                                          (*_tagMap)[DirectionType::Recv],
+                                          ucxx::TagMaskFull));
 
     // Wait for wireup requests and clear requests
     waitRequests(requests);
