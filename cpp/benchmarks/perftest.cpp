@@ -572,7 +572,12 @@ class Application {
 #endif
 
     // Setup: create UCP context, worker, listener and client endpoint.
-    _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, UCP_FEATURE_TAG), "Context creation");
+    uint64_t ucpFeatures = UCP_FEATURE_TAG;
+    if (appContext.progressMode == ProgressMode::Blocking ||
+        appContext.progressMode == ProgressMode::ThreadBlocking) {
+      ucpFeatures |= UCP_FEATURE_WAKEUP;
+    }
+    _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucpFeatures), "Context creation");
     _worker  = UCXX_EXIT_ON_ERROR(_context->createWorker(), "Worker creation");
 
     _tagMap = std::make_shared<TagMap>(TagMap{
