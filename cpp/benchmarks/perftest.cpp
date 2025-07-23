@@ -410,7 +410,7 @@ class Application {
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   std::shared_ptr<ucxx::Endpoint> _endpoint{nullptr};
   std::shared_ptr<ucxx::Listener> _listener{nullptr};
-  std::shared_ptr<ListenerContext> _listenerContext{nullptr};
+  std::unique_ptr<ListenerContext> _listenerContext{nullptr};
   std::shared_ptr<TagMap> _tagMap{nullptr};
   BufferMap _bufferMapReuse{};
 
