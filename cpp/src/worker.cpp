@@ -629,12 +629,11 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
   }
 
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(
-    createRequestTag(worker,
-                     data::TagReceiveWithHandle(buffer, probeInfo.info->length, *probeInfo.handle),
-                     enableFuture,
-                     callbackFunction,
-                     callbackData));
+  return registerInflightRequest(createRequestTag(worker,
+                                                  data::TagReceiveWithHandle(buffer, probeInfo),
+                                                  enableFuture,
+                                                  callbackFunction,
+                                                  callbackData));
 }
 
 std::shared_ptr<Address> Worker::getAddress()

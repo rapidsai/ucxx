@@ -78,11 +78,15 @@ TagReceive::TagReceive(void* buffer,
 {
 }
 
-TagReceiveWithHandle::TagReceiveWithHandle(void* buffer,
-                                           const size_t length,
-                                           const ucp_tag_message_h messageHandle)
-  : _buffer(buffer), _length(length), _messageHandle(messageHandle)
+TagReceiveWithHandle::TagReceiveWithHandle(void* buffer, const TagProbeInfo& probeInfo)
+  : _buffer(buffer), _length(probeInfo.info->length), _messageHandle(*probeInfo.handle)
 {
+  if (buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
+  if (!probeInfo.matched) throw std::runtime_error("TagProbeInfo must be matched.");
+  if (!probeInfo.info.has_value())
+    throw std::runtime_error("TagProbeInfo must contain valid info.");
+  if (!probeInfo.handle.has_value() || *probeInfo.handle == nullptr)
+    throw std::runtime_error("TagProbeInfo must contain valid handle.");
 }
 
 TagMultiSend::TagMultiSend(const std::vector<void*>& buffer,

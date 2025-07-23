@@ -293,13 +293,10 @@ class TagReceiveWithHandle {
    *
    * Construct an object containing tag receive with handle-specific data.
    *
-   * @param[out] buffer         a raw pointer to the received data.
-   * @param[in]  length         the size in bytes of the tag message to be received.
-   * @param[in]  messageHandle  the message handle obtained from tagProbe with remove=true.
+   * @param[out] buffer      a raw pointer to the received data.
+   * @param[in]  probeInfo   the TagProbeInfo object containing message length and handle.
    */
-  explicit TagReceiveWithHandle(decltype(_buffer) buffer,
-                                const decltype(_length) length,
-                                const decltype(_messageHandle) messageHandle);
+  explicit TagReceiveWithHandle(decltype(_buffer) buffer, const TagProbeInfo& probeInfo);
 
   TagReceiveWithHandle() = delete;
 };
