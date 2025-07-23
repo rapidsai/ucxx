@@ -85,7 +85,7 @@ struct TestAttributes {
   int priority;  // Assume this is an integer for demonstration purposes
 
   // Constructor to initialize attributes
-  TestAttributes(CommandType command,
+  TestAttributes(CommandType commandType,
                  TestType testType,
                  const std::string& description,
                  const std::string& category)
