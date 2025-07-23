@@ -7,11 +7,15 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <cerrno>
 #include <chrono>
+#include <climits>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <optional>
@@ -222,6 +226,55 @@ static void printUsage(std::string_view executablePath)
   std::cerr << std::endl;
 }
 
+// Helper function to parse unsigned long long with error checking
+static ucs_status_t parseUnsignedLongLong(const char* arg,
+                                          size_t* result,
+                                          const char* paramName,
+                                          size_t minValue = 1,
+                                          size_t maxValue = SIZE_MAX)
+{
+  char* endptr;
+  errno         = 0;
+  uint64_t temp = std::strtoull(arg, &endptr, 10);
+  if (errno != 0 || *endptr != '\0' || temp < minValue || temp > maxValue) {
+    std::cerr << "Invalid " << paramName << ": " << arg << std::endl;
+    return UCS_ERR_INVALID_PARAM;
+  }
+  *result = static_cast<size_t>(temp);
+  return UCS_OK;
+}
+
+// Helper function to parse double with error checking
+static ucs_status_t parseDouble(const char* arg,
+                                double* result,
+                                const char* paramName,
+                                double minValue = -std::numeric_limits<double>::infinity(),
+                                double maxValue = std::numeric_limits<double>::infinity())
+{
+  char* endptr;
+  errno   = 0;
+  *result = std::strtod(arg, &endptr);
+  if (errno != 0 || *endptr != '\0' || *result < minValue || *result > maxValue) {
+    std::cerr << "Invalid " << paramName << ": " << arg << std::endl;
+    return UCS_ERR_INVALID_PARAM;
+  }
+  return UCS_OK;
+}
+
+// Helper function to parse port number with error checking
+static ucs_status_t parsePort(const char* arg, uint16_t* result, const char* paramName)
+{
+  char* endptr;
+  errno         = 0;
+  uint64_t temp = std::strtoull(arg, &endptr, 10);
+  if (errno != 0 || *endptr != '\0' || temp == 0 || temp > UINT16_MAX) {
+    std::cerr << "Invalid " << paramName << ": " << arg << std::endl;
+    return UCS_ERR_INVALID_PARAM;
+  }
+  *result = static_cast<uint16_t>(temp);
+  return UCS_OK;
+}
+
 ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const argv[])
 {
   optind = 1;
@@ -264,45 +317,38 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
           std::cerr << "Invalid progress mode: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
-      case 'p':
-        appContext->listenerPort = atoi(optarg);
-        if (appContext->listenerPort <= 0) {
-          std::cerr << "Wrong listener port: " << appContext->listenerPort << std::endl;
-          return UCS_ERR_INVALID_PARAM;
-        }
+      case 'p': {
+        ucs_status_t status = parsePort(optarg, &appContext->listenerPort, "listener port");
+        if (status != UCS_OK) return status;
         break;
-      case 's':
-        appContext->messageSize = atoi(optarg);
-        if (appContext->messageSize <= 0) {
-          std::cerr << "Wrong message size: " << appContext->messageSize << std::endl;
-          return UCS_ERR_INVALID_PARAM;
-        }
+      }
+      case 's': {
+        ucs_status_t status =
+          parseUnsignedLongLong(optarg, &appContext->messageSize, "message size");
+        if (status != UCS_OK) return status;
         break;
-      case 'n':
-        appContext->numIterations = atoi(optarg);
-        if (appContext->numIterations <= 0) {
-          std::cerr << "Wrong number of iterations: " << appContext->numIterations << std::endl;
-          return UCS_ERR_INVALID_PARAM;
-        }
+      }
+      case 'n': {
+        ucs_status_t status =
+          parseUnsignedLongLong(optarg, &appContext->numIterations, "number of iterations");
+        if (status != UCS_OK) return status;
         break;
-      case 'w':
-        appContext->numWarmupIterations = atoi(optarg);
-        if (appContext->numWarmupIterations <= 0) {
-          std::cerr << "Wrong number of warmup iterations: " << appContext->numWarmupIterations
-                    << std::endl;
-          return UCS_ERR_INVALID_PARAM;
-        }
+      }
+      case 'w': {
+        ucs_status_t status = parseUnsignedLongLong(
+          optarg, &appContext->numWarmupIterations, "number of warmup iterations");
+        if (status != UCS_OK) return status;
         break;
+      }
       case 'L': appContext->reuseAllocations = false; break;
       case 'e': appContext->endpointErrorHandling = true; break;
       case 'v': appContext->verifyResults = true; break;
-      case 'R':
-        appContext->percentileRank = atof(optarg);
-        if (appContext->percentileRank < 0.0 || appContext->percentileRank > 100.0) {
-          std::cerr << "Wrong percentile rank: " << appContext->percentileRank << std::endl;
-          return UCS_ERR_INVALID_PARAM;
-        }
+      case 'R': {
+        ucs_status_t status =
+          parseDouble(optarg, &appContext->percentileRank, "percentile rank", 0.0, 100.0);
+        if (status != UCS_OK) return status;
         break;
+      }
       case 'h':
       default: printUsage(std::string_view(argv[0])); return UCS_ERR_INVALID_PARAM;
     }
