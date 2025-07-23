@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <unistd.h>  // for getopt, optarg
@@ -8,19 +8,57 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cstring>
+#include <future>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <numeric>
+#include <queue>
 #include <sstream>
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 #include <vector>
+
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+#include <cuda_runtime.h>
+#endif
 
 #include <ucxx/api.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
+
+#include "include/buffer_interface.hpp"
+
+#define UCXX_EXIT_ON_ERROR(operation, context)                                                  \
+  ([&]() {                                                                                      \
+    try {                                                                                       \
+      return operation;                                                                         \
+    } catch (const ucxx::Error& e) {                                                            \
+      std::cerr << "UCXX error in " << context << " at " << __FILE__ << ":" << __LINE__ << ": " \
+                << e.what() << std::endl;                                                       \
+      std::exit(-1);                                                                            \
+    } catch (const std::exception& e) {                                                         \
+      std::cerr << "Unexpected error in " << context << " at " << __FILE__ << ":" << __LINE__   \
+                << ": " << e.what() << std::endl;                                               \
+      std::exit(-1);                                                                            \
+    }                                                                                           \
+  })()
+
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+#define CUDA_EXIT_ON_ERROR(operation, context)                                                  \
+  ([&]() {                                                                                      \
+    cudaError_t err = operation;                                                                \
+    if (err != cudaSuccess) {                                                                   \
+      std::cerr << "CUDA error in " << context << " at " << __FILE__ << ":" << __LINE__ << ": " \
+                << cudaGetErrorString(err) << std::endl;                                        \
+      std::exit(-1);                                                                            \
+    }                                                                                           \
+    return err;                                                                                 \
+  })()
+#endif
 
 enum class ProgressMode {
   Polling,
@@ -79,6 +117,7 @@ struct ApplicationContext {
   bool endpointErrorHandling                   = false;
   bool reuseAllocations                        = true;
   bool verifyResults                           = false;
+  MemoryType memoryType                        = MemoryType::Host;
 };
 
 class ListenerContext {
@@ -157,7 +196,14 @@ static void printUsage(std::string_view executablePath)
   std::cerr << "  -t <test>           test to run (required)" << std::endl;
   std::cerr << "            tag_lat - UCP tag match latency" << std::endl;
   std::cerr << "             tag_bw - UCP tag match bandwidth" << std::endl;
-  std::cerr << "  -m <progress_mode>  worker progress mode to use" << std::endl;
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default), 'cuda', "
+            << std::endl
+            << "              'cuda-managed', and 'cuda-async'" << std::endl;
+#else
+  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default)" << std::endl;
+#endif
+  std::cerr << "  -P <progress_mode>  worker progress mode to use" << std::endl;
   std::cerr << "           blocking - Blocking progress mode, equivalent to `ucx_perftest -E sleep`"
             << std::endl;
   std::cerr
@@ -167,14 +213,14 @@ static void printUsage(std::string_view executablePath)
             << std::endl;
   std::cerr << "     thread-polling - Polling progress mode in exclusive progress thread"
             << std::endl;
-  std::cerr << "  -e                  create endpoints with error handling support (disabled)"
-            << std::endl;
   std::cerr << "  -p <port>           port number to listen at (12345)" << std::endl;
   std::cerr << "  -s <size>           message size (8)" << std::endl;
   std::cerr << "  -n <iters>          number of iterations to run (100)" << std::endl;
-  std::cerr << "  -r                  reuse memory allocation (disabled)" << std::endl;
-  std::cerr << "  -v                  verify results (disabled)" << std::endl;
   std::cerr << "  -w <iters>          number of warmup iterations to run (3)" << std::endl;
+  std::cerr << "  -L                  disable reuse memory allocation (enabled)" << std::endl;
+  std::cerr << "  -e                  create endpoints with error handling support (disabled)"
+            << std::endl;
+  std::cerr << "  -v                  verify results (disabled)" << std::endl;
   std::cerr
     << "  -R <rank>           percentile rank of the percentile data in latency tests (50.0)"
     << std::endl;
@@ -186,8 +232,35 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "P:t:p:s:w:n:R:eLvh")) != -1) {
+  while ((c = getopt(argc, argv, "t:m:P:p:s:n:w:LevR:h")) != -1) {
     switch (c) {
+      case 't': {
+        auto testAttributes = testAttributesDefinitions.find(optarg);
+        if (testAttributes == testAttributesDefinitions.end()) {
+          std::cerr << "Invalid test to run: " << optarg << std::endl;
+          return UCS_ERR_INVALID_PARAM;
+        }
+        appContext->testAttributes = testAttributes->second;
+      } break;
+      case 'm':
+        if (strcmp(optarg, "host") == 0) {
+          app_context->memory_type = MemoryType::Host;
+          break;
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+        } else if (strcmp(optarg, "cuda") == 0) {
+          app_context->memory_type = MemoryType::Cuda;
+          break;
+        } else if (strcmp(optarg, "cuda-managed") == 0) {
+          app_context->memory_type = MemoryType::CudaManaged;
+          break;
+        } else if (strcmp(optarg, "cuda-async") == 0) {
+          app_context->memory_type = MemoryType::CudaAsync;
+          break;
+#endif
+        } else {
+          std::cerr << "Invalid memory type: " << optarg << std::endl;
+          return UCS_ERR_INVALID_PARAM;
+        }
       case 'P':
         if (strcmp(optarg, "blocking") == 0) {
           appContext->progressMode = ProgressMode::Blocking;
@@ -208,14 +281,6 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
           std::cerr << "Invalid progress mode: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
-      case 't': {
-        auto testAttributes = testAttributesDefinitions.find(optarg);
-        if (testAttributes == testAttributesDefinitions.end()) {
-          std::cerr << "Invalid test to run: " << optarg << std::endl;
-          return UCS_ERR_INVALID_PARAM;
-        }
-        appContext->testAttributes = testAttributes->second;
-      } break;
       case 'p':
         appContext->listenerPort = atoi(optarg);
         if (appContext->listenerPort <= 0) {
@@ -230,6 +295,13 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
           return UCS_ERR_INVALID_PARAM;
         }
         break;
+      case 'n':
+        appContext->numIterations = atoi(optarg);
+        if (appContext->numIterations <= 0) {
+          std::cerr << "Wrong number of iterations: " << appContext->numIterations << std::endl;
+          return UCS_ERR_INVALID_PARAM;
+        }
+        break;
       case 'w':
         appContext->numWarmupIterations = atoi(optarg);
         if (appContext->numWarmupIterations <= 0) {
@@ -238,13 +310,9 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
           return UCS_ERR_INVALID_PARAM;
         }
         break;
-      case 'n':
-        appContext->numIterations = atoi(optarg);
-        if (appContext->numIterations <= 0) {
-          std::cerr << "Wrong number of iterations: " << appContext->numIterations << std::endl;
-          return UCS_ERR_INVALID_PARAM;
-        }
-        break;
+      case 'L': appContext->reuseAllocations = false; break;
+      case 'e': appContext->endpointErrorHandling = true; break;
+      case 'v': appContext->verifyResults = true; break;
       case 'R':
         appContext->percentileRank = atof(optarg);
         if (appContext->percentileRank < 0.0 || appContext->percentileRank > 100.0) {
@@ -252,9 +320,6 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
           return UCS_ERR_INVALID_PARAM;
         }
         break;
-      case 'e': appContext->endpointErrorHandling = true; break;
-      case 'L': appContext->reuseAllocations = false; break;
-      case 'v': appContext->verifyResults = true; break;
       case 'h':
       default: printUsage(std::string_view(argv[0])); return UCS_ERR_INVALID_PARAM;
     }
@@ -423,41 +488,48 @@ class Application {
 
   auto doTransfer()
   {
-    BufferMap localBufferMap;
-    if (!_appContext.reuseAllocations) localBufferMap = allocateTransferBuffers();
-    BufferMap& bufferMap = _appContext.reuseAllocations ? _bufferMapReuse : localBufferMap;
+    std::unique_ptr<BufferInterface> bufferInterface;
+
+    // Allocate buffers based on memory type
+    if (_appContext.memory_type == MemoryType::Host) {
+      // Use the factory method to create the appropriate host buffer interface
+      bufferInterface = HostBufferInterface::createBufferInterface(_appContext.messageSize,
+                                                                   _appContext.reuseAllocations);
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+    } else {
+      // Use the factory method to create the appropriate CUDA buffer interface
+      bufferInterface = CudaBufferInterfaceBase::createBufferInterface(
+        _appContext.memory_type, _appContext.messageSize, _appContext.reuseAllocations);
+#endif
+    }
 
     std::vector<std::shared_ptr<ucxx::Request>> requests;
 
     auto start = std::chrono::high_resolution_clock::now();
     if (_appContext.testAttributes->testType == TestType::PingPong) {
-      requests = {_endpoint->tagSend((bufferMap)[DirectionType::Send].data(),
-                                     _appContext.messageSize,
-                                     (*_tagMap)[DirectionType::Send]),
-                  _endpoint->tagRecv((bufferMap)[DirectionType::Recv].data(),
-                                     _appContext.messageSize,
-                                     (*_tagMap)[DirectionType::Recv],
-                                     ucxx::TagMaskFull)};
+      requests = {
+        _endpoint->tagSend(
+          bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send]),
+        _endpoint->tagRecv(bufferInterface->getRecvPtr(),
+                           _appContext.messageSize,
+                           (*_tagMap)[DirectionType::Recv],
+                           ucxx::TagMaskFull)};
     } else {
       if (_isServer)
-        requests = {_endpoint->tagRecv((bufferMap)[DirectionType::Recv].data(),
+        requests = {_endpoint->tagRecv(bufferInterface->getRecvPtr(),
                                        _appContext.messageSize,
                                        (*_tagMap)[DirectionType::Recv],
                                        ucxx::TagMaskFull)};
       else
-        requests = {_endpoint->tagSend((bufferMap)[DirectionType::Send].data(),
-                                       _appContext.messageSize,
-                                       (*_tagMap)[DirectionType::Send])};
+        requests = {_endpoint->tagSend(
+          bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send])};
     }
 
     // Wait for requests and clear requests
-    waitRequests(requests);
+    waitRequests(_appContext.progressMode, _worker, requests);
     auto stop = std::chrono::high_resolution_clock::now();
 
-    if (_appContext.verifyResults) {
-      for (size_t j = 0; j < (bufferMap)[DirectionType::Send].size(); ++j)
-        assert((bufferMap)[DirectionType::Recv][j] == (bufferMap)[DirectionType::Recv][j]);
-    }
+    if (_appContext.verifyResults) { bufferInterface->verifyResults(_appContext.messageSize); }
 
     return stop - start;
   }
@@ -508,6 +580,15 @@ class Application {
   explicit Application(ApplicationContext&& appContext)
     : _appContext(appContext), _isServer(appContext.serverAddress == NULL)
   {
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+    // Check CUDA support if CUDA memory is requested
+    if (app_context.memory_type == MemoryType::Cuda ||
+        app_context.memory_type == MemoryType::CudaManaged ||
+        app_context.memory_type == MemoryType::CudaAsync) {
+      CUDA_EXIT_ON_ERROR(cudaSetDevice(0), "CUDA device initialization");
+    }
+#endif
+
     if (!_isServer)
       printHeader(appContext.testAttributes->description,
                   appContext.testAttributes->category,
@@ -515,8 +596,9 @@ class Application {
                   "host");
 
     // Setup: create UCP context, worker, listener and client endpoint.
-    _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
-    _worker  = _context->createWorker();
+    _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucxx::Context::defaultFeatureFlags),
+                                  "Context creation");
+    _worker  = UCXX_EXIT_ON_ERROR(context->createWorker(), "Worker creation");
 
     _tagMap = std::make_shared<TagMap>(TagMap{
       {DirectionType::Send, _isServer ? ucxx::Tag{0} : ucxx::Tag{1}},
@@ -526,8 +608,9 @@ class Application {
     if (_isServer) {
       _listenerContext =
         std::make_unique<ListenerContext>(_worker, _appContext.endpointErrorHandling);
-      _listener =
-        _worker->createListener(_appContext.listenerPort, listenerCallback, _listenerContext.get());
+      _listener = UCXX_EXIT_ON_ERROR(
+        worker->createListener(_appContext.listenerPort, listenerCallback, _listenerContext.get()),
+        "Listener creation");
       _listenerContext->setListener(_listener);
     }
 
@@ -548,10 +631,10 @@ class Application {
     if (_isServer)
       _endpoint = _listenerContext->getEndpoint();
     else
-      _endpoint = _worker->createEndpointFromHostname(
-        _appContext.serverAddress, _appContext.listenerPort, _appContext.endpointErrorHandling);
-
-    std::vector<std::shared_ptr<ucxx::Request>> requests;
+      _endpoint = UCXX_EXIT_ON_ERROR(
+        _worker->createEndpointFromHostname(
+          _appContext.serverAddress, _appContext.listenerPort, _appContext.endpointErrorHandling),
+        "Endpoint creation");
   }
 
   ~Application()
@@ -565,13 +648,13 @@ class Application {
   void run()
   {
     // Do wireup
-    doWireup();
+    UCXX_EXIT_ON_ERROR(doWireup(), "Wireup");
 
     if (_appContext.reuseAllocations) _bufferMapReuse = allocateTransferBuffers();
 
     // Warmup
     for (size_t n = 0; n < _appContext.numWarmupIterations; ++n)
-      doTransfer();
+      UCXX_EXIT_ON_ERROR(doTransfer(), "Warmup iteration " + std::to_string(n));
 
     auto lastPrintTime = std::chrono::steady_clock::now();
 
@@ -580,7 +663,7 @@ class Application {
     const double factor = (_appContext.testAttributes->testType == TestType::PingPong) ? 2.0 : 1.0;
 
     for (size_t n = 0; n < _appContext.numIterations; ++n) {
-      auto duration = doTransfer();
+      auto duration = UCXX_EXIT_ON_ERROR(doTransfer(), "Transfer iteration " + std::to_string(n));
 
       results.update(duration, 1, _appContext.messageSize * factor, 1 * factor);
 
@@ -621,7 +704,7 @@ int main(int argc, char** argv)
   ApplicationContext appContext;
   if (parseCommand(&appContext, argc, argv) != UCS_OK) return -1;
 
-  auto app = Application(std::move(appContext));
+  auto app = Application(appContext);
   app.run();
 
   return 0;
