@@ -554,8 +554,8 @@ class Application {
               << appendSpaces(floatToString(overheadOverall, 3), 10)
               << appendSpaces(floatToString(bandwidthAverage), 11)
               << appendSpaces(floatToString(bandwidthOverall), 11)
-              << appendSpaces(std::to_string(messageRateAverage), 12)
-              << appendSpaces(std::to_string(messageRateOverall), 0) << std::endl;
+              << appendSpaces(floatToString(messageRateAverage), 12)
+              << appendSpaces(floatToString(messageRateOverall), 0) << std::endl;
   }
 
  public:
