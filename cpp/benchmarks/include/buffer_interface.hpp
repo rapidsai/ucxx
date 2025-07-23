@@ -39,6 +39,50 @@ enum class MemoryType {
 #endif
 };
 
+/**
+ * @brief Get the string representation of the memory type
+ *
+ * @param memoryType The memory type
+ * @return The string representation of the memory type
+ *
+ * @throws std::runtime_error if the memory type is unknown
+ */
+std::string getMemoryTypeString(MemoryType memoryType) {
+  if (memoryType == MemoryType::Host)
+    return "host";
+  else if (memoryType == MemoryType::Cuda)
+    return "cuda";
+  else if (memoryType == MemoryType::CudaManaged)
+    return "cuda-managed";
+  else if (memoryType == MemoryType::CudaAsync)
+    return "cuda-async";
+  else {
+    throw std::runtime_error("Unknown memory type");
+  }
+}
+
+/**
+ * @brief Get the memory type from a string
+ *
+ * @param memoryTypeString The string representation of the memory type
+ * @return The memory type
+ *
+ * @throws std::runtime_error if the memory type is unknown
+ */
+MemoryType getMemoryTypeFromString(std::string memoryTypeString) {
+  if (memoryTypeString == "host")
+    return MemoryType::Host;
+  else if (memoryTypeString == "cuda")
+    return MemoryType::Cuda;
+  else if (memoryTypeString == "cuda-managed")
+    return MemoryType::CudaManaged;
+  else if (memoryTypeString == "cuda-async")
+    return MemoryType::CudaAsync;
+  else {
+    throw std::runtime_error("Unknown memory type");
+  }
+}
+
 enum class DirectionType { Send, Recv };
 
 typedef std::unordered_map<DirectionType, std::vector<char>> BufferMap;

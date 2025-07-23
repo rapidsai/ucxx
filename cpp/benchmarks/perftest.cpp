@@ -240,21 +240,10 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
         appContext->testAttributes = testAttributes->second;
       } break;
       case 'm':
-        if (strcmp(optarg, "host") == 0) {
-          appContext->memoryType = MemoryType::Host;
+        try {
+          appContext->memoryType = getMemoryTypeFromString(optarg);
           break;
-#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-        } else if (strcmp(optarg, "cuda") == 0) {
-          appContext->memoryType = MemoryType::Cuda;
-          break;
-        } else if (strcmp(optarg, "cuda-managed") == 0) {
-          appContext->memoryType = MemoryType::CudaManaged;
-          break;
-        } else if (strcmp(optarg, "cuda-async") == 0) {
-          appContext->memoryType = MemoryType::CudaAsync;
-          break;
-#endif
-        } else {
+        } catch (const std::runtime_error& e) {
           std::cerr << "Invalid memory type: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
@@ -533,8 +522,8 @@ class Application {
 
   void printHeader(std::string_view description,
                    std::string_view category,
-                   std::string_view sendMemory,
-                   std::string_view recvMemory)
+                   MemoryType sendMemory,
+                   MemoryType recvMemory)
   {
     std::string categoryWithUnit = std::string(category) + std::string{" (usec)"};
     auto percentileRank          = floatToString(_appContext.percentileRank, 1);
@@ -547,8 +536,8 @@ class Application {
     std::cout << "|    Stage     | # iterations | " << percentileRank << "%ile | average | overall |  average |  overall |  average  |  overall  |" << std::endl;
     std::cout << "+--------------+--------------+----------+---------+---------+----------+----------+-----------+-----------+" << std::endl;
     std::cout << "| Test:         " << appendSpaces(description) << "|" << std::endl;
-    std::cout << "| Send memory:  " << appendSpaces(sendMemory) << "|" << std::endl;
-    std::cout << "| Recv memory:  " << appendSpaces(recvMemory) << "|" << std::endl;
+    std::cout << "| Send memory:  " << appendSpaces(getMemoryTypeString(sendMemory)) << "|" << std::endl;
+    std::cout << "| Recv memory:  " << appendSpaces(getMemoryTypeString(recvMemory)) << "|" << std::endl;
     std::cout << "| Message size: " << appendSpaces(std::to_string(_appContext.messageSize)) << "|" << std::endl;
     std::cout << "+----------------------------------------------------------------------------------------------------------+" << std::endl;
     // clang-format on
@@ -586,11 +575,10 @@ class Application {
     }
 #endif
 
-    if (!_isServer)
-      printHeader(appContext.testAttributes->description,
-                  appContext.testAttributes->category,
-                  "host",
-                  "host");
+    printHeader(appContext.testAttributes->description,
+                appContext.testAttributes->category,
+                appContext.memoryType,
+                appContext.memoryType);
 
     // Setup: create UCP context, worker, listener and client endpoint.
     _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, UCP_FEATURE_TAG), "Context creation");
