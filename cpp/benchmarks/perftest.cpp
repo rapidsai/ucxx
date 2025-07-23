@@ -86,7 +86,15 @@ struct TestAttributes {
   std::string description;
   std::string category;
 
-  // Constructor to initialize attributes
+  /**
+   * @brief Constructs a TestAttributes instance with the specified command type, test type,
+   * description, and category.
+   *
+   * @param commandType The type of command associated with the test.
+   * @param testType The type of test (e.g., ping-pong or unidirectional).
+   * @param description A human-readable description of the test.
+   * @param category The category to which the test belongs.
+   */
   TestAttributes(CommandType commandType,
                  TestType testType,
                  const std::string& description,
@@ -95,6 +103,11 @@ struct TestAttributes {
   {
   }
 
+  /**
+   * @brief Deleted default constructor for TestAttributes.
+   *
+   * Prevents creation of TestAttributes without specifying all required fields.
+   */
   TestAttributes() = delete;
 };
 
@@ -141,8 +154,22 @@ class ListenerContext {
 
   std::shared_ptr<ucxx::Endpoint> getEndpoint() { return _endpoint; }
 
+  /**
+   * @brief Checks if the listener context is available to accept a new connection.
+   *
+   * @return true if the listener context is available; false otherwise.
+   */
   bool isAvailable() const { return _isAvailable; }
 
+  /**
+   * @brief Creates an endpoint from a UCX connection request if the listener is available.
+   *
+   * Associates a new endpoint with the listener context using the provided UCX connection request.
+   *
+   * @param connRequest The UCX connection request handle.
+   *
+   * @throws std::runtime_error if an endpoint is already present.
+   */
   void createEndpointFromConnRequest(ucp_conn_request_h connRequest)
   {
     if (!isAvailable()) throw std::runtime_error("Listener context already has an endpoint");
@@ -151,6 +178,10 @@ class ListenerContext {
     _isAvailable = false;
   }
 
+  /**
+   * @brief Releases the current endpoint and marks the listener context as available for new
+   * connections.
+   */
   void releaseEndpoint()
   {
     _endpoint.reset();
@@ -158,6 +189,16 @@ class ListenerContext {
   }
 };
 
+/**
+ * @brief Handles incoming connection requests on the server listener.
+ *
+ * Queries the client's address and prints connection information. If the server is available,
+ * creates an endpoint for the new connection; otherwise, rejects the request and notifies that
+ * only one client at a time is supported.
+ *
+ * @param connRequest The UCX connection request handle.
+ * @param arg Pointer to the ListenerContext managing listener state.
+ */
 static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
 {
   char ipString[INET6_ADDRSTRLEN];
@@ -184,6 +225,12 @@ static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
   }
 }
 
+/**
+ * @brief Prints usage instructions and available command-line options for the UCXX performance
+ * testing tool.
+ *
+ * @param executablePath The path or name of the executable, used in the usage message.
+ */
 static void printUsage(std::string_view executablePath)
 {
   std::cerr << "UCXX performance testing tool" << std::endl;
@@ -226,7 +273,19 @@ static void printUsage(std::string_view executablePath)
   std::cerr << std::endl;
 }
 
-// Helper function to parse unsigned long long with error checking
+/**
+ * @brief Parses a string as an unsigned long long integer with range and error checking.
+ *
+ * Converts the input string to an unsigned long long, validates that it is within the specified
+ * range, and stores the result.
+ *
+ * @param arg Input string to parse.
+ * @param result Pointer to store the parsed value.
+ * @param paramName Name of the parameter for error reporting.
+ * @param minValue Minimum allowed value (inclusive).
+ * @param maxValue Maximum allowed value (inclusive).
+ * @return UCS_OK on success, UCS_ERR_INVALID_PARAM on failure.
+ */
 static ucs_status_t parseUnsignedLongLong(const char* arg,
                                           size_t* result,
                                           const char* paramName,
@@ -244,7 +303,20 @@ static ucs_status_t parseUnsignedLongLong(const char* arg,
   return UCS_OK;
 }
 
-// Helper function to parse double with error checking
+/**
+ * @brief Parses a string as a double with range and error checking.
+ *
+ * Attempts to convert the input string to a double, ensuring the value is within the specified
+ * range and that the entire string is a valid number. Prints an error message if parsing fails or
+ * the value is out of bounds.
+ *
+ * @param arg The input string to parse.
+ * @param result Pointer to store the parsed double value.
+ * @param paramName Name of the parameter for error reporting.
+ * @param minValue Minimum allowed value (inclusive).
+ * @param maxValue Maximum allowed value (inclusive).
+ * @return UCS_OK on success, UCS_ERR_INVALID_PARAM on failure.
+ */
 static ucs_status_t parseDouble(const char* arg,
                                 double* result,
                                 const char* paramName,
@@ -261,7 +333,18 @@ static ucs_status_t parseDouble(const char* arg,
   return UCS_OK;
 }
 
-// Helper function to parse port number with error checking
+/**
+ * @brief Parses a string as a port number with validation.
+ *
+ * Converts the input string to a uint16_t port number, ensuring it is within the valid range (1 to
+ * 65535). Prints an error message and returns UCS_ERR_INVALID_PARAM if parsing fails or the value
+ * is out of range.
+ *
+ * @param arg String representation of the port number.
+ * @param result Pointer to store the parsed port number on success.
+ * @param paramName Name of the parameter for error reporting.
+ * @return UCS_OK on success, UCS_ERR_INVALID_PARAM on failure.
+ */
 static ucs_status_t parsePort(const char* arg, uint16_t* result, const char* paramName)
 {
   char* endptr;
@@ -275,6 +358,19 @@ static ucs_status_t parsePort(const char* arg, uint16_t* result, const char* par
   return UCS_OK;
 }
 
+/**
+ * @brief Parses command-line arguments and populates the application context.
+ *
+ * Processes command-line options to configure the test type, memory type, progress mode, port,
+ * message size, iteration counts, percentile rank, and other settings in the provided
+ * ApplicationContext. Validates input values and prints usage or error messages on invalid input.
+ *
+ * @param appContext Pointer to the ApplicationContext to populate.
+ * @param argc Argument count from main().
+ * @param argv Argument vector from main().
+ * @return UCS_OK on success, UCS_ERR_INVALID_PARAM on invalid input or if required options are
+ * missing.
+ */
 ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const argv[])
 {
   optind = 1;
@@ -362,6 +458,18 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
   return UCS_OK;
 }
 
+/**
+ * @brief Pads a string with spaces to reach a specified length.
+ *
+ * If `bothEnds` is true, spaces are added evenly to both sides of the input string; otherwise,
+ * spaces are appended to the end. If the input string is longer than `maxLength`, it is returned
+ * unchanged.
+ *
+ * @param input The string to pad.
+ * @param maxLength The desired total length after padding.
+ * @param bothEnds Whether to pad spaces on both sides (true) or only at the end (false).
+ * @return The padded string.
+ */
 std::string appendSpaces(const std::string_view input,
                          const int maxLength = 91,
                          const bool bothEnds = false)
@@ -376,6 +484,13 @@ std::string appendSpaces(const std::string_view input,
   }
 }
 
+/**
+ * @brief Converts a floating-point number to a string with fixed decimal precision.
+ *
+ * @param number The floating-point value to convert.
+ * @param precision The number of digits after the decimal point (default is 2).
+ * @return std::string The formatted string representation of the number.
+ */
 std::string floatToString(double number, size_t precision = 2)
 {
   std::ostringstream oss;
@@ -396,6 +511,17 @@ struct Results {
   std::queue<decltype(Result::duration)> _timingQueue{};
   const size_t _timingQueueSize{2048};
 
+  /**
+   * @brief Updates the total and current performance metrics with new results.
+   *
+   * Adds the provided duration, iterations, bytes, and messages to both the total and current
+   * results. Maintains a fixed-size queue of recent durations for percentile calculations.
+   *
+   * @param duration Duration of the operation to add.
+   * @param iterations Number of iterations to add.
+   * @param bytes Number of bytes transferred to add.
+   * @param messages Number of messages processed to add.
+   */
   void update(decltype(Result::duration) duration,
               decltype(Result::iterations) iterations,
               decltype(Result::bytes) bytes,
@@ -414,6 +540,17 @@ struct Results {
     _timingQueue.push(duration);
   }
 
+  /**
+   * @brief Calculates the specified percentile latency from the recorded timing queue.
+   *
+   * Computes the latency value at the given percentile (e.g., median for 50.0) from the most recent
+   * recorded durations. If no timings are recorded, returns 0.0.
+   *
+   * @param percentile The percentile to compute (0.0 to 100.0, inclusive).
+   * @return double The latency value at the specified percentile, in seconds.
+   *
+   * @throws std::invalid_argument If the percentile is outside the range [0.0, 100.0].
+   */
   double calculatePercentile(double percentile = 50.0)
   {
     if (percentile < 0.0 || percentile > 100.0) {
@@ -445,9 +582,21 @@ struct Results {
     }
   }
 
+  /**
+   * @brief Resets the current result metrics to their default values.
+   */
   void resetCurrent() { current = Result{}; }
 };
 
+/**
+ * @brief Performs message transfer according to the configured test type and memory settings.
+ *
+ * Allocates send and receive buffers based on the selected memory type (host or CUDA), posts tag
+ * send and/or receive operations depending on whether the test is PingPong or Unidirectional, waits
+ * for completion, and optionally verifies the received data.
+ *
+ * @return Duration of the transfer operation.
+ */
 class Application {
  private:
   ApplicationContext _appContext{};
@@ -573,6 +722,14 @@ class Application {
     // clang-format on
   }
 
+  /**
+   * @brief Prints the formatted client-side test header for performance results.
+   *
+   * Displays column headers for latency percentiles, bandwidth, and message rate, including the
+   * specified percentile rank and test category.
+   *
+   * @param category The name of the latency metric or test category to display in the header.
+   */
   void printClientHeader(std::string_view category)
   {
     std::string categoryWithUnit = std::string(category) + std::string{" (usec)"};
@@ -588,6 +745,21 @@ class Application {
     // clang-format on
   }
 
+  /**
+   * @brief Prints a formatted progress line displaying current test metrics.
+   *
+   * Outputs the current iteration, percentile latency, average and overall latency, bandwidth, and
+   * message rate in aligned columns for progress reporting during performance tests.
+   *
+   * @param iteration Current test iteration.
+   * @param percentile Calculated latency percentile value.
+   * @param overheadAverage Average latency for the current interval (microseconds).
+   * @param overheadOverall Overall average latency (microseconds).
+   * @param bandwidthAverage Average bandwidth for the current interval (GB/s).
+   * @param bandwidthOverall Overall average bandwidth (GB/s).
+   * @param messageRateAverage Average message rate for the current interval (messages/s).
+   * @param messageRateOverall Overall average message rate (messages/s).
+   */
   void printProgress(size_t iteration,
                      double percentile,
                      double overheadAverage,
@@ -674,6 +846,11 @@ class Application {
     }
   }
 
+  /**
+   * @brief Destructor for the Application class.
+   *
+   * Stops the worker's progress thread if the configured progress mode uses a background thread.
+   */
   ~Application()
   {
     // Stop progress thread
@@ -682,6 +859,14 @@ class Application {
       _worker->stopProgressThread();
   }
 
+  /**
+   * @brief Executes the main performance test loop.
+   *
+   * Performs initial endpoint wireup, runs warmup transfers, and then executes the configured
+   * number of test iterations. During the test, it collects and updates performance metrics,
+   * periodically printing progress statistics such as latency percentiles, average latency,
+   * bandwidth, and message rate.
+   */
   void run()
   {
     // Do wireup
@@ -738,6 +923,14 @@ class Application {
   }
 };
 
+/**
+ * @brief Entry point for the UCXX performance test application.
+ *
+ * Parses command-line arguments, initializes the application context, and runs the selected UCX tag
+ * matching performance test as either server or client.
+ *
+ * @return int Returns 0 on success, or -1 if argument parsing fails.
+ */
 int main(int argc, char** argv)
 {
   ApplicationContext appContext;
