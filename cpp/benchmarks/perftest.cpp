@@ -68,9 +68,6 @@ enum class ProgressMode {
   ThreadBlocking,
 };
 
-enum class DirectionType { Send, Recv };
-
-typedef std::unordered_map<DirectionType, std::vector<char>> BufferMap;
 typedef std::unordered_map<DirectionType, ucxx::Tag> TagMap;
 
 typedef std::shared_ptr<TagMap> TagMapPtr;
@@ -244,17 +241,17 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
       } break;
       case 'm':
         if (strcmp(optarg, "host") == 0) {
-          app_context->memory_type = MemoryType::Host;
+          appContext->memoryType = MemoryType::Host;
           break;
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
         } else if (strcmp(optarg, "cuda") == 0) {
-          app_context->memory_type = MemoryType::Cuda;
+          appContext->memoryType = MemoryType::Cuda;
           break;
         } else if (strcmp(optarg, "cuda-managed") == 0) {
-          app_context->memory_type = MemoryType::CudaManaged;
+          appContext->memoryType = MemoryType::CudaManaged;
           break;
         } else if (strcmp(optarg, "cuda-async") == 0) {
-          app_context->memory_type = MemoryType::CudaAsync;
+          appContext->memoryType = MemoryType::CudaAsync;
           break;
 #endif
         } else {
@@ -491,7 +488,7 @@ class Application {
     std::unique_ptr<BufferInterface> bufferInterface;
 
     // Allocate buffers based on memory type
-    if (_appContext.memory_type == MemoryType::Host) {
+    if (_appContext.memoryType == MemoryType::Host) {
       // Use the factory method to create the appropriate host buffer interface
       bufferInterface = HostBufferInterface::createBufferInterface(_appContext.messageSize,
                                                                    _appContext.reuseAllocations);
@@ -499,7 +496,7 @@ class Application {
     } else {
       // Use the factory method to create the appropriate CUDA buffer interface
       bufferInterface = CudaBufferInterfaceBase::createBufferInterface(
-        _appContext.memory_type, _appContext.messageSize, _appContext.reuseAllocations);
+        _appContext.memoryType, _appContext.messageSize, _appContext.reuseAllocations);
 #endif
     }
 
@@ -526,7 +523,7 @@ class Application {
     }
 
     // Wait for requests and clear requests
-    waitRequests(_appContext.progressMode, _worker, requests);
+    waitRequests(requests);
     auto stop = std::chrono::high_resolution_clock::now();
 
     if (_appContext.verifyResults) { bufferInterface->verifyResults(_appContext.messageSize); }
@@ -582,9 +579,9 @@ class Application {
   {
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
     // Check CUDA support if CUDA memory is requested
-    if (app_context.memory_type == MemoryType::Cuda ||
-        app_context.memory_type == MemoryType::CudaManaged ||
-        app_context.memory_type == MemoryType::CudaAsync) {
+    if (appContext.memoryType == MemoryType::Cuda ||
+        appContext.memoryType == MemoryType::CudaManaged ||
+        appContext.memoryType == MemoryType::CudaAsync) {
       CUDA_EXIT_ON_ERROR(cudaSetDevice(0), "CUDA device initialization");
     }
 #endif
@@ -598,7 +595,7 @@ class Application {
     // Setup: create UCP context, worker, listener and client endpoint.
     _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucxx::Context::defaultFeatureFlags),
                                   "Context creation");
-    _worker  = UCXX_EXIT_ON_ERROR(context->createWorker(), "Worker creation");
+    _worker  = UCXX_EXIT_ON_ERROR(_context->createWorker(), "Worker creation");
 
     _tagMap = std::make_shared<TagMap>(TagMap{
       {DirectionType::Send, _isServer ? ucxx::Tag{0} : ucxx::Tag{1}},
@@ -609,7 +606,7 @@ class Application {
       _listenerContext =
         std::make_unique<ListenerContext>(_worker, _appContext.endpointErrorHandling);
       _listener = UCXX_EXIT_ON_ERROR(
-        worker->createListener(_appContext.listenerPort, listenerCallback, _listenerContext.get()),
+        _worker->createListener(_appContext.listenerPort, listenerCallback, _listenerContext.get()),
         "Listener creation");
       _listenerContext->setListener(_listener);
     }
@@ -704,7 +701,7 @@ int main(int argc, char** argv)
   ApplicationContext appContext;
   if (parseCommand(&appContext, argc, argv) != UCS_OK) return -1;
 
-  auto app = Application(appContext);
+  auto app = Application(std::move(appContext));
   app.run();
 
   return 0;
