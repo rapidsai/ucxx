@@ -81,7 +81,6 @@ struct TestAttributes {
   TestType testType;
   std::string description;
   std::string category;
-  int priority;  // Assume this is an integer for demonstration purposes
 
   // Constructor to initialize attributes
   TestAttributes(CommandType commandType,
@@ -440,12 +439,6 @@ class Application {
     }
   }
 
-  BufferMap allocateTransferBuffers()
-  {
-    return BufferMap{{DirectionType::Send, std::vector<char>(_appContext.messageSize, 0xaa)},
-                     {DirectionType::Recv, std::vector<char>(_appContext.messageSize)}};
-  }
-
   void doWireup()
   {
     std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -670,10 +663,12 @@ class Application {
           results.current.duration.count() / results.current.iterations / factor * 1e6;
         auto totalLatency =
           results.total.duration.count() / results.total.iterations / factor * 1e6;
-        auto currentBandwidth   = results.current.bytes / (results.current.duration.count() * 1e6);
-        auto totalBandwidth     = results.total.bytes / (results.total.duration.count() * 1e6);
-        auto currentMessageRate = results.current.messages / (results.current.duration.count());
-        auto totalMessageRate   = results.total.messages / (results.total.duration.count());
+        auto currentBandwidth = results.current.bytes / (results.current.duration.count() * 1e6);
+        auto totalBandwidth   = results.total.bytes / (results.total.duration.count() * 1e6);
+        auto currentMessageRate =
+          std::round(results.current.messages / (results.current.duration.count()));
+        auto totalMessageRate =
+          std::round(results.total.messages / (results.total.duration.count()));
 
         printProgress(results.total.iterations,
                       percentile,
