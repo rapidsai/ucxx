@@ -771,8 +771,7 @@ class Worker : public Component {
    *
    * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
    *                              data will be stored.
-   * @param[in] length            the size in bytes of the tag message to be received.
-   * @param[in] messageHandle     the message handle obtained from `tagProbe`.
+   * @param[in] probeInfo         the TagProbeInfo object containing message length and handle.
    * @param[in] enableFuture      whether a future should be created and subsequently
    *                              notified.
    * @param[in] callbackFunction  user-defined callback function to call upon completion.
@@ -782,8 +781,7 @@ class Worker : public Component {
    */
   [[nodiscard]] std::shared_ptr<Request> tagRecvWithHandle(
     void* buffer,
-    size_t length,
-    ucp_tag_message_h messageHandle,
+    const TagProbeInfo& probeInfo,
     const bool enableFuture                      = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);

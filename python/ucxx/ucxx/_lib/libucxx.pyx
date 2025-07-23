@@ -890,25 +890,29 @@ cdef class UCXWorker():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_recv_with_handle(self, Array arr, object message_handle) -> UCXRequest:
+    def tag_recv_with_handle(
+        self,
+        Array arr,
+        TagProbeResult probe_result
+    ) -> UCXRequest:
         """Receive tag message using message handle obtained from tag_probe_with_handle.
 
         This is more efficient than regular tag_recv as it doesn't need to go through
         the message matching queue again.
         """
         cdef void* buf = <void*>arr.ptr
-        cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
-        cdef ucp_tag_message_h handle = <ucp_tag_message_h><uintptr_t>message_handle
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
 
+        if not probe_result.matched:
+            raise ValueError("TagProbeResult must be matched")
+
         with nogil:
             req = self._worker.get().tagRecvWithHandle(
                 buf,
-                nbytes,
-                handle,
+                probe_result._probe_info,
                 self._enable_python_future
             )
 
@@ -1580,27 +1584,31 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def tag_recv_with_handle(self, Array arr, object message_handle) -> UCXRequest:
+    def tag_recv_with_handle(
+        self,
+        Array arr,
+        TagProbeResult probe_result
+    ) -> UCXRequest:
         """Receive tag message using message handle obtained from tag_probe_with_handle.
 
         This is more efficient than regular tag_recv as it doesn't need to go through
         the message matching queue again.
         """
         cdef void* buf = <void*>arr.ptr
-        cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
-        cdef ucp_tag_message_h handle = <ucp_tag_message_h><uintptr_t>message_handle
         cdef shared_ptr[Worker] worker
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
 
+        if not probe_result.matched:
+            raise ValueError("TagProbeResult must be matched")
+
         with nogil:
             worker = self._endpoint.get().getWorker()
             req = worker.get().tagRecvWithHandle(
                 buf,
-                nbytes,
-                handle,
+                probe_result._probe_info,
                 self._enable_python_future
             )
 

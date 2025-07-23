@@ -481,7 +481,7 @@ class Endpoint:
             self.abort()
         return ret
 
-    async def recv_with_handle(self, buffer, message_handle):
+    async def recv_with_handle(self, buffer, probe_result):
         """Receive tag message using message handle obtained from tag_probe.
 
         This is more efficient than regular recv as it doesn't need to go through
@@ -492,8 +492,8 @@ class Endpoint:
         buffer: exposing the buffer protocol or array/cuda interface
             The buffer to receive into. Raise ValueError if buffer
             is smaller than nbytes or read-only.
-        message_handle: int
-            The message handle obtained from tag_probe with remove=True.
+        probe_result: TagProbeResult
+            The probe result obtained from tag_probe with remove=True.
 
         Returns
         -------
@@ -515,7 +515,7 @@ class Endpoint:
 
         self._recv_count += 1
 
-        req = self._ctx.worker.tag_recv_with_handle(buffer, message_handle)
+        req = self._ctx.worker.tag_recv_with_handle(buffer, probe_result)
         ret = await req.wait()
 
         self._finished_recv_count += 1

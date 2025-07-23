@@ -619,16 +619,19 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
 }
 
 std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
-                                                   size_t length,
-                                                   ucp_tag_message_h messageHandle,
+                                                   const TagProbeInfo& probeInfo,
                                                    const bool enableFuture,
                                                    RequestCallbackUserFunction callbackFunction,
                                                    RequestCallbackUserData callbackData)
 {
+  if (!probeInfo.matched || !probeInfo.info.has_value() || !probeInfo.handle.has_value()) {
+    throw std::invalid_argument("TagProbeInfo must be matched and contain valid info and handle");
+  }
+
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
   return registerInflightRequest(
     createRequestTag(worker,
-                     data::TagReceiveWithHandle(buffer, length, messageHandle),
+                     data::TagReceiveWithHandle(buffer, probeInfo.info->length, *probeInfo.handle),
                      enableFuture,
                      callbackFunction,
                      callbackData));

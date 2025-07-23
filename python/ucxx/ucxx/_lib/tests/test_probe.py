@@ -127,7 +127,7 @@ def _server_probe(queue, probe_type, api_type="worker"):
             wait_requests(
                 worker,
                 "blocking",
-                worker.tag_recv_with_handle(Array(received), probe_info.handle),
+                worker.tag_recv_with_handle(Array(received), probe_info),
             )
         else:
             # Test endpoint-level API with remove=True
@@ -143,7 +143,7 @@ def _server_probe(queue, probe_type, api_type="worker"):
             wait_requests(
                 worker,
                 "blocking",
-                ep.tag_recv_with_handle(Array(received), probe_info.handle),
+                ep.tag_recv_with_handle(Array(received), probe_info),
             )
 
     assert wireup == WireupMessage
