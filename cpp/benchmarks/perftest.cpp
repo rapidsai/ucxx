@@ -664,15 +664,19 @@ class Application {
 
       if (!_isServer &&
           (elapsedTime.count() >= 1 || results.total.iterations == _appContext.numIterations)) {
-        auto percentile = results.calculatePercentile(_appContext.percentileRank) / factor * 1e6;
-        auto currentLatency =
+        const auto percentile =
+          results.calculatePercentile(_appContext.percentileRank) / factor * 1e6;
+        const auto currentLatency =
           results.current.duration.count() / results.current.iterations / factor * 1e6;
-        auto totalLatency =
+        const auto totalLatency =
           results.total.duration.count() / results.total.iterations / factor * 1e6;
-        auto currentBandwidth   = results.current.bytes / (results.current.duration.count() * 1e6);
-        auto totalBandwidth     = results.total.bytes / (results.total.duration.count() * 1e6);
-        auto currentMessageRate = results.current.messages / (results.current.duration.count());
-        auto totalMessageRate   = results.total.messages / (results.total.duration.count());
+
+        const auto curSec           = results.current.duration.count();
+        const auto totalSec         = results.total.duration.count();
+        const auto currentBandwidth = (curSec > 0.0) ? results.current.bytes / (curSec * 1e6) : 0.0;
+        const auto totalBandwidth = (totalSec > 0.0) ? results.total.bytes / (totalSec * 1e6) : 0.0;
+        const auto currentMessageRate = (curSec > 0.0) ? results.current.messages / curSec : 0.0;
+        const auto totalMessageRate   = (totalSec > 0.0) ? results.total.messages / totalSec : 0.0;
 
         printProgress(results.total.iterations,
                       percentile,
