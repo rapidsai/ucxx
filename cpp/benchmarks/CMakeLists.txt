@@ -5,6 +5,10 @@
 
 find_package(Threads REQUIRED)
 
+# Add CUDA support option for benchmarks
+option(UCXX_BENCHMARKS_ENABLE_CUDA "Enable CUDA support in benchmarks" OFF)
+message(VERBOSE "UCXX: Enable CUDA support in benchmarks: ${UCXX_BENCHMARKS_ENABLE_CUDA}")
+
 # ##################################################################################################
 # * compiler function -----------------------------------------------------------------------------
 
@@ -29,6 +33,14 @@ function(ConfigureBench CMAKE_BENCH_NAME)
                CXX_STANDARD_REQUIRED ON
   )
   target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE ucxx $<TARGET_NAME_IF_EXISTS:conda_env>)
+
+  # Add CUDA support if enabled
+  if(UCXX_BENCHMARKS_ENABLE_CUDA)
+    target_compile_definitions(${CMAKE_BENCH_NAME} PRIVATE UCXX_BENCHMARKS_ENABLE_CUDA)
+    find_package(CUDAToolkit REQUIRED)
+    target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE CUDA::cudart)
+  endif()
+
   add_custom_command(
     OUTPUT UCXX_BENCHMARKS
     # COMMAND ${CMAKE_BENCH_NAME} --benchmark_out_format=json
