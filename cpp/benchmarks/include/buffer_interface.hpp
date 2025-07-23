@@ -7,6 +7,7 @@
 #include <cassert>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -40,49 +41,53 @@ enum class MemoryType {
 };
 
 /**
- * @brief Get the string representation of the memory type
+ * @brief Returns the string representation of a given MemoryType.
  *
- * @param memoryType The memory type
- * @return The string representation of the memory type
+ * Converts a MemoryType enum value to its corresponding lowercase string. Throws an exception if
+ * the memory type is not recognized.
  *
- * @throws std::runtime_error if the memory type is unknown
+ * @param memoryType The MemoryType to convert.
+ * @return std::string The string representation of the memory type.
+ * @throws std::runtime_error If the memory type is unknown.
  */
-std::string getMemoryTypeString(MemoryType memoryType) {
-  if (memoryType == MemoryType::Host)
+std::string getMemoryTypeString(MemoryType memoryType)
+{
+  if (memoryType == MemoryType::Host) {
     return "host";
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  else if (memoryType == MemoryType::Cuda)
+  } else if (memoryType == MemoryType::Cuda) {
     return "cuda";
-  else if (memoryType == MemoryType::CudaManaged)
+  } else if (memoryType == MemoryType::CudaManaged) {
     return "cuda-managed";
-  else if (memoryType == MemoryType::CudaAsync)
+  } else if (memoryType == MemoryType::CudaAsync) {
     return "cuda-async";
 #endif
-  else {
+  } else {
     throw std::runtime_error("Unknown memory type");
   }
 }
 
 /**
- * @brief Get the memory type from a string
+ * @brief Converts a string to the corresponding MemoryType enum value.
  *
- * @param memoryTypeString The string representation of the memory type
- * @return The memory type
- *
- * @throws std::runtime_error if the memory type is unknown
+ * @param memoryTypeString String representation of the memory type (e.g., "host", "cuda",
+ * "cuda-managed", "cuda-async").
+ * @return MemoryType corresponding to the input string.
+ * @throws std::runtime_error if the string does not match a known memory type.
  */
-MemoryType getMemoryTypeFromString(std::string memoryTypeString) {
-  if (memoryTypeString == "host")
+MemoryType getMemoryTypeFromString(std::string memoryTypeString)
+{
+  if (memoryTypeString == "host") {
     return MemoryType::Host;
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  else if (memoryTypeString == "cuda")
+  } else if (memoryTypeString == "cuda") {
     return MemoryType::Cuda;
-  else if (memoryTypeString == "cuda-managed")
+  } else if (memoryTypeString == "cuda-managed") {
     return MemoryType::CudaManaged;
-  else if (memoryTypeString == "cuda-async")
+  } else if (memoryTypeString == "cuda-async") {
     return MemoryType::CudaAsync;
 #endif
-  else {
+  } else {
     throw std::runtime_error("Unknown memory type");
   }
 }
@@ -193,6 +198,16 @@ struct CudaAsyncBuffer {
     other.size   = 0;
     other.stream = nullptr;
   }
+  /**
+   * @brief Move assignment operator for CudaAsyncBuffer.
+   *
+   * Releases any existing CUDA asynchronous memory and stream resources, then transfers ownership
+   * of the memory pointer, size, and stream from another CudaAsyncBuffer instance. The source
+   * instance is reset to a null state.
+   *
+   * @param other The CudaAsyncBuffer to move from.
+   * @return Reference to this CudaAsyncBuffer.
+   */
   CudaAsyncBuffer& operator=(CudaAsyncBuffer&& other) noexcept
   {
     if (this != &other) {
@@ -235,11 +250,32 @@ struct BufferInterface {
 struct HostBufferInterface : public BufferInterface {
   BufferMapPtr bufferMap;
 
+  /**
+   * @brief Constructs a HostBufferInterface with the provided buffer map.
+   *
+   * @param buf Buffer map containing send and receive host buffers.
+   */
   explicit HostBufferInterface(BufferMapPtr buf) : bufferMap(buf) {}
 
+  /**
+   * @brief Returns a pointer to the send buffer data.
+   *
+   * @return void* Pointer to the start of the send buffer.
+   */
   void* getSendPtr() override { return (*bufferMap)[DirectionType::Send].data(); }
+  /**
+   * @brief Returns a pointer to the receive buffer.
+   *
+   * @return void* Pointer to the start of the receive buffer.
+   */
   void* getRecvPtr() override { return (*bufferMap)[DirectionType::Recv].data(); }
 
+  /**
+   * @brief Verifies that the receive buffer matches the send buffer.
+   *
+   * Asserts that each byte in the receive buffer is equal to the corresponding byte in the send
+   * buffer for the given message size.
+   */
   void verifyResults(size_t message_size) override
   {
     for (size_t j = 0; j < (*bufferMap)[DirectionType::Send].size(); ++j)
@@ -247,14 +283,13 @@ struct HostBufferInterface : public BufferInterface {
   }
 
   // Static factory method to create host buffer interface
-  static std::unique_ptr<HostBufferInterface> createBufferInterface(size_t message_size, bool reuse_alloc)
+  static std::unique_ptr<HostBufferInterface> createBufferInterface(size_t message_size,
+                                                                    bool reuse_alloc)
   {
     static BufferMapPtr reuseBuffer;
 
     if (reuse_alloc) {
-      if (!reuseBuffer) {
-        reuseBuffer = allocateTransferBuffers(message_size);
-      }
+      if (!reuseBuffer) { reuseBuffer = allocateTransferBuffers(message_size); }
       return std::make_unique<HostBufferInterface>(reuseBuffer);
     } else {
       auto bufferMap = allocateTransferBuffers(message_size);
@@ -266,48 +301,95 @@ struct HostBufferInterface : public BufferInterface {
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 // Unified CUDA buffer interface that all CUDA buffer types implement
 struct CudaBufferInterfaceBase : public BufferInterface {
+  /**
+   * @brief Virtual destructor for CudaBufferInterfaceBase.
+   *
+   * Ensures proper cleanup of derived CUDA buffer interface objects.
+   */
   virtual ~CudaBufferInterfaceBase() = default;
 
   // Pure virtual methods that derived classes must implement
-  virtual void* getBufferPtr(DirectionType direction) = 0;
-  virtual std::shared_ptr<void> getBufferMap() = 0;
+  virtual void* getBufferPtr(DirectionType direction)                         = 0;
+  virtual std::shared_ptr<void> getBufferMap()                                = 0;
   virtual void initializeBuffer(DirectionType direction, size_t message_size) = 0;
-  virtual void verifyBufferResults(size_t message_size) = 0;
+  virtual void verifyBufferResults(size_t message_size)                       = 0;
 
-  // Common implementation for getSendPtr and getRecvPtr
+  /**
+   * @brief Returns a pointer to the send buffer.
+   *
+   * @return void* Pointer to the start of the buffer used for sending data.
+   */
   void* getSendPtr() override { return getBufferPtr(DirectionType::Send); }
+  /**
+   * @brief Returns a pointer to the receive buffer.
+   *
+   * @return void* Pointer to the start of the buffer used for receiving data.
+   */
   void* getRecvPtr() override { return getBufferPtr(DirectionType::Recv); }
 
-  // Common verification logic
-  void verifyResults(size_t message_size) override
-  {
-    verifyBufferResults(message_size);
-  }
+  /**
+   * @brief Verifies that the receive buffer matches the send buffer for the given message size.
+   *
+   * Delegates verification to the implementation-specific buffer result check.
+   *
+   * @param message_size The number of bytes to verify.
+   */
+  void verifyResults(size_t message_size) override { verifyBufferResults(message_size); }
 
   // Static factory method to create appropriate buffer interface
-  static std::unique_ptr<CudaBufferInterfaceBase> createBufferInterface(MemoryType memory_type, size_t message_size, bool reuse_alloc);
+  static std::unique_ptr<CudaBufferInterfaceBase> createBufferInterface(MemoryType memory_type,
+                                                                        size_t message_size,
+                                                                        bool reuse_alloc);
 
   // Static allocation method that each derived class must implement
-  static std::unique_ptr<CudaBufferInterfaceBase> allocateBuffers(MemoryType memory_type, size_t message_size);
+  static std::unique_ptr<CudaBufferInterfaceBase> allocateBuffers(MemoryType memory_type,
+                                                                  size_t message_size);
 
   // Virtual clone method for reuse buffers
   virtual std::unique_ptr<CudaBufferInterfaceBase> clone() const = 0;
 };
 
 // Template-based CUDA buffer interface implementation
-template<typename BufferType>
+template <typename BufferType>
 struct CudaBufferInterface : public CudaBufferInterfaceBase {
   std::shared_ptr<std::unordered_map<DirectionType, BufferType>> bufferMap;
 
+  /**
+   * @brief Constructs a CUDA buffer interface with the given buffer map.
+   *
+   * @param buf Map of DirectionType to CUDA buffer objects.
+   */
   explicit CudaBufferInterface(std::shared_ptr<std::unordered_map<DirectionType, BufferType>> buf)
     : bufferMap(buf)
   {
   }
 
+  /**
+   * @brief Returns a raw pointer to the buffer for the specified direction.
+   *
+   * @param direction The data transfer direction (send or receive).
+   * @return void* Pointer to the start of the buffer corresponding to the given direction.
+   */
   void* getBufferPtr(DirectionType direction) override { return (*bufferMap)[direction].ptr; }
 
+  /**
+   * @brief Returns the underlying buffer map.
+   *
+   * @return std::shared_ptr<void> Buffer map containing buffers for each
+   * direction.
+   */
   std::shared_ptr<void> getBufferMap() override { return bufferMap; }
 
+  /**
+   * @brief Initializes the send buffer with a fixed pattern.
+   *
+   * For the specified direction, if it is `Send`, fills the buffer with the byte pattern `0xaa`
+   * using the appropriate memory copy method for the buffer type.
+   *
+   * @param direction The direction of the buffer to initialize. Only `DirectionType::Send` is
+   * affected.
+   * @param message_size The size of the buffer to initialize, in bytes.
+   */
   void initializeBuffer(DirectionType direction, size_t message_size) override
   {
     if (direction == DirectionType::Send) {
@@ -324,13 +406,24 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
       } else if constexpr (std::is_same_v<BufferType, CudaManagedBuffer>) {
         std::memcpy((*bufferMap)[DirectionType::Send].ptr, pattern.data(), message_size);
       } else {
-        CUDA_EXIT_ON_ERROR(
-          cudaMemcpy((*bufferMap)[DirectionType::Send].ptr, pattern.data(), message_size, cudaMemcpyHostToDevice),
-          "CUDA send buffer initialization");
+        CUDA_EXIT_ON_ERROR(cudaMemcpy((*bufferMap)[DirectionType::Send].ptr,
+                                      pattern.data(),
+                                      message_size,
+                                      cudaMemcpyHostToDevice),
+                           "CUDA send buffer initialization");
       }
     }
   }
 
+  /**
+   * @brief Verifies that the receive buffer matches the send buffer for the specified message
+   * size.
+   *
+   * Copies data from device or managed memory to host memory as appropriate for the buffer type,
+   * then asserts that the receive buffer contents are identical to the send buffer.
+   *
+   * @param message_size Number of bytes to verify.
+   */
   void verifyBufferResults(size_t message_size) override
   {
     std::vector<char> send_data(message_size);
@@ -338,14 +431,18 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
 
     if constexpr (std::is_same_v<BufferType, CudaAsyncBuffer>) {
       // For async buffers, use the stream from the buffer
-      CUDA_EXIT_ON_ERROR(
-        cudaMemcpyAsync(send_data.data(), (*bufferMap)[DirectionType::Send].ptr, message_size, cudaMemcpyDeviceToHost,
-                       (*bufferMap)[DirectionType::Send].stream),
-        "CUDA async send data copy for verification");
-      CUDA_EXIT_ON_ERROR(
-        cudaMemcpyAsync(recv_data.data(), (*bufferMap)[DirectionType::Recv].ptr, message_size, cudaMemcpyDeviceToHost,
-                       (*bufferMap)[DirectionType::Recv].stream),
-        "CUDA async recv data copy for verification");
+      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(send_data.data(),
+                                         (*bufferMap)[DirectionType::Send].ptr,
+                                         message_size,
+                                         cudaMemcpyDeviceToHost,
+                                         (*bufferMap)[DirectionType::Send].stream),
+                         "CUDA async send data copy for verification");
+      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recv_data.data(),
+                                         (*bufferMap)[DirectionType::Recv].ptr,
+                                         message_size,
+                                         cudaMemcpyDeviceToHost,
+                                         (*bufferMap)[DirectionType::Recv].stream),
+                         "CUDA async recv data copy for verification");
 
       // Synchronize streams
       CUDA_EXIT_ON_ERROR(cudaStreamSynchronize((*bufferMap)[DirectionType::Send].stream),
@@ -358,14 +455,18 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
       std::memcpy(recv_data.data(), (*bufferMap)[DirectionType::Recv].ptr, message_size);
     } else {
       // For non-async buffers, use synchronous copy with null stream
-      CUDA_EXIT_ON_ERROR(
-        cudaMemcpyAsync(send_data.data(), (*bufferMap)[DirectionType::Send].ptr, message_size, cudaMemcpyDeviceToHost,
-                       nullptr),
-        "CUDA send data copy for verification");
-      CUDA_EXIT_ON_ERROR(
-        cudaMemcpyAsync(recv_data.data(), (*bufferMap)[DirectionType::Recv].ptr, message_size, cudaMemcpyDeviceToHost,
-                       nullptr),
-        "CUDA recv data copy for verification");
+      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(send_data.data(),
+                                         (*bufferMap)[DirectionType::Send].ptr,
+                                         message_size,
+                                         cudaMemcpyDeviceToHost,
+                                         nullptr),
+                         "CUDA send data copy for verification");
+      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recv_data.data(),
+                                         (*bufferMap)[DirectionType::Recv].ptr,
+                                         message_size,
+                                         cudaMemcpyDeviceToHost,
+                                         nullptr),
+                         "CUDA recv data copy for verification");
     }
 
     for (size_t j = 0; j < send_data.size(); ++j)
@@ -373,9 +474,14 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
   }
 
   // Static allocation methods
-  static std::shared_ptr<std::unordered_map<DirectionType, BufferType>> allocateBuffers(size_t message_size);
+  static std::shared_ptr<std::unordered_map<DirectionType, BufferType>> allocateBuffers(
+    size_t message_size);
 
-  // Clone method implementation
+  /**
+   * @brief Creates a new buffer interface instance sharing the same buffer map.
+   *
+   * @return Cloned CudaBufferInterface with shared buffer data.
+   */
   std::unique_ptr<CudaBufferInterfaceBase> clone() const override
   {
     return std::make_unique<CudaBufferInterface<BufferType>>(bufferMap);
@@ -383,40 +489,71 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
 };
 #endif
 
-// Buffer allocation functions (always available)
+/**
+ * @brief Allocates and initializes host memory buffers for send and receive operations.
+ *
+ * Creates a buffer map containing two vectors of bytes: one for sending, initialized with the
+ * pattern `0xaa`, and one for receiving, zero-initialized. The map is keyed by
+ * `DirectionType::Send` and `DirectionType::Recv`.
+ *
+ * @param message_size The size of each buffer in bytes.
+ * @return BufferMapPtr The allocated buffer map.
+ */
 BufferMapPtr allocateTransferBuffers(size_t message_size)
 {
-  return std::make_shared<BufferMap>(BufferMap{{DirectionType::Send, std::vector<char>(message_size, 0xaa)},
-                                               {DirectionType::Recv, std::vector<char>(message_size)}});
+  return std::make_shared<BufferMap>(
+    BufferMap{{DirectionType::Send, std::vector<char>(message_size, 0xaa)},
+              {DirectionType::Recv, std::vector<char>(message_size)}});
 }
 
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 // Type aliases for convenience
-using CudaDeviceBufferInterface = CudaBufferInterface<CudaBuffer>;
+using CudaDeviceBufferInterface  = CudaBufferInterface<CudaBuffer>;
 using CudaManagedBufferInterface = CudaBufferInterface<CudaManagedBuffer>;
-using CudaAsyncBufferInterface = CudaBufferInterface<CudaAsyncBuffer>;
+using CudaAsyncBufferInterface   = CudaBufferInterface<CudaAsyncBuffer>;
 
 // Template specialization implementations for allocation methods
-template<>
+template <>
+/**
+ * @brief Allocates CUDA device buffers for send and receive operations and initializes the send
+ * buffer.
+ *
+ * Allocates two CUDA device buffers of the specified size for send and receive directions. The
+ * send buffer is initialized with the byte pattern 0xaa.
+ *
+ * @param message_size Size of each buffer in bytes.
+ * @return std::shared_ptr<CudaBufferMap> Map containing the allocated CUDA device buffers.
+ */
 std::shared_ptr<CudaBufferMap> CudaBufferInterface<CudaBuffer>::allocateBuffers(size_t message_size)
 {
-  auto bufferMap     = std::make_shared<CudaBufferMap>();
+  auto bufferMap                    = std::make_shared<CudaBufferMap>();
   (*bufferMap)[DirectionType::Send] = CudaBuffer(message_size);
   (*bufferMap)[DirectionType::Recv] = CudaBuffer(message_size);
 
   // Initialize send buffer with pattern
   std::vector<char> pattern(message_size, 0xaa);
   CUDA_EXIT_ON_ERROR(
-    cudaMemcpy((*bufferMap)[DirectionType::Send].ptr, pattern.data(), message_size, cudaMemcpyHostToDevice),
+    cudaMemcpy(
+      (*bufferMap)[DirectionType::Send].ptr, pattern.data(), message_size, cudaMemcpyHostToDevice),
     "CUDA send buffer initialization");
 
   return bufferMap;
 }
 
-template<>
-std::shared_ptr<CudaManagedBufferMap> CudaBufferInterface<CudaManagedBuffer>::allocateBuffers(size_t message_size)
+template <>
+/**
+ * @brief Allocates and initializes CUDA managed memory buffers for send and receive operations.
+ *
+ * Allocates two `CudaManagedBuffer` instances of the specified size for the send and receive
+ * directions. The send buffer is initialized with the byte pattern `0xaa`.
+ *
+ * @param message_size The size in bytes for each buffer.
+ * @return Map associating each direction with its corresponding managed buffer.
+ */
+std::shared_ptr<CudaManagedBufferMap> CudaBufferInterface<CudaManagedBuffer>::allocateBuffers(
+  size_t message_size)
 {
-  auto bufferMap     = std::make_shared<CudaManagedBufferMap>();
+  auto bufferMap                    = std::make_shared<CudaManagedBufferMap>();
   (*bufferMap)[DirectionType::Send] = CudaManagedBuffer(message_size);
   (*bufferMap)[DirectionType::Recv] = CudaManagedBuffer(message_size);
 
@@ -427,10 +564,22 @@ std::shared_ptr<CudaManagedBufferMap> CudaBufferInterface<CudaManagedBuffer>::al
   return bufferMap;
 }
 
-template<>
-std::shared_ptr<CudaAsyncBufferMap> CudaBufferInterface<CudaAsyncBuffer>::allocateBuffers(size_t message_size)
+template <>
+/**
+ * @brief Allocates and initializes CUDA asynchronous send and receive buffers.
+ *
+ * Allocates device memory for send and receive buffers using CUDA asynchronous allocation, and
+ * initializes the send buffer with a fixed pattern (0xaa) via asynchronous memory copy. The CUDA
+ * stream is synchronized to ensure initialization is complete before use.
+ *
+ * @param message_size Size in bytes for each buffer.
+ * @return Map containing the allocated and initialized CUDA asynchronous buffers for send and
+ * receive directions.
+ */
+std::shared_ptr<CudaAsyncBufferMap> CudaBufferInterface<CudaAsyncBuffer>::allocateBuffers(
+  size_t message_size)
 {
-  auto bufferMap     = std::make_shared<CudaAsyncBufferMap>();
+  auto bufferMap                    = std::make_shared<CudaAsyncBufferMap>();
   (*bufferMap)[DirectionType::Send] = CudaAsyncBuffer(message_size);
   (*bufferMap)[DirectionType::Recv] = CudaAsyncBuffer(message_size);
 
@@ -451,7 +600,8 @@ std::shared_ptr<CudaAsyncBufferMap> CudaBufferInterface<CudaAsyncBuffer>::alloca
 }
 
 // Factory method implementation
-std::unique_ptr<CudaBufferInterfaceBase> CudaBufferInterfaceBase::createBufferInterface(MemoryType memory_type, size_t message_size, bool reuse_alloc)
+std::unique_ptr<CudaBufferInterfaceBase> CudaBufferInterfaceBase::createBufferInterface(
+  MemoryType memory_type, size_t message_size, bool reuse_alloc)
 {
   if (reuse_alloc) {
     // Use static reuse buffers for each memory type
@@ -473,7 +623,8 @@ std::unique_ptr<CudaBufferInterfaceBase> CudaBufferInterfaceBase::createBufferIn
 }
 
 // Unified allocation method implementation
-std::unique_ptr<CudaBufferInterfaceBase> CudaBufferInterfaceBase::allocateBuffers(MemoryType memory_type, size_t message_size)
+std::unique_ptr<CudaBufferInterfaceBase> CudaBufferInterfaceBase::allocateBuffers(
+  MemoryType memory_type, size_t message_size)
 {
   switch (memory_type) {
     case MemoryType::Cuda: {
@@ -488,8 +639,7 @@ std::unique_ptr<CudaBufferInterfaceBase> CudaBufferInterfaceBase::allocateBuffer
       auto bufferMap = CudaAsyncBufferInterface::allocateBuffers(message_size);
       return std::make_unique<CudaAsyncBufferInterface>(bufferMap);
     }
-    default:
-      throw std::runtime_error("Unsupported CUDA memory type");
+    default: throw std::runtime_error("Unsupported CUDA memory type");
   }
 }
 #endif
