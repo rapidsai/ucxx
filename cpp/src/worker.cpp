@@ -581,13 +581,12 @@ TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
 {
 }
 
-TagProbeInfo::TagProbeInfo()
-  : matched(false), info(TagRecvInfo(ucp_tag_recv_info_t{})), handle(nullptr)
-{
-}
+TagProbeInfo::TagProbeInfo() : matched(false), info(std::nullopt), handle(std::nullopt) {}
 
 TagProbeInfo::TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle)
-  : matched(true), info(info), handle(handle)
+  : matched(true),
+    info(TagRecvInfo(info)),
+    handle(handle != nullptr ? std::optional<ucp_tag_message_h>(handle) : std::nullopt)
 {
 }
 

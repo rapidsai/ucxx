@@ -124,10 +124,11 @@ TEST_F(WorkerTest, TagProbe)
     return probed.matched;
   });
 
-  probed = _worker->tagProbe(ucxx::Tag{0});
-  ASSERT_TRUE(probed.matched);
-  ASSERT_EQ(probed.info.senderTag, ucxx::Tag{0});
-  ASSERT_EQ(probed.info.length, buf.size() * sizeof(int));
+  auto probed2 = _worker->tagProbe(ucxx::Tag{0});
+  ASSERT_TRUE(probed2.matched);
+  ASSERT_TRUE(probed2.info.has_value());
+  ASSERT_EQ(probed2.info->senderTag, ucxx::Tag{0});
+  ASSERT_EQ(probed2.info->length, buf.size() * sizeof(int));
 }
 
 TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
@@ -141,8 +142,8 @@ TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
   EXPECT_FALSE(probe2.matched);
 
   // Test that when no message is matched, both return matched=false
-  EXPECT_EQ(probe1.handle, nullptr);
-  EXPECT_EQ(probe2.handle, nullptr);
+  EXPECT_FALSE(probe1.handle.has_value());
+  EXPECT_FALSE(probe2.handle.has_value());
 }
 
 TEST_F(WorkerTest, TagProbeRemoveWithMessage)
@@ -161,19 +162,22 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
   // Test that tagProbe with remove=false returns TagProbeInfo
   auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
   EXPECT_TRUE(probe1.matched);
-  EXPECT_EQ(probe1.info.length, buf.size() * sizeof(int));
-  EXPECT_EQ(probe1.handle, nullptr);
+  EXPECT_TRUE(probe1.info.has_value());
+  EXPECT_EQ(probe1.info->length, buf.size() * sizeof(int));
+  EXPECT_FALSE(probe1.handle.has_value());
 
   // Test that tagProbe with remove=true returns TagProbeInfo with handle
   auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
   EXPECT_TRUE(probe2.matched);
-  EXPECT_EQ(probe2.info.length, buf.size() * sizeof(int));
-  EXPECT_NE(probe2.handle, nullptr);
+  EXPECT_TRUE(probe2.info.has_value());
+  EXPECT_EQ(probe2.info->length, buf.size() * sizeof(int));
+  EXPECT_TRUE(probe2.handle.has_value());
+  EXPECT_NE(*probe2.handle, nullptr);
 
   // Test receiving with the message handle
   std::vector<int> recv_buf(1);
   auto recv_req =
-    _worker->tagRecvWithHandle(recv_buf.data(), recv_buf.size() * sizeof(int), probe2.handle);
+    _worker->tagRecvWithHandle(recv_buf.data(), recv_buf.size() * sizeof(int), *probe2.handle);
 
   // Progress until message is received
   while (!recv_req->isCompleted()) {

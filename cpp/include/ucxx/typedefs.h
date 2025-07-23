@@ -7,6 +7,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -98,16 +99,22 @@ class TagRecvInfo {
  * Contains complete information about a probed tag message, including whether a message
  * was matched, the tag receive information, and optionally the message handle for efficient
  * reception when remove=true.
+ *
+ * @warning Callers must check the `matched` member before accessing `info` or `handle`
+ *          to prevent misuse and undefined behavior. When `matched` is false, `info` and
+ *          `handle` will be empty (std::nullopt).
  */
 class TagProbeInfo {
  public:
-  bool matched;      ///< Whether a message was matched
-  TagRecvInfo info;  ///< Tag receive information (valid when matched=true)
-  ucp_tag_message_h
+  const bool matched;                     ///< Whether a message was matched
+  const std::optional<TagRecvInfo> info;  ///< Tag receive information (valid when matched=true)
+  const std::optional<ucp_tag_message_h>
     handle;  ///< Message handle for efficient reception (valid when matched=true and remove=true)
 
   /**
    * @brief Construct a TagProbeInfo object when no message is matched.
+   *
+   * Initializes `matched` to false and leaves `info` and `handle` as empty optionals.
    */
   TagProbeInfo();
 
@@ -116,6 +123,8 @@ class TagProbeInfo {
    *
    * @param[in] info    The UCP tag receive info structure.
    * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
+   *
+   * Initializes `matched` to true and wraps the provided `info` and `handle` in optionals.
    */
   TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
 };
