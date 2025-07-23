@@ -378,6 +378,10 @@ struct Results {
       throw std::invalid_argument("Percentile must be between 0.0 and 100.0");
     }
 
+    if (_timingQueue.empty()) {
+      return 0.0;  // Nothing recorded yet
+    }
+
     std::vector<decltype(Result::duration)> timingVector;
     decltype(_timingQueue) tmpQueue;
     while (!_timingQueue.empty()) {
