@@ -258,6 +258,7 @@ static void printUsage(std::string_view executablePath)
             << std::endl;
   std::cerr << "     thread-polling - Polling progress mode in exclusive progress thread"
             << std::endl;
+  std::cerr << "               wait - Wait progress mode" << std::endl;
   std::cerr << "  -p <port>           port number to listen at (12345)" << std::endl;
   std::cerr << "  -s <size>           message size (8)" << std::endl;
   std::cerr << "  -n <iters>          number of iterations to run (100)" << std::endl;
@@ -795,7 +796,8 @@ class Application {
     // Setup: create UCP context, worker, listener and client endpoint.
     uint64_t ucpFeatures = UCP_FEATURE_TAG;
     if (appContext.progressMode == ProgressMode::Blocking ||
-        appContext.progressMode == ProgressMode::ThreadBlocking) {
+        appContext.progressMode == ProgressMode::ThreadBlocking ||
+        appContext.progressMode == ProgressMode::Wait) {
       ucpFeatures |= UCP_FEATURE_WAKEUP;
     }
     _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucpFeatures), "Context creation");
