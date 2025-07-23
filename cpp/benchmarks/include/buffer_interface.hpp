@@ -50,12 +50,14 @@ enum class MemoryType {
 std::string getMemoryTypeString(MemoryType memoryType) {
   if (memoryType == MemoryType::Host)
     return "host";
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   else if (memoryType == MemoryType::Cuda)
     return "cuda";
   else if (memoryType == MemoryType::CudaManaged)
     return "cuda-managed";
   else if (memoryType == MemoryType::CudaAsync)
     return "cuda-async";
+#endif
   else {
     throw std::runtime_error("Unknown memory type");
   }
@@ -72,12 +74,14 @@ std::string getMemoryTypeString(MemoryType memoryType) {
 MemoryType getMemoryTypeFromString(std::string memoryTypeString) {
   if (memoryTypeString == "host")
     return MemoryType::Host;
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
   else if (memoryTypeString == "cuda")
     return MemoryType::Cuda;
   else if (memoryTypeString == "cuda-managed")
     return MemoryType::CudaManaged;
   else if (memoryTypeString == "cuda-async")
     return MemoryType::CudaAsync;
+#endif
   else {
     throw std::runtime_error("Unknown memory type");
   }
