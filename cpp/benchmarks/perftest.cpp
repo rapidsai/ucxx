@@ -9,15 +9,14 @@
 #include <cassert>
 #include <chrono>
 #include <cstring>
-#include <future>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <queue>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
