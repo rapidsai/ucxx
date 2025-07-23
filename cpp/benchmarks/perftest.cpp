@@ -289,14 +289,12 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
         }
         appContext->testAttributes = testAttributes->second;
       } break;
-      case 'm':
-        try {
-          appContext->memoryType = getMemoryTypeFromString(optarg);
-          break;
+      case 'm': try { appContext->memoryType = getMemoryTypeFromString(optarg);
         } catch (const std::runtime_error& e) {
           std::cerr << "Invalid memory type: " << optarg << std::endl;
           return UCS_ERR_INVALID_PARAM;
         }
+        break;
       case 'P':
         if (strcmp(optarg, "blocking") == 0) {
           appContext->progressMode = ProgressMode::Blocking;
