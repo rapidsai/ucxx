@@ -69,8 +69,6 @@ enum class ProgressMode {
 
 typedef std::unordered_map<DirectionType, ucxx::Tag> TagMap;
 
-typedef std::shared_ptr<TagMap> TagMapPtr;
-
 // Define an enum for each attribute that can be one of a fixed set of values
 enum class CommandType { Tag, Undefined };
 enum class TestType { PingPong, Unidirectional };
