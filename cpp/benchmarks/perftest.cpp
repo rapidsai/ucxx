@@ -415,7 +415,6 @@ class Application {
   std::shared_ptr<ucxx::Listener> _listener{nullptr};
   std::unique_ptr<ListenerContext> _listenerContext{nullptr};
   std::shared_ptr<TagMap> _tagMap{nullptr};
-  BufferMap _bufferMapReuse{};
 
   std::function<void()> getProgressFunction()
   {
@@ -644,8 +643,6 @@ class Application {
   {
     // Do wireup
     UCXX_EXIT_ON_ERROR(doWireup(), "Wireup");
-
-    if (_appContext.reuseAllocations) _bufferMapReuse = allocateTransferBuffers();
 
     // Warmup
     for (size_t n = 0; n < _appContext.numWarmupIterations; ++n)
