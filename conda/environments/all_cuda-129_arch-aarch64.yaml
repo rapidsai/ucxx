@@ -23,7 +23,7 @@ dependencies:
 - librmm==25.10.*,>=0.0.0a0
 - libtool
 - ninja
-- numba-cuda>=0.16.0,<0.17.0a0
+- numba-cuda>=0.14.0,<0.15.0a0
 - numpy>=1.23,<3.0a0
 - pip
 - pkg-config

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <unistd.h>  // for getopt, optarg
@@ -7,6 +7,8 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cstring>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <numeric>
@@ -15,9 +17,43 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+#include <cuda_runtime.h>
+#endif
+
 #include <ucxx/api.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
+
+#include "include/buffer_interface.hpp"
+
+#define UCXX_EXIT_ON_ERROR(operation, context)                                                  \
+  ([&]() {                                                                                      \
+    try {                                                                                       \
+      return operation;                                                                         \
+    } catch (const ucxx::Error& e) {                                                            \
+      std::cerr << "UCXX error in " << context << " at " << __FILE__ << ":" << __LINE__ << ": " \
+                << e.what() << std::endl;                                                       \
+      std::exit(-1);                                                                            \
+    } catch (const std::exception& e) {                                                         \
+      std::cerr << "Unexpected error in " << context << " at " << __FILE__ << ":" << __LINE__   \
+                << ": " << e.what() << std::endl;                                               \
+      std::exit(-1);                                                                            \
+    }                                                                                           \
+  })()
+
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+#define CUDA_EXIT_ON_ERROR(operation, context)                                                  \
+  ([&]() {                                                                                      \
+    cudaError_t err = operation;                                                                \
+    if (err != cudaSuccess) {                                                                   \
+      std::cerr << "CUDA error in " << context << " at " << __FILE__ << ":" << __LINE__ << ": " \
+                << cudaGetErrorString(err) << std::endl;                                        \
+      std::exit(-1);                                                                            \
+    }                                                                                           \
+    return err;                                                                                 \
+  })()
+#endif
 
 enum class ProgressMode {
   Polling,
@@ -26,14 +62,6 @@ enum class ProgressMode {
   ThreadPolling,
   ThreadBlocking,
 };
-
-enum transfer_type_t { SEND, RECV };
-
-typedef std::unordered_map<transfer_type_t, std::vector<char>> BufferMap;
-typedef std::unordered_map<transfer_type_t, ucxx::Tag> TagMap;
-
-typedef std::shared_ptr<BufferMap> BufferMapPtr;
-typedef std::shared_ptr<TagMap> TagMapPtr;
 
 struct app_context_t {
   ProgressMode progress_mode   = ProgressMode::Blocking;
@@ -45,6 +73,7 @@ struct app_context_t {
   bool endpoint_error_handling = false;
   bool reuse_alloc             = false;
   bool verify_results          = false;
+  MemoryType memory_type       = MemoryType::Host;
 };
 
 class ListenerContext {
@@ -114,14 +143,14 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
 
 static void printUsage()
 {
-  std::cerr << " basic client/server example" << std::endl;
+  std::cerr << "Basic performance test" << std::endl;
   std::cerr << std::endl;
-  std::cerr << "Usage: basic [server-hostname] [options]" << std::endl;
+  std::cerr << "Usage: ucxx_perftest [server-hostname] [options]" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
-  std::cerr << "  -m          progress mode to use, valid values are: 'polling', 'blocking',"
-            << std::endl;
-  std::cerr << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
+  std::cerr << "  -P          progress mode to use, valid values are: 'polling', 'blocking',"
+            << std::endl
+            << "              'thread-polling' and 'thread-blocking' (default: 'blocking')"
             << std::endl;
   std::cerr << "  -t          use thread progress mode (disabled)" << std::endl;
   std::cerr << "  -e          create endpoints with error handling support (disabled)" << std::endl;
@@ -131,6 +160,13 @@ static void printUsage()
   std::cerr << "  -r          reuse memory allocation (disabled)" << std::endl;
   std::cerr << "  -v          verify results (disabled)" << std::endl;
   std::cerr << "  -w <int>    number of warmup iterations to run (3)" << std::endl;
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default), 'cuda', "
+            << std::endl
+            << "              'cuda-managed', and 'cuda-async'" << std::endl;
+#else
+  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default)" << std::endl;
+#endif
   std::cerr << "  -h          print this help" << std::endl;
   std::cerr << std::endl;
 }
@@ -139,9 +175,13 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "m:p:s:w:n:ervh")) != -1) {
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+  while ((c = getopt(argc, argv, "P:p:s:w:n:ervm:h")) != -1) {
+#else
+  while ((c = getopt(argc, argv, "P:p:s:w:n:ervh")) != -1) {
+#endif
     switch (c) {
-      case 'm':
+      case 'P':
         if (strcmp(optarg, "blocking") == 0) {
           app_context->progress_mode = ProgressMode::Blocking;
           break;
@@ -193,6 +233,25 @@ ucs_status_t parseCommand(app_context_t* app_context, int argc, char* const argv
       case 'e': app_context->endpoint_error_handling = true; break;
       case 'r': app_context->reuse_alloc = true; break;
       case 'v': app_context->verify_results = true; break;
+      case 'm':
+        if (strcmp(optarg, "host") == 0) {
+          app_context->memory_type = MemoryType::Host;
+          break;
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+        } else if (strcmp(optarg, "cuda") == 0) {
+          app_context->memory_type = MemoryType::Cuda;
+          break;
+        } else if (strcmp(optarg, "cuda-managed") == 0) {
+          app_context->memory_type = MemoryType::CudaManaged;
+          break;
+        } else if (strcmp(optarg, "cuda-async") == 0) {
+          app_context->memory_type = MemoryType::CudaAsync;
+          break;
+#endif
+        } else {
+          std::cerr << "Invalid memory type: " << optarg << std::endl;
+          return UCS_ERR_INVALID_PARAM;
+        }
       case 'h':
       default: printUsage(); return UCS_ERR_INVALID_PARAM;
     }
@@ -254,38 +313,68 @@ std::string parseBandwidth(size_t totalBytes, size_t countNs)
     return std::to_string(bw / (1024 * 1024 * 1024)) + std::string("GB/s");
 }
 
-BufferMapPtr allocateTransferBuffers(size_t message_size)
-{
-  return std::make_shared<BufferMap>(BufferMap{{SEND, std::vector<char>(message_size, 0xaa)},
-                                               {RECV, std::vector<char>(message_size)}});
-}
-
 auto doTransfer(const app_context_t& app_context,
                 std::shared_ptr<ucxx::Worker> worker,
                 std::shared_ptr<ucxx::Endpoint> endpoint,
-                TagMapPtr tagMap,
-                BufferMapPtr bufferMapReuse)
+                TagMapPtr tagMap)
 {
-  BufferMapPtr localBufferMap;
-  if (!app_context.reuse_alloc) localBufferMap = allocateTransferBuffers(app_context.message_size);
-  BufferMapPtr bufferMap = app_context.reuse_alloc ? bufferMapReuse : localBufferMap;
+  std::unique_ptr<BufferInterface> bufferInterface;
 
+  // Allocate buffers based on memory type
+  if (app_context.memory_type == MemoryType::Host) {
+    // Use the factory method to create the appropriate host buffer interface
+    bufferInterface =
+      HostBufferInterface::createBufferInterface(app_context.message_size, app_context.reuse_alloc);
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+  } else {
+    // Use the factory method to create the appropriate CUDA buffer interface
+    bufferInterface = CudaBufferInterfaceBase::createBufferInterface(
+      app_context.memory_type, app_context.message_size, app_context.reuse_alloc);
+#endif
+  }
+
+  // Unified transfer logic
   auto start                                           = std::chrono::high_resolution_clock::now();
   std::vector<std::shared_ptr<ucxx::Request>> requests = {
-    endpoint->tagSend((*bufferMap)[SEND].data(), app_context.message_size, (*tagMap)[SEND]),
+    endpoint->tagSend(bufferInterface->getSendPtr(), app_context.message_size, (*tagMap)[SEND]),
     endpoint->tagRecv(
-      (*bufferMap)[RECV].data(), app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
+      bufferInterface->getRecvPtr(), app_context.message_size, (*tagMap)[RECV], ucxx::TagMaskFull)};
 
   // Wait for requests and clear requests
   waitRequests(app_context.progress_mode, worker, requests);
   auto stop = std::chrono::high_resolution_clock::now();
 
-  if (app_context.verify_results) {
-    for (size_t j = 0; j < (*bufferMap)[SEND].size(); ++j)
-      assert((*bufferMap)[RECV][j] == (*bufferMap)[RECV][j]);
-  }
+  if (app_context.verify_results) { bufferInterface->verifyResults(app_context.message_size); }
 
   return std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+}
+
+void performWireup(const app_context_t& app_context,
+                   std::shared_ptr<ucxx::Worker> worker,
+                   std::shared_ptr<ucxx::Endpoint> endpoint,
+                   TagMapPtr tagMap)
+{
+  // Allocate wireup buffers
+  auto wireupBufferMap = std::make_shared<BufferMap>(
+    BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+
+  // Schedule small wireup messages to let UCX identify capabilities between endpoints
+  requests.push_back(endpoint->tagSend((*wireupBufferMap)[SEND].data(),
+                                       (*wireupBufferMap)[SEND].size() * sizeof(int),
+                                       (*tagMap)[SEND]));
+  requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
+                                       (*wireupBufferMap)[RECV].size() * sizeof(int),
+                                       (*tagMap)[RECV],
+                                       ucxx::TagMaskFull));
+
+  // Wait for wireup requests and clear requests
+  waitRequests(app_context.progress_mode, worker, requests);
+
+  // Verify wireup result
+  for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
+    assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
 }
 
 int main(int argc, char** argv)
@@ -293,14 +382,24 @@ int main(int argc, char** argv)
   app_context_t app_context;
   if (parseCommand(&app_context, argc, argv) != UCS_OK) return -1;
 
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+  // Check CUDA support if CUDA memory is requested
+  if (app_context.memory_type == MemoryType::Cuda ||
+      app_context.memory_type == MemoryType::CudaManaged ||
+      app_context.memory_type == MemoryType::CudaAsync) {
+    CUDA_EXIT_ON_ERROR(cudaSetDevice(0), "CUDA device initialization");
+  }
+#endif
+
   // Setup: create UCP context, worker, listener and client endpoint.
-  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
-  auto worker  = context->createWorker();
+  auto context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucxx::Context::defaultFeatureFlags),
+                                    "Context creation");
+  auto worker  = UCXX_EXIT_ON_ERROR(context->createWorker(), "Worker creation");
 
   bool is_server = app_context.server_addr == NULL;
   auto tagMap    = std::make_shared<TagMap>(TagMap{
-       {SEND, is_server ? ucxx::Tag{0} : ucxx::Tag{1}},
-       {RECV, is_server ? ucxx::Tag{1} : ucxx::Tag{0}},
+       {SEND, is_server ? ucxx::Tag(0) : ucxx::Tag(1)},
+       {RECV, is_server ? ucxx::Tag(1) : ucxx::Tag(0)},
   });
 
   std::shared_ptr<ListenerContext> listener_ctx;
@@ -308,7 +407,9 @@ int main(int argc, char** argv)
   std::shared_ptr<ucxx::Listener> listener;
   if (is_server) {
     listener_ctx = std::make_unique<ListenerContext>(worker, app_context.endpoint_error_handling);
-    listener = worker->createListener(app_context.listener_port, listener_cb, listener_ctx.get());
+    listener     = UCXX_EXIT_ON_ERROR(
+      worker->createListener(app_context.listener_port, listener_cb, listener_ctx.get()),
+      "Listener creation");
     listener_ctx->setListener(listener);
   }
 
@@ -329,43 +430,26 @@ int main(int argc, char** argv)
   if (is_server)
     endpoint = listener_ctx->getEndpoint();
   else
-    endpoint = worker->createEndpointFromHostname(
-      app_context.server_addr, app_context.listener_port, app_context.endpoint_error_handling);
+    endpoint = UCXX_EXIT_ON_ERROR(
+      worker->createEndpointFromHostname(
+        app_context.server_addr, app_context.listener_port, app_context.endpoint_error_handling),
+      "Endpoint creation");
 
-  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  // Perform wireup to let UCX identify capabilities between endpoints
+  UCXX_EXIT_ON_ERROR(performWireup(app_context, worker, endpoint, tagMap), "Wireup");
 
-  // Allocate wireup buffers
-  auto wireupBufferMap = std::make_shared<BufferMap>(
-    BufferMap{{SEND, std::vector<char>{1, 2, 3}}, {RECV, std::vector<char>(3, 0)}});
-
-  // Schedule small wireup messages to let UCX identify capabilities between endpoints
-  requests.push_back(endpoint->tagSend((*wireupBufferMap)[SEND].data(),
-                                       (*wireupBufferMap)[SEND].size() * sizeof(int),
-                                       (*tagMap)[SEND]));
-  requests.push_back(endpoint->tagRecv((*wireupBufferMap)[RECV].data(),
-                                       (*wireupBufferMap)[RECV].size() * sizeof(int),
-                                       (*tagMap)[RECV],
-                                       ucxx::TagMaskFull));
-
-  // Wait for wireup requests and clear requests
-  waitRequests(app_context.progress_mode, worker, requests);
-  requests.clear();
-
-  // Verify wireup result
-  for (size_t i = 0; i < (*wireupBufferMap)[SEND].size(); ++i)
-    assert((*wireupBufferMap)[RECV][i] == (*wireupBufferMap)[SEND][i]);
-
-  BufferMapPtr bufferMapReuse;
-  if (app_context.reuse_alloc) bufferMapReuse = allocateTransferBuffers(app_context.message_size);
+  // Buffer reuse is now handled by the factory methods
 
   // Warmup
   for (size_t n = 0; n < app_context.warmup_iter; ++n)
-    doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
+    UCXX_EXIT_ON_ERROR(doTransfer(app_context, worker, endpoint, tagMap),
+                       "Warmup iteration " + std::to_string(n));
 
   // Schedule send and recv messages on different tags and different ordering
   size_t total_duration_ns = 0;
   for (size_t n = 0; n < app_context.n_iter; ++n) {
-    auto duration_ns = doTransfer(app_context, worker, endpoint, tagMap, bufferMapReuse);
+    auto duration_ns = UCXX_EXIT_ON_ERROR(doTransfer(app_context, worker, endpoint, tagMap),
+                                          "Transfer iteration " + std::to_string(n));
     total_duration_ns += duration_ns;
     auto elapsed   = parseTime(duration_ns);
     auto bandwidth = parseBandwidth(app_context.message_size * 2, duration_ns);
