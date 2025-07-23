@@ -106,9 +106,9 @@ class TagRecvInfo {
  */
 class TagProbeInfo {
  public:
-  const bool matched;                     ///< Whether a message was matched
-  const std::optional<TagRecvInfo> info;  ///< Tag receive information (valid when matched=true)
-  const std::optional<ucp_tag_message_h>
+  bool matched;                     ///< Whether a message was matched
+  std::optional<TagRecvInfo> info;  ///< Tag receive information (valid when matched=true)
+  std::optional<ucp_tag_message_h>
     handle;  ///< Message handle for efficient reception (valid when matched=true and remove=true)
 
   /**

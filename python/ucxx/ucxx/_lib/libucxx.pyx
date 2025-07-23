@@ -78,7 +78,7 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        return UCXXTag(self._probe_info.info.senderTag)
+        return UCXXTag(self._probe_info.info.value().senderTag)
 
     @property
     def length(self) -> int:
@@ -92,7 +92,7 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        return self._probe_info.info.length
+        return self._probe_info.info.value().length
 
     @property
     def handle(self) -> int:
@@ -106,7 +106,12 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        cdef uintptr_t handle_ptr = <uintptr_t>self._probe_info.handle
+        if not self._probe_info.handle.has_value():
+            return None
+        cdef ucp_tag_message_h handle = self._probe_info.handle.value()
+        if handle == NULL:
+            return None
+        cdef uintptr_t handle_ptr = <uintptr_t>handle
         if handle_ptr == 0:
             return None
         return int(handle_ptr)

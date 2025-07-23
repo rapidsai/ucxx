@@ -723,7 +723,7 @@ class Worker : public Component {
    */
   [[nodiscard]] TagProbeInfo tagProbe(const Tag tag,
                                       const TagMask tagMask = TagMaskFull,
-                                      const bool remove     = false);
+                                      const bool remove     = false) const;
 
   /**
    * @brief Enqueue a tag receive operation.

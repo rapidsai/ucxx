@@ -590,7 +590,7 @@ TagProbeInfo::TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h ha
 {
 }
 
-TagProbeInfo Worker::tagProbe(const Tag tag, const TagMask tagMask, const bool remove)
+TagProbeInfo Worker::tagProbe(const Tag tag, const TagMask tagMask, const bool remove) const
 {
   ucp_tag_recv_info_t info;
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
