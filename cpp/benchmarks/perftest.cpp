@@ -479,6 +479,9 @@ class Application {
       // Use the factory method to create the appropriate CUDA buffer interface
       bufferInterface = CudaBufferInterfaceBase::createBufferInterface(
         _appContext.memoryType, _appContext.messageSize, _appContext.reuseAllocations);
+#else
+    } else {
+      throw std::runtime_error("Memory type not supported.");
 #endif
     }
 
