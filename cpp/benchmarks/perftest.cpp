@@ -17,6 +17,7 @@
 #include <queue>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -422,7 +423,7 @@ class Application {
       case ProgressMode::Wait: return std::bind(std::mem_fn(&ucxx::Worker::waitProgress), _worker);
       case ProgressMode::ThreadBlocking:  // progress thread already running
       case ProgressMode::ThreadPolling:   // progress thread already running
-      default: return []() {};
+      default: return []() { std::this_thread::yield(); };
     }
   }
 
