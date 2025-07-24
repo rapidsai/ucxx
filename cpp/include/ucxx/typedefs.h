@@ -103,6 +103,9 @@ class TagRecvInfo {
  * @warning Callers must check the `matched` member before accessing `info` or `handle`
  *          to prevent misuse and undefined behavior. When `matched` is false, `info` and
  *          `handle` will be empty (std::nullopt).
+ *
+ * @note This class is move-only to prevent multiple objects from holding the same handle,
+ *       which could lead to undefined behavior if the message is received multiple times.
  */
 class TagProbeInfo {
  public:
@@ -128,15 +131,21 @@ class TagProbeInfo {
    */
   TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
 
-  /**
-   * @brief Copy constructor.
-   */
-  TagProbeInfo(const TagProbeInfo& other) = default;
+  TagProbeInfo(const TagProbeInfo& other) = delete;
+
+  TagProbeInfo& operator=(const TagProbeInfo& other) = delete;
 
   /**
    * @brief Move constructor.
    */
   TagProbeInfo(TagProbeInfo&& other) = default;
+
+  /**
+   * @brief Move assignment operator.
+   *
+   * Uses placement new to reconstruct the object with new const values.
+   */
+  TagProbeInfo& operator=(TagProbeInfo&& other) noexcept;
 
   /**
    * @brief Destructor.
@@ -146,20 +155,6 @@ class TagProbeInfo {
    * where message handles are not properly received.
    */
   ~TagProbeInfo();
-
-  /**
-   * @brief Copy assignment operator.
-   *
-   * Uses placement new to reconstruct the object with new const values.
-   */
-  TagProbeInfo& operator=(const TagProbeInfo& other);
-
-  /**
-   * @brief Move assignment operator.
-   *
-   * Uses placement new to reconstruct the object with new const values.
-   */
-  TagProbeInfo& operator=(TagProbeInfo&& other) noexcept;
 
   /**
    * @brief Mark the handle as consumed.

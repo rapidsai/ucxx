@@ -594,18 +594,6 @@ TagProbeInfo::TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h ha
 {
 }
 
-TagProbeInfo& TagProbeInfo::operator=(const TagProbeInfo& other)
-{
-  if (this != &other) {
-    // Use placement new to reconstruct the object with new const values
-    this->~TagProbeInfo();
-    new (this) TagProbeInfo(other);
-    // Copy the consumed state
-    consumed = other.consumed;
-  }
-  return *this;
-}
-
 TagProbeInfo& TagProbeInfo::operator=(TagProbeInfo&& other) noexcept
 {
   if (this != &other) {

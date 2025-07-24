@@ -40,13 +40,6 @@ include "tag.pyx"
 logger = logging.getLogger("ucx")
 
 
-cdef TagProbeResult _create_tag_probe_result(TagProbeInfo probe_info):
-    """Create a TagProbeResult from C++ TagProbeInfo."""
-    cdef TagProbeResult result = TagProbeResult.__new__(TagProbeResult)
-    result._probe_info = probe_info
-    return result
-
-
 cdef class TagProbeResult:
     """Result of a tag probe operation.
 
@@ -797,7 +790,9 @@ cdef class UCXWorker():
         with nogil:
             probe_info = self._worker.get().tagProbe(cpp_tag, cpp_tag_mask, remove)
 
-        return _create_tag_probe_result(probe_info)
+        cdef TagProbeResult result = TagProbeResult.__new__(TagProbeResult)
+        result._probe_info = move(probe_info)
+        return result
 
     def set_progress_thread_start_callback(
             self, cb_func, tuple cb_args=None, dict cb_kwargs=None
