@@ -658,6 +658,8 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
     throw std::invalid_argument("TagProbeInfo must be matched and contain valid info and handle");
   }
 
+  if (probeInfo->consumed) { throw std::logic_error("TagProbeInfo handle was already consumed"); }
+
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
   auto request =
     registerInflightRequest(createRequestTag(worker,
