@@ -692,7 +692,9 @@ class Worker : public Component {
    * When `remove` is `false` (default), the message remains in the receive queue and
    * a normal tag receive operation must be posted to consume it. When `remove` is `true`,
    * the message is removed from the queue and a message handle is returned that can be
-   * passed directly to `ucp_tag_msg_recv_nbx` for efficient consumption.
+   * passed directly to `tagRecvWithHandle` for efficient consumption, in this case the
+   * caller is required to call `tagRecvWithHandle`, otherwise a warning will be thrown
+   * during destruction of the returned object.
    *
    * Note this is a non-blocking call, if this is being used to actively check for an
    * incoming message the worker should be constantly progress until a valid probe is
