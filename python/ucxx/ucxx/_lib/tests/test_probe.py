@@ -123,7 +123,7 @@ def _server_probe(queue, probe_type, api_type="worker"):
                 worker.progress()
             assert probe_info.sender_tag == ucx_api.UCXXTag(0)
             assert probe_info.length == len(DataMessage)
-            assert probe_info.handle is not None
+            assert probe_info.handle
             received = bytearray(len(DataMessage))
             wait_requests(
                 worker,
@@ -140,7 +140,7 @@ def _server_probe(queue, probe_type, api_type="worker"):
                 worker.progress()
             assert probe_info.sender_tag == ucx_api.UCXXTag(0)
             assert probe_info.length == len(DataMessage)
-            assert probe_info.handle is not None
+            assert probe_info.handle
             received = bytearray(len(DataMessage))
             wait_requests(
                 worker,
