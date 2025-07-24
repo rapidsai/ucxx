@@ -8,6 +8,7 @@ import functools
 import logging
 import warnings
 import weakref
+from typing import Optional
 
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
@@ -88,7 +89,7 @@ cdef class TagProbeResult:
         return self._probe_info_ptr.get().info.value().length
 
     @property
-    def handle(self) -> int:
+    def handle(self) -> Optional[int]:
         """The message handle for efficient reception.
 
         Returns:
@@ -124,13 +125,13 @@ cdef class TagProbeResult:
             A string representation showing the probe result state.
         """
         if self.matched:
+            handle_val = self.handle
             result = (
-                f"TagProbeResult(matched=True, sender_tag={self.sender_tag}, "
-                f"length={self.length}"
+                "TagProbeResult("
+                f"matched=True, sender_tag={self.sender_tag}, length={self.length}"
+                + (f", handle={handle_val}" if handle_val is not None else "")
+                + ")"
             )
-            if self.handle is not None:
-                result += f", handle={self.handle}"
-            result += ")"
             return result
         else:
             return "TagProbeResult(matched=False)"
@@ -768,7 +769,8 @@ cdef class UCXWorker():
         return num_canceled
 
     def tag_probe(
-        self, UCXXTag tag,
+        self,
+        UCXXTag tag,
         UCXXTagMask tag_mask = UCXXTagMaskFull,
         bint remove = False
     ) -> TagProbeResult:
