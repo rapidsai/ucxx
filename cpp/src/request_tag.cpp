@@ -146,8 +146,8 @@ void RequestTag::request()
                  param.cb.recv = tagRecvCallback;
                  request       = ucp_tag_msg_recv_nbx(_worker->getHandle(),
                                                 tagReceiveWithHandle._buffer,
-                                                tagReceiveWithHandle._length,
-                                                tagReceiveWithHandle._messageHandle,
+                                                tagReceiveWithHandle._probeInfo->info->length,
+                                                *tagReceiveWithHandle._probeInfo->handle,
                                                 &param);
                },
                [](auto) { throw std::runtime_error("Unreachable"); },
@@ -228,8 +228,10 @@ void RequestTag::populateDelayedSubmission()
                  log(tagReceive._buffer, tagReceive._length, tagReceive._tag, tagReceive._tagMask);
                },
                [this, &log](data::TagReceiveWithHandle tagReceiveWithHandle) {
-                 log(
-                   tagReceiveWithHandle._buffer, tagReceiveWithHandle._length, Tag(0), TagMaskFull);
+                 log(tagReceiveWithHandle._buffer,
+                     tagReceiveWithHandle._probeInfo->info->length,
+                     Tag(0),
+                     TagMaskFull);
                },
                [](auto) { throw std::runtime_error("Unreachable"); },
              },

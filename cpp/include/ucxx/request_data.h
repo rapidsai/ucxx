@@ -284,9 +284,9 @@ class TagReceive {
  */
 class TagReceiveWithHandle {
  public:
-  void* _buffer{nullptr};   ///< The raw pointer where received data should be stored.
-  const size_t _length{0};  ///< The length of the message.
-  const ucp_tag_message_h _messageHandle{};  ///< Message handle obtained from tagProbe
+  void* _buffer{nullptr};  ///< The raw pointer where received data should be stored.
+  const std::shared_ptr<TagProbeInfo> _probeInfo{
+    nullptr};  ///< TagProbeInfo containing message length and handle
 
   /**
    * @brief Constructor for tag receive with handle-specific data.
