@@ -152,7 +152,7 @@ def _server_probe(queue, probe_type, api_type="worker"):
     assert received == DataMessage
 
 
-def _client_probe(queue, probe_type, api_type="worker"):
+def _client_probe(queue, probe_type):
     feature_flags = (ucx_api.Feature.AM if probe_type == "am" else ucx_api.Feature.TAG,)
     ctx = ucx_api.UCXContext(feature_flags=feature_flags)
     worker = ucx_api.UCXWorker(ctx)
@@ -191,7 +191,7 @@ def test_message_probe(probe_type, api_type):
     queue = mp.Queue()
     server = mp.Process(target=_server_probe, args=(queue, probe_type, api_type))
     server.start()
-    client = mp.Process(target=_client_probe, args=(queue, probe_type, api_type))
+    client = mp.Process(target=_client_probe, args=(queue, probe_type))
     client.start()
     join_processes([client, server], timeout=60)
     terminate_process(client)
