@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -113,8 +114,8 @@ class TagProbeInfo {
   const std::optional<TagRecvInfo> info{
     std::nullopt};  ///< Tag receive information (only valid if matched=true)
   const std::optional<ucp_tag_message_h> handle{
-    std::nullopt};               ///< Message handle (only valid if matched=true)
-  mutable bool consumed{false};  ///< Whether the message has been consumed
+    std::nullopt};                            ///< Message handle (only valid if matched=true)
+  mutable std::atomic<bool> consumed{false};  ///< Whether the message has been consumed
 
   TagProbeInfo(const TagProbeInfo&)            = delete;
   TagProbeInfo& operator=(TagProbeInfo const&) = delete;
