@@ -581,12 +581,16 @@ TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
 {
 }
 
-TagProbeInfo::TagProbeInfo() : matched(false), info(std::nullopt), handle(std::nullopt) {}
+TagProbeInfo::TagProbeInfo()
+  : matched(false), info(std::nullopt), handle(std::nullopt), consumed(false)
+{
+}
 
 TagProbeInfo::TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle)
   : matched(true),
     info(TagRecvInfo(info)),
-    handle(handle != nullptr ? std::optional<ucp_tag_message_h>(handle) : std::nullopt)
+    handle(handle != nullptr ? std::optional<ucp_tag_message_h>(handle) : std::nullopt),
+    consumed(false)
 {
 }
 
@@ -596,6 +600,8 @@ TagProbeInfo& TagProbeInfo::operator=(const TagProbeInfo& other)
     // Use placement new to reconstruct the object with new const values
     this->~TagProbeInfo();
     new (this) TagProbeInfo(other);
+    // Copy the consumed state
+    consumed = other.consumed;
   }
   return *this;
 }
@@ -606,9 +612,27 @@ TagProbeInfo& TagProbeInfo::operator=(TagProbeInfo&& other) noexcept
     // Use placement new to reconstruct the object with new const values
     this->~TagProbeInfo();
     new (this) TagProbeInfo(std::move(other));
+    // Move the consumed state
+    consumed = other.consumed;
   }
   return *this;
 }
+
+TagProbeInfo::~TagProbeInfo()
+{
+  // Check if handle is populated and has not been consumed
+  if (matched && handle.has_value() && handle.value() != nullptr && !consumed) {
+    ucxx_warn(
+      "ucxx::TagProbeInfo::%s, unconsumed message handle %p detected from tag 0x%lx with "
+      "length %lu. ucxx::Worker::tagRecvWithHandle() must be called to consume the handle.",
+      __func__,
+      handle.value(),
+      info.value().senderTag,
+      info.value().length);
+  }
+}
+
+void TagProbeInfo::consume() const { consumed = true; }
 
 TagProbeInfo Worker::tagProbe(const Tag tag, const TagMask tagMask, const bool remove) const
 {
@@ -649,11 +673,17 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
   }
 
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(createRequestTag(worker,
-                                                  data::TagReceiveWithHandle(buffer, probeInfo),
-                                                  enableFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+  auto request =
+    registerInflightRequest(createRequestTag(worker,
+                                             data::TagReceiveWithHandle(buffer, probeInfo),
+                                             enableFuture,
+                                             callbackFunction,
+                                             callbackData));
+
+  // Mark the handle as consumed since we're using it for the receive operation
+  probeInfo.consumeHandle();
+
+  return request;
 }
 
 std::shared_ptr<Address> Worker::getAddress()

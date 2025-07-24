@@ -186,6 +186,57 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
   EXPECT_EQ(recv_buf[0], buf[0]);
 }
 
+TEST_F(WorkerTest, TagProbeUnconsumedWarning)
+{
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  // Send a message
+  std::vector<int> buf{123};
+  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+
+  // Progress until message is sent
+  while (!send_req->isCompleted()) {
+    _worker->progress();
+  }
+
+  // Create a TagProbeInfo with a handle but don't consume it
+  // This should trigger a warning in the destructor
+  {
+    auto probe = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+    EXPECT_TRUE(probe.matched);
+    EXPECT_TRUE(probe.handle.has_value());
+    EXPECT_NE(*probe.handle, nullptr);
+    // probe goes out of scope here without consuming the handle
+  }
+}
+
+TEST_F(WorkerTest, TagProbeConsumeHandle)
+{
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  // Send a message
+  std::vector<int> buf{123};
+  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+
+  // Progress until message is sent
+  while (!send_req->isCompleted()) {
+    _worker->progress();
+  }
+
+  // Create a TagProbeInfo with a handle and consume it
+  // This should NOT trigger a warning in the destructor
+  {
+    auto probe = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+    EXPECT_TRUE(probe.matched);
+    EXPECT_TRUE(probe.handle.has_value());
+    EXPECT_NE(*probe.handle, nullptr);
+
+    // Consume the handle to prevent the warning
+    probe.consume();
+    // probe goes out of scope here, but handle is marked as consumed
+  }
+}
+
 TEST_F(WorkerTest, AmProbe)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);

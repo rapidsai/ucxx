@@ -139,6 +139,15 @@ class TagProbeInfo {
   TagProbeInfo(TagProbeInfo&& other) = default;
 
   /**
+   * @brief Destructor.
+   *
+   * Checks if the handle is populated and has not been consumed, issuing a warning
+   * if an unconsumed handle is detected. This helps identify potential resource leaks
+   * where message handles are not properly received.
+   */
+  ~TagProbeInfo();
+
+  /**
    * @brief Copy assignment operator.
    *
    * Uses placement new to reconstruct the object with new const values.
@@ -151,6 +160,17 @@ class TagProbeInfo {
    * Uses placement new to reconstruct the object with new const values.
    */
   TagProbeInfo& operator=(TagProbeInfo&& other) noexcept;
+
+  /**
+   * @brief Mark the handle as consumed.
+   *
+   * Call this method after the handle has been used to receive the message,
+   * preventing the destructor from issuing a warning about unconsumed handles.
+   */
+  void consume() const;
+
+ private:
+  mutable bool consumed = false;  ///< Track whether the handle has been consumed
 };
 
 /**
