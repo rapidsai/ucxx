@@ -912,7 +912,7 @@ cdef class UCXWorker():
         with nogil:
             req = self._worker.get().tagRecvWithHandle(
                 buf,
-                deref(probe_result._probe_info_ptr.get()),
+                probe_result._probe_info_ptr,
                 self._enable_python_future
             )
 
@@ -1608,7 +1608,7 @@ cdef class UCXEndpoint():
             worker = self._endpoint.get().getWorker()
             req = worker.get().tagRecvWithHandle(
                 buf,
-                deref(probe_result._probe_info_ptr.get()),
+                probe_result._probe_info_ptr,
                 self._enable_python_future
             )
 

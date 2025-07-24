@@ -278,7 +278,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         shared_ptr[Request] tagRecvWithHandle(
             void* buffer,
-            const TagProbeInfo& probe_info,
+            shared_ptr[TagProbeInfo] probe_info,
             bint enable_python_future
         ) except +raise_py_error
         bint isDelayedRequestSubmissionEnabled() const

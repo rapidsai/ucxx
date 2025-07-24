@@ -298,7 +298,7 @@ class TagReceiveWithHandle {
    *                         undefined. The buffer must be pre-allocated.
    * @param[in]  probeInfo   the TagProbeInfo object containing message length and handle.
    */
-  explicit TagReceiveWithHandle(decltype(_buffer) buffer, const TagProbeInfo& probeInfo);
+  explicit TagReceiveWithHandle(decltype(_buffer) buffer, std::shared_ptr<TagProbeInfo> probeInfo);
 
   TagReceiveWithHandle() = delete;
 };

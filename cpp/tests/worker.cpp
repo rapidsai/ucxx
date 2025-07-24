@@ -184,7 +184,7 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
 
   // Test receiving with the message handle
   std::vector<int> recv_buf(1);
-  auto recv_req = _worker->tagRecvWithHandle(recv_buf.data(), *probe2);
+  auto recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe2);
 
   // Progress until message is received
   while (!recv_req->isCompleted()) {

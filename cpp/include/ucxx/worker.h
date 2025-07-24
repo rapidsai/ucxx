@@ -783,7 +783,7 @@ class Worker : public Component {
    */
   [[nodiscard]] std::shared_ptr<Request> tagRecvWithHandle(
     void* buffer,
-    const TagProbeInfo& probeInfo,
+    std::shared_ptr<TagProbeInfo> probeInfo,
     const bool enableFuture                      = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);

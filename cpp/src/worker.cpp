@@ -649,12 +649,12 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
 }
 
 std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
-                                                   const TagProbeInfo& probeInfo,
+                                                   std::shared_ptr<TagProbeInfo> probeInfo,
                                                    const bool enableFuture,
                                                    RequestCallbackUserFunction callbackFunction,
                                                    RequestCallbackUserData callbackData)
 {
-  if (!probeInfo.matched || !probeInfo.info.has_value() || !probeInfo.handle.has_value()) {
+  if (!probeInfo->matched || !probeInfo->info.has_value() || !probeInfo->handle.has_value()) {
     throw std::invalid_argument("TagProbeInfo must be matched and contain valid info and handle");
   }
 
@@ -667,7 +667,7 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
                                              callbackData));
 
   // Mark the handle as consumed since we're using it for the receive operation
-  probeInfo.consume();
+  probeInfo->consume();
 
   return request;
 }
