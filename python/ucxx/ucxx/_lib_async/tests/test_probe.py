@@ -69,7 +69,7 @@ async def _server_node_context_tag_remove_coroutine(ep):
     assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
     assert probe_info.length == len(Message)
     received = bytearray(len(Message))
-    await ctx.recv_with_handle(received, probe_info.handle)  # type: ignore
+    await ctx.recv_with_handle(received, probe_info)
     return received
 
 
@@ -82,7 +82,7 @@ async def _server_node_endpoint_tag_remove_coroutine(ep):
     assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
     assert probe_info.length == len(Message)
     received = bytearray(len(Message))
-    await ep.recv_with_handle(received, probe_info.handle)  # type: ignore
+    await ep.recv_with_handle(received, probe_info)
     return received
 
 
