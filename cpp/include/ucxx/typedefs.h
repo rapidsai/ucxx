@@ -104,56 +104,16 @@ class TagRecvInfo {
  *          to prevent misuse and undefined behavior. When `matched` is false, `info` and
  *          `handle` will be empty (std::nullopt).
  *
- * @note This class is move-only to prevent multiple objects from holding the same handle,
- *       which could lead to undefined behavior if the message is received multiple times.
+ * @note This class is managed via shared_ptr to prevent multiple objects from holding the same
+ * handle, which could lead to undefined behavior if the message is received multiple times.
  */
 class TagProbeInfo {
  public:
   const bool matched;                     ///< Whether a message was matched
-  const std::optional<TagRecvInfo> info;  ///< Tag receive information (valid when matched=true)
-  const std::optional<ucp_tag_message_h>
-    handle;  ///< Message handle for efficient reception (valid when matched=true and remove=true)
+  const std::optional<TagRecvInfo> info;  ///< Tag receive information (only valid if matched=true)
+  const std::optional<ucp_tag_message_h> handle;  ///< Message handle (only valid if matched=true)
+  mutable bool consumed;                          ///< Whether the message has been consumed
 
-  /**
-   * @brief Construct a TagProbeInfo object when no message is matched.
-   *
-   * Initializes `matched` to false and leaves `info` and `handle` as empty optionals.
-   */
-  TagProbeInfo();
-
-  /**
-   * @brief Construct a TagProbeInfo object when a message is matched.
-   *
-   * @param[in] info    The UCP tag receive info structure.
-   * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
-   *
-   * Initializes `matched` to true and wraps the provided `info` and `handle` in optionals.
-   */
-  TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
-
-  TagProbeInfo(const TagProbeInfo& other) = delete;
-
-  TagProbeInfo& operator=(const TagProbeInfo& other) = delete;
-
-  /**
-   * @brief Move constructor.
-   */
-  TagProbeInfo(TagProbeInfo&& other) = default;
-
-  /**
-   * @brief Move assignment operator.
-   *
-   * Uses placement new to reconstruct the object with new const values.
-   */
-  TagProbeInfo& operator=(TagProbeInfo&& other) noexcept;
-
-  /**
-   * @brief Destructor.
-   *
-   * Checks if the handle is populated and has not been consumed, issuing a warning
-   * if an unconsumed handle is detected. This helps identify potential resource leaks
-   * where message handles are not properly received.
-   */
   ~TagProbeInfo();
 
   /**
@@ -164,8 +124,71 @@ class TagProbeInfo {
    */
   void consume() const;
 
+  /**
+   * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
+   *
+   * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
+   * `matched` to false and `info` and `handle` as empty optionals.
+   *
+   * @code{.cpp}
+   * auto tagProbeInfo = ucxx::createTagProbeInfo();
+   * @endcode
+   *
+   * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
+   */
+  friend std::shared_ptr<TagProbeInfo> createTagProbeInfo();
+
+  /**
+   * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
+   *
+   * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
+   * `matched` to true and wrapping the provided `info` and `handle` in optionals.
+   *
+   * @code{.cpp}
+   * auto tagProbeInfo = ucxx::createTagProbeInfo(info, handle);
+   * @endcode
+   *
+   * @param[in] info    The UCP tag receive info structure.
+   * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
+   *
+   * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
+   */
+  friend std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
+                                                          ucp_tag_message_h handle);
+
  private:
-  mutable bool consumed = false;  ///< Track whether the handle has been consumed
+  /**
+   * @brief Private constructor of `ucxx::TagProbeInfo`.
+   *
+   * Initializes `matched` to false and leaves `info` and `handle` as empty optionals.
+   *
+   * This is the internal implementation of `ucxx::TagProbeInfo` default constructor, made
+   * private not to be called directly. This constructor is made private to ensure all UCXX
+   * objects * are shared pointers and the correct lifetime management of each one.
+   *
+   * Instead the user should use one of the following:
+   *
+   * - `ucxx::createTagProbeInfo()`
+   */
+  TagProbeInfo();
+
+  /**
+   * @brief Private constructor of `ucxx::TagProbeInfo`.
+   *
+   * Initializes `matched` to true and wraps the provided `info` and `handle` in optionals.
+   *
+   * This is the internal implementation of `ucxx::TagProbeInfo` default constructor, made
+   * private not to be called directly. This constructor is made private to ensure all UCXX
+   * objects * are shared pointers and the correct lifetime management of each one.
+   *
+   * Instead the user should use one of the following:
+   *
+   * - `ucxx::createTagProbeInfo()`
+   *
+   * @param[in] info    The UCP tag receive info structure.
+   * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
+   */
+  TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
 };
 
 /**

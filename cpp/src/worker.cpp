@@ -594,16 +594,15 @@ TagProbeInfo::TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h ha
 {
 }
 
-TagProbeInfo& TagProbeInfo::operator=(TagProbeInfo&& other) noexcept
+std::shared_ptr<TagProbeInfo> createTagProbeInfo()
 {
-  if (this != &other) {
-    // Use placement new to reconstruct the object with new const values
-    this->~TagProbeInfo();
-    new (this) TagProbeInfo(std::move(other));
-    // Move the consumed state
-    consumed = other.consumed;
-  }
-  return *this;
+  return std::shared_ptr<TagProbeInfo>(new TagProbeInfo());
+}
+
+std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
+                                                 ucp_tag_message_h handle)
+{
+  return std::shared_ptr<TagProbeInfo>(new TagProbeInfo(info, handle));
 }
 
 TagProbeInfo::~TagProbeInfo()
@@ -632,9 +631,9 @@ std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
 
   if (tag_message != NULL) {
-    return std::make_shared<TagProbeInfo>(info, remove ? tag_message : nullptr);
+    return createTagProbeInfo(info, remove ? tag_message : nullptr);
   } else {
-    return std::make_shared<TagProbeInfo>();
+    return createTagProbeInfo();
   }
 }
 

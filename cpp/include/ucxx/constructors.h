@@ -117,4 +117,9 @@ class Worker;
   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
   const bool enablePythonFuture);
 
+[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo();
+
+[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
+                                                               ucp_tag_message_h handle);
+
 }  // namespace ucxx
