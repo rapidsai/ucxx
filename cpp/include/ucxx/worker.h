@@ -721,9 +721,9 @@ class Worker : public Component {
    *          (when matched=true), and optionally the message handle for efficient reception
    *          (when matched=true and remove=true).
    */
-  [[nodiscard]] TagProbeInfo tagProbe(const Tag tag,
-                                      const TagMask tagMask = TagMaskFull,
-                                      const bool remove     = false) const;
+  [[nodiscard]] std::shared_ptr<TagProbeInfo> tagProbe(const Tag tag,
+                                                       const TagMask tagMask = TagMaskFull,
+                                                       const bool remove     = false) const;
 
   /**
    * @brief Enqueue a tag receive operation.

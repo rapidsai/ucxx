@@ -48,7 +48,7 @@ cdef class TagProbeResult:
     to the probe information.
     """
 
-    cdef TagProbeInfo _probe_info
+    cdef shared_ptr[TagProbeInfo] _probe_info_ptr
 
     @property
     def matched(self) -> bool:
@@ -57,7 +57,7 @@ cdef class TagProbeResult:
         Returns:
             True if a message was matched, False otherwise.
         """
-        return self._probe_info.matched
+        return self._probe_info_ptr.get().matched
 
     @property
     def sender_tag(self) -> UCXXTag:
@@ -71,7 +71,7 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        return UCXXTag(self._probe_info.info.value().senderTag)
+        return UCXXTag(self._probe_info_ptr.get().info.value().senderTag)
 
     @property
     def length(self) -> int:
@@ -85,7 +85,7 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        return self._probe_info.info.value().length
+        return self._probe_info_ptr.get().info.value().length
 
     @property
     def handle(self) -> int:
@@ -99,9 +99,9 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        if not self._probe_info.handle.has_value():
+        if not self._probe_info_ptr.get().handle.has_value():
             return None
-        cdef ucp_tag_message_h handle = self._probe_info.handle.value()
+        cdef ucp_tag_message_h handle = self._probe_info_ptr.get().handle.value()
         if handle == NULL:
             return None
         cdef uintptr_t handle_ptr = <uintptr_t>handle
@@ -785,13 +785,13 @@ cdef class UCXWorker():
         """
         cdef Tag cpp_tag = <Tag><size_t>tag.value
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
-        cdef TagProbeInfo probe_info
+        cdef shared_ptr[TagProbeInfo] probe_info_ptr
 
         with nogil:
-            probe_info = self._worker.get().tagProbe(cpp_tag, cpp_tag_mask, remove)
+            probe_info_ptr = self._worker.get().tagProbe(cpp_tag, cpp_tag_mask, remove)
 
         cdef TagProbeResult result = TagProbeResult.__new__(TagProbeResult)
-        result._probe_info = move(probe_info)
+        result._probe_info_ptr = probe_info_ptr
         return result
 
     def set_progress_thread_start_callback(
@@ -912,7 +912,7 @@ cdef class UCXWorker():
         with nogil:
             req = self._worker.get().tagRecvWithHandle(
                 buf,
-                probe_result._probe_info,
+                deref(probe_result._probe_info_ptr.get()),
                 self._enable_python_future
             )
 
@@ -1608,7 +1608,7 @@ cdef class UCXEndpoint():
             worker = self._endpoint.get().getWorker()
             req = worker.get().tagRecvWithHandle(
                 buf,
-                probe_result._probe_info,
+                deref(probe_result._probe_info_ptr.get()),
                 self._enable_python_future
             )
 

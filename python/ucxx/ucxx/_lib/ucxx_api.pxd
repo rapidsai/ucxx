@@ -259,7 +259,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         size_t cancelInflightRequests(
             uint64_t period, uint64_t maxAttempts
         ) except +raise_py_error
-        TagProbeInfo tagProbe(const Tag, const TagMask, bint remove) const
+        shared_ptr[TagProbeInfo] tagProbe(const Tag, const TagMask, bint remove) const
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callbackArg
         )

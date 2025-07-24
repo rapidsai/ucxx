@@ -611,9 +611,11 @@ TagProbeInfo::~TagProbeInfo()
   // Check if handle is populated and has not been consumed
   if (matched && handle.has_value() && handle.value() != nullptr && !consumed) {
     ucxx_warn(
-      "ucxx::TagProbeInfo::%s, unconsumed message handle %p detected from tag 0x%lx with "
+      "ucxx::TagProbeInfo::%s, destroying %p unconsumed message handle %p detected from tag 0x%lx "
+      "with "
       "length %lu. ucxx::Worker::tagRecvWithHandle() must be called to consume the handle.",
       __func__,
+      this,
       handle.value(),
       info.value().senderTag,
       info.value().length);
@@ -622,15 +624,17 @@ TagProbeInfo::~TagProbeInfo()
 
 void TagProbeInfo::consume() const { consumed = true; }
 
-TagProbeInfo Worker::tagProbe(const Tag tag, const TagMask tagMask, const bool remove) const
+std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
+                                               const TagMask tagMask,
+                                               const bool remove) const
 {
   ucp_tag_recv_info_t info;
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
 
   if (tag_message != NULL) {
-    return TagProbeInfo(info, remove ? tag_message : nullptr);
+    return std::make_shared<TagProbeInfo>(info, remove ? tag_message : nullptr);
   } else {
-    return TagProbeInfo();
+    return std::make_shared<TagProbeInfo>();
   }
 }
 
