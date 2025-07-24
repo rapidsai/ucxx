@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
@@ -160,8 +160,7 @@ TEST_P(BasicUcxxRmaTest, RemoteKeyCorruptedSerializedData)
   auto serializedRemoteKey = remoteKey->serialize();
   serializedRemoteKey[1]   = ~serializedRemoteKey[1];
 
-  EXPECT_THROW(std::ignore = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey),
-               std::runtime_error);
+  EXPECT_THROW(ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey), std::runtime_error);
 }
 
 INSTANTIATE_TEST_SUITE_P(AttributeTests,
