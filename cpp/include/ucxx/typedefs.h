@@ -109,10 +109,17 @@ class TagRecvInfo {
  */
 class TagProbeInfo {
  public:
-  const bool matched;                     ///< Whether a message was matched
-  const std::optional<TagRecvInfo> info;  ///< Tag receive information (only valid if matched=true)
-  const std::optional<ucp_tag_message_h> handle;  ///< Message handle (only valid if matched=true)
-  mutable bool consumed;                          ///< Whether the message has been consumed
+  const bool matched{false};  ///< Whether a message was matched
+  const std::optional<TagRecvInfo> info{
+    std::nullopt};  ///< Tag receive information (only valid if matched=true)
+  const std::optional<ucp_tag_message_h> handle{
+    std::nullopt};               ///< Message handle (only valid if matched=true)
+  mutable bool consumed{false};  ///< Whether the message has been consumed
+
+  TagProbeInfo(const TagProbeInfo&)            = delete;
+  TagProbeInfo& operator=(TagProbeInfo const&) = delete;
+  TagProbeInfo(TagProbeInfo&& o)               = delete;
+  TagProbeInfo& operator=(TagProbeInfo&& o)    = delete;
 
   ~TagProbeInfo();
 
@@ -170,7 +177,7 @@ class TagProbeInfo {
    *
    * - `ucxx::createTagProbeInfo()`
    */
-  TagProbeInfo();
+  TagProbeInfo() = default;
 
   /**
    * @brief Private constructor of `ucxx::TagProbeInfo`.

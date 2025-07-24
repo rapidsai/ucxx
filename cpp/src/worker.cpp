@@ -581,11 +581,6 @@ TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
 {
 }
 
-TagProbeInfo::TagProbeInfo()
-  : matched(false), info(std::nullopt), handle(std::nullopt), consumed(false)
-{
-}
-
 TagProbeInfo::TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle)
   : matched(true),
     info(TagRecvInfo(info)),
