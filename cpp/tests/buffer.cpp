@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
@@ -139,7 +139,7 @@ TEST_P(BufferAllocator, TestThrowAfterRelease)
     auto releasedBuffer = buffer->release();
 
     EXPECT_THROW(buffer->data(), std::runtime_error);
-    EXPECT_THROW(buffer->release(), std::runtime_error);
+    EXPECT_THROW(std::ignore = buffer->release(), std::runtime_error);
 #else
     GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
