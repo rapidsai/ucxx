@@ -770,7 +770,9 @@ class Worker : public Component {
    * await on this future to ensure the transfer has completed.
    *
    * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
-   *                              data will be stored.
+   *                              data will be stored. The buffer must be large enough to
+   *                              hold the message data, otherwise the behavior is undefined.
+   *                              The buffer must be pre-allocated.
    * @param[in] probeInfo         the TagProbeInfo object containing message length and handle.
    * @param[in] enableFuture      whether a future should be created and subsequently
    *                              notified.

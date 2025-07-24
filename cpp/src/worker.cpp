@@ -681,7 +681,7 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
                                              callbackData));
 
   // Mark the handle as consumed since we're using it for the receive operation
-  probeInfo.consumeHandle();
+  probeInfo.consume();
 
   return request;
 }
