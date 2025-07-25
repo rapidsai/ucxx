@@ -312,8 +312,8 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - pytest==7.*
-          - pytest-asyncio
+          - pytest
+          - pytest-asyncio>=1.0.0
           - pytest-rerunfailures
           - rapids-dask-dependency==25.10.*,>=0.0.0a0
       - output_types: [conda]
@@ -333,7 +333,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - *numpy
-          - pytest==7.*
+          - pytest
           - pytest-rerunfailures
   depends_on_cupy:
     common:
