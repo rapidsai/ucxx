@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -256,11 +256,6 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvPool");
     }
   }
-
-  // Return immediately if the request has already been canceled before the callback
-  // executed, i.e., the user called `amRecv()` before the request arrived and
-  // canceled it.
-  if (req->getStatus() == UCS_ERR_CANCELED) return UCS_ERR_CANCELED;
 
   if (is_rndv) {
     if (amData->_allocators.find(amHeader.memoryType) == amData->_allocators.end()) {
