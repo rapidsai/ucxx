@@ -44,9 +44,6 @@ run_cpp_example() {
 log_message "C++ Tests"
 run_cpp_tests
 
-log_message "C++ Benchmarks"
-run_cpp_benchmarks
-
 log_message "C++ Examples"
 # run_port_retry MAX_ATTEMPTS RUN_TYPE PROGRESS_MODE FUNCTION_NAME
 run_port_retry 10 "example" "polling" "run_cpp_example"
