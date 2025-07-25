@@ -31,3 +31,6 @@ print_ucx_config
 
 rapids-logger "Run C++ tests with conda package"
 ./ci/run_cpp.sh
+
+rapids-logger "Run C++ ucxx_perftest benchmarks with conda package"
+./ci/run_cpp_benchmarks.sh
