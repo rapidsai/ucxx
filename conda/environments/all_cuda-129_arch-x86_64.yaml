@@ -30,7 +30,7 @@ dependencies:
 - pre-commit
 - pynvml>=12.0.0,<13.0.0a0
 - pytest
-- pytest-asyncio
+- pytest-asyncio>=1.0.0
 - pytest-rerunfailures
 - python>=3.10,<3.14
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
