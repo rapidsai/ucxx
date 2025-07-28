@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
@@ -270,8 +270,8 @@ TEST_P(RequestTest, ProgressStream)
 
   // Submit and wait for transfers to complete
   if (_messageSize == 0) {
-    EXPECT_THROW(_ep->streamSend(_sendPtr[0], _messageSize, 0), std::runtime_error);
-    EXPECT_THROW(_ep->streamRecv(_recvPtr[0], _messageSize, 0), std::runtime_error);
+    EXPECT_THROW(std::ignore = _ep->streamSend(_sendPtr[0], _messageSize, 0), std::runtime_error);
+    EXPECT_THROW(std::ignore = _ep->streamRecv(_recvPtr[0], _messageSize, 0), std::runtime_error);
   } else {
     std::vector<std::shared_ptr<ucxx::Request>> requests;
     requests.push_back(_ep->streamSend(_sendPtr[0], _messageSize, 0));

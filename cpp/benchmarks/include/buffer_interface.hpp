@@ -41,53 +41,54 @@ enum class MemoryType {
 };
 
 /**
- * @brief Returns the string representation of a given MemoryType.
+ * @brief Get the string representation of the memory type
  *
- * Converts a MemoryType enum value to its corresponding lowercase string. Throws an exception if
- * the memory type is not recognized.
+ * Converts a MemoryType enum value to its corresponding lowercase string.
  *
- * @param memoryType The MemoryType to convert.
- * @return std::string The string representation of the memory type.
- * @throws std::runtime_error If the memory type is unknown.
+ * @param memoryType The memory type
+ * @return The string representation of the memory type
+ *
+ * @throws std::runtime_error if the memory type is unknown
  */
-std::string getMemoryTypeString(MemoryType memoryType)
-{
-  if (memoryType == MemoryType::Host) {
+std::string getMemoryTypeString(MemoryType memoryType) {
+  if (memoryType == MemoryType::Host)
     return "host";
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  } else if (memoryType == MemoryType::Cuda) {
+  else if (memoryType == MemoryType::Cuda)
     return "cuda";
-  } else if (memoryType == MemoryType::CudaManaged) {
+  else if (memoryType == MemoryType::CudaManaged)
     return "cuda-managed";
-  } else if (memoryType == MemoryType::CudaAsync) {
+  else if (memoryType == MemoryType::CudaAsync)
     return "cuda-async";
 #endif
-  } else {
+  else {
     throw std::runtime_error("Unknown memory type");
   }
 }
 
 /**
- * @brief Converts a string to the corresponding MemoryType enum value.
+ * @brief Get the memory type from a string
+ *
+ * Converts a string to the corresponding MemoryType enum value.
  *
  * @param memoryTypeString String representation of the memory type (e.g., "host", "cuda",
  * "cuda-managed", "cuda-async").
  * @return MemoryType corresponding to the input string.
+ *
  * @throws std::runtime_error if the string does not match a known memory type.
  */
-MemoryType getMemoryTypeFromString(std::string memoryTypeString)
-{
-  if (memoryTypeString == "host") {
+MemoryType getMemoryTypeFromString(std::string memoryTypeString) {
+  if (memoryTypeString == "host")
     return MemoryType::Host;
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  } else if (memoryTypeString == "cuda") {
+  else if (memoryTypeString == "cuda")
     return MemoryType::Cuda;
-  } else if (memoryTypeString == "cuda-managed") {
+  else if (memoryTypeString == "cuda-managed")
     return MemoryType::CudaManaged;
-  } else if (memoryTypeString == "cuda-async") {
+  else if (memoryTypeString == "cuda-async")
     return MemoryType::CudaAsync;
 #endif
-  } else {
+  else {
     throw std::runtime_error("Unknown memory type");
   }
 }
@@ -406,11 +407,9 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
       } else if constexpr (std::is_same_v<BufferType, CudaManagedBuffer>) {
         std::memcpy((*bufferMap)[DirectionType::Send].ptr, pattern.data(), message_size);
       } else {
-        CUDA_EXIT_ON_ERROR(cudaMemcpy((*bufferMap)[DirectionType::Send].ptr,
-                                      pattern.data(),
-                                      message_size,
-                                      cudaMemcpyHostToDevice),
-                           "CUDA send buffer initialization");
+        CUDA_EXIT_ON_ERROR(
+          cudaMemcpy((*bufferMap)[DirectionType::Send].ptr, pattern.data(), message_size, cudaMemcpyHostToDevice),
+          "CUDA send buffer initialization");
       }
     }
   }
@@ -431,18 +430,14 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
 
     if constexpr (std::is_same_v<BufferType, CudaAsyncBuffer>) {
       // For async buffers, use the stream from the buffer
-      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(send_data.data(),
-                                         (*bufferMap)[DirectionType::Send].ptr,
-                                         message_size,
-                                         cudaMemcpyDeviceToHost,
-                                         (*bufferMap)[DirectionType::Send].stream),
-                         "CUDA async send data copy for verification");
-      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recv_data.data(),
-                                         (*bufferMap)[DirectionType::Recv].ptr,
-                                         message_size,
-                                         cudaMemcpyDeviceToHost,
-                                         (*bufferMap)[DirectionType::Recv].stream),
-                         "CUDA async recv data copy for verification");
+      CUDA_EXIT_ON_ERROR(
+        cudaMemcpyAsync(send_data.data(), (*bufferMap)[DirectionType::Send].ptr, message_size, cudaMemcpyDeviceToHost,
+                       (*bufferMap)[DirectionType::Send].stream),
+        "CUDA async send data copy for verification");
+      CUDA_EXIT_ON_ERROR(
+        cudaMemcpyAsync(recv_data.data(), (*bufferMap)[DirectionType::Recv].ptr, message_size, cudaMemcpyDeviceToHost,
+                       (*bufferMap)[DirectionType::Recv].stream),
+        "CUDA async recv data copy for verification");
 
       // Synchronize streams
       CUDA_EXIT_ON_ERROR(cudaStreamSynchronize((*bufferMap)[DirectionType::Send].stream),
@@ -455,18 +450,14 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
       std::memcpy(recv_data.data(), (*bufferMap)[DirectionType::Recv].ptr, message_size);
     } else {
       // For non-async buffers, use synchronous copy with null stream
-      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(send_data.data(),
-                                         (*bufferMap)[DirectionType::Send].ptr,
-                                         message_size,
-                                         cudaMemcpyDeviceToHost,
-                                         nullptr),
-                         "CUDA send data copy for verification");
-      CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recv_data.data(),
-                                         (*bufferMap)[DirectionType::Recv].ptr,
-                                         message_size,
-                                         cudaMemcpyDeviceToHost,
-                                         nullptr),
-                         "CUDA recv data copy for verification");
+      CUDA_EXIT_ON_ERROR(
+        cudaMemcpyAsync(send_data.data(), (*bufferMap)[DirectionType::Send].ptr, message_size, cudaMemcpyDeviceToHost,
+                       nullptr),
+        "CUDA send data copy for verification");
+      CUDA_EXIT_ON_ERROR(
+        cudaMemcpyAsync(recv_data.data(), (*bufferMap)[DirectionType::Recv].ptr, message_size, cudaMemcpyDeviceToHost,
+                       nullptr),
+        "CUDA recv data copy for verification");
     }
 
     for (size_t j = 0; j < send_data.size(); ++j)
@@ -474,8 +465,7 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
   }
 
   // Static allocation methods
-  static std::shared_ptr<std::unordered_map<DirectionType, BufferType>> allocateBuffers(
-    size_t message_size);
+  static std::shared_ptr<std::unordered_map<DirectionType, BufferType>> allocateBuffers(size_t message_size);
 
   /**
    * @brief Creates a new buffer interface instance sharing the same buffer map.
@@ -501,9 +491,8 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
  */
 BufferMapPtr allocateTransferBuffers(size_t message_size)
 {
-  return std::make_shared<BufferMap>(
-    BufferMap{{DirectionType::Send, std::vector<char>(message_size, 0xaa)},
-              {DirectionType::Recv, std::vector<char>(message_size)}});
+  return std::make_shared<BufferMap>(BufferMap{{DirectionType::Send, std::vector<char>(message_size, 0xaa)},
+                                               {DirectionType::Recv, std::vector<char>(message_size)}});
 }
 
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
@@ -533,8 +522,7 @@ std::shared_ptr<CudaBufferMap> CudaBufferInterface<CudaBuffer>::allocateBuffers(
   // Initialize send buffer with pattern
   std::vector<char> pattern(message_size, 0xaa);
   CUDA_EXIT_ON_ERROR(
-    cudaMemcpy(
-      (*bufferMap)[DirectionType::Send].ptr, pattern.data(), message_size, cudaMemcpyHostToDevice),
+    cudaMemcpy((*bufferMap)[DirectionType::Send].ptr, pattern.data(), message_size, cudaMemcpyHostToDevice),
     "CUDA send buffer initialization");
 
   return bufferMap;
