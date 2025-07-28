@@ -156,16 +156,33 @@ class RequestAm : public Request {
   [[nodiscard]] std::shared_ptr<Buffer> getRecvBuffer() override;
 
   /**
-   * @brief Get the Active Message data pointer and length for delayed receive operations.
+   * @brief Receive delayed Active Message data into a user-provided buffer.
    *
-   * This method returns the AM data pointer and length that was stored when delayReceive
-   * was enabled and the message was received via the receive callback. This data can be used
-   * by the user to manually call ucp_am_recv_data_nbx when they are ready to receive the data.
+   * This method is used for delayed receive operations where delayReceive was enabled.
+   * It takes a user-provided buffer and internally calls ucp_am_recv_data_nbx to receive
+   * the AM data that was stored when the message first arrived. Returns a Request object
+   * that the user can wait on for completion.
    *
-   * @returns The AmData struct containing the void* data pointer and length, or std::nullopt
-   *          if this was not a delayed receive operation.
+   * @param[in] buffer The buffer to receive the AM data into. Must be large enough to hold
+   *                   the AM data (length available via the original AM callback).
+   *
+   * @returns A shared_ptr to a Request object that can be waited on for completion.
+   *          Returns nullptr if this was not a delayed receive operation or AM data
+   *          is not available.
    */
-  [[nodiscard]] std::optional<AmData> getAmData();
+  [[nodiscard]] std::shared_ptr<Request> receiveData(std::shared_ptr<Buffer> buffer);
+
+  /**
+   * @brief Get the length of delayed Active Message data.
+   *
+   * This method returns the length of the AM data that was stored when delayReceive
+   * was enabled and the message was received via the receive callback. This allows
+   * users to allocate appropriately sized buffers before calling receiveData().
+   *
+   * @returns The length of the AM data in bytes, or 0 if this was not a delayed
+   *          receive operation or AM data is not available.
+   */
+  [[nodiscard]] size_t getAmDataLength();
 };
 
 }  // namespace ucxx

@@ -271,12 +271,6 @@ TEST_P(RequestTest, ProgressAmReceiverCallbackDelayedReceive)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
-  // Delayed receive only works with rendezvous messages
-  if (_messageSize < _rndvThresh) {
-    GTEST_SKIP() << "Delayed receive only works with rendezvous messages (messageSize >= "
-                 << _rndvThresh << ")";
-  }
-
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
 #if !UCXX_ENABLE_RMM
     GTEST_SKIP() << "UCXX was not built with RMM support";
@@ -293,76 +287,45 @@ TEST_P(RequestTest, ProgressAmReceiverCallbackDelayedReceive)
   // Mutex required for blocking progress mode
   std::mutex mutex;
 
-  // Storage for the received request and manual receive completion
+  // Storage for the received request and receive operation
   std::shared_ptr<ucxx::Request> receivedRequest{nullptr};
   std::shared_ptr<ucxx::Buffer> manualRecvBuffer{nullptr};
-  bool manualReceiveCompleted      = false;
-  ucs_status_t manualReceiveStatus = UCS_OK;
-
-  // Callback to handle completion of manual ucp_am_recv_data_nbx
-  auto manualRecvCallback = [](void* request, ucs_status_t status, size_t length, void* user_data) {
-    auto* data            = static_cast<std::tuple<bool*, ucs_status_t*>*>(user_data);
-    *(std::get<0>(*data)) = true;    // manualReceiveCompleted
-    *(std::get<1>(*data)) = status;  // manualReceiveStatus
-    if (request != nullptr) { ucp_request_free(request); }
-  };
-
-  auto callbackUserData = std::make_tuple(&manualReceiveCompleted, &manualReceiveStatus);
+  std::shared_ptr<ucxx::Request> receiveDataRequest{nullptr};
 
   // Define AM receiver callback and register with worker
   auto callback = ucxx::AmReceiverCallbackType(
-    [this,
-     &receivedRequest,
-     &manualRecvBuffer,
-     &manualRecvCallback,
-     &callbackUserData,
-     &mutex,
-     &manualReceiveStatus,
-     &manualReceiveCompleted](std::shared_ptr<ucxx::Request> req, ucp_ep_h) {
+    [this, &receivedRequest, &manualRecvBuffer, &receiveDataRequest, &mutex](
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h) {
       {
         std::lock_guard<std::mutex> lock(mutex);
         receivedRequest = req;
 
-        // Cast to RequestAm to access getAmData() method
+        // Cast to RequestAm to access receiveData() method
         auto requestAm = std::dynamic_pointer_cast<ucxx::RequestAm>(req);
         ASSERT_NE(requestAm, nullptr) << "Request should be a RequestAm for AM operations";
 
-        // Get the AM data pointer and length for delayed receive
-        auto amData = requestAm->getAmData();
-        ASSERT_TRUE(amData.has_value()) << "AmData should be available for delayed receive";
+        // Get the actual message length from the delayed receive data
+        size_t messageLength = requestAm->getAmDataLength();
+        ASSERT_GT(messageLength, 0)
+          << "AM data length should be greater than 0 for delayed receive";
+        ASSERT_EQ(messageLength, _messageSize)
+          << "AM data length should match the sent message size";
 
-        // Manually allocate buffer for receiving the data
+        // Allocate buffer based on the actual message length
         if (_memoryType == UCS_MEMORY_TYPE_HOST) {
-          manualRecvBuffer = std::make_shared<ucxx::HostBuffer>(amData->length);
+          manualRecvBuffer = std::make_shared<ucxx::HostBuffer>(messageLength);
 #if UCXX_ENABLE_RMM
         } else if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
-          manualRecvBuffer = std::make_shared<ucxx::RMMBuffer>(amData->length);
+          manualRecvBuffer = std::make_shared<ucxx::RMMBuffer>(messageLength);
 #endif
         } else {
           FAIL() << "Unsupported memory type for test";
         }
 
-        // Manually call ucp_am_recv_data_nbx to receive the data
-        ucp_request_param_t requestParam = {
-          .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA,
-          .cb           = {.recv_am = manualRecvCallback},
-          .user_data    = &callbackUserData};
-
-        ucs_status_ptr_t status = ucp_am_recv_data_nbx(_worker->getHandle(),
-                                                       amData->data,
-                                                       manualRecvBuffer->data(),
-                                                       amData->length,
-                                                       &requestParam);
-
-        if (UCS_PTR_IS_ERR(status)) {
-          manualReceiveStatus    = UCS_PTR_STATUS(status);
-          manualReceiveCompleted = true;
-        } else if (status == nullptr) {
-          // Completed immediately
-          manualReceiveCompleted = true;
-          manualReceiveStatus    = UCS_OK;
-        }
-        // else: will be completed by callback
+        // Use the new receiveData() API to receive the AM data
+        receiveDataRequest = requestAm->receiveData(manualRecvBuffer);
+        ASSERT_NE(receiveDataRequest, nullptr)
+          << "receiveData should return a valid request for delayed receive";
       }
     });
   _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
@@ -378,23 +341,27 @@ TEST_P(RequestTest, ProgressAmReceiverCallbackDelayedReceive)
   while (receivedRequest == nullptr)
     _progressWorker();
 
-  // Wait for the manual receive to complete
-  while (!manualReceiveCompleted)
+  // Wait for the receiveData request to be created
+  while (receiveDataRequest == nullptr)
     _progressWorker();
 
-  // Verify manual receive completed successfully
-  ASSERT_EQ(manualReceiveStatus, UCS_OK) << "Manual receive should complete successfully";
+  // Wait for the receive data request to complete
+  while (!receiveDataRequest->isCompleted())
+    _progressWorker();
+
+  // Verify receive data request completed successfully
+  ASSERT_TRUE(receiveDataRequest->isCompleted()) << "Receive data request should be completed";
+  ASSERT_EQ(receiveDataRequest->getStatus(), UCS_OK)
+    << "Receive data request should complete without error";
 
   {
     std::lock_guard<std::mutex> lock(mutex);
 
-    // Cast to RequestAm to access getAmData() method
+    // Cast to RequestAm to verify it's the correct type
     auto requestAm = std::dynamic_pointer_cast<ucxx::RequestAm>(receivedRequest);
     ASSERT_NE(requestAm, nullptr) << "Request should be a RequestAm for AM operations";
 
-    // Verify that the received request has AM data but no regular receive buffer
-    ASSERT_TRUE(requestAm->getAmData().has_value())
-      << "Delayed receive request should have AM data";
+    // Verify that the original delayed receive request has no regular receive buffer
     ASSERT_EQ(requestAm->getRecvBuffer(), nullptr)
       << "Delayed receive request should not have a receive buffer";
 
