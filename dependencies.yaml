@@ -241,8 +241,6 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==25.10.*,>=0.0.0a0
-          - dask-cudf==25.10.*,>=0.0.0a0
           # UCX Build
           - libtool
           - automake
@@ -287,9 +285,6 @@ dependencies:
           - pynvml>=12.0.0,<13.0.0a0
   run_python_distributed_ucxx:
     common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - rapids-dask-dependency==25.10.*,>=0.0.0a0
       - output_types: [conda]
         packages:
           - &numba-cuda numba-cuda>=0.14.0,<0.15.0a0
@@ -315,7 +310,6 @@ dependencies:
           - pytest
           - pytest-asyncio>=1.0.0
           - pytest-rerunfailures
-          - rapids-dask-dependency==25.10.*,>=0.0.0a0
       - output_types: [conda]
         packages:
           - *numba-cuda
