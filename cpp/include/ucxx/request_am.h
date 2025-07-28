@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -154,6 +154,18 @@ class RequestAm : public Request {
                                                  const ucp_am_recv_param_t* param);
 
   [[nodiscard]] std::shared_ptr<Buffer> getRecvBuffer() override;
+
+  /**
+   * @brief Get the Active Message data pointer and length for delayed receive operations.
+   *
+   * This method returns the AM data pointer and length that was stored when delayReceive
+   * was enabled and the message was received via the receive callback. This data can be used
+   * by the user to manually call ucp_am_recv_data_nbx when they are ready to receive the data.
+   *
+   * @returns The AmData struct containing the void* data pointer and length, or std::nullopt
+   *          if this was not a delayed receive operation.
+   */
+  [[nodiscard]] std::optional<AmData> getAmData();
 };
 
 }  // namespace ucxx

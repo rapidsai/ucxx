@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -22,8 +22,9 @@
 namespace ucxx {
 
 AmReceiverCallbackInfo::AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner,
-                                               AmReceiverCallbackIdType id)
-  : owner(owner), id(id)
+                                               AmReceiverCallbackIdType id,
+                                               bool delayReceive)
+  : owner(owner), id(id), delayReceive(delayReceive)
 {
 }
 
@@ -58,8 +59,11 @@ struct AmHeader {
       AmReceiverCallbackIdType id{};
       decode(&id, sizeof(id));
 
+      bool delayReceive{false};
+      decode(&delayReceive, sizeof(delayReceive));
+
       return AmHeader{.memoryType           = memoryType,
-                      .receiverCallbackInfo = AmReceiverCallbackInfo(owner, id)};
+                      .receiverCallbackInfo = AmReceiverCallbackInfo(owner, id, delayReceive)};
     }
 
     return AmHeader{.memoryType = memoryType, .receiverCallbackInfo = std::nullopt};
@@ -71,7 +75,9 @@ struct AmHeader {
     bool hasReceiverCallback{static_cast<bool>(receiverCallbackInfo)};
     const size_t ownerSize = (receiverCallbackInfo) ? receiverCallbackInfo->owner.size() : 0;
     const size_t amReceiverCallbackInfoSize =
-      (receiverCallbackInfo) ? sizeof(ownerSize) + ownerSize + sizeof(receiverCallbackInfo->id) : 0;
+      (receiverCallbackInfo) ? sizeof(ownerSize) + ownerSize + sizeof(receiverCallbackInfo->id) +
+                                 sizeof(receiverCallbackInfo->delayReceive)
+                             : 0;
     const size_t totalSize =
       sizeof(memoryType) + sizeof(hasReceiverCallback) + amReceiverCallbackInfoSize;
     std::string serialized(totalSize, 0);
@@ -87,6 +93,7 @@ struct AmHeader {
       encode(&ownerSize, sizeof(ownerSize));
       encode(receiverCallbackInfo->owner.c_str(), ownerSize);
       encode(&receiverCallbackInfo->id, sizeof(receiverCallbackInfo->id));
+      encode(&receiverCallbackInfo->delayReceive, sizeof(receiverCallbackInfo->delayReceive));
     }
 
     return serialized;
@@ -258,80 +265,119 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   }
 
   if (is_rndv) {
-    if (amData->_allocators.find(amHeader.memoryType) == amData->_allocators.end()) {
-      // TODO: Is a hard failure better?
-      // ucxx_debug("Unsupported memory type %d", amHeader.memoryType);
-      // internal::RecvAmMessage recvAmMessage(amData, ep, req, nullptr);
-      // recvAmMessage.callback(nullptr, UCS_ERR_UNSUPPORTED);
-      // return UCS_ERR_UNSUPPORTED;
+    // Check if delayed receive is requested for rendezvous messages
+    bool shouldDelayReceive =
+      amHeader.receiverCallbackInfo && amHeader.receiverCallbackInfo->delayReceive;
 
-      ucxx_trace_req("No allocator registered for memory type %u, falling back to host memory.",
-                     amHeader.memoryType);
-      amHeader.memoryType = UCS_MEMORY_TYPE_HOST;
-    }
+    if (shouldDelayReceive) {
+      // For delayed receive: don't allocate buffer, don't call ucp_am_recv_data_nbx,
+      // store AM data pointer, return UCS_INPROGRESS
+      auto& amReceiveData   = std::get<data::AmReceive>(req->_requestData);
+      amReceiveData._amData = AmData(data, length);
 
-    try {
-      buf = amData->_allocators.at(amHeader.memoryType)(length);
-    } catch (const std::exception& e) {
-      ucxx_debug("Exception calling allocator: %s", e.what());
-    }
+      if (req->_enablePythonFuture)
+        ucxx_trace_req_f(ownerString.c_str(),
+                         req.get(),
+                         nullptr,
+                         "amRecv rndv delayed",
+                         "recvCallback, ep: %p, data: %p, size: %lu, future: %p, future handle: %p",
+                         ep,
+                         data,
+                         length,
+                         req->_future.get(),
+                         req->_future->getHandle());
+      else
+        ucxx_trace_req_f(ownerString.c_str(),
+                         req.get(),
+                         nullptr,
+                         "amRecv rndv delayed",
+                         "recvCallback, ep: %p, data: %p, size: %lu",
+                         ep,
+                         data,
+                         length);
 
-    auto recvAmMessage =
-      std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf, receiverCallback);
-
-    ucp_request_param_t requestParam = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                                                        UCP_OP_ATTR_FIELD_USER_DATA |
-                                                        UCP_OP_ATTR_FLAG_NO_IMM_CMPL,
-                                        .cb        = {.recv_am = _recvCompletedCallback},
-                                        .user_data = recvAmMessage.get()};
-
-    if (buf == nullptr) {
-      ucxx_debug("Failed to allocate %lu bytes of memory", length);
-      recvAmMessage->_request->setStatus(UCS_ERR_NO_MEMORY);
-      return UCS_ERR_NO_MEMORY;
-    }
-
-    ucs_status_ptr_t status =
-      ucp_am_recv_data_nbx(worker->getHandle(), data, buf->data(), length, &requestParam);
-
-    if (req->_enablePythonFuture)
-      ucxx_trace_req_f(ownerString.c_str(),
-                       req.get(),
-                       status,
-                       "amRecv rndv",
-                       "recvCallback, ep: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
-                       ep,
-                       buf->data(),
-                       length,
-                       req->_future.get(),
-                       req->_future->getHandle());
-    else
-      ucxx_trace_req_f(ownerString.c_str(),
-                       req.get(),
-                       status,
-                       "amRecv rndv",
-                       "recvCallback, ep: %p, buffer: %p, size: %lu",
-                       ep,
-                       buf->data(),
-                       length);
-
-    if (req->isCompleted()) {
-      // The request completed/errored immediately
-      ucs_status_t s = UCS_PTR_STATUS(status);
-      recvAmMessage->callback(nullptr, s);
-
-      return s;
-    } else {
-      // The request will be handled by the callback
-      recvAmMessage->setUcpRequest(status);
-      amData->_registerInflightRequest(req);
-
-      {
-        std::lock_guard<std::mutex> lock(amData->_mutex);
-        amData->_recvAmMessageMap.emplace(req.get(), recvAmMessage);
-      }
+      // Execute receiver callback if present
+      if (receiverCallback) { receiverCallback(req, ep); }
 
       return UCS_INPROGRESS;
+    } else {
+      // Normal rendezvous receive path
+      if (amData->_allocators.find(amHeader.memoryType) == amData->_allocators.end()) {
+        // TODO: Is a hard failure better?
+        // ucxx_debug("Unsupported memory type %d", amHeader.memoryType);
+        // internal::RecvAmMessage recvAmMessage(amData, ep, req, nullptr);
+        // recvAmMessage.callback(nullptr, UCS_ERR_UNSUPPORTED);
+        // return UCS_ERR_UNSUPPORTED;
+
+        ucxx_trace_req("No allocator registered for memory type %u, falling back to host memory.",
+                       amHeader.memoryType);
+        amHeader.memoryType = UCS_MEMORY_TYPE_HOST;
+      }
+
+      try {
+        buf = amData->_allocators.at(amHeader.memoryType)(length);
+      } catch (const std::exception& e) {
+        ucxx_debug("Exception calling allocator: %s", e.what());
+      }
+
+      auto recvAmMessage =
+        std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf, receiverCallback);
+
+      ucp_request_param_t requestParam = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                                                          UCP_OP_ATTR_FIELD_USER_DATA |
+                                                          UCP_OP_ATTR_FLAG_NO_IMM_CMPL,
+                                          .cb        = {.recv_am = _recvCompletedCallback},
+                                          .user_data = recvAmMessage.get()};
+
+      if (buf == nullptr) {
+        ucxx_debug("Failed to allocate %lu bytes of memory", length);
+        recvAmMessage->_request->setStatus(UCS_ERR_NO_MEMORY);
+        return UCS_ERR_NO_MEMORY;
+      }
+
+      ucs_status_ptr_t status =
+        ucp_am_recv_data_nbx(worker->getHandle(), data, buf->data(), length, &requestParam);
+
+      if (req->_enablePythonFuture)
+        ucxx_trace_req_f(
+          ownerString.c_str(),
+          req.get(),
+          status,
+          "amRecv rndv",
+          "recvCallback, ep: %p, buffer: %p, size: %lu, future: %p, future handle: %p",
+          ep,
+          buf->data(),
+          length,
+          req->_future.get(),
+          req->_future->getHandle());
+      else
+        ucxx_trace_req_f(ownerString.c_str(),
+                         req.get(),
+                         status,
+                         "amRecv rndv",
+                         "recvCallback, ep: %p, buffer: %p, size: %lu",
+                         ep,
+                         buf->data(),
+                         length);
+
+      if (req->isCompleted()) {
+        // The request completed/errored immediately
+        ucs_status_t s = UCS_PTR_STATUS(status);
+        recvAmMessage->callback(nullptr, s);
+
+        return s;
+      } else {
+        // The request will be handled by the callback
+        recvAmMessage->setUcpRequest(status);
+        amData->_registerInflightRequest(req);
+
+        {
+          std::lock_guard<std::mutex> lock(amData->_mutex);
+          amData->_recvAmMessageMap.emplace(req.get(), recvAmMessage);
+        }
+
+        return UCS_INPROGRESS;
+      }
     }
   } else {
     buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
@@ -377,6 +423,16 @@ std::shared_ptr<Buffer> RequestAm::getRecvBuffer()
     data::dispatch{
       [](data::AmReceive amReceive) { return amReceive._buffer; },
       [](auto) -> std::shared_ptr<Buffer> { throw std::runtime_error("Unreachable"); },
+    },
+    _requestData);
+}
+
+std::optional<AmData> RequestAm::getAmData()
+{
+  return std::visit(
+    data::dispatch{
+      [](data::AmReceive amReceive) { return amReceive._amData; },
+      [](auto) -> std::optional<AmData> { throw std::runtime_error("Unreachable"); },
     },
     _requestData);
 }

@@ -174,6 +174,27 @@ typedef uint64_t AmReceiverCallbackIdType;
 typedef const std::string AmReceiverCallbackInfoSerialized;
 
 /**
+ * @brief Active Message data information for delayed receiving.
+ *
+ * Structure containing the Active Message data pointer and length that will be used
+ * when the user chooses to delay receiving and handle ucp_am_recv_data_nbx manually.
+ */
+struct AmData {
+  void* data;     ///< The Active Message data pointer from the receive callback
+  size_t length;  ///< The length of the Active Message data
+
+  AmData() : data(nullptr), length(0) {}
+
+  /**
+   * @brief Construct an AmData object.
+   *
+   * @param[in] data    The Active Message data pointer from the receive callback.
+   * @param[in] length  The length of the Active Message data.
+   */
+  AmData(void* data, size_t length) : data(data), length(length) {}
+};
+
+/**
  * @brief Information of an Active Message receiver callback.
  *
  * Type identifying an Active Message receiver callback's owner name and unique identifier.
@@ -182,16 +203,21 @@ class AmReceiverCallbackInfo {
  public:
   const AmReceiverCallbackOwnerType owner;  ///< The owner name of the callback
   const AmReceiverCallbackIdType id;        ///< The unique identifier of the callback
+  const bool delayReceive;                  ///< Whether to delay receiving data (user-controlled)
 
   AmReceiverCallbackInfo() = delete;
 
   /**
    * @brief Construct an AmReceiverCallbackInfo object.
    *
-   * @param[in] owner  The owner name of the callback.
-   * @param[in] id     The unique identifier of the callback.
+   * @param[in] owner         The owner name of the callback.
+   * @param[in] id            The unique identifier of the callback.
+   * @param[in] delayReceive  Whether to delay receiving data, allowing user to control when
+   * ucp_am_recv_data_nbx is called.
    */
-  AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id);
+  AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner,
+                         AmReceiverCallbackIdType id,
+                         bool delayReceive = false);
 };
 
 /**
