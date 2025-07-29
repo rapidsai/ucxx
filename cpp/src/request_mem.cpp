@@ -57,11 +57,11 @@ RequestMem::RequestMem(std::shared_ptr<Endpoint> endpoint,
             callbackData)
 {
   std::visit(data::dispatch{
-               [this](data::MemPut memPut) {
+               [this](data::MemPut) {
                  if (_endpoint == nullptr)
                    throw ucxx::Error("A valid endpoint is required to send memory messages.");
                },
-               [this](data::MemGet memGet) {
+               [this](data::MemGet) {
                  if (_endpoint == nullptr)
                    throw ucxx::Error("A valid endpoint is required to receive memory messages.");
                },
@@ -122,13 +122,11 @@ void RequestMem::request()
   _request = request;
 }
 
-static void logPopulateDelayedSubmission() {}
-
 void RequestMem::populateDelayedSubmission()
 {
   bool terminate =
     std::visit(data::dispatch{
-                 [this](data::MemPut memPut) {
+                 [this](data::MemPut) {
                    if (_endpoint->getHandle() == nullptr) {
                      ucxx_warn("Endpoint was closed before message could be sent");
                      Request::callback(this, UCS_ERR_CANCELED);
@@ -136,7 +134,7 @@ void RequestMem::populateDelayedSubmission()
                    }
                    return false;
                  },
-                 [this](data::MemGet memGet) {
+                 [this](data::MemGet) {
                    if (_worker->getHandle() == nullptr) {
                      ucxx_warn("Endpoint was closed before message could be received");
                      Request::callback(this, UCS_ERR_CANCELED);

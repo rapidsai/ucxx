@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -37,23 +37,23 @@ namespace ucxx {
  */
 class Request : public Component {
  protected:
-  ucs_status_t _status{UCS_INPROGRESS};            ///< Requests status
-  std::string _status_msg{};                       ///< Human-readable status message
-  void* _request{nullptr};                         ///< Pointer to UCP request
-  std::shared_ptr<Future> _future{nullptr};        ///< Future to notify upon completion
-  RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
-  RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
+  ucs_status_t _status{UCS_INPROGRESS};      ///< Requests status
+  std::string _status_msg{};                 ///< Human-readable status message
+  void* _request{nullptr};                   ///< Pointer to UCP request
+  std::shared_ptr<Future> _future{nullptr};  ///< Future to notify upon completion
   std::shared_ptr<Worker> _worker{
     nullptr};  ///< Worker that generated request (if not from endpoint)
   std::shared_ptr<Endpoint> _endpoint{
     nullptr};  ///< Endpoint that generated request (if not from worker)
   std::string _ownerString{
     "undetermined owner"};           ///< String to print owner (endpoint or worker) when logging
+  std::recursive_mutex _mutex{};     ///< Mutex to prevent checking status while it's being set
   data::RequestData _requestData{};  ///< The operation-specific data to be used in the request
   std::string _operationName{
     "request_undefined"};          ///< Human-readable operation name, mostly used for log messages
-  std::recursive_mutex _mutex{};   ///< Mutex to prevent checking status while it's being set
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
+  RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
+  RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
 
   /**
    * @brief Protected constructor of an abstract `ucxx::Request`.
@@ -73,6 +73,8 @@ class Request : public Component {
    *                                requests by their types when UCXX logging is enabled.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   Request(std::shared_ptr<Component> endpointOrWorker,
           const data::RequestData requestData,
@@ -120,7 +122,7 @@ class Request : public Component {
   /**
    * @brief Cancel the request.
    *
-   * Cancel the request. Often called by the an error handler or parent's object
+   * Cancel the request. Often called by the error handler or parent's object
    * destructor but may be called by the user to cancel the request as well.
    */
   virtual void cancel();

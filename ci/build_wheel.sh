@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -8,6 +8,7 @@ package_dir=$2
 
 source rapids-configure-sccache
 source rapids-date-string
+source rapids-init-pip
 
 rapids-generate-version > ./VERSION
 
@@ -16,7 +17,7 @@ cd "${package_dir}"
 sccache --zero-stats
 
 rapids-logger "Building '${package_name}' wheel"
-python -m pip wheel \
+rapids-pip-retry wheel \
     -w dist \
     -v \
     --no-deps \

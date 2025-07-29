@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -19,10 +19,13 @@ if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
   set(ucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
 else()
   string(REPLACE "\n" "\n  " _version_contents_formatted "${_version_contents}")
-  message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
+  message(
+    FATAL_ERROR
+      "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}"
+  )
 endif()
 
-include(../../fetch_rapids.cmake)
+include(../../cmake/rapids_config.cmake)
 include(rapids-cpm)
 include(rapids-cuda)
 rapids_cuda_init_architectures(libucxx-python)
@@ -34,8 +37,8 @@ project(
   LANGUAGES CXX
 )
 
-# Check if ucxx is already available. If so, it's the user's responsibility to ensure that the
-# CMake package is also available at build time of the Python ucxx package.
+# Check if ucxx is already available. If so, it's the user's responsibility to ensure that the CMake
+# package is also available at build time of the Python ucxx package.
 find_package(ucxx "${ucxx_version}")
 
 if(ucxx_FOUND)

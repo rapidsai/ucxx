@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -109,11 +109,10 @@ class MemoryHandle : public Component {
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
-  [[nodiscard]] friend std::shared_ptr<MemoryHandle> createMemoryHandle(
-    std::shared_ptr<Context> context,
-    const size_t size,
-    void* buffer,
-    const ucs_memory_type_t memoryType);
+  friend std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
+                                                          const size_t size,
+                                                          void* buffer,
+                                                          const ucs_memory_type_t memoryType);
 
   ~MemoryHandle();
 
@@ -165,8 +164,24 @@ class MemoryHandle : public Component {
    */
   [[nodiscard]] uint64_t getBaseAddress();
 
+  /**
+   * @brief Get the memory type of the allocation.
+   *
+   * Get the memory type of the allocation, which indicates whether the memory is host memory
+   * or device memory (i.e., CUDA).
+   *
+   * @returns The memory type of the allocation.
+   */
   [[nodiscard]] ucs_memory_type_t getMemoryType();
 
+  /**
+   * @brief Create a remote key for the memory allocation.
+   *
+   * Create a remote key that can be used by a remote endpoint to access this memory
+   * allocation. The remote key is required for remote memory access operations.
+   *
+   * @returns A shared pointer to the created remote key.
+   */
   [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKey();
 };
 

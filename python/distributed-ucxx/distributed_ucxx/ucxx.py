@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 :ref:`UCX`_ based communications for distributed.
 
@@ -8,12 +11,14 @@ See :ref:`communications` for more.
 from __future__ import annotations
 
 import functools
+import gc
 import itertools
 import logging
 import os
 import struct
 import weakref
 from collections.abc import Awaitable, Callable, Collection
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
@@ -82,13 +87,29 @@ def _warn_cuda_context_wrong_device(
     )
 
 
-def synchronize_stream(stream=0):
+class CudaStream(Enum):
+    Default = 0
+
+
+def synchronize_stream(stream: CudaStream = CudaStream.Default):
     import numba.cuda
 
-    ctx = numba.cuda.current_context()
-    cu_stream = numba.cuda.driver.drvapi.cu_stream(stream)
-    stream = numba.cuda.driver.Stream(ctx, cu_stream, None)
-    stream.synchronize()
+    if stream == CudaStream.Default:
+        numba_stream = numba.cuda.default_stream()
+    else:
+        raise ValueError("Unsupported stream")
+    numba_stream.synchronize()
+
+
+class gc_disabled:
+    def __enter__(self):
+        self.was_enabled = gc.isenabled()
+        if self.was_enabled:
+            gc.disable()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.was_enabled:
+            gc.enable()
 
 
 def make_register():
@@ -110,12 +131,16 @@ def make_register():
             `_deregister_dask_resource` during stop/destruction of the resource.
         """
         ctx = ucxx.core._get_ctx()
-        with ctx._dask_resources_lock:
-            resource_id = next(count)
-            ctx._dask_resources.add(resource_id)
-            ctx.start_notifier_thread()
-            ctx.continuous_ucx_progress()
-            return resource_id
+        with gc_disabled():
+            # Disable garbage collection to avoid deadlocks should the garbage collector
+            # run within the lock, where `_deregister_dask_resource` finalizer may be
+            # called.
+            with ctx._dask_resources_lock:
+                resource_id = next(count)
+                ctx._dask_resources.add(resource_id)
+                ctx.start_notifier_thread()
+                ctx.continuous_ucx_progress()
+                return resource_id
 
     return register
 
@@ -157,8 +182,8 @@ def _deregister_dask_resource(resource_id):
             # Stop notifier thread and progress tasks if no Dask resources using
             # UCXX communicators are running anymore.
             if len(ctx._dask_resources) == 0:
-                ctx.stop_notifier_thread()
-                ctx.progress_tasks.clear()
+                ucxx.stop_notifier_thread()
+                ctx.clear_progress_tasks()
 
 
 def _allocate_dask_resources_tracker() -> None:
@@ -253,7 +278,10 @@ def init_once():
         # that don't override ucx_config or existing slots in the
         # environment, so the user's external environment can safely
         # override things here.
-        ucxx.init(options=ucx_config, env_takes_precedence=True)
+        progress_mode = None if "UCXPY_PROGRESS_MODE" in os.environ else "blocking"
+        ucxx.init(
+            options=ucx_config, env_takes_precedence=True, progress_mode=progress_mode
+        )
         _allocate_dask_resources_tracker()
 
     pool_size_str = dask.config.get("distributed.rmm.pool-size")
@@ -305,6 +333,25 @@ def _close_comm(ref):
     comm = ref()
     if comm is not None:
         comm._closed = True
+
+
+def _finalizer(endpoint: ucxx.Endpoint, resource_id: int) -> None:
+    """UCXX comms object finalizer.
+
+    Attempt to close the UCXX endpoint if it's still alive, and deregister Dask
+    resource.
+
+    Parameters
+    ----------
+    endpoint: ucx_api.UCXEndpoint
+        The endpoint to close.
+    resource_id: int
+        The unique ID of the resource returned by `_register_dask_resource` upon
+        registration.
+    """
+    if endpoint is not None:
+        endpoint.abort()
+    _deregister_dask_resource(resource_id)
 
 
 class UCXX(Comm):
@@ -359,8 +406,8 @@ class UCXX(Comm):
         self._ep = ep
         self._ep_handle = int(self._ep._ep.handle)
         if local_addr:
-            assert local_addr.startswith("ucxx")
-        assert peer_addr.startswith("ucxx")
+            assert local_addr.startswith(("ucx://", "ucxx://"))
+        assert peer_addr.startswith(("ucx://", "ucxx://"))
         self._local_addr = local_addr
         self._peer_addr = peer_addr
         self.comm_flag = None
@@ -375,14 +422,19 @@ class UCXX(Comm):
         else:
             self._has_close_callback = False
 
-        self._resource_id = _register_dask_resource()
+        resource_id = _register_dask_resource()
+        self._resource_id = resource_id
 
         logger.debug("UCX.__init__ %s", self)
 
-        weakref.finalize(self, _deregister_dask_resource, self._resource_id)
+        weakref.finalize(self, _finalizer, ep, resource_id)
 
-    def __del__(self) -> None:
-        self.abort()
+    def abort(self):
+        self._closed = True
+        if self._ep is not None:
+            self._ep.abort()
+            self._ep = None
+            _deregister_dask_resource(self._resource_id)
 
     @property
     def local_address(self) -> str:
@@ -421,7 +473,7 @@ class UCXX(Comm):
         try:
             if multi_buffer is True:
                 if any(hasattr(f, "__cuda_array_interface__") for f in frames):
-                    synchronize_stream(0)
+                    synchronize_stream(CudaStream.Default)
 
                 close = [struct.pack("?", False)]
                 await self.ep.send_multi(close + frames)
@@ -456,7 +508,7 @@ class UCXX(Comm):
                 # non-blocking CUDA streams. Note this is only sufficient if the memory
                 # being sent is not currently in use on non-blocking CUDA streams.
                 if any(cuda_send_frames):
-                    synchronize_stream(0)
+                    synchronize_stream(CudaStream.Default)
 
                 for each_frame in send_frames:
                     await self.ep.send(each_frame)
@@ -535,7 +587,7 @@ class UCXX(Comm):
                 # synchronize the default stream before starting receiving to ensure
                 # buffers have been allocated
                 if any(cuda_recv_frames):
-                    synchronize_stream(0)
+                    synchronize_stream(CudaStream.Default)
 
                 try:
                     for each_frame in recv_frames:

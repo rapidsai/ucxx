@@ -31,6 +31,9 @@ class RequestAm : public Request {
  private:
   friend class internal::RecvAmMessage;
 
+  std::string _header{};  ///< Retain copy of header for send requests as workaround for
+                          ///< https://github.com/openucx/ucx/issues/10424
+
   /**
    * @brief Private constructor of `ucxx::RequestAm`.
    *
@@ -89,12 +92,20 @@ class RequestAm : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
-  [[nodiscard]] friend std::shared_ptr<RequestAm> createRequestAm(
+  friend std::shared_ptr<RequestAm> createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
+
+  /**
+   * @brief Cancel the request.
+   *
+   * Cancel the request. Often called by the error handler or parent's object
+   * destructor but may be called by the user to cancel the request as well.
+   */
+  void cancel() override;
 
   void populateDelayedSubmission() override;
 

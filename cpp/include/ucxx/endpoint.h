@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -55,9 +55,9 @@ class Endpoint : public Component {
   bool _endpointErrorHandling{true};  ///< Whether the endpoint enables error handling
   std::unique_ptr<InflightRequests> _inflightRequests{
     std::make_unique<InflightRequests>()};  ///< The inflight requests
-  std::mutex _mutex{std::mutex()};  ///< Mutex used during close to prevent race conditions between
-                                    ///< application thread and `ucxx::Endpoint::setCloseCallback()`
-                                    ///< that may run asynchronously on another thread.
+  std::mutex _mutex{};  ///< Mutex used during close to prevent race conditions between
+                        ///< application thread and `ucxx::Endpoint::setCloseCallback()`
+                        ///< that may run asynchronously on another thread.
   ucs_status_t _status{UCS_INPROGRESS};  ///< Endpoint status
   std::atomic<bool> _closing{false};     ///< Prevent calling close multiple concurrent times.
   EndpointCloseCallbackUserFunction _closeCallback{nullptr};  ///< Close callback to call
@@ -157,11 +157,10 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  [[nodiscard]] friend std::shared_ptr<Endpoint> createEndpointFromHostname(
-    std::shared_ptr<Worker> worker,
-    std::string ipAddress,
-    uint16_t port,
-    bool endpointErrorHandling);
+  friend std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
+                                                              std::string ipAddress,
+                                                              uint16_t port,
+                                                              bool endpointErrorHandling);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -185,8 +184,9 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  [[nodiscard]] friend std::shared_ptr<Endpoint> createEndpointFromConnRequest(
-    std::shared_ptr<Listener> listener, ucp_conn_request_h connRequest, bool endpointErrorHandling);
+  friend std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener> listener,
+                                                                 ucp_conn_request_h connRequest,
+                                                                 bool endpointErrorHandling);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -207,8 +207,9 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  [[nodiscard]] friend std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
-    std::shared_ptr<Worker> worker, std::shared_ptr<Address> address, bool endpointErrorHandling);
+  friend std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker> worker,
+                                                                   std::shared_ptr<Address> address,
+                                                                   bool endpointErrorHandling);
 
   /**
    * @brief Get the underlying `ucp_ep_h` handle.
@@ -416,13 +417,15 @@ class Endpoint : public Component {
    *                                address.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> memPut(
     void* buffer,
     size_t length,
-    uint64_t remote_addr,
+    uint64_t remoteAddr,
     ucp_rkey_h rkey,
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
@@ -449,6 +452,8 @@ class Endpoint : public Component {
    *                                of the base address.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
@@ -480,6 +485,8 @@ class Endpoint : public Component {
    *                                address.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
@@ -513,6 +520,8 @@ class Endpoint : public Component {
    *                                beginning of the base address.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
@@ -713,7 +722,6 @@ class Endpoint : public Component {
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
    *
-   * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    * @param[in] callbackFunction    user-defined callback function to call upon completion.

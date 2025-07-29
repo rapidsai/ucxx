@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <utility>
 
 #include <Python.h>
 
@@ -68,6 +69,21 @@ void Worker::populateFuturesPool()
     throw std::runtime_error(
       "Worker future support disabled, please set enableFuture=true when creating the "
       "Worker to use this method.");
+  }
+}
+
+void Worker::clearFuturesPool()
+{
+  if (_enableFuture) {
+    ucxx_trace_req("ucxx::python::Worker::%s, Worker: %p, populateFuturesPool: %p",
+                   __func__,
+                   this,
+                   shared_from_this().get());
+    std::lock_guard<std::mutex> lock(_futuresPoolMutex);
+    PyGILState_STATE state = PyGILState_Ensure();
+    decltype(_futuresPool) newFuturesPool;
+    std::swap(_futuresPool, newFuturesPool);
+    PyGILState_Release(state);
   }
 }
 

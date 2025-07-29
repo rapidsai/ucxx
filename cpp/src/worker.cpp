@@ -1,7 +1,8 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdio>
 #include <functional>
 #include <ios>
 #include <memory>
@@ -74,8 +75,8 @@ Worker::Worker(std::shared_ptr<Context> context,
 
 static void _drainCallback(void* request,
                            ucs_status_t status,
-                           const ucp_tag_recv_info_t* info,
-                           void* arg)
+                           const ucp_tag_recv_info_t* /* info */,
+                           void* /* arg */)
 {
   *reinterpret_cast<ucs_status_t*>(request) = status;
 }
@@ -422,12 +423,11 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
 
 void Worker::populateFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
+void Worker::clearFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
+
 std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
-{
-  THROW_FUTURE_NOT_IMPLEMENTED();
-}
+RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t) { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 void Worker::runRequestNotifier() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
@@ -576,25 +576,17 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(const Tag tag)
+TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
+  : senderTag(Tag(info.sender_tag)), length(info.length)
 {
-  if (!isProgressThreadRunning()) {
-    progress();
-  } else {
-    /**
-     * To ensure the worker was progressed at least once, we must make sure a callback runs
-     * pre-progressing, and another one runs post-progress. Running post-progress only may
-     * indicate the progress thread has immediately finished executing and post-progress
-     * ran without a further progress operation.
-     */
-    std::ignore = registerGenericPre([]() {}, 3000000000 /* 3s */);
-    std::ignore = registerGenericPost([]() {}, 3000000000 /* 3s */);
-  }
+}
 
+std::pair<bool, TagRecvInfo> Worker::tagProbe(const Tag tag, const TagMask tagMask)
+{
   ucp_tag_recv_info_t info;
-  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);
+  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, 0, &info);
 
-  return tag_message != NULL;
+  return {tag_message != NULL, TagRecvInfo(info)};
 }
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,

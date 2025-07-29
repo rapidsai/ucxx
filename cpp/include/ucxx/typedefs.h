@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -73,6 +73,26 @@ enum TagMask : ucp_tag_t {};
 static constexpr TagMask TagMaskFull{std::numeric_limits<std::underlying_type_t<TagMask>>::max()};
 
 /**
+ * @brief Information about probed tag message.
+ *
+ * Contains information returned when probing by a tag message received by the worker but
+ * not yet consumed.
+ */
+class TagRecvInfo {
+ public:
+  Tag senderTag;  ///< Sender tag
+  size_t length;  ///< The size of the received data
+
+  /**
+   * @brief Construct a TagRecvInfo object from a UCP tag receive info structure.
+   *
+   * @param[in] info  The UCP tag receive info structure containing the sender tag and
+   *                  received data length.
+   */
+  explicit TagRecvInfo(const ucp_tag_recv_info_t& info);
+};
+
+/**
  * @brief A UCP configuration map.
  *
  * A UCP configuration map, with keys being the configuration name and value being the
@@ -124,9 +144,10 @@ typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
  * @brief Active Message receiver callback.
  *
  * Type for a custom Active Message receiver callback, executed by the remote worker upon
- * Active Message request completion.
+ * Active Message request completion. The first parameter is the request that completed,
+ * the second is the handle of the UCX endpoint of the sender.
  */
-typedef std::function<void(std::shared_ptr<Request>)> AmReceiverCallbackType;
+typedef std::function<void(std::shared_ptr<Request>, ucp_ep_h)> AmReceiverCallbackType;
 
 /**
  * @brief Active Message receiver callback owner name.
@@ -144,6 +165,12 @@ typedef std::string AmReceiverCallbackOwnerType;
  */
 typedef uint64_t AmReceiverCallbackIdType;
 
+/**
+ * @brief Serialized form of Active Message receiver callback information.
+ *
+ * A string type representing the serialized form of an Active Message receiver callback's
+ * information, used for transmission and storage.
+ */
 typedef const std::string AmReceiverCallbackInfoSerialized;
 
 /**
@@ -153,13 +180,26 @@ typedef const std::string AmReceiverCallbackInfoSerialized;
  */
 class AmReceiverCallbackInfo {
  public:
-  const AmReceiverCallbackOwnerType owner;
-  const AmReceiverCallbackIdType id;
+  const AmReceiverCallbackOwnerType owner;  ///< The owner name of the callback
+  const AmReceiverCallbackIdType id;        ///< The unique identifier of the callback
 
   AmReceiverCallbackInfo() = delete;
+
+  /**
+   * @brief Construct an AmReceiverCallbackInfo object.
+   *
+   * @param[in] owner  The owner name of the callback.
+   * @param[in] id     The unique identifier of the callback.
+   */
   AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id);
 };
 
+/**
+ * @brief Serialized form of a remote key.
+ *
+ * A string type representing the serialized form of a remote key, used for transmission
+ * and storage of remote memory access information.
+ */
 typedef const std::string SerializedRemoteKey;
 
 }  // namespace ucxx

@@ -73,8 +73,6 @@ void RequestEndpointClose::request()
   _request = request;
 }
 
-static void logPopulateDelayedSubmission() {}
-
 void RequestEndpointClose::populateDelayedSubmission()
 {
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {

@@ -64,8 +64,7 @@ class Future : public ::ucxx::Future {
    *
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
-  [[nodiscard]] friend std::shared_ptr<::ucxx::Future> createFuture(
-    std::shared_ptr<::ucxx::Notifier> notifier);
+  friend std::shared_ptr<::ucxx::Future> createFuture(std::shared_ptr<::ucxx::Notifier> notifier);
 
   /**
    * @brief Constructor of `shared_ptr<ucxx::python::Future>`.
@@ -81,7 +80,7 @@ class Future : public ::ucxx::Future {
    *
    * @returns The `shared_ptr<ucxx::python::Worker>` object
    */
-  [[nodiscard]] friend std::shared_ptr<::ucxx::Future> createFutureWithEventLoop(
+  friend std::shared_ptr<::ucxx::Future> createFutureWithEventLoop(
     PyObject* asyncioEventLoop, std::shared_ptr<::ucxx::Notifier> notifier);
 
   /**

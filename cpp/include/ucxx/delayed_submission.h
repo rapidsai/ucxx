@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -31,6 +31,12 @@ namespace ucxx {
  */
 typedef std::function<void()> DelayedSubmissionCallbackType;
 
+/**
+ * @brief Type for identifying items in `DelayedSubmissionCollection`.
+ *
+ * A 64-bit unsigned integer used to uniquely identify items in `DelayedSubmissionCollection`,
+ * allowing for tracking and cancellation of specific items.
+ */
 typedef uint64_t ItemIdType;
 
 /**
@@ -145,7 +151,7 @@ class BaseDelayedSubmissionCollection {
       toProcess = _collection.size();
     }
 
-    for (auto i = 0; i < toProcess; ++i) {
+    for (size_t i = 0; i < toProcess; ++i) {
       std::pair<ItemIdType, T> item;
       {
         std::lock_guard<std::mutex> lock(_mutex);

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -229,8 +229,9 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   bool force    = _endpointErrorHandling;
 
-  auto combineCallbacksFunction = [this, &callbackFunction, &callbackData](
-                                    ucs_status_t status, EndpointCloseCallbackUserData unused) {
+  auto combineCallbacksFunction = [this, callbackFunction, callbackData](
+                                    ucs_status_t status,
+                                    EndpointCloseCallbackUserData /* callbackData */) {
     _status = status;
     if (callbackFunction) callbackFunction(status, callbackData);
     {
@@ -262,8 +263,8 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
   if (_endpointErrorHandling)
     param = {.op_attr_mask = UCP_OP_ATTR_FIELD_FLAGS, .flags = UCP_EP_CLOSE_FLAG_FORCE};
 
-  auto worker = ::ucxx::getWorker(_parent);
-  ucs_status_ptr_t status;
+  auto worker             = ::ucxx::getWorker(_parent);
+  ucs_status_ptr_t status = nullptr;
 
   if (worker->isProgressThreadRunning()) {
     bool closeSuccess = false;
