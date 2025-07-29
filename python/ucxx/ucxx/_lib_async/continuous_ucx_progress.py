@@ -38,7 +38,6 @@ class ProgressTask(object):
         """
         self.worker = worker
         self.event_loop = event_loop
-        self.asyncio_tasks = dict()
 
         event_loop_close_original = self.event_loop.close
 
@@ -47,13 +46,20 @@ class ProgressTask(object):
                 return
 
             try:
-                for task in self.asyncio_tasks.values():
+                for task in self._tasks:
                     _cancel_task(event_loop, task)
             finally:
                 event_loop_close_original(*args, **kwargs)
-                self.asyncio_tasks = None
+                self._clear_tasks()
 
         self.event_loop.close = partial(_event_loop_close, event_loop_close_original)
+
+    @property
+    def _tasks(self) -> tuple[asyncio.Task]:
+        return ()
+
+    def _clear_tasks(self) -> None:
+        return
 
     # Hash and equality is based on the event loop
     def __hash__(self):
@@ -80,8 +86,15 @@ class ThreadMode(ProgressTask):
 class PollingMode(ProgressTask):
     def __init__(self, worker, event_loop):
         super().__init__(worker, event_loop)
-        self.asyncio_tasks["progress"] = event_loop.create_task(self._progress_task())
+        self.progress_task = event_loop.create_task(self._progress_task())
         self.worker.init_blocking_progress_mode()
+
+    @property
+    def _tasks(self):
+        return (self.progress_task,)
+
+    def _clear_tasks(self):
+        self.progress_task = None
 
     async def _progress_task(self):
         """This helper function maintains a UCX progress loop."""
@@ -143,11 +156,17 @@ class BlockingMode(ProgressTask):
         weakref.finalize(self, self.rsock.close)
 
         self.armed = False
-        self.asyncio_tasks["arm"] = self.event_loop.create_task(self._arm_worker())
+        self.arm_task = self.event_loop.create_task(self._arm_worker())
         self.last_progress_time = time.monotonic() - self._progress_timeout
-        self.asyncio_tasks["progress"] = event_loop.create_task(
-            self._progress_with_timeout()
-        )
+        self.progress_task = event_loop.create_task(self._progress_with_timeout())
+
+    @property
+    def _tasks(self):
+        return (self.arm_task, self.progress_task)
+
+    def _clear_tasks(self):
+        self.arm_task = None
+        self.progress_task = None
 
     def _fd_reader_callback(self):
         """Schedule new progress task upon worker event.
@@ -208,10 +227,9 @@ class BlockingMode(ProgressTask):
                 # seem to respect timeout with `asyncio.wait_for`, thus we cancel
                 # it here instead. It will get recreated after a new event on
                 # `worker.epoll_file_descriptor`.
-                arm_task = self.asyncio_tasks["arm"]
-                arm_task.cancel()
+                self.arm_task.cancel()
                 try:
-                    await arm_task
+                    await self.arm_task
                 except asyncio.exceptions.CancelledError:
                     pass
 
