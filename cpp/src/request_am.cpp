@@ -264,6 +264,11 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     }
   }
 
+  // Return immediately if the request's status has already been set before the
+  // callback executed, e.g., the user called `amRecv()` before the request arrived and
+  // canceled it.
+  if (req->getStatus() != UCS_INPROGRESS) return req->getStatus();
+
   if (is_rndv) {
     // Check if delayed receive is requested for rendezvous messages
     bool shouldDelayReceive =
