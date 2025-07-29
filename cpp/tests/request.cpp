@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <string>
 #include <tuple>
 #include <ucp/api/ucp.h>
 #include <ucs/type/status.h>
@@ -750,6 +751,53 @@ TEST_P(RequestTestNoAmAllocator, MemoryPutWithOffset)
   ASSERT_THAT(recvOffset, sendOffset);
 }
 
+// Custom naming function for parameterized tests
+std::string generateTestName(
+  const ::testing::TestParamInfo<std::tuple<ucxx::BufferType, bool, bool, ProgressMode, size_t>>&
+    info)
+{
+  auto [bufferType,
+        registerCustomAmAllocator,
+        enableDelayedSubmission,
+        progressMode,
+        messageLength] = info.param;
+
+  std::string name;
+
+  // Buffer type
+  name += (bufferType == ucxx::BufferType::Host) ? "Host" : "RMM";
+
+  // Custom AM allocator
+  if (registerCustomAmAllocator) { name += "_CustomAmAlloc"; }
+
+  // Delayed submission
+  if (enableDelayedSubmission) { name += "_DelayedSubmission"; }
+
+  // Progress mode
+  name += "_";
+  switch (progressMode) {
+    case ProgressMode::Polling: name += "Polling"; break;
+    case ProgressMode::Blocking: name += "Blocking"; break;
+    case ProgressMode::Wait: name += "Wait"; break;
+    case ProgressMode::ThreadPolling: name += "ThreadPolling"; break;
+    case ProgressMode::ThreadBlocking: name += "ThreadBlocking"; break;
+  }
+
+  // Message length
+  name += "_Msg";
+  if (messageLength == 0) {
+    name += "Empty";
+  } else if (messageLength >= 1048576) {
+    name += "1MB";
+  } else if (messageLength >= 1024) {
+    name += std::to_string(messageLength / 1024) + "KB";
+  } else {
+    name += std::to_string(messageLength) + "B";
+  }
+
+  return name;
+}
+
 // Tests that support custom AM allocator
 INSTANTIATE_TEST_SUITE_P(HostProgressModes,
                          RequestTestAmAllocator,
@@ -761,7 +809,8 @@ INSTANTIATE_TEST_SUITE_P(HostProgressModes,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 
 INSTANTIATE_TEST_SUITE_P(HostDelayedSubmission,
                          RequestTestAmAllocator,
@@ -769,7 +818,8 @@ INSTANTIATE_TEST_SUITE_P(HostDelayedSubmission,
                                  Values(false),
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 
 #if UCXX_ENABLE_RMM
 INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
@@ -782,7 +832,8 @@ INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 
 INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
                          RequestTestAmAllocator,
@@ -790,7 +841,8 @@ INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
                                  Values(false, true),
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 #endif
 
 // Tests that do NOT support custom AM allocator (always false for _registerCustomAmAllocator)
@@ -804,7 +856,8 @@ INSTANTIATE_TEST_SUITE_P(HostProgressModes,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 
 INSTANTIATE_TEST_SUITE_P(HostDelayedSubmission,
                          RequestTestNoAmAllocator,
@@ -812,7 +865,8 @@ INSTANTIATE_TEST_SUITE_P(HostDelayedSubmission,
                                  Values(false),  // Never use custom AM allocator for these tests
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 
 #if UCXX_ENABLE_RMM
 INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
@@ -825,7 +879,8 @@ INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 
 INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
                          RequestTestNoAmAllocator,
@@ -833,7 +888,8 @@ INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
                                  Values(false),  // Never use custom AM allocator for these tests
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 #endif
 
 }  // namespace
