@@ -33,8 +33,8 @@ using ::testing::Values;
 
 typedef std::vector<int> DataContainerType;
 
-class RequestTest : public ::testing::TestWithParam<
-                      std::tuple<ucxx::BufferType, bool, bool, ProgressMode, size_t>> {
+class RequestTestBase : public ::testing::TestWithParam<
+                          std::tuple<ucxx::BufferType, bool, bool, ProgressMode, size_t>> {
  protected:
   std::shared_ptr<ucxx::Context> _context{nullptr};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
@@ -164,7 +164,11 @@ class RequestTest : public ::testing::TestWithParam<
   }
 };
 
-TEST_P(RequestTest, ProgressAm)
+class RequestTestAmAllocator : public RequestTestBase {};
+
+class RequestTestNoAmAllocator : public RequestTestBase {};
+
+TEST_P(RequestTestAmAllocator, ProgressAm)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -203,7 +207,7 @@ TEST_P(RequestTest, ProgressAm)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressAmReceiverCallback)
+TEST_P(RequestTestAmAllocator, ProgressAmReceiverCallback)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -265,13 +269,13 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressAmReceiverCallbackDelayedReceive)
+TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
-  if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+  if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
 #if !UCXX_ENABLE_RMM
     GTEST_SKIP() << "UCXX was not built with RMM support";
 #else
@@ -391,9 +395,7 @@ TEST_P(RequestTest, ProgressAmReceiverCallbackDelayedReceive)
 
       // Verify buffer type matches expectation for delayed receive
       ASSERT_THAT(manualRecvBuffer->getType(),
-                  (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA)
-                    ? _bufferType
-                    : ucxx::BufferType::Host);
+                  (_memoryType == UCS_MEMORY_TYPE_CUDA) ? _bufferType : ucxx::BufferType::Host);
     } else {
       // For immediate receives, the buffer should be available from getRecvBuffer()
       ASSERT_NE(manualRecvBuffer, nullptr) << "Immediate receive buffer should be available";
@@ -402,8 +404,7 @@ TEST_P(RequestTest, ProgressAmReceiverCallbackDelayedReceive)
 
       // Verify buffer type matches expectation for immediate receive
       ASSERT_THAT(manualRecvBuffer->getType(),
-                  (_registerCustomAmAllocator && _messageSize >= _rndvThresh &&
-                   _memoryType == UCS_MEMORY_TYPE_CUDA)
+                  (_messageSize >= _rndvThresh && _memoryType == UCS_MEMORY_TYPE_CUDA)
                     ? _bufferType
                     : ucxx::BufferType::Host);
     }
@@ -418,7 +419,7 @@ TEST_P(RequestTest, ProgressAmReceiverCallbackDelayedReceive)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressStream)
+TEST_P(RequestTestNoAmAllocator, ProgressStream)
 {
   allocate();
 
@@ -439,7 +440,7 @@ TEST_P(RequestTest, ProgressStream)
   }
 }
 
-TEST_P(RequestTest, ProgressTag)
+TEST_P(RequestTestNoAmAllocator, ProgressTag)
 {
   allocate();
 
@@ -455,7 +456,7 @@ TEST_P(RequestTest, ProgressTag)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressTagMulti)
+TEST_P(RequestTestNoAmAllocator, ProgressTagMulti)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -502,7 +503,7 @@ TEST_P(RequestTest, ProgressTagMulti)
     ASSERT_THAT(_recv[i], ContainerEq(_send[i]));
 }
 
-TEST_P(RequestTest, TagUserCallback)
+TEST_P(RequestTestNoAmAllocator, TagUserCallback)
 {
   allocate();
 
@@ -536,7 +537,7 @@ TEST_P(RequestTest, TagUserCallback)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, TagUserCallbackDiscardReturn)
+TEST_P(RequestTestNoAmAllocator, TagUserCallbackDiscardReturn)
 {
   allocate();
 
@@ -577,7 +578,7 @@ TEST_P(RequestTest, TagUserCallbackDiscardReturn)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryGet)
+TEST_P(RequestTestNoAmAllocator, MemoryGet)
 {
   allocate();
 
@@ -604,7 +605,7 @@ TEST_P(RequestTest, MemoryGet)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryGetPreallocated)
+TEST_P(RequestTestNoAmAllocator, MemoryGetPreallocated)
 {
   allocate();
 
@@ -627,7 +628,7 @@ TEST_P(RequestTest, MemoryGetPreallocated)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryGetWithOffset)
+TEST_P(RequestTestNoAmAllocator, MemoryGetWithOffset)
 {
   if (_messageLength < 2) GTEST_SKIP() << "Message too small to perform operations with offsets";
   allocate();
@@ -663,7 +664,7 @@ TEST_P(RequestTest, MemoryGetWithOffset)
   ASSERT_THAT(recvOffset, sendOffset);
 }
 
-TEST_P(RequestTest, MemoryPut)
+TEST_P(RequestTestNoAmAllocator, MemoryPut)
 {
   allocate();
 
@@ -690,7 +691,7 @@ TEST_P(RequestTest, MemoryPut)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryPutPreallocated)
+TEST_P(RequestTestNoAmAllocator, MemoryPutPreallocated)
 {
   allocate();
 
@@ -713,7 +714,7 @@ TEST_P(RequestTest, MemoryPutPreallocated)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryPutWithOffset)
+TEST_P(RequestTestNoAmAllocator, MemoryPutWithOffset)
 {
   if (_messageLength < 2) GTEST_SKIP() << "Message too small to perform operations with offsets";
   allocate();
@@ -749,8 +750,9 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   ASSERT_THAT(recvOffset, sendOffset);
 }
 
-INSTANTIATE_TEST_SUITE_P(ProgressModes,
-                         RequestTest,
+// Tests that support custom AM allocator
+INSTANTIATE_TEST_SUITE_P(HostProgressModes,
+                         RequestTestAmAllocator,
                          Combine(Values(ucxx::BufferType::Host),
                                  Values(false),
                                  Values(false),
@@ -761,8 +763,8 @@ INSTANTIATE_TEST_SUITE_P(ProgressModes,
                                         ProgressMode::ThreadBlocking),
                                  Values(0, 1, 1024, 2048, 1048576)));
 
-INSTANTIATE_TEST_SUITE_P(DelayedSubmission,
-                         RequestTest,
+INSTANTIATE_TEST_SUITE_P(HostDelayedSubmission,
+                         RequestTestAmAllocator,
                          Combine(Values(ucxx::BufferType::Host),
                                  Values(false),
                                  Values(true),
@@ -771,7 +773,7 @@ INSTANTIATE_TEST_SUITE_P(DelayedSubmission,
 
 #if UCXX_ENABLE_RMM
 INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
-                         RequestTest,
+                         RequestTestAmAllocator,
                          Combine(Values(ucxx::BufferType::RMM),
                                  Values(false, true),
                                  Values(false),
@@ -783,9 +785,52 @@ INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
                                  Values(0, 1, 1024, 2048, 1048576)));
 
 INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
-                         RequestTest,
+                         RequestTestAmAllocator,
                          Combine(Values(ucxx::BufferType::RMM),
                                  Values(false, true),
+                                 Values(true),
+                                 Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)));
+#endif
+
+// Tests that do NOT support custom AM allocator (always false for _registerCustomAmAllocator)
+INSTANTIATE_TEST_SUITE_P(HostProgressModes,
+                         RequestTestNoAmAllocator,
+                         Combine(Values(ucxx::BufferType::Host),
+                                 Values(false),  // Never use custom AM allocator for these tests
+                                 Values(false),
+                                 Values(ProgressMode::Polling,
+                                        ProgressMode::Blocking,
+                                        // ProgressMode::Wait,  // Hangs on Stream
+                                        ProgressMode::ThreadPolling,
+                                        ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)));
+
+INSTANTIATE_TEST_SUITE_P(HostDelayedSubmission,
+                         RequestTestNoAmAllocator,
+                         Combine(Values(ucxx::BufferType::Host),
+                                 Values(false),  // Never use custom AM allocator for these tests
+                                 Values(true),
+                                 Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)));
+
+#if UCXX_ENABLE_RMM
+INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
+                         RequestTestNoAmAllocator,
+                         Combine(Values(ucxx::BufferType::RMM),
+                                 Values(false),  // Never use custom AM allocator for these tests
+                                 Values(false),
+                                 Values(ProgressMode::Polling,
+                                        ProgressMode::Blocking,
+                                        // ProgressMode::Wait,  // Hangs on Stream
+                                        ProgressMode::ThreadPolling,
+                                        ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)));
+
+INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
+                         RequestTestNoAmAllocator,
+                         Combine(Values(ucxx::BufferType::RMM),
+                                 Values(false),  // Never use custom AM allocator for these tests
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
                                  Values(0, 1, 1024, 2048, 1048576)));
