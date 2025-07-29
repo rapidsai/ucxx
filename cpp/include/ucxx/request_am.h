@@ -183,6 +183,19 @@ class RequestAm : public Request {
    *          receive operation or AM data is not available.
    */
   [[nodiscard]] size_t getAmDataLength();
+
+  /**
+   * @brief Check if this request uses delayed receive.
+   *
+   * This method returns true if this request is a delayed receive operation where
+   * delayReceive was enabled and AM data is stored for later retrieval. If true,
+   * users should use getAmDataLength() and receiveData() to retrieve the data.
+   * If false, users should use getRecvBuffer() to access immediately received data.
+   *
+   * @returns True if this is a delayed receive operation with stored AM data,
+   *          false for immediate/eager receives or if no AM data is available.
+   */
+  [[nodiscard]] bool isDelayedReceive();
 };
 
 }  // namespace ucxx

@@ -500,6 +500,16 @@ size_t RequestAm::getAmDataLength()
                     _requestData);
 }
 
+bool RequestAm::isDelayedReceive()
+{
+  return std::visit(
+    data::dispatch{
+      [](data::AmReceive amReceive) -> bool { return amReceive._amData.has_value(); },
+      [](auto) -> bool { return false; },
+    },
+    _requestData);
+}
+
 void RequestAm::request()
 {
   std::visit(
