@@ -16,7 +16,9 @@ def _cancel_task(event_loop, task):
         try:
             task.cancel()
             event_loop.run_until_complete(task)
-        except asyncio.exceptions.CancelledError:
+        except (asyncio.exceptions.CancelledError, RuntimeError):
+            # Other than cancelled error it's possible to get
+            # `RuntimeError: cannot reuse already awaited coroutine` during shutdown
             pass
 
 
