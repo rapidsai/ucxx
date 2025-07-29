@@ -12,14 +12,13 @@ from ucxx._lib.libucxx import UCXWorker
 
 
 def _cancel_task(event_loop, task):
-    if task is not None:
-        try:
-            task.cancel()
-            event_loop.run_until_complete(task)
-        except (asyncio.exceptions.CancelledError, RuntimeError):
-            # Other than cancelled error it's possible to get
-            # `RuntimeError: cannot reuse already awaited coroutine` during shutdown
-            pass
+    try:
+        task.cancel()
+        event_loop.run_until_complete(task)
+    except (asyncio.exceptions.CancelledError, RuntimeError):
+        # Other than cancelled error it's possible to get
+        # `RuntimeError: cannot reuse already awaited coroutine` during shutdown
+        pass
 
 
 class ProgressTask(object):
@@ -210,12 +209,11 @@ class BlockingMode(ProgressTask):
                 # it here instead. It will get recreated after a new event on
                 # `worker.epoll_file_descriptor`.
                 arm_task = self.asyncio_tasks["arm"]
-                if arm_task is not None:
-                    arm_task.cancel()
-                    try:
-                        await arm_task
-                    except asyncio.exceptions.CancelledError:
-                        pass
+                arm_task.cancel()
+                try:
+                    await arm_task
+                except asyncio.exceptions.CancelledError:
+                    pass
 
                 worker.progress()
             # Give other co-routines a chance to run.
