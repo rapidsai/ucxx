@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
@@ -470,6 +470,8 @@ class ApplicationContext:
         global ProgressTasks
         if loop in ProgressTasks:
             return  # Progress has already been guaranteed for the current event loop
+
+        logger.info(f"Starting progress in '{self.progress_mode}' mode")
 
         if self.progress_mode == "thread":
             task = ThreadMode(self.worker, loop, polling_mode=False)
