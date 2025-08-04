@@ -59,7 +59,7 @@ cache:
     host:
       - cuda-version =${{ cuda_version }}
       - librmm ${{ rapids_version }}
-      - rapids-build-backend >=0.3.0,<0.4.0.dev0
+      - rapids-build-backend >=0.4.0,<0.5.0.dev0
       - ucx
       - cuda-cudart-dev
 
@@ -253,7 +253,7 @@ outputs:
         - pip
         - pynvml >=12.0.0,<13.0.0a0
         - python =${{ python }}
-        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rapids-build-backend >=0.4.0,<0.5.0.dev0
         - rmm ${{ rapids_version }}
         - scikit-build-core >=0.10.0
         - ucx
@@ -351,7 +351,7 @@ outputs:
         - cython >=3.0.0
         - pip
         - python =${{ python }}
-        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rapids-build-backend >=0.4.0,<0.5.0.dev0
         - scikit-build-core >=0.10.0
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
@@ -383,7 +383,7 @@ outputs:
         - pip
         # Pin this to a specific Python because we only need one build of it
         - python =3.10
-        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rapids-build-backend >=0.4.0,<0.5.0.dev0
         - setuptools
         - wheel
       run:
