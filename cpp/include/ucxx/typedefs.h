@@ -7,8 +7,12 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -141,15 +145,6 @@ typedef RequestCallbackUserData EndpointCloseCallbackUserData;
 typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
 
 /**
- * @brief Active Message receiver callback.
- *
- * Type for a custom Active Message receiver callback, executed by the remote worker upon
- * Active Message request completion. The first parameter is the request that completed,
- * the second is the handle of the UCX endpoint of the sender.
- */
-typedef std::function<void(std::shared_ptr<Request>, ucp_ep_h)> AmReceiverCallbackType;
-
-/**
  * @brief Active Message receiver callback owner name.
  *
  * A string containing the owner's name of an Active Message receiver callback. The owner
@@ -195,6 +190,140 @@ struct AmData {
 };
 
 /**
+ * @brief Container for arbitrary user header data that can be attached to Active Messages.
+ *
+ * This class provides a type-safe interface for storing arbitrary user header data that will be
+ * serialized and transmitted with Active Messages. It supports common data types while
+ * also allowing direct access to the underlying byte storage for custom serialization.
+ */
+class AmUserHeader {
+ private:
+  std::vector<uint8_t> _data;
+
+ public:
+  AmUserHeader() = delete;
+
+  /**
+   * @brief Construct AmUserHeader from a byte array.
+   *
+   * @param[in] data Pointer to the data to copy.
+   * @param[in] size Size of the data in bytes.
+   *
+   * @throws std::invalid_argument if data is null or if size is 0.
+   */
+  AmUserHeader(const void* data, size_t size)
+  {
+    if (size == 0) { throw std::invalid_argument("AmUserHeader size must be greater than zero"); }
+    if (data == nullptr) {
+      throw std::invalid_argument("AmUserHeader data pointer cannot be null");
+    }
+    _data.assign(static_cast<const uint8_t*>(data), static_cast<const uint8_t*>(data) + size);
+  }
+
+  /**
+   * @brief Construct AmUserHeader from a string.
+   *
+   * @param[in] str The string to store.
+   *
+   * @throws std::invalid_argument if the string is empty.
+   */
+  explicit AmUserHeader(const std::string& str) : _data(str.begin(), str.end())
+  {
+    if (str.empty()) { throw std::invalid_argument("AmUserHeader string cannot be empty"); }
+  }
+
+  /**
+   * @brief Construct AmUserHeader from a vector of bytes.
+   *
+   * @param[in] data The byte vector to copy.
+   *
+   * @throws std::invalid_argument if the vector is empty.
+   */
+  explicit AmUserHeader(const std::vector<uint8_t>& data) : _data(data)
+  {
+    if (data.empty()) { throw std::invalid_argument("AmUserHeader vector cannot be empty"); }
+  }
+
+  /**
+   * @brief Construct AmUserHeader from a vector of bytes (move constructor).
+   *
+   * @param[in] data The byte vector to move.
+   *
+   * @throws std::invalid_argument if the vector is empty.
+   */
+  explicit AmUserHeader(std::vector<uint8_t>&& data) : _data(std::move(data))
+  {
+    if (_data.empty()) { throw std::invalid_argument("AmUserHeader vector cannot be empty"); }
+  }
+
+  /**
+   * @brief Template constructor for POD types.
+   *
+   * @param[in] value The POD value to store.
+   */
+  template <typename T>
+  explicit AmUserHeader(const T& value)
+    : _data(reinterpret_cast<const uint8_t*>(&value),
+            reinterpret_cast<const uint8_t*>(&value) + sizeof(T))
+  {
+    static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
+    static_assert(sizeof(T) > 0, "Type size must be greater than zero");
+  }
+
+  /**
+   * @brief Get the underlying data as a byte array.
+   *
+   * @returns Pointer to the underlying data.
+   */
+  [[nodiscard]] const uint8_t* data() const { return _data.data(); }
+
+  /**
+   * @brief Get the size of the data in bytes.
+   *
+   * @returns Size of the data in bytes.
+   */
+  [[nodiscard]] size_t size() const { return _data.size(); }
+
+  /**
+   * @brief Check if the user data is empty.
+   *
+   * @returns True if no data is stored, false otherwise.
+   */
+  [[nodiscard]] bool empty() const { return _data.empty(); }
+
+  /**
+   * @brief Get the data as a string.
+   *
+   * @returns String representation of the data.
+   */
+  [[nodiscard]] std::string asString() const { return std::string(_data.begin(), _data.end()); }
+
+  /**
+   * @brief Get the data as a specific POD type.
+   *
+   * @returns Reference to the data interpreted as type T.
+   * @throws std::runtime_error if the size doesn't match.
+   */
+  template <typename T>
+  [[nodiscard]] const T& as() const
+  {
+    static_assert(std::is_trivially_copyable_v<T>, "Type must be trivially copyable");
+    if (_data.size() != sizeof(T)) {
+      throw std::runtime_error("AmUserHeader size mismatch: expected " + std::to_string(sizeof(T)) +
+                               " bytes, got " + std::to_string(_data.size()));
+    }
+    return *reinterpret_cast<const T*>(_data.data());
+  }
+
+  /**
+   * @brief Get a copy of the underlying byte vector.
+   *
+   * @returns Copy of the underlying data vector.
+   */
+  [[nodiscard]] std::vector<uint8_t> getBytes() const { return _data; }
+};
+
+/**
  * @brief Information of an Active Message receiver callback.
  *
  * Type identifying an Active Message receiver callback's owner name and unique identifier.
@@ -204,6 +333,7 @@ class AmReceiverCallbackInfo {
   const AmReceiverCallbackOwnerType owner;  ///< The owner name of the callback
   const AmReceiverCallbackIdType id;        ///< The unique identifier of the callback
   const bool delayReceive;                  ///< Whether to delay receiving data (user-controlled)
+  const std::optional<AmUserHeader> userHeader;  ///< Optional arbitrary user header data
 
   AmReceiverCallbackInfo() = delete;
 
@@ -214,11 +344,23 @@ class AmReceiverCallbackInfo {
    * @param[in] id            The unique identifier of the callback.
    * @param[in] delayReceive  Whether to delay receiving data, allowing user to control when
    * ucp_am_recv_data_nbx is called.
+   * @param[in] userHeader    Optional arbitrary user header data to be transmitted with the AM.
    */
   AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner,
                          AmReceiverCallbackIdType id,
-                         bool delayReceive = false);
+                         bool delayReceive                      = false,
+                         std::optional<AmUserHeader> userHeader = std::nullopt);
 };
+
+/**
+ * @brief Active Message receiver callback.
+ *
+ * Type for a custom Active Message receiver callback, executed by the remote worker upon
+ * Active Message request completion. The first parameter is the request that completed,
+ * the second is the handle of the UCX endpoint of the sender.
+ */
+typedef std::function<void(std::shared_ptr<Request>, ucp_ep_h, AmReceiverCallbackInfo&)>
+  AmReceiverCallbackType;
 
 /**
  * @brief Serialized form of a remote key.

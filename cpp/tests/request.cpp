@@ -9,6 +9,7 @@
 #include <tuple>
 #include <ucp/api/ucp.h>
 #include <ucs/type/status.h>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -169,6 +170,9 @@ class RequestTestAmAllocator : public RequestTestBase {};
 
 class RequestTestNoAmAllocator : public RequestTestBase {};
 
+// Limited test suite specifically for user header functionality to reduce test runtime
+class RequestTestAmUserHeader : public RequestTestBase {};
+
 TEST_P(RequestTestAmAllocator, ProgressAm)
 {
   if (_progressMode == ProgressMode::Wait) {
@@ -234,7 +238,8 @@ TEST_P(RequestTestAmAllocator, ProgressAmReceiverCallback)
   // Define AM receiver callback and register with worker
   std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
   auto callback = ucxx::AmReceiverCallbackType(
-    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req, ucp_ep_h) {
+    [this, &receivedRequests, &mutex](
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h, const ucxx::AmReceiverCallbackInfo&) {
       {
         std::lock_guard<std::mutex> lock(mutex);
         receivedRequests.push_back(req);
@@ -300,7 +305,7 @@ TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
   // Define AM receiver callback and register with worker
   auto callback = ucxx::AmReceiverCallbackType(
     [this, &receivedRequest, &manualRecvBuffer, &receiveDataRequest, &mutex](
-      std::shared_ptr<ucxx::Request> req, ucp_ep_h) {
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h, const ucxx::AmReceiverCallbackInfo&) {
       {
         std::lock_guard<std::mutex> lock(mutex);
         receivedRequest = req;
@@ -418,6 +423,134 @@ TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
 
   // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTestAmUserHeader, ProgressAmReceiverCallbackWithUserHeader)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if !UCXX_ENABLE_RMM
+    GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
+    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+      return std::make_shared<ucxx::RMMBuffer>(length);
+    });
+#endif
+  }
+
+  // Create user header data - test different data types
+  std::string userHeaderString = "Hello from user header!";
+  ucxx::AmUserHeader userHeader(userHeaderString);
+  std::optional<ucxx::AmUserHeader> receivedUserHeader = std::nullopt;
+
+  // Define AM receiver callback's owner and id with user header
+  ucxx::AmReceiverCallbackInfo receiverCallbackInfo("TestAppWithHeader", 42, false, userHeader);
+
+  // Mutex required for blocking progress mode, otherwise `receivedRequests` may be
+  // accessed before `push_back()` completed.
+  std::mutex mutex;
+
+  // Define AM receiver callback and register with worker
+  std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
+  auto callback = ucxx::AmReceiverCallbackType(
+    [this, &receivedRequests, &mutex, &receivedUserHeader](
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h, ucxx::AmReceiverCallbackInfo& info) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        receivedRequests.push_back(req);
+        // auto userHeader = std::move(info.userHeader);
+        receivedUserHeader = std::move(info.userHeader);
+      }
+    });
+
+  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+
+  allocate(1, false);
+
+  // Submit and wait for transfers to complete
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (receivedRequests.size() < 1)
+    _progressWorker();
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    _recvPtr[0] = receivedRequests[0]->getRecvBuffer()->data();
+
+    // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
+    // smaller messages are eager and will always be host-allocated.
+    ASSERT_THAT(receivedRequests[0]->getRecvBuffer()->getType(),
+                (_registerCustomAmAllocator && _messageSize >= _rndvThresh)
+                  ? _bufferType
+                  : ucxx::BufferType::Host);
+  }
+
+  copyResults();
+
+  // Assert header and data correctness
+  ASSERT_EQ(receivedUserHeader->asString(), userHeaderString);
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST(AmUserHeaderTest, Validation)
+{
+  // Test that AmUserHeader constructors properly validate input
+
+  // Test valid constructions (should not throw)
+  ASSERT_NO_THROW([]() { ucxx::AmUserHeader h("test"); }());
+  ASSERT_NO_THROW([]() {
+    std::string s = "test";
+    ucxx::AmUserHeader h(s);
+  }());
+  ASSERT_NO_THROW([]() {
+    std::vector<uint8_t> data(3, 0);
+    ucxx::AmUserHeader h(data);
+  }());
+  ASSERT_NO_THROW([]() {
+    std::vector<uint8_t> data(3, 0);
+    ucxx::AmUserHeader h(std::move(data));
+  }());
+  ASSERT_NO_THROW([]() {
+    int value = 42;
+    ucxx::AmUserHeader h(value);
+  }());
+  ASSERT_NO_THROW([]() { ucxx::AmUserHeader h("test", 4); }());
+
+  // Test invalid constructions (should throw)
+  EXPECT_THROW([]() { ucxx::AmUserHeader h(std::string("")); }(), std::invalid_argument);
+  EXPECT_THROW(
+    []() {
+      std::string empty = "";
+      ucxx::AmUserHeader h(empty);
+    }(),
+    std::invalid_argument);
+  EXPECT_THROW(
+    []() {
+      std::vector<uint8_t> emptyVec;
+      ucxx::AmUserHeader h(emptyVec);
+    }(),
+    std::invalid_argument);
+  EXPECT_THROW(
+    []() {
+      std::vector<uint8_t> emptyVec;
+      ucxx::AmUserHeader h(std::move(emptyVec));
+    }(),
+    std::invalid_argument);
+  EXPECT_THROW([]() { ucxx::AmUserHeader h(nullptr, 5); }(), std::invalid_argument);
+  EXPECT_THROW([]() { ucxx::AmUserHeader h("test", 0); }(), std::invalid_argument);
+  EXPECT_THROW([]() { ucxx::AmUserHeader h("", 0); }(), std::invalid_argument);
+
+  // Test data access works correctly
+  std::string testStr = "Hello";
+  ucxx::AmUserHeader header(testStr);
+  ASSERT_EQ(header.size(), 5);
+  ASSERT_EQ(header.asString(), "Hello");
+  ASSERT_FALSE(header.empty());
 }
 
 TEST_P(RequestTestNoAmAllocator, ProgressStream)
@@ -889,6 +1022,27 @@ INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
                                  Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
+#endif
+
+// Limited parameter set for user header tests - only test single message size
+INSTANTIATE_TEST_SUITE_P(UserHeaderLimited,
+                         RequestTestAmUserHeader,
+                         Combine(Values(ucxx::BufferType::Host),
+                                 Values(false),
+                                 Values(false),
+                                 Values(ProgressMode::Polling, ProgressMode::Blocking),
+                                 Values(1024)),  // Only test with 1024 byte messages
+                         generateTestName);
+
+#if UCXX_ENABLE_RMM
+INSTANTIATE_TEST_SUITE_P(UserHeaderLimitedRMM,
+                         RequestTestAmUserHeader,
+                         Combine(Values(ucxx::BufferType::RMM),
+                                 Values(false),
+                                 Values(false),
+                                 Values(ProgressMode::Polling, ProgressMode::Blocking),
+                                 Values(1024)),  // Only test with 1024 byte message5
                          generateTestName);
 #endif
 

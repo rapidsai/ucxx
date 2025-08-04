@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <functional>
@@ -38,6 +38,8 @@ class RecvAmMessage {
   std::shared_ptr<RequestAm> _request{
     nullptr};  ///< Request which will later be notified/delivered to user
   std::shared_ptr<Buffer> _buffer{nullptr};  ///< Buffer containing the received data
+  std::optional<AmReceiverCallbackInfo> _receiverCallbackInfo{
+    std::nullopt};  ///< Callback info with user header
 
   RecvAmMessage()                                = delete;
   RecvAmMessage(const RecvAmMessage&)            = delete;
@@ -50,18 +52,21 @@ class RecvAmMessage {
    *
    * Construct the object, setting attributes that are later needed by the callback.
    *
-   * @param[in] amData              active messages worker data.
-   * @param[in] ep                  handle containing address of the reply endpoint (i.e.,
-                                    endpoint where user is requesting to receive).
-   * @param[in] request             request to be later notified/delivered to user.
-   * @param[in] buffer              buffer containing the received data
-   * @param[in] receiverCallback    receiver callback to execute when request completes.
+   * @param[in] amData                active messages worker data.
+   * @param[in] ep                    handle containing address of the reply endpoint (i.e.,
+   *                                  endpoint where user is requesting to receive).
+   * @param[in] request               request to be later notified/delivered to user.
+   * @param[in] buffer                buffer containing the received data.
+   * @param[in] receiverCallback      receiver callback to execute when request completes.
+   * @param[in] receiverCallbackInfo  receiver callback info to execute when request completes,
+   *                                  including user header.
    */
   RecvAmMessage(internal::AmData* amData,
                 ucp_ep_h ep,
                 std::shared_ptr<RequestAm> request,
                 std::shared_ptr<Buffer> buffer,
-                AmReceiverCallbackType receiverCallback = AmReceiverCallbackType());
+                AmReceiverCallbackType receiverCallback = AmReceiverCallbackType(),
+                std::optional<AmReceiverCallbackInfo> receiverCallbackInfo = std::nullopt);
 
   /**
    * @brief Set the UCP request.

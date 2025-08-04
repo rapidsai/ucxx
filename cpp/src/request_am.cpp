@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
@@ -23,8 +24,9 @@ namespace ucxx {
 
 AmReceiverCallbackInfo::AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner,
                                                AmReceiverCallbackIdType id,
-                                               bool delayReceive)
-  : owner(owner), id(id), delayReceive(delayReceive)
+                                               bool delayReceive,
+                                               std::optional<AmUserHeader> userHeader)
+  : owner(owner), id(id), delayReceive(delayReceive), userHeader(userHeader)
 {
 }
 
@@ -62,8 +64,23 @@ struct AmHeader {
       bool delayReceive{false};
       decode(&delayReceive, sizeof(delayReceive));
 
-      return AmHeader{.memoryType           = memoryType,
-                      .receiverCallbackInfo = AmReceiverCallbackInfo(owner, id, delayReceive)};
+      // Check if user data is present
+      bool hasUserHeader{false};
+      decode(&hasUserHeader, sizeof(hasUserHeader));
+
+      std::optional<AmUserHeader> userHeader = std::nullopt;
+      if (hasUserHeader) {
+        size_t userHeaderSize{0};
+        decode(&userHeaderSize, sizeof(userHeaderSize));
+
+        std::vector<uint8_t> userHeaderBytes(userHeaderSize);
+        decode(userHeaderBytes.data(), userHeaderSize);
+        userHeader = AmUserHeader(std::move(userHeaderBytes));
+      }
+
+      return AmHeader{
+        .memoryType           = memoryType,
+        .receiverCallbackInfo = AmReceiverCallbackInfo(owner, id, delayReceive, userHeader)};
     }
 
     return AmHeader{.memoryType = memoryType, .receiverCallbackInfo = std::nullopt};
@@ -73,11 +90,17 @@ struct AmHeader {
   {
     size_t offset{0};
     bool hasReceiverCallback{static_cast<bool>(receiverCallbackInfo)};
-    const size_t ownerSize = (receiverCallbackInfo) ? receiverCallbackInfo->owner.size() : 0;
+    const size_t ownerSize      = (receiverCallbackInfo) ? receiverCallbackInfo->owner.size() : 0;
+    const size_t userHeaderSize = (receiverCallbackInfo && receiverCallbackInfo->userHeader)
+                                    ? receiverCallbackInfo->userHeader->size()
+                                    : 0;
+    const bool hasUserHeader    = (receiverCallbackInfo && receiverCallbackInfo->userHeader);
     const size_t amReceiverCallbackInfoSize =
-      (receiverCallbackInfo) ? sizeof(ownerSize) + ownerSize + sizeof(receiverCallbackInfo->id) +
-                                 sizeof(receiverCallbackInfo->delayReceive)
-                             : 0;
+      (receiverCallbackInfo)
+        ? sizeof(ownerSize) + ownerSize + sizeof(receiverCallbackInfo->id) +
+            sizeof(receiverCallbackInfo->delayReceive) + sizeof(hasUserHeader) +
+            (hasUserHeader ? sizeof(userHeaderSize) + userHeaderSize : 0)
+        : 0;
     const size_t totalSize =
       sizeof(memoryType) + sizeof(hasReceiverCallback) + amReceiverCallbackInfoSize;
     std::string serialized(totalSize, 0);
@@ -94,6 +117,11 @@ struct AmHeader {
       encode(receiverCallbackInfo->owner.c_str(), ownerSize);
       encode(&receiverCallbackInfo->id, sizeof(receiverCallbackInfo->id));
       encode(&receiverCallbackInfo->delayReceive, sizeof(receiverCallbackInfo->delayReceive));
+      encode(&hasUserHeader, sizeof(hasUserHeader));
+      if (hasUserHeader) {
+        encode(&userHeaderSize, sizeof(userHeaderSize));
+        encode(receiverCallbackInfo->userHeader->data(), userHeaderSize);
+      }
     }
 
     return serialized;
@@ -302,7 +330,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                          length);
 
       // Execute receiver callback if present
-      if (receiverCallback) { receiverCallback(req, ep); }
+      if (receiverCallback) { receiverCallback(req, ep, *amHeader.receiverCallbackInfo); }
 
       return UCS_INPROGRESS;
     } else {
@@ -325,8 +353,8 @@ ucs_status_t RequestAm::recvCallback(void* arg,
         ucxx_debug("Exception calling allocator: %s", e.what());
       }
 
-      auto recvAmMessage =
-        std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf, receiverCallback);
+      auto recvAmMessage = std::make_shared<internal::RecvAmMessage>(
+        amData, ep, req, buf, receiverCallback, amHeader.receiverCallbackInfo);
 
       ucp_request_param_t requestParam = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                           UCP_OP_ATTR_FIELD_USER_DATA |
@@ -387,7 +415,8 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   } else {
     buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
 
-    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf, receiverCallback);
+    internal::RecvAmMessage recvAmMessage(
+      amData, ep, req, buf, receiverCallback, amHeader.receiverCallbackInfo);
     if (buf == nullptr) {
       ucxx_debug("Failed to allocate %lu bytes of memory", length);
       recvAmMessage._request->setStatus(UCS_ERR_NO_MEMORY);
