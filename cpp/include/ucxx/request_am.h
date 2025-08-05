@@ -35,6 +35,20 @@ class RequestAm : public Request {
                           ///< https://github.com/openucx/ucx/issues/10424
 
   /**
+   * @brief Common implementation for receiveData operations.
+   *
+   * @param[in] amData        AM data containing pointer and length.
+   * @param[in] bufferPtr     Pointer to the buffer to receive data into.
+   * @param[in] managedBuffer Optional managed buffer for lifetime management (nullptr for raw
+   * pointers).
+   *
+   * @returns A shared_ptr to a Request object for the delayed receive operation.
+   */
+  std::shared_ptr<Request> receiveDataImpl(const AmData& amData,
+                                           void* bufferPtr,
+                                           Buffer* managedBuffer);
+
+  /**
    * @brief Private constructor of `ucxx::RequestAm`.
    *
    * This is the internal implementation of `ucxx::RequestAm` constructor, made private
@@ -158,9 +172,9 @@ class RequestAm : public Request {
   /**
    * @brief Receive delayed Active Message data into a user-provided buffer.
    *
-   * This method is used for delayed receive operations where delayReceive was enabled.
-   * It takes a user-provided buffer and internally calls ucp_am_recv_data_nbx to receive
-   * the AM data that was stored when the message first arrived. Returns a Request object
+   * This method is used for delayed receive operations where `delayReceive`` was enabled.
+   * It takes a user-provided buffer and internally calls `ucp_am_recv_data_nbx`` to receive
+   * the AM data that was stored when the message first arrived. Returns a `Request`` object
    * that the user can wait on for completion.
    *
    * @param[in] buffer The buffer to receive the AM data into. Must be large enough to hold
@@ -171,6 +185,23 @@ class RequestAm : public Request {
    *          is not available.
    */
   [[nodiscard]] std::shared_ptr<Request> receiveData(std::shared_ptr<Buffer> buffer);
+
+  /**
+   * @brief Receive delayed Active Message data into a user-provided buffer pointer.
+   *
+   * This method is used for delayed receive operations where `delayReceive`` was enabled.
+   * It takes a user-provided pointer to buffer and internally calls `ucp_am_recv_data_nbx`
+   * to receive the AM data that was stored when the message first arrived. Returns a
+   * `Request` object that the user can wait on for completion.
+   *
+   * @param[in] buffer  The buffer pointer to receive the AM data into. Must be large enough
+   *                    to hold the AM data (length available via the original AM callback).
+   *
+   * @returns A shared_ptr to a Request object that can be waited on for completion.
+   *          Returns nullptr if this was not a delayed receive operation or AM data
+   *          is not available.
+   */
+  [[nodiscard]] std::shared_ptr<Request> receiveData(void* buffer);
 
   /**
    * @brief Get the length of delayed Active Message data.

@@ -62,7 +62,9 @@ class AmReceive {
  public:
   std::shared_ptr<::ucxx::Buffer> _buffer{nullptr};  ///< The AM received message buffer
   std::optional<::ucxx::AmData> _amData{
-    std::nullopt};  ///< The AM data pointer and length for delayed receiving
+    std::nullopt};            ///< The AM data pointer and length for delayed receiving
+  void* _rawBuffer{nullptr};  ///< Raw buffer pointer for delayed receiving
+  size_t _rawBufferSize{0};   ///< Size of the raw buffer
 
   /**
    * @brief Constructor for Active Message-specific receive data.

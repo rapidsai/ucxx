@@ -478,46 +478,81 @@ std::shared_ptr<Request> RequestAm::receiveData(std::shared_ptr<Buffer> buffer)
           throw std::runtime_error("Buffer too small for AM data");
         }
 
-        // Create a new RequestAm for the delayed receive operation
-        auto request = std::shared_ptr<RequestAm>(new RequestAm(
-          _worker, data::AmReceive(), "amDelayedReceive", _enablePythonFuture, nullptr, nullptr));
-
-        // Store the buffer in the request
-        auto& requestAmReceiveData   = std::get<data::AmReceive>(request->_requestData);
-        requestAmReceiveData._buffer = buffer;
-
-        // Simple completion callback that directly calls request completion
-        auto callback =
-          [](void* ucpRequest, ucs_status_t status, size_t /*length*/, void* userData) {
-            auto* req = static_cast<RequestAm*>(userData);
-            req->callback(ucpRequest, status);
-          };
-
-        // Set up UCP request parameters
-        ucp_request_param_t requestParam = {
-          .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA,
-          .cb           = {.recv_am = callback},
-          .user_data    = request.get()};
-
-        // Call ucp_am_recv_data_nbx
-        ucs_status_ptr_t status = ucp_am_recv_data_nbx(
-          _worker->getHandle(), amData.data, buffer->data(), amData.length, &requestParam);
-
-        if (UCS_PTR_IS_ERR(status)) {
-          request->callback(nullptr, UCS_PTR_STATUS(status));
-        } else if (status == nullptr) {
-          // Completed immediately
-          request->callback(nullptr, UCS_OK);
-        } else {
-          // Will be completed by callback - store UCP request
-          request->_request = status;
-        }
-
-        return request;
+        return receiveDataImpl(amData, buffer->data(), buffer.get());
       },
       [](auto) -> std::shared_ptr<Request> { throw std::runtime_error("Unreachable"); },
     },
     _requestData);
+}
+
+std::shared_ptr<Request> RequestAm::receiveData(void* data)
+{
+  return std::visit(
+    data::dispatch{
+      [this, data](data::AmReceive amReceive) -> std::shared_ptr<Request> {
+        if (!amReceive._amData.has_value()) {
+          // No AM data available - not a delayed receive operation
+          return nullptr;
+        }
+
+        if (data == nullptr) { throw std::runtime_error("Buffer pointer cannot be null"); }
+
+        auto& amData = amReceive._amData.value();
+        return receiveDataImpl(amData, data, nullptr);
+      },
+      [](auto) -> std::shared_ptr<Request> { throw std::runtime_error("Unreachable"); },
+    },
+    _requestData);
+}
+
+std::shared_ptr<Request> RequestAm::receiveDataImpl(const AmData& amData,
+                                                    void* bufferPtr,
+                                                    Buffer* managedBuffer)
+{
+  // Create a new RequestAm for the delayed receive operation
+  auto request = std::shared_ptr<RequestAm>(new RequestAm(
+    _worker, data::AmReceive(), "amDelayedReceive", _enablePythonFuture, nullptr, nullptr));
+
+  // Store the buffer information in the request
+  auto& requestAmReceiveData = std::get<data::AmReceive>(request->_requestData);
+  if (managedBuffer) {
+    // For shared_ptr<Buffer> case, store the managed buffer
+    requestAmReceiveData._buffer = std::shared_ptr<Buffer>(managedBuffer, [](Buffer*) {
+      // Custom deleter that does nothing - the original shared_ptr manages the lifetime
+    });
+  } else {
+    // For raw pointer case, store the raw buffer info
+    requestAmReceiveData._rawBuffer     = bufferPtr;
+    requestAmReceiveData._rawBufferSize = amData.length;
+  }
+
+  // Simple completion callback that directly calls request completion
+  auto callback = [](void* ucpRequest, ucs_status_t status, size_t /*length*/, void* userData) {
+    auto* req = static_cast<RequestAm*>(userData);
+    req->callback(ucpRequest, status);
+  };
+
+  // Set up UCP request parameters
+  ucp_request_param_t requestParam = {
+    .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA,
+    .cb           = {.recv_am = callback},
+    .user_data    = request.get()};
+
+  // Call ucp_am_recv_data_nbx
+  ucs_status_ptr_t status = ucp_am_recv_data_nbx(
+    _worker->getHandle(), amData.data, bufferPtr, amData.length, &requestParam);
+
+  if (UCS_PTR_IS_ERR(status)) {
+    request->callback(nullptr, UCS_PTR_STATUS(status));
+  } else if (status == nullptr) {
+    // Completed immediately
+    request->callback(nullptr, UCS_OK);
+  } else {
+    // Will be completed by callback - store UCP request
+    request->_request = status;
+  }
+
+  return request;
 }
 
 size_t RequestAm::getAmDataLength()
