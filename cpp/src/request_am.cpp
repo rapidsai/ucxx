@@ -491,7 +491,13 @@ std::shared_ptr<Request> RequestAm::receiveData(void* data)
     data::dispatch{
       [this, data](data::AmReceive amReceive) -> std::shared_ptr<Request> {
         if (!amReceive._amData.has_value()) {
-          // No AM data available - not a delayed receive operation
+          ucxx_trace_req_f(_ownerString.c_str(),
+                           this,
+                           _request,
+                           _operationName.c_str(),
+                           "receiveData, data %p",
+                           data);
+          ucxx_warn("No AM data available, not a delayed receive operation");
           return nullptr;
         }
 
