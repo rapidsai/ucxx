@@ -300,11 +300,12 @@ TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
   // Storage for the received request and receive operation
   std::shared_ptr<ucxx::Request> receivedRequest{nullptr};
   std::shared_ptr<ucxx::Buffer> manualRecvBuffer{nullptr};
+  std::unique_ptr<uint8_t[]> rawBuffer{nullptr};
   std::shared_ptr<ucxx::Request> receiveDataRequest{nullptr};
 
   // Define AM receiver callback and register with worker
   auto callback = ucxx::AmReceiverCallbackType(
-    [this, &receivedRequest, &manualRecvBuffer, &receiveDataRequest, &mutex](
+    [this, &receivedRequest, &manualRecvBuffer, &rawBuffer, &receiveDataRequest, &mutex](
       std::shared_ptr<ucxx::Request> req, ucp_ep_h, const ucxx::AmReceiverCallbackInfo&) {
       {
         std::lock_guard<std::mutex> lock(mutex);
@@ -334,10 +335,29 @@ TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
             FAIL() << "Unsupported memory type for test";
           }
 
-          // Use the new receiveData() API to receive the AM data
+          // Test both receiveData APIs: managed buffer and raw pointer
+          // First test null pointer validation for raw pointer API
+          EXPECT_THROW(requestAm->receiveData(nullptr), std::runtime_error);
+
+          // Use the managed buffer receiveData() API
           receiveDataRequest = requestAm->receiveData(manualRecvBuffer);
           ASSERT_NE(receiveDataRequest, nullptr)
-            << "receiveData should return a valid request for delayed receive";
+            << "receiveData with managed buffer should return a valid request for delayed receive";
+
+          // Wait for the managed buffer receive to complete
+          while (!receiveDataRequest->isCompleted()) {
+            _progressWorker();
+          }
+          ASSERT_EQ(receiveDataRequest->getStatus(), UCS_OK)
+            << "Managed buffer receive should complete successfully";
+
+          // Now test the raw pointer API with a separate buffer
+          // Note: For delayed receive, we can only receive the data once per AM message,
+          // so we allocate a raw buffer to validate the API but copy from managed buffer
+          rawBuffer = std::make_unique<uint8_t[]>(messageLength);
+
+          // Copy data from managed buffer to raw buffer to simulate raw pointer receive
+          std::memcpy(rawBuffer.get(), manualRecvBuffer->data(), messageLength);
         } else {
           // Immediate/eager receive: data is already available via getRecvBuffer()
           manualRecvBuffer = requestAm->getRecvBuffer();
@@ -398,10 +418,15 @@ TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
 
       // Verify we have the manually received data
       ASSERT_NE(manualRecvBuffer, nullptr) << "Manual receive buffer should be allocated";
+      ASSERT_NE(rawBuffer, nullptr) << "Raw buffer should be allocated for testing";
 
       // Verify buffer type matches expectation for delayed receive
       ASSERT_THAT(manualRecvBuffer->getType(),
                   (_memoryType == UCS_MEMORY_TYPE_CUDA) ? _bufferType : ucxx::BufferType::Host);
+
+      // Verify that both buffers contain the same data
+      ASSERT_EQ(std::memcmp(manualRecvBuffer->data(), rawBuffer.get(), _messageSize), 0)
+        << "Managed buffer and raw buffer should contain identical data";
     } else {
       // For immediate receives, the buffer should be available from getRecvBuffer()
       ASSERT_NE(manualRecvBuffer, nullptr) << "Immediate receive buffer should be available";
@@ -422,6 +447,84 @@ TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
   copyResults();
 
   // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceiveRawPointer)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if !UCXX_ENABLE_RMM
+    GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
+    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+      return std::make_shared<ucxx::RMMBuffer>(length);
+    });
+#endif
+  }
+
+  // Only test with larger messages to ensure rendezvous/delayed receive
+  if (_messageSize < _rndvThresh) {
+    GTEST_SKIP() << "Test only runs with rendezvous messages for delayed receive";
+  }
+
+  // Define AM receiver callback with delayReceive enabled
+  ucxx::AmReceiverCallbackInfo receiverCallbackInfo("TestAppRaw", 0, true);
+
+  std::mutex mutex;
+  std::shared_ptr<ucxx::Request> receivedRequest{nullptr};
+  std::unique_ptr<uint8_t[]> rawBuffer{nullptr};
+  std::shared_ptr<ucxx::Request> receiveDataRequest{nullptr};
+
+  auto callback = ucxx::AmReceiverCallbackType(
+    [this, &receivedRequest, &rawBuffer, &receiveDataRequest, &mutex](
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h, const ucxx::AmReceiverCallbackInfo&) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        receivedRequest = req;
+
+        auto requestAm = std::dynamic_pointer_cast<ucxx::RequestAm>(req);
+        ASSERT_NE(requestAm, nullptr);
+
+        if (requestAm->isDelayedReceive()) {
+          size_t messageLength = requestAm->getAmDataLength();
+          ASSERT_EQ(messageLength, _messageSize);
+
+          // Allocate raw buffer and test the raw pointer receiveData API
+          rawBuffer          = std::make_unique<uint8_t[]>(messageLength);
+          receiveDataRequest = requestAm->receiveData(rawBuffer.get());
+          ASSERT_NE(receiveDataRequest, nullptr);
+        } else {
+          FAIL() << "Expected delayed receive operation";
+        }
+      }
+    });
+
+  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+  allocate(1, false);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (receivedRequest == nullptr)
+    _progressWorker();
+  while (receiveDataRequest == nullptr)
+    _progressWorker();
+  while (!receiveDataRequest->isCompleted())
+    _progressWorker();
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    ASSERT_TRUE(receiveDataRequest->isCompleted());
+    ASSERT_EQ(receiveDataRequest->getStatus(), UCS_OK);
+    _recvPtr[0] = rawBuffer.get();
+  }
+
+  copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
