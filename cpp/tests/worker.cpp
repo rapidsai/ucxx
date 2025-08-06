@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -111,7 +111,7 @@ TEST_F(WorkerTest, TagProbe)
   auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
 
   auto probed = _worker->tagProbe(ucxx::Tag{0});
-  ASSERT_FALSE(probed.first);
+  ASSERT_FALSE(probed->matched);
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -121,13 +121,144 @@ TEST_F(WorkerTest, TagProbe)
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
     progressWorker();
     auto probed = _worker->tagProbe(ucxx::Tag{0});
-    return probed.first;
+    return probed->matched;
   });
 
-  probed = _worker->tagProbe(ucxx::Tag{0});
-  ASSERT_TRUE(probed.first);
-  ASSERT_EQ(probed.second.senderTag, ucxx::Tag{0});
-  ASSERT_EQ(probed.second.length, buf.size() * sizeof(int));
+  auto probed2 = _worker->tagProbe(ucxx::Tag{0});
+  ASSERT_TRUE(probed2->matched);
+  ASSERT_TRUE(probed2->info.has_value());
+  ASSERT_EQ(probed2->info->senderTag, ucxx::Tag{0});
+  ASSERT_EQ(probed2->info->length, buf.size() * sizeof(int));
+}
+
+TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
+{
+  // Test that tagProbe with remove=false works as before
+  auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
+  EXPECT_FALSE(probe1->matched);
+
+  // Test that tagProbe with remove=true returns the correct structure
+  auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+  EXPECT_FALSE(probe2->matched);
+
+  // Test that when no message is matched, both return matched=false
+  EXPECT_FALSE(probe1->handle.has_value());
+  EXPECT_FALSE(probe2->handle.has_value());
+}
+
+TEST_F(WorkerTest, TagProbeRemoveWithMessage)
+{
+  auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  // Send a message
+  std::vector<int> buf{123};
+  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+
+  // Progress until message is sent
+  while (!send_req->isCompleted()) {
+    _worker->progress();
+  }
+
+  // Wait for message to be available for probing
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
+    progressWorker();
+    auto probed = _worker->tagProbe(ucxx::Tag{0});
+    return probed->matched;
+  });
+
+  // Test that tagProbe with remove=false returns TagProbeInfo
+  auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
+  EXPECT_TRUE(probe1->matched);
+  EXPECT_TRUE(probe1->info.has_value());
+  EXPECT_EQ(probe1->info->length, buf.size() * sizeof(int));
+  EXPECT_FALSE(probe1->handle.has_value());
+
+  // Test that tagProbe with remove=true returns TagProbeInfo with handle
+  auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+  EXPECT_TRUE(probe2->matched);
+  EXPECT_TRUE(probe2->info.has_value());
+  EXPECT_EQ(probe2->info->length, buf.size() * sizeof(int));
+  EXPECT_TRUE(probe2->handle.has_value());
+  EXPECT_NE(*probe2->handle, nullptr);
+
+  // Test receiving with the message handle
+  std::vector<int> recv_buf(1);
+  auto recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe2);
+
+  // Progress until message is received
+  while (!recv_req->isCompleted()) {
+    _worker->progress();
+  }
+
+  EXPECT_EQ(recv_buf[0], buf[0]);
+}
+
+TEST_F(WorkerTest, TagProbeUnconsumedWarning)
+{
+  auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  // Send a message
+  std::vector<int> buf{123};
+  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+
+  // Progress until message is sent
+  while (!send_req->isCompleted()) {
+    _worker->progress();
+  }
+
+  // Wait for message to be available for probing
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
+    progressWorker();
+    auto probed = _worker->tagProbe(ucxx::Tag{0});
+    return probed->matched;
+  });
+
+  // Create a TagProbeInfo with a handle but don't consume it
+  // This should trigger a warning in the destructor
+  {
+    auto probe = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+    EXPECT_TRUE(probe->matched);
+    EXPECT_TRUE(probe->handle.has_value());
+    EXPECT_NE(*probe->handle, nullptr);
+    // probe goes out of scope here without consuming the handle
+  }
+}
+
+TEST_F(WorkerTest, TagProbeConsumeHandle)
+{
+  auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  // Send a message
+  std::vector<int> buf{123};
+  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+
+  // Progress until message is sent
+  while (!send_req->isCompleted()) {
+    _worker->progress();
+  }
+
+  // Wait for message to be available for probing
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
+    progressWorker();
+    auto probed = _worker->tagProbe(ucxx::Tag{0});
+    return probed->matched;
+  });
+
+  // Create a TagProbeInfo with a handle and consume it
+  // This should NOT trigger a warning in the destructor
+  {
+    auto probe = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+    EXPECT_TRUE(probe->matched);
+    EXPECT_TRUE(probe->handle.has_value());
+    EXPECT_NE(*probe->handle, nullptr);
+
+    // Consume the handle to prevent the warning
+    probe->consume();
+    // probe goes out of scope here, but handle is marked as consumed
+  }
 }
 
 TEST_F(WorkerTest, AmProbe)

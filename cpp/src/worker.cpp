@@ -581,12 +581,55 @@ TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
 {
 }
 
-std::pair<bool, TagRecvInfo> Worker::tagProbe(const Tag tag, const TagMask tagMask)
+TagProbeInfo::TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle)
+  : matched(true),
+    info(TagRecvInfo(info)),
+    handle(handle != nullptr ? std::optional<ucp_tag_message_h>(handle) : std::nullopt),
+    consumed(false)
+{
+}
+
+std::shared_ptr<TagProbeInfo> createTagProbeInfo()
+{
+  return std::shared_ptr<TagProbeInfo>(new TagProbeInfo());
+}
+
+std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
+                                                 ucp_tag_message_h handle)
+{
+  return std::shared_ptr<TagProbeInfo>(new TagProbeInfo(info, handle));
+}
+
+TagProbeInfo::~TagProbeInfo()
+{
+  // Check if handle is populated and has not been consumed
+  if (matched && handle.has_value() && handle.value() != nullptr && !consumed) {
+    ucxx_warn(
+      "ucxx::TagProbeInfo::%s, destroying %p unconsumed message handle %p detected from tag 0x%lx "
+      "with "
+      "length %lu. ucxx::Worker::tagRecvWithHandle() must be called to consume the handle.",
+      __func__,
+      this,
+      handle.value(),
+      info.value().senderTag,
+      info.value().length);
+  }
+}
+
+void TagProbeInfo::consume() const { consumed = true; }
+
+std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
+                                               const TagMask tagMask,
+                                               const bool remove) const
 {
   ucp_tag_recv_info_t info;
-  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, 0, &info);
+  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
 
-  return {tag_message != NULL, TagRecvInfo(info)};
+  if (tag_message != NULL) {
+    return createTagProbeInfo(info, remove ? tag_message : nullptr);
+  } else {
+    return createTagProbeInfo();
+  }
 }
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,
@@ -603,6 +646,32 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                                   enableFuture,
                                                   callbackFunction,
                                                   callbackData));
+}
+
+std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
+                                                   std::shared_ptr<TagProbeInfo> probeInfo,
+                                                   const bool enableFuture,
+                                                   RequestCallbackUserFunction callbackFunction,
+                                                   RequestCallbackUserData callbackData)
+{
+  if (!probeInfo->matched || !probeInfo->info.has_value() || !probeInfo->handle.has_value()) {
+    throw std::invalid_argument("TagProbeInfo must be matched and contain valid info and handle");
+  }
+
+  if (probeInfo->consumed) { throw std::logic_error("TagProbeInfo handle was already consumed"); }
+
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto request =
+    registerInflightRequest(createRequestTag(worker,
+                                             data::TagReceiveWithHandle(buffer, probeInfo),
+                                             enableFuture,
+                                             callbackFunction,
+                                             callbackData));
+
+  // Mark the handle as consumed since we're using it for the receive operation
+  probeInfo->consume();
+
+  return request;
 }
 
 std::shared_ptr<Address> Worker::getAddress()

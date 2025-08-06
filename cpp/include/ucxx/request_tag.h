@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -52,12 +52,13 @@ class RequestTag : public Request {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
-  RequestTag(std::shared_ptr<Component> endpointOrWorker,
-             const std::variant<data::TagSend, data::TagReceive> requestData,
-             const std::string operationName,
-             const bool enablePythonFuture                = false,
-             RequestCallbackUserFunction callbackFunction = nullptr,
-             RequestCallbackUserData callbackData         = nullptr);
+  RequestTag(
+    std::shared_ptr<Component> endpointOrWorker,
+    const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
+    const std::string operationName,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
  public:
   /**
@@ -86,7 +87,7 @@ class RequestTag : public Request {
    */
   friend std::shared_ptr<RequestTag> createRequestTag(
     std::shared_ptr<Component> endpointOrWorker,
-    const std::variant<data::TagSend, data::TagReceive> requestData,
+    const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
