@@ -94,7 +94,7 @@ jobs:
       build_type: pull-request
       node_type: "gpu-l4-latest-1"
       arch: "amd64"
-      container_image: "rapidsai/ci-conda:0.45-latest"
+      container_image: "rapidsai/ci-conda:25.08-latest"
       script: "ci/build_docs.sh"
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
