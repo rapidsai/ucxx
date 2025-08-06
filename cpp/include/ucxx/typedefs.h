@@ -173,6 +173,13 @@ typedef const std::string AmReceiverCallbackInfoSerialized;
  *
  * Structure containing the Active Message data pointer and length that will be used
  * when the user chooses to delay receiving and handle ucp_am_recv_data_nbx manually.
+ *
+ * @note This struct holds a non-owning pointer to Active Message data. The data pointer
+ *       must remain valid for the lifetime of this AmData object. The caller is responsible
+ *       for managing the lifetime of the data and ensuring it is not freed while this
+ *       AmData object is in use. Copying is disabled to prevent potential use-after-free
+ *       or double-free errors since multiple AmData objects sharing the same data pointer
+ *       could lead to undefined behavior.
  */
 struct AmData {
   void* data;     ///< The Active Message data pointer from the receive callback
@@ -185,8 +192,41 @@ struct AmData {
    *
    * @param[in] data    The Active Message data pointer from the receive callback.
    * @param[in] length  The length of the Active Message data.
+   *
+   * @throws std::invalid_argument if length is greater than zero but data is nullptr.
    */
-  AmData(void* data, size_t length) : data(data), length(length) {}
+  AmData(void* data, size_t length) : data(data), length(length)
+  {
+    if (length > 0 && data == nullptr) {
+      throw std::invalid_argument(
+        "AmData data pointer cannot be null when length is greater than zero");
+    }
+  }
+
+  // Delete copy operations to prevent unsafe sharing of non-owning pointer
+  AmData(const AmData&)            = delete;
+  AmData& operator=(const AmData&) = delete;
+
+  /**
+   * @brief Move constructor.
+   *
+   * Transfers ownership of the data pointer from another AmData object. This is safe
+   * since the source object will no longer reference the data after the move.
+   *
+   * @param[in] other The AmData object to move from.
+   */
+  AmData(AmData&& other) = default;
+
+  /**
+   * @brief Move assignment operator.
+   *
+   * Transfers ownership of the data pointer from another AmData object. This is safe
+   * since the source object will no longer reference the data after the move.
+   *
+   * @param[in] other The AmData object to move from.
+   * @return Reference to this AmData object.
+   */
+  AmData& operator=(AmData&& other) = default;
 };
 
 /**
