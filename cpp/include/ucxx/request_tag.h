@@ -69,6 +69,13 @@ class RequestTag : public Request {
    * transfer must be verified from the resulting request object before the data can be
    * released (for a send operation) or consumed (for a receive operation).
    *
+   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
+   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
+   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
+   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
+   * in which case the callback will also execute immediately within the calling thread and
+   * before the method returns.
+   *
    * @throws ucxx::Error  if send is `true` and `endpointOrWorker` is not a
    *                      `std::shared_ptr<ucxx::Endpoint>`.
    *
