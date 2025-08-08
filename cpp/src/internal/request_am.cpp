@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <ucxx/buffer.h>
@@ -18,8 +18,9 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
                              ucp_ep_h ep,
                              std::shared_ptr<RequestAm> request,
                              std::shared_ptr<Buffer> buffer,
-                             AmReceiverCallbackType receiverCallback)
-  : _amData(amData), _ep(ep), _request(request)
+                             AmReceiverCallbackType receiverCallback,
+                             std::optional<AmReceiverCallbackInfo> receiverCallbackInfo)
+  : _amData(amData), _ep(ep), _request(request), _receiverCallbackInfo(receiverCallbackInfo)
 {
   std::visit(data::dispatch{
                [this, buffer](data::AmReceive& amReceive) { amReceive._buffer = buffer; },
@@ -29,7 +30,7 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
 
   if (receiverCallback) {
     _request->_callback = [this, receiverCallback](ucs_status_t, std::shared_ptr<void>) {
-      receiverCallback(_request, _ep);
+      if (_receiverCallbackInfo) { receiverCallback(_request, _ep, *_receiverCallbackInfo); }
     };
   }
 }

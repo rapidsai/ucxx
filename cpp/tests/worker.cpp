@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -194,7 +194,8 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
   // Define AM receiver callback and register with worker
   std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
   auto callback = ucxx::AmReceiverCallbackType(
-    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req, ucp_ep_h) {
+    [this, &receivedRequests, &mutex](
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h, const ucxx::AmReceiverCallbackInfo&) {
       {
         std::lock_guard<std::mutex> lock(mutex);
         receivedRequests.push_back(req);
