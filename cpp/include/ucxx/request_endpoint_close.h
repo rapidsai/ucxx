@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -100,7 +100,7 @@ class RequestEndpointClose : public Request {
    * Callback executed by UCX when an endpoint close request is completed, that will
    * dispatch `ucxx::Request::callback()`.
    *
-   * WARNING: This is not intended to be called by the user, but it currently needs to be
+   * @warning This is not intended to be called by the user, but it currently needs to be
    * a public method so that UCX may access it. In future changes this will be moved to
    * an internal object and remove this method from the public API.
    *

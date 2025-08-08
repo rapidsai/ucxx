@@ -107,7 +107,7 @@ class RequestMem : public Request {
    * Callback executed by UCX when a memory put request is completed, that will dispatch
    * `ucxx::Request::callback()`.
    *
-   * WARNING: This is not intended to be called by the user, but it currently needs to be
+   * @warning This is not intended to be called by the user, but it currently needs to be
    * a public method so that UCX may access it. In future changes this will be moved to
    * an internal object and remove this method from the public API.
    *
@@ -124,7 +124,7 @@ class RequestMem : public Request {
    * Callback executed by UCX when a memory get request is completed, that will dispatch
    * `ucxx::Request::callback()`.
    *
-   * WARNING: This is not intended to be called by the user, but it currently needs to be
+   * @warning This is not intended to be called by the user, but it currently needs to be
    * a public method so that UCX may access it. In future changes this will be moved to
    * an internal object and remove this method from the public API.
    *
