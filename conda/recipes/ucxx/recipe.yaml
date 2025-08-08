@@ -388,6 +388,8 @@ outputs:
         - setuptools
         - wheel
       run:
+        - numba >=0.59.1,<0.62.0a0
+        - numba-cuda >=0.14.0,<0.15.0a00
         - python
         - rapids-dask-dependency ${{ rapids_version }}
         - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
