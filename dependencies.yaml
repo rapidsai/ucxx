@@ -285,11 +285,6 @@ dependencies:
         packages:
           - &numpy numpy>=1.23,<3.0a0
           - pynvml>=12.0.0,<13.0.0a0
-  run_python_distributed_ucxx:
-    common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - rapids-dask-dependency==25.10.*,>=0.0.0a0
       - output_types: [conda]
         packages:
           - &numba-cuda numba-cuda>=0.14.0,<0.15.0a0
@@ -302,6 +297,11 @@ dependencies:
           - matrix: # Fallback for no matrix
             packages:
               - *numba-cuda-cu12-dep
+  run_python_distributed_ucxx:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - rapids-dask-dependency==25.10.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -316,18 +316,6 @@ dependencies:
           - pytest-asyncio>=1.0.0
           - pytest-rerunfailures
           - rapids-dask-dependency==25.10.*,>=0.0.0a0
-      - output_types: [conda]
-        packages:
-          - *numba-cuda
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix: {cuda: "12.*"}
-            packages:
-              - *numba-cuda-cu12-dep
-          - matrix: # Fallback for no matrix
-            packages:
-              - *numba-cuda-cu12-dep
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
