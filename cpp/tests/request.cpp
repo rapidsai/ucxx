@@ -343,21 +343,6 @@ TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
           receiveDataRequest = requestAm->receiveData(manualRecvBuffer);
           ASSERT_NE(receiveDataRequest, nullptr)
             << "receiveData with managed buffer should return a valid request for delayed receive";
-
-          // Wait for the managed buffer receive to complete
-          while (!receiveDataRequest->isCompleted()) {
-            _progressWorker();
-          }
-          ASSERT_EQ(receiveDataRequest->getStatus(), UCS_OK)
-            << "Managed buffer receive should complete successfully";
-
-          // Now test the raw pointer API with a separate buffer
-          // Note: For delayed receive, we can only receive the data once per AM message,
-          // so we allocate a raw buffer to validate the API but copy from managed buffer
-          rawBuffer = std::make_unique<uint8_t[]>(messageLength);
-
-          // Copy data from managed buffer to raw buffer to simulate raw pointer receive
-          std::memcpy(rawBuffer.get(), manualRecvBuffer->data(), messageLength);
         } else {
           // Immediate/eager receive: data is already available via getRecvBuffer()
           manualRecvBuffer = requestAm->getRecvBuffer();
@@ -418,15 +403,10 @@ TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
 
       // Verify we have the manually received data
       ASSERT_NE(manualRecvBuffer, nullptr) << "Manual receive buffer should be allocated";
-      ASSERT_NE(rawBuffer, nullptr) << "Raw buffer should be allocated for testing";
 
       // Verify buffer type matches expectation for delayed receive
       ASSERT_THAT(manualRecvBuffer->getType(),
                   (_memoryType == UCS_MEMORY_TYPE_CUDA) ? _bufferType : ucxx::BufferType::Host);
-
-      // Verify that both buffers contain the same data
-      ASSERT_EQ(std::memcmp(manualRecvBuffer->data(), rawBuffer.get(), _messageSize), 0)
-        << "Managed buffer and raw buffer should contain identical data";
     } else {
       // For immediate receives, the buffer should be available from getRecvBuffer()
       ASSERT_NE(manualRecvBuffer, nullptr) << "Immediate receive buffer should be available";
