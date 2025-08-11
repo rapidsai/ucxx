@@ -337,7 +337,7 @@ TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
 
           // Test both receiveData APIs: managed buffer and raw pointer
           // First test null pointer validation for raw pointer API
-          EXPECT_THROW(requestAm->receiveData(nullptr), std::runtime_error);
+          EXPECT_THROW(std::ignore = requestAm->receiveData(nullptr), std::runtime_error);
 
           // Use the managed buffer receiveData() API
           receiveDataRequest = requestAm->receiveData(manualRecvBuffer);
