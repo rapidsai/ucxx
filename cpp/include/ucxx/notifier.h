@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -73,7 +73,7 @@ class Notifier {
    * timeout in nanoseconds to unblock after a that period if no event has occurred. A
    * period of zero means this call will never unblock until an event occurs.
    *
-   * WARNING: Be cautious using a period of zero, if no event ever occurs it will be
+   * @warning Be cautious using a period of zero, if no event ever occurs it will be
    * impossible to continue the thread.
    *
    * @param[in] period the time in nanoseconds to wait for an event before unblocking.
