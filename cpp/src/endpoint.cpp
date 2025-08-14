@@ -561,12 +561,25 @@ std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestTag(endpoint,
-                                                  data::TagSend(buffer, length, tag),
+  return registerInflightRequest(createRequestTag(shared_from_this(),
+                                                  data::TagSend{buffer, length, tag},
                                                   enablePythonFuture,
                                                   callbackFunction,
                                                   callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::tagSend(
+  request_tag_params::EndpointParam&& endpointParam,
+  request_tag_params::RequestDataParam&& requestDataParam,
+  request_tag_params::EnablePythonFutureParam&& enablePythonFutureParam,
+  request_tag_params::CallbackFunctionParam&& callbackFunctionParam,
+  request_tag_params::CallbackDataParam&& callbackDataParam)
+{
+  return registerInflightRequest(createRequestTag(endpointParam.value,
+                                                  requestDataParam.value,
+                                                  enablePythonFutureParam.value,
+                                                  callbackFunctionParam.value,
+                                                  callbackDataParam.value));
 }
 
 std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
@@ -577,12 +590,25 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestTag(endpoint,
-                                                  data::TagReceive(buffer, length, tag, tagMask),
+  return registerInflightRequest(createRequestTag(shared_from_this(),
+                                                  data::TagReceive{buffer, length, tag, tagMask},
                                                   enablePythonFuture,
                                                   callbackFunction,
                                                   callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::tagRecv(
+  request_tag_params::EndpointParam&& endpointParam,
+  request_tag_params::RequestDataParam&& requestDataParam,
+  request_tag_params::EnablePythonFutureParam&& enablePythonFutureParam,
+  request_tag_params::CallbackFunctionParam&& callbackFunctionParam,
+  request_tag_params::CallbackDataParam&& callbackDataParam)
+{
+  return registerInflightRequest(createRequestTag(endpointParam.value,
+                                                  requestDataParam.value,
+                                                  enablePythonFutureParam.value,
+                                                  callbackFunctionParam.value,
+                                                  callbackDataParam.value));
 }
 
 std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
