@@ -183,7 +183,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &rapids_build_backend rapids-build-backend>=0.3.0,<0.4.0.dev0
+          - &rapids_build_backend rapids-build-backend>=0.4.0,<0.5.0.dev0
       - output_types: conda
         packages:
           - scikit-build-core>=0.10.0
@@ -285,6 +285,18 @@ dependencies:
         packages:
           - &numpy numpy>=1.23,<3.0a0
           - pynvml>=12.0.0,<13.0.0a0
+      - output_types: [conda]
+        packages:
+          - &numba_cuda numba-cuda>=0.19.0,<0.20.0a0
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - &numba_cuda_cu12 numba-cuda[cu12]>=0.19.0,<0.20.0a0
+          - matrix: # Fallback for no matrix
+            packages:
+              - *numba_cuda_cu12
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -292,16 +304,16 @@ dependencies:
           - rapids-dask-dependency==25.10.*,>=0.0.0a0
       - output_types: [conda]
         packages:
-          - &numba-cuda numba-cuda>=0.14.0,<0.15.0a0
+          - *numba_cuda
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - &numba-cuda-cu12-dep numba-cuda[cu12]>=0.14.0,<0.15.0a0
+              - *numba_cuda_cu12
           - matrix: # Fallback for no matrix
             packages:
-              - *numba-cuda-cu12-dep
+              - *numba_cuda_cu12
   test_cpp:
     common:
       - output_types: conda
@@ -312,28 +324,16 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - pytest==7.*
-          - pytest-asyncio
+          - pytest
+          - pytest-asyncio>=1.0.0
           - pytest-rerunfailures
           - rapids-dask-dependency==25.10.*,>=0.0.0a0
-      - output_types: [conda]
-        packages:
-          - *numba-cuda
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix: {cuda: "12.*"}
-            packages:
-              - *numba-cuda-cu12-dep
-          - matrix: # Fallback for no matrix
-            packages:
-              - *numba-cuda-cu12-dep
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - *numpy
-          - pytest==7.*
+          - pytest
           - pytest-rerunfailures
   depends_on_cupy:
     common:
@@ -461,7 +461,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - ucx==1.15.0
+          - ucx==1.17.0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -474,15 +474,15 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.15.0,<1.15.1a0
+              - libucx-cu12>=1.17.0,<1.17.1a0
           - matrix:
             packages:
-              - libucx>=1.15.0,<1.15.1a0
+              - libucx>=1.17.0,<1.17.1a0
   depends_on_ucx_run:
     common:
       - output_types: conda
         packages:
-          - ucx>=1.15.0,<1.19
+          - ucx>=1.17.0,<1.20
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -495,7 +495,7 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.15.0,<1.19
+              - libucx-cu12>=1.17.0,<1.20
           - matrix:
             packages:
-              - libucx>=1.15.0,<1.19
+              - libucx>=1.17.0,<1.20

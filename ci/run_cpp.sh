@@ -23,22 +23,9 @@ run_cpp_tests() {
   UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}
 }
 
-run_cpp_benchmark() {
-  SERVER_PORT=$1
-  PROGRESS_MODE=$2
-
-  RUNTIME_PATH=${CONDA_PREFIX:-./}
-  BINARY_PATH=${RUNTIME_PATH}/bin
-
-  CMD_LINE_SERVER="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -P ${PROGRESS_MODE} -p ${SERVER_PORT}"
-  CMD_LINE_CLIENT="timeout 1m ${BINARY_PATH}/benchmarks/libucxx/ucxx_perftest -s 8388608 -r -n 20 -P ${PROGRESS_MODE} -p ${SERVER_PORT} 127.0.0.1"
-
-  log_command "${CMD_LINE_SERVER}"
-  UCX_TCP_CM_REUSEADDR=y ${CMD_LINE_SERVER} &
-  sleep 1
-
-  log_command "${CMD_LINE_CLIENT}"
-  ${CMD_LINE_CLIENT}
+run_cpp_benchmarks() {
+  # Run the dedicated benchmark script
+  "$(dirname "$0")/run_cpp_benchmarks.sh"
 }
 
 run_cpp_example() {
@@ -54,56 +41,13 @@ run_cpp_example() {
   UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}
 }
 
-run_cpp_port_retry() {
-  MAX_ATTEMPTS=${1}
-  RUN_TYPE=${2}
-  PROGRESS_MODE=${3}
-
-  set +e
-  for attempt in $(seq 1 "${MAX_ATTEMPTS}"); do
-    echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run ${RUN_TYPE}"
-
-    _SERVER_PORT=$((_SERVER_PORT + 1))    # Use different ports every time to prevent `Device is busy`
-
-    if [[ "${RUN_TYPE}" == "benchmark" ]]; then
-      run_cpp_benchmark ${_SERVER_PORT} "${PROGRESS_MODE}"
-    elif [[ "${RUN_TYPE}" == "example" ]]; then
-      run_cpp_example ${_SERVER_PORT} "${PROGRESS_MODE}"
-    else
-      set -e
-      echo "Unknown test type ${RUN_TYPE}"
-      exit 1
-    fi
-
-    LAST_STATUS=$?
-    if [ ${LAST_STATUS} -eq 0 ]; then
-      break;
-    fi
-    sleep 1
-  done
-  set -e
-
-  if [ "${LAST_STATUS}" -ne 0 ]; then
-    echo "Failure running benchmark client after ${MAX_ATTEMPTS} attempts"
-    exit "$LAST_STATUS"
-  fi
-}
-
 log_message "C++ Tests"
 run_cpp_tests
 
-log_message "C++ Benchmarks"
-# run_cpp_port_retry MAX_ATTEMPTS RUN_TYPE PROGRESS_MODE
-run_cpp_port_retry 10 "benchmark" "polling"
-run_cpp_port_retry 10 "benchmark" "blocking"
-run_cpp_port_retry 10 "benchmark" "thread-polling"
-run_cpp_port_retry 10 "benchmark" "thread-blocking"
-run_cpp_port_retry 10 "benchmark" "wait"
-
 log_message "C++ Examples"
-# run_cpp_port_retry MAX_ATTEMPTS RUN_TYPE PROGRESS_MODE
-run_cpp_port_retry 10 "example" "polling"
-run_cpp_port_retry 10 "example" "blocking"
-run_cpp_port_retry 10 "example" "thread-polling"
-run_cpp_port_retry 10 "example" "thread-blocking"
-run_cpp_port_retry 10 "example" "wait"
+# run_port_retry MAX_ATTEMPTS RUN_TYPE PROGRESS_MODE FUNCTION_NAME
+run_port_retry 10 "example" "polling" "run_cpp_example"
+run_port_retry 10 "example" "blocking" "run_cpp_example"
+run_port_retry 10 "example" "thread-polling" "run_cpp_example"
+run_port_retry 10 "example" "thread-blocking" "run_cpp_example"
+run_port_retry 10 "example" "wait" "run_cpp_example"

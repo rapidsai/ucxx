@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -9,6 +9,16 @@ import weakref
 from functools import partial
 
 from ucxx._lib.libucxx import UCXWorker
+
+
+def _cancel_task(event_loop, task):
+    try:
+        task.cancel()
+        event_loop.run_until_complete(task)
+    except (asyncio.exceptions.CancelledError, RuntimeError):
+        # Other than cancelled error it's possible to get
+        # `RuntimeError: cannot reuse already awaited coroutine` during shutdown
+        pass
 
 
 class ProgressTask(object):
@@ -28,22 +38,28 @@ class ProgressTask(object):
         """
         self.worker = worker
         self.event_loop = event_loop
-        self.asyncio_task = None
 
         event_loop_close_original = self.event_loop.close
 
         def _event_loop_close(event_loop_close_original, *args, **kwargs):
-            if not self.event_loop.is_closed() and self.asyncio_task is not None:
-                try:
-                    self.asyncio_task.cancel()
-                    self.event_loop.run_until_complete(self.asyncio_task)
-                except asyncio.exceptions.CancelledError:
-                    pass
-                finally:
-                    self.asyncio_task = None
-                    event_loop_close_original(*args, **kwargs)
+            if self.event_loop.is_closed():
+                return
+
+            try:
+                for task in self._tasks:
+                    _cancel_task(event_loop, task)
+            finally:
+                event_loop_close_original(*args, **kwargs)
+                self._clear_tasks()
 
         self.event_loop.close = partial(_event_loop_close, event_loop_close_original)
+
+    @property
+    def _tasks(self) -> tuple[asyncio.Task]:
+        return ()
+
+    def _clear_tasks(self) -> None:
+        return
 
     # Hash and equality is based on the event loop
     def __hash__(self):
@@ -70,8 +86,15 @@ class ThreadMode(ProgressTask):
 class PollingMode(ProgressTask):
     def __init__(self, worker, event_loop):
         super().__init__(worker, event_loop)
-        self.asyncio_task = event_loop.create_task(self._progress_task())
+        self.progress_task = event_loop.create_task(self._progress_task())
         self.worker.init_blocking_progress_mode()
+
+    @property
+    def _tasks(self):
+        return (self.progress_task,)
+
+    def _clear_tasks(self):
+        self.progress_task = None
 
     async def _progress_task(self):
         """This helper function maintains a UCX progress loop."""
@@ -132,9 +155,18 @@ class BlockingMode(ProgressTask):
         weakref.finalize(self, event_loop.remove_reader, epoll_fd)
         weakref.finalize(self, self.rsock.close)
 
-        self.blocking_asyncio_task = None
+        self.armed = False
+        self.arm_task = self.event_loop.create_task(self._arm_worker())
         self.last_progress_time = time.monotonic() - self._progress_timeout
-        self.asyncio_task = event_loop.create_task(self._progress_with_timeout())
+        self.progress_task = event_loop.create_task(self._progress_with_timeout())
+
+    @property
+    def _tasks(self):
+        return (self.arm_task, self.progress_task)
+
+    def _clear_tasks(self):
+        self.arm_task = None
+        self.progress_task = None
 
     def _fd_reader_callback(self):
         """Schedule new progress task upon worker event.
@@ -144,10 +176,9 @@ class BlockingMode(ProgressTask):
         """
         self.worker.progress()
 
-        # Notice, we can safely overwrite `self.blocking_asyncio_task`
-        # since previous arm task is finished by now.
-        assert self.blocking_asyncio_task is None or self.blocking_asyncio_task.done()
-        self.blocking_asyncio_task = self.event_loop.create_task(self._arm_worker())
+        assert not self.armed
+
+        self.armed = False
 
     async def _arm_worker(self):
         """Progress the worker and rearm.
@@ -161,6 +192,9 @@ class BlockingMode(ProgressTask):
         #    so that the asyncio's next state is epoll wait.
         #    See <https://github.com/rapidsai/ucx-py/issues/413>
         while True:
+            if self.armed:
+                continue
+
             self.last_progress_time = time.monotonic()
             self.worker.progress()
 
@@ -193,12 +227,11 @@ class BlockingMode(ProgressTask):
                 # seem to respect timeout with `asyncio.wait_for`, thus we cancel
                 # it here instead. It will get recreated after a new event on
                 # `worker.epoll_file_descriptor`.
-                if self.blocking_asyncio_task is not None:
-                    self.blocking_asyncio_task.cancel()
-                    try:
-                        await self.blocking_asyncio_task
-                    except asyncio.exceptions.CancelledError:
-                        pass
+                self.arm_task.cancel()
+                try:
+                    await self.arm_task
+                except asyncio.exceptions.CancelledError:
+                    pass
 
                 worker.progress()
             # Give other co-routines a chance to run.
