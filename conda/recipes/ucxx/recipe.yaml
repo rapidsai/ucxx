@@ -270,7 +270,7 @@ outputs:
         - ${{ pin_compatible("rmm", upper_bound="x.x") }}
         - ${{ pin_subpackage("libucxx", exact=True) }}
       run_constraints:
-        - cupy >=9.5.0
+        - cupy >=13.6.0
       ignore_run_exports:
         by_name:
           - cuda-cudart
