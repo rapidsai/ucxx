@@ -296,13 +296,10 @@ dependencies:
               cuda: "12.*"
             packages:
               - &numba_cuda_cu12 numba-cuda[cu12]>=0.19.0,<0.20.0a0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
-              cuda: "13.*"
             packages:
               - &numba_cuda_cu13 numba-cuda[cu13]>=0.19.0,<0.20.0a0
-          - matrix: # Fallback for no matrix
-            packages:
-              - *numba_cuda_cu13
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -318,11 +315,8 @@ dependencies:
               cuda: "12.*"
             packages:
               - *numba_cuda_cu12
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
-              cuda: "13.*"
-            packages:
-              - *numba_cuda_cu13
-          - matrix: # Fallback for no matrix
             packages:
               - *numba_cuda_cu13
   test_cpp:
@@ -358,13 +352,10 @@ dependencies:
               cuda: "12.*"
             packages:
               - cupy-cuda12x>=13.6.0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
-              cuda: "13.*"
             packages:
               - &cupy_cuda13 cupy-cuda13x>=13.6.0
-          - matrix:
-            packages:
-              - *cupy_cuda13
   depends_on_librmm:
     common:
       - output_types: conda
@@ -413,17 +404,28 @@ dependencies:
             packages:
               - rmm-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*rmm_unsuffixed]}
+  # TODO: re-include cudf on CUDA 13 here once cudf CUDA 13 packages exist
+  # ref: https://github.com/rapidsai/ucxx/pull/489#issuecomment-3207723017
   depends_on_cudf:
     common:
-      - output_types: conda
-        packages:
-          - &cudf_unsuffixed cudf==25.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
+      - output_types: [conda]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - &cudf_unsuffixed cudf==25.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+            packages:
+          - matrix:
+            packages:
+              - *cudf_unsuffixed
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
@@ -433,9 +435,7 @@ dependencies:
               - cudf-cu12==25.10.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
-              cuda_suffixed: "true"
             packages:
-              - cudf-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*cudf_unsuffixed]}
   depends_on_distributed_ucxx:
     common:
