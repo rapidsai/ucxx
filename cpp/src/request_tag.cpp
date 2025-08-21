@@ -43,12 +43,17 @@ std::shared_ptr<RequestTag> createRequestTag(
                  },
                  [&endpointOrWorker, &enablePythonFuture, &callbackFunction, &callbackData](
                    data::TagReceiveWithHandle tagReceiveWithHandle) {
-                   return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
-                                                                     tagReceiveWithHandle,
-                                                                     "tagRecvWithHandle",
-                                                                     enablePythonFuture,
-                                                                     callbackFunction,
-                                                                     callbackData));
+                   auto req = std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
+                                                                         tagReceiveWithHandle,
+                                                                         "tagRecvWithHandle",
+                                                                         enablePythonFuture,
+                                                                         callbackFunction,
+                                                                         callbackData));
+
+                   // Mark the handle as consumed since we're using it for the receive operation
+                   tagReceiveWithHandle._probeInfo->consume();
+
+                   return req;
                  },
                },
                requestData);
