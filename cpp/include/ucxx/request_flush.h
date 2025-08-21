@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -70,6 +70,13 @@ class RequestFlush : public Request {
    * status must be verified from the resulting request object to confirm the flush
    * operation has completed successfully.
    *
+   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
+   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
+   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
+   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
+   * in which case the callback will also execute immediately within the calling thread and
+   * before the method returns.
+   *
    * @throws ucxx::Error  `endpointOrWorker` is not a valid
    *                      `std::shared_ptr<ucxx::Endpoint>` or
    *                      `std::shared_ptr<ucxx::Worker>`.
@@ -111,7 +118,7 @@ class RequestFlush : public Request {
    * Callback executed by UCX when a flush request is completed, that will dispatch
    * `ucxx::Request::callback()`.
    *
-   * WARNING: This is not intended to be called by the user, but it currently needs to be
+   * @warning This is not intended to be called by the user, but it currently needs to be
    * a public method so that UCX may access it. In future changes this will be moved to
    * an internal object and remove this method from the public API.
    *

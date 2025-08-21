@@ -739,6 +739,13 @@ class Worker : public Component {
    * implementation has support for it. If a future is requested, the application must then
    * await on this future to ensure the transfer has completed.
    *
+   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
+   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
+   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
+   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
+   * in which case the callback will also execute immediately within the calling thread and
+   * before the method returns.
+   *
    * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
    *                              data will be stored.
    * @param[in] length            the size in bytes of the tag message to be received.
@@ -980,6 +987,13 @@ class Worker : public Component {
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
    * ensure the transfer has completed. Requires UCXX Python support.
+   *
+   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
+   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
+   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
+   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
+   * in which case the callback will also execute immediately within the calling thread and
+   * before the method returns.
    *
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
