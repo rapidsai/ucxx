@@ -530,6 +530,8 @@ dependencies:
           - matrix:
             packages:
               - ucx==1.19.0
+      # very tight >=x.x.x,<x.x.(x+1) on these wheel dependencies, instead of '==',
+      # to allow for installation of post release like 1.19.0.post1
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
