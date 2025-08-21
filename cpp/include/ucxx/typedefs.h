@@ -171,7 +171,7 @@ typedef uint64_t AmReceiverCallbackIdType;
  * A string type representing the serialized form of an Active Message receiver callback's
  * information, used for transmission and storage.
  */
-typedef const std::string AmReceiverCallbackInfoSerialized;
+typedef const std::string& AmReceiverCallbackInfoSerialized;
 
 /**
  * @brief Information of an Active Message receiver callback.

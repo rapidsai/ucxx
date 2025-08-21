@@ -135,7 +135,7 @@ std::shared_ptr<RequestAm> createRequestAm(
 
 RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
                      const std::variant<data::AmSend, data::AmReceive> requestData,
-                     const std::string operationName,
+                     const std::string& operationName,
                      const bool enablePythonFuture,
                      RequestCallbackUserFunction callbackFunction,
                      RequestCallbackUserData callbackData)

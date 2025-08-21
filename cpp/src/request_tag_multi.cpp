@@ -27,7 +27,7 @@ BufferRequest::~BufferRequest() { ucxx_trace_req("ucxx::BufferRequest destroyed:
 RequestTagMulti::RequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
-  const std::string operationName,
+  const std::string& operationName,
   const bool enablePythonFuture)
   : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
 {
@@ -84,7 +84,7 @@ std::shared_ptr<RequestTagMulti> createRequestTagMulti(
 }
 
 static TagPair checkAndGetTagPair(const data::RequestData& requestData,
-                                  const std::string methodName)
+                                  const std::string& methodName)
 {
   return std::visit(
     data::dispatch{

@@ -78,7 +78,7 @@ class Request : public Component {
    */
   Request(std::shared_ptr<Component> endpointOrWorker,
           const data::RequestData requestData,
-          const std::string operationName,
+          const std::string& operationName,
           const bool enablePythonFuture                = false,
           RequestCallbackUserFunction callbackFunction = nullptr,
           RequestCallbackUserData callbackData         = nullptr);

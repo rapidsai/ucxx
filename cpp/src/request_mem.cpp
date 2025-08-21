@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -45,7 +45,7 @@ std::shared_ptr<RequestMem> createRequestMem(
 
 RequestMem::RequestMem(std::shared_ptr<Endpoint> endpoint,
                        const std::variant<data::MemPut, data::MemGet> requestData,
-                       const std::string operationName,
+                       const std::string& operationName,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)

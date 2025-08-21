@@ -48,7 +48,7 @@ class RequestEndpointClose : public Request {
    */
   RequestEndpointClose(std::shared_ptr<Endpoint> endpoint,
                        const data::EndpointClose requestData,
-                       const std::string operationName,
+                       const std::string& operationName,
                        const bool enablePythonFuture                = false,
                        RequestCallbackUserFunction callbackFunction = nullptr,
                        RequestCallbackUserData callbackData         = nullptr);
