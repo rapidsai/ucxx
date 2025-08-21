@@ -5,15 +5,18 @@
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <string>
 #include <tuple>
 #include <ucp/api/ucp.h>
 #include <ucs/type/status.h>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
+#include <ucxx/request_am.h>
 
 #include "include/utils.h"
 #include "ucxx/buffer.h"
@@ -32,8 +35,8 @@ using ::testing::Values;
 
 typedef std::vector<int> DataContainerType;
 
-class RequestTest : public ::testing::TestWithParam<
-                      std::tuple<ucxx::BufferType, bool, bool, ProgressMode, size_t>> {
+class RequestTestBase : public ::testing::TestWithParam<
+                          std::tuple<ucxx::BufferType, bool, bool, ProgressMode, size_t>> {
  protected:
   std::shared_ptr<ucxx::Context> _context{nullptr};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
@@ -163,7 +166,14 @@ class RequestTest : public ::testing::TestWithParam<
   }
 };
 
-TEST_P(RequestTest, ProgressAm)
+class RequestTestAmAllocator : public RequestTestBase {};
+
+class RequestTestNoAmAllocator : public RequestTestBase {};
+
+// Limited test suite specifically for user header functionality to reduce test runtime
+class RequestTestAmUserHeader : public RequestTestBase {};
+
+TEST_P(RequestTestAmAllocator, ProgressAm)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -202,7 +212,7 @@ TEST_P(RequestTest, ProgressAm)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressAmReceiverCallback)
+TEST_P(RequestTestAmAllocator, ProgressAmReceiverCallback)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -228,7 +238,8 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
   // Define AM receiver callback and register with worker
   std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
   auto callback = ucxx::AmReceiverCallbackType(
-    [this, &receivedRequests, &mutex](std::shared_ptr<ucxx::Request> req, ucp_ep_h) {
+    [this, &receivedRequests, &mutex](
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h, const ucxx::AmReceiverCallbackInfo&) {
       {
         std::lock_guard<std::mutex> lock(mutex);
         receivedRequests.push_back(req);
@@ -264,7 +275,368 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressStream)
+TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceive)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if !UCXX_ENABLE_RMM
+    GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
+    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+      return std::make_shared<ucxx::RMMBuffer>(length);
+    });
+#endif
+  }
+
+  // Define AM receiver callback's owner and id for callback with delayReceive enabled
+  ucxx::AmReceiverCallbackInfo receiverCallbackInfo("TestApp", 0, true);  // delayReceive = true
+
+  // Mutex required for blocking progress mode
+  std::mutex mutex;
+
+  // Storage for the received request and receive operation
+  std::shared_ptr<ucxx::Request> receivedRequest{nullptr};
+  std::shared_ptr<ucxx::Buffer> manualRecvBuffer{nullptr};
+  std::unique_ptr<uint8_t[]> rawBuffer{nullptr};
+  std::shared_ptr<ucxx::Request> receiveDataRequest{nullptr};
+
+  // Define AM receiver callback and register with worker
+  auto callback = ucxx::AmReceiverCallbackType(
+    [this, &receivedRequest, &manualRecvBuffer, &rawBuffer, &receiveDataRequest, &mutex](
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h, const ucxx::AmReceiverCallbackInfo&) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        receivedRequest = req;
+
+        // Cast to RequestAm to access receiveData() method
+        auto requestAm = std::dynamic_pointer_cast<ucxx::RequestAm>(req);
+        ASSERT_NE(requestAm, nullptr) << "Request should be a RequestAm for AM operations";
+
+        // Check if this is a delayed receive operation
+        if (requestAm->isDelayedReceive()) {
+          // Delayed receive: use getAmDataLength() and receiveData() API
+          size_t messageLength = requestAm->getAmDataLength();
+          ASSERT_GT(messageLength, 0)
+            << "AM data length should be greater than 0 for delayed receive";
+          ASSERT_EQ(messageLength, _messageSize)
+            << "AM data length should match the sent message size";
+
+          // Allocate buffer based on the actual message length
+          if (_memoryType == UCS_MEMORY_TYPE_HOST) {
+            manualRecvBuffer = std::make_shared<ucxx::HostBuffer>(messageLength);
+#if UCXX_ENABLE_RMM
+          } else if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
+            manualRecvBuffer = std::make_shared<ucxx::RMMBuffer>(messageLength);
+#endif
+          } else {
+            FAIL() << "Unsupported memory type for test";
+          }
+
+          // Test both receiveData APIs: managed buffer and raw pointer
+          // First test null pointer validation for raw pointer API
+          EXPECT_THROW(std::ignore = requestAm->receiveData(nullptr), std::runtime_error);
+
+          // Use the managed buffer receiveData() API
+          receiveDataRequest = requestAm->receiveData(manualRecvBuffer);
+          ASSERT_NE(receiveDataRequest, nullptr)
+            << "receiveData with managed buffer should return a valid request for delayed receive";
+        } else {
+          // Immediate/eager receive: data is already available via getRecvBuffer()
+          manualRecvBuffer = requestAm->getRecvBuffer();
+          ASSERT_NE(manualRecvBuffer, nullptr)
+            << "getRecvBuffer should return valid buffer for immediate receive";
+          ASSERT_EQ(manualRecvBuffer->getSize(), _messageSize)
+            << "Received buffer size should match sent message size";
+
+          // For immediate receives, there's no additional request to wait on
+          receiveDataRequest = nullptr;
+        }
+      }
+    });
+  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+
+  allocate(1, false);
+
+  // Submit and wait for transfers to complete
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
+  waitRequests(_worker, requests, _progressWorker);
+
+  // Wait for the AM receiver callback to be called
+  while (receivedRequest == nullptr)
+    _progressWorker();
+
+  // Cast to check the receive type
+  auto requestAm = std::dynamic_pointer_cast<ucxx::RequestAm>(receivedRequest);
+  ASSERT_NE(requestAm, nullptr);
+
+  if (requestAm->isDelayedReceive()) {
+    // For delayed receive: wait for receiveData request to be created and completed
+    while (receiveDataRequest == nullptr)
+      _progressWorker();
+
+    // Wait for the receive data request to complete
+    while (!receiveDataRequest->isCompleted())
+      _progressWorker();
+
+    // Verify receive data request completed successfully
+    ASSERT_TRUE(receiveDataRequest->isCompleted()) << "Receive data request should be completed";
+    ASSERT_EQ(receiveDataRequest->getStatus(), UCS_OK)
+      << "Receive data request should complete without error";
+  }
+  // For immediate receives, no additional waiting needed - data is already available
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+
+    // Cast to RequestAm to verify it's the correct type
+    auto requestAm = std::dynamic_pointer_cast<ucxx::RequestAm>(receivedRequest);
+    ASSERT_NE(requestAm, nullptr) << "Request should be a RequestAm for AM operations";
+
+    if (requestAm->isDelayedReceive()) {
+      // Verify that the original delayed receive request has no regular receive buffer
+      ASSERT_EQ(requestAm->getRecvBuffer(), nullptr)
+        << "Delayed receive request should not have a receive buffer";
+
+      // Verify we have the manually received data
+      ASSERT_NE(manualRecvBuffer, nullptr) << "Manual receive buffer should be allocated";
+
+      // Verify buffer type matches expectation for delayed receive
+      ASSERT_THAT(manualRecvBuffer->getType(),
+                  (_memoryType == UCS_MEMORY_TYPE_CUDA) ? _bufferType : ucxx::BufferType::Host);
+    } else {
+      // For immediate receives, the buffer should be available from getRecvBuffer()
+      ASSERT_NE(manualRecvBuffer, nullptr) << "Immediate receive buffer should be available";
+      ASSERT_EQ(manualRecvBuffer, requestAm->getRecvBuffer())
+        << "Buffer should match the one from getRecvBuffer()";
+
+      // Verify buffer type matches expectation for immediate receive
+      ASSERT_THAT(manualRecvBuffer->getType(),
+                  (_messageSize >= _rndvThresh && _memoryType == UCS_MEMORY_TYPE_CUDA)
+                    ? _bufferType
+                    : ucxx::BufferType::Host);
+    }
+
+    // Set up the received data for verification
+    _recvPtr[0] = manualRecvBuffer->data();
+  }
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTestNoAmAllocator, ProgressAmReceiverCallbackDelayedReceiveRawPointer)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if !UCXX_ENABLE_RMM
+    GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
+    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+      return std::make_shared<ucxx::RMMBuffer>(length);
+    });
+#endif
+  }
+
+  // Only test with larger messages to ensure rendezvous/delayed receive
+  if (_messageSize < _rndvThresh) {
+    GTEST_SKIP() << "Test only runs with rendezvous messages for delayed receive";
+  }
+
+  // Define AM receiver callback with delayReceive enabled
+  ucxx::AmReceiverCallbackInfo receiverCallbackInfo("TestAppRaw", 0, true);
+
+  std::mutex mutex;
+  std::shared_ptr<ucxx::Request> receivedRequest{nullptr};
+  std::unique_ptr<uint8_t[]> rawBuffer{nullptr};
+  std::shared_ptr<ucxx::Request> receiveDataRequest{nullptr};
+
+  auto callback = ucxx::AmReceiverCallbackType(
+    [this, &receivedRequest, &rawBuffer, &receiveDataRequest, &mutex](
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h, const ucxx::AmReceiverCallbackInfo&) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        receivedRequest = req;
+
+        auto requestAm = std::dynamic_pointer_cast<ucxx::RequestAm>(req);
+        ASSERT_NE(requestAm, nullptr);
+
+        if (requestAm->isDelayedReceive()) {
+          size_t messageLength = requestAm->getAmDataLength();
+          ASSERT_EQ(messageLength, _messageSize);
+
+          // Allocate raw buffer and test the raw pointer receiveData API
+          rawBuffer          = std::make_unique<uint8_t[]>(messageLength);
+          receiveDataRequest = requestAm->receiveData(rawBuffer.get());
+          ASSERT_NE(receiveDataRequest, nullptr);
+        } else {
+          FAIL() << "Expected delayed receive operation";
+        }
+      }
+    });
+
+  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+  allocate(1, false);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (receivedRequest == nullptr)
+    _progressWorker();
+  while (receiveDataRequest == nullptr)
+    _progressWorker();
+  while (!receiveDataRequest->isCompleted())
+    _progressWorker();
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    ASSERT_TRUE(receiveDataRequest->isCompleted());
+    ASSERT_EQ(receiveDataRequest->getStatus(), UCS_OK);
+    _recvPtr[0] = rawBuffer.get();
+  }
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTestAmUserHeader, ProgressAmReceiverCallbackWithUserHeader)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if !UCXX_ENABLE_RMM
+    GTEST_SKIP() << "UCXX was not built with RMM support";
+#else
+    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+      return std::make_shared<ucxx::RMMBuffer>(length);
+    });
+#endif
+  }
+
+  // Create user header data - test different data types
+  std::string userHeaderString = "Hello from user header!";
+  ucxx::AmUserHeader userHeader(userHeaderString);
+  std::optional<ucxx::AmUserHeader> receivedUserHeader = std::nullopt;
+
+  // Define AM receiver callback's owner and id with user header
+  ucxx::AmReceiverCallbackInfo receiverCallbackInfo("TestAppWithHeader", 42, false, userHeader);
+
+  // Mutex required for blocking progress mode, otherwise `receivedRequests` may be
+  // accessed before `push_back()` completed.
+  std::mutex mutex;
+
+  // Define AM receiver callback and register with worker
+  std::vector<std::shared_ptr<ucxx::Request>> receivedRequests;
+  auto callback = ucxx::AmReceiverCallbackType(
+    [this, &receivedRequests, &mutex, &receivedUserHeader](
+      std::shared_ptr<ucxx::Request> req, ucp_ep_h, ucxx::AmReceiverCallbackInfo& info) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        receivedRequests.push_back(req);
+        // auto userHeader = std::move(info.userHeader);
+        receivedUserHeader = std::move(info.userHeader);
+      }
+    });
+
+  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+
+  allocate(1, false);
+
+  // Submit and wait for transfers to complete
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (receivedRequests.size() < 1)
+    _progressWorker();
+
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    _recvPtr[0] = receivedRequests[0]->getRecvBuffer()->data();
+
+    // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
+    // smaller messages are eager and will always be host-allocated.
+    ASSERT_THAT(receivedRequests[0]->getRecvBuffer()->getType(),
+                (_registerCustomAmAllocator && _messageSize >= _rndvThresh)
+                  ? _bufferType
+                  : ucxx::BufferType::Host);
+  }
+
+  copyResults();
+
+  // Assert header and data correctness
+  ASSERT_EQ(receivedUserHeader->asString(), userHeaderString);
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST(AmUserHeaderTest, Validation)
+{
+  // Test that AmUserHeader constructors properly validate input
+
+  // Test valid constructions (should not throw)
+  ASSERT_NO_THROW([]() { ucxx::AmUserHeader h("test"); }());
+  ASSERT_NO_THROW([]() {
+    std::string s = "test";
+    ucxx::AmUserHeader h(s);
+  }());
+  ASSERT_NO_THROW([]() {
+    std::vector<uint8_t> data(3, 0);
+    ucxx::AmUserHeader h(data);
+  }());
+  ASSERT_NO_THROW([]() {
+    std::vector<uint8_t> data(3, 0);
+    ucxx::AmUserHeader h(std::move(data));
+  }());
+  ASSERT_NO_THROW([]() {
+    int value = 42;
+    ucxx::AmUserHeader h(value);
+  }());
+  ASSERT_NO_THROW([]() { ucxx::AmUserHeader h("test", 4); }());
+
+  // Test invalid constructions (should throw)
+  EXPECT_THROW([]() { ucxx::AmUserHeader h(std::string("")); }(), std::invalid_argument);
+  EXPECT_THROW(
+    []() {
+      std::string empty = "";
+      ucxx::AmUserHeader h(empty);
+    }(),
+    std::invalid_argument);
+  EXPECT_THROW(
+    []() {
+      std::vector<uint8_t> emptyVec;
+      ucxx::AmUserHeader h(emptyVec);
+    }(),
+    std::invalid_argument);
+  EXPECT_THROW(
+    []() {
+      std::vector<uint8_t> emptyVec;
+      ucxx::AmUserHeader h(std::move(emptyVec));
+    }(),
+    std::invalid_argument);
+  EXPECT_THROW([]() { ucxx::AmUserHeader h(nullptr, 5); }(), std::invalid_argument);
+  EXPECT_THROW([]() { ucxx::AmUserHeader h("test", 0); }(), std::invalid_argument);
+  EXPECT_THROW([]() { ucxx::AmUserHeader h("", 0); }(), std::invalid_argument);
+
+  // Test data access works correctly
+  std::string testStr = "Hello";
+  ucxx::AmUserHeader header(testStr);
+  ASSERT_EQ(header.size(), 5);
+  ASSERT_EQ(header.asString(), "Hello");
+  ASSERT_FALSE(header.empty());
+}
+
+TEST_P(RequestTestNoAmAllocator, ProgressStream)
 {
   allocate();
 
@@ -285,7 +657,7 @@ TEST_P(RequestTest, ProgressStream)
   }
 }
 
-TEST_P(RequestTest, ProgressTag)
+TEST_P(RequestTestNoAmAllocator, ProgressTag)
 {
   allocate();
 
@@ -301,7 +673,7 @@ TEST_P(RequestTest, ProgressTag)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressTagMulti)
+TEST_P(RequestTestNoAmAllocator, ProgressTagMulti)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -348,7 +720,7 @@ TEST_P(RequestTest, ProgressTagMulti)
     ASSERT_THAT(_recv[i], ContainerEq(_send[i]));
 }
 
-TEST_P(RequestTest, TagUserCallback)
+TEST_P(RequestTestNoAmAllocator, TagUserCallback)
 {
   allocate();
 
@@ -382,7 +754,7 @@ TEST_P(RequestTest, TagUserCallback)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, TagUserCallbackDiscardReturn)
+TEST_P(RequestTestNoAmAllocator, TagUserCallbackDiscardReturn)
 {
   allocate();
 
@@ -423,7 +795,7 @@ TEST_P(RequestTest, TagUserCallbackDiscardReturn)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryGet)
+TEST_P(RequestTestNoAmAllocator, MemoryGet)
 {
   allocate();
 
@@ -450,7 +822,7 @@ TEST_P(RequestTest, MemoryGet)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryGetPreallocated)
+TEST_P(RequestTestNoAmAllocator, MemoryGetPreallocated)
 {
   allocate();
 
@@ -473,7 +845,7 @@ TEST_P(RequestTest, MemoryGetPreallocated)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryGetWithOffset)
+TEST_P(RequestTestNoAmAllocator, MemoryGetWithOffset)
 {
   if (_messageLength < 2) GTEST_SKIP() << "Message too small to perform operations with offsets";
   allocate();
@@ -509,7 +881,7 @@ TEST_P(RequestTest, MemoryGetWithOffset)
   ASSERT_THAT(recvOffset, sendOffset);
 }
 
-TEST_P(RequestTest, MemoryPut)
+TEST_P(RequestTestNoAmAllocator, MemoryPut)
 {
   allocate();
 
@@ -536,7 +908,7 @@ TEST_P(RequestTest, MemoryPut)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryPutPreallocated)
+TEST_P(RequestTestNoAmAllocator, MemoryPutPreallocated)
 {
   allocate();
 
@@ -559,7 +931,7 @@ TEST_P(RequestTest, MemoryPutPreallocated)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, MemoryPutWithOffset)
+TEST_P(RequestTestNoAmAllocator, MemoryPutWithOffset)
 {
   if (_messageLength < 2) GTEST_SKIP() << "Message too small to perform operations with offsets";
   allocate();
@@ -595,8 +967,56 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   ASSERT_THAT(recvOffset, sendOffset);
 }
 
-INSTANTIATE_TEST_SUITE_P(ProgressModes,
-                         RequestTest,
+// Custom naming function for parameterized tests
+std::string generateTestName(
+  const ::testing::TestParamInfo<std::tuple<ucxx::BufferType, bool, bool, ProgressMode, size_t>>&
+    info)
+{
+  auto [bufferType,
+        registerCustomAmAllocator,
+        enableDelayedSubmission,
+        progressMode,
+        messageLength] = info.param;
+
+  std::string name;
+
+  // Buffer type
+  name += (bufferType == ucxx::BufferType::Host) ? "Host" : "RMM";
+
+  // Custom AM allocator
+  if (registerCustomAmAllocator) { name += "_CustomAmAlloc"; }
+
+  // Delayed submission
+  if (enableDelayedSubmission) { name += "_DelayedSubmission"; }
+
+  // Progress mode
+  name += "_";
+  switch (progressMode) {
+    case ProgressMode::Polling: name += "Polling"; break;
+    case ProgressMode::Blocking: name += "Blocking"; break;
+    case ProgressMode::Wait: name += "Wait"; break;
+    case ProgressMode::ThreadPolling: name += "ThreadPolling"; break;
+    case ProgressMode::ThreadBlocking: name += "ThreadBlocking"; break;
+  }
+
+  // Message length
+  name += "_Msg";
+  if (messageLength == 0) {
+    name += "Empty";
+  } else if (messageLength >= 1048576) {
+    name += "1MB";
+  } else if (messageLength >= 1024) {
+    name += std::to_string(messageLength / 1024) + "KB";
+  } else {
+    name += std::to_string(messageLength) + "B";
+  }
+
+  return name;
+}
+
+// Tests that support custom AM allocator
+INSTANTIATE_TEST_SUITE_P(HostProgressModes,
+                         RequestTestAmAllocator,
                          Combine(Values(ucxx::BufferType::Host),
                                  Values(false),
                                  Values(false),
@@ -605,19 +1025,21 @@ INSTANTIATE_TEST_SUITE_P(ProgressModes,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 
-INSTANTIATE_TEST_SUITE_P(DelayedSubmission,
-                         RequestTest,
+INSTANTIATE_TEST_SUITE_P(HostDelayedSubmission,
+                         RequestTestAmAllocator,
                          Combine(Values(ucxx::BufferType::Host),
                                  Values(false),
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 
 #if UCXX_ENABLE_RMM
 INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
-                         RequestTest,
+                         RequestTestAmAllocator,
                          Combine(Values(ucxx::BufferType::RMM),
                                  Values(false, true),
                                  Values(false),
@@ -626,15 +1048,85 @@ INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
                                         // ProgressMode::Wait,  // Hangs on Stream
                                         ProgressMode::ThreadPolling,
                                         ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
 
 INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
-                         RequestTest,
+                         RequestTestAmAllocator,
                          Combine(Values(ucxx::BufferType::RMM),
                                  Values(false, true),
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
-                                 Values(0, 1, 1024, 2048, 1048576)));
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
+#endif
+
+// Tests that do NOT support custom AM allocator (always false for _registerCustomAmAllocator)
+INSTANTIATE_TEST_SUITE_P(HostProgressModes,
+                         RequestTestNoAmAllocator,
+                         Combine(Values(ucxx::BufferType::Host),
+                                 Values(false),  // Never use custom AM allocator for these tests
+                                 Values(false),
+                                 Values(ProgressMode::Polling,
+                                        ProgressMode::Blocking,
+                                        // ProgressMode::Wait,  // Hangs on Stream
+                                        ProgressMode::ThreadPolling,
+                                        ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
+
+INSTANTIATE_TEST_SUITE_P(HostDelayedSubmission,
+                         RequestTestNoAmAllocator,
+                         Combine(Values(ucxx::BufferType::Host),
+                                 Values(false),  // Never use custom AM allocator for these tests
+                                 Values(true),
+                                 Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
+
+#if UCXX_ENABLE_RMM
+INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
+                         RequestTestNoAmAllocator,
+                         Combine(Values(ucxx::BufferType::RMM),
+                                 Values(false),  // Never use custom AM allocator for these tests
+                                 Values(false),
+                                 Values(ProgressMode::Polling,
+                                        ProgressMode::Blocking,
+                                        // ProgressMode::Wait,  // Hangs on Stream
+                                        ProgressMode::ThreadPolling,
+                                        ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
+
+INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
+                         RequestTestNoAmAllocator,
+                         Combine(Values(ucxx::BufferType::RMM),
+                                 Values(false),  // Never use custom AM allocator for these tests
+                                 Values(true),
+                                 Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)),
+                         generateTestName);
+#endif
+
+// Limited parameter set for user header tests - only test single message size
+INSTANTIATE_TEST_SUITE_P(UserHeaderLimited,
+                         RequestTestAmUserHeader,
+                         Combine(Values(ucxx::BufferType::Host),
+                                 Values(false),
+                                 Values(false),
+                                 Values(ProgressMode::Polling, ProgressMode::Blocking),
+                                 Values(1024)),  // Only test with 1024 byte messages
+                         generateTestName);
+
+#if UCXX_ENABLE_RMM
+INSTANTIATE_TEST_SUITE_P(UserHeaderLimitedRMM,
+                         RequestTestAmUserHeader,
+                         Combine(Values(ucxx::BufferType::RMM),
+                                 Values(false),
+                                 Values(false),
+                                 Values(ProgressMode::Polling, ProgressMode::Blocking),
+                                 Values(1024)),  // Only test with 1024 byte message5
+                         generateTestName);
 #endif
 
 }  // namespace
