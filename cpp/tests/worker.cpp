@@ -191,7 +191,7 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
     _worker->progress();
   }
 
-  EXPECT_EQ(recv_buf[0], buf[0]);
+  EXPECT_EQ(recv_buf, buf);
 }
 
 TEST_F(WorkerTest, TagProbeUnconsumedWarning)
