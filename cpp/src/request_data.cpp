@@ -80,13 +80,13 @@ TagReceive::TagReceive(void* buffer,
 }
 
 TagReceiveWithHandle::TagReceiveWithHandle(void* buffer, std::shared_ptr<TagProbeInfo> probeInfo)
-  : _buffer(buffer), _probeInfo(probeInfo)
+  : _buffer(buffer), _probeInfo(std::move(probeInfo))
 {
-  if (buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
-  if (!probeInfo->matched) throw std::runtime_error("TagProbeInfo must be matched.");
-  if (!probeInfo->info.has_value())
+  if (_buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
+  if (!_probeInfo->matched) throw std::runtime_error("TagProbeInfo must be matched.");
+  if (!_probeInfo->info.has_value())
     throw std::runtime_error("TagProbeInfo must contain valid info.");
-  if (!probeInfo->handle.has_value() || *probeInfo->handle == nullptr)
+  if (!_probeInfo->handle.has_value() || *_probeInfo->handle == nullptr)
     throw std::runtime_error("TagProbeInfo must contain valid handle.");
 }
 
