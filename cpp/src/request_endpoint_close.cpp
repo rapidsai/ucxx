@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -41,8 +42,12 @@ RequestEndpointClose::RequestEndpointClose(std::shared_ptr<Endpoint> endpoint,
                                            const bool enablePythonFuture,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
-  : Request(
-      endpoint, requestData, operationName, enablePythonFuture, callbackFunction, callbackData)
+  : Request(endpoint,
+            requestData,
+            std::move(operationName),
+            enablePythonFuture,
+            callbackFunction,
+            callbackData)
 {
   if (_endpoint == nullptr && _worker == nullptr)
     throw ucxx::Error("A valid endpoint or worker is required for a close operation.");

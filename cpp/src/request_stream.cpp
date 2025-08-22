@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -16,7 +17,8 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
                              const std::variant<data::StreamSend, data::StreamReceive> requestData,
                              const std::string& operationName,
                              const bool enablePythonFuture)
-  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
+  : Request(
+      endpoint, data::getRequestData(requestData), std::move(operationName), enablePythonFuture)
 {
   std::visit(data::dispatch{
                [this](data::StreamSend) {

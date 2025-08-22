@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -41,7 +42,7 @@ RequestFlush::RequestFlush(std::shared_ptr<Component> endpointOrWorker,
                            RequestCallbackUserData callbackData)
   : Request(endpointOrWorker,
             requestData,
-            operationName,
+            std::move(operationName),
             enablePythonFuture,
             callbackFunction,
             callbackData)

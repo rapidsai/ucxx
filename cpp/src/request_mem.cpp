@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -51,7 +52,7 @@ RequestMem::RequestMem(std::shared_ptr<Endpoint> endpoint,
                        RequestCallbackUserData callbackData)
   : Request(endpoint,
             data::getRequestData(requestData),
-            operationName,
+            std::move(operationName),
             enablePythonFuture,
             callbackFunction,
             callbackData)

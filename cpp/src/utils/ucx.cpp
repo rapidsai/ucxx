@@ -1,8 +1,9 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <string>
+#include <utility>
 
 #include <ucs/type/status.h>
 #include <ucxx/exception.h>
@@ -14,7 +15,7 @@ namespace utils {
 
 void ucsErrorThrow(const ucs_status_t status, const std::string& userMessage)
 {
-  std::string message = userMessage.empty() ? ucs_status_string(status) : userMessage;
+  std::string message = userMessage.empty() ? ucs_status_string(status) : std::move(userMessage);
 
   switch (status) {
     case UCS_OK: return;

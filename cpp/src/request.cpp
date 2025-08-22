@@ -6,6 +6,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -23,7 +24,7 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
                  RequestCallbackUserFunction callbackFunction,
                  RequestCallbackUserData callbackData)
   : _requestData(requestData),
-    _operationName(operationName),
+    _operationName(std::move(operationName)),
     _enablePythonFuture(enablePythonFuture),
     _callback(callbackFunction),
     _callbackData(callbackData)

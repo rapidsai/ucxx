@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
@@ -141,7 +142,7 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
                      RequestCallbackUserData callbackData)
   : Request(endpointOrWorker,
             data::getRequestData(requestData),
-            operationName,
+            std::move(operationName),
             enablePythonFuture,
             callbackFunction,
             callbackData)

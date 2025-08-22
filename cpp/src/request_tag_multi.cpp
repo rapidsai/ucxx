@@ -29,7 +29,8 @@ RequestTagMulti::RequestTagMulti(
   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
   const std::string& operationName,
   const bool enablePythonFuture)
-  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
+  : Request(
+      endpoint, data::getRequestData(requestData), std::move(operationName), enablePythonFuture)
 {
   auto worker = endpoint->getWorker();
   if (enablePythonFuture) _future = worker->getFuture();

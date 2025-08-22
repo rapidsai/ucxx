@@ -17,7 +17,7 @@ namespace ucxx {
 RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(const std::string& name,
                                                                        const bool enabled)
   : BaseDelayedSubmissionCollection<
-      std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>{name, enabled}
+      std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>{std::move(name), enabled}
 {
 }
 
@@ -39,7 +39,7 @@ void RequestDelayedSubmissionCollection::processItem(
 }
 
 GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(const std::string& name)
-  : BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType>{name, true}
+  : BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType>{std::move(name), true}
 {
 }
 

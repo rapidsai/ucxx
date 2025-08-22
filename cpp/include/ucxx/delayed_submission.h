@@ -94,7 +94,7 @@ class BaseDelayedSubmissionCollection {
    *                    implementations.
    */
   explicit BaseDelayedSubmissionCollection(const std::string& name, const bool enabled)
-    : _name{name}, _enabled{enabled}
+    : _name{std::move(name)}, _enabled{enabled}
   {
   }
 

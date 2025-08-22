@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -61,7 +62,7 @@ RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                        RequestCallbackUserData callbackData)
   : Request(endpointOrWorker,
             data::getRequestData(requestData),
-            operationName,
+            std::move(operationName),
             enablePythonFuture,
             callbackFunction,
             callbackData)

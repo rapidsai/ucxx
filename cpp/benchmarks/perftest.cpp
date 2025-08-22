@@ -99,7 +99,10 @@ struct TestAttributes {
                  TestType testType,
                  const std::string& description,
                  const std::string& category)
-    : commandType(commandType), testType(testType), description(description), category(category)
+    : commandType(commandType),
+      testType(testType),
+      description(std::move(description)),
+      category(std::move(category))
   {
   }
 
