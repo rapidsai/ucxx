@@ -13,6 +13,9 @@
 
 namespace ucxx {
 
+// Forward declaration for friend access
+class RequestTag;
+
 /**
  * @brief Information about probed tag message.
  *
@@ -85,14 +88,6 @@ class TagProbeInfo {
   ucp_tag_message_h getHandle() const;
 
   /**
-   * @brief Mark the handle as consumed.
-   *
-   * Call this method after the handle has been used to receive the message,
-   * preventing the destructor from issuing a warning about unconsumed handles.
-   */
-  void consume() const;
-
-  /**
    * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
    *
    * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
@@ -124,6 +119,9 @@ class TagProbeInfo {
   friend std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
                                                           ucp_tag_message_h handle);
 
+  // Allow RequestTag to consume the handle
+  friend class RequestTag;
+
  private:
   const bool _matched{false};  ///< Whether a message was matched
   const std::optional<TagRecvInfo> _info{
@@ -131,6 +129,14 @@ class TagProbeInfo {
   const std::optional<ucp_tag_message_h> _handle{
     std::nullopt};                             ///< Message handle (only valid if matched=true)
   mutable std::atomic<bool> _consumed{false};  ///< Whether the message has been consumed
+
+  /**
+   * @brief Mark the handle as consumed.
+   *
+   * This method is private and can only be called by RequestTag via friend access.
+   * It's called automatically when the handle is used for a UCP operation.
+   */
+  void consume() const;
 
   /**
    * @brief Private constructor of `ucxx::TagProbeInfo`.

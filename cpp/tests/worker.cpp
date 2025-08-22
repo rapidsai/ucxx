@@ -239,16 +239,22 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
     return probed->isMatched();
   });
 
-  // Create a TagProbeInfo with a handle and consume it
-  // This should NOT trigger a warning in the destructor
+  // Create a TagProbeInfo with a handle and use it with tagRecvWithHandle
+  // This should consume the handle and NOT trigger a warning in the destructor
   {
     auto probe = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
     EXPECT_TRUE(probe->isMatched());
     EXPECT_NO_THROW(probe->getHandle());
 
-    // Consume the handle to prevent the warning
-    probe->consume();
-    // probe goes out of scope here, but handle is marked as consumed
+    // Actually use the handle via tagRecvWithHandle to consume it properly
+    std::vector<int> recv_buf(1);
+    auto recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe);
+
+    // Progress until message is received
+    while (!recv_req->isCompleted()) {
+      _worker->progress();
+    }
+    // probe goes out of scope here, but handle has been consumed via tagRecvWithHandle
   }
 }
 

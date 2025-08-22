@@ -192,7 +192,6 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         cpp_bool isMatched()
         TagRecvInfo& getInfo() except +
         ucp_tag_message_h getHandle() except +
-        void consume()
 
     cdef cppclass AmReceiverCallbackInfo:
         pass
