@@ -22,6 +22,7 @@
 #include <ucxx/request_am.h>
 #include <ucxx/request_flush.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/file_descriptor.h>
@@ -575,48 +576,6 @@ void Worker::removeInflightRequest(const Request* const request)
     _inflightRequests->remove(request);
   }
 }
-
-TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
-  : senderTag(Tag(info.sender_tag)), length(info.length)
-{
-}
-
-TagProbeInfo::TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle)
-  : matched(true),
-    info(TagRecvInfo(info)),
-    handle(handle != nullptr ? std::optional<ucp_tag_message_h>(handle) : std::nullopt),
-    consumed(false)
-{
-}
-
-std::shared_ptr<TagProbeInfo> createTagProbeInfo()
-{
-  return std::shared_ptr<TagProbeInfo>(new TagProbeInfo());
-}
-
-std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
-                                                 ucp_tag_message_h handle)
-{
-  return std::shared_ptr<TagProbeInfo>(new TagProbeInfo(info, handle));
-}
-
-TagProbeInfo::~TagProbeInfo()
-{
-  // Check if handle is populated and has not been consumed
-  if (matched && handle.has_value() && handle.value() != nullptr && !consumed) {
-    ucxx_warn(
-      "ucxx::TagProbeInfo::%s, destroying %p unconsumed message handle %p detected from tag 0x%lx "
-      "with "
-      "length %lu. ucxx::Worker::tagRecvWithHandle() must be called to consume the handle.",
-      __func__,
-      this,
-      handle.value(),
-      info.value().senderTag,
-      info.value().length);
-  }
-}
-
-void TagProbeInfo::consume() const { consumed = true; }
 
 std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
                                                const TagMask tagMask,

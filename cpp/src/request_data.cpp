@@ -4,12 +4,14 @@
  */
 #include <memory>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
 
 #include <ucp/api/ucp_def.h>
 #include <ucxx/request_data.h>
+#include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {

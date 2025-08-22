@@ -147,6 +147,7 @@ add_library(
   src/request_stream.cpp
   src/request_tag.cpp
   src/request_tag_multi.cpp
+  src/tag_probe.cpp
   src/worker.cpp
   src/worker_progress_thread.cpp
   src/utils/callback_notifier.cpp

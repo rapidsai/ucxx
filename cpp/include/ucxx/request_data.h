@@ -11,6 +11,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
