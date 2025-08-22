@@ -111,7 +111,7 @@ TEST_F(WorkerTest, TagProbe)
   auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
 
   auto probed = _worker->tagProbe(ucxx::Tag{0});
-  ASSERT_FALSE(probed->matched);
+  ASSERT_FALSE(probed->isMatched());
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -121,29 +121,24 @@ TEST_F(WorkerTest, TagProbe)
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
     progressWorker();
     auto probed = _worker->tagProbe(ucxx::Tag{0});
-    return probed->matched;
+    return probed->isMatched();
   });
 
   auto probed2 = _worker->tagProbe(ucxx::Tag{0});
-  ASSERT_TRUE(probed2->matched);
-  ASSERT_TRUE(probed2->info.has_value());
-  ASSERT_EQ(probed2->info->senderTag, ucxx::Tag{0});
-  ASSERT_EQ(probed2->info->length, buf.size() * sizeof(int));
+  ASSERT_TRUE(probed2->isMatched());
+  ASSERT_EQ(probed2->getInfo().senderTag, ucxx::Tag{0});
+  ASSERT_EQ(probed2->getInfo().length, buf.size() * sizeof(int));
 }
 
 TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
 {
   // Test that tagProbe with remove=false works as before
   auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
-  EXPECT_FALSE(probe1->matched);
+  EXPECT_FALSE(probe1->isMatched());
 
   // Test that tagProbe with remove=true returns the correct structure
   auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
-  EXPECT_FALSE(probe2->matched);
-
-  // Test that when no message is matched, both return matched=false
-  EXPECT_FALSE(probe1->handle.has_value());
-  EXPECT_FALSE(probe2->handle.has_value());
+  EXPECT_FALSE(probe2->isMatched());
 }
 
 TEST_F(WorkerTest, TagProbeRemoveWithMessage)
@@ -164,23 +159,21 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
     progressWorker();
     auto probed = _worker->tagProbe(ucxx::Tag{0});
-    return probed->matched;
+    return probed->isMatched();
   });
 
   // Test that tagProbe with remove=false returns TagProbeInfo
   auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
-  EXPECT_TRUE(probe1->matched);
-  EXPECT_TRUE(probe1->info.has_value());
-  EXPECT_EQ(probe1->info->length, buf.size() * sizeof(int));
-  EXPECT_FALSE(probe1->handle.has_value());
+  EXPECT_TRUE(probe1->isMatched());
+  EXPECT_EQ(probe1->getInfo().length, buf.size() * sizeof(int));
+  // Should throw when trying to get handle since it's nullptr for remove=false
+  EXPECT_THROW(probe1->getHandle(), std::runtime_error);
 
   // Test that tagProbe with remove=true returns TagProbeInfo with handle
   auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
-  EXPECT_TRUE(probe2->matched);
-  EXPECT_TRUE(probe2->info.has_value());
-  EXPECT_EQ(probe2->info->length, buf.size() * sizeof(int));
-  EXPECT_TRUE(probe2->handle.has_value());
-  EXPECT_NE(*probe2->handle, nullptr);
+  EXPECT_TRUE(probe2->isMatched());
+  EXPECT_EQ(probe2->getInfo().length, buf.size() * sizeof(int));
+  EXPECT_NO_THROW(probe2->getHandle());
 
   // Test receiving with the message handle
   std::vector<int> recv_buf(1);
@@ -212,16 +205,15 @@ TEST_F(WorkerTest, TagProbeUnconsumedWarning)
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
     progressWorker();
     auto probed = _worker->tagProbe(ucxx::Tag{0});
-    return probed->matched;
+    return probed->isMatched();
   });
 
   // Create a TagProbeInfo with a handle but don't consume it
   // This should trigger a warning in the destructor
   {
     auto probe = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
-    EXPECT_TRUE(probe->matched);
-    EXPECT_TRUE(probe->handle.has_value());
-    EXPECT_NE(*probe->handle, nullptr);
+    EXPECT_TRUE(probe->isMatched());
+    EXPECT_NO_THROW(probe->getHandle());
     // probe goes out of scope here without consuming the handle
   }
 }
@@ -244,16 +236,15 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
     progressWorker();
     auto probed = _worker->tagProbe(ucxx::Tag{0});
-    return probed->matched;
+    return probed->isMatched();
   });
 
   // Create a TagProbeInfo with a handle and consume it
   // This should NOT trigger a warning in the destructor
   {
     auto probe = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
-    EXPECT_TRUE(probe->matched);
-    EXPECT_TRUE(probe->handle.has_value());
-    EXPECT_NE(*probe->handle, nullptr);
+    EXPECT_TRUE(probe->isMatched());
+    EXPECT_NO_THROW(probe->getHandle());
 
     // Consume the handle to prevent the warning
     probe->consume();

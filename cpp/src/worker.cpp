@@ -613,11 +613,14 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
                                                    RequestCallbackUserFunction callbackFunction,
                                                    RequestCallbackUserData callbackData)
 {
-  if (!probeInfo->matched || !probeInfo->info.has_value() || !probeInfo->handle.has_value()) {
-    throw std::invalid_argument("TagProbeInfo must be matched and contain valid info and handle");
-  }
+  if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
 
-  if (probeInfo->consumed) { throw std::logic_error("TagProbeInfo handle was already consumed"); }
+  // getHandle() will throw runtime_error if handle is nullptr or consumed
+  try {
+    probeInfo->getHandle();
+  } catch (const std::runtime_error& e) {
+    throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
+  }
 
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
   auto request =

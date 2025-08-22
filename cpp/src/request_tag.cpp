@@ -50,9 +50,6 @@ std::shared_ptr<RequestTag> createRequestTag(
                                                                          callbackFunction,
                                                                          callbackData));
 
-                   // Mark the handle as consumed since we're using it for the receive operation
-                   tagReceiveWithHandle._probeInfo->consume();
-
                    return req;
                  },
                },
@@ -149,11 +146,15 @@ void RequestTag::request()
                },
                [this, &request, &param](data::TagReceiveWithHandle tagReceiveWithHandle) {
                  param.cb.recv = tagRecvCallback;
+                 auto handle   = tagReceiveWithHandle._probeInfo->getHandle();
                  request       = ucp_tag_msg_recv_nbx(_worker->getHandle(),
                                                 tagReceiveWithHandle._buffer,
-                                                tagReceiveWithHandle._probeInfo->info->length,
-                                                *tagReceiveWithHandle._probeInfo->handle,
+                                                tagReceiveWithHandle._probeInfo->getInfo().length,
+                                                handle,
                                                 &param);
+
+                 // Mark the handle as consumed now that we've used it for the UCP operation
+                 tagReceiveWithHandle._probeInfo->consume();
                },
                [](auto) { throw std::runtime_error("Unreachable"); },
              },
@@ -234,7 +235,7 @@ void RequestTag::populateDelayedSubmission()
                },
                [this, &log](data::TagReceiveWithHandle tagReceiveWithHandle) {
                  log(tagReceiveWithHandle._buffer,
-                     tagReceiveWithHandle._probeInfo->info->length,
+                     tagReceiveWithHandle._probeInfo->getInfo().length,
                      Tag(0),
                      TagMaskFull);
                },

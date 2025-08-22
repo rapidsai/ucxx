@@ -185,13 +185,14 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         pass
     cdef cppclass TagRecvInfo:
         TagRecvInfo(const ucp_tag_recv_info_t&)
-        Tag senderTag
-        size_t length
+        const Tag senderTag
+        const size_t length
 
     cdef cppclass TagProbeInfo:
-        cpp_bool matched
-        optional[TagRecvInfo] info
-        optional[ucp_tag_message_h] handle
+        cpp_bool isMatched()
+        TagRecvInfo& getInfo() except +
+        ucp_tag_message_h getHandle() except +
+        void consume()
 
     cdef cppclass AmReceiverCallbackInfo:
         pass

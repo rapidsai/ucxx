@@ -58,7 +58,7 @@ cdef class TagProbeResult:
         Returns:
             True if a message was matched, False otherwise.
         """
-        return self._probe_info_ptr.get().matched
+        return self._probe_info_ptr.get().isMatched()
 
     @property
     def sender_tag(self) -> UCXXTag:
@@ -72,7 +72,7 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        return UCXXTag(self._probe_info_ptr.get().info.value().senderTag)
+        return UCXXTag(self._probe_info_ptr.get().getInfo().senderTag)
 
     @property
     def length(self) -> int:
@@ -86,7 +86,7 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        return self._probe_info_ptr.get().info.value().length
+        return self._probe_info_ptr.get().getInfo().length
 
     @property
     def handle(self) -> Optional[int]:
@@ -100,13 +100,16 @@ cdef class TagProbeResult:
         """
         if not self.matched:
             raise AttributeError("No message was matched")
-        if not self._probe_info_ptr.get().handle.has_value():
-            return None
-        cdef ucp_tag_message_h handle = self._probe_info_ptr.get().handle.value()
-        if handle == NULL:
-            return None
-        cdef uintptr_t handle_ptr = <uintptr_t>handle
-        if handle_ptr == 0:
+
+        cdef ucp_tag_message_h handle
+        cdef uintptr_t handle_ptr
+
+        try:
+            handle = self._probe_info_ptr.get().getHandle()
+            if handle == NULL:
+                return None
+            handle_ptr = <uintptr_t>handle
+        except RuntimeError:
             return None
         return int(handle_ptr)
 
