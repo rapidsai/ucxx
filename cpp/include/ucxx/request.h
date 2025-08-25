@@ -78,7 +78,7 @@ class Request : public Component {
    */
   Request(std::shared_ptr<Component> endpointOrWorker,
           const data::RequestData requestData,
-          const std::string& operationName,
+          std::string operationName,
           const bool enablePythonFuture                = false,
           RequestCallbackUserFunction callbackFunction = nullptr,
           RequestCallbackUserData callbackData         = nullptr);
@@ -209,7 +209,7 @@ class Request : public Component {
    *
    * @returns the formatted string containing the owner type and its handle.
    */
-  [[nodiscard]] const std::string& getOwnerString() const;
+  [[nodiscard]] std::string getOwnerString() const;
 
   /**
    * @brief Get the received buffer.

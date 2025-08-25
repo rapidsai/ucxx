@@ -19,7 +19,7 @@ namespace ucxx {
 
 Request::Request(std::shared_ptr<Component> endpointOrWorker,
                  const data::RequestData requestData,
-                 const std::string& operationName,
+                 std::string operationName,
                  const bool enablePythonFuture,
                  RequestCallbackUserFunction callbackFunction,
                  RequestCallbackUserData callbackData)
@@ -237,7 +237,7 @@ void Request::setStatus(ucs_status_t status)
   }
 }
 
-const std::string& Request::getOwnerString() const { return _ownerString; }
+std::string Request::getOwnerString() const { return _ownerString; }
 
 std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }
 

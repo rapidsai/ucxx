@@ -28,7 +28,7 @@ std::shared_ptr<RequestTag> createRequestTag(
                    data::TagSend tagSend) {
                    return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
                                                                      tagSend,
-                                                                     "tagSend",
+                                                                     std::move("tagSend"),
                                                                      enablePythonFuture,
                                                                      callbackFunction,
                                                                      callbackData));
@@ -37,7 +37,7 @@ std::shared_ptr<RequestTag> createRequestTag(
                    data::TagReceive tagReceive) {
                    return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
                                                                      tagReceive,
-                                                                     "tagRecv",
+                                                                     std::move("tagRecv"),
                                                                      enablePythonFuture,
                                                                      callbackFunction,
                                                                      callbackData));
@@ -56,7 +56,7 @@ std::shared_ptr<RequestTag> createRequestTag(
 
 RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                        const std::variant<data::TagSend, data::TagReceive> requestData,
-                       const std::string& operationName,
+                       std::string operationName,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)

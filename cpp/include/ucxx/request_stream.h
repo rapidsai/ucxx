@@ -46,7 +46,7 @@ class RequestStream : public Request {
    */
   RequestStream(std::shared_ptr<Endpoint> endpoint,
                 const std::variant<data::StreamSend, data::StreamReceive> requestData,
-                const std::string& operationName,
+                std::string operationName,
                 const bool enablePythonFuture = false);
 
  public:

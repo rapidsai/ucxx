@@ -22,8 +22,12 @@ std::shared_ptr<RequestFlush> createRequestFlush(
   RequestCallbackUserFunction callbackFunction = nullptr,
   RequestCallbackUserData callbackData         = nullptr)
 {
-  auto req = std::shared_ptr<RequestFlush>(new RequestFlush(
-    endpointOrWorker, requestData, "flush", enablePythonFuture, callbackFunction, callbackData));
+  auto req = std::shared_ptr<RequestFlush>(new RequestFlush(endpointOrWorker,
+                                                            requestData,
+                                                            std::move("flush"),
+                                                            enablePythonFuture,
+                                                            callbackFunction,
+                                                            callbackData));
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
@@ -36,7 +40,7 @@ std::shared_ptr<RequestFlush> createRequestFlush(
 
 RequestFlush::RequestFlush(std::shared_ptr<Component> endpointOrWorker,
                            const data::Flush requestData,
-                           const std::string& operationName,
+                           std::string operationName,
                            const bool enablePythonFuture,
                            RequestCallbackUserFunction callbackFunction,
                            RequestCallbackUserData callbackData)

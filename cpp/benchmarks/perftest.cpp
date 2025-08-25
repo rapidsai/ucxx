@@ -97,8 +97,8 @@ struct TestAttributes {
    */
   TestAttributes(CommandType commandType,
                  TestType testType,
-                 const std::string& description,
-                 const std::string& category)
+                 std::string description,
+                 std::string category)
     : commandType(commandType),
       testType(testType),
       description(std::move(description)),
@@ -116,8 +116,13 @@ struct TestAttributes {
 
 // Use a std::unordered_map to store instances of TestAttributes with name as the key
 const std::unordered_map<std::string, TestAttributes> testAttributesDefinitions = {
-  {"tag_lat", {CommandType::Tag, TestType::PingPong, "tag match latency", "latency"}},
-  {"tag_bw", {CommandType::Tag, TestType::Unidirectional, "tag match bandwidth", "overhead"}},
+  {"tag_lat",
+   {CommandType::Tag, TestType::PingPong, std::move("tag match latency"), std::move("latency")}},
+  {"tag_bw",
+   {CommandType::Tag,
+    TestType::Unidirectional,
+    std::move("tag match bandwidth"),
+    std::move("overhead")}},
 };
 
 struct ApplicationContext {

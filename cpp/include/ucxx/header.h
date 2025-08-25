@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -29,7 +29,7 @@ class Header {
    *
    * @param[in] serializedHeader  the header in serialized format.
    */
-  void deserialize(const std::string& serializedHeader);
+  void deserialize(std::string serializedHeader);
 
  public:
   bool next;                                  ///< Whether there is a next header

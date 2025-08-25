@@ -98,7 +98,7 @@ class RequestTagMulti : public Request {
    */
   RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
                   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
-                  const std::string& operationName,
+                  std::string operationName,
                   const bool enablePythonFuture);
 
   /**

@@ -27,7 +27,7 @@ BufferRequest::~BufferRequest() { ucxx_trace_req("ucxx::BufferRequest destroyed:
 RequestTagMulti::RequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
-  const std::string& operationName,
+  std::string operationName,
   const bool enablePythonFuture)
   : Request(
       endpoint, data::getRequestData(requestData), std::move(operationName), enablePythonFuture)
@@ -68,13 +68,13 @@ std::shared_ptr<RequestTagMulti> createRequestTagMulti(
     std::visit(data::dispatch{
                  [&endpoint, &enablePythonFuture](data::TagMultiSend tagMultiSend) {
                    auto req = std::shared_ptr<RequestTagMulti>(new RequestTagMulti(
-                     endpoint, tagMultiSend, "tagMultiSend", enablePythonFuture));
+                     endpoint, tagMultiSend, std::move("tagMultiSend"), enablePythonFuture));
                    req->send();
                    return req;
                  },
                  [&endpoint, &enablePythonFuture](data::TagMultiReceive tagMultiReceive) {
                    auto req = std::shared_ptr<RequestTagMulti>(new RequestTagMulti(
-                     endpoint, tagMultiReceive, "tagMultiRecv", enablePythonFuture));
+                     endpoint, tagMultiReceive, std::move("tagMultiRecv"), enablePythonFuture));
                    req->recvCallback(UCS_OK);
                    return req;
                  },
@@ -84,8 +84,7 @@ std::shared_ptr<RequestTagMulti> createRequestTagMulti(
   return req;
 }
 
-static TagPair checkAndGetTagPair(const data::RequestData& requestData,
-                                  const std::string& methodName)
+static TagPair checkAndGetTagPair(const data::RequestData& requestData, std::string methodName)
 {
   return std::visit(
     data::dispatch{

@@ -25,12 +25,20 @@ std::shared_ptr<RequestMem> createRequestMem(
   std::shared_ptr<RequestMem> req = std::visit(
     data::dispatch{
       [&endpoint, &enablePythonFuture, &callbackFunction, &callbackData](data::MemPut memPut) {
-        return std::shared_ptr<RequestMem>(new RequestMem(
-          endpoint, memPut, "memPut", enablePythonFuture, callbackFunction, callbackData));
+        return std::shared_ptr<RequestMem>(new RequestMem(endpoint,
+                                                          memPut,
+                                                          std::move("memPut"),
+                                                          enablePythonFuture,
+                                                          callbackFunction,
+                                                          callbackData));
       },
       [&endpoint, &enablePythonFuture, &callbackFunction, &callbackData](data::MemGet memGet) {
-        return std::shared_ptr<RequestMem>(new RequestMem(
-          endpoint, memGet, "memGet", enablePythonFuture, callbackFunction, callbackData));
+        return std::shared_ptr<RequestMem>(new RequestMem(endpoint,
+                                                          memGet,
+                                                          std::move("memGet"),
+                                                          enablePythonFuture,
+                                                          callbackFunction,
+                                                          callbackData));
       },
     },
     requestData);
@@ -46,7 +54,7 @@ std::shared_ptr<RequestMem> createRequestMem(
 
 RequestMem::RequestMem(std::shared_ptr<Endpoint> endpoint,
                        const std::variant<data::MemPut, data::MemGet> requestData,
-                       const std::string& operationName,
+                       std::string operationName,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)
