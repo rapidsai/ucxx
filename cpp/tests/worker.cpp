@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -37,6 +38,16 @@ class WorkerTest : public ::testing::Test {
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
 
   virtual void SetUp() { _worker = _context->createWorker(); }
+
+  void consumeTagMessageHandle(std::vector<int>* recv_buf, ucp_tag_message_h handle, size_t length)
+  {
+    ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_DATATYPE,
+                                 .datatype     = ucp_dt_make_contig(1)};
+    auto request =
+      ucp_tag_msg_recv_nbx(_worker->getHandle(), recv_buf->data(), length, handle, &param);
+    EXPECT_FALSE(UCS_PTR_IS_ERR(request));
+    EXPECT_FALSE(UCS_PTR_IS_PTR(request));
+  }
 };
 
 class WorkerCapabilityTest : public ::testing::Test,
@@ -214,14 +225,33 @@ TEST_F(WorkerTest, TagProbeUnconsumedWarning)
     return probed->isMatched();
   });
 
-  // Create a TagProbeInfo with a handle but don't consume it
-  // This should trigger a warning in the destructor
+  ucp_tag_message_h handle{nullptr};
+  size_t length{0};
+
+  // Capture stderr to check for warning message on destruction
+  testing::internal::CaptureStdout();
   {
     auto probe = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
     EXPECT_TRUE(probe->isMatched());
     EXPECT_NO_THROW(probe->getHandle());
+    length = probe->getInfo().length;
+    handle = probe->getHandle();
+    EXPECT_NE(handle, nullptr);
     // probe goes out of scope here without consuming the handle
   }
+  std::string stderr_output = testing::internal::GetCapturedStdout();
+
+  // Check that the warning message is present in stderr
+  EXPECT_NE(stderr_output.find("ucxx::TagProbeInfo::~TagProbeInfo, destroying"), std::string::npos);
+  EXPECT_NE(stderr_output.find("unconsumed message handle"), std::string::npos);
+  EXPECT_NE(
+    stderr_output.find("ucxx::Worker::tagRecvWithHandle() must be called to consume the handle."),
+    std::string::npos);
+
+  // Consume the handle via a direct UCP operation to prevent UCX warning.
+  std::vector<int> recv_buf(1);
+  consumeTagMessageHandle(&recv_buf, handle, length);
+  EXPECT_EQ(recv_buf, buf);
 }
 
 TEST_F(WorkerTest, TagProbeReleaseHandle)
@@ -259,12 +289,7 @@ TEST_F(WorkerTest, TagProbeReleaseHandle)
 
   // Consume the handle via a direct UCP operation to prevent UCX warning.
   std::vector<int> recv_buf(1);
-  ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_DATATYPE,
-                               .datatype     = ucp_dt_make_contig(1)};
-  auto request              = ucp_tag_msg_recv_nbx(
-    _worker->getHandle(), recv_buf.data(), probe->getInfo().length, handle, &param);
-  EXPECT_FALSE(UCS_PTR_IS_ERR(request));
-  EXPECT_FALSE(UCS_PTR_IS_PTR(request));
+  consumeTagMessageHandle(&recv_buf, handle, probe->getInfo().length);
   EXPECT_EQ(recv_buf, buf);
 }
 
