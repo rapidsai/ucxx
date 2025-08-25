@@ -703,15 +703,15 @@ class Worker : public Component {
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`
    * auto probe = worker->tagProbe(0);
-   * assert(!probe.first)
+   * assert(!probe->isMatched());
    *
    * // `ep` is a remote `std::shared_ptr<ucxx::Endpoint` to the local `worker`
    * ep->tagSend(buffer, length, 0);
    *
    * probe = worker->tagProbe(0);
-   * assert(probe.first);
-   * assert(probe.second.tag == 0);
-   * assert(probe.second.length == length);
+   * assert(probe->isMatched());
+   * assert(probe->getInfo().tag == 0);
+   * assert(probe->getInfo().length == length);
    * @endcode
    *
    * @param[in] tag      the tag to match.
