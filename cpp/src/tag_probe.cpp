@@ -16,10 +16,7 @@ TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
 }
 
 TagProbeInfo::TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle)
-  : _matched(true),
-    _info(TagRecvInfo(info)),
-    _handle(handle != nullptr ? std::optional<ucp_tag_message_h>(handle) : std::nullopt),
-    _consumed(false)
+  : _matched(true), _info(TagRecvInfo(info)), _handle(handle), _consumed(false)
 {
 }
 
@@ -37,13 +34,13 @@ std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info
 TagProbeInfo::~TagProbeInfo()
 {
   // Check if handle is populated and has not been consumed
-  if (_matched && _handle.has_value() && _handle.value() != nullptr && !_consumed) {
+  if (_matched && _handle != nullptr && !_consumed) {
     ucxx_warn(
       "ucxx::TagProbeInfo::%s, destroying %p unconsumed message handle %p detected from tag 0x%lx "
       "with length %lu. ucxx::Worker::tagRecvWithHandle() must be called to consume the handle.",
       __func__,
       this,
-      _handle.value(),
+      _handle,
       _info.value().senderTag,
       _info.value().length);
   }
@@ -61,13 +58,13 @@ const TagRecvInfo& TagProbeInfo::getInfo() const
 
 ucp_tag_message_h TagProbeInfo::getHandle() const
 {
-  if (!_handle.has_value() || _handle.value() == nullptr) {
+  if (_handle == nullptr) {
     throw std::runtime_error("TagProbeInfo::getHandle() called with null handle");
   }
   if (_consumed) {
     throw std::runtime_error("TagProbeInfo::getHandle() called on consumed handle");
   }
-  return _handle.value();
+  return _handle;
 }
 
 void TagProbeInfo::consume() const { _consumed = true; }

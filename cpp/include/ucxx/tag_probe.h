@@ -91,9 +91,9 @@ class TagProbeInfo {
   const bool _matched{false};  ///< Whether a message was matched
   const std::optional<TagRecvInfo> _info{
     std::nullopt};  ///< Tag receive information (only valid if `isMatched()` returns `true`)
-  const std::optional<ucp_tag_message_h> _handle{
-    std::nullopt};  ///< Message handle (only valid if `isMatched()` returns `true` and
-                    ///< `tagProbe()` is called with `remove=true`)
+  const ucp_tag_message_h _handle{
+    nullptr};  ///< Message handle (only valid if `isMatched()` returns `true` and
+               ///< `tagProbe()` is called with `remove=true`)
   mutable std::atomic<bool> _consumed{false};  ///< Whether the message has been consumed
 
   /**
