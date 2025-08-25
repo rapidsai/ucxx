@@ -29,7 +29,7 @@ class Header {
    *
    * @param[in] serializedHeader  the header in serialized format.
    */
-  void deserialize(std::string serializedHeader);
+  void deserialize(const std::string& serializedHeader);
 
  public:
   bool next;                                  ///< Whether there is a next header
@@ -68,7 +68,7 @@ class Header {
    *
    * @param[in] serializedHeader  the header in serialized format.
    */
-  explicit Header(std::string serializedHeader);
+  explicit Header(const std::string& serializedHeader);
 
   /**
    * @brief Get the size of the underlying data.

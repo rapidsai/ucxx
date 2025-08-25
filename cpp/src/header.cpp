@@ -25,7 +25,7 @@ Header::Header(bool next, size_t nframes, int* isCUDA, size_t* size) : next{next
   }
 }
 
-Header::Header(std::string serializedHeader) { deserialize(std::move(serializedHeader)); }
+Header::Header(const std::string& serializedHeader) { deserialize(serializedHeader); }
 
 size_t Header::dataSize() { return sizeof(next) + sizeof(nframes) + sizeof(isCUDA) + sizeof(size); }
 
@@ -43,9 +43,9 @@ const std::string Header::serialize() const
   return ss.str();
 }
 
-void Header::deserialize(std::string serializedHeader)
+void Header::deserialize(const std::string& serializedHeader)
 {
-  std::stringstream ss{std::move(serializedHeader)};
+  std::stringstream ss{serializedHeader};
 
   ss.read(reinterpret_cast<char*>(&next), sizeof(next));
   ss.read(reinterpret_cast<char*>(&nframes), sizeof(nframes));

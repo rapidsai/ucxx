@@ -100,7 +100,7 @@ static TagPair checkAndGetTagPair(const data::RequestData& requestData, std::str
 
 void RequestTagMulti::recvFrames()
 {
-  auto tagPair = checkAndGetTagPair(_requestData, std::string("recvFrames"));
+  auto tagPair = checkAndGetTagPair(_requestData, std::move("recvFrames"));
 
   std::vector<Header> headers;
 
@@ -124,7 +124,7 @@ void RequestTagMulti::recvFrames()
                      tagPair.first,
                      tagPair.second,
                      br->stringBuffer->size());
-    headers.push_back(Header(*br->stringBuffer));
+    headers.push_back(Header(std::move(*br->stringBuffer)));
   }
 
   for (auto& h : headers) {
@@ -237,7 +237,7 @@ void RequestTagMulti::markCompleted(ucs_status_t status)
 
 void RequestTagMulti::recvHeader()
 {
-  auto tagPair = checkAndGetTagPair(_requestData, std::string("recvHeader"));
+  auto tagPair = checkAndGetTagPair(_requestData, std::move("recvHeader"));
 
   ucxx_trace_req_f(_ownerString.c_str(),
                    this,
@@ -277,7 +277,7 @@ void RequestTagMulti::recvHeader()
 
 void RequestTagMulti::recvCallback(ucs_status_t status)
 {
-  auto tagPair = checkAndGetTagPair(_requestData, std::string("recvCallback"));
+  auto tagPair = checkAndGetTagPair(_requestData, std::move("recvCallback"));
 
   ucxx_trace_req_f(_ownerString.c_str(),
                    this,
@@ -337,12 +337,12 @@ void RequestTagMulti::send()
         auto headers = Header::buildHeaders(tagMultiSend._length, tagMultiSend._isCUDA);
 
         for (const auto& header : headers) {
-          auto serializedHeader = std::make_shared<std::string>(header.serialize());
+          auto serializedHeader = std::make_shared<std::string>(std::move(header.serialize()));
           auto bufferRequest    = std::make_shared<BufferRequest>();
           _bufferRequests.push_back(bufferRequest);
           bufferRequest->request = _endpoint->tagSend(
             &serializedHeader->front(), serializedHeader->size(), tagMultiSend._tag, false);
-          bufferRequest->stringBuffer = serializedHeader;
+          bufferRequest->stringBuffer = std::move(serializedHeader);
         }
 
         for (size_t i = 0; i < _totalFrames; ++i) {
