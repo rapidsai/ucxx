@@ -45,11 +45,11 @@ class TagRecvInfo {
  * @brief Information about probed tag message.
  *
  * Contains complete information about a probed tag message, including whether a message
- * was matched, the tag receive information, and optionally the message handle for efficient
- * reception when remove=true.
+ * was matched, the tag receive information, and the message handle for efficient reception
+ * when `tagProbe()` is called with `remove=true`.
  *
  * @warning Callers must check `isMatched()` before calling `getInfo()` or `getHandle()`
- *          to prevent misuse and undefined behavior. When `isMatched()` returns false,
+ *          to prevent misuse and undefined behavior. When `isMatched()` returns `false`,
  *          `getInfo()` and `getHandle()` will throw std::runtime_error.
  *
  * @note This class is managed via shared_ptr to prevent multiple objects from holding the same
@@ -90,9 +90,10 @@ class TagProbeInfo {
  private:
   const bool _matched{false};  ///< Whether a message was matched
   const std::optional<TagRecvInfo> _info{
-    std::nullopt};  ///< Tag receive information (only valid if matched=true)
+    std::nullopt};  ///< Tag receive information (only valid if `isMatched()` returns `true`)
   const std::optional<ucp_tag_message_h> _handle{
-    std::nullopt};                             ///< Message handle (only valid if matched=true)
+    std::nullopt};  ///< Message handle (only valid if `isMatched()` returns `true` and
+                    ///< `tagProbe()` is called with `remove=true`)
   mutable std::atomic<bool> _consumed{false};  ///< Whether the message has been consumed
 
   /**
@@ -132,7 +133,8 @@ class TagProbeInfo {
    * - `ucxx::createTagProbeInfo()`
    *
    * @param[in] info    The UCP tag receive info structure.
-   * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
+   * @param[in] handle  The UCP tag message handle (can be nullptr if `tagProbe()` is called
+   *                    with `remove=false`).
    */
   TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
 
@@ -140,7 +142,7 @@ class TagProbeInfo {
    * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
    *
    * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
-   * the object as unmatched (`isMatched()` returns false).
+   * the object as unmatched (`isMatched()` returns `false`).
    *
    * @code{.cpp}
    * auto tagProbeInfo = ucxx::createTagProbeInfo();
@@ -154,14 +156,15 @@ class TagProbeInfo {
    * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
    *
    * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
-   * the object as matched (isMatched() returns true) with the provided info and handle.
+   * the object as matched (`isMatched()` returns `true`) with the provided info and handle.
    *
    * @code{.cpp}
    * auto tagProbeInfo = ucxx::createTagProbeInfo(info, handle);
    * @endcode
    *
    * @param[in] info    The UCP tag receive info structure.
-   * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
+   * @param[in] handle  The UCP tag message handle (can be nullptr if `tagProbe()` is called
+   *                    with `remove=false`).
    *
    * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
    */
