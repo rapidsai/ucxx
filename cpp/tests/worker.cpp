@@ -112,6 +112,8 @@ TEST_F(WorkerTest, TagProbe)
 
   auto probed = _worker->tagProbe(ucxx::Tag{0});
   ASSERT_FALSE(probed->isMatched());
+  EXPECT_THROW(probed->getInfo(), std::runtime_error);
+  EXPECT_THROW(probed->getHandle(), std::runtime_error);
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -128,6 +130,7 @@ TEST_F(WorkerTest, TagProbe)
   ASSERT_TRUE(probed2->isMatched());
   ASSERT_EQ(probed2->getInfo().senderTag, ucxx::Tag{0});
   ASSERT_EQ(probed2->getInfo().length, buf.size() * sizeof(int));
+  EXPECT_THROW(probed2->getHandle(), std::runtime_error);
 }
 
 TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
@@ -135,10 +138,13 @@ TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
   // Test that tagProbe with remove=false works as before
   auto probe1 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, false);
   EXPECT_FALSE(probe1->isMatched());
+  EXPECT_THROW(probe1->getInfo(), std::runtime_error);
+  EXPECT_THROW(probe1->getHandle(), std::runtime_error);
 
   // Test that tagProbe with remove=true returns the correct structure
   auto probe2 = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
   EXPECT_FALSE(probe2->isMatched());
+  EXPECT_THROW(probe2->getHandle(), std::runtime_error);
 }
 
 TEST_F(WorkerTest, TagProbeRemoveWithMessage)
