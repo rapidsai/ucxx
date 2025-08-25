@@ -54,7 +54,7 @@ class RequestTag : public Request {
    */
   RequestTag(std::shared_ptr<Component> endpointOrWorker,
              const std::variant<data::TagSend, data::TagReceive> requestData,
-             const std::string operationName,
+             std::string operationName,
              const bool enablePythonFuture                = false,
              RequestCallbackUserFunction callbackFunction = nullptr,
              RequestCallbackUserData callbackData         = nullptr);

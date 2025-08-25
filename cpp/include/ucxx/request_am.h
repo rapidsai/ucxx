@@ -62,7 +62,7 @@ class RequestAm : public Request {
    */
   RequestAm(std::shared_ptr<Component> endpointOrWorker,
             const std::variant<data::AmSend, data::AmReceive> requestData,
-            const std::string operationName,
+            std::string operationName,
             const bool enablePythonFuture                = false,
             RequestCallbackUserFunction callbackFunction = nullptr,
             RequestCallbackUserData callbackData         = nullptr);

@@ -1,10 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -27,7 +28,7 @@ std::shared_ptr<RequestTag> createRequestTag(
                    data::TagSend tagSend) {
                    return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
                                                                      tagSend,
-                                                                     "tagSend",
+                                                                     std::move("tagSend"),
                                                                      enablePythonFuture,
                                                                      callbackFunction,
                                                                      callbackData));
@@ -36,7 +37,7 @@ std::shared_ptr<RequestTag> createRequestTag(
                    data::TagReceive tagReceive) {
                    return std::shared_ptr<RequestTag>(new RequestTag(endpointOrWorker,
                                                                      tagReceive,
-                                                                     "tagRecv",
+                                                                     std::move("tagRecv"),
                                                                      enablePythonFuture,
                                                                      callbackFunction,
                                                                      callbackData));
@@ -55,13 +56,13 @@ std::shared_ptr<RequestTag> createRequestTag(
 
 RequestTag::RequestTag(std::shared_ptr<Component> endpointOrWorker,
                        const std::variant<data::TagSend, data::TagReceive> requestData,
-                       const std::string operationName,
+                       std::string operationName,
                        const bool enablePythonFuture,
                        RequestCallbackUserFunction callbackFunction,
                        RequestCallbackUserData callbackData)
   : Request(endpointOrWorker,
             data::getRequestData(requestData),
-            operationName,
+            std::move(operationName),
             enablePythonFuture,
             callbackFunction,
             callbackData)

@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
@@ -103,8 +104,12 @@ std::shared_ptr<RequestAm> createRequestAm(
   std::shared_ptr<RequestAm> req = std::visit(
     data::dispatch{
       [endpoint, enablePythonFuture, callbackFunction, callbackData](data::AmSend amSend) {
-        auto req = std::shared_ptr<RequestAm>(new RequestAm(
-          endpoint, amSend, "amSend", enablePythonFuture, callbackFunction, callbackData));
+        auto req = std::shared_ptr<RequestAm>(new RequestAm(endpoint,
+                                                            amSend,
+                                                            std::move("amSend"),
+                                                            enablePythonFuture,
+                                                            callbackFunction,
+                                                            callbackData));
 
         // A delayed notification request is not populated immediately, instead it is
         // delayed to allow the worker progress thread to set its status, and more
@@ -117,14 +122,15 @@ std::shared_ptr<RequestAm> createRequestAm(
       [endpoint, enablePythonFuture, callbackFunction, callbackData](data::AmReceive amReceive) {
         auto worker = endpoint->getWorker();
 
-        auto createRequest = [endpoint,
-                              amReceive,
-                              enablePythonFuture,
-                              callbackFunction,
-                              callbackData]() {
-          return std::shared_ptr<RequestAm>(new RequestAm(
-            endpoint, amReceive, "amReceive", enablePythonFuture, callbackFunction, callbackData));
-        };
+        auto createRequest =
+          [endpoint, amReceive, enablePythonFuture, callbackFunction, callbackData]() {
+            return std::shared_ptr<RequestAm>(new RequestAm(endpoint,
+                                                            amReceive,
+                                                            std::move("amReceive"),
+                                                            enablePythonFuture,
+                                                            callbackFunction,
+                                                            callbackData));
+          };
         return worker->getAmRecv(endpoint->getHandle(), createRequest);
       },
     },
@@ -135,13 +141,13 @@ std::shared_ptr<RequestAm> createRequestAm(
 
 RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
                      const std::variant<data::AmSend, data::AmReceive> requestData,
-                     const std::string operationName,
+                     std::string operationName,
                      const bool enablePythonFuture,
                      RequestCallbackUserFunction callbackFunction,
                      RequestCallbackUserData callbackData)
   : Request(endpointOrWorker,
             data::getRequestData(requestData),
-            operationName,
+            std::move(operationName),
             enablePythonFuture,
             callbackFunction,
             callbackData)
@@ -241,16 +247,24 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 
     auto reqs = recvWait.find(ep);
     if (amHeader.receiverCallbackInfo) {
-      req = std::shared_ptr<RequestAm>(new RequestAm(
-        worker, data::AmReceive(), "amReceive", worker->isFutureEnabled(), nullptr, nullptr));
+      req = std::shared_ptr<RequestAm>(new RequestAm(worker,
+                                                     data::AmReceive(),
+                                                     std::move("amReceive"),
+                                                     worker->isFutureEnabled(),
+                                                     nullptr,
+                                                     nullptr));
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "receiverCallback");
     } else if (reqs != recvWait.end() && !reqs->second.empty()) {
       req = reqs->second.front();
       reqs->second.pop();
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
     } else {
-      req             = std::shared_ptr<RequestAm>(new RequestAm(
-        worker, data::AmReceive(), "amReceive", worker->isFutureEnabled(), nullptr, nullptr));
+      req             = std::shared_ptr<RequestAm>(new RequestAm(worker,
+                                                     data::AmReceive(),
+                                                     std::move("amReceive"),
+                                                     worker->isFutureEnabled(),
+                                                     nullptr,
+                                                     nullptr));
       auto [queue, _] = recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
       queue->second.push(req);
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvPool");

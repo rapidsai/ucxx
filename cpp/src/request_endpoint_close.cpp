@@ -1,11 +1,12 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ucxx/request_data.h"
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -23,8 +24,12 @@ std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
   RequestCallbackUserData callbackData         = nullptr)
 {
   std::shared_ptr<RequestEndpointClose> req =
-    std::shared_ptr<RequestEndpointClose>(new RequestEndpointClose(
-      endpoint, requestData, "endpointClose", enablePythonFuture, callbackFunction, callbackData));
+    std::shared_ptr<RequestEndpointClose>(new RequestEndpointClose(endpoint,
+                                                                   requestData,
+                                                                   std::move("endpointClose"),
+                                                                   enablePythonFuture,
+                                                                   callbackFunction,
+                                                                   callbackData));
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
@@ -37,12 +42,16 @@ std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
 
 RequestEndpointClose::RequestEndpointClose(std::shared_ptr<Endpoint> endpoint,
                                            const data::EndpointClose requestData,
-                                           const std::string operationName,
+                                           std::string operationName,
                                            const bool enablePythonFuture,
                                            RequestCallbackUserFunction callbackFunction,
                                            RequestCallbackUserData callbackData)
-  : Request(
-      endpoint, requestData, operationName, enablePythonFuture, callbackFunction, callbackData)
+  : Request(endpoint,
+            requestData,
+            std::move(operationName),
+            enablePythonFuture,
+            callbackFunction,
+            callbackData)
 {
   if (_endpoint == nullptr && _worker == nullptr)
     throw ucxx::Error("A valid endpoint or worker is required for a close operation.");
