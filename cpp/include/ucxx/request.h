@@ -209,7 +209,7 @@ class Request : public Component {
    *
    * @returns the formatted string containing the owner type and its handle.
    */
-  [[nodiscard]] std::string getOwnerString() const;
+  [[nodiscard]] const std::string& getOwnerString() const;
 
   /**
    * @brief Get the received buffer.
