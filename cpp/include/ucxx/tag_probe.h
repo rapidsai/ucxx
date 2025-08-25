@@ -87,6 +87,18 @@ class TagProbeInfo {
    */
   ucp_tag_message_h getHandle() const;
 
+  /**
+   * @brief Release the message handle.
+   *
+   * Same as `getHandle()` but also marks the handle as consumed, therefore no
+   * warning is logged when the object is destroyed and is the user's responsibility
+   * to consume the handle via a direct UCP operation.
+   *
+   * @throws std::runtime_error if the handle is nullptr or has been consumed.
+   * @returns The UCP tag message handle.
+   */
+  ucp_tag_message_h releaseHandle() const;
+
  private:
   const bool _matched{false};  ///< Whether a message was matched
   const std::optional<TagRecvInfo> _info{

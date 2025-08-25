@@ -224,6 +224,50 @@ TEST_F(WorkerTest, TagProbeUnconsumedWarning)
   }
 }
 
+TEST_F(WorkerTest, TagProbeReleaseHandle)
+{
+  auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+
+  // Send a message
+  std::vector<int> buf{123};
+  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+
+  // Progress until message is sent
+  while (!send_req->isCompleted()) {
+    _worker->progress();
+  }
+
+  // Wait for message to be available for probing
+  loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
+    progressWorker();
+    auto probed = _worker->tagProbe(ucxx::Tag{0});
+    return probed->isMatched();
+  });
+
+  // Create a TagProbeInfo with a handle and release it
+  auto probe = _worker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+  EXPECT_TRUE(probe->isMatched());
+  ucp_tag_message_h handle = probe->releaseHandle();
+  EXPECT_NE(handle, nullptr);
+
+  // After releasing, getHandle should throw
+  EXPECT_THROW(probe->getHandle(), std::runtime_error);
+
+  // Releasing again should throw
+  EXPECT_THROW(probe->releaseHandle(), std::runtime_error);
+
+  // Consume the handle via a direct UCP operation to prevent UCX warning.
+  std::vector<int> recv_buf(1);
+  ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_DATATYPE,
+                               .datatype     = ucp_dt_make_contig(1)};
+  auto request              = ucp_tag_msg_recv_nbx(
+    _worker->getHandle(), recv_buf.data(), probe->getInfo().length, handle, &param);
+  EXPECT_FALSE(UCS_PTR_IS_ERR(request));
+  EXPECT_FALSE(UCS_PTR_IS_PTR(request));
+  EXPECT_EQ(recv_buf, buf);
+}
+
 TEST_F(WorkerTest, TagProbeConsumeHandle)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);

@@ -67,6 +67,18 @@ ucp_tag_message_h TagProbeInfo::getHandle() const
   return _handle;
 }
 
+ucp_tag_message_h TagProbeInfo::releaseHandle() const
+{
+  if (_handle == nullptr) {
+    throw std::runtime_error("TagProbeInfo::releaseHandle() called with null handle");
+  }
+  if (_consumed) {
+    throw std::runtime_error("TagProbeInfo::releaseHandle() called on consumed handle");
+  }
+  consume();
+  return _handle;
+}
+
 void TagProbeInfo::consume() const { _consumed = true; }
 
 }  // namespace ucxx
