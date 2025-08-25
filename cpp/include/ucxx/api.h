@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -20,6 +20,7 @@
 #include <ucxx/remote_key.h>
 #include <ucxx/request.h>
 #include <ucxx/request_tag_multi.h>
+#include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/callback_notifier.h>
 #include <ucxx/worker.h>

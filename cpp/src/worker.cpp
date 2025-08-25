@@ -22,6 +22,7 @@
 #include <ucxx/request_am.h>
 #include <ucxx/request_flush.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/file_descriptor.h>
@@ -576,17 +577,18 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-TagRecvInfo::TagRecvInfo(const ucp_tag_recv_info_t& info)
-  : senderTag(Tag(info.sender_tag)), length(info.length)
-{
-}
-
-std::pair<bool, TagRecvInfo> Worker::tagProbe(const Tag tag, const TagMask tagMask)
+std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
+                                               const TagMask tagMask,
+                                               const bool remove) const
 {
   ucp_tag_recv_info_t info;
-  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, 0, &info);
+  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
 
-  return {tag_message != NULL, TagRecvInfo(info)};
+  if (tag_message != NULL) {
+    return createTagProbeInfo(info, remove ? tag_message : nullptr);
+  } else {
+    return createTagProbeInfo();
+  }
 }
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,
@@ -603,6 +605,32 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                                   enableFuture,
                                                   callbackFunction,
                                                   callbackData));
+}
+
+std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
+                                                   std::shared_ptr<TagProbeInfo> probeInfo,
+                                                   const bool enableFuture,
+                                                   RequestCallbackUserFunction callbackFunction,
+                                                   RequestCallbackUserData callbackData)
+{
+  if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
+
+  // getHandle() will throw runtime_error if handle is nullptr or consumed
+  try {
+    probeInfo->getHandle();
+  } catch (const std::runtime_error& e) {
+    throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
+  }
+
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto request =
+    registerInflightRequest(createRequestTag(worker,
+                                             data::TagReceiveWithHandle(buffer, probeInfo),
+                                             enableFuture,
+                                             callbackFunction,
+                                             callbackData));
+
+  return request;
 }
 
 std::shared_ptr<Address> Worker::getAddress()

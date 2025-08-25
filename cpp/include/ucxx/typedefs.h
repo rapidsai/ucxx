@@ -4,9 +4,11 @@
  */
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -71,26 +73,6 @@ enum TagMask : ucp_tag_t {};
  * A convenience constant providing a full UCP tag mask (all bits set).
  */
 static constexpr TagMask TagMaskFull{std::numeric_limits<std::underlying_type_t<TagMask>>::max()};
-
-/**
- * @brief Information about probed tag message.
- *
- * Contains information returned when probing by a tag message received by the worker but
- * not yet consumed.
- */
-class TagRecvInfo {
- public:
-  Tag senderTag;  ///< Sender tag
-  size_t length;  ///< The size of the received data
-
-  /**
-   * @brief Construct a TagRecvInfo object from a UCP tag receive info structure.
-   *
-   * @param[in] info  The UCP tag receive info structure containing the sender tag and
-   *                  received data length.
-   */
-  explicit TagRecvInfo(const ucp_tag_recv_info_t& info);
-};
 
 /**
  * @brief A UCP configuration map.
