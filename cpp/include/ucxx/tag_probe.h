@@ -87,41 +87,6 @@ class TagProbeInfo {
    */
   ucp_tag_message_h getHandle() const;
 
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
-   * the object as unmatched (`isMatched()` returns false).
-   *
-   * @code{.cpp}
-   * auto tagProbeInfo = ucxx::createTagProbeInfo();
-   * @endcode
-   *
-   * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
-   */
-  friend std::shared_ptr<TagProbeInfo> createTagProbeInfo();
-
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
-   * the object as matched (isMatched() returns true) with the provided info and handle.
-   *
-   * @code{.cpp}
-   * auto tagProbeInfo = ucxx::createTagProbeInfo(info, handle);
-   * @endcode
-   *
-   * @param[in] info    The UCP tag receive info structure.
-   * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
-   *
-   * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
-   */
-  friend std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
-                                                          ucp_tag_message_h handle);
-
-  // Allow RequestTag to consume the handle
-  friend class RequestTag;
-
  private:
   const bool _matched{false};  ///< Whether a message was matched
   const std::optional<TagRecvInfo> _info{
@@ -170,38 +135,41 @@ class TagProbeInfo {
    * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
    */
   TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
+
+  /**
+   * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
+   *
+   * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
+   * the object as unmatched (`isMatched()` returns false).
+   *
+   * @code{.cpp}
+   * auto tagProbeInfo = ucxx::createTagProbeInfo();
+   * @endcode
+   *
+   * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
+   */
+  friend std::shared_ptr<TagProbeInfo> createTagProbeInfo();
+
+  /**
+   * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
+   *
+   * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
+   * the object as matched (isMatched() returns true) with the provided info and handle.
+   *
+   * @code{.cpp}
+   * auto tagProbeInfo = ucxx::createTagProbeInfo(info, handle);
+   * @endcode
+   *
+   * @param[in] info    The UCP tag receive info structure.
+   * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
+   *
+   * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
+   */
+  friend std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
+                                                          ucp_tag_message_h handle);
+
+  // Allow RequestTag to consume the handle
+  friend class RequestTag;
 };
-
-/**
- * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
- *
- * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
- * the object as unmatched (isMatched() returns false).
- *
- * @code{.cpp}
- * auto tagProbeInfo = ucxx::createTagProbeInfo();
- * @endcode
- *
- * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
- */
-std::shared_ptr<TagProbeInfo> createTagProbeInfo();
-
-/**
- * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
- *
- * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
- * the object as matched (isMatched() returns true) with the provided info and handle.
- *
- * @code{.cpp}
- * auto tagProbeInfo = ucxx::createTagProbeInfo(info, handle);
- * @endcode
- *
- * @param[in] info    The UCP tag receive info structure.
- * @param[in] handle  The UCP tag message handle (can be nullptr if remove=false).
- *
- * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
- */
-std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
-                                                 ucp_tag_message_h handle);
 
 }  // namespace ucxx

@@ -40,8 +40,7 @@ TagProbeInfo::~TagProbeInfo()
   if (_matched && _handle.has_value() && _handle.value() != nullptr && !_consumed) {
     ucxx_warn(
       "ucxx::TagProbeInfo::%s, destroying %p unconsumed message handle %p detected from tag 0x%lx "
-      "with "
-      "length %lu. ucxx::Worker::tagRecvWithHandle() must be called to consume the handle.",
+      "with length %lu. ucxx::Worker::tagRecvWithHandle() must be called to consume the handle.",
       __func__,
       this,
       _handle.value(),
