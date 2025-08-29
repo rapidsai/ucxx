@@ -31,7 +31,7 @@ dependencies:
 - pynvml>=12.0.0,<13.0.0a0
 - pytest
 - pytest-asyncio>=1.0.0
-- pytest-rerunfailures
+- pytest-rerunfailures<16.0
 - python>=3.10,<3.14
 - rapids-build-backend>=0.4.0,<0.5.0.dev0
 - rapids-dask-dependency==25.10.*,>=0.0.0a0
