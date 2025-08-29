@@ -242,6 +242,8 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
+          - dask-cuda==25.10.*,>=0.0.0a0
+          - dask-cudf==25.10.*,>=0.0.0a0
           # UCX Build
           - libtool
           - automake
@@ -250,18 +252,6 @@ dependencies:
           - pkg-config
           # Docs Build
           - &doxygen doxygen=1.9.1 # pre-commit hook needs a specific version.
-    specific:
-      - output_types: [conda]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - dask-cuda==25.10.*,>=0.0.0a0
-              - dask-cudf==25.10.*,>=0.0.0a0
-          # TODO: add 'dask-cuda' and 'dask-cudf' back to this 'dev' dependency list once there are CUDA 13 packages for those
-          # ref: https://github.com/rapidsai/ucxx/pull/489#issuecomment-3207723017
-          - matrix:
-            packages:
   docs:
     common:
       - output_types: [conda]
@@ -414,28 +404,17 @@ dependencies:
             packages:
               - rmm-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*rmm_unsuffixed]}
-  # TODO: re-include cudf on CUDA 13 here once cudf CUDA 13 packages exist
-  # ref: https://github.com/rapidsai/ucxx/pull/489#issuecomment-3207723017
   depends_on_cudf:
     common:
+      - output_types: [conda]
+        packages:
+          - &cudf_unsuffixed cudf==25.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
-      - output_types: [conda]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - &cudf_unsuffixed cudf==25.10.*,>=0.0.0a0
-          - matrix:
-              cuda: "13.*"
-            packages:
-          - matrix:
-            packages:
-              - *cudf_unsuffixed
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
@@ -446,6 +425,7 @@ dependencies:
           - matrix:
               cuda: "13.*"
             packages:
+              - cudf-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*cudf_unsuffixed]}
   depends_on_distributed_ucxx:
     common:
