@@ -341,7 +341,7 @@ dependencies:
           - cloudpickle
           - pytest
           - pytest-asyncio>=1.0.0
-          - pytest-rerunfailures
+          - pytest-rerunfailures<16.0
           - rapids-dask-dependency==25.10.*,>=0.0.0a0
   test_python_distributed_ucxx:
     common:
@@ -349,7 +349,7 @@ dependencies:
         packages:
           - *numpy
           - pytest
-          - pytest-rerunfailures
+          - pytest-rerunfailures<16.0
   depends_on_cupy:
     common:
       - output_types: conda
