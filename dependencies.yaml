@@ -406,7 +406,7 @@ dependencies:
           - {matrix: null, packages: [*rmm_unsuffixed]}
   depends_on_cudf:
     common:
-      - ouput_type: [conda]
+      - output_types: [conda]
         packages:
           - &cudf_unsuffixed cudf==25.10.*,>=0.0.0a0
       - output_types: requirements
