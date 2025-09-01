@@ -35,6 +35,7 @@ def init(
     progress_mode=None,
     enable_delayed_submission=None,
     enable_python_future=None,
+    connect_timeout=None,
 ):
     """Initiate UCX.
 
@@ -86,6 +87,7 @@ def init(
         progress_mode=progress_mode,
         enable_delayed_submission=enable_delayed_submission,
         enable_python_future=enable_python_future,
+        connect_timeout=connect_timeout
     )
 
 
@@ -164,24 +166,24 @@ def create_listener(
     callback_func,
     port=None,
     endpoint_error_handling=True,
-    exchange_peer_info_timeout=5.0,
+    connect_timeout=5.0,
 ):
     return _get_ctx().create_listener(
         callback_func,
         port,
         endpoint_error_handling=endpoint_error_handling,
-        exchange_peer_info_timeout=exchange_peer_info_timeout,
+        connect_timeout=connect_timeout,
     )
 
 
 async def create_endpoint(
-    ip_address, port, endpoint_error_handling=True, exchange_peer_info_timeout=5.0
+    ip_address, port, endpoint_error_handling=True, connect_timeout=5.0
 ):
     return await _get_ctx().create_endpoint(
         ip_address,
         port,
         endpoint_error_handling=endpoint_error_handling,
-        exchange_peer_info_timeout=exchange_peer_info_timeout,
+        connect_timeout=connnect_timeout,
     )
 
 
