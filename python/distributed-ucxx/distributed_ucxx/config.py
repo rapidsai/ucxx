@@ -29,18 +29,14 @@ def load_default_config() -> Dict[str, Any]:
     return {
         "distributed-ucxx": {
             "version": 1,
-            "comm": {
-                "ucx": {
-                    "cuda-copy": None,
-                    "tcp": None,
-                    "nvlink": None,
-                    "infiniband": None,
-                    "rdmacm": None,
-                    "create-cuda-context": None,
-                    "multi-buffer": False,
-                    "environment": {},
-                }
-            },
+            "cuda-copy": None,
+            "tcp": None,
+            "nvlink": None,
+            "infiniband": None,
+            "rdmacm": None,
+            "create-cuda-context": None,
+            "multi-buffer": False,
+            "environment": {},
             "rmm": {
                 "pool-size": None,
             },
@@ -66,7 +62,7 @@ def get_ucx_config(key: str, default: Any = None) -> Any:
     Parameters
     ----------
     key : str
-        Configuration key under 'distributed-ucxx.comm.ucx'
+        Configuration key under 'distributed-ucxx'
     default : Any, optional
         Default value if key is not found
 
@@ -75,8 +71,8 @@ def get_ucx_config(key: str, default: Any = None) -> Any:
     Any
         Configuration value
     """
-    # First try the new distributed-ucxx namespace
-    full_key = f"distributed-ucxx.comm.ucx.{key}"
+    # First try the new distributed-ucxx namespace (flattened)
+    full_key = f"distributed-ucxx.{key}"
     value = dask.config.get(full_key, default=None)
 
     if value is not None:
@@ -94,7 +90,7 @@ def get_rmm_config(key: str, default: Any = None) -> Any:
     Parameters
     ----------
     key : str
-        Configuration key under 'distributed-ucxx.rmm'
+        RMM configuration key (e.g., 'pool-size')
     default : Any, optional
         Default value if key is not found
 
@@ -187,8 +183,10 @@ def get_config_source_info() -> Dict[str, str]:
 
     # Check if using new or legacy configuration keys
     test_keys = [
-        "distributed-ucxx.comm.ucx.tcp",
+        "distributed-ucxx.tcp",
         "distributed.comm.ucx.tcp",
+        "distributed-ucxx.nvlink",
+        "distributed.comm.ucx.nvlink",
         "distributed-ucxx.rmm.pool-size",
         "distributed.rmm.pool-size",
     ]
