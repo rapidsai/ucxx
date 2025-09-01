@@ -17,7 +17,7 @@ import yaml
 import dask
 
 
-def load_default_config() -> Dict[str, Any]:
+def _load_default_config() -> Dict[str, Any]:
     """Load the default configuration from distributed-ucxx.yaml."""
     config_path = Path(__file__).parent / "distributed-ucxx.yaml"
 
@@ -42,17 +42,6 @@ def load_default_config() -> Dict[str, Any]:
             },
         }
     }
-
-
-def load_schema() -> Dict[str, Any]:
-    """Load the configuration schema from distributed-ucxx-schema.yaml."""
-    schema_path = Path(__file__).parent / "distributed-ucxx-schema.yaml"
-
-    if schema_path.exists():
-        with open(schema_path, "r") as f:
-            return yaml.safe_load(f)
-
-    return {}
 
 
 def get_ucx_config(key: str, default: Any = None) -> Any:
@@ -111,21 +100,6 @@ def get_rmm_config(key: str, default: Any = None) -> Any:
     return dask.config.get(legacy_key, default=default)
 
 
-def setup_config() -> None:
-    """
-    Set up distributed-ucxx configuration.
-
-    This should be called during module initialization to ensure the
-    default configuration is loaded into dask.config.
-    """
-    default_config = load_default_config()
-
-    # Only set defaults if they don't already exist
-    for key, value in _flatten_dict(default_config).items():
-        if dask.config.get(key, default=None) is None:
-            dask.config.set({key: value})
-
-
 def _flatten_dict(
     d: Dict[str, Any], parent_key: str = "", sep: str = "."
 ) -> Dict[str, Any]:
@@ -156,47 +130,16 @@ def _flatten_dict(
     return dict(items)
 
 
-def validate_config() -> bool:
+def setup_config() -> None:
     """
-    Validate the current configuration against the schema.
+    Set up distributed-ucxx configuration.
 
-    Returns
-    -------
-    bool
-        True if configuration is valid, False otherwise
+    This should be called during module initialization to ensure the
+    default configuration is loaded into dask.config.
     """
-    # This is a placeholder for future schema validation
-    # Could be implemented using jsonschema or similar
-    return True
+    default_config = _load_default_config()
 
-
-def get_config_source_info() -> Dict[str, str]:
-    """
-    Get information about where configuration values are being loaded from.
-
-    Returns
-    -------
-    dict
-        Dictionary mapping configuration keys to their sources
-    """
-    info = {}
-
-    # Check if using new or legacy configuration keys
-    test_keys = [
-        "distributed-ucxx.tcp",
-        "distributed.comm.ucx.tcp",
-        "distributed-ucxx.nvlink",
-        "distributed.comm.ucx.nvlink",
-        "distributed-ucxx.rmm.pool-size",
-        "distributed.rmm.pool-size",
-    ]
-
-    for key in test_keys:
-        value = dask.config.get(key, default=None)
-        if value is not None:
-            if key.startswith("distributed-ucxx."):
-                info[key] = "distributed-ucxx (new)"
-            else:
-                info[key] = "distributed (legacy)"
-
-    return info
+    # Only set defaults if they don't already exist
+    for key, value in _flatten_dict(default_config).items():
+        if dask.config.get(key, default=None) is None:
+            dask.config.set({key: value})
