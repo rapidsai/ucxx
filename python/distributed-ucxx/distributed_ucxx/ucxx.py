@@ -22,7 +22,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
-import dask
 from dask.utils import parse_bytes
 from distributed.comm.addressing import parse_host_port, unparse_host_port
 from distributed.comm.core import Comm, CommClosedError, Connector, Listener
@@ -35,6 +34,8 @@ from distributed.diagnostics.nvml import (
 )
 from distributed.protocol.utils import host_array
 from distributed.utils import ensure_ip, get_ip, get_ipv6, log_errors, nbytes
+
+from .config import get_rmm_config, get_ucx_config, setup_config
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +220,9 @@ def init_once():
 
         return
 
+    # Set up configuration system with defaults
+    setup_config()
+
     # remove/process dask.ucx flags for valid ucx options
     ucx_config, ucx_environment = _prepare_ucx_config()
 
@@ -234,7 +238,7 @@ def init_once():
         ucx_config.get("TLS", ucx_environment.get("UCX_TLS", "")),
     )
     if (
-        dask.config.get("distributed.comm.ucx.create-cuda-context") is True
+        get_ucx_config("create-cuda-context") is True
         # This is not foolproof, if UCX_TLS=all we might require CUDA
         # depending on configuration of UCX, but this is better than
         # nothing
@@ -267,7 +271,7 @@ def init_once():
                 cuda_visible_device, cuda_context_created.device_info, os.getpid()
             )
 
-    multi_buffer = dask.config.get("distributed.comm.ucx.multi-buffer", default=False)
+    multi_buffer = get_ucx_config("multi-buffer", default=False)
 
     import ucxx as _ucxx
 
@@ -284,7 +288,7 @@ def init_once():
         )
         _allocate_dask_resources_tracker()
 
-    pool_size_str = dask.config.get("distributed.rmm.pool-size")
+    pool_size_str = get_rmm_config("pool-size")
 
     # Find the function, `cuda_array()`, to use when allocating new CUDA arrays
     try:
@@ -830,12 +834,12 @@ def _prepare_ucx_config():
     # leave UCX to its default configuration
     if any(
         [
-            dask.config.get("distributed.comm.ucx.tcp"),
-            dask.config.get("distributed.comm.ucx.nvlink"),
-            dask.config.get("distributed.comm.ucx.infiniband"),
+            get_ucx_config("tcp"),
+            get_ucx_config("nvlink"),
+            get_ucx_config("infiniband"),
         ]
     ):
-        if dask.config.get("distributed.comm.ucx.rdmacm"):
+        if get_ucx_config("rdmacm"):
             tls = "tcp"
             tls_priority = "rdmacm"
         else:
@@ -847,22 +851,22 @@ def _prepare_ucx_config():
         # defining only the Infiniband flag will not enable cuda_copy
         if any(
             [
-                dask.config.get("distributed.comm.ucx.nvlink"),
-                dask.config.get("distributed.comm.ucx.cuda-copy"),
+                get_ucx_config("nvlink"),
+                get_ucx_config("cuda-copy"),
             ]
         ):
             tls = tls + ",cuda_copy"
 
-        if dask.config.get("distributed.comm.ucx.infiniband"):
+        if get_ucx_config("infiniband"):
             tls = "rc," + tls
-        if dask.config.get("distributed.comm.ucx.nvlink"):
+        if get_ucx_config("nvlink"):
             tls = tls + ",cuda_ipc"
 
         high_level_options = {"TLS": tls, "SOCKADDR_TLS_PRIORITY": tls_priority}
 
     # Pick up any other ucx environment settings
     environment_options = {}
-    for k, v in dask.config.get("distributed.comm.ucx.environment", {}).items():
+    for k, v in get_ucx_config("environment", default={}).items():
         # {"some-name": value} is translated to {"UCX_SOME_NAME": value}
         key = "_".join(map(str.upper, ("UCX", *k.split("-"))))
         if (hl_key := key[4:]) in high_level_options:

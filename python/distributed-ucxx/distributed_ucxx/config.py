@@ -1,0 +1,204 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
+"""
+Configuration management for distributed-ucxx.
+
+This module provides configuration loading and validation for the distributed-ucxx
+package, replacing the UCX configuration previously handled by the main distributed
+package.
+"""
+
+from pathlib import Path
+from typing import Any, Dict
+
+import yaml
+
+import dask
+
+
+def load_default_config() -> Dict[str, Any]:
+    """Load the default configuration from distributed-ucxx.yaml."""
+    config_path = Path(__file__).parent.parent / "distributed-ucxx.yaml"
+
+    if config_path.exists():
+        with open(config_path, "r") as f:
+            return yaml.safe_load(f)
+
+    # Fallback default configuration
+    return {
+        "distributed-ucxx": {
+            "version": 1,
+            "comm": {
+                "ucx": {
+                    "cuda-copy": None,
+                    "tcp": None,
+                    "nvlink": None,
+                    "infiniband": None,
+                    "rdmacm": None,
+                    "create-cuda-context": None,
+                    "multi-buffer": False,
+                    "environment": {},
+                }
+            },
+            "rmm": {
+                "pool-size": None,
+            },
+        }
+    }
+
+
+def load_schema() -> Dict[str, Any]:
+    """Load the configuration schema from distributed-ucxx-schema.yaml."""
+    schema_path = Path(__file__).parent.parent / "distributed-ucxx-schema.yaml"
+
+    if schema_path.exists():
+        with open(schema_path, "r") as f:
+            return yaml.safe_load(f)
+
+    return {}
+
+
+def get_ucx_config(key: str, default: Any = None) -> Any:
+    """
+    Get a UCX configuration value.
+
+    Parameters
+    ----------
+    key : str
+        Configuration key under 'distributed-ucxx.comm.ucx'
+    default : Any, optional
+        Default value if key is not found
+
+    Returns
+    -------
+    Any
+        Configuration value
+    """
+    # First try the new distributed-ucxx namespace
+    full_key = f"distributed-ucxx.comm.ucx.{key}"
+    value = dask.config.get(full_key, default=None)
+
+    if value is not None:
+        return value
+
+    # Fallback to legacy distributed namespace for backward compatibility
+    legacy_key = f"distributed.comm.ucx.{key}"
+    return dask.config.get(legacy_key, default=default)
+
+
+def get_rmm_config(key: str, default: Any = None) -> Any:
+    """
+    Get an RMM configuration value.
+
+    Parameters
+    ----------
+    key : str
+        Configuration key under 'distributed-ucxx.rmm'
+    default : Any, optional
+        Default value if key is not found
+
+    Returns
+    -------
+    Any
+        Configuration value
+    """
+    # First try the new distributed-ucxx namespace
+    full_key = f"distributed-ucxx.rmm.{key}"
+    value = dask.config.get(full_key, default=None)
+
+    if value is not None:
+        return value
+
+    # Fallback to legacy distributed namespace for backward compatibility
+    legacy_key = f"distributed.rmm.{key}"
+    return dask.config.get(legacy_key, default=default)
+
+
+def setup_config() -> None:
+    """
+    Set up distributed-ucxx configuration.
+
+    This should be called during module initialization to ensure the
+    default configuration is loaded into dask.config.
+    """
+    default_config = load_default_config()
+
+    # Only set defaults if they don't already exist
+    for key, value in _flatten_dict(default_config).items():
+        if dask.config.get(key, default=None) is None:
+            dask.config.set({key: value})
+
+
+def _flatten_dict(
+    d: Dict[str, Any], parent_key: str = "", sep: str = "."
+) -> Dict[str, Any]:
+    """
+    Flatten a nested dictionary using dot notation.
+
+    Parameters
+    ----------
+    d : dict
+        Dictionary to flatten
+    parent_key : str
+        Parent key prefix
+    sep : str
+        Separator to use between keys
+
+    Returns
+    -------
+    dict
+        Flattened dictionary
+    """
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(_flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
+def validate_config() -> bool:
+    """
+    Validate the current configuration against the schema.
+
+    Returns
+    -------
+    bool
+        True if configuration is valid, False otherwise
+    """
+    # This is a placeholder for future schema validation
+    # Could be implemented using jsonschema or similar
+    return True
+
+
+def get_config_source_info() -> Dict[str, str]:
+    """
+    Get information about where configuration values are being loaded from.
+
+    Returns
+    -------
+    dict
+        Dictionary mapping configuration keys to their sources
+    """
+    info = {}
+
+    # Check if using new or legacy configuration keys
+    test_keys = [
+        "distributed-ucxx.comm.ucx.tcp",
+        "distributed.comm.ucx.tcp",
+        "distributed-ucxx.rmm.pool-size",
+        "distributed.rmm.pool-size",
+    ]
+
+    for key in test_keys:
+        value = dask.config.get(key, default=None)
+        if value is not None:
+            if key.startswith("distributed-ucxx."):
+                info[key] = "distributed-ucxx (new)"
+            else:
+                info[key] = "distributed (legacy)"
+
+    return info

@@ -36,7 +36,7 @@ async def test_ucx_config(ucxx_loop, cleanup):
         "cuda-copy": True,
     }
 
-    with dask.config.set({"distributed.comm.ucx": ucx}):
+    with dask.config.set({"distributed-ucxx.comm.ucx": ucx}):
         ucx_config, ucx_environment = _prepare_ucx_config()
         assert ucx_config == {
             "TLS": "rc,tcp,cuda_copy,cuda_ipc",
@@ -52,7 +52,7 @@ async def test_ucx_config(ucxx_loop, cleanup):
         "cuda-copy": False,
     }
 
-    with dask.config.set({"distributed.comm.ucx": ucx}):
+    with dask.config.set({"distributed-ucxx.comm.ucx": ucx}):
         ucx_config, ucx_environment = _prepare_ucx_config()
         assert ucx_config == {"TLS": "rc,tcp", "SOCKADDR_TLS_PRIORITY": "tcp"}
         assert ucx_environment == {}
@@ -65,7 +65,7 @@ async def test_ucx_config(ucxx_loop, cleanup):
         "cuda-copy": True,
     }
 
-    with dask.config.set({"distributed.comm.ucx": ucx}):
+    with dask.config.set({"distributed-ucxx.comm.ucx": ucx}):
         ucx_config, ucx_environment = _prepare_ucx_config()
         assert ucx_config == {
             "TLS": "rc,tcp,cuda_copy",
@@ -81,7 +81,7 @@ async def test_ucx_config(ucxx_loop, cleanup):
         "cuda-copy": None,
     }
 
-    with dask.config.set({"distributed.comm.ucx": ucx}):
+    with dask.config.set({"distributed-ucxx.comm.ucx": ucx}):
         ucx_config, ucx_environment = _prepare_ucx_config()
         assert ucx_config == {}
         assert ucx_environment == {}
@@ -96,8 +96,8 @@ async def test_ucx_config(ucxx_loop, cleanup):
 
     with dask.config.set(
         {
-            "distributed.comm.ucx": ucx,
-            "distributed.comm.ucx.environment": {
+            "distributed-ucxx.comm.ucx": ucx,
+            "distributed-ucxx.comm.ucx.environment": {
                 "tls": "all",
                 "memtrack-dest": "stdout",
             },
