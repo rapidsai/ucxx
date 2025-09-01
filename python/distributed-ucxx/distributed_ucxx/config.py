@@ -19,7 +19,7 @@ import dask
 
 def load_default_config() -> Dict[str, Any]:
     """Load the default configuration from distributed-ucxx.yaml."""
-    config_path = Path(__file__).parent.parent / "distributed-ucxx.yaml"
+    config_path = Path(__file__).parent / "distributed-ucxx.yaml"
 
     if config_path.exists():
         with open(config_path, "r") as f:
@@ -46,7 +46,7 @@ def load_default_config() -> Dict[str, Any]:
 
 def load_schema() -> Dict[str, Any]:
     """Load the configuration schema from distributed-ucxx-schema.yaml."""
-    schema_path = Path(__file__).parent.parent / "distributed-ucxx-schema.yaml"
+    schema_path = Path(__file__).parent / "distributed-ucxx-schema.yaml"
 
     if schema_path.exists():
         with open(schema_path, "r") as f:

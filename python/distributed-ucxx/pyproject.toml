@@ -123,7 +123,7 @@ dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true"
 
 [tool.setuptools.package-data]
-"distributed_ucxx" = ["VERSION"]
+"distributed_ucxx" = ["VERSION", "*.yaml"]
 
 [tool.setuptools.dynamic]
 version = {file = "distributed_ucxx/VERSION"}
