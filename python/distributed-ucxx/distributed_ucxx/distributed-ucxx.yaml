@@ -1,14 +1,13 @@
 distributed-ucxx:
   version: 1
 
-  # UCX Communication Configuration
-  cuda-copy: null  # enable cuda-copy
-  tcp: null  # enable tcp
-  nvlink: null  # enable cuda_ipc
-  infiniband: null  # enable Infiniband
-  rdmacm: null  # enable RDMACM
+  cuda-copy: null            # enable cuda-copy
+  tcp: null                  # enable tcp
+  nvlink: null               # enable cuda_ipc
+  infiniband: null           # enable Infiniband
+  rdmacm: null               # enable RDMACM
   create-cuda-context: null  # create CUDA context before UCX initialization
-  multi-buffer: false  # enable multi-buffer send/recv interface
+  multi-buffer: false        # enable multi-buffer send/recv interface
   environment: {}            # Any other environment settings to
                              # be transferred to UCX. Name
                              # munging: key-name => UCX_KEY_NAME

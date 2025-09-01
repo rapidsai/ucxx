@@ -71,7 +71,7 @@ def get_ucx_config(key: str, default: Any = None) -> Any:
     Any
         Configuration value
     """
-    # First try the new distributed-ucxx namespace (flattened)
+    # First try the new distributed-ucxx namespace
     full_key = f"distributed-ucxx.{key}"
     value = dask.config.get(full_key, default=None)
 
