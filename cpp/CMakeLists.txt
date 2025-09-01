@@ -64,16 +64,6 @@ set(UCXX_CXX_FLAGS -Wall -Wattributes -Werror -Wextra -Wsign-conversion
 )
 set(UCXX_CXX_DEFINITIONS "")
 
-# Set RMM logging level
-set(RMM_LOGGING_LEVEL
-    "INFO"
-    CACHE STRING "Choose the logging level."
-)
-set_property(
-  CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF"
-)
-message(VERBOSE "UCXX: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
-
 # ##################################################################################################
 # * conda environment -----------------------------------------------------------------------------
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
@@ -183,10 +173,7 @@ target_compile_definitions(ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEF
 if(UCXX_ENABLE_RMM)
   target_link_libraries(ucxx PUBLIC rmm::rmm)
 
-  # Define spdlog level
-  target_compile_definitions(
-    ucxx PUBLIC UCXX_ENABLE_RMM "RMM_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LEVEL_${RMM_LOGGING_LEVEL}"
-  )
+  target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
 endif()
 
 # Specify the target module library dependencies
