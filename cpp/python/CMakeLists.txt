@@ -56,18 +56,11 @@ rapids_find_package(
 )
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
-#   Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx dependency because
-#   users would then have no control over whether ucx is found multiple times, causing potential
-#   configure errors. Therefore, we use a raw find_package call instead of rapids_find_package and
-#   skip exporting the ucx dependency. Consumers of ucxx must find ucx themselves. Once we move the
-#   minimum version to UCX 1.16 we can remove the above find_package in favor of the commented out
-#   lines below. For the same reason, we must also gate this find_package call behind a check for
-#   the target already existing so that consumers can use tools like CPM.cmake to either find or
-#   build ucxx from source if it cannot be found (i.e. both cases must allow prior finding of ucx).
-if(NOT TARGET ucx::ucp)
-  find_package(ucx REQUIRED)
-endif()
-# rapids_find_package( ucx REQUIRED BUILD_EXPORT_SET ucxx-exports INSTALL_EXPORT_SET ucxx-exports )
+rapids_find_package(
+  ucx REQUIRED
+  BUILD_EXPORT_SET ucxx-exports
+  INSTALL_EXPORT_SET ucxx-exports
+)
 
 # ##################################################################################################
 # * python library --------------------------------------------------------------------------------
