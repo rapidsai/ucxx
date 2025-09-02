@@ -46,7 +46,7 @@ class ApplicationContext:
         progress_mode=None,
         enable_delayed_submission=None,
         enable_python_future=None,
-        connect_timeout=10.0,
+        connect_timeout=None,
     ):
         self.notifier_thread_q = None
         self.notifier_thread = None
@@ -57,12 +57,10 @@ class ApplicationContext:
         self.enable_delayed_submission = enable_delayed_submission
         self.enable_python_future = enable_python_future
 
-        if "UCXPY_CONNECT_TIMEOUT" in os.environ:
-            self.connect_timeout = float(os.environ["UCXPY_CONNECT_TIMEOUT"])
-        elif connect_timeout is not None:
-            self.connect_timeout = connect_timeout
+        if connect_timeout is None:
+            self.connect_timeout = float(os.environ.get("UCXPY_CONNECT_TIMEOUT", 5))
         else:
-            self.connect_timeout = 10.0
+            self.connect_timeout = connect_timeout
 
         # For now, a application context only has one worker
         self.context = ucx_api.UCXContext(config_dict)
