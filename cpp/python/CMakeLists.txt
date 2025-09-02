@@ -56,7 +56,11 @@ rapids_find_package(
 )
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
-rapids_find_package(ucx REQUIRED BUILD_EXPORT_SET ucxx-exports INSTALL_EXPORT_SET ucxx-exports)
+rapids_find_package(
+  ucx REQUIRED
+  BUILD_EXPORT_SET ucxx-exports
+  INSTALL_EXPORT_SET ucxx-exports
+)
 
 # ##################################################################################################
 # * python library --------------------------------------------------------------------------------
