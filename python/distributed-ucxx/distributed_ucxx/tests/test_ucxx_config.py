@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import os
+import pathlib
 from contextlib import contextmanager
 from time import sleep, time
 
 import pytest
+import yaml
 
 import dask
 from distributed import Client
@@ -211,3 +213,13 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop):
                 rmm_resource_workers = c.run(rmm.mr.get_current_device_resource_type)
                 for v in rmm_resource_workers.values():
                     assert v == rmm.mr.PoolMemoryResource
+
+
+def test_schema():
+    jsonschema = pytest.importorskip("jsonschema")
+
+    root_dir = pathlib.Path(__file__).parent.parent
+    config = yaml.safe_load((root_dir / "distributed-ucxx.yaml").read_text())
+    schema = yaml.safe_load((root_dir / "distributed-ucxx-schema.yaml").read_text())
+
+    jsonschema.validate(config, schema)
