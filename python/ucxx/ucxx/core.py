@@ -60,6 +60,11 @@ def init(
     enable_python_future: boolean, optional
         If None, request notification via Python futures is disabled unless
         `UCXPY_ENABLE_PYTHON_FUTURE` is defined with a value other than `0`.
+    connect_timeout: float, optional
+        The timeout in seconds for exchanging endpoint information upon endpoint
+        establishment. If None, use the value from `UCXPY_CONNECT_TIMEOUT` if defined,
+        otherwise fallback to the default of 5 seconds.
+
     """
     global _ctx
     if _ctx is not None:
