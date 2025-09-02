@@ -39,7 +39,7 @@ properties:
           ``True``, a CUDA context will be created on the first device listed in
           ``CUDA_VISIBLE_DEVICES``.
       multi-buffer:
-        type: boolean
+        type: [boolean, 'null']
         description: |
           Enable multi-buffer send/recv interface for improved performance with multiple small messages.
           When enabled, multiple frames can be sent/received in a single operation.

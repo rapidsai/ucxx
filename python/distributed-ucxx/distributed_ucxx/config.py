@@ -35,7 +35,7 @@ def _load_default_config() -> Dict[str, Any]:
             "infiniband": None,
             "rdmacm": None,
             "create-cuda-context": None,
-            "multi-buffer": False,
+            "multi-buffer": None,
             "environment": {},
             "rmm": {
                 "pool-size": None,

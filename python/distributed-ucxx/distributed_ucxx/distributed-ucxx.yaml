@@ -7,7 +7,7 @@ distributed-ucxx:
   infiniband: null           # enable Infiniband
   rdmacm: null               # enable RDMACM
   create-cuda-context: null  # create CUDA context before UCX initialization
-  multi-buffer: false        # enable multi-buffer send/recv interface
+  multi-buffer: null         # enable multi-buffer send/recv interface
   environment: {}            # Any other environment settings to
                              # be transferred to UCX. Name
                              # munging: key-name => UCX_KEY_NAME
