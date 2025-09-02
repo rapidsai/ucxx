@@ -305,7 +305,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - rapids-dask-dependency==25.10.*,>=0.0.0a0
-          - pyyaml>=6.*
+          - pyyaml>=6
       - output_types: [conda]
         packages:
           - *numba_cuda
