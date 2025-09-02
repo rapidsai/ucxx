@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import gc
@@ -92,7 +92,7 @@ def init(
         progress_mode=progress_mode,
         enable_delayed_submission=enable_delayed_submission,
         enable_python_future=enable_python_future,
-        connect_timeout=connect_timeout
+        connect_timeout=connect_timeout,
     )
 
 
@@ -188,7 +188,7 @@ async def create_endpoint(
         ip_address,
         port,
         endpoint_error_handling=endpoint_error_handling,
-        connect_timeout=connnect_timeout,
+        connect_timeout=connect_timeout,
     )
 
 
