@@ -46,7 +46,7 @@ class ApplicationContext:
         progress_mode=None,
         enable_delayed_submission=None,
         enable_python_future=None,
-        connect_timeout=None,
+        exchange_peer_info_timeout=10.0,
     ):
         self.notifier_thread_q = None
         self.notifier_thread = None
@@ -57,10 +57,7 @@ class ApplicationContext:
         self.enable_delayed_submission = enable_delayed_submission
         self.enable_python_future = enable_python_future
 
-        if connect_timeout is None:
-            self.connect_timeout = float(os.environ.get("UCXPY_CONNECT_TIMEOUT", 5))
-        else:
-            self.connect_timeout = connect_timeout
+        self.exchange_peer_info_timeout = exchange_peer_info_timeout
 
         # For now, a application context only has one worker
         self.context = ucx_api.UCXContext(config_dict)
@@ -257,7 +254,7 @@ class ApplicationContext:
         callback_func,
         port=0,
         endpoint_error_handling=True,
-        connect_timeout=5.0,
+        exchange_peer_info_timeout=5.0,
     ):
         """Create and start a listener to accept incoming connections
 
@@ -281,7 +278,7 @@ class ApplicationContext:
             but prevents a process from terminating unexpectedly that may
             happen when disabled. If `False` endpoint endpoint error handling
             is disabled.
-        connect_timeout: float
+        exchange_peer_info_timeout: float
             Timeout in seconds for exchanging peer info. In some cases, exchanging
             peer information may hang indefinitely, a timeout prevents that. If the
             chosen value is too high it may cause the operation to be stuck for too
@@ -313,7 +310,7 @@ class ApplicationContext:
                     callback_func,
                     self,
                     endpoint_error_handling,
-                    connect_timeout,
+                    exchange_peer_info_timeout,
                     listener_id,
                     self._listener_active_clients,
                 ),
@@ -329,7 +326,7 @@ class ApplicationContext:
         ip_address,
         port,
         endpoint_error_handling=True,
-        connect_timeout=5.0,
+        exchange_peer_info_timeout=5.0,
     ):
         """Create a new endpoint to a server
 
@@ -345,7 +342,7 @@ class ApplicationContext:
             but prevents a process from terminating unexpectedly that may
             happen when disabled. If `False` endpoint endpoint error handling
             is disabled.
-        connect_timeout: float
+        exchange_peer_info_timeout: float
             Timeout in seconds for exchanging peer info. In some cases, exchanging
             peer information may hang indefinitely, a timeout prevents that. If the
             chosen value is too high it may cause the operation to be stuck for too
@@ -379,7 +376,7 @@ class ApplicationContext:
                 msg_tag=msg_tag,
                 ctrl_tag=ctrl_tag,
                 listener=False,
-                connect_timeout=connect_timeout,
+                stream_timeout=exchange_peer_info_timeout,
             )
         except UCXMessageTruncatedError as e:
             # A truncated message occurs if the remote endpoint closed before
