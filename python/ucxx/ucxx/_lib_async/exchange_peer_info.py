@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -13,9 +13,7 @@ from .utils import hash64bits
 logger = logging.getLogger("ucx")
 
 
-async def exchange_peer_info(
-    endpoint, msg_tag, ctrl_tag, listener, connect_timeout=5.0
-):
+async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener, connect_timeout=5.0):
     """Help function that exchange endpoint information"""
 
     # Pack peer information incl. a checksum

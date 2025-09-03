@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -32,7 +32,9 @@ async def server_node(ep):
 
 
 async def client_node(port):
-    ep = await ucxx.create_endpoint(ucxx.get_address(), port, connect_timeout=10.0)
+    ep = await ucxx.create_endpoint(
+        ucxx.get_address(), port, connect_timeout=10.0
+    )
     await hello(ep)
     await ep.close()
     # assert isinstance(ep.ucx_info(), str)
@@ -47,7 +49,9 @@ async def test_many_servers_many_clients(num_servers, num_clients):
     listeners = []
 
     for _ in range(num_servers):
-        listeners.append(ucxx.create_listener(server_node, connect_timeout=10.0))
+        listeners.append(
+            ucxx.create_listener(server_node, connect_timeout=10.0)
+        )
 
     # We ensure no more than `somaxconn` connections are submitted
     # at once. Doing otherwise can block and hang indefinitely.
