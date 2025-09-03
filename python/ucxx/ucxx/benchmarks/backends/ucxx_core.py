@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
@@ -253,6 +253,16 @@ class UCXPyCoreClient(BaseClient):
             if self.args.cuda_profile:
                 xp.cuda.profiler.start()
 
+            if self.args.report_gil_contention:
+                from gilknocker import KnockKnock
+
+                # Use smallest polling interval
+                # possible to ensure, contention will always
+                # be zero for small messages otherwise
+                # and inconsistent for large messages.
+                knocker = KnockKnock(polling_interval_micros=1)
+                knocker.start()
+
             for i in range(self.args.n_iter + self.args.n_warmup_iter):
                 start = monotonic()
 
@@ -277,6 +287,9 @@ class UCXPyCoreClient(BaseClient):
                 if i >= self.args.n_warmup_iter:
                     times.append(stop - start)
 
+            if self.args.report_gil_contention:
+                knocker.stop()
+
             if self.args.cuda_profile:
                 xp.cuda.profiler.stop()
 
@@ -284,6 +297,8 @@ class UCXPyCoreClient(BaseClient):
         loop.run_until_complete(_transfer())
 
         self.queue.put(times)
+        if self.args.report_gil_contention:
+            self.queue.put(knocker.contention_metric)
 
     def print_backend_specific_config(self):
         delay_progress_str = (
