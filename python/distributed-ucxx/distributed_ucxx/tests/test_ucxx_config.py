@@ -24,7 +24,6 @@ try:
 except Exception:
     HOST = "127.0.0.1"
 
-ucxx = pytest.importorskip("ucxx")
 rmm = pytest.importorskip("rmm")
 
 
@@ -111,7 +110,9 @@ async def test_ucx_config(ucxx_loop, cleanup):
 
 
 @contextmanager
-def start_dask_scheduler(env: list[str], max_attempts: int = 5, timeout: int = 10):
+def start_dask_scheduler(
+    env: list[str], protocol: str, max_attempts: int = 5, timeout: int = 10
+):
     """
     Start Dask scheduler in subprocess.
 
@@ -125,6 +126,8 @@ def start_dask_scheduler(env: list[str], max_attempts: int = 5, timeout: int = 1
     ----------
     env: list[str]
         Environment variables to start scheduler process with.
+    protocol: str
+        Communication protocol name to use, either "ucx" or "ucxx".
     max_attempts: int
         Maximum attempts to try to open scheduler.
     timeout: int
@@ -138,7 +141,7 @@ def start_dask_scheduler(env: list[str], max_attempts: int = 5, timeout: int = 1
                 "scheduler",
                 "--no-dashboard",
                 "--protocol",
-                "ucxx",
+                protocol,
                 "--port",
                 str(port),
             ],
@@ -173,17 +176,18 @@ def start_dask_scheduler(env: list[str], max_attempts: int = 5, timeout: int = 1
         pytest.fail(f"Failed to start dask scheduler after {max_attempts} attempts.")
 
 
+@pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.skipif(
     int(os.environ.get("UCXPY_ENABLE_PYTHON_FUTURE", "0")) != 0,
     reason="Workers running without a `Nanny` can't be closed properly",
 )
-def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop):
+def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
     env = os.environ.copy()
     env["DASK_DISTRIBUTED__RMM__POOL_SIZE"] = "1000.00 MB"
 
-    with start_dask_scheduler(env=env) as scheduler_process_port:
+    with start_dask_scheduler(env=env, protocol=protocol) as scheduler_process_port:
         scheduler_process, scheduler_port = scheduler_process_port
-        sched_addr = f"ucxx://127.0.0.1:{scheduler_port}"
+        sched_addr = f"{protocol}://127.0.0.1:{scheduler_port}"
         print(f"{sched_addr=}", flush=True)
 
         with popen(
@@ -195,7 +199,7 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop):
                 "127.0.0.1",
                 "--no-dashboard",
                 "--protocol",
-                "ucxx",
+                protocol,
                 "--no-nanny",
             ],
             env=env,

@@ -1,9 +1,12 @@
-import asyncio
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
 
-import pytest
+import asyncio
 
 from distributed.comm import connect, listen, parse_address
 from distributed.comm.registry import backends
+
+import ucxx
 
 from distributed_ucxx.utils_test import gen_test
 
@@ -92,8 +95,5 @@ async def check_client_server(
 
 @gen_test()
 async def test_ucx_client_server(ucxx_loop):
-    pytest.importorskip("distributed.comm.ucx")
-    ucxx = pytest.importorskip("ucxx")
-
     addr = ucxx.get_address()
-    await check_client_server("ucxx://" + addr)
+    await check_client_server("ucx://" + addr)
