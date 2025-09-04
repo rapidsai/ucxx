@@ -252,7 +252,6 @@ class UCXPyCoreClient(BaseClient):
 
             if self.args.cuda_profile:
                 xp.cuda.profiler.start()
-
             if self.args.report_gil_contention:
                 from gilknocker import KnockKnock
 
@@ -289,7 +288,6 @@ class UCXPyCoreClient(BaseClient):
 
             if self.args.report_gil_contention:
                 knocker.stop()
-
             if self.args.cuda_profile:
                 xp.cuda.profiler.stop()
 

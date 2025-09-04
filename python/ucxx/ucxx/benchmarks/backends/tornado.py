@@ -113,7 +113,6 @@ class TornadoClient(BaseClient):
 
         if self.args.report_gil_contention:
             knocker.stop()
-            # knocker.stop() if we assume it stops once
 
         self.queue.put(times)
         if self.args.report_gil_contention:
