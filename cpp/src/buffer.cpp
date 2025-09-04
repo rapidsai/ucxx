@@ -30,6 +30,12 @@ HostBuffer::HostBuffer(const size_t size) : Buffer(BufferType::Host, size), _buf
   ucxx_trace_data("ucxx::HostBuffer created: %p, buffer: %p, size: %lu", this, _buffer, size);
 }
 
+HostBuffer::HostBuffer(const void* buffer, const size_t size) : HostBuffer(size)
+{
+  ucxx_trace_data("ucxx::HostBuffer created: %p, buffer: %p, size: %lu", this, _buffer, size);
+  std::memcpy(_buffer, buffer, size);
+}
+
 HostBuffer::~HostBuffer()
 {
   if (_buffer) free(_buffer);
@@ -61,6 +67,14 @@ RMMBuffer::RMMBuffer(const size_t size)
 {
   ucxx_trace_data("ucxx::RMMBuffer created: %p, buffer: %p, size: %lu", this, _buffer.get(), size);
 }
+
+RMMBuffer::RMMBuffer(std::unique_ptr<rmm::device_buffer> rmm_buffer)
+  : Buffer(BufferType::RMM, rmm_buffer->size()), _buffer{std::move(rmm_buffer)}
+{
+  ucxx_trace_data("ucxx::RMMBuffer created: %p, buffer: %p, size: %lu", this, _buffer.get(), _size);
+}
+
+RMMBuffer::~RMMBuffer() = default;
 
 std::unique_ptr<rmm::device_buffer> RMMBuffer::release()
 {

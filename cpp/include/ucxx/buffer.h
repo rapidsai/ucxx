@@ -128,6 +128,18 @@ class HostBuffer : public Buffer {
   explicit HostBuffer(const size_t size);
 
   /**
+   * @brief Construct a host buffer by deep copying the contents of another buffer.
+   *
+   * @param[in] buffer the `const void*` to copy from.
+   * @param[in] size the size of the host buffer to allocate.
+   *
+   * @code{.cpp}
+   * auto buffer2 = HostBuffer(buffer.data(), buffer.getSize());
+   * @endcode
+   */
+  explicit HostBuffer(const void* buffer, const size_t size);
+
+  /**
    * @brief Destructor of concrete type `HostBuffer`.
    *
    * Frees the underlying buffer, unless the underlying buffer was released to
@@ -201,6 +213,8 @@ class RMMBuffer : public Buffer {
   RMMBuffer(RMMBuffer&& o)               = delete;
   RMMBuffer& operator=(RMMBuffer&& o)    = delete;
 
+  ~RMMBuffer() override;
+
   /**
    * @brief Constructor of concrete type `RMMBuffer`.
    *
@@ -216,6 +230,13 @@ class RMMBuffer : public Buffer {
    * @endcode
    */
   explicit RMMBuffer(const size_t size);
+
+  /**
+   * @brief Construct from an existing `rmm::device_buffer`.
+   *
+   * @param[in] rmm_buffer the `rmm::device_buffer` to hold.
+   */
+  explicit RMMBuffer(std::unique_ptr<rmm::device_buffer> rmm_buffer);
 
   /**
    * @brief Release the allocated `rmm::device_buffer` to the caller.
