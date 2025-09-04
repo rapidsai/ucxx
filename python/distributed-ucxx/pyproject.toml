@@ -34,7 +34,8 @@ classifiers = [
 ]
 
 [project.entry-points."distributed.comm.backends"]
-ucxx = "distributed_ucxx:UCXXBackend"
+ucx = "distributed_ucxx:UCXXBackend"
+ucxx = "distributed_ucxx:UCXXBackendLegacyPrefix"
 
 [project.optional-dependencies]
 docs = [
