@@ -195,7 +195,7 @@ class UCXPyAsyncClient(BaseClient):
         if self.args.report_gil_contention:
             self.queue.put(knocker.contention_metric)
 
-        ucxx.stop_notifier_thread() 
+        ucxx.stop_notifier_thread()
 
     def print_backend_specific_config(self):
         print_key_value(
