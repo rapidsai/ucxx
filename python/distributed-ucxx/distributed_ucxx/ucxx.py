@@ -366,9 +366,9 @@ class UCXX(Comm):
     ep : ucxx.Endpoint
         The UCXX endpoint.
     local_address : str
-        The local address, prefixed with `ucxx://` to use.
+        The local address, prefixed with `ucx://` to use.
     peer_address : str
-        The address of the remote peer, prefixed with `ucxx://` to use.
+        The address of the remote peer, prefixed with `ucx://` to use.
     deserialize : bool, default True
         Whether to deserialize data in :meth:`distributed.protocol.loads`
     enable_close_callback: : bool, default True
@@ -667,7 +667,7 @@ class UCXX(Comm):
 
 
 class UCXXConnector(Connector):
-    prefix = "ucxx://"
+    prefix = "ucx://"
     comm_class = UCXX
     encrypted = False
 
@@ -886,3 +886,28 @@ def _prepare_ucx_config():
             environment_options[key] = v
 
     return high_level_options, environment_options
+
+
+class UCXXLegacyPrefix(UCXX):
+    prefix = "ucxx://"
+
+
+class UCXXConnectorLegacyPrefix(UCXXConnector):
+    prefix = "ucxx://"
+    comm_class = UCXXLegacyPrefix
+
+
+class UCXXListenerLegacyPrefix(UCXXListener):
+    prefix = UCXXConnectorLegacyPrefix.prefix
+    comm_class = UCXXConnectorLegacyPrefix.comm_class
+    encrypted = UCXXConnectorLegacyPrefix.encrypted
+
+
+class UCXXBackendLegacyPrefix(UCXXBackend):
+    def get_connector(self):
+        return UCXXConnectorLegacyPrefix()
+
+    def get_listener(self, loc, handle_comm, deserialize, **connection_args):
+        return UCXXListenerLegacyPrefix(
+            loc, handle_comm, deserialize, **connection_args
+        )
