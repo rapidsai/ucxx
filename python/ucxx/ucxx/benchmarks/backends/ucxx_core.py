@@ -245,8 +245,10 @@ class UCXPyCoreClient(BaseClient):
         _wait_requests(worker, self.args.progress_mode, wireup_requests)
 
         times = []
+        contention_metric = None
 
         async def _transfer():
+            nonlocal contention_metric
             if self.args.reuse_alloc:
                 recv_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
 
@@ -288,6 +290,7 @@ class UCXPyCoreClient(BaseClient):
 
             if self.args.report_gil_contention:
                 knocker.stop()
+            contention_metric = knocker.contention_metric
             if self.args.cuda_profile:
                 xp.cuda.profiler.stop()
 
@@ -296,7 +299,7 @@ class UCXPyCoreClient(BaseClient):
 
         self.queue.put(times)
         if self.args.report_gil_contention:
-            self.queue.put(knocker.contention_metric)
+            self.queue.put(contention_metric)
 
     def print_backend_specific_config(self):
         delay_progress_str = (
