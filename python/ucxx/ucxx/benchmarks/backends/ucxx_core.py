@@ -290,7 +290,7 @@ class UCXPyCoreClient(BaseClient):
 
             if self.args.report_gil_contention:
                 knocker.stop()
-            contention_metric = knocker.contention_metric
+                contention_metric = knocker.contention_metric
             if self.args.cuda_profile:
                 xp.cuda.profiler.stop()
 
