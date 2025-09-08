@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # We try to be as close as possible to Distributed's testing, thus this file
 # was taken from https://github.com/dask/distributed/blob/main/conftest.py,
 # and minimal changes were applied.
@@ -6,6 +9,14 @@
 from __future__ import annotations
 
 import pytest
+
+# Force initialization of `rapids-dask-dependency` patches before importing
+# `distributed_ucxx`. Without this, rewriting the `ucx://` prefix will
+# fail to import `distributed_ucxx` as it causes a circular import.
+#
+# TODO: Remove once `rapids-dask-dependency` pins a `distributed` release containing
+# https://github.com/dask/distributed/pull/9105
+import distributed  # noqa: F401
 
 try:
     import faulthandler

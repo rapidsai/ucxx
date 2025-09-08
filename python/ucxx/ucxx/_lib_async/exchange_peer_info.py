@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -13,7 +13,9 @@ from .utils import hash64bits
 logger = logging.getLogger("ucx")
 
 
-async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener, stream_timeout=5.0):
+async def exchange_peer_info(
+    endpoint, msg_tag, ctrl_tag, listener, connect_timeout=5.0
+):
     """Help function that exchange endpoint information"""
 
     # Pack peer information incl. a checksum
@@ -27,14 +29,14 @@ async def exchange_peer_info(endpoint, msg_tag, ctrl_tag, listener, stream_timeo
     # streaming calls (see <https://github.com/rapidsai/ucx-py/pull/509>)
     if listener is True:
         req = endpoint.stream_send(my_info_arr)
-        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
+        await asyncio.wait_for(req.wait(), timeout=connect_timeout)
         req = endpoint.stream_recv(peer_info_arr)
-        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
+        await asyncio.wait_for(req.wait(), timeout=connect_timeout)
     else:
         req = endpoint.stream_recv(peer_info_arr)
-        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
+        await asyncio.wait_for(req.wait(), timeout=connect_timeout)
         req = endpoint.stream_send(my_info_arr)
-        await asyncio.wait_for(req.wait(), timeout=stream_timeout)
+        await asyncio.wait_for(req.wait(), timeout=connect_timeout)
 
     # Unpacking and sanity check of the peer information
     ret = {}

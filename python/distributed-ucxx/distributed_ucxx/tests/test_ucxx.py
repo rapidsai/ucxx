@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
@@ -37,12 +37,12 @@ except Exception:
 
 
 def test_registered(ucxx_loop):
-    backend = get_backend("ucxx")
+    backend = get_backend("ucx")
     assert isinstance(backend, distributed_ucxx.UCXXBackend)
 
 
 async def get_comm_pair(
-    listen_addr=f"ucxx://{HOST}", listen_args=None, connect_args=None, **kwargs
+    listen_addr=f"ucx://{HOST}", listen_args=None, connect_args=None, **kwargs
 ):
     listen_args = listen_args or {}
     connect_args = connect_args or {}
@@ -81,10 +81,10 @@ async def test_comm_objs(ucxx_loop):
     comm, serv_comm = await get_comm_pair()
 
     scheme, loc = parse_address(comm.peer_address)
-    assert scheme == "ucxx"
+    assert scheme == "ucx"
 
     scheme, loc = parse_address(serv_comm.peer_address)
-    assert scheme == "ucxx"
+    assert scheme == "ucx"
 
     assert comm.peer_address == serv_comm.local_address
 
@@ -99,7 +99,7 @@ async def test_ucxx_specific(ucxx_loop):
     # 2. Use dict in read / write, put serialization there.
     # 3. Test peer_address
     # 4. Test cleanup
-    address = f"ucxx://{HOST}:{0}"
+    address = f"ucx://{HOST}:{0}"
 
     async def handle_comm(comm):
         msg = await comm.read()
@@ -120,7 +120,7 @@ async def test_ucxx_specific(ucxx_loop):
         # addr = "%s:%d" % (host, port)
         comm = await connect(listener.contact_address)
         # TODO: peer_address
-        # assert comm.peer_address == 'ucxx://' + addr
+        # assert comm.peer_address == 'ucx://' + addr
         assert comm.extra_info == {}
         msg = {"op": "ping", "data": key}
         await comm.write(msg)
@@ -262,15 +262,16 @@ async def test_ping_pong_numba(ucxx_loop):
     assert result["op"] == "ping"
 
 
+@pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.parametrize("processes", [True, False])
 @pytest.mark.flaky(
     reruns=3,
     only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
 )
 @gen_test()
-async def test_ucxx_localcluster(ucxx_loop, processes, cleanup):
+async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes):
     async with LocalCluster(
-        protocol="ucxx",
+        protocol=protocol,
         host=HOST,
         dashboard_address=":0",
         n_workers=2,
@@ -297,7 +298,7 @@ async def test_stress(
     chunksize = "10 MB"
 
     async with LocalCluster(
-        protocol="ucxx",
+        protocol="ucx",
         dashboard_address=":0",
         asynchronous=True,
         host=HOST,
@@ -320,10 +321,10 @@ async def test_simple(
     ucxx_loop,
 ):
     async with LocalCluster(
-        protocol="ucxx", n_workers=2, threads_per_worker=2, asynchronous=True
+        protocol="ucx", n_workers=2, threads_per_worker=2, asynchronous=True
     ) as cluster:
         async with Client(cluster, asynchronous=True) as client:
-            assert cluster.scheduler_address.startswith("ucxx://")
+            assert cluster.scheduler_address.startswith("ucx://")
             assert await client.submit(lambda x: x + 1, 10) == 11
 
 
@@ -348,10 +349,10 @@ async def test_cuda_context(
     ):
         with dask.config.set({"distributed.comm.ucx.create-cuda-context": True}):
             async with LocalCluster(
-                protocol="ucxx", n_workers=1, asynchronous=True
+                protocol="ucx", n_workers=1, asynchronous=True
             ) as cluster:
                 async with Client(cluster, asynchronous=True) as client:
-                    assert cluster.scheduler_address.startswith("ucxx://")
+                    assert cluster.scheduler_address.startswith("ucx://")
                     ctx = has_cuda_context()
                     assert ctx.has_context and ctx.device_info == device_info
                     worker_cuda_context = await client.run(has_cuda_context)
@@ -374,21 +375,22 @@ async def test_transpose(
     da = pytest.importorskip("dask.array")
 
     async with LocalCluster(
-        protocol="ucxx", n_workers=2, threads_per_worker=2, asynchronous=True
+        protocol="ucx", n_workers=2, threads_per_worker=2, asynchronous=True
     ) as cluster:
         async with Client(cluster, asynchronous=True) as client:
-            assert cluster.scheduler_address.startswith("ucxx://")
+            assert cluster.scheduler_address.startswith("ucx://")
             [x] = client.persist([da.ones((10000, 10000), chunks=(1000, 1000))])
             await x
             y = (x + x.T).sum()
             await y
 
 
+@pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.parametrize("port", [0, 1234])
 @gen_test()
-async def test_ucxx_protocol(ucxx_loop, cleanup, port):
-    async with Scheduler(protocol="ucxx", port=port, dashboard_address=":0") as s:
-        assert s.address.startswith("ucxx://")
+async def test_ucxx_protocol(ucxx_loop, cleanup, protocol, port):
+    async with Scheduler(protocol=protocol, port=port, dashboard_address=":0") as s:
+        assert s.address.startswith(f"{protocol}://")
 
 
 @gen_test()
@@ -402,7 +404,7 @@ async def test_ucxx_unreachable(
     # teardown phase of this test.
 
     with pytest.raises(OSError, match="Timed out trying to connect to"):
-        await Client("ucxx://255.255.255.255:12345", timeout=1, asynchronous=True)
+        await Client("ucx://255.255.255.255:12345", timeout=1, asynchronous=True)
 
 
 @gen_test()
@@ -432,10 +434,10 @@ async def test_embedded_cupy_array(
     da = pytest.importorskip("dask.array")
 
     async with LocalCluster(
-        protocol="ucxx", n_workers=1, threads_per_worker=1, asynchronous=True
+        protocol="ucx", n_workers=1, threads_per_worker=1, asynchronous=True
     ) as cluster:
         async with Client(cluster, asynchronous=True) as client:
-            assert cluster.scheduler_address.startswith("ucxx://")
+            assert cluster.scheduler_address.startswith("ucx://")
             a = cupy.arange(10000)
             x = da.from_array(a, chunks=(10000,))
             b = await client.compute(x)

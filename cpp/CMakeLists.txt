@@ -64,34 +64,18 @@ set(UCXX_CXX_FLAGS -Wall -Wattributes -Werror -Wextra -Wsign-conversion
 )
 set(UCXX_CXX_DEFINITIONS "")
 
-# Set RMM logging level
-set(RMM_LOGGING_LEVEL
-    "INFO"
-    CACHE STRING "Choose the logging level."
-)
-set_property(
-  CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF"
-)
-message(VERBOSE "UCXX: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
-
 # ##################################################################################################
 # * conda environment -----------------------------------------------------------------------------
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
-#   Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx dependency because
-#   users would then have no control over whether ucx is found multiple times, causing potential
-#   configure errors. Therefore, we use a raw find_package call instead of rapids_find_package and
-#   skip exporting the ucx dependency. Consumers of ucxx must find ucx themselves. Once we move the
-#   minimum version to UCX 1.16 we can remove the above find_package in favor of the commented out
-#   lines below. For the same reason, we must also gate this find_package call behind a check for
-#   the target already existing so that consumers can use tools like CPM.cmake to either find or
-#   build ucxx from source if it cannot be found (i.e. both cases must allow prior finding of ucx).
-if(NOT TARGET ucx::ucp)
-  find_package(ucx REQUIRED)
-endif()
-# rapids_find_package( ucx REQUIRED BUILD_EXPORT_SET ucxx-exports INSTALL_EXPORT_SET ucxx-exports )
+rapids_find_package(
+  ucx REQUIRED
+  GLOBAL_TARGETS ucx::ucp
+  BUILD_EXPORT_SET ucxx-exports
+  INSTALL_EXPORT_SET ucxx-exports
+)
 
 # ##################################################################################################
 # * dependencies ----------------------------------------------------------------------------------
@@ -184,10 +168,7 @@ target_compile_definitions(ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEF
 if(UCXX_ENABLE_RMM)
   target_link_libraries(ucxx PUBLIC rmm::rmm)
 
-  # Define spdlog level
-  target_compile_definitions(
-    ucxx PUBLIC UCXX_ENABLE_RMM "RMM_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LEVEL_${RMM_LOGGING_LEVEL}"
-  )
+  target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
 endif()
 
 # Specify the target module library dependencies
