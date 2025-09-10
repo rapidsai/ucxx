@@ -7,10 +7,10 @@ UCX/UCX-Py either with environment variables or programmatically during initiali
 
 .. code-block:: python
 
-    import ucp
-    options = {"MEMTYPE_CACHE": "n"}
-    ucp.init(options)
-    assert ucp.get_config()['MEMTYPE_CACHE'] is 'n'
+    import ucxx
+    options = {"PROTO_INFO": "y"}
+    ucxx.init(options)
+    assert ucxx.get_config()['PROTO_INFO'] == 'y'
 
 .. note::
     When programmatically configuring UCX-Py, the ``UCX`` prefix is not used.

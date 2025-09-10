@@ -27,7 +27,7 @@ For Python sockets, the server is similarly constructed. ``bind`` opens a connec
 |        obj = await ep.recv_obj()                     |     s.bind((HOST, PORT))                                 |
 |        await ep.send_obj(obj)                        |     s.listen(1)                                          |
 |                                                      |                                                          |
-|    lf = ucp.create_listener(echo_server, port)       |     while True:                                          |
+|    lf = ucxx.create_listener(echo_server, port)      |     while True:                                          |
 |                                                      |         conn, addr = s.accept()                          |
 |    while not lf.closed():                            |         data = conn.recv(1024)                           |
 |        await asyncio.sleep(0.1)                      |         if not data: break                               |
@@ -49,7 +49,7 @@ For Sockets, on the client-side we connect to the established host/port combinat
 +------------------------------------------------------+----------------------------------------------------------+
 | .. code-block:: python                               | .. code-block:: python                                   |
 |                                                      |                                                          |
-|    client = await ucp.create_endpoint(addr, port)    |    s = socket.socket(...)                                |
+|    client = await ucxx.create_endpoint(addr, port)   |    s = socket.socket(...)                                |
 |                                                      |    s.connect((HOST, PORT))                               |
 |    msg = bytearray(b"hello, world")                  |    s.sendall(b'hello, world')                            |
 |    await client.send_obj(msg)                        |    echo_msg = s.recv(1024)                               |
@@ -83,22 +83,18 @@ Again, an ``Endpoint`` sends and receives with `unique tags <http://openucx.gith
 Most users will not care about these details but developers and interested network enthusiasts may.  Looking at the DEBUG (``UCXPY_LOG_LEVEL=DEBUG``) output of the client can help clarify what UCX-Py/UCX is doing under the hood::
 
 
-    # client = await ucp.create_endpoint(addr, port)
-    [1594319245.032609] [dgx12:5904] UCXPY  DEBUG create_endpoint() client: 0x7f5e6e7bd0d8, msg-tag-send: 0x88e288ec81799a75, msg-tag-recv: 0xf29f8e9b7ce33f66, ctrl-tag-send: 0xb1cd5cb9b1120434, ctrl-tag-recv: 0xe79506f1d24b4997
+    # client = await ucxx.create_endpoint(addr, port)
+    [1757536870.872005] [dgx13:1377244] UCXPY  DEBUG create_endpoint() client: 0x7f5a161a8080, error handling: True, msg-tag-send: 0xf3c3e246293e6852, msg-tag-recv: 0xdf227087928e03f6, ctrl-tag-send: 0x9a69cc1d6f54a0c6, ctrl-tag-recv: 0xe1cc0be4bc1d722a
 
     # await client.send_obj(msg)
-    [1594319251.364999] [dgx12:5904] UCXPY  DEBUG [Send #000] ep: 0x7f5e6e7bd0d8, tag: 0x88e288ec81799a75, nbytes: 8, type: <class 'bytes'>
-    [1594319251.365213] [dgx12:5904] UCXPY  DEBUG [Send #001] ep: 0x7f5e6e7bd0d8, tag: 0x88e288ec81799a75, nbytes: 12, type: <class 'bytearray'>
+    [1757536870.872140] [dgx13:1377244] UCXPY  DEBUG [Send #000] ep: 0x7f5a161a8080, tag: 0xf3c3e246293e6852, nbytes: 8, type: <class 'array.array'>
+    [1757536870.872498] [dgx13:1377244] UCXPY  DEBUG [Send #001] ep: 0x7f5a161a8080, tag: 0xf3c3e246293e6852, nbytes: 12, type: <class 'bytearray'>
 
     # echo_msg = await client.recv_obj()
-    [1594319260.452441] [dgx12:5904] UCXPY  DEBUG [Recv #000] ep: 0x7f5e6e7bd0d8, tag: 0xf29f8e9b7ce33f66, nbytes: 8, type: <class 'bytearray'>
-    [1594319260.452677] [dgx12:5904] UCXPY  DEBUG [Recv #001] ep: 0x7f5e6e7bd0d8, tag: 0xf29f8e9b7ce33f66, nbytes: 12, type: <class 'bytearray'>
+    [1757536870.872404] [dgx13:1377244] UCXPY  DEBUG [Recv #000] ep: 0x7f5a161a8080, tag: 0xdf227087928e03f6, nbytes: 8, type: <class 'array.array'>
+    [1757536870.872600] [dgx13:1377244] UCXPY  DEBUG [Recv #001] ep: 0x7f5a161a8080, tag: 0xdf227087928e03f6, nbytes: 12, type: <class 'bytearray'>
 
-    # await client.close()
-    [1594319287.522824] [dgx12:5904] UCXPY  DEBUG [Send shutdown] ep: 0x7f5e6e7bd0d8, tag: 0xb1cd5cb9b1120434, close_after_n_recv: 2
-    [1594319287.523172] [dgx12:5904] UCXPY  DEBUG Endpoint.abort(): 0x7f5e6e7bd0d8
-    [1594319287.523331] [dgx12:5904] UCXPY  DEBUG Future cancelling: [Recv shutdown] ep: 0x7f5e6e7bd0d8, tag: 0xe79506f1d24b4997
 
-We can see from the above that when the ``Endpoint`` is created, 4 tags are generated:  ``msg-tag-send``, ``msg-tag-recv``, ``ctrl-tag-send``, and ``ctrl-tag-recv``.  This data is transmitted to the server via a `stream <http://openucx.github.io/ucx/api/v1.8/html/group___u_c_p___c_o_m_m.html#ga9022ff0ebb56cac81f6ba81bb28f71b3>`_ communication in an `exchange peer info <https://github.com/rapidsai/ucx-py/blob/6e1c1d201a382c689ca098c848cbfdc8237e1eba/ucp/core.py#L38-L89>`_ convenience function.
+We can see from the above that when the ``Endpoint`` is created, 4 tags are generated: ``msg-tag-send``, ``msg-tag-recv``, ``ctrl-tag-send``, and ``ctrl-tag-recv``. This data is transmitted to the server via a `stream <https://openucx.github.io/ucx/api/latest/html/group___u_c_p___c_o_m_m.html#gae9fe6efe6b05e4e78f58bee68c68b252>`_ communication in an `exchange peer info <https://github.com/rapidsai/ucx-py/blob/6e1c1d201a382c689ca098c848cbfdc8237e1eba/ucp/core.py#L38-L89>`_ convenience function.
 
-Next, the client sends data on the ``msg-tag-send`` tag.  Two messages are sent, the size of the data ``8 bytes`` and data itself.  The server receives the data and immediately echos the data back.  The client then receives two messages the size of the data and the data itself.  Lastly, the client closes down.  When the client closes, it sends a `control message <https://github.com/rapidsai/ucx-py/blob/6e1c1d201a382c689ca098c848cbfdc8237e1eba/ucp/core.py#L524-L534>`_ to the server's ``Endpoint`` instructing it to `also close <https://github.com/rapidsai/ucx-py/blob/6e1c1d201a382c689ca098c848cbfdc8237e1eba/ucp/core.py#L112-L140>`_
+Next, the client sends data on the ``msg-tag-send`` tag. Two messages are sent, the size of the data ``8 bytes`` and data itself. The server receives the data and immediately echos the data back. The client then receives two messages the size of the data and the data itself.

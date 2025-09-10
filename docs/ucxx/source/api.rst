@@ -1,21 +1,21 @@
 API
 ===
 
-.. currentmodule:: ucp
+.. currentmodule:: ucxx
 
-**ucp**
+**ucxx**
 
 .. autosummary::
-   ucp
-   ucp.create_listener
-   ucp.create_endpoint
-   ucp.get_address
-   ucp.get_config
-   ucp.get_ucp_worker
-   ucp.get_ucx_version
-   ucp.init
-   ucp.progress
-   ucp.reset
+   ucxx
+   ucxx.create_listener
+   ucxx.create_endpoint
+   ucxx.get_address
+   ucxx.get_config
+   ucxx.get_ucp_worker
+   ucxx.get_ucx_version
+   ucxx.init
+   ucxx.progress
+   ucxx.reset
 
 **Endpoint**
 
@@ -41,7 +41,7 @@ API
    Listener.closed
    Listener.port
 
-.. currentmodule:: ucp
+.. currentmodule:: ucxx
 
 .. autofunction:: create_listener
 .. autofunction:: create_endpoint
@@ -56,7 +56,7 @@ API
 Endpoint
 --------
 
-.. currentmodule:: ucp
+.. currentmodule:: ucxx
 
 .. autoclass:: Endpoint
    :members:
@@ -65,7 +65,7 @@ Endpoint
 Listener
 --------
 
-.. currentmodule:: ucp
+.. currentmodule:: ucxx
 
 .. autoclass:: Listener
    :members:

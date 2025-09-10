@@ -22,7 +22,7 @@
 # -- Project information -----------------------------------------------------
 
 # The full version, including alpha/beta/rc tags.
-from ucp import __version__ as release
+from ucxx import __version__ as release
 
 # The short X.Y version.
 version = ".".join(release.split(".")[:2])

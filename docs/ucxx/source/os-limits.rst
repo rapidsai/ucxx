@@ -11,7 +11,7 @@ In sockets-based connections, multiple file descriptors may be open to establish
 
 ::
 
-    ucp.exceptions.UCXError: User-defined limit was reached
+    ucxx.exceptions.UCXError: User-defined limit was reached
 
 One possible cause for this is that the limit established by the OS or system administrators has been reached by the user. This limit can be checked with:
 

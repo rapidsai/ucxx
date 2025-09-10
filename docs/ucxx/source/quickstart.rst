@@ -23,17 +23,17 @@ Process 1 - Server
 .. code-block:: python
 
     import asyncio
-    import time
-    import ucp
+    import ucxx
     import numpy as np
 
     n_bytes = 2**30
-    host = ucp.get_address(ifname='eth0')  # ethernet device name
+    host = ucxx.get_address()  # if no suitable device is found, specify interface name with `ifname="..."`
     port = 13337
+
 
     async def send(ep):
         # recv buffer
-        arr = np.empty(n_bytes, dtype='u1')
+        arr = np.empty(n_bytes, dtype="u1")
         await ep.recv(arr)
         assert np.count_nonzero(arr) == np.array(0, dtype=np.int64)
         print("Received NumPy array")
@@ -43,18 +43,19 @@ Process 1 - Server
         print("Sending incremented NumPy array")
         await ep.send(arr)
 
-        await ep.close()
         lf.close()
+
 
     async def main():
         global lf
-        lf = ucp.create_listener(send, port)
+        lf = ucxx.create_listener(send, port)
 
-        while not lf.closed():
+        while not lf.closed:
             await asyncio.sleep(0.1)
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         asyncio.run(main())
+
 
 Process 2 - Client
 ~~~~~~~~~~~~~~~~~~
@@ -62,16 +63,17 @@ Process 2 - Client
 .. code-block:: python
 
     import asyncio
-    import ucp
+    import ucxx
     import numpy as np
 
     port = 13337
     n_bytes = 2**30
 
+
     async def main():
-        host = ucp.get_address(ifname='eth0')  # ethernet device name
-        ep = await ucp.create_endpoint(host, port)
-        msg = np.zeros(n_bytes, dtype='u1') # create some data to send
+        host = ucxx.get_address()  # if no suitable device is found, specify interface name with `ifname="..."`
+        ep = await ucxx.create_endpoint(host, port)
+        msg = np.zeros(n_bytes, dtype="u1")  # create some data to send
 
         # send message
         print("Send Original NumPy array")
@@ -81,19 +83,18 @@ Process 2 - Client
         print("Receive Incremented NumPy arrays")
         resp = np.empty_like(msg)
         await ep.recv(resp)  # receive the echo
-        await ep.close()
         np.testing.assert_array_equal(msg + 1, resp)
 
-    if __name__ == '__main__':
-        asyncio.run(main())
 
+    if __name__ == "__main__":
+        asyncio.run(main())
 
 
 Send/Recv CuPy Arrays
 ---------------------
 
 .. note::
-    If you are passing CuPy arrays between GPUs and want to use `NVLINK <https://www.nvidia.com/en-us/data-center/nvlink/>`_ ensure you have correctly set ``UCX_TLS`` with ``cuda_ipc``. See the :doc:`configuration` for more details
+    If you are passing CuPy arrays between GPUs and want to use `NVLink <https://www.nvidia.com/en-us/data-center/nvlink/>`_ ensure you have correctly set ``UCX_TLS`` with ``cuda_ipc``. See the :doc:`configuration` for more details
 
 Process 1 - Server
 ~~~~~~~~~~~~~~~~~~
@@ -101,17 +102,17 @@ Process 1 - Server
 .. code-block:: python
 
     import asyncio
-    import time
-    import ucp
+    import ucxx
     import cupy as cp
 
     n_bytes = 2**30
-    host = ucp.get_address(ifname='eth0')  # ethernet device name
+    host = ucxx.get_address()  # if no suitable device is found, specify interface name with `ifname="..."`
     port = 13337
+
 
     async def send(ep):
         # recv buffer
-        arr = cp.empty(n_bytes, dtype='u1')
+        arr = cp.empty(n_bytes, dtype="u1")
         await ep.recv(arr)
         assert cp.count_nonzero(arr) == cp.array(0, dtype=cp.int64)
         print("Received CuPy array")
@@ -121,18 +122,20 @@ Process 1 - Server
         print("Sending incremented CuPy array")
         await ep.send(arr)
 
-        await ep.close()
         lf.close()
+
 
     async def main():
         global lf
-        lf = ucp.create_listener(send, port)
+        lf = ucxx.create_listener(send, port)
 
-        while not lf.closed():
+        while not lf.closed:
             await asyncio.sleep(0.1)
 
-    if __name__ == '__main__':
+
+    if __name__ == "__main__":
         asyncio.run(main())
+
 
 Process 2 - Client
 ~~~~~~~~~~~~~~~~~~
@@ -140,17 +143,17 @@ Process 2 - Client
 .. code-block:: python
 
     import asyncio
-    import ucp
+    import ucxx
     import cupy as cp
-    import numpy as np
 
     port = 13337
     n_bytes = 2**30
 
+
     async def main():
-        host = ucp.get_address(ifname='eth0')  # ethernet device name
-        ep = await ucp.create_endpoint(host, port)
-        msg = cp.zeros(n_bytes, dtype='u1') # create some data to send
+        host = ucxx.get_address()  # if no suitable device is found, specify interface name with `ifname="..."`
+        ep = await ucxx.create_endpoint(host, port)
+        msg = cp.zeros(n_bytes, dtype="u1")  # create some data to send
 
         # send message
         print("Send Original CuPy array")
@@ -160,8 +163,7 @@ Process 2 - Client
         print("Receive Incremented CuPy arrays")
         resp = cp.empty_like(msg)
         await ep.recv(resp)  # receive the echo
-        await ep.close()
         cp.testing.assert_array_equal(msg + 1, resp)
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         asyncio.run(main())

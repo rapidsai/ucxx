@@ -294,4 +294,4 @@ Set the following in the environment to ensure that those libraries are preferre
 
     RAPIDS_LIBUCX_PREFER_SYSTEM_LIBRARY=true
     LD_LIBRARY_PATH="${CUSTOM_UCX_INSTALL}:${LD_LIBRARY_PATH}" \
-      python -c "import ucp; print(ucp.get_ucx_version())"
+      python -c "import ucxx; print(ucxx.get_ucx_version())"
