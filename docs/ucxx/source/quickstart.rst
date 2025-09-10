@@ -5,12 +5,12 @@ Quickstart
 Setup
 -----
 
-Create a new conda environment with UCX-Py:
+Create a new conda environment with UCXX:
 
 ::
 
-    conda create -n ucx -c conda-forge -c rapidsai \
-      cudatoolkit=<CUDA version> ucx-py
+    conda create -n ucxx -c conda-forge -c rapidsai \
+        cuda-version=<CUDA version> ucxx
 
 For a more detailed guide on installation options please refer to the :doc:`install` page.
 

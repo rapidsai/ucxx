@@ -131,7 +131,7 @@ NVLink Performance
 Experimental Debugging
 ----------------------
 
-A list of problems we have run into along the way while trying to understand performance issues with UCX/UCX-Py:
+A list of problems we have run into along the way while trying to understand performance issues with UCX/UCXX:
 
 - System-wide settings environment variables. For example, we saw a system with ``UCX_MEM_MMAP_HOOK_MODE`` set to ``none``.  Unsetting this env var resolved problems: https://github.com/rapidsai/ucx-py/issues/616 .  One can quickly check system wide variables with ``env|grep ^UCX_``.
 

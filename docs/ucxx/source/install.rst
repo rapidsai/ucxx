@@ -6,8 +6,8 @@ Prerequisites
 
 UCX depends on the following system libraries being present:
 
-* For MOFED 4.x support: ``libibcm``, ``libibverbs`` and ``librdmacm``. Ideally installed from `Mellanox OFED Drivers <https://www.mellanox.com/products/infiniband-drivers/linux/mlnx_ofed>`_
-* For MOFED 5.0 or higher: `Mellanox OFED Drivers <https://www.mellanox.com/products/infiniband-drivers/linux/mlnx_ofed>`_
+* `rdma-core <https://github.com/linux-rdma/rdma-core>`_; or
+* MOFED 5.0 or higher: `Mellanox OFED Drivers <https://www.mellanox.com/products/infiniband-drivers/linux/mlnx_ofed>`_
 
 Please install the packages above with your Linux system's package manager.
 When building from source you will also need the ``*-dev`` (``*-devel`` on
@@ -40,9 +40,13 @@ Change `cuda-version` to pin to a different CUDA minor version if you'd like.
 
 ::
 
+    # CUDA 13
+    conda create -n ucx -c conda-forge -c rapidsai \
+      cuda-version=13.0 ucxx
+
     # CUDA 12
     conda create -n ucx -c conda-forge -c rapidsai \
-      cuda-version=12.9 ucx-py
+      cuda-version=12.9 ucxx
 
 Starting with the UCX 1.14.1 conda-forge package,
 InfiniBand support is available again via rdma-core, thus building UCX
@@ -52,8 +56,8 @@ be done if desired (e.g., to test for new capabilities or bug fixes).
 PyPI
 ----
 
-PyPI installation is possible and currently supports CUDA version
-``12``. Packages are compatible with CPU-only workloads and any one can
+PyPI installation is possible and currently supports CUDA versions
+``12`` and ``13``. Packages are compatible with CPU-only workloads and any one can
 be chosen if the application doesn't use CUDA, but currently there are
 no pre-built CPU-only packages available, so the CUDA package must be
 installed instead. CUDA versions are differentiated by the suffix
@@ -61,12 +65,15 @@ installed instead. CUDA versions are differentiated by the suffix
 
 ::
 
-    # CUDA 12
-    pip install ucx-py-cu12
+    # CUDA 13
+    pip install ucxx-cu13
 
-UCX-Py has no direct dependency on CUDA, but the package specifies the
+    # CUDA 12
+    pip install ucxx-cu12
+
+UCXX has no direct dependency on CUDA, but the package specifies the
 ``-cuXY`` prefix so that the correct ``libucx-cuXY`` package is selected.
-This is also the reason why there are no CPU-only UCX-Py packages
+This is also the reason why there are no CPU-only UCXX packages
 available at the moment, CPU-only builds of the UCX library are not
 currently available in PyPI.
 
@@ -76,43 +83,45 @@ Source
 Conda
 ~~~~~
 
-The following instructions assume you'll be using UCX-Py on a CUDA-enabled system and using a `Conda environment <https://docs.conda.io/projects/conda/en/latest/>`_.
+The following instructions assume you'll be using UCXX on a CUDA-enabled system and using a `Conda environment <https://docs.conda.io/projects/conda/en/latest/>`_.
 
 Build Dependencies
 ^^^^^^^^^^^^^^^^^^
 
+Required to build UCXX from source.
+
 ::
 
-    conda create -n ucx -c conda-forge \
-        automake make libtool pkg-config \
-        "python=3.13" "setuptools>=64.0" "cython>=3.0.0"
+    # Inside the main directory of the ucxx repository
+    conda env create -n ucxx \
+        -f conda/environments/all_cuda-129_arch-x86_64.yaml
 
 .. note::
-    The Python version must be explicitly specified here, UCX-Py currently supports
-    Python versions 3.10, 3.11, 3.12, and 3.13.
+    Check existing files in the same `conda/environments/` directory for other CUDA
+    versions and architectures supported.
 
-Test Dependencies
-^^^^^^^^^^^^^^^^^
+
+UCX Build Dependencies
+^^^^^^^^^^^^^^^^^^^^^^
+
+Only necessary to build also UCX from source.
 
 ::
-
-    conda install -n ucx -c rapidsai -c nvidia -c conda-forge \
-        pytest pytest-asyncio \
-        cupy "numba>=0.57" cudf \
-        dask distributed cloudpickle
+    conda install -n ucxx -c conda-forge \
+        automake make libtool pkg-config
 
 
-UCX >= 1.15.0
+UCX >= 1.17.0
 ^^^^^^^^^^^^^
 
-Instructions for building UCX >= 1.15.0 (minimum version supported by UCX-Py), make sure to change ``git checkout v1.15.0`` to a newer version if desired:
+Instructions for building UCX >= 1.17.0 (minimum version supported by UCXX), make sure to change ``git checkout v1.17.0`` to a newer version if desired:
 
 ::
 
     conda activate ucx
     git clone https://github.com/openucx/ucx
     cd ucx
-    git checkout v1.15.0
+    git checkout v1.17.0
     ./autogen.sh
     mkdir build
     cd build
@@ -126,28 +135,27 @@ Instructions for building UCX >= 1.15.0 (minimum version supported by UCX-Py), m
 UCX + rdma-core
 ^^^^^^^^^^^^^^^
 
-It is possible to enable InfiniBand support via the conda-forge rdma-core package. To do so, first activate the environment created previously and install conda-forge compilers and rdma-core:
+It is possible to enable InfiniBand support via the conda-forge rdma-core package. To do so, install rdma-core from conda-forge:
 
 ::
 
-    conda activate ucx
-    conda install -c conda-forge c-compiler cxx-compiler gcc_linux-64=11.* rdma-core=28.*
+    conda install -n ucxx -c conda-forge rdma-core
 
 
-After installing the necessary dependencies, it's now time to build UCX from source, make sure to change ``git checkout v1.15.0`` to a newer version if desired:
+After installing the necessary dependencies, it's now time to build UCX from source, make sure to change ``git checkout v1.17.0`` to a newer version if desired:
 
 ::
 
     git clone https://github.com/openucx/ucx
     cd ucx
-    git checkout v1.15.0
+    git checkout v1.17.0
     ./autogen.sh
     mkdir build
     cd build
     # Performance build
-    ../contrib/configure-release --prefix=$CONDA_PREFIX --with-cuda=$CUDA_HOME --enable-mt --with-verbs --with-rdmacm
+    ../contrib/configure-release --prefix=$CONDA_PREFIX --with-cuda=$CUDA_HOME --enable-mt --with-verbs=$CONDA_PREFIX --with-rdmacm=$CONDA_PREFIX
     # Debug build
-    ../contrib/configure-devel --prefix=$CONDA_PREFIX --with-cuda=$CUDA_HOME --enable-mt --with-verbs --with-rdmacm
+    ../contrib/configure-devel --prefix=$CONDA_PREFIX --with-cuda=$CUDA_HOME --enable-mt --with-verbs=$CONDA_PREFIX --with-rdmacm=$CONDA_PREFIX
     make -j install
 
 
@@ -185,76 +193,73 @@ to adjust that for the path to your system compilers. For example:
     --with-verbs
 
 
-UCX-Py
-^^^^^^
+UCXX
+^^^^
 
-Building and installing UCX-Py can be done via ``pip install``. For example:
+Building and installing UCXX can be done with the included build script. For example:
 
 ::
 
-    conda activate ucx
-    git clone https://github.com/rapidsai/ucx-py.git
-    cd ucx-py
-    pip install -v .
-    # or for develop build
-    pip install -v -e .
+    conda activate ucxx
+    git clone https://github.com/rapidsai/ucxx
+    cd ucxx
+    ./build.sh ucxx
 
 
 PyPI
 ~~~~
 
-The following instructions assume you'll be installing UCX-Py on a CUDA-enabled system, in a pip-only environment.
+The following instructions assume you'll be installing UCXX on a CUDA-enabled system, in a pip-only environment.
 
-Installing UCX-Py from source in a pip-only environment has additional limitations when compared to conda environments.
+Installing UCXX from source in a pip-only environment has additional limitations when compared to conda environments.
 
-UCX-Py with UCX from PyPI
-^^^^^^^^^^^^^^^^^^^^^^^^^
+UCXX with UCX from PyPI
+^^^^^^^^^^^^^^^^^^^^^^^
 
-CUDA-enabled builds of the UCX libraries are available from PyPI, under the name ``libucx-cu12``.
+CUDA-enabled builds of the UCX libraries are available from PyPI, under the names ``libucx-cu12`` (CUDA 12) and ``libucx-cu13`` (CUDA 13).
 Notice that those builds do not currently include InfiniBand support, if InfiniBand is required you will
-need to provide a custom UCX install as described in the "UCX-Py with custom UCX install" section.
+need to provide a custom UCX install as described in the "UCXX with custom UCX install" section.
 
-To build UCX-Py using those UCX packages (to avoid needing to build UCX from source), run the following.
+To build UCXX using those UCX packages (to avoid needing to build UCX from source), run the following.
 
 ::
 
-    conda activate ucx
-    git clone https://github.com/rapidsai/ucx-py.git
-    cd ucx-py
-    pip install -C 'rapidsai.disable-cuda=false' .
-    # or for develop build
-    pip install -v -e .
+    conda activate ucxx
+    git clone https://github.com/rapidsai/ucxx
+    cd ucxx
+    ./build.sh ucxx
 
-This will automatically handle installing appropriate, compatible ``libucx-cu12`` packages for build-time and runtime use.
-When you run UCX-Py code installed this way, it will load UCX libraries from the installed ``libucx-cu12`` package.
+This will automatically handle installing appropriate, compatible ``libucx-cu{12,13}`` packages for build-time and runtime use.
+When you run UCXX code installed this way, it will load UCX libraries from the installed ``libucx-cu{12,13}`` package.
 
-UCX-Py packages are built against the oldest version of UCX that UCX-Py supports, and can run against a range
+UCXX packages are built against the oldest version of UCX that UCXX supports, and can run against a range
 of ABI-compatible UCX versions.
 
 You can use packages from PyPI to customize the UCX version used at runtime.
-For example, to switch to using UCX 1.16 at runtime, run the following.
+For example, to switch to using UCX 1.19 at runtime, run the following.
 
 ::
+
+    # CUDA 13
+    pip install 'libucx-cu13>=1.19.0,<1.20'
 
     # CUDA 12
-    pip install 'libucx-cu12>=1.16.0,<1.17'
+    pip install 'libucx-cu12>=1.19.0,<1.20'
 
 
-UCX-Py with UCX system install
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UCXX with UCX system install
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If a UCX system install is available, building and installing UCX-Py can be done via ``pip install`` with no additional requirements. For example:
+If a UCX system install is available, building and installing UCXX can be done via ``pip install`` with no additional requirements. For example:
 
 ::
 
-    conda activate ucx
-    git clone https://github.com/rapidsai/ucx-py.git
-    cd ucx-py
-    pip install -v .
-    # or for develop build
-    pip install -v -e .
+    conda activate ucxx
+    git clone https://github.com/rapidsai/ucxx
+    cd ucxx
+    ./build.sh ucxx
 
-To ensure that system install of UCX is always used at runtime (and not the ``libucx-cu12`` wheels), set the following
+To ensure that system install of UCX is always used at runtime (and not the ``libucx-cu{12,13}`` wheels), set the following
 environment variable in the runtime environment.
 
 ::
@@ -262,31 +267,28 @@ environment variable in the runtime environment.
     export RAPIDS_LIBUCX_PREFER_SYSTEM_LIBRARY=true
 
 
-UCX-Py with custom UCX install
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UCXX with custom UCX install
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If UCX is installed in a non-default path (as it might be if you built it from source), some additional configuration is required to build and run UCX-Py against it.
+If UCX is installed in a non-default path (as it might be if you built it from source), some additional configuration is required to build and run UCXX against it.
 To check if the loader can find your custom UCX installation, run the following.
 
 ::
 
     ldconfig -p | grep libucs
 
-If that returns that filepath you expect, then you can just use the "UCX-Py with UCX system install" instructions above.
+If that returns that filepath you expect, then you can just use the "UCXX with UCX system install" instructions above.
 If that doesn't show anything, then you need to help the loader find the UCX libraries.
 At build time, add your install of UCX to ``LD_LIBRARY_PATH``.
 
 ::
 
-    conda activate ucx
-    git clone https://github.com/rapidsai/ucx-py.git
-    cd ucx-py
+    conda activate ucxx
+    git clone https://github.com/rapidsai/ucxx
+    cd ucxx
     CUSTOM_UCX_INSTALL="wherever-you-put-your-ucx-install"
     LD_LIBRARY_PATH="${CUSTOM_UCX_INSTALL}:${LD_LIBRARY_PATH}" \
-        pip install -v .
-    # or for develop build
-    LD_LIBRARY_PATH="${CUSTOM_UCX_INSTALL}:${LD_LIBRARY_PATH}" \
-        pip install -v -e .
+        ./build.sh ucxx
 
 Set the following in the environment to ensure that those libraries are preferred at run time as well.
 

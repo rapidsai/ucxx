@@ -1,8 +1,8 @@
 Configuration
 =============
 
-UCX/UCX-Py can be configured with a wide variety of options and optimizations including: transport, caching, etc.  Users can configure
-UCX/UCX-Py either with environment variables or programmatically during initialization.  Below we demonstrate setting ``UCX_MEMTYPE_CACHE`` to
+UCX/UCXX can be configured with a wide variety of options and optimizations including: transport, caching, etc.  Users can configure
+UCX/UCXX either with environment variables or programmatically during initialization.  Below we demonstrate setting ``UCX_MEMTYPE_CACHE`` to
 ``n`` and checking the configuration:
 
 .. code-block:: python
@@ -13,38 +13,44 @@ UCX/UCX-Py either with environment variables or programmatically during initiali
     assert ucxx.get_config()['PROTO_INFO'] == 'y'
 
 .. note::
-    When programmatically configuring UCX-Py, the ``UCX`` prefix is not used.
+    When programmatically configuring UCXX, the ``UCX`` prefix is not used.
 
-For novice users we recommend using UCX-Py defaults, see the next section for details.
+For novice users we recommend using UCXX defaults, see the next section for details.
 
-UCX-Py vs UCX Defaults
+UCXX vs UCX Defaults
 ----------------------
 
-UCX-Py redefines some of the UCX defaults for a variety of reasons, including better performance for the more common Python use cases, or to work around known limitations or bugs of UCX. To verify UCX default configurations, for the currently installed UCX version please run the command-line tool ``ucx_info -f``.
+UCXX redefines some of the UCX defaults for a variety of reasons, including better performance for the more common Python use cases, or to work around known limitations or bugs of UCX. To verify UCX default configurations, for the currently installed UCX version please run the command-line tool ``ucx_info -f``.
 
-Below is a list of the UCX-Py redefined default values, and what conditions are required for them to apply.
+Below is a list of the UCXX redefined default values, and what conditions are required for them to apply.
 
 Apply to all UCX versions:
 
 ::
 
+    UCX_MEMTYPE_CACHE=n
     UCX_RNDV_THRESH=8192
-    UCX_RNDV_SCHEME=get_zcopy
+    UCX_FRAG_MEM_TYPE=cuda
+    UCX_MAX_RNDV_RAILS=1
 
-Apply to UCX >= 1.12.0, older UCX versions rely on UCX defaults:
+Apply to UCX < 1.18.0, newer versions rely on UCX defaults:
+
+::
+
+    UCX_PROTO_ENABLE=n
+
+Apply to devices with a BAR1 size equal to the device size, provided it's not in MIG mode:
 
 ::
 
     UCX_CUDA_COPY_MAX_REG_RATIO=1.0
-    UCX_MAX_RNDV_RAILS=1
-    UCX_PROTO_ENABLE=n
 
 Please note that ``UCX_CUDA_COPY_MAX_REG_RATIO=1.0`` is only set provided at least one GPU is present with a BAR1 size smaller than its total memory (e.g., NVIDIA T4).
 
-UCX Environment Variables in UCX-Py
+UCX Environment Variables in UCXX
 -----------------------------------
 
-In this section we go over a brief overview of some of the more relevant variables for current UCX-Py usage, along with some comments on their uses and limitations. To see a complete list of UCX environment variables, their descriptions and default values, please run the command-line tool ``ucx_info -f``.
+In this section we go over a brief overview of some of the more relevant variables for current UCXX usage, along with some comments on their uses and limitations. To see a complete list of UCX environment variables, their descriptions and default values, please run the command-line tool ``ucx_info -f``.
 
 UCP CONTEXT CONFIGURATION
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,13 +64,13 @@ Values: y, n
 
 Enable the new protocol selection logic, also known as "protov2". Its default has been changed to ``y`` starting with UCX 1.16.0.
 
-The new protocol solves various limitations from the original "protov1" including, for example, invalid choice of transport in systems with hybrid interconnectivity, such as a DGX-1 where only a subset of GPU pairs are interconnected via NVLink. On the other hand, it may still lack proper support or not be as well tested for less common use cases, such as CUDA async and managed memory.
+The new protocol solves various limitations from the original "protov1" including, for example, invalid choice of transport in systems with hybrid interconnectivity, such as a DGX-1 where only a subset of GPU pairs are interconnected via NVLink.
 
 
 DEBUG
 ~~~~~
 
-Debug variables for both UCX and UCX-Py can be set
+Debug variables for both UCX and UCXX can be set
 
 UCXPY_LOG_LEVEL/UCX_LOG_LEVEL
 `````````````````````````````
@@ -79,14 +85,14 @@ MEMORY
 UCX_MEMTYPE_CACHE
 `````````````````
 
-This is a UCX Memory optimization which toggles whether UCX library intercepts cu*alloc* calls.  UCX-Py defaults this value to  ``n``.  There `known issues <https://github.com/openucx/ucx/wiki/NVIDIA-GPU-Support#known-issues>`_ when using this feature.
+This is a UCX Memory optimization which toggles whether UCX library intercepts cu*alloc* calls.  UCXX defaults this value to  ``n``.  There `known issues <https://github.com/openucx/ucx/wiki/NVIDIA-GPU-Support#known-issues>`_ when using this feature.
 
 Values: ``n``/``y``
 
 UCX_CUDA_IPC_CACHE
 ``````````````````
 
-This is a UCX CUDA Memory optimization which enables/disables a remote endpoint IPC memhandle mapping cache. UCX/UCX-Py defaults this value to ``y``
+This is a UCX CUDA Memory optimization which enables/disables a remote endpoint IPC memhandle mapping cache. UCX/UCXX defaults this value to ``y``
 
 Values: ``n``/``y``
 
@@ -107,14 +113,14 @@ Limiting the number of rails (network devices) to ``1`` allows UCX to use only t
 
     On CPU-only systems, better network bandwidth performance with infiniband transports may be achieved by letting UCX use more than a single network device. This can be achieved by explicitly setting ``UCX_MAX_RNDV_RAILS`` to ``2`` or higher.
 
-Values: Int (UCX-Py default: ``1``)
+Values: Int (UCXX default: ``1``)
 
 UCX_RNDV_THRESH
 ```````````````
 
-This is a configurable parameter used by UCX to help determine which transport method should be used.  For example, on machines with multiple GPUs, and with NVLink enabled, UCX can deliver messages either through TCP or NVLink.  Sending GPU buffers over TCP is costly as it triggers a device-to-host on the sender side, and then host-to-device transfer on the receiver side --  we want to avoid these kinds of transfers when NVLink is available.  If a buffer is below the threshold, `Rendezvous-Protocol <https://github.com/openucx/ucx/wiki/Rendezvous-Protocol>`_ is triggered and for UCX-Py users, this will typically mean messages will be delivered through TCP.  Depending on the application, messages can be quite small, therefore, we recommend setting a small value if the application uses NVLink or InfiniBand: ``UCX_RNDV_THRESH=8192``
+This is a configurable parameter used by UCX to help determine which transport method should be used.  For example, on machines with multiple GPUs, and with NVLink enabled, UCX can deliver messages either through TCP or NVLink.  Sending GPU buffers over TCP is costly as it triggers a device-to-host on the sender side, and then host-to-device transfer on the receiver side --  we want to avoid these kinds of transfers when NVLink is available.  If a buffer is below the threshold, `Rendezvous-Protocol <https://github.com/openucx/ucx/wiki/Rendezvous-Protocol>`_ is triggered and for UCXX users, this will typically mean messages will be delivered through TCP.  Depending on the application, messages can be quite small, therefore, we recommend setting a small value if the application uses NVLink or InfiniBand: ``UCX_RNDV_THRESH=8192``
 
-Values: Int (UCX-Py default: ``8192``)
+Values: Int (UCXX default: ``8192``)
 
 UCX_RNDV_SCHEME
 ```````````````
@@ -139,7 +145,7 @@ Size of send copy-out buffer when transmitting.  This environment variable contr
 
 .. note::
     Users should take care to properly tune ``UCX_TCP_{RX/TX}_SEG_SIZE`` parameters when mixing TCP with other transports methods as well as when
-    using TCP over UCX in isolation.  These variables will impact CUDA transfers when no NVLink or InfiniBand is available between UCX-Py processes.
+    using TCP over UCX in isolation.  These variables will impact CUDA transfers when no NVLink or InfiniBand is available between UCXX processes.
     These parameters will cause the HostToDevice and DeviceToHost copies of buffers to be broken down in several
     chunks when the size of a buffer exceeds the size defined by these two variables. If an application is expected to transfer very
     large buffers, increasing such values may improve overall performance.
@@ -181,11 +187,15 @@ Select InfiniBand Device
 UCX_NET_DEVICES
 ```````````````
 
-Typically these will be the InfiniBand device corresponding to a particular set of GPUs.  Values:
+It's recommended to not define this variable and instead let UCX determine the closest InfiniBand device, note that this required the CUDA context to be created **before UCX/UCXX are initialized**.
 
-- ``mlx5_0:1``
+Typically these will be the InfiniBand device corresponding to a particular set of GPUs. Values:
 
-To find more information on the topology of InfiniBand-GPU pairing run the following::
+- Check ``ucx-info -d`` for acomplete list
+
+To find more information on the topology of InfiniBand-GPU pairing run the following:
+
+::
 
    nvidia-smi topo -m
 
@@ -197,25 +207,25 @@ InfiniBand -- No NVLink
 
 ::
 
-    UCX_RNDV_SCHEME=get_zcopy UCX_MEMTYPE_CACHE=n UCX_TLS=rc,tcp,cuda_copy <SCRIPT>
+    UCX_TLS=rc,tcp,cuda_copy <SCRIPT>
 
 InfiniBand -- With NVLink
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
-    UCX_RNDV_SCHEME=get_zcopy UCX_MEMTYPE_CACHE=n UCX_TLS=rc,tcp,cuda_copy,cuda_ipc <SCRIPT>
+    UCX_TLS=rc,tcp,cuda_copy,cuda_ipc <SCRIPT>
 
 TLS/Socket -- No NVLink
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
-    UCX_RNDV_SCHEME=get_zcopy UCX_MEMTYPE_CACHE=n UCX_TLS=tcp,cuda_copy <SCRIPT>
+    UCX_TLS=tcp,cuda_copy <SCRIPT>
 
 TLS/Socket -- With NVLink
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
-    UCX_RNDV_SCHEME=get_zcopy UCX_MEMTYPE_CACHE=n UCX_TLS=tcp,cuda_copy,cuda_ipc <SCRIPT>
+    UCX_TLS=tcp,cuda_copy,cuda_ipc <SCRIPT>

@@ -27,7 +27,7 @@ from ucxx import __version__ as release
 # The short X.Y version.
 version = ".".join(release.split(".")[:2])
 
-project = "ucx-py"
+project = "ucxx"
 copyright = "2018-2025, NVIDIA"
 author = "NVIDIA"
 
@@ -111,7 +111,7 @@ html_static_path = ["_static"]
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "ucx-pydoc"
+htmlhelp_basename = "ucxxdoc"
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -135,7 +135,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "ucx-py.tex", "ucx-py Documentation", "NVIDIA", "manual")
+    (master_doc, "ucxx.tex", "ucxx Documentation", "NVIDIA", "manual")
 ]
 
 
@@ -143,7 +143,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "ucx-py", "ucx-py Documentation", [author], 1)]
+man_pages = [(master_doc, "ucxx", "ucxx Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -154,10 +154,10 @@ man_pages = [(master_doc, "ucx-py", "ucx-py Documentation", [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        "ucx-py",
-        "ucx-py Documentation",
+        "ucxx",
+        "ucxx Documentation",
         author,
-        "ucx-py",
+        "ucxx",
         "One line description of project.",
         "Miscellaneous",
     )
