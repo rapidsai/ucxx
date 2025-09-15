@@ -6,7 +6,6 @@ API
 **ucxx**
 
 .. autosummary::
-   ucxx
    create_listener
    create_endpoint
    get_address
