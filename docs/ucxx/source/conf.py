@@ -1,38 +1,55 @@
 # Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
-# -*- coding: utf-8 -*-
-#
 # Configuration file for the Sphinx documentation builder.
 #
-# This file does only contain a selection of the most common options. For a
-# full list see the documentation:
-# http://www.sphinx-doc.org/en/master/config
+# For the full list of built-in configuration values, see the documentation:
+# https://www.sphinx-doc.org/en/master/usage/configuration.html
+import datetime
+import filecmp
+import glob
+import inspect
+import os
+import re
+import sys
+import tempfile
+import warnings
+import xml.etree.ElementTree as ET
+from enum import IntEnum
+from typing import Any
 
-# -- Path setup --------------------------------------------------------------
-
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import ucxx
+from docutils.nodes import Text
+from packaging.version import Version
+from pygments.lexer import RegexLexer
+from pygments.token import Text as PText
+from sphinx.addnodes import pending_xref
+from sphinx.ext import intersphinx
+from sphinx.ext.autodoc import ClassDocumenter
 
 
 # -- Project information -----------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-# The full version, including alpha/beta/rc tags.
-from ucxx import __version__ as release
-
-# The short X.Y version.
-version = ".".join(release.split(".")[:2])
-
+# General information about the project.
 project = "ucxx"
-copyright = "2018-2025, NVIDIA"
-author = "NVIDIA"
+copyright = f"2018-{datetime.datetime.today().year}, NVIDIA Corporation"
+author = "NVIDIA Corporation"
+
+# The version info for the project you're documenting, acts as replacement for
+# |version| and |release|, also used in various other places throughout the
+# built documents.
+#
+UCXX_VERSION = Version(ucxx.__version__)
+# The short X.Y version.
+version = f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}"
+# The full version.
+release = (
+    f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}.{UCXX_VERSION.micro:02}"
+)
 
 
 # -- General configuration ---------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
@@ -42,13 +59,7 @@ author = "NVIDIA"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "sphinx.ext.autodoc",
-    "sphinx.ext.mathjax",
-    "sphinx.ext.viewcode",
-    "sphinx.ext.githubpages",
     "sphinx.ext.autosummary",
-    "sphinx.ext.intersphinx",
-    "sphinx.ext.extlinks",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -58,7 +69,7 @@ templates_path = ["_templates"]
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = ".rst"
+source_suffix = {".rst": "restructuredtext"}
 
 # The master toctree document.
 master_doc = "index"
@@ -68,23 +79,35 @@ master_doc = "index"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
+# This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = None
+pygments_style = "sphinx"
 
+html_theme_options = {
+    "external_links": [],
+    # https://github.com/pydata/pydata-sphinx-theme/issues/1220
+    "icon_links": [],
+    "github_url": "https://github.com/rapidsai/ucxx",
+    "twitter_url": "https://twitter.com/rapidsai",
+    "show_toc_level": 1,
+    "navbar_align": "right",
+    "navigation_with_keys": True,
+}
 
-# -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+
+html_theme = "pydata_sphinx_theme"
+html_logo = "_static/RAPIDS-logo-purple.png"
+
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -97,24 +120,14 @@ html_theme = "sphinx_rtd_theme"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-# Custom sidebar templates, must be a dictionary that maps document names
-# to template names.
-#
-# The default sidebars (for documents that don't match any pattern) are
-# defined by theme itself.  Builtin themes are using these templates by
-# default: ``['localtoc.html', 'relations.html', 'sourcelink.html',
-# 'searchbox.html']``.
-#
-# html_sidebars = {}
 
-
-# -- Options for HTMLHelp output ---------------------------------------------
+# -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "ucxxdoc"
+htmlhelp_basename = f"{project}doc"
 
 
-# -- Options for LaTeX output ------------------------------------------------
+# -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
@@ -135,18 +148,24 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "ucxx.tex", "ucxx Documentation", "NVIDIA", "manual")
+    (
+        master_doc,
+        f"{project}.tex",
+        f"{project} Documentation",
+        author,
+        "manual",
+    )
 ]
 
 
-# -- Options for manual page output ------------------------------------------
+# -- Options for manual page output ---------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "ucxx", "ucxx Documentation", [author], 1)]
+man_pages = [(master_doc, project, f"{project} Documentation", [author], 1)]
 
 
-# -- Options for Texinfo output ----------------------------------------------
+# -- Options for Texinfo output -------------------------------------------
 
 # Grouping the document tree into Texinfo files. List of tuples
 # (source start file, target name, title, author,
@@ -154,32 +173,49 @@ man_pages = [(master_doc, "ucxx", "ucxx Documentation", [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        "ucxx",
-        "ucxx Documentation",
+        project,
+        f"{project} Documentation",
         author,
-        "ucxx",
+        project,
         "One line description of project.",
         "Miscellaneous",
     )
 ]
 
 
-# -- Options for Epub output -------------------------------------------------
+# Example configuration for intersphinx: refer to the Python standard library.
+intersphinx_mapping = {
+    "cudf": ("https://docs.rapids.ai/api/cudf/nightly/", None),
+    "cupy": ("https://docs.cupy.dev/en/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "pandas": (
+        "https://pandas.pydata.org/pandas-docs/stable/",
+        None,
+    ),
+    "python": ("https://docs.python.org/3", None),
+    "rmm": ("https://docs.rapids.ai/api/rmm/nightly/", None),
+    "typing_extensions": (
+        "https://typing-extensions.readthedocs.io/en/stable/",
+        None,
+    ),
+}
 
-# Bibliographic Dublin Core info.
-epub_title = project
+# Config numpydoc
+numpydoc_show_inherited_class_members = {
+    # option_context inherits undocumented members from the parent class
+    f"{project}.option_context": False,
+}
 
-# The unique identifier of the text. This can be a ISBN number
-# or the project homepage.
-#
-# epub_identifier = ''
+# Rely on toctrees generated from autosummary on each of the pages we define
+# rather than the autosummaries on the numpydoc auto-generated class pages.
+numpydoc_class_members_toctree = False
+numpydoc_attributes_as_param_list = False
 
-# A unique identification for the text.
-#
-# epub_uid = ''
+autoclass_content = "class"
 
-# A list of files that should not be packed into the epub file.
-epub_exclude_files = ["search.html"]
-
-
-# -- Extension configuration -------------------------------------------------
+def setup(app):
+    app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
+    app.add_js_file(
+        "https://docs.rapids.ai/assets/js/custom.js", loading_method="defer"
+    )
+    app.setup_extension("sphinx.ext.autodoc")
