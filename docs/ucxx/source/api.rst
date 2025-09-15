@@ -7,39 +7,37 @@ API
 
 .. autosummary::
    ucxx
-   ucxx.create_listener
-   ucxx.create_endpoint
-   ucxx.get_address
-   ucxx.get_config
-   ucxx.get_ucp_worker
-   ucxx.get_ucx_version
-   ucxx.init
-   ucxx.progress
-   ucxx.reset
+   create_listener
+   create_endpoint
+   get_address
+   get_config
+   get_ucp_worker
+   get_ucx_version
+   init
+   progress
+   reset
 
 **Endpoint**
 
 .. autosummary::
-   Endpoint
-   Endpoint.abort
-   Endpoint.close
-   Endpoint.closed
-   Endpoint.close_after_n_recv
-   Endpoint.cuda_support
-   Endpoint.get_ucp_endpoint
-   Endpoint.get_ucp_worker
-   Endpoint.recv
-   Endpoint.send
-   Endpoint.ucx_info
-   Endpoint.uid
+   _lib_async.Endpoint
+   _lib_async.Endpoint.abort
+   _lib_async.Endpoint.close
+   _lib_async.Endpoint.closed
+   _lib_async.Endpoint.close_after_n_recv
+   _lib_async.Endpoint.get_ucp_endpoint
+   _lib_async.Endpoint.get_ucp_worker
+   _lib_async.Endpoint.recv
+   _lib_async.Endpoint.send
+   _lib_async.Endpoint.uid
 
 **Listener**
 
 .. autosummary::
-   Listener
-   Listener.close
-   Listener.closed
-   Listener.port
+   _lib_async.Listener
+   _lib_async.Listener.close
+   _lib_async.Listener.closed
+   _lib_async.Listener.port
 
 .. currentmodule:: ucxx
 
@@ -58,7 +56,7 @@ Endpoint
 
 .. currentmodule:: ucxx
 
-.. autoclass:: Endpoint
+.. autoclass:: ucxx._lib_async.Endpoint
    :members:
 
 
@@ -67,5 +65,5 @@ Listener
 
 .. currentmodule:: ucxx
 
-.. autoclass:: Listener
+.. autoclass:: ucxx._lib_async.Listener
    :members:
