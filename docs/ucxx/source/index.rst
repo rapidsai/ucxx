@@ -13,20 +13,7 @@ UCXX is the Python interface for `UCX <https://github.com/openucx/ucx>`_, a low-
    :maxdepth: 1
    :hidden:
 
-   quickstart
-   install
-   configuration
-   deployment
-   ucx-debug
-
-
-.. toctree::
-   :maxdepth: 1
-   :hidden:
-   :caption: Help & reference
-
-   os-limits
-   transport-monitoring
-   send-recv
-   api
-   glossary
+   user_guide.rst
+   help_and_reference.rst
+   api.rst
+   glossary.rst
