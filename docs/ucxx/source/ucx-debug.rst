@@ -136,7 +136,8 @@ A list of problems we have run into along the way while trying to understand per
 - System-wide settings environment variables. For example, we saw a system with ``UCX_MEM_MMAP_HOOK_MODE`` set to ``none``.  Unsetting this env var resolved problems: https://github.com/rapidsai/ucx-py/issues/616 .  One can quickly check system wide variables with ``env|grep ^UCX_``.
 
 
-- ``sockcm_iface.c:257 Fatal: sockcm_listener: unable to create handler for new connection``.  This is an error we've seen when limits are place on the number
-of file descriptors and occurs when ``SOCKCM`` is used for establishing connections.  User have two choices for resolving this issue: increase the
-``open files`` limit (check ulimit configuration) or use ``RDMACM`` when establishing a connection ``UCX_SOCKADDR_TLS_PRIORITY=rdmacm``.  ``RDMACM``
-is only available using InfiniBand devices.
+- ``sockcm_iface.c:257 Fatal: sockcm_listener: unable to create handler for new connection``.  This is an
+  error we've seen when limits are place on the number of file descriptors and occurs when ``SOCKCM`` is
+  used for establishing connections.  User have two choices for resolving this issue: increase the
+  ``open files`` limit (check ulimit configuration) or use ``RDMACM`` when establishing a connection
+  ``UCX_SOCKADDR_TLS_PRIORITY=rdmacm``.  ``RDMACM`` is only available using InfiniBand devices.
