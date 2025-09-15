@@ -40,5 +40,3 @@ Stats Monitoring of GPUs
 ::
 
     dcgmi dmon -e 449
-
-`nvdashboard <https://github.com/rapidsai/jupyterlab-nvdashboard>`_
