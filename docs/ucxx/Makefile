@@ -2,7 +2,7 @@
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
+SPHINXOPTS    = --fail-on-warning --nitpicky --verbose
 SPHINXBUILD   = sphinx-build
 SOURCEDIR     = source
 BUILDDIR      = build
