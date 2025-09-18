@@ -155,13 +155,11 @@ async def _listener_handler_coroutine(
 
     seed = os.urandom(16)
     msg_tag = hash64bits("msg_tag", seed, endpoint.handle)
-    ctrl_tag = hash64bits("ctrl_tag", seed, endpoint.handle)
 
     try:
         peer_info = await exchange_peer_info(
             endpoint=endpoint,
             msg_tag=msg_tag,
-            ctrl_tag=ctrl_tag,
             listener=True,
             connect_timeout=connect_timeout,
         )
@@ -173,8 +171,6 @@ async def _listener_handler_coroutine(
     tags = {
         "msg_send": peer_info["msg_tag"],
         "msg_recv": msg_tag,
-        "ctrl_send": peer_info["ctrl_tag"],
-        "ctrl_recv": ctrl_tag,
     }
     ep = Endpoint(endpoint=endpoint, ctx=ctx, tags=tags)
 

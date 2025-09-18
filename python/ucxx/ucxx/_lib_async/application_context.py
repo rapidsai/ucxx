@@ -372,12 +372,10 @@ class ApplicationContext:
         #  3) Use the info to create an endpoint
         seed = os.urandom(16)
         msg_tag = hash64bits("msg_tag", seed, ucx_ep.handle)
-        ctrl_tag = hash64bits("ctrl_tag", seed, ucx_ep.handle)
         try:
             peer_info = await exchange_peer_info(
                 endpoint=ucx_ep,
                 msg_tag=msg_tag,
-                ctrl_tag=ctrl_tag,
                 listener=False,
                 connect_timeout=connect_timeout,
             )
@@ -392,8 +390,6 @@ class ApplicationContext:
         tags = {
             "msg_send": peer_info["msg_tag"],
             "msg_recv": msg_tag,
-            "ctrl_send": peer_info["ctrl_tag"],
-            "ctrl_recv": ctrl_tag,
         }
         ep = Endpoint(endpoint=ucx_ep, ctx=self, tags=tags)
 

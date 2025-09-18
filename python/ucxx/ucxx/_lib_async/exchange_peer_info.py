@@ -13,14 +13,12 @@ from .utils import hash64bits
 logger = logging.getLogger("ucx")
 
 
-async def exchange_peer_info(
-    endpoint, msg_tag, ctrl_tag, listener, connect_timeout=5.0
-):
+async def exchange_peer_info(endpoint, msg_tag, listener, connect_timeout=5.0):
     """Help function that exchange endpoint information"""
 
     # Pack peer information incl. a checksum
     fmt = "QQQ"
-    my_info = struct.pack(fmt, msg_tag, ctrl_tag, hash64bits(msg_tag, ctrl_tag))
+    my_info = struct.pack(fmt, msg_tag, hash64bits(msg_tag))
     peer_info = bytearray(len(my_info))
     my_info_arr = Array(my_info)
     peer_info_arr = Array(peer_info)
@@ -40,9 +38,9 @@ async def exchange_peer_info(
 
     # Unpacking and sanity check of the peer information
     ret = {}
-    (ret["msg_tag"], ret["ctrl_tag"], ret["checksum"]) = struct.unpack(fmt, peer_info)
+    (ret["msg_tag"], ret["checksum"]) = struct.unpack(fmt, peer_info)
 
-    expected_checksum = hash64bits(ret["msg_tag"], ret["ctrl_tag"])
+    expected_checksum = hash64bits(ret["msg_tag"])
 
     if expected_checksum != ret["checksum"]:
         raise RuntimeError(
