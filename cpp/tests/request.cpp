@@ -454,7 +454,9 @@ TEST_P(RequestTest, MemoryGetPreallocated)
 {
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, _sendPtr[0], _memoryType);
+  // Memory handles are always non-const
+  auto memoryHandle =
+    _context->createMemoryHandle(_messageSize, const_cast<void*>(_sendPtr[0]), _memoryType);
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
