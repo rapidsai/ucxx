@@ -250,9 +250,8 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - cython >=3.0.0
-        # 'nvidia-ml-py' provides the 'pynvml' module, since v12.560.30
-        # ref: https://github.com/conda-forge/nvidia-ml-py-feedstock/pull/24
-        - nvidia-ml-py>=12.560.30
+        # 'nvidia-ml-py' provides the 'pynvml' module
+        - nvidia-ml-py>=12
         - pip
         - python =${{ python }}
         - rapids-build-backend >=0.4.0,<0.5.0.dev0
@@ -263,11 +262,10 @@ outputs:
         - cuda-cudart-dev
       run:
         - numba >=0.60.0,<0.62.0a0
-        - numba-cuda >=0.19.0,<0.20.0a0
+        - numba-cuda >=0.19.1,<0.20.0a0
         - numpy >=1.23,<3.0a0
-        # 'nvidia-ml-py' provides the 'pynvml' module, since v12.560.30
-        # ref: https://github.com/conda-forge/nvidia-ml-py-feedstock/pull/24
-        - nvidia-ml-py>=12.560.30
+        # 'nvidia-ml-py' provides the 'pynvml' module
+        - nvidia-ml-py>=12
         - python =${{ python }}
         - ucx >=1.17.0,<1.20.0
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
