@@ -371,7 +371,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> amSend(
-    void* buffer,
+    const void* buffer,
     const size_t length,
     const ucs_memory_type_t memoryType,
     const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo = std::nullopt,
@@ -595,7 +595,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] std::shared_ptr<Request> streamSend(void* buffer,
+  [[nodiscard]] std::shared_ptr<Request> streamSend(const void* buffer,
                                                     size_t length,
                                                     const bool enablePythonFuture);
 
@@ -653,7 +653,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> tagSend(
-    void* buffer,
+    const void* buffer,
     size_t length,
     Tag tag,
     const bool enablePythonFuture                = false,
