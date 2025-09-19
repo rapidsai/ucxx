@@ -371,7 +371,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> amSend(
-    const void* buffer,
+    const void* const buffer,
     const size_t length,
     const ucs_memory_type_t memoryType,
     const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo = std::nullopt,
@@ -444,7 +444,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> memPut(
-    const void* buffer,
+    const void* const buffer,
     size_t length,
     uint64_t remoteAddr,
     ucp_rkey_h rkey,
@@ -486,7 +486,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> memPut(
-    const void* buffer,
+    const void* const buffer,
     size_t length,
     std::shared_ptr<ucxx::RemoteKey> remoteKey,
     uint64_t remoteAddrOffset                    = 0,
@@ -595,7 +595,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] std::shared_ptr<Request> streamSend(const void* buffer,
+  [[nodiscard]] std::shared_ptr<Request> streamSend(const void* const buffer,
                                                     size_t length,
                                                     const bool enablePythonFuture);
 
@@ -653,7 +653,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> tagSend(
-    const void* buffer,
+    const void* const buffer,
     size_t length,
     Tag tag,
     const bool enablePythonFuture                = false,
