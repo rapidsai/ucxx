@@ -176,14 +176,12 @@ async def _listener_handler_coroutine(
 
     logger.debug(
         "_listener_handler() server: %s, error handling: %s, msg-tag-send: %s, "
-        "msg-tag-recv: %s, ctrl-tag-send: %s, ctrl-tag-recv: %s"
+        "msg-tag-recv: %s"
         % (
             hex(endpoint.handle),
             endpoint_error_handling,
             hex(ep._tags["msg_send"]),
             hex(ep._tags["msg_recv"]),
-            hex(ep._tags["ctrl_send"]),
-            hex(ep._tags["ctrl_recv"]),
         )
     )
 

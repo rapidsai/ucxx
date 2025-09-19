@@ -17,7 +17,7 @@ async def exchange_peer_info(endpoint, msg_tag, listener, connect_timeout=5.0):
     """Help function that exchange endpoint information"""
 
     # Pack peer information incl. a checksum
-    fmt = "QQQ"
+    fmt = "QQ"
     my_info = struct.pack(fmt, msg_tag, hash64bits(msg_tag))
     peer_info = bytearray(len(my_info))
     my_info_arr = Array(my_info)
