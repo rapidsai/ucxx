@@ -37,4 +37,11 @@ mkdir -p "${RAPIDS_DOCS_DIR}/libucxx/html"
 mv html/* "${RAPIDS_DOCS_DIR}/libucxx/html"
 popd
 
+rapids-logger "Build Python docs"
+pushd docs/ucxx
+make dirhtml O="-j 8"
+mkdir -p "${RAPIDS_DOCS_DIR}/ucxx/html"
+mv build/dirhtml/* "${RAPIDS_DOCS_DIR}/ucxx/html"
+popd
+
 RAPIDS_VERSION_NUMBER="${UCXX_VERSION_MAJOR_MINOR}" rapids-upload-docs
