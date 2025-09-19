@@ -444,7 +444,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> memPut(
-    void* buffer,
+    const void* buffer,
     size_t length,
     uint64_t remoteAddr,
     ucp_rkey_h rkey,
@@ -486,7 +486,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> memPut(
-    void* buffer,
+    const void* buffer,
     size_t length,
     std::shared_ptr<ucxx::RemoteKey> remoteKey,
     uint64_t remoteAddrOffset                    = 0,
@@ -733,7 +733,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] std::shared_ptr<Request> tagMultiSend(const std::vector<void*>& buffer,
+  [[nodiscard]] std::shared_ptr<Request> tagMultiSend(const std::vector<const void*>& buffer,
                                                       const std::vector<size_t>& size,
                                                       const std::vector<int>& isCUDA,
                                                       const Tag tag,

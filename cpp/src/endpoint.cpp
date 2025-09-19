@@ -502,7 +502,7 @@ std::shared_ptr<Request> Endpoint::memGet(void* buffer,
     callbackData));
 }
 
-std::shared_ptr<Request> Endpoint::memPut(void* buffer,
+std::shared_ptr<Request> Endpoint::memPut(const void* buffer,
                                           size_t length,
                                           uint64_t remoteAddr,
                                           ucp_rkey_h rkey,
@@ -518,7 +518,7 @@ std::shared_ptr<Request> Endpoint::memPut(void* buffer,
                                                   callbackData));
 }
 
-std::shared_ptr<Request> Endpoint::memPut(void* buffer,
+std::shared_ptr<Request> Endpoint::memPut(const void* buffer,
                                           size_t length,
                                           std::shared_ptr<RemoteKey> remoteKey,
                                           uint64_t remoteAddressOffset,
@@ -585,7 +585,7 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
                                                   callbackData));
 }
 
-std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
+std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<const void*>& buffer,
                                                 const std::vector<size_t>& size,
                                                 const std::vector<int>& isCUDA,
                                                 const Tag tag,

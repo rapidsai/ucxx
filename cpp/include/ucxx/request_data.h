@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -284,10 +284,10 @@ class TagReceive {
  */
 class TagMultiSend {
  public:
-  const std::vector<void*> _buffer{};   ///< Raw pointers where data to be sent is stored.
-  const std::vector<size_t> _length{};  ///< Lengths of messages.
-  const std::vector<int> _isCUDA{};     ///< Flags indicating whether the buffer is CUDA or not.
-  const ::ucxx::Tag _tag{0};            ///< Tag to match
+  const std::vector<const void*> _buffer{};  ///< Raw pointers where data to be sent is stored.
+  const std::vector<size_t> _length{};       ///< Lengths of messages.
+  const std::vector<int> _isCUDA{};  ///< Flags indicating whether the buffer is CUDA or not.
+  const ::ucxx::Tag _tag{0};         ///< Tag to match
 
   /**
    * @brief Constructor for send multi-buffer tag-specific data.

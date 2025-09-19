@@ -308,7 +308,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagMultiSend(
-            const vector[void*]& buffer,
+            const vector[const void*]& buffer,
             const vector[size_t]& length,
             const vector[int]& isCUDA,
             Tag tag,
