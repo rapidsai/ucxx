@@ -62,7 +62,7 @@ class RequestMem : public Request {
    */
   RequestMem(std::shared_ptr<Endpoint> endpoint,
              const std::variant<data::MemPut, data::MemGet> requestData,
-             const std::string operationName,
+             std::string operationName,
              const bool enablePythonFuture                = false,
              RequestCallbackUserFunction callbackFunction = nullptr,
              RequestCallbackUserData callbackData         = nullptr);

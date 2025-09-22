@@ -1,11 +1,12 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <chrono>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -18,12 +19,12 @@ namespace ucxx {
 
 Request::Request(std::shared_ptr<Component> endpointOrWorker,
                  const data::RequestData requestData,
-                 const std::string operationName,
+                 std::string operationName,
                  const bool enablePythonFuture,
                  RequestCallbackUserFunction callbackFunction,
                  RequestCallbackUserData callbackData)
   : _requestData(requestData),
-    _operationName(operationName),
+    _operationName(std::move(operationName)),
     _enablePythonFuture(enablePythonFuture),
     _callback(callbackFunction),
     _callbackData(callbackData)

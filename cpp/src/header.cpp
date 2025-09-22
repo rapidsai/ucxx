@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
@@ -8,6 +8,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ucxx/header.h>
@@ -24,7 +25,7 @@ Header::Header(bool next, size_t nframes, int* isCUDA, size_t* size) : next{next
   }
 }
 
-Header::Header(std::string serializedHeader) { deserialize(serializedHeader); }
+Header::Header(const std::string& serializedHeader) { deserialize(serializedHeader); }
 
 size_t Header::dataSize() { return sizeof(next) + sizeof(nframes) + sizeof(isCUDA) + sizeof(size); }
 
