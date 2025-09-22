@@ -405,7 +405,7 @@ class Endpoint:
             - sender_tag: int sender tag (when `matched=True`)
             - length: int message length in bytes (when `matched=True`)
             - handle: int message handle for efficient reception (when
-                      `matched=True` and `remove=True`)
+            `matched=True` and `remove=True`)
         """
         if tag is None:
             tag = self._tags["msg_recv"]
