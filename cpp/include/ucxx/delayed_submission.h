@@ -93,8 +93,8 @@ class BaseDelayedSubmissionCollection {
    *                    class should only be used to provide a consistent interface among
    *                    implementations.
    */
-  explicit BaseDelayedSubmissionCollection(const std::string name, const bool enabled)
-    : _name{name}, _enabled{enabled}
+  explicit BaseDelayedSubmissionCollection(std::string name, const bool enabled)
+    : _name{std::move(name)}, _enabled{enabled}
   {
   }
 
@@ -222,7 +222,7 @@ class RequestDelayedSubmissionCollection
    *                    debugging purposes.
    * @param[in] enabled whether delayed request submissions should be enabled.
    */
-  explicit RequestDelayedSubmissionCollection(const std::string name, const bool enabled);
+  explicit RequestDelayedSubmissionCollection(std::string name, const bool enabled);
 };
 
 /**
@@ -248,7 +248,7 @@ class GenericDelayedSubmissionCollection
    * @param[in] name    the human-readable name of the type of delayed submission for
    *                    debugging purposes.
    */
-  explicit GenericDelayedSubmissionCollection(const std::string name);
+  explicit GenericDelayedSubmissionCollection(std::string name);
 };
 
 /**
