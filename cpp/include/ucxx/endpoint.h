@@ -371,7 +371,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> amSend(
-    void* buffer,
+    const void* const buffer,
     const size_t length,
     const ucs_memory_type_t memoryType,
     const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo = std::nullopt,
@@ -444,7 +444,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> memPut(
-    void* buffer,
+    const void* const buffer,
     size_t length,
     uint64_t remoteAddr,
     ucp_rkey_h rkey,
@@ -486,7 +486,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> memPut(
-    void* buffer,
+    const void* const buffer,
     size_t length,
     std::shared_ptr<ucxx::RemoteKey> remoteKey,
     uint64_t remoteAddrOffset                    = 0,
@@ -595,7 +595,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] std::shared_ptr<Request> streamSend(void* buffer,
+  [[nodiscard]] std::shared_ptr<Request> streamSend(const void* const buffer,
                                                     size_t length,
                                                     const bool enablePythonFuture);
 
@@ -653,7 +653,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> tagSend(
-    void* buffer,
+    const void* const buffer,
     size_t length,
     Tag tag,
     const bool enablePythonFuture                = false,
@@ -733,7 +733,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] std::shared_ptr<Request> tagMultiSend(const std::vector<void*>& buffer,
+  [[nodiscard]] std::shared_ptr<Request> tagMultiSend(const std::vector<const void*>& buffer,
                                                       const std::vector<size_t>& size,
                                                       const std::vector<int>& isCUDA,
                                                       const Tag tag,
