@@ -98,15 +98,15 @@ void* RMMBuffer::data()
 
 std::shared_ptr<Buffer> allocateBuffer(const BufferType bufferType, const size_t size)
 {
+  if (bufferType == BufferType::RMM) {
 #if UCXX_ENABLE_RMM
-  if (bufferType == BufferType::RMM)
     return std::make_shared<RMMBuffer>(size);
-  else
 #else
-  if (bufferType == BufferType::RMM)
     throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
 #endif
+  } else {
     return std::make_shared<HostBuffer>(size);
+  }
 }
 
 }  // namespace ucxx

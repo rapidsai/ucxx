@@ -303,16 +303,18 @@ int main(int argc, char** argv)
   ::waitRequests(args.progress_mode, worker, requests);
 
   // Verify results
-  for (size_t i = 0; i < sendWireupBuffer->getSize(); ++i)
-    assert(recvWireupBuffer[i] == sendWireupBuffer[i]);
-  for (size_t i = 0; i < sendBuffers.size(); ++i)
-    for (size_t j = 0; j < sendBuffers[i]->getSize(); ++j)
-      assert(recvBuffers[i][j] == sendBuffers[i][j]);
-
+  assert(std::memcmp(
+           recvWireupBuffer->data(), sendWireupBuffer->data(), sendWireupBuffer->getSize()) == 0);
+  for (size_t i = 0; i < sendBuffers.size(); ++i) {
+    assert(std::memcmp(recvBuffers[i]->data(), sendBuffers[i]->data(), sendBuffers[i]->getSize()) ==
+           0);
+  }
   // Stop progress thread
   if (args.progress_mode == ProgressMode::ThreadBlocking ||
       args.progress_mode == ProgressMode::ThreadPolling)
     worker->stopProgressThread();
+
+  std::cout << "Example completed successfully" << std::endl;
 
   return 0;
 }
