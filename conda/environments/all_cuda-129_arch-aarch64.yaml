@@ -22,13 +22,15 @@ dependencies:
 - doxygen=1.9.1
 - librmm==25.10.*,>=0.0.0a0
 - libtool
+- make
 - ninja
-- numba-cuda>=0.19.0,<0.20.0a0
+- numba-cuda>=0.19.1,<0.20.0a0
 - numpy>=1.23,<3.0a0
-- nvidia-ml-py>=12.560.30
+- nvidia-ml-py>=12
 - pip
 - pkg-config
 - pre-commit
+- pydata-sphinx-theme>=0.15.4
 - pytest
 - pytest-asyncio>=1.0.0
 - pytest-rerunfailures!=16.0.0
@@ -39,5 +41,6 @@ dependencies:
 - rmm==25.10.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
 - setuptools>=64.0.0
+- sphinx>=8.1.0
 - ucx>=1.17.0,<1.20
 name: all_cuda-129_arch-aarch64

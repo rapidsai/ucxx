@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # We try to be as close as possible to Distributed's testing, thus this file
 # was taken from https://github.com/dask/distributed/blob/main/conftest.py,
 # and minimal changes were applied.
