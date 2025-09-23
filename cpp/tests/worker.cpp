@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -320,7 +320,7 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
 
   const size_t numMulti = 8;
 
-  std::vector<void*> multiBuffer(numMulti, send.data());
+  std::vector<const void*> multiBuffer(numMulti, send.data());
   std::vector<size_t> multiSize(numMulti, send.size() * sizeof(int));
   std::vector<int> multiIsCUDA(numMulti, false);
 
