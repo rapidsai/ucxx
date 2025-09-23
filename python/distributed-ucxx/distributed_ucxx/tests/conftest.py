@@ -10,14 +10,6 @@ from __future__ import annotations
 
 import pytest
 
-# Force initialization of `rapids-dask-dependency` patches before importing
-# `distributed_ucxx`. Without this, rewriting the `ucx://` prefix will
-# fail to import `distributed_ucxx` as it causes a circular import.
-#
-# TODO: Remove once `rapids-dask-dependency` pins a `distributed` release containing
-# https://github.com/dask/distributed/pull/9105
-import distributed  # noqa: F401
-
 try:
     import faulthandler
 except ImportError:
