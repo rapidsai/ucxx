@@ -492,9 +492,29 @@ std::string appendSpaces(const std::string_view input,
  * @param precision The number of digits after the decimal point (default is 2).
  * @return std::string The formatted string representation of the number.
  */
-std::string floatToString(double number, size_t precision = 2)
+std::string floatToString(double number, std::optional<size_t> precisionOverride = std::nullopt)
 {
   std::ostringstream oss;
+  size_t precision;
+
+  if (precisionOverride) {
+    precision = *precisionOverride;
+  } else {
+    if (number < 10.0) {
+      precision = 5;
+    } else if (number < 100.0) {
+      precision = 4;
+    } else if (number < 1000.0) {
+      precision = 3;
+    } else if (number < 10000.0) {
+      precision = 2;
+    } else if (number < 100000.0) {
+      precision = 1;
+    } else {
+      precision = 0;
+    }
+  }
+
   oss << std::fixed << std::setprecision(precision) << number;
   return oss.str();
 }
