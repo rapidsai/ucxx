@@ -19,7 +19,7 @@ namespace ucxx {
 
 namespace data {
 
-AmSend::AmSend(const void* buffer,
+AmSend::AmSend(const void* const buffer,
                const size_t length,
                const ucs_memory_type memoryType,
                const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo)
@@ -36,7 +36,7 @@ EndpointClose::EndpointClose(const bool force) : _force(force) {}
 
 Flush::Flush() {}
 
-MemPut::MemPut(const void* buffer,
+MemPut::MemPut(const void* const buffer,
                const size_t length,
                const uint64_t remoteAddr,
                const ucp_rkey_h rkey)
@@ -49,7 +49,8 @@ MemGet::MemGet(void* buffer, const size_t length, const uint64_t remoteAddr, con
 {
 }
 
-StreamSend::StreamSend(const void* buffer, const size_t length) : _buffer(buffer), _length(length)
+StreamSend::StreamSend(const void* const buffer, const size_t length)
+  : _buffer(buffer), _length(length)
 {
   /**
    * Stream API does not support zero-sized messages. See
@@ -69,7 +70,7 @@ StreamReceive::StreamReceive(void* buffer, const size_t length) : _buffer(buffer
   if (length == 0) throw std::runtime_error("Length has to be a positive value.");
 }
 
-TagSend::TagSend(const void* buffer, const size_t length, const ::ucxx::Tag tag)
+TagSend::TagSend(const void* const buffer, const size_t length, const ::ucxx::Tag tag)
   : _buffer(buffer), _length(length), _tag(tag)
 {
 }
@@ -96,7 +97,7 @@ TagReceiveWithHandle::TagReceiveWithHandle(void* buffer, std::shared_ptr<TagProb
   }
 }
 
-TagMultiSend::TagMultiSend(const std::vector<void*>& buffer,
+TagMultiSend::TagMultiSend(const std::vector<const void*>& buffer,
                            const std::vector<size_t>& length,
                            const std::vector<int>& isCUDA,
                            const ::ucxx::Tag tag)

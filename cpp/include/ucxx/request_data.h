@@ -28,8 +28,8 @@ namespace data {
  */
 class AmSend {
  public:
-  const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
-  const size_t _length{0};       ///< The length of the message.
+  const void* const _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};             ///< The length of the message.
   const ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_HOST};  ///< Memory type used on the operation
   const std::optional<AmReceiverCallbackInfo> _receiverCallbackInfo{
     std::nullopt};  ///< Owner name and unique identifier of the receiver callback.
@@ -116,10 +116,10 @@ class Flush {
  */
 class MemPut {
  public:
-  const void* _buffer{nullptr};   ///< The raw pointer where data to be sent is stored.
-  const size_t _length{0};        ///< The length of the message.
-  const uint64_t _remoteAddr{0};  ///< Remote memory address to write to.
-  const ucp_rkey_h _rkey{};       ///< UCX remote key associated with the remote memory address.
+  const void* const _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};             ///< The length of the message.
+  const uint64_t _remoteAddr{0};       ///< Remote memory address to write to.
+  const ucp_rkey_h _rkey{};  ///< UCX remote key associated with the remote memory address.
 
   /**
    * @brief Constructor for memory-specific data.
@@ -178,8 +178,8 @@ class MemGet {
  */
 class StreamSend {
  public:
-  const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
-  const size_t _length{0};       ///< The length of the message.
+  const void* const _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};             ///< The length of the message.
 
   /**
    * @brief Constructor for stream-specific data.
@@ -226,9 +226,9 @@ class StreamReceive {
  */
 class TagSend {
  public:
-  const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
-  const size_t _length{0};       ///< The length of the message.
-  const ::ucxx::Tag _tag{0};     ///< Tag to match
+  const void* const _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};             ///< The length of the message.
+  const ::ucxx::Tag _tag{0};           ///< Tag to match
 
   /**
    * @brief Constructor for tag-specific data.
@@ -312,10 +312,10 @@ class TagReceiveWithHandle {
  */
 class TagMultiSend {
  public:
-  const std::vector<void*> _buffer{};   ///< Raw pointers where data to be sent is stored.
-  const std::vector<size_t> _length{};  ///< Lengths of messages.
-  const std::vector<int> _isCUDA{};     ///< Flags indicating whether the buffer is CUDA or not.
-  const ::ucxx::Tag _tag{0};            ///< Tag to match
+  const std::vector<const void*> _buffer{};  ///< Raw pointers where data to be sent is stored.
+  const std::vector<size_t> _length{};       ///< Lengths of messages.
+  const std::vector<int> _isCUDA{};  ///< Flags indicating whether the buffer is CUDA or not.
+  const ::ucxx::Tag _tag{0};         ///< Tag to match
 
   /**
    * @brief Constructor for send multi-buffer tag-specific data.

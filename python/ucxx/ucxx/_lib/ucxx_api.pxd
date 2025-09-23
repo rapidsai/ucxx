@@ -295,7 +295,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         void closeBlocking(uint64_t period, uint64_t maxAttempts)
         shared_ptr[Request] amSend(
-            void* buffer,
+            const void* const buffer,
             size_t length,
             ucs_memory_type_t memory_type,
             # Using `nullopt_t` is a workaround for Cython error
@@ -308,13 +308,13 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] streamSend(
-            void* buffer, size_t length, bint enable_python_future
+            const void* const buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] streamRecv(
             void* buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagSend(
-            void* buffer, size_t length, Tag tag, bint enable_python_future
+            const void* const buffer, size_t length, Tag tag, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagRecv(
             void* buffer,
@@ -324,7 +324,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagMultiSend(
-            const vector[void*]& buffer,
+            const vector[const void*]& buffer,
             const vector[size_t]& length,
             const vector[int]& isCUDA,
             Tag tag,
