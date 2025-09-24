@@ -248,24 +248,21 @@ auto verify_buffers(ucxx::Buffer* expected, ucxx::Buffer* actual)
     stream.synchronize();
     return host_buffer.data();
   };
+#else
+  auto copy_to_host = [](auto&, auto&) {
+    throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
+    return nullptr;
+  };
 #endif
 
   if (expected->getType() == ucxx::BufferType::RMM) {
-#if UCXX_ENABLE_RMM
     host_expected_ptr = copy_to_host(expected, host_expected);
-#else
-    throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
-#endif
   } else {
     host_expected_ptr = expected->data();
   }
 
   if (actual->getType() == ucxx::BufferType::RMM) {
-#if UCXX_ENABLE_RMM
     host_actual_ptr = copy_to_host(actual, host_actual);
-#else
-    throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
-#endif
   } else {
     host_actual_ptr = actual->data();
   }
