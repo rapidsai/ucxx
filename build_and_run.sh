@@ -141,10 +141,10 @@ run_cpp_example() {
 
   # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
   # `TIME_WAIT` timeout
-  CMD_LINE="UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -s ${SEND_BUFFER_TYPE} -r ${RECV_BUFFER_TYPE}"
+  CMD_LINE="UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -P ${PROGRESS_MODE} -s ${SEND_BUFFER_TYPE} -r ${RECV_BUFFER_TYPE}"
 
   echo -e "\e[1mRunning: \n  - ${CMD_LINE}\e[0m"
-  UCX_TCP_CM_REUSEADDR=y "${BINARY_PATH}/examples/libucxx/ucxx_example_basic" -m "${PROGRESS_MODE}" -s "${SEND_BUFFER_TYPE}" -r "${RECV_BUFFER_TYPE}"
+  UCX_TCP_CM_REUSEADDR=y "${BINARY_PATH}/examples/libucxx/ucxx_example_basic" -P "${PROGRESS_MODE}" -s "${SEND_BUFFER_TYPE}" -r "${RECV_BUFFER_TYPE}"
 }
 
 run_tests_async() {

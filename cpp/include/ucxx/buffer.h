@@ -130,14 +130,14 @@ class HostBuffer : public Buffer {
   /**
    * @brief Construct a host buffer by deep copying the contents of another buffer.
    *
-   * @param[in] buffer the `const void*` to copy from.
+   * @param[in] buffer the data to copy from.
    * @param[in] size the size of the host buffer to allocate.
    *
    * @code{.cpp}
-   * auto buffer2 = HostBuffer(buffer.data(), buffer.getSize());
+   * auto buffer_copy = HostBuffer(buffer.data(), buffer.getSize());
    * @endcode
    */
-  explicit HostBuffer(const void* buffer, const size_t size);
+  HostBuffer(const void* buffer, const size_t size);
 
   /**
    * @brief Destructor of concrete type `HostBuffer`.

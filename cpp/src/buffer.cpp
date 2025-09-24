@@ -33,7 +33,6 @@ HostBuffer::HostBuffer(const size_t size) : Buffer(BufferType::Host, size), _buf
 
 HostBuffer::HostBuffer(const void* buffer, const size_t size) : HostBuffer(size)
 {
-  ucxx_trace_data("ucxx::HostBuffer created: %p, buffer: %p, size: %lu", this, _buffer, size);
   std::memcpy(_buffer, buffer, size);
 }
 

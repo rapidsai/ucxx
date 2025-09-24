@@ -84,7 +84,7 @@ static void printUsage()
   std::cerr << " basic client/server example" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
-  std::cerr << "  -m          progress mode to use, valid values are: 'polling', 'blocking',"
+  std::cerr << "  -P          progress mode to use, valid values are: 'polling', 'blocking',"
             << std::endl;
   std::cerr << "              'thread-polling', 'thread-blocking' and 'wait' (default: 'blocking')"
             << std::endl;
@@ -108,7 +108,7 @@ enum class ProgressMode {
 };
 
 struct args {
-  ProgressMode progress_mode{ProgressMode::Blocking};
+  ProgressMode progress_mode{ProgressMode::Polling};
   uint16_t listener_port{12345};
   ucxx::BufferType send_buf_type{ucxx::BufferType::Host};
   ucxx::BufferType recv_buf_type{ucxx::BufferType::Host};
@@ -133,9 +133,9 @@ struct args {
       }
     };
 
-    while ((c = getopt(argc, argv, "m:p:s:r:h")) != -1) {
+    while ((c = getopt(argc, argv, "P:p:s:r:h")) != -1) {
       switch (c) {
-        case 'm':
+        case 'P':
           if (strcmp(optarg, "blocking") == 0) {
             progress_mode = ProgressMode::Blocking;
             break;
@@ -225,7 +225,7 @@ std::shared_ptr<ucxx::Buffer> makeBuffer(ucxx::BufferType bufferType, T* values,
       return std::make_shared<ucxx::RMMBuffer>(std::move(buf));
     }
 #endif
-    default: throw std::runtime_error("Unable to make buffer from values");
+    default: throw std::runtime_error("Invalid buffer type");
   }
 }
 
