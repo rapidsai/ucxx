@@ -84,9 +84,11 @@ fi
 
 if runAll || hasArg cpp_tests; then
     RUN_CPP_TESTS=1
+    BUILD_ARGS="${BUILD_ARGS} libucxx libucxx_tests"
 fi
 if runAll || hasArg cpp_bench; then
     RUN_CPP_BENCH=1
+    BUILD_ARGS="${BUILD_ARGS} libucxx libucxx_benchmarks"
 fi
 if runAll || hasArg cpp_examples; then
     RUN_CPP_EXAMPLE=1
