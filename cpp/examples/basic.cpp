@@ -81,7 +81,9 @@ static void listener_cb(ucp_conn_request_h conn_request, void* arg)
 static void printUsage()
 {
   std::cerr << "Usage: basic [parameters]" << std::endl;
-  std::cerr << " basic client/server example" << std::endl;
+  std::cerr << " basic client/server example, where messages are sent between two endpoints in the "
+               "same worker"
+            << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
   std::cerr << "  -P          progress mode to use, valid values are: 'polling', 'blocking',"
@@ -298,6 +300,8 @@ int main(int argc, char** argv)
   while (listener_ctx->isAvailable())
     progress();
 
+  // now, we have a connection between the listener ctx endpoint and the client endpoint
+
   std::vector<std::shared_ptr<ucxx::Request>> requests;
 
   // Allocate send buffers
@@ -329,6 +333,10 @@ int main(int argc, char** argv)
   requests.clear();
 
   // Schedule send and recv messages on different tags and different ordering
+  //        send          recv
+  // tag 0: l_ctx_ep      ep
+  // tag 1: ep            l_ctx_ep
+  // tag 2: l_ctx_ep      ep
   requests.push_back(listener_ctx->getEndpoint()->tagSend(
     sendBuffers[0]->data(), sendBuffers[0]->getSize(), ucxx::Tag{0}));
   requests.push_back(listener_ctx->getEndpoint()->tagRecv(
