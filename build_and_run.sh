@@ -204,14 +204,14 @@ if [[ $RUN_CPP_BENCH != 0 ]]; then
   run_cpp_benchmark   wait
 fi
 if [[ $RUN_CPP_EXAMPLE != 0 ]]; then
-  # run_cpp_example PROGRESS_MODE SEND_BUFFER_TYPE RECV_BUFFER_TYPE
   for send_buffer_type in host rmm; do
     for recv_buffer_type in host rmm; do
-      run_cpp_example   polling   ${send_buffer_type}   ${recv_buffer_type}
-      run_cpp_example   blocking   ${send_buffer_type}   ${recv_buffer_type}
-      run_cpp_example   thread-polling   ${send_buffer_type}   ${recv_buffer_type}
-      run_cpp_example   thread-blocking   ${send_buffer_type}   ${recv_buffer_type}
-      run_cpp_example   wait   ${send_buffer_type}   ${recv_buffer_type}
+      # run_cpp_example PROGRESS_MODE   SEND_BUFFER_TYPE    RECV_BUFFER_TYPE
+      run_cpp_example   polling         ${send_buffer_type} ${recv_buffer_type}
+      run_cpp_example   blocking        ${send_buffer_type} ${recv_buffer_type}
+      run_cpp_example   thread-polling  ${send_buffer_type} ${recv_buffer_type}
+      run_cpp_example   thread-blocking ${send_buffer_type} ${recv_buffer_type}
+      run_cpp_example   wait            ${send_buffer_type} ${recv_buffer_type}
     done
   done
 fi
