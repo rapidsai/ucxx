@@ -75,8 +75,6 @@ Again, an ``Endpoint`` sends and receives with `unique tags <http://openucx.gith
             ctx=self,
             msg_tag_send=peer_info["msg_tag"],
             msg_tag_recv=msg_tag,
-            ctrl_tag_send=peer_info["ctrl_tag"],
-            ctrl_tag_recv=ctrl_tag,
             guarantee_msg_order=guarantee_msg_order,
         )
 
