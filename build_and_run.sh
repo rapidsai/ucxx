@@ -14,7 +14,7 @@ VALIDARGS="cpp_tests py_tests cpp_examples py_async_tests py_bench py_async_benc
 HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_bench] [py_async_bench] [cython_tests]
    cpp_tests                     - run all C++ tests
    cpp_bench                     - run C++ benchmarks
-   cpp_examples                  - run C++ example
+   cpp_examples                  - run C++ examples
    py_tests                      - run all Python core tests
    py_async_tests                - run all Python async tests
    py_bench                      - run Python core benchmarks
