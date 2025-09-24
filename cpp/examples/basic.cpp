@@ -118,18 +118,19 @@ struct args {
     int c;
 
     auto parseBufferType = [](const std::string& bufferTypeString) {
-      if (bufferTypeString == "host")
+      if (bufferTypeString == "host") {
         return ucxx::BufferType::Host;
-      else if (bufferTypeString == "rmm")
+      } else if (bufferTypeString == "rmm") {
 #if UCXX_ENABLE_RMM
         return ucxx::BufferType::RMM;
 #else
         std::cerr << "RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1"
                   << std::endl;
-      return ucxx::BufferType::Invalid;
-#endif
-      else
         return ucxx::BufferType::Invalid;
+#endif
+      } else {
+        return ucxx::BufferType::Invalid;
+      }
     };
 
     while ((c = getopt(argc, argv, "m:p:s:r:h")) != -1) {
@@ -233,6 +234,7 @@ auto verify_buffers(ucxx::Buffer* expected, ucxx::Buffer* actual)
   std::vector<uint8_t> host_expected, host_actual;
   void *host_expected_ptr, *host_actual_ptr;
 
+#if UCXX_ENABLE_RMM
   auto copy_to_host = [](auto& buffer, auto& host_buffer) {
     // copy RMM buffer to host
     host_buffer.resize(buffer->getSize());
@@ -244,15 +246,24 @@ auto verify_buffers(ucxx::Buffer* expected, ucxx::Buffer* actual)
     stream.synchronize();
     return host_buffer.data();
   };
+#endif
 
   if (expected->getType() == ucxx::BufferType::RMM) {
+#if UCXX_ENABLE_RMM
     host_expected_ptr = copy_to_host(expected, host_expected);
+#else
+    throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
+#endif
   } else {
     host_expected_ptr = expected->data();
   }
 
   if (actual->getType() == ucxx::BufferType::RMM) {
+#if UCXX_ENABLE_RMM
     host_actual_ptr = copy_to_host(actual, host_actual);
+#else
+    throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
+#endif
   } else {
     host_actual_ptr = actual->data();
   }

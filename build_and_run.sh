@@ -90,6 +90,7 @@ if runAll || hasArg cpp_bench; then
 fi
 if runAll || hasArg cpp_examples; then
     RUN_CPP_EXAMPLE=1
+    BUILD_ARGS="${BUILD_ARGS} libucxx libucxx_examples"
 fi
 if runAll || hasArg py_tests; then
     RUN_PY_TESTS=1
