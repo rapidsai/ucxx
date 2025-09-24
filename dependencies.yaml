@@ -437,6 +437,7 @@ dependencies:
               - cudf-cu12==25.10.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
+              cuda_suffixed: "true"
             packages:
               - cudf-cu13==25.10.*,>=0.0.0a0
           - {matrix: null, packages: [*cudf_unsuffixed]}
