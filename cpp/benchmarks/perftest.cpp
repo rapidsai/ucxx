@@ -500,30 +500,24 @@ std::string appendSpaces(const std::string_view input,
  * @param precision The number of digits after the decimal point (default is 2).
  * @return std::string The formatted string representation of the number.
  */
-std::string floatToString(double number, std::optional<size_t> precisionOverride = std::nullopt)
+std::string floatToString(double number, std::optional<size_t> precision = std::nullopt)
 {
+  auto getPrecision = [precision](double num) -> int {
+    if (precision) return *precision;
+
+    if (num == 0.0) return 5;
+
+    double absNum = std::abs(num);
+
+    // Calculate the order of magnitude
+    int magnitude = absNum < 1.0 ? 0 : static_cast<int>(std::log10(absNum)) + 1;
+
+    // Precision decreases as magnitude increases, starting from 5
+    return std::max(0, 6 - magnitude);
+  };
+
   std::ostringstream oss;
-  size_t precision;
-
-  if (precisionOverride) {
-    precision = *precisionOverride;
-  } else {
-    if (number < 10.0) {
-      precision = 5;
-    } else if (number < 100.0) {
-      precision = 4;
-    } else if (number < 1000.0) {
-      precision = 3;
-    } else if (number < 10000.0) {
-      precision = 2;
-    } else if (number < 100000.0) {
-      precision = 1;
-    } else {
-      precision = 0;
-    }
-  }
-
-  oss << std::fixed << std::setprecision(precision) << number;
+  oss << std::fixed << std::setprecision(getPrecision(number)) << number;
   return oss.str();
 }
 
