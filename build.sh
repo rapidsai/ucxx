@@ -149,7 +149,7 @@ if hasArg ucxx_tests && ! hasArg ucxx; then
   exit 1
 fi
 
-if buildAll || hasArg libucxx_python || hasArg libucxx_tests; then
+if buildAll || hasArg libucxx_python || hasArg libucxx_tests || hasArg libucxx_examples; then
   UCXX_ENABLE_RMM=ON
 fi
 
