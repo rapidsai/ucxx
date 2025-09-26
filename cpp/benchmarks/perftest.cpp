@@ -756,7 +756,7 @@ class Application {
   void printClientHeader(std::string_view category)
   {
     std::string categoryWithUnit = std::string(category) + std::string{" (usec)"};
-    auto percentileRank          = floatToString(_appContext.percentileRank);
+    auto percentileRank          = floatToString(_appContext.percentileRank, 1);
 
     // clang-format off
     std::cout << "+--------------+--------------+------------------------------+---------------------+-----------------------+" << std::endl;
