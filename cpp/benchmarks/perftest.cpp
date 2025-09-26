@@ -756,7 +756,7 @@ class Application {
   void printClientHeader(std::string_view category)
   {
     std::string categoryWithUnit = std::string(category) + std::string{" (usec)"};
-    auto percentileRank          = floatToString(_appContext.percentileRank, 1);
+    auto percentileRank          = floatToString(_appContext.percentileRank);
 
     // clang-format off
     std::cout << "+--------------+--------------+------------------------------+---------------------+-----------------------+" << std::endl;
@@ -793,9 +793,9 @@ class Application {
                      double messageRateOverall)
   {
     std::cout << "                " << appendSpaces(std::to_string(iteration), 15)
-              << appendSpaces(floatToString(percentile, 3), 11)
-              << appendSpaces(floatToString(overheadAverage, 3), 10)
-              << appendSpaces(floatToString(overheadOverall, 3), 10)
+              << appendSpaces(floatToString(percentile), 11)
+              << appendSpaces(floatToString(overheadAverage), 10)
+              << appendSpaces(floatToString(overheadOverall), 10)
               << appendSpaces(floatToString(bandwidthAverage), 11)
               << appendSpaces(floatToString(bandwidthOverall), 11)
               << appendSpaces(floatToString(messageRateAverage), 12)
