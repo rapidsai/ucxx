@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -49,7 +49,7 @@ class PythonFutureTaskCollector {
    * Decrement each reference (i.e., garbage collect) that was previously pushed via the
    * `push()` method exactly once, cleaning internal references at the end.
    *
-   * WARNING: Calling this method will attempt to take the GIL, so make sure no other thread
+   * @warning Calling this method will attempt to take the GIL, so make sure no other thread
    * currently owns it while this thread also competes for other resources that the Python
    * thread holding the GIL may require as it may cause a deadlock.
    */

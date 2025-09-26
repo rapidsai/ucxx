@@ -59,7 +59,7 @@ cache:
     host:
       - cuda-version =${{ cuda_version }}
       - librmm ${{ rapids_version }}
-      - rapids-build-backend >=0.3.0,<0.4.0.dev0
+      - rapids-build-backend >=0.4.0,<0.5.0.dev0
       - ucx
       - cuda-cudart-dev
 
@@ -89,7 +89,7 @@ outputs:
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_compatible("librmm", upper_bound="x.x") }}
-        - ucx >=1.15.0,<1.19.0
+        - ucx >=1.17.0,<1.20.0
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       ignore_run_exports:
@@ -250,26 +250,29 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - cython >=3.0.0
+        # 'nvidia-ml-py' provides the 'pynvml' module
+        - nvidia-ml-py>=12
         - pip
-        - pynvml >=12.0.0,<13.0.0a0
         - python =${{ python }}
-        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rapids-build-backend >=0.4.0,<0.5.0.dev0
         - rmm ${{ rapids_version }}
         - scikit-build-core >=0.10.0
         - ucx
         - ${{ pin_subpackage("libucxx", exact=True) }}
         - cuda-cudart-dev
       run:
+        - numba >=0.60.0,<0.62.0a0
+        - numba-cuda >=0.19.1,<0.20.0a0
         - numpy >=1.23,<3.0a0
-        - pynvml >=12.0.0,<13.0.0a0
+        # 'nvidia-ml-py' provides the 'pynvml' module
+        - nvidia-ml-py>=12
         - python =${{ python }}
-        - ucx >=1.15.0,<1.19.0
+        - ucx >=1.17.0,<1.20.0
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_compatible("rmm", upper_bound="x.x") }}
         - ${{ pin_subpackage("libucxx", exact=True) }}
       run_constraints:
-        - cupy >=9.5.0
-        - numba >=0.59.1,<0.62.0a0
+        - cupy >=13.6.0
       ignore_run_exports:
         by_name:
           - cuda-cudart
@@ -351,7 +354,7 @@ outputs:
         - cython >=3.0.0
         - pip
         - python =${{ python }}
-        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rapids-build-backend >=0.4.0,<0.5.0.dev0
         - scikit-build-core >=0.10.0
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
@@ -383,11 +386,14 @@ outputs:
         - pip
         # Pin this to a specific Python because we only need one build of it
         - python =3.10
-        - rapids-build-backend >=0.3.0,<0.4.0.dev0
+        - rapids-build-backend >=0.4.0,<0.5.0.dev0
         - setuptools
         - wheel
       run:
+        - numba >=0.60.0,<0.62.0a0
+        - numba-cuda >=0.19.0,<0.20.0a0
         - python
+        - pyyaml >=6
         - rapids-dask-dependency ${{ rapids_version }}
         - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
       ignore_run_exports:

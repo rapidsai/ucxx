@@ -54,7 +54,7 @@ class RequestTest : public ::testing::TestWithParam<
   std::vector<DataContainerType> _recv;
   std::vector<std::unique_ptr<ucxx::Buffer>> _sendBuffer;
   std::vector<std::unique_ptr<ucxx::Buffer>> _recvBuffer;
-  std::vector<void*> _sendPtr{nullptr};
+  std::vector<const void*> _sendPtr{nullptr};
   std::vector<void*> _recvPtr{nullptr};
 
   void SetUp()
@@ -454,7 +454,9 @@ TEST_P(RequestTest, MemoryGetPreallocated)
 {
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, _sendPtr[0], _memoryType);
+  // Memory handles are always non-const
+  auto memoryHandle =
+    _context->createMemoryHandle(_messageSize, const_cast<void*>(_sendPtr[0]), _memoryType);
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
@@ -576,7 +578,7 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->memPut(reinterpret_cast<char*>(_sendPtr[0]) + offsetBytes,
+  requests.push_back(_ep->memPut(reinterpret_cast<const char*>(_sendPtr[0]) + offsetBytes,
                                  _messageSize - offsetBytes,
                                  remoteKey,
                                  offsetBytes));
