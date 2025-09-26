@@ -1,7 +1,8 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstring>
 #include <iterator>
 #include <memory>
 #include <utility>
@@ -28,6 +29,11 @@ size_t Buffer::getSize() const noexcept { return _size; }
 HostBuffer::HostBuffer(const size_t size) : Buffer(BufferType::Host, size), _buffer{malloc(size)}
 {
   ucxx_trace_data("ucxx::HostBuffer created: %p, buffer: %p, size: %lu", this, _buffer, size);
+}
+
+HostBuffer::HostBuffer(const void* buffer, const size_t size) : HostBuffer(size)
+{
+  std::memcpy(_buffer, buffer, size);
 }
 
 HostBuffer::~HostBuffer()
@@ -62,6 +68,14 @@ RMMBuffer::RMMBuffer(const size_t size)
   ucxx_trace_data("ucxx::RMMBuffer created: %p, buffer: %p, size: %lu", this, _buffer.get(), size);
 }
 
+RMMBuffer::RMMBuffer(std::unique_ptr<rmm::device_buffer> rmm_buffer)
+  : Buffer(BufferType::RMM, rmm_buffer->size()), _buffer{std::move(rmm_buffer)}
+{
+  ucxx_trace_data("ucxx::RMMBuffer created: %p, buffer: %p, size: %lu", this, _buffer.get(), _size);
+}
+
+RMMBuffer::~RMMBuffer() = default;
+
 std::unique_ptr<rmm::device_buffer> RMMBuffer::release()
 {
   ucxx_trace_data("ucxx::RMMBuffer::%s, RMMBuffer: %p, _buffer: %p", __func__, this, _buffer.get());
@@ -84,15 +98,15 @@ void* RMMBuffer::data()
 
 std::shared_ptr<Buffer> allocateBuffer(const BufferType bufferType, const size_t size)
 {
+  if (bufferType == BufferType::RMM) {
 #if UCXX_ENABLE_RMM
-  if (bufferType == BufferType::RMM)
     return std::make_shared<RMMBuffer>(size);
-  else
 #else
-  if (bufferType == BufferType::RMM)
     throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
 #endif
+  } else {
     return std::make_shared<HostBuffer>(size);
+  }
 }
 
 }  // namespace ucxx
