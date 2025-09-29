@@ -35,7 +35,7 @@ run_cpp_example() {
   RUNTIME_PATH=${CONDA_PREFIX:-./}
   BINARY_PATH=${RUNTIME_PATH}/bin
 
-  CMD_LINE="timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE} -p ${SERVER_PORT}"
+  CMD_LINE="timeout 1m ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -P ${PROGRESS_MODE} -p ${SERVER_PORT}"
 
   log_command "${CMD_LINE}"
   UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}

@@ -1456,7 +1456,7 @@ cdef class UCXEndpoint():
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
     def tag_send_multi(self, tuple arrays, UCXXTag tag) -> UCXBufferRequests:
-        cdef vector[void*] v_buffer
+        cdef vector[const void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
         cdef shared_ptr[Request] ucxx_buffer_requests
@@ -1476,7 +1476,7 @@ cdef class UCXEndpoint():
                 )
 
         for arr in arrays:
-            v_buffer.push_back(<void*><uintptr_t>arr.ptr)
+            v_buffer.push_back(<const void*><uintptr_t>arr.ptr)
             v_size.push_back(arr.nbytes)
             v_is_cuda.push_back(arr.cuda)
 
