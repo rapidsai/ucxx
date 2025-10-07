@@ -1,10 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -14,9 +15,10 @@
 namespace ucxx {
 RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
                              const std::variant<data::StreamSend, data::StreamReceive> requestData,
-                             const std::string operationName,
+                             std::string operationName,
                              const bool enablePythonFuture)
-  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
+  : Request(
+      endpoint, data::getRequestData(requestData), std::move(operationName), enablePythonFuture)
 {
   std::visit(data::dispatch{
                [this](data::StreamSend) {
@@ -40,12 +42,12 @@ std::shared_ptr<RequestStream> createRequestStream(
   std::shared_ptr<RequestStream> req =
     std::visit(data::dispatch{
                  [&endpoint, &enablePythonFuture](data::StreamSend streamSend) {
-                   return std::shared_ptr<RequestStream>(
-                     new RequestStream(endpoint, streamSend, "streamSend", enablePythonFuture));
+                   return std::shared_ptr<RequestStream>(new RequestStream(
+                     endpoint, streamSend, std::move("streamSend"), enablePythonFuture));
                  },
                  [&endpoint, &enablePythonFuture](data::StreamReceive streamReceive) {
                    return std::shared_ptr<RequestStream>(new RequestStream(
-                     endpoint, streamReceive, "streamReceive", enablePythonFuture));
+                     endpoint, streamReceive, std::move("streamReceive"), enablePythonFuture));
                  },
                  [](auto) -> decltype(req) { throw std::runtime_error("Unreachable"); },
                },

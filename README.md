@@ -6,10 +6,10 @@ UCXX is an object-oriented C++ interface for UCX, with native support for Python
 
 ### Environment setup
 
-Before starting it is necessary to have the necessary dependencies installed. The simplest way to get started is to install [Miniforge](https://github.com/conda-forge/miniforge) and then to create and activate an environment with the provided development file, for CUDA 12.x:
+Before starting it is necessary to have the necessary dependencies installed. The simplest way to get started is to install [Miniforge](https://github.com/conda-forge/miniforge) and then to create and activate an environment with the provided development file, for CUDA 13.x:
 
 ```
-$ conda env create -n ucxx -f conda/environments/all_cuda-128_arch-x86_64.yaml
+$ conda env create -n ucxx -f conda/environments/all_cuda-130_arch-x86_64.yaml
 ```
 
 And then activate the newly created environment:
@@ -29,7 +29,7 @@ $ conda install -c conda-forge mamba
 After that, one can proceed as before, but simply replacing `conda` with `mamba` in the environment creation command:
 
 ```
-$ mamba env create -n ucxx -f conda/environments/all_cuda-128_arch-x86_64.yaml
+$ mamba env create -n ucxx -f conda/environments/all_cuda-130_arch-x86_64.yaml
 $ conda activate ucxx
 ```
 
@@ -69,17 +69,17 @@ python setup.py install
 
 ### C++
 
-Currently there is one C++ benchmark with comprehensive options. It can be found under `cpp/build/benchmarks/ucxx_perftest` and for a full list of options `--help` argument can be used.
+Currently there is one C++ benchmark with comprehensive options. It can be found under `cpp/build/benchmarks/ucxx_perftest` and for a full list of options `-h` argument can be used.
 
 The benchmark is composed of two processes: a server and a client. The server must not specify an IP address or hostname and will bind to all available interfaces, whereas the client must specify the IP address or hostname where the server can be reached.
 
 #### Basic Usage
 
-Below is an example of running a server first, followed by the client connecting to the server on the `localhost` (same as `127.0.0.1`). Both processes specify a list of parameters, which are the message size in bytes (`-s 1000000000`), that allocations should be reused (`-r`), the number of iterations to perform (`-n 10`) and the progress mode (`-P polling`).
+Below is an example of running a server first, followed by the client connecting to the server on the `localhost` (same as `127.0.0.1`). Both processes specify a list of parameters, which are the message size in bytes (`-s 1000000000`), the number of iterations to perform (`-n 10`) and the progress mode (`-P polling`).
 
 ```
-$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -s 1000000000 -r -n 10 -P polling &
-$ ./benchmarks/ucxx_perftest -s 1000000000 -r -n 10 -P polling localhost
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -s 1000000000 -n 10 -P polling &
+$ ./benchmarks/ucxx_perftest -s 1000000000 -n 10 -P polling localhost
 ```
 
 #### CUDA Memory Support
@@ -88,22 +88,22 @@ When built with `UCXX_BENCHMARKS_ENABLE_CUDA=ON`, the benchmark supports multipl
 
 ```
 # Server with CUDA device memory
-$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda -s 1048576 -r -n 10 -P polling &
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda -s 1048576 -n 10 &
 
 # Client with CUDA device memory
-$ ./benchmarks/ucxx_perftest -m cuda -s 1048576 -r -n 10 -P polling 127.0.0.1
+$ ./benchmarks/ucxx_perftest -m cuda -s 1048576 -n 10 127.0.0.1
 
 # Server with CUDA managed memory (unified memory)
-$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda-managed -s 1048576 -r -n 10 -P polling &
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda-managed -s 1048576 -n 10 &
 
 # Client with CUDA managed memory
-$ ./benchmarks/ucxx_perftest -m cuda-managed -s 1048576 -r -n 10 -P polling 127.0.0.1
+$ ./benchmarks/ucxx_perftest -m cuda-managed -s 1048576 -n 10 127.0.0.1
 
 # Server with CUDA async memory (with streams)
-$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda-async -s 1048576 -r -n 10 -P polling &
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cuda-async -s 1048576 -n 10 &
 
 # Client with CUDA async memory
-$ ./benchmarks/ucxx_perftest -m cuda-async -s 1048576 -r -n 10 -P polling 127.0.0.1
+$ ./benchmarks/ucxx_perftest -m cuda-async -s 1048576 -n 10 127.0.0.1
 ```
 
 **Available Memory Types:**

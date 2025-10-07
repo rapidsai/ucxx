@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
@@ -92,6 +92,8 @@ def client(queue, port, server_address, args):
         client.run()
 
     times = queue.get()
+    if args.report_gil_contention:
+        contention_metric = queue.get()
 
     assert len(times) == args.n_iter
     bw_avg = format_bytes(2 * args.n_iter * args.n_bytes * args.n_buffers / sum(times))
@@ -130,6 +132,8 @@ def client(queue, port, server_address, args):
     print_key_value("Bandwidth (median)", value=f"{bw_med}/s")
     print_key_value("Latency (average)", value=f"{lat_avg} ns")
     print_key_value("Latency (median)", value=f"{lat_med} ns")
+    if args.report_gil_contention:
+        print_key_value("GIL contention", value=f"{contention_metric}")
     if not args.no_detailed_report:
         print_separator(separator="=")
         print_key_value(key="Iterations", value="Bandwidth, Latency")
@@ -304,6 +308,12 @@ def parse_args():
         "'ucxx-core', 'asyncio', 'socket' and 'tornado'.",
     )
     parser.add_argument(
+        "--report-gil-contention",
+        default=False,
+        action="store_true",
+        help="Report GIL contention (requires the `gilknocker` package).",
+    )
+    parser.add_argument(
         "--progress-mode",
         default="thread",
         help="Progress mode for the UCP worker. Valid options are: 'blocking, "
@@ -375,6 +385,15 @@ def parse_args():
 
     if args.backend != "ucxx-core" and args.delay_progress:
         raise RuntimeError("`--delay-progress` requires `--backend=ucxx-core`")
+
+    if args.report_gil_contention:
+        try:
+            import gilknocker  # noqa: F401
+        except ImportError:
+            raise RuntimeError(
+                "Could not import `gilknocker`. Make sure it is installed or "
+                "remove the `--report-gil-contention` argument."
+            )
 
     if args.enable_am:
         raise RuntimeError("AM not implemented yet")

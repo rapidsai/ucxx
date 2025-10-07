@@ -32,3 +32,32 @@ print_ucx_config() {
 
   ucx_info -v
 }
+
+run_port_retry() {
+  MAX_ATTEMPTS=${1}
+  RUN_TYPE=${2}
+  PROGRESS_MODE=${3}
+  RUN_FUNCTION=${4}
+
+  set +e
+  for attempt in $(seq 1 "${MAX_ATTEMPTS}"); do
+    echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run ${RUN_TYPE}"
+
+    _SERVER_PORT=$((_SERVER_PORT + 1))    # Use different ports every time to prevent `Device is busy`
+
+    # Call the provided function with the required arguments
+    ${RUN_FUNCTION} ${_SERVER_PORT} "${PROGRESS_MODE}"
+
+    LAST_STATUS=$?
+    if [ ${LAST_STATUS} -eq 0 ]; then
+      break;
+    fi
+    sleep 1
+  done
+  set -e
+
+  if [ "${LAST_STATUS}" -ne 0 ]; then
+    echo "Failure running ${RUN_TYPE} after ${MAX_ATTEMPTS} attempts"
+    exit "$LAST_STATUS"
+  fi
+}

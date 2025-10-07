@@ -31,7 +31,6 @@ option(UCXX_BUILD_TESTS "Configure CMake to build Cython tests" OFF)
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_PYTHON)
-  find_package(ucx REQUIRED)
   find_package(ucxx-python ${ucxx_version} REQUIRED)
 else()
   set(ucxx-python_FOUND OFF)

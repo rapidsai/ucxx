@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
@@ -54,7 +54,7 @@ class RequestTest : public ::testing::TestWithParam<
   std::vector<DataContainerType> _recv;
   std::vector<std::unique_ptr<ucxx::Buffer>> _sendBuffer;
   std::vector<std::unique_ptr<ucxx::Buffer>> _recvBuffer;
-  std::vector<void*> _sendPtr{nullptr};
+  std::vector<const void*> _sendPtr{nullptr};
   std::vector<void*> _recvPtr{nullptr};
 
   void SetUp()
@@ -270,8 +270,8 @@ TEST_P(RequestTest, ProgressStream)
 
   // Submit and wait for transfers to complete
   if (_messageSize == 0) {
-    EXPECT_THROW(_ep->streamSend(_sendPtr[0], _messageSize, 0), std::runtime_error);
-    EXPECT_THROW(_ep->streamRecv(_recvPtr[0], _messageSize, 0), std::runtime_error);
+    EXPECT_THROW(std::ignore = _ep->streamSend(_sendPtr[0], _messageSize, 0), std::runtime_error);
+    EXPECT_THROW(std::ignore = _ep->streamRecv(_recvPtr[0], _messageSize, 0), std::runtime_error);
   } else {
     std::vector<std::shared_ptr<ucxx::Request>> requests;
     requests.push_back(_ep->streamSend(_sendPtr[0], _messageSize, 0));
@@ -454,7 +454,9 @@ TEST_P(RequestTest, MemoryGetPreallocated)
 {
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, _sendPtr[0], _memoryType);
+  // Memory handles are always non-const
+  auto memoryHandle =
+    _context->createMemoryHandle(_messageSize, const_cast<void*>(_sendPtr[0]), _memoryType);
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
@@ -576,7 +578,7 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->memPut(reinterpret_cast<char*>(_sendPtr[0]) + offsetBytes,
+  requests.push_back(_ep->memPut(reinterpret_cast<const char*>(_sendPtr[0]) + offsetBytes,
                                  _messageSize - offsetBytes,
                                  remoteKey,
                                  offsetBytes));

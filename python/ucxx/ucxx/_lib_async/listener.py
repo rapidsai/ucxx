@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -137,7 +137,7 @@ async def _listener_handler_coroutine(
     ctx,
     func,
     endpoint_error_handling,
-    exchange_peer_info_timeout,
+    connect_timeout,
     ident,
     active_clients,
 ):
@@ -155,15 +155,13 @@ async def _listener_handler_coroutine(
 
     seed = os.urandom(16)
     msg_tag = hash64bits("msg_tag", seed, endpoint.handle)
-    ctrl_tag = hash64bits("ctrl_tag", seed, endpoint.handle)
 
     try:
         peer_info = await exchange_peer_info(
             endpoint=endpoint,
             msg_tag=msg_tag,
-            ctrl_tag=ctrl_tag,
             listener=True,
-            stream_timeout=exchange_peer_info_timeout,
+            connect_timeout=connect_timeout,
         )
     except UCXMessageTruncatedError:
         # A truncated message occurs if the remote endpoint closed before
@@ -173,21 +171,17 @@ async def _listener_handler_coroutine(
     tags = {
         "msg_send": peer_info["msg_tag"],
         "msg_recv": msg_tag,
-        "ctrl_send": peer_info["ctrl_tag"],
-        "ctrl_recv": ctrl_tag,
     }
     ep = Endpoint(endpoint=endpoint, ctx=ctx, tags=tags)
 
     logger.debug(
         "_listener_handler() server: %s, error handling: %s, msg-tag-send: %s, "
-        "msg-tag-recv: %s, ctrl-tag-send: %s, ctrl-tag-recv: %s"
+        "msg-tag-recv: %s"
         % (
             hex(endpoint.handle),
             endpoint_error_handling,
             hex(ep._tags["msg_send"]),
             hex(ep._tags["msg_recv"]),
-            hex(ep._tags["ctrl_send"]),
-            hex(ep._tags["ctrl_recv"]),
         )
     )
 
@@ -215,7 +209,7 @@ def _listener_handler(
     callback_func,
     ctx,
     endpoint_error_handling,
-    exchange_peer_info_timeout,
+    connect_timeout,
     ident,
     active_clients,
 ):
@@ -225,7 +219,7 @@ def _listener_handler(
             ctx,
             callback_func,
             endpoint_error_handling,
-            exchange_peer_info_timeout,
+            connect_timeout,
             ident,
             active_clients,
         ),
