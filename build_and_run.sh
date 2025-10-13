@@ -14,7 +14,7 @@ VALIDARGS="cpp_tests py_tests cpp_examples py_async_tests py_bench py_async_benc
 HELP="$0 [cpp_tests] [cpp_bench] [cpp_examples] [py_tests] [py_async_tests] [py_bench] [py_async_bench] [cython_tests]
    cpp_tests                     - run all C++ tests
    cpp_bench                     - run C++ benchmarks
-   cpp_example                   - run C++ example
+   cpp_examples                  - run C++ examples
    py_tests                      - run all Python core tests
    py_async_tests                - run all Python async tests
    py_bench                      - run Python core benchmarks
@@ -61,8 +61,6 @@ fi
 
 # Check for valid usage
 if (( NUMARGS != 0 )); then
-    # Check for cmake args
-    cmakeArgs
     for a in ${ARGS}; do
     if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
         echo "Invalid option or formatting, check --help: ${a}"
@@ -86,12 +84,15 @@ fi
 
 if runAll || hasArg cpp_tests; then
     RUN_CPP_TESTS=1
+    BUILD_ARGS="${BUILD_ARGS} libucxx libucxx_tests"
 fi
 if runAll || hasArg cpp_bench; then
     RUN_CPP_BENCH=1
+    BUILD_ARGS="${BUILD_ARGS} libucxx libucxx_benchmarks"
 fi
-if runAll || hasArg cpp_example; then
+if runAll || hasArg cpp_examples; then
     RUN_CPP_EXAMPLE=1
+    BUILD_ARGS="${BUILD_ARGS} libucxx libucxx_examples"
 fi
 if runAll || hasArg py_tests; then
     RUN_PY_TESTS=1
@@ -135,13 +136,15 @@ run_cpp_benchmark() {
 
 run_cpp_example() {
   PROGRESS_MODE=$1
+  SEND_BUFFER_TYPE=$2
+  RECV_BUFFER_TYPE=$3
 
   # UCX_TCP_CM_REUSEADDR=y to be able to bind immediately to the same port before
   # `TIME_WAIT` timeout
-  CMD_LINE="UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -m ${PROGRESS_MODE}"
+  CMD_LINE="UCX_TCP_CM_REUSEADDR=y ${BINARY_PATH}/examples/libucxx/ucxx_example_basic -P ${PROGRESS_MODE} -s ${SEND_BUFFER_TYPE} -r ${RECV_BUFFER_TYPE}"
 
   echo -e "\e[1mRunning: \n  - ${CMD_LINE}\e[0m"
-  UCX_TCP_CM_REUSEADDR=y "${BINARY_PATH}/examples/libucxx/ucxx_example_basic" -m "${PROGRESS_MODE}"
+  UCX_TCP_CM_REUSEADDR=y "${BINARY_PATH}/examples/libucxx/ucxx_example_basic" -P "${PROGRESS_MODE}" -s "${SEND_BUFFER_TYPE}" -r "${RECV_BUFFER_TYPE}"
 }
 
 run_tests_async() {
@@ -201,12 +204,16 @@ if [[ $RUN_CPP_BENCH != 0 ]]; then
   run_cpp_benchmark   wait
 fi
 if [[ $RUN_CPP_EXAMPLE != 0 ]]; then
-  # run_cpp_example PROGRESS_MODE
-  run_cpp_example   polling
-  run_cpp_example   blocking
-  run_cpp_example   thread-polling
-  run_cpp_example   thread-blocking
-  run_cpp_example   wait
+  for send_buffer_type in host rmm; do
+    for recv_buffer_type in host rmm; do
+      # run_cpp_example PROGRESS_MODE   SEND_BUFFER_TYPE    RECV_BUFFER_TYPE
+      run_cpp_example   polling         ${send_buffer_type} ${recv_buffer_type}
+      run_cpp_example   blocking        ${send_buffer_type} ${recv_buffer_type}
+      run_cpp_example   thread-polling  ${send_buffer_type} ${recv_buffer_type}
+      run_cpp_example   thread-blocking ${send_buffer_type} ${recv_buffer_type}
+      run_cpp_example   wait            ${send_buffer_type} ${recv_buffer_type}
+    done
+  done
 fi
 if [[ $RUN_PY_TESTS != 0 ]]; then
   if [ $RUN_CYTHON_TESTS -ne 0 ]; then

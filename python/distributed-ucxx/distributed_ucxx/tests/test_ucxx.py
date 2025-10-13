@@ -28,6 +28,7 @@ from distributed.utils_test import inc
 import ucxx
 
 import distributed_ucxx  # noqa: E402
+from distributed_ucxx.ucxx import UCXXListener
 from distributed_ucxx.utils_test import gen_test
 
 try:
@@ -109,7 +110,7 @@ async def test_ucxx_specific(ucxx_loop):
         await comm.close()
         assert comm.closed() is True
 
-    listener = await distributed_ucxx.UCXXListener(address, handle_comm)
+    listener = await UCXXListener(address, handle_comm)
     host, port = listener.get_host_port()
     assert host.count(".") == 3
     assert port > 0
