@@ -58,6 +58,11 @@ cdef extern from "ucp/api/ucp.h" nogil:
     ctypedef struct ucp_tag_recv_info_t:
         pass
 
+    ctypedef struct ucp_tag_message:
+        pass
+
+    ctypedef ucp_tag_message* ucp_tag_message_h
+
     ctypedef enum ucs_status_t:
         pass
 
@@ -180,8 +185,14 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         pass
     cdef cppclass TagRecvInfo:
         TagRecvInfo(const ucp_tag_recv_info_t&)
-        Tag senderTag
-        size_t length
+        const Tag senderTag
+        const size_t length
+
+    cdef cppclass TagProbeInfo:
+        cpp_bool isMatched()
+        TagRecvInfo& getInfo() except +
+        ucp_tag_message_h getHandle() except +
+
     cdef cppclass AmReceiverCallbackInfo:
         pass
 
@@ -247,7 +258,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         size_t cancelInflightRequests(
             uint64_t period, uint64_t maxAttempts
         ) except +raise_py_error
-        pair[bint, TagRecvInfo] tagProbe(const Tag, const TagMask) const
+        shared_ptr[TagProbeInfo] tagProbe(const Tag, const TagMask, bint remove) const
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callbackArg
         )
@@ -263,6 +274,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             size_t length,
             Tag tag,
             TagMask tag_mask,
+            bint enable_python_future
+        ) except +raise_py_error
+        shared_ptr[Request] tagRecvWithHandle(
+            void* buffer,
+            shared_ptr[TagProbeInfo] probe_info,
             bint enable_python_future
         ) except +raise_py_error
         bint isDelayedRequestSubmissionEnabled() const

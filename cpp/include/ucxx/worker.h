@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <variant>
 
 #include <ucp/api/ucp.h>
 
@@ -688,6 +689,13 @@ class Worker : public Component {
    * by a corresponding `ucp_tag_recv_*` call. Additionally, returns information about the
    * tag message.
    *
+   * When `remove` is `false` (default), the message remains in the receive queue and
+   * a normal tag receive operation must be posted to consume it. When `remove` is `true`,
+   * the message is removed from the queue and a message handle is returned that can be
+   * passed directly to `tagRecvWithHandle` for efficient consumption, in this case the
+   * caller is required to call `tagRecvWithHandle`, otherwise a warning will be thrown
+   * during destruction of the returned object.
+   *
    * Note this is a non-blocking call, if this is being used to actively check for an
    * incoming message the worker should be constantly progress until a valid probe is
    * returned.
@@ -695,23 +703,29 @@ class Worker : public Component {
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`
    * auto probe = worker->tagProbe(0);
-   * assert(!probe.first)
+   * assert(!probe->isMatched());
    *
    * // `ep` is a remote `std::shared_ptr<ucxx::Endpoint` to the local `worker`
    * ep->tagSend(buffer, length, 0);
    *
    * probe = worker->tagProbe(0);
-   * assert(probe.first);
-   * assert(probe.second.tag == 0);
-   * assert(probe.second.length == length);
+   * assert(probe->isMatched());
+   * assert(probe->getInfo().tag == 0);
+   * assert(probe->getInfo().length == length);
    * @endcode
    *
-   * @returns pair where first elements is `true` if any uncaught messages were received,
-   *          `false` otherwise, and second element contain the information from the tag
-   *          receive.
+   * @param[in] tag      the tag to match.
+   * @param[in] tagMask  the tag mask to use.
+   * @param[in] remove   if `true`, remove the message from the queue and return a message
+   *                     handle; if `false`, leave the message in the queue.
+   *
+   * @returns TagProbeInfo containing whether a message was matched, the tag receive information
+   *          (when matched=true), and optionally the message handle for efficient reception
+   *          (when matched=true and remove=true).
    */
-  [[nodiscard]] std::pair<bool, TagRecvInfo> tagProbe(const Tag tag,
-                                                      const TagMask tagMask = TagMaskFull);
+  [[nodiscard]] std::shared_ptr<TagProbeInfo> tagProbe(const Tag tag,
+                                                       const TagMask tagMask = TagMaskFull,
+                                                       const bool remove     = false) const;
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -749,6 +763,36 @@ class Worker : public Component {
     size_t length,
     Tag tag,
     TagMask tagMask,
+    const bool enableFuture                      = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Enqueue a tag receive operation using a message handle.
+   *
+   * Enqueue a tag receive operation using a message handle obtained from `tagProbe` with
+   * `remove=true`. This is more efficient than regular `tagRecv` as it doesn't need to
+   * go through the message matching queue again.
+   *
+   * Using a future may be requested by specifying `enableFuture` if the worker
+   * implementation has support for it. If a future is requested, the application must then
+   * await on this future to ensure the transfer has completed.
+   *
+   * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
+   *                              data will be stored. The buffer must be large enough to
+   *                              hold the message data, otherwise the behavior is undefined.
+   *                              The buffer must be pre-allocated.
+   * @param[in] probeInfo         the TagProbeInfo object containing message length and handle.
+   * @param[in] enableFuture      whether a future should be created and subsequently
+   *                              notified.
+   * @param[in] callbackFunction  user-defined callback function to call upon completion.
+   * @param[in] callbackData      user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  [[nodiscard]] std::shared_ptr<Request> tagRecvWithHandle(
+    void* buffer,
+    std::shared_ptr<TagProbeInfo> probeInfo,
     const bool enableFuture                      = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
