@@ -500,10 +500,24 @@ std::string appendSpaces(const std::string_view input,
  * @param precision The number of digits after the decimal point (default is 2).
  * @return std::string The formatted string representation of the number.
  */
-std::string floatToString(double number, size_t precision = 2)
+std::string floatToString(double number, std::optional<size_t> precision = std::nullopt)
 {
+  auto getPrecision = [precision](double num) -> int {
+    if (precision) return *precision;
+
+    if (num == 0.0) return 5;
+
+    double absNum = std::abs(num);
+
+    // Calculate the order of magnitude
+    int magnitude = absNum < 1.0 ? 0 : static_cast<int>(std::log10(absNum)) + 1;
+
+    // Precision decreases as magnitude increases, starting from 5
+    return std::max(0, 6 - magnitude);
+  };
+
   std::ostringstream oss;
-  oss << std::fixed << std::setprecision(precision) << number;
+  oss << std::fixed << std::setprecision(getPrecision(number)) << number;
   return oss.str();
 }
 
@@ -779,9 +793,9 @@ class Application {
                      double messageRateOverall)
   {
     std::cout << "                " << appendSpaces(std::to_string(iteration), 15)
-              << appendSpaces(floatToString(percentile, 3), 11)
-              << appendSpaces(floatToString(overheadAverage, 3), 10)
-              << appendSpaces(floatToString(overheadOverall, 3), 10)
+              << appendSpaces(floatToString(percentile), 11)
+              << appendSpaces(floatToString(overheadAverage), 10)
+              << appendSpaces(floatToString(overheadOverall), 10)
               << appendSpaces(floatToString(bandwidthAverage), 11)
               << appendSpaces(floatToString(bandwidthOverall), 11)
               << appendSpaces(floatToString(messageRateAverage), 12)
