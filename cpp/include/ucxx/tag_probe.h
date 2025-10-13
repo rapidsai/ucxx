@@ -52,8 +52,9 @@ class TagRecvInfo {
  *          to prevent misuse and undefined behavior. When `isMatched()` returns `false`,
  *          `getInfo()` and `getHandle()` will throw std::runtime_error.
  *
- * @note This class is managed via shared_ptr to prevent multiple objects from holding the same
- * handle, which could lead to undefined behavior if the message is received multiple times.
+ * @note This class is managed via `shared_ptr` without support for copy or move semantics
+ * to prevent multiple objects from holding the same handle, which could lead to undefined
+ * behavior if the message is received multiple times.
  */
 class TagProbeInfo {
  public:
@@ -123,7 +124,7 @@ class TagProbeInfo {
    *
    * This is the internal implementation of `ucxx::TagProbeInfo` default constructor, made
    * private not to be called directly. This constructor is made private to ensure all UCXX
-   * objects * are shared pointers and the correct lifetime management of each one.
+   * objects are shared pointers and the correct lifetime management of each one.
    *
    * Instead the user should use one of the following:
    *
@@ -138,7 +139,7 @@ class TagProbeInfo {
    *
    * This is the internal implementation of `ucxx::TagProbeInfo` default constructor, made
    * private not to be called directly. This constructor is made private to ensure all UCXX
-   * objects * are shared pointers and the correct lifetime management of each one.
+   * objects are shared pointers and the correct lifetime management of each one.
    *
    * Instead the user should use one of the following:
    *
