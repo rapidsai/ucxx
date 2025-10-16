@@ -8,7 +8,6 @@
 #include <cstring>
 #include <memory>
 #include <string>
-#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -255,11 +254,7 @@ class ContextBuilder {
    * @param[in] configMap configurations overriding `UCX_*` defaults and environment variables.
    * @return Reference to this builder for method chaining.
    */
-  ContextBuilder& configMap(ConfigMap configMap)
-  {
-    _configMap = std::move(configMap);
-    return *this;
-  }
+  ContextBuilder& configMap(ConfigMap configMap);
 
   /**
    * @brief Set the feature flags for the context.
@@ -267,11 +262,7 @@ class ContextBuilder {
    * @param[in] featureFlags feature flags to be used at UCP context construction time.
    * @return Reference to this builder for method chaining.
    */
-  ContextBuilder& featureFlags(uint64_t featureFlags)
-  {
-    _featureFlags = featureFlags;
-    return *this;
-  }
+  ContextBuilder& featureFlags(uint64_t featureFlags);
 
   /**
    * @brief Build and return the `Context`.
@@ -281,10 +272,7 @@ class ContextBuilder {
    *
    * @return The constructed `shared_ptr<ucxx::Context>` object.
    */
-  std::shared_ptr<Context> build() const
-  {
-    return std::shared_ptr<Context>(new Context(_configMap, _featureFlags));
-  }
+  std::shared_ptr<Context> build() const;
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Context>`.
@@ -295,10 +283,7 @@ class ContextBuilder {
    *
    * @return The constructed `shared_ptr<ucxx::Context>` object.
    */
-  operator std::shared_ptr<Context>() const
-  {
-    return std::shared_ptr<Context>(new Context(_configMap, _featureFlags));
-  }
+  operator std::shared_ptr<Context>() const;
 };
 
 /**

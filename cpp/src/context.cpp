@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -7,6 +7,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ucxx/context.h>
@@ -107,6 +108,30 @@ std::shared_ptr<MemoryHandle> Context::createMemoryHandle(const size_t size,
 {
   auto context = std::dynamic_pointer_cast<Context>(shared_from_this());
   return ucxx::createMemoryHandle(context, size, buffer, memoryType);
+}
+
+// ContextBuilder implementation
+
+ContextBuilder& ContextBuilder::configMap(ConfigMap configMap)
+{
+  _configMap = std::move(configMap);
+  return *this;
+}
+
+ContextBuilder& ContextBuilder::featureFlags(uint64_t featureFlags)
+{
+  _featureFlags = featureFlags;
+  return *this;
+}
+
+std::shared_ptr<Context> ContextBuilder::build() const
+{
+  return std::shared_ptr<Context>(new Context(_configMap, _featureFlags));
+}
+
+ContextBuilder::operator std::shared_ptr<Context>() const
+{
+  return std::shared_ptr<Context>(new Context(_configMap, _featureFlags));
 }
 
 }  // namespace ucxx
