@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -8,6 +8,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -17,6 +18,7 @@
 
 namespace ucxx {
 
+class ContextBuilder;
 class MemoryHandle;
 class Worker;
 
@@ -25,6 +27,8 @@ class Worker;
  *
  * The UCP layer provides a handle to access its context in form of `ucp_context_h` object,
  * this class encapsulates that object and provides methods to simplify its handling.
+ *
+ * Use `ucxx::createContext` to create and configure `Context` instances.
  */
 class Context : public Component {
  private:
@@ -57,22 +61,17 @@ class Context : public Component {
   Context& operator=(Context&& o)    = delete;
 
   /**
-   * @brief Constructor of `shared_ptr<ucxx::Context>`.
+   * @brief Friend declaration for `ucxx::createContext` with parameters.
    *
-   * The constructor for a `shared_ptr<ucxx::Context>` object. The default constructor is
-   * made private to ensure all UCXX objects are shared pointers for correct
-   * lifetime management.
-   *
-   * @code{.cpp}
-   *   auto context = ucxx::createContext({}, UCP_FEATURE_WAKEUP | UCP_FEATURE_TAG);
-   * @endcode
-   *
-   * @param[in] ucxConfig configurations overriding `UCX_*` defaults and environment
-   *                      variables.
-   * @param[in] featureFlags feature flags to be used at UCP context construction time.
-   * @return The `shared_ptr<ucxx::Context>` object
+   * This friend declaration allows the standalone `ucxx::createContext` function to access
+   * the private constructor. See the public declaration for full documentation.
    */
   friend std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
+
+  /**
+   * @brief Allow ContextBuilder to access private constructor.
+   */
+  friend class ContextBuilder;
 
   /**
    * @brief `ucxx::Context` destructor
@@ -220,5 +219,124 @@ class Context : public Component {
   [[nodiscard]] std::shared_ptr<MemoryHandle> createMemoryHandle(
     const size_t size, void* buffer, const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
 };
+
+/**
+ * @brief Builder class for constructing `std::shared_ptr<ucxx::Context>` objects.
+ *
+ * This class implements the builder pattern for `std::shared_ptr<ucxx::Context>`, allowing
+ * parameters to be specified in arbitrary order via method chaining. Construction happens
+ * immediately when the builder expression completes, ensuring one-time construction with
+ * immediate evaluation.
+ *
+ * @code{.cpp}
+ *   // Using builder pattern with method chaining
+ *   auto context = ucxx::createContext()
+ *                    .configMap({{"TLS", "tcp"}})
+ *                    .featureFlags(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP);
+ *
+ *   // Returns shared_ptr<Context> for all expressions
+ *   auto ctx = ucxx::createContext().featureFlags(UCP_FEATURE_RMA);
+ * @endcode
+ */
+class ContextBuilder {
+ private:
+  ConfigMap _configMap{};                                ///< Configuration map for UCP context
+  uint64_t _featureFlags{Context::defaultFeatureFlags};  ///< Feature flags for UCP context
+
+ public:
+  /**
+   * @brief Default constructor for `ContextBuilder`.
+   */
+  ContextBuilder() = default;
+
+  /**
+   * @brief Set the configuration map for the context.
+   *
+   * @param[in] configMap configurations overriding `UCX_*` defaults and environment variables.
+   * @return Reference to this builder for method chaining.
+   */
+  ContextBuilder& configMap(ConfigMap configMap)
+  {
+    _configMap = std::move(configMap);
+    return *this;
+  }
+
+  /**
+   * @brief Set the feature flags for the context.
+   *
+   * @param[in] featureFlags feature flags to be used at UCP context construction time.
+   * @return Reference to this builder for method chaining.
+   */
+  ContextBuilder& featureFlags(uint64_t featureFlags)
+  {
+    _featureFlags = featureFlags;
+    return *this;
+  }
+
+  /**
+   * @brief Build and return the `Context`.
+   *
+   * This method constructs the `Context` with the specified parameters and returns it.
+   * Each call to build() creates a new `Context` instance with the current parameters.
+   *
+   * @return The constructed `shared_ptr<ucxx::Context>` object.
+   */
+  std::shared_ptr<Context> build() const
+  {
+    return std::shared_ptr<Context>(new Context(_configMap, _featureFlags));
+  }
+
+  /**
+   * @brief Implicit conversion operator to `shared_ptr<Context>`.
+   *
+   * This operator enables automatic construction of the `Context` when the builder
+   * is used in a context requiring a `shared_ptr<Context>`. This allows seamless
+   * use with `auto` variables.
+   *
+   * @return The constructed `shared_ptr<ucxx::Context>` object.
+   */
+  operator std::shared_ptr<Context>() const
+  {
+    return std::shared_ptr<Context>(new Context(_configMap, _featureFlags));
+  }
+};
+
+/**
+ * @brief Create a `shared_ptr<ucxx::Context>` with default parameters.
+ *
+ * This function immediately constructs and returns a `Context` with default parameters.
+ * To customize parameters, use the builder pattern by chaining methods on the
+ * returned builder.
+ *
+ * @code{.cpp}
+ *   // Default context
+ *   auto context = ucxx::createContext();  // Returns shared_ptr<Context>
+ *
+ *   // Customized context using builder pattern
+ *   auto context = ucxx::createContext()
+ *                    .configMap({{"TLS", "tcp"}})
+ *                    .featureFlags(UCP_FEATURE_TAG);  // Returns shared_ptr<Context>
+ * @endcode
+ *
+ * @return A `ContextBuilder` object that implicitly converts to `shared_ptr<Context>`.
+ */
+inline ContextBuilder createContext() { return ContextBuilder(); }
+
+/**
+ * @brief Constructor of `shared_ptr<ucxx::Context>` with parameters.
+ *
+ * The constructor for a `shared_ptr<ucxx::Context>` object. The default constructor is
+ * made private to ensure all UCXX objects are shared pointers for correct lifetime
+ * management.
+ *
+ * @code{.cpp}
+ *   auto context = ucxx::createContext({}, UCP_FEATURE_WAKEUP | UCP_FEATURE_TAG);
+ * @endcode
+ *
+ * @param[in] ucxConfig configurations overriding `UCX_*` defaults and environment variables.
+ * @param[in] featureFlags feature flags to be used at UCP context construction time.
+ * @return The `shared_ptr<ucxx::Context>` object.
+ */
+std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
 
 }  // namespace ucxx
