@@ -18,7 +18,7 @@ install_distributed_dev_mode() {
   log_message "Install Distributed in developer mode"
   MAX_ATTEMPTS=5
   for attempt in $(seq 1 $MAX_ATTEMPTS); do
-    DISTRIBUTED_VERSION=$(pip list | grep distributed | grep "distributed.*20" | awk '{print $2}')
+    DISTRIBUTED_VERSION=$(pip list | grep "^distributed " | awk '{print $2}')
 
     rm -rf /tmp/distributed
 
