@@ -223,30 +223,38 @@ class Context : public Component {
  * @brief Builder class for constructing `std::shared_ptr<ucxx::Context>` objects.
  *
  * This class implements the builder pattern for `std::shared_ptr<ucxx::Context>`, allowing
- * parameters to be specified in arbitrary order via method chaining. Construction happens
- * immediately when the builder expression completes, ensuring one-time construction with
- * immediate evaluation.
+ * optional parameters to be specified via method chaining. Construction happens immediately
+ * when the builder expression completes, ensuring one-time construction with immediate
+ * evaluation.
+ *
+ * The feature flags are required and must be provided to `createContext()`.
+ * The `configMap()` method is optional.
  *
  * @code{.cpp}
- *   // Using builder pattern with method chaining
- *   auto context = ucxx::createContext()
- *                    .configMap({{"TLS", "tcp"}})
- *                    .featureFlags(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP);
+ *   // Minimal usage (only featureFlags required)
+ *   auto ctx = ucxx::createContext(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP).build();
  *
- *   // Returns shared_ptr<Context> for all expressions
- *   auto ctx = ucxx::createContext().featureFlags(UCP_FEATURE_RMA);
+ *   // With optional configMap
+ *   auto context = ucxx::createContext(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP)
+ *                    .configMap({{"TLS", "tcp"}})
+ *                    .build();
+ *
+ *   // Using implicit conversion
+ *   std::shared_ptr<ucxx::Context> ctx = ucxx::createContext(UCP_FEATURE_RMA);
  * @endcode
  */
 class ContextBuilder {
  private:
-  ConfigMap _configMap{};                                ///< Configuration map for UCP context
-  uint64_t _featureFlags{Context::defaultFeatureFlags};  ///< Feature flags for UCP context
+  ConfigMap _configMap{};  ///< Configuration map for UCP context
+  uint64_t _featureFlags;  ///< Feature flags for UCP context (required)
 
  public:
   /**
-   * @brief Default constructor for `ContextBuilder`.
+   * @brief Constructor for `ContextBuilder` with required feature flags.
+   *
+   * @param[in] featureFlags feature flags to be used at UCP context construction time (required).
    */
-  ContextBuilder() = default;
+  explicit ContextBuilder(uint64_t featureFlags);
 
   /**
    * @brief Set the configuration map for the context.
@@ -255,14 +263,6 @@ class ContextBuilder {
    * @return Reference to this builder for method chaining.
    */
   ContextBuilder& configMap(ConfigMap configMap);
-
-  /**
-   * @brief Set the feature flags for the context.
-   *
-   * @param[in] featureFlags feature flags to be used at UCP context construction time.
-   * @return Reference to this builder for method chaining.
-   */
-  ContextBuilder& featureFlags(uint64_t featureFlags);
 
   /**
    * @brief Build and return the `Context`.
@@ -287,25 +287,30 @@ class ContextBuilder {
 };
 
 /**
- * @brief Create a `shared_ptr<ucxx::Context>` with default parameters.
+ * @brief Create a ContextBuilder for constructing a `shared_ptr<ucxx::Context>`.
  *
- * This function immediately constructs and returns a `Context` with default parameters.
- * To customize parameters, use the builder pattern by chaining methods on the
- * returned builder.
+ * This function returns a builder object that allows setting optional context parameters
+ * via method chaining. The feature flags are required and must be provided as an argument.
+ * The actual context is constructed when the builder is converted to a `shared_ptr<Context>`
+ * or when `build()` is called.
  *
  * @code{.cpp}
- *   // Default context
- *   auto context = ucxx::createContext();  // Returns shared_ptr<Context>
+ *   // Minimal usage (only featureFlags required)
+ *   auto context = ucxx::createContext(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP).build();
  *
- *   // Customized context using builder pattern
- *   auto context = ucxx::createContext()
+ *   // With optional configMap
+ *   auto context = ucxx::createContext(UCP_FEATURE_TAG)
  *                    .configMap({{"TLS", "tcp"}})
- *                    .featureFlags(UCP_FEATURE_TAG);  // Returns shared_ptr<Context>
+ *                    .build();
+ *
+ *   // Using implicit conversion
+ *   std::shared_ptr<ucxx::Context> context = ucxx::createContext(UCP_FEATURE_RMA);
  * @endcode
  *
- * @return A `ContextBuilder` object that implicitly converts to `shared_ptr<Context>`.
+ * @param[in] featureFlags feature flags to be used at UCP context construction time (required).
+ * @return A ContextBuilder object that can be used to set optional parameters.
  */
-inline ContextBuilder createContext() { return ContextBuilder(); }
+inline ContextBuilder createContext(uint64_t featureFlags) { return ContextBuilder(featureFlags); }
 
 /**
  * @brief Constructor of `shared_ptr<ucxx::Context>` with parameters.

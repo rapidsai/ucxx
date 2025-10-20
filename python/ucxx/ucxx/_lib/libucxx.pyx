@@ -398,6 +398,7 @@ cdef class UCXContext():
             Feature.RMA
         )
     ) -> None:
+        cdef unique_ptr[ContextBuilder] builder
         cdef ConfigMap cpp_config_in, cpp_config_out
         cdef dict context_config
 
@@ -411,12 +412,12 @@ cdef class UCXContext():
         )
 
         with nogil:
-            self._context = (
-                createContext()
-                .configMap(cpp_config_in)
-                .featureFlags(feature_flags_uint)
-                .build()
-            )
+            # Use unique_ptr for heap allocation to avoid requiring a default
+            # constructor, Cython requires stack-allocated C++ objects to have nullary
+            # constructors
+            builder = make_unique[ContextBuilder](feature_flags_uint)
+            builder.get().configMap(cpp_config_in)
+            self._context = builder.get().build()
             cpp_config_out = self._context.get().getConfig()
 
         context_config = cpp_config_out

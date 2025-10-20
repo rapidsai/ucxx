@@ -206,12 +206,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     ctypedef cpp_unordered_map[string, string] ConfigMap
 
     cdef cppclass ContextBuilder:
-        ContextBuilder() except +raise_py_error
+        ContextBuilder(uint64_t featureFlags) except +raise_py_error
         ContextBuilder& configMap(ConfigMap configMap) except +raise_py_error
-        ContextBuilder& featureFlags(uint64_t featureFlags) except +raise_py_error
         shared_ptr[Context] build() except +raise_py_error
 
-    ContextBuilder createContext() except +raise_py_error
+    ContextBuilder createContext(uint64_t featureFlags) except +raise_py_error
 
     shared_ptr[Address] createAddressFromWorker(shared_ptr[Worker] worker)
     shared_ptr[Address] createAddressFromString(string address_string)

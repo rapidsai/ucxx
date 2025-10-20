@@ -112,15 +112,11 @@ std::shared_ptr<MemoryHandle> Context::createMemoryHandle(const size_t size,
 
 // ContextBuilder implementation
 
+ContextBuilder::ContextBuilder(uint64_t featureFlags) : _featureFlags(featureFlags) {}
+
 ContextBuilder& ContextBuilder::configMap(ConfigMap configMap)
 {
   _configMap = std::move(configMap);
-  return *this;
-}
-
-ContextBuilder& ContextBuilder::featureFlags(uint64_t featureFlags)
-{
-  _featureFlags = featureFlags;
   return *this;
 }
 
