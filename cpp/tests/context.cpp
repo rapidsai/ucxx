@@ -82,7 +82,7 @@ TEST(ContextTest, CreateWorker)
 // Builder Pattern Tests
 TEST(ContextBuilderTest, BasicBuilderWithAuto)
 {
-  auto context = ucxx::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
   ASSERT_TRUE(context != nullptr);
   ASSERT_TRUE(context->getHandle() != nullptr);
   ASSERT_EQ(context->getFeatureFlags(), ucxx::Context::defaultFeatureFlags);
@@ -91,7 +91,7 @@ TEST(ContextBuilderTest, BasicBuilderWithAuto)
 TEST(ContextBuilderTest, BuilderWithFeatureFlags)
 {
   uint64_t featureFlags = UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP;
-  auto context          = ucxx::createContext(featureFlags).build();
+  auto context          = ucxx::experimental::createContext(featureFlags).build();
 
   ASSERT_TRUE(context != nullptr);
   ASSERT_TRUE(context->getHandle() != nullptr);
@@ -100,8 +100,9 @@ TEST(ContextBuilderTest, BuilderWithFeatureFlags)
 
 TEST(ContextBuilderTest, BuilderWithConfigMap)
 {
-  auto context =
-    ucxx::createContext(ucxx::Context::defaultFeatureFlags).configMap({{"TLS", "tcp"}}).build();
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags)
+                   .configMap({{"TLS", "tcp"}})
+                   .build();
 
   ASSERT_TRUE(context != nullptr);
   ASSERT_TRUE(context->getHandle() != nullptr);
@@ -112,7 +113,8 @@ TEST(ContextBuilderTest, BuilderWithConfigMap)
 TEST(ContextBuilderTest, BuilderMethodChainingConfigFirst)
 {
   uint64_t featureFlags = UCP_FEATURE_RMA | UCP_FEATURE_STREAM;
-  auto context          = ucxx::createContext(featureFlags).configMap({{"TLS", "all"}}).build();
+  auto context =
+    ucxx::experimental::createContext(featureFlags).configMap({{"TLS", "all"}}).build();
 
   ASSERT_TRUE(context != nullptr);
   ASSERT_TRUE(context->getHandle() != nullptr);
@@ -124,7 +126,8 @@ TEST(ContextBuilderTest, BuilderMethodChainingConfigFirst)
 TEST(ContextBuilderTest, BuilderMethodChainingFlagsFirst)
 {
   uint64_t featureFlags = UCP_FEATURE_AM | UCP_FEATURE_RMA;
-  auto context          = ucxx::createContext(featureFlags).configMap({{"TLS", "tcp"}}).build();
+  auto context =
+    ucxx::experimental::createContext(featureFlags).configMap({{"TLS", "tcp"}}).build();
 
   ASSERT_TRUE(context != nullptr);
   ASSERT_TRUE(context->getHandle() != nullptr);
@@ -136,7 +139,7 @@ TEST(ContextBuilderTest, BuilderMethodChainingFlagsFirst)
 TEST(ContextBuilderTest, BuilderExplicitTypeSpecification)
 {
   uint64_t featureFlags                  = UCP_FEATURE_TAG;
-  std::shared_ptr<ucxx::Context> context = ucxx::createContext(featureFlags);
+  std::shared_ptr<ucxx::Context> context = ucxx::experimental::createContext(featureFlags);
 
   ASSERT_TRUE(context != nullptr);
   ASSERT_TRUE(context->getHandle() != nullptr);
@@ -145,12 +148,12 @@ TEST(ContextBuilderTest, BuilderExplicitTypeSpecification)
 
 TEST(ContextBuilderTest, BuilderAutoTypes)
 {
-  auto builder1 = ucxx::createContext(UCP_FEATURE_TAG);
-  static_assert(std::is_same<decltype(builder1), ucxx::ContextBuilder>::value,
+  auto builder1 = ucxx::experimental::createContext(UCP_FEATURE_TAG);
+  static_assert(std::is_same<decltype(builder1), ucxx::experimental::ContextBuilder>::value,
                 "auto without .build() is ContextBuilder");
 
-  auto builder2 = ucxx::createContext(UCP_FEATURE_TAG).configMap({{"TLS", "tcp"}});
-  static_assert(std::is_same<decltype(builder2), ucxx::ContextBuilder>::value,
+  auto builder2 = ucxx::experimental::createContext(UCP_FEATURE_TAG).configMap({{"TLS", "tcp"}});
+  static_assert(std::is_same<decltype(builder2), ucxx::experimental::ContextBuilder>::value,
                 "auto with .configMap() but without .build() is ContextBuilder");
 
   auto context1 = builder1.build();
@@ -161,19 +164,21 @@ TEST(ContextBuilderTest, BuilderAutoTypes)
   static_assert(std::is_same<decltype(context2), std::shared_ptr<ucxx::Context>>::value,
                 "Implicit conversion with explicit type works");
 
-  auto context3 = ucxx::createContext(UCP_FEATURE_RMA).build();
+  auto context3 = ucxx::experimental::createContext(UCP_FEATURE_RMA).build();
   static_assert(std::is_same<decltype(context3), std::shared_ptr<ucxx::Context>>::value,
                 "auto with .build() must be shared_ptr<Context>");
 
-  auto context4 = ucxx::createContext(UCP_FEATURE_TAG).build();
+  auto context4 = ucxx::experimental::createContext(UCP_FEATURE_TAG).build();
   static_assert(std::is_same<decltype(context4), std::shared_ptr<ucxx::Context>>::value,
                 "auto with createContext(flags).build() must be shared_ptr<Context>");
 
-  auto context5 = ucxx::createContext(UCP_FEATURE_RMA).configMap({{"TLS", "tcp"}}).build();
+  auto context5 =
+    ucxx::experimental::createContext(UCP_FEATURE_RMA).configMap({{"TLS", "tcp"}}).build();
   static_assert(std::is_same<decltype(context5), std::shared_ptr<ucxx::Context>>::value,
                 "auto with .configMap().build() must be shared_ptr<Context>");
 
-  auto context6 = ucxx::createContext(UCP_FEATURE_RMA).configMap({{"TLS", "all"}}).build();
+  auto context6 =
+    ucxx::experimental::createContext(UCP_FEATURE_RMA).configMap({{"TLS", "all"}}).build();
   static_assert(std::is_same<decltype(context6), std::shared_ptr<ucxx::Context>>::value,
                 "auto with full chain and .build() must be shared_ptr<Context>");
 
@@ -187,7 +192,7 @@ TEST(ContextBuilderTest, BuilderAutoTypes)
 
 TEST(ContextBuilderTest, BuilderImplicitConversion)
 {
-  std::shared_ptr<ucxx::Context> context = ucxx::createContext(UCP_FEATURE_RMA);
+  std::shared_ptr<ucxx::Context> context = ucxx::experimental::createContext(UCP_FEATURE_RMA);
 
   ASSERT_TRUE(context != nullptr);
   ASSERT_TRUE(context->getHandle() != nullptr);
@@ -196,7 +201,7 @@ TEST(ContextBuilderTest, BuilderImplicitConversion)
 
 TEST(ContextBuilderTest, BuilderSingleConstructionPerSet)
 {
-  auto builder = ucxx::createContext(UCP_FEATURE_TAG);
+  auto builder = ucxx::experimental::createContext(UCP_FEATURE_TAG);
   auto context = builder.build();
 
   ASSERT_TRUE(context != nullptr);
@@ -211,8 +216,8 @@ TEST(ContextBuilderTest, BuilderSingleConstructionPerSet)
 
 TEST(ContextBuilderTest, BuilderDifferentInstances)
 {
-  auto context1 = ucxx::createContext(UCP_FEATURE_TAG).build();
-  auto context2 = ucxx::createContext(UCP_FEATURE_TAG).build();
+  auto context1 = ucxx::experimental::createContext(UCP_FEATURE_TAG).build();
+  auto context2 = ucxx::experimental::createContext(UCP_FEATURE_TAG).build();
 
   // Different builder chains should create different contexts
   ASSERT_TRUE(context1 != nullptr);
@@ -233,7 +238,8 @@ TEST(ContextBuilderTest, BuilderBackwardCompatibility)
   ASSERT_EQ(config1["TLS"], "tcp");
 
   // New API should produce equivalent result
-  auto context2 = ucxx::createContext(featureFlags).configMap({{"TLS", "tcp"}}).build();
+  auto context2 =
+    ucxx::experimental::createContext(featureFlags).configMap({{"TLS", "tcp"}}).build();
   ASSERT_TRUE(context2 != nullptr);
   ASSERT_TRUE(context2->getHandle() != nullptr);
   ASSERT_EQ(context2->getFeatureFlags(), featureFlags);
@@ -247,7 +253,7 @@ TEST(ContextBuilderTest, BuilderBackwardCompatibility)
 
 TEST(ContextBuilderTest, BuilderContextIsValid)
 {
-  auto context = ucxx::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
 
   auto worker = context->createWorker();
   ASSERT_TRUE(worker != nullptr);
@@ -257,7 +263,7 @@ TEST_P(ContextTestCustomConfig, BuilderTLS)
 {
   auto tls                           = GetParam();
   static constexpr auto featureFlags = ucxx::Context::defaultFeatureFlags;
-  auto context = ucxx::createContext(featureFlags).configMap({{"TLS", tls}}).build();
+  auto context = ucxx::experimental::createContext(featureFlags).configMap({{"TLS", tls}}).build();
 
   auto configMapOut = context->getConfig();
   ASSERT_GT(configMapOut.size(), 1u);
