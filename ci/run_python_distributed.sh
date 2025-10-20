@@ -18,7 +18,7 @@ install_distributed_dev_mode() {
   log_message "Install Distributed in developer mode"
   MAX_ATTEMPTS=5
   for attempt in $(seq 1 $MAX_ATTEMPTS); do
-    DISTRIBUTED_VERSION=$(pip list | grep distributed | grep "distributed.*20" | awk '{print $2}')
+    DISTRIBUTED_VERSION=$(pip list | grep "^distributed " | awk '{print $2}')
 
     rm -rf /tmp/distributed
 
@@ -35,7 +35,7 @@ install_distributed_dev_mode() {
     fi
   done
 
-  pip install --no-deps -e /tmp/distributed
+  pip install -e /tmp/distributed
   # `pip install -e` removes files under `distributed` but not the directory if it
   # contains `__pycache__`, later causing failures to import modules.
   python -c "import os, shutil, site; \
