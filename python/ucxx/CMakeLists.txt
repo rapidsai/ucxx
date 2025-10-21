@@ -1,6 +1,8 @@
 # =================================================================================
+# cmake-format: off
 # SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
+# cmake-format: on
 # =================================================================================
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
