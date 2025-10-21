@@ -66,22 +66,6 @@ repos:
                   dependencies[.]yaml$|
                   ^[.]pre-commit-config[.]yaml$|
                   recipe[.]yaml$
-              exclude: |
-                (?x)^(
-                  cmake/RAPIDS[.]cmake$|
-                  cmake/rapids_config[.]cmake$|
-                  cpp/cmake/thirdparty/get_rmm[.]cmake$|
-                  python/libucxx/libucxx/load[.]py$
-                )
-            - id: verify-copyright
-              name: verify-copyright-rapids
-              args: [--fix, --spdx]
-              files: |
-                (?x)
-                  ^cmake/RAPIDS[.]cmake$|
-                  ^cmake/rapids_config[.]cmake$|
-                  ^cpp/cmake/thirdparty/get_rmm[.]cmake$|
-                  ^python/libucxx/libucxx/load[.]py$
             - id: verify-alpha-spec
               args:
                 - --fix

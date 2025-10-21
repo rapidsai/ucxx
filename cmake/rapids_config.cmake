@@ -1,7 +1,7 @@
 # =============================================================================
 # cmake-format: off
 # SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: BSD-3-Clause
 # cmake-format: on
 # =============================================================================
 file(READ "${CMAKE_CURRENT_LIST_DIR}/../RAPIDS_VERSION" _rapids_version)
