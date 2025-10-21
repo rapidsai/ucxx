@@ -71,8 +71,6 @@ repos:
                   cmake/RAPIDS[.]cmake$|
                   cmake/rapids_config[.]cmake$|
                   cpp/cmake/thirdparty/get_rmm[.]cmake$|
-                  python/libucxx/CMakeLists[.]txt$|
-                  python/libucxx/libucxx/__init__[.]py$|
                   python/libucxx/libucxx/_version[.]py$|
                   python/libucxx/libucxx/load[.]py$|
                   python/ucxx/ucxx/_version[.]py$
@@ -85,8 +83,6 @@ repos:
                   ^cmake/RAPIDS[.]cmake$|
                   ^cmake/rapids_config[.]cmake$|
                   ^cpp/cmake/thirdparty/get_rmm[.]cmake$|
-                  ^python/libucxx/CMakeLists[.]txt$|
-                  ^python/libucxx/libucxx/__init__[.]py$|
                   ^python/libucxx/libucxx/_version[.]py$|
                   ^python/libucxx/libucxx/load[.]py$|
                   ^python/ucxx/ucxx/_version[.]py$

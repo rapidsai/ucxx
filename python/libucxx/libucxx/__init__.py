@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION.
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: BSD-3-Clause
 
 from libucxx._version import __git_commit__, __version__
 from libucxx.load import load_library
