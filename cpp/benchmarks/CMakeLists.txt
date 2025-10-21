@@ -1,6 +1,6 @@
 # ======================================================================================================
 # SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights
-# reserved. SPDX-License-Identifier: BSD 3-Clause License
+# reserved. SPDX-License-Identifier: BSD-3-Clause
 # ======================================================================================================
 
 find_package(Threads REQUIRED)

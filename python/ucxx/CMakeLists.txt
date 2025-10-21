@@ -1,6 +1,6 @@
 # =================================================================================
 # SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
-# SPDX-License-Identifier: BSD 3-Clause License
+# SPDX-License-Identifier: BSD-3-Clause
 # =================================================================================
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 repos:
       - repo: https://github.com/pre-commit/pre-commit-hooks
         rev: v5.0.0
@@ -47,9 +50,46 @@ repos:
                 files: \.(h|cpp)$
                 # exclude: path/to/myfile.h
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.7.0
+        rev: v1.0.0
         hooks:
             - id: verify-copyright
+              name: verify-copyright-ucxx
+              args: [--fix, --force-spdx, --spdx-license-identifier=BSD-3-Clause]
+              files: |
+                (?x)
+                  [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|rs|java)$|
+                  CMakeLists[.]txt$|
+                  CMakeLists_standalone[.]txt$|
+                  meta[.]yaml$|
+                  pyproject[.]toml$|
+                  setup[.]cfg$|
+                  dependencies[.]yaml$|
+                  ^[.]pre-commit-config[.]yaml$|
+                  recipe[.]yaml$
+              exclude: |
+                (?x)^(
+                  cmake/RAPIDS[.]cmake$|
+                  cmake/rapids_config[.]cmake$|
+                  cpp/cmake/thirdparty/get_rmm[.]cmake$|
+                  python/libucxx/CMakeLists[.]txt$|
+                  python/libucxx/libucxx/__init__[.]py$|
+                  python/libucxx/libucxx/_version[.]py$|
+                  python/libucxx/libucxx/load[.]py$|
+                  python/ucxx/ucxx/_version[.]py$
+                )
+            - id: verify-copyright
+              name: verify-copyright-rapids
+              args: [--fix, --force-spdx]
+              files: |
+                (?x)
+                  ^cmake/RAPIDS[.]cmake$|
+                  ^cmake/rapids_config[.]cmake$|
+                  ^cpp/cmake/thirdparty/get_rmm[.]cmake$|
+                  ^python/libucxx/CMakeLists[.]txt$|
+                  ^python/libucxx/libucxx/__init__[.]py$|
+                  ^python/libucxx/libucxx/_version[.]py$|
+                  ^python/libucxx/libucxx/load[.]py$|
+                  ^python/ucxx/ucxx/_version[.]py$
             - id: verify-alpha-spec
               args:
                 - --fix
