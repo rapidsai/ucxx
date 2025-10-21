@@ -54,7 +54,7 @@ repos:
         hooks:
             - id: verify-copyright
               name: verify-copyright-ucxx
-              args: [--fix, --force-spdx, --spdx-license-identifier=BSD-3-Clause]
+              args: [--fix, --spdx, --spdx-license-identifier=BSD-3-Clause]
               files: |
                 (?x)
                   [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|rs|java)$|
@@ -79,7 +79,7 @@ repos:
                 )
             - id: verify-copyright
               name: verify-copyright-rapids
-              args: [--fix, --force-spdx]
+              args: [--fix, --spdx]
               files: |
                 (?x)
                   ^cmake/RAPIDS[.]cmake$|
