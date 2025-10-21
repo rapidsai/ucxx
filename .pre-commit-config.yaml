@@ -71,9 +71,7 @@ repos:
                   cmake/RAPIDS[.]cmake$|
                   cmake/rapids_config[.]cmake$|
                   cpp/cmake/thirdparty/get_rmm[.]cmake$|
-                  python/libucxx/libucxx/_version[.]py$|
-                  python/libucxx/libucxx/load[.]py$|
-                  python/ucxx/ucxx/_version[.]py$
+                  python/libucxx/libucxx/load[.]py$
                 )
             - id: verify-copyright
               name: verify-copyright-rapids
@@ -83,9 +81,7 @@ repos:
                   ^cmake/RAPIDS[.]cmake$|
                   ^cmake/rapids_config[.]cmake$|
                   ^cpp/cmake/thirdparty/get_rmm[.]cmake$|
-                  ^python/libucxx/libucxx/_version[.]py$|
-                  ^python/libucxx/libucxx/load[.]py$|
-                  ^python/ucxx/ucxx/_version[.]py$
+                  ^python/libucxx/libucxx/load[.]py$
             - id: verify-alpha-spec
               args:
                 - --fix
