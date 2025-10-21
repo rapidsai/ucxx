@@ -53,7 +53,6 @@ repos:
         rev: v1.0.0
         hooks:
             - id: verify-copyright
-              name: verify-copyright-ucxx
               args: [--fix, --spdx, --spdx-license-identifier=BSD-3-Clause]
               files: |
                 (?x)
