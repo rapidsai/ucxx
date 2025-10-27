@@ -1,6 +1,8 @@
 # =================================================================================
+# cmake-format: off
 # SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
-# SPDX-License-Identifier: BSD 3-Clause License
+# SPDX-License-Identifier: BSD-3-Clause
+# cmake-format: on
 # =================================================================================
 
 set(cython_sources arr.pyx libucxx.pyx)

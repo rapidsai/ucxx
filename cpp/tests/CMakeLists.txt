@@ -1,6 +1,8 @@
 # ======================================================================================================
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES. All rights
-# reserved. SPDX-License-Identifier: BSD 3-Clause License
+# cmake-format: off
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# cmake-format: on
 # ======================================================================================================
 
 # ##################################################################################################
