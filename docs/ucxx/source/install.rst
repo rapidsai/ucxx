@@ -75,7 +75,9 @@ UCXX has no direct dependency on CUDA, but the package specifies the
 ``-cuXY`` prefix so that the correct ``libucx-cuXY`` package is selected.
 This is also the reason why there are no CPU-only UCXX packages
 available at the moment, CPU-only builds of the UCX library are not
-currently available in PyPI.
+currently available in PyPI. The ``libucx-cuXY`` packages are built without
+RDMA support, so UCX must be installed manually if InfiniBand or RoCE is
+required.
 
 Source
 ------
@@ -217,7 +219,7 @@ UCXX with UCX from PyPI
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 CUDA-enabled builds of the UCX libraries are available from PyPI, under the names ``libucx-cu12`` (CUDA 12) and ``libucx-cu13`` (CUDA 13).
-Notice that those builds do not currently include InfiniBand support, if InfiniBand is required you will
+Notice that those builds do not currently include InfiniBand or RoCE support, if RDMA is required you will
 need to provide a custom UCX install as described in the "UCXX with custom UCX install" section.
 
 To build UCXX using those UCX packages (to avoid needing to build UCX from source), run the following.
