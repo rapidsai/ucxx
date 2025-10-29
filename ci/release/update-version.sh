@@ -37,7 +37,6 @@ function sed_runner() {
 
 # Centralized version file update
 echo "${NEXT_FULL_TAG}" > VERSION
-echo "branch-${NEXT_RAPIDS_SHORT_TAG}" > RAPIDS_BRANCH
 echo "${NEXT_RAPIDS_SHORT_TAG}.00" > RAPIDS_VERSION
 
 # Update RAPIDS version
