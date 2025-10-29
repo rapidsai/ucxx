@@ -2,13 +2,17 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <memory>
 #include <stdexcept>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
 
 #include <ucp/api/ucp_def.h>
 #include <ucxx/request_data.h>
+#include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -77,6 +81,20 @@ TagReceive::TagReceive(void* buffer,
                        const ::ucxx::TagMask tagMask)
   : _buffer(buffer), _length(length), _tag(tag), _tagMask(tagMask)
 {
+}
+
+TagReceiveWithHandle::TagReceiveWithHandle(void* buffer, std::shared_ptr<TagProbeInfo> probeInfo)
+  : _buffer(buffer), _probeInfo(std::move(probeInfo))
+{
+  if (_buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
+  if (!_probeInfo->isMatched()) throw std::runtime_error("TagProbeInfo must be matched.");
+  // getInfo() and getHandle() will throw runtime_error if invalid, so we can just call them
+  try {
+    _probeInfo->getInfo();
+    _probeInfo->getHandle();
+  } catch (const std::runtime_error& e) {
+    throw std::runtime_error(std::string("TagProbeInfo validation failed: ") + e.what());
+  }
 }
 
 TagMultiSend::TagMultiSend(const std::vector<const void*>& buffer,

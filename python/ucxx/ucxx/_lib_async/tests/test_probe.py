@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+from functools import partial
 
 import pytest
 
@@ -9,47 +10,134 @@ import ucxx
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 from ucxx.types import Tag
 
+Message = bytearray(b"0" * 10)
+Listener = None
+
+
+async def _server_node(ep, listener=None, coroutine=None):
+    global Listener
+
+    # Wait for remote endpoint to close before probing the endpoint for
+    # in-transit message and receiving it.
+    while not ep.closed:
+        await asyncio.sleep(0)  # Yield task
+
+    received = await coroutine(ep)
+
+    assert received == Message
+
+    await ep.close()
+    Listener.close()
+
+
+async def _server_node_context_tag_coroutine(ep):
+    ctx = ep._ctx
+    while True:
+        probe_info = ctx.tag_probe(Tag(ep._tags["msg_recv"]))
+        if probe_info.matched:
+            break
+        ucxx.progress()
+    assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
+    assert probe_info.length == len(Message)
+    assert probe_info.handle is None
+    received = bytearray(len(Message))
+    await ctx.recv(received, Tag(ep._tags["msg_recv"]))
+    return received
+
+
+async def _server_node_endpoint_tag_coroutine(ep):
+    while True:
+        probe_info = ep.tag_probe()
+        if probe_info.matched:
+            break
+        ucxx.progress()
+    assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
+    assert probe_info.length == len(Message)
+    assert probe_info.handle is None
+    received = bytearray(len(Message))
+    await ep.recv(received)
+    return received
+
+
+async def _server_node_context_tag_remove_coroutine(ep):
+    ctx = ep._ctx
+    while True:
+        probe_info = ctx.tag_probe(Tag(ep._tags["msg_recv"]), remove=True)
+        if probe_info.matched:
+            break
+        ucxx.progress()
+    assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
+    assert probe_info.length == len(Message)
+    received = bytearray(len(Message))
+    await ctx.recv_with_handle(received, probe_info)
+    return received
+
+
+async def _server_node_endpoint_tag_remove_coroutine(ep):
+    while True:
+        probe_info = ep.tag_probe(remove=True)
+        if probe_info.matched:
+            break
+        ucxx.progress()
+    assert probe_info.sender_tag == Tag(ep._tags["msg_recv"])
+    assert probe_info.length == len(Message)
+    received = bytearray(len(Message))
+    await ep.recv_with_handle(received, probe_info)
+    return received
+
+
+async def _server_node_am_coroutine(ep):
+    assert ep._ep.am_probe() is True
+    return bytes(await ep.am_recv())
+
+
+async def _client_node(probe_type, port):
+    ep = await ucxx.create_endpoint(
+        ucxx.get_address(),
+        port,
+    )
+    if probe_type == "am":
+        await ep.am_send(Message)
+    elif probe_type in ("tag", "tag_remove"):
+        await ep.send(Message)
+    await ep.close()
+
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("transfer_api", ["am", "tag"])
-async def test_message_probe(transfer_api):
-    msg = bytearray(b"0" * 10)
+@pytest.mark.parametrize("api_type", ["endpoint", "context"])
+@pytest.mark.parametrize("probe_type", ["am", "tag", "tag_remove"])
+async def test_message_probe(api_type, probe_type):
+    global Listener
 
-    async def server_node(ep):
-        # Wait for remote endpoint to close before probing the endpoint for
-        # in-transit message and receiving it.
-        while not ep.closed:
-            await asyncio.sleep(0)  # Yield task
+    if api_type == "context" and probe_type == "am":
+        pytest.skip("There is no AM probe directly in the context")
 
-        if transfer_api == "am":
-            assert ep._ep.am_probe() is True
-            received = bytes(await ep.am_recv())
-        else:
-            while ep._ctx.worker.tag_probe(Tag(ep._tags["msg_recv"])) is False:
-                ucxx.progress()
-            received = bytearray(10)
-            await ep.recv(received)
-        assert received == msg
+    if probe_type == "am":
+        server_node_partial = partial(_server_node, coroutine=_server_node_am_coroutine)
+    elif probe_type == "tag":
+        if api_type == "context":
+            server_node_partial = partial(
+                _server_node, coroutine=_server_node_context_tag_coroutine
+            )
+        elif api_type == "endpoint":
+            server_node_partial = partial(
+                _server_node, coroutine=_server_node_endpoint_tag_coroutine
+            )
+    elif probe_type == "tag_remove":
+        if api_type == "context":
+            server_node_partial = partial(
+                _server_node, coroutine=_server_node_context_tag_remove_coroutine
+            )
+        elif api_type == "endpoint":
+            server_node_partial = partial(
+                _server_node, coroutine=_server_node_endpoint_tag_remove_coroutine
+            )
 
-        await ep.close()
-        listener.close()
-
-    async def client_node(port):
-        ep = await ucxx.create_endpoint(
-            ucxx.get_address(),
-            port,
-        )
-        if transfer_api == "am":
-            await ep.am_send(msg)
-        else:
-            await ep.send(msg)
-        await ep.close()
-
-    listener = ucxx.create_listener(
-        server_node,
+    Listener = ucxx.create_listener(
+        server_node_partial,
     )
-    await client_node(listener.port)
+    await _client_node(probe_type, Listener.port)
 
-    wait_listener_client_handlers(listener)
-    while not listener.closed:
+    wait_listener_client_handlers(Listener)
+    while not Listener.closed:
         await asyncio.sleep(0.01)

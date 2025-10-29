@@ -11,6 +11,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -277,6 +278,33 @@ class TagReceive {
 };
 
 /**
+ * @brief Data for a Tag receive using a message handle.
+ *
+ * Type identifying a Tag receive operation using a message handle and containing data
+ * specific to this request type.
+ */
+class TagReceiveWithHandle {
+ public:
+  void* _buffer{nullptr};  ///< The raw pointer where received data should be stored.
+  const std::shared_ptr<TagProbeInfo> _probeInfo{
+    nullptr};  ///< TagProbeInfo containing message length and handle
+
+  /**
+   * @brief Constructor for tag receive with handle-specific data.
+   *
+   * Construct an object containing tag receive with handle-specific data.
+   *
+   * @param[out] buffer      a raw pointer to the received data. The buffer must be large
+   *                         enough to hold the message data, otherwise the behavior is
+   *                         undefined. The buffer must be pre-allocated.
+   * @param[in]  probeInfo   the TagProbeInfo object containing message length and handle.
+   */
+  explicit TagReceiveWithHandle(decltype(_buffer) buffer, std::shared_ptr<TagProbeInfo> probeInfo);
+
+  TagReceiveWithHandle() = delete;
+};
+
+/**
  * @brief Data for a multi-buffer Tag send.
  *
  * Type identifying a multi-buffer Tag send operation and containing data specific to this
@@ -342,6 +370,7 @@ using RequestData = std::variant<std::monostate,
                                  StreamReceive,
                                  TagSend,
                                  TagReceive,
+                                 TagReceiveWithHandle,
                                  TagMultiSend,
                                  TagMultiReceive>;
 

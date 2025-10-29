@@ -1,6 +1,8 @@
 # =================================================================================
+# cmake-format: off
 # SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
-# SPDX-License-Identifier: BSD 3-Clause License
+# SPDX-License-Identifier: BSD-3-Clause
+# cmake-format: on
 # =================================================================================
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
@@ -114,6 +116,7 @@ add_library(
   src/context.cpp
   src/delayed_submission.cpp
   src/endpoint.cpp
+  src/experimental/context_builder.cpp
   src/header.cpp
   src/inflight_requests.cpp
   src/internal/request_am.cpp
@@ -131,6 +134,7 @@ add_library(
   src/request_stream.cpp
   src/request_tag.cpp
   src/request_tag_multi.cpp
+  src/tag_probe.cpp
   src/worker.cpp
   src/worker_progress_thread.cpp
   src/utils/callback_notifier.cpp
