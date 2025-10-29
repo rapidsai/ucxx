@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -17,6 +17,10 @@
 
 namespace ucxx {
 
+namespace experimental {
+class ContextBuilder;
+}  // namespace experimental
+
 class MemoryHandle;
 class Worker;
 
@@ -25,6 +29,8 @@ class Worker;
  *
  * The UCP layer provides a handle to access its context in form of `ucp_context_h` object,
  * this class encapsulates that object and provides methods to simplify its handling.
+ *
+ * Use `ucxx::createContext` to create and configure `Context` instances.
  */
 class Context : public Component {
  private:
@@ -57,22 +63,17 @@ class Context : public Component {
   Context& operator=(Context&& o)    = delete;
 
   /**
-   * @brief Constructor of `shared_ptr<ucxx::Context>`.
+   * @brief Friend declaration for `ucxx::createContext` with parameters.
    *
-   * The constructor for a `shared_ptr<ucxx::Context>` object. The default constructor is
-   * made private to ensure all UCXX objects are shared pointers for correct
-   * lifetime management.
-   *
-   * @code{.cpp}
-   *   auto context = ucxx::createContext({}, UCP_FEATURE_WAKEUP | UCP_FEATURE_TAG);
-   * @endcode
-   *
-   * @param[in] ucxConfig configurations overriding `UCX_*` defaults and environment
-   *                      variables.
-   * @param[in] featureFlags feature flags to be used at UCP context construction time.
-   * @return The `shared_ptr<ucxx::Context>` object
+   * This friend declaration allows the standalone `ucxx::createContext` function to access
+   * the private constructor. See the public declaration for full documentation.
    */
   friend std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
+
+  /**
+   * @brief Allow experimental::ContextBuilder to access private constructor.
+   */
+  friend class experimental::ContextBuilder;
 
   /**
    * @brief `ucxx::Context` destructor
@@ -221,4 +222,24 @@ class Context : public Component {
     const size_t size, void* buffer, const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
 };
 
+/**
+ * @brief Constructor of `shared_ptr<ucxx::Context>` with parameters.
+ *
+ * The constructor for a `shared_ptr<ucxx::Context>` object. The default constructor is
+ * made private to ensure all UCXX objects are shared pointers for correct lifetime
+ * management.
+ *
+ * @code{.cpp}
+ *   auto context = ucxx::createContext({}, UCP_FEATURE_WAKEUP | UCP_FEATURE_TAG);
+ * @endcode
+ *
+ * @param[in] ucxConfig configurations overriding `UCX_*` defaults and environment variables.
+ * @param[in] featureFlags feature flags to be used at UCP context construction time.
+ * @return The `shared_ptr<ucxx::Context>` object.
+ */
+std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
+
 }  // namespace ucxx
+
+// Include experimental features
+#include <ucxx/experimental/context_builder.h>

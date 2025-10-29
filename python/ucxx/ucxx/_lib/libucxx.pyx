@@ -8,6 +8,7 @@ import functools
 import logging
 import warnings
 import weakref
+from typing import Optional
 
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
 from cpython.ref cimport PyObject
@@ -24,7 +25,6 @@ from libcpp.memory cimport (
     static_pointer_cast,
 )
 from libcpp.optional cimport nullopt
-from libcpp.pair cimport pair
 from libcpp.string cimport string
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
@@ -39,6 +39,105 @@ from .ucxx_api cimport *
 include "tag.pyx"
 
 logger = logging.getLogger("ucx")
+
+
+cdef class TagProbeResult:
+    """Result of a tag probe operation.
+
+    This class provides a clean, typed interface for accessing tag probe results.
+    It wraps the C++ TagProbeInfo structure and provides Python-friendly access
+    to the probe information.
+    """
+
+    cdef shared_ptr[TagProbeInfo] _probe_info_ptr
+
+    @property
+    def matched(self) -> bool:
+        """Whether a message was matched.
+
+        Returns:
+            True if a message was matched, False otherwise.
+        """
+        return self._probe_info_ptr.get().isMatched()
+
+    @property
+    def sender_tag(self) -> UCXXTag:
+        """The sender tag of the matched message.
+
+        Returns:
+            The sender tag value.
+
+        Raises:
+            AttributeError: If no message was matched.
+        """
+        if not self.matched:
+            raise AttributeError("No message was matched")
+        return UCXXTag(self._probe_info_ptr.get().getInfo().senderTag)
+
+    @property
+    def length(self) -> int:
+        """The length of the matched message.
+
+        Returns:
+            The message length in bytes.
+
+        Raises:
+            AttributeError: If no message was matched.
+        """
+        if not self.matched:
+            raise AttributeError("No message was matched")
+        return self._probe_info_ptr.get().getInfo().length
+
+    @property
+    def handle(self) -> Optional[int]:
+        """The message handle for efficient reception.
+
+        Returns:
+            The message handle as an integer, or None if no handle is available.
+
+        Raises:
+            AttributeError: If no message was matched.
+        """
+        if not self.matched:
+            raise AttributeError("No message was matched")
+
+        cdef ucp_tag_message_h handle
+        cdef uintptr_t handle_ptr
+
+        try:
+            handle = self._probe_info_ptr.get().getHandle()
+            if handle == NULL:
+                return None
+            handle_ptr = <uintptr_t>handle
+        except RuntimeError:
+            return None
+        return int(handle_ptr)
+
+    def __bool__(self) -> bool:
+        """Return whether a message was matched.
+
+        Returns:
+            True if a message was matched, False otherwise.
+        """
+        return self.matched
+
+    def __repr__(self) -> str:
+        """String representation of the probe result.
+
+        Returns:
+            A string representation showing the probe result state.
+        """
+        if self.matched:
+            handle_val = self.handle
+            result = (
+                "TagProbeResult("
+                f"matched=True, sender_tag={self.sender_tag}, length={self.length}"
+                + (f", handle={handle_val}" if handle_val is not None else "")
+                + ")"
+            )
+            return result
+        else:
+            return "TagProbeResult(matched=False)"
 
 
 cdef class HostBufferAdapter:
@@ -299,6 +398,7 @@ cdef class UCXContext():
             Feature.RMA
         )
     ) -> None:
+        cdef unique_ptr[ContextBuilder] builder
         cdef ConfigMap cpp_config_in, cpp_config_out
         cdef dict context_config
 
@@ -312,7 +412,12 @@ cdef class UCXContext():
         )
 
         with nogil:
-            self._context = createContext(cpp_config_in, feature_flags_uint)
+            # Use unique_ptr for heap allocation to avoid requiring a default
+            # constructor, Cython requires stack-allocated C++ objects to have nullary
+            # constructors
+            builder = make_unique[ContextBuilder](feature_flags_uint)
+            builder.get().configMap(cpp_config_in)
+            self._context = builder.get().build()
             cpp_config_out = self._context.get().getConfig()
 
         context_config = cpp_config_out
@@ -672,26 +777,33 @@ cdef class UCXWorker():
 
         return num_canceled
 
-    def tag_probe(self, UCXXTag tag, UCXXTagMask tag_mask = UCXXTagMaskFull) -> bool:
+    def tag_probe(
+        self,
+        UCXXTag tag,
+        UCXXTagMask tag_mask = UCXXTagMaskFull,
+        bint remove = False
+    ) -> TagProbeResult:
+        """Probe for tag messages.
+
+        Returns
+        -------
+        TagProbeResult object containing:
+        - matched: bool indicating if a message was matched
+        - sender_tag: int sender tag (when matched=True)
+        - length: int message length in bytes (when matched=True)
+        - handle: int message handle for efficient reception (when matched=True and
+                  remove=True)
+        """
         cdef Tag cpp_tag = <Tag><size_t>tag.value
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
-        cdef ucp_tag_recv_info_t empty_tag_recv_info
-        cdef pair[bint, TagRecvInfo]* probed
-        cdef bint tag_matched = False
+        cdef shared_ptr[TagProbeInfo] probe_info_ptr
 
         with nogil:
-            # TagRecvInfo is not default-construtible, therefore we need to use a
-            # pointer, allocating it using a temporary ucp_tag_recv_info_t object
-            probed = new pair[bint, TagRecvInfo](
-                False,
-                TagRecvInfo(empty_tag_recv_info)
-            )
-            probed[0] = self._worker.get().tagProbe(cpp_tag, cpp_tag_mask)
-            tag_matched = probed[0].first
-            del probed
+            probe_info_ptr = self._worker.get().tagProbe(cpp_tag, cpp_tag_mask, remove)
 
-        # TODO: Come up with good interface to expose TagRecvInfo as well
-        return tag_matched
+        cdef TagProbeResult result = TagProbeResult.__new__(TagProbeResult)
+        result._probe_info_ptr = probe_info_ptr
+        return result
 
     def set_progress_thread_start_callback(
             self, cb_func, tuple cb_args=None, dict cb_kwargs=None
@@ -784,6 +896,34 @@ cdef class UCXWorker():
                 nbytes,
                 cpp_tag,
                 cpp_tag_mask,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
+    def tag_recv_with_handle(
+        self,
+        Array arr,
+        TagProbeResult probe_result
+    ) -> UCXRequest:
+        """Receive tag message using message handle obtained from tag_probe_with_handle.
+
+        This is more efficient than regular tag_recv as it doesn't need to go through
+        the message matching queue again.
+        """
+        cdef void* buf = <void*>arr.ptr
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
+
+        if not probe_result.matched:
+            raise ValueError("TagProbeResult must be matched")
+
+        with nogil:
+            req = self._worker.get().tagRecvWithHandle(
+                buf,
+                probe_result._probe_info_ptr,
                 self._enable_python_future
             )
 
@@ -1450,6 +1590,36 @@ cdef class UCXEndpoint():
                 nbytes,
                 cpp_tag,
                 cpp_tag_mask,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
+    def tag_recv_with_handle(
+        self,
+        Array arr,
+        TagProbeResult probe_result
+    ) -> UCXRequest:
+        """Receive tag message using message handle obtained from tag_probe_with_handle.
+
+        This is more efficient than regular tag_recv as it doesn't need to go through
+        the message matching queue again.
+        """
+        cdef void* buf = <void*>arr.ptr
+        cdef shared_ptr[Request] req
+        cdef shared_ptr[Worker] worker
+
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
+
+        if not probe_result.matched:
+            raise ValueError("TagProbeResult must be matched")
+
+        with nogil:
+            worker = self._endpoint.get().getWorker()
+            req = worker.get().tagRecvWithHandle(
+                buf,
+                probe_result._probe_info_ptr,
                 self._enable_python_future
             )
 
