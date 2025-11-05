@@ -96,7 +96,7 @@ Required to build UCXX from source.
 
     # Inside the main directory of the ucxx repository
     conda env create -n ucxx \
-        -f conda/environments/all_cuda-129_arch-$(arch).yaml
+        -f conda/environments/all_cuda-129_arch-$(uname -m).yaml
 
 .. note::
     Check existing files in the same `conda/environments/` directory for other CUDA
