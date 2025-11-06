@@ -12,6 +12,8 @@
 
 #include <ucxx/api.h>
 
+#include <type_traits>
+
 #include "include/utils.h"
 
 namespace {
@@ -725,5 +727,153 @@ INSTANTIATE_TEST_SUITE_P(
           Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
           Values(ExtraParams{.genericCallbackType = GenericCallbackType::Pre},
                  ExtraParams{.genericCallbackType = GenericCallbackType::Post})));
+
+TEST(WorkerBuilderTest, BasicBuilderWithAuto)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker  = ucxx::experimental::createWorker(context).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_TRUE(worker->getHandle() != nullptr);
+  ASSERT_FALSE(worker->isDelayedRequestSubmissionEnabled());
+  ASSERT_FALSE(worker->isFutureEnabled());
+}
+
+TEST(WorkerBuilderTest, BuilderWithOptions)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker =
+    ucxx::experimental::createWorker(context).delayedSubmission(true).pythonFuture(true).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_TRUE(worker->getHandle() != nullptr);
+  ASSERT_TRUE(worker->isDelayedRequestSubmissionEnabled());
+  ASSERT_TRUE(worker->isFutureEnabled());
+}
+
+TEST(WorkerBuilderTest, BuilderMethodChainingOrder1)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker =
+    ucxx::experimental::createWorker(context).delayedSubmission(true).pythonFuture(false).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_TRUE(worker->getHandle() != nullptr);
+  ASSERT_TRUE(worker->isDelayedRequestSubmissionEnabled());
+  ASSERT_FALSE(worker->isFutureEnabled());
+}
+
+TEST(WorkerBuilderTest, BuilderMethodChainingOrder2)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker =
+    ucxx::experimental::createWorker(context).pythonFuture(true).delayedSubmission(false).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_TRUE(worker->getHandle() != nullptr);
+  ASSERT_FALSE(worker->isDelayedRequestSubmissionEnabled());
+  ASSERT_TRUE(worker->isFutureEnabled());
+}
+
+TEST(WorkerBuilderTest, BuilderExplicitTypeSpecification)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  std::shared_ptr<ucxx::Worker> worker = ucxx::experimental::createWorker(context);
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_TRUE(worker->getHandle() != nullptr);
+  ASSERT_FALSE(worker->isDelayedRequestSubmissionEnabled());
+  ASSERT_FALSE(worker->isFutureEnabled());
+}
+
+TEST(WorkerBuilderTest, BuilderAutoTypes)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+
+  auto builder1 = ucxx::experimental::createWorker(context);
+  static_assert(std::is_same<decltype(builder1), ucxx::experimental::WorkerBuilder>::value,
+                "auto without .build() is WorkerBuilder");
+
+  auto builder2 =
+    ucxx::experimental::createWorker(context).delayedSubmission(true).pythonFuture(true);
+  static_assert(std::is_same<decltype(builder2), ucxx::experimental::WorkerBuilder>::value,
+                "auto with config methods but without .build() is WorkerBuilder");
+
+  auto worker1 = builder1.build();
+  static_assert(std::is_same<decltype(worker1), std::shared_ptr<ucxx::Worker>>::value,
+                "Calling .build() on builder returns shared_ptr<Worker>");
+
+  std::shared_ptr<ucxx::Worker> worker2 = builder2;
+  static_assert(std::is_same<decltype(worker2), std::shared_ptr<ucxx::Worker>>::value,
+                "Implicit conversion with explicit type works");
+
+  auto worker3 = ucxx::experimental::createWorker(context).build();
+  static_assert(std::is_same<decltype(worker3), std::shared_ptr<ucxx::Worker>>::value,
+                "auto with .build() must be shared_ptr<Worker>");
+
+  auto worker4 =
+    ucxx::experimental::createWorker(context).delayedSubmission(true).pythonFuture(true).build();
+  static_assert(std::is_same<decltype(worker4), std::shared_ptr<ucxx::Worker>>::value,
+                "auto with config methods and .build() must be shared_ptr<Worker>");
+
+  ASSERT_TRUE(worker1 != nullptr);
+  ASSERT_TRUE(worker2 != nullptr);
+  ASSERT_TRUE(worker3 != nullptr);
+  ASSERT_TRUE(worker4 != nullptr);
+}
+
+TEST(WorkerBuilderTest, BuilderImplicitConversion)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  std::shared_ptr<ucxx::Worker> worker = ucxx::experimental::createWorker(context);
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_TRUE(worker->getHandle() != nullptr);
+}
+
+TEST(WorkerBuilderTest, BuilderSingleConstructionPerSet)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto builder = ucxx::experimental::createWorker(context);
+  auto worker  = builder.build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_TRUE(worker->getHandle() != nullptr);
+
+  // Same builder can be used multiple times, but creates separate workers
+  auto worker2 = builder.build();
+  ASSERT_TRUE(worker2 != nullptr);
+  ASSERT_NE(worker->getHandle(), worker2->getHandle());
+}
+
+TEST(WorkerBuilderTest, BuilderDifferentInstances)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker1 = ucxx::experimental::createWorker(context).build();
+  auto worker2 = ucxx::experimental::createWorker(context).build();
+  ASSERT_TRUE(worker1 != nullptr);
+  ASSERT_TRUE(worker2 != nullptr);
+  ASSERT_NE(worker1->getHandle(), worker2->getHandle());
+}
+
+TEST(WorkerBuilderTest, BuilderBackwardCompatibility)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+
+  // Old API should still work
+  auto worker1 = context->createWorker(true, true);
+  ASSERT_TRUE(worker1 != nullptr);
+  ASSERT_TRUE(worker1->getHandle() != nullptr);
+  ASSERT_TRUE(worker1->isDelayedRequestSubmissionEnabled());
+  ASSERT_TRUE(worker1->isFutureEnabled());
+
+  // New API should produce equivalent result
+  auto worker2 =
+    ucxx::experimental::createWorker(context).delayedSubmission(true).pythonFuture(true).build();
+  ASSERT_TRUE(worker2 != nullptr);
+  ASSERT_TRUE(worker2->getHandle() != nullptr);
+  ASSERT_TRUE(worker2->isDelayedRequestSubmissionEnabled());
+  ASSERT_TRUE(worker2->isFutureEnabled());
+}
 
 }  // namespace

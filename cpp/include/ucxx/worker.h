@@ -27,6 +27,10 @@
 
 namespace ucxx {
 
+namespace experimental {
+class WorkerBuilder;
+}  // namespace experimental
+
 class Address;
 class Buffer;
 class Endpoint;
@@ -166,32 +170,19 @@ class Worker : public Component {
   Worker& operator=(Worker&& o)    = delete;
 
   /**
-   * @brief Constructor of `shared_ptr<ucxx::Worker>`.
+   * @brief Friend declaration for `ucxx::createWorker` with parameters.
    *
-   * The constructor for a `shared_ptr<ucxx::Worker>` object. The default constructor is
-   * made private to ensure all UCXX objects are shared pointers for correct
-   * lifetime management.
-   *
-   * @code{.cpp}
-   * // context is `std::shared_ptr<ucxx::Context>`
-   * auto worker = context->createWorker(false);
-   *
-   * // Equivalent to line above
-   * // auto worker = ucxx::createWorker(context, false);
-   * @endcode
-   *
-   * @param[in] context the context from which to create the worker.
-   * @param[in] enableDelayedSubmission if `true`, each `ucxx::Request` will not be
-   *                                    submitted immediately, but instead delayed to
-   *                                    the progress thread. Requires use of the
-   *                                    progress thread.
-   * @param[in] enableFuture if `true`, notifies the future associated with each
-   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
-   * @returns The `shared_ptr<ucxx::Worker>` object
+   * This friend declaration allows the standalone `ucxx::createWorker` function to access
+   * the protected constructor. See the public declaration for full documentation.
    */
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                               const bool enableDelayedSubmission,
                                               const bool enableFuture);
+
+  /**
+   * @brief Allow experimental::WorkerBuilder to access protected/private constructor.
+   */
+  friend class experimental::WorkerBuilder;
 
   /**
    * @brief `ucxx::Worker` destructor.
@@ -1008,4 +999,32 @@ class Worker : public Component {
     RequestCallbackUserData callbackData         = nullptr);
 };
 
+/**
+ * @brief Constructor of `shared_ptr<ucxx::Worker>` with parameters.
+ *
+ * The constructor for a `shared_ptr<ucxx::Worker>` object. The default constructor is
+ * made private to ensure all UCXX objects are shared pointers for correct lifetime
+ * management.
+ *
+ * @code{.cpp}
+ *   // context is `std::shared_ptr<ucxx::Context>`
+ *   auto worker = ucxx::createWorker(context, false, false);
+ * @endcode
+ *
+ * @param[in] context the context from which to create the worker.
+ * @param[in] enableDelayedSubmission if `true`, each `ucxx::Request` will not be
+ *                                    submitted immediately, but instead delayed to
+ *                                    the progress thread. Requires use of the
+ *                                    progress thread.
+ * @param[in] enableFuture if `true`, notifies the future associated with each
+ *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
+ * @returns The `shared_ptr<ucxx::Worker>` object
+ */
+std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
+                                     const bool enableDelayedSubmission,
+                                     const bool enableFuture);
+
 }  // namespace ucxx
+
+// Include experimental features
+#include <ucxx/experimental/worker_builder.h>

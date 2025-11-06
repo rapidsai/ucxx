@@ -117,6 +117,7 @@ add_library(
   src/delayed_submission.cpp
   src/endpoint.cpp
   src/experimental/context_builder.cpp
+  src/experimental/worker_builder.cpp
   src/header.cpp
   src/inflight_requests.cpp
   src/internal/request_am.cpp
