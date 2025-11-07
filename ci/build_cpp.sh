@@ -7,7 +7,6 @@ set -euo pipefail
 
 source rapids-configure-sccache
 export SCCACHE_NO_CACHE=1
-sccache --stop-server
 
 source rapids-date-string
 
