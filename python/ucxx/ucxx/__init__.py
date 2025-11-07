@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""UCXX: Python bindings for the Unified Communication X library (UCX <www.openucx.org>)"""
+"""UCXX: Python bindings for the Unified Communication X library
+(UCX <www.openucx.org>)"""
 
 import logging
 import os
@@ -27,17 +28,17 @@ if "UCX_MEMTYPE_CACHE" not in os.environ:
     logger.debug("Setting env UCX_MEMTYPE_CACHE=n, which is required by UCX")
     os.environ["UCX_MEMTYPE_CACHE"] = "n"
 
-from . import exceptions, types, testing  # noqa
-from ._lib import libucxx  # type: ignore
-from .core import *  # noqa
-from .utils import get_address, get_ucxpy_logger  # noqa
+from . import exceptions as exceptions, types as types, testing as testing  # noqa: E402
+from ._lib import libucxx as libucxx  # noqa: E402
+from .core import *  # noqa: E402, F403
+from .utils import get_address as get_address, get_ucxpy_logger  # noqa: E402
 
 try:
     import pynvml
 except ImportError:
     pynvml = None
 
-_ucx_version = get_ucx_version()
+_ucx_version = get_ucx_version()  # noqa: F405
 __ucx_min_version__ = "1.17.0"
 __ucx_version__ = "%d.%d.%d" % _ucx_version
 
@@ -123,4 +124,4 @@ if "UCX_PROTO_ENABLE" not in os.environ and (1, 12, 0) <= _ucx_version < (1, 18,
     os.environ["UCX_PROTO_ENABLE"] = "n"
 
 
-from ._version import __git_commit__, __version__
+from ._version import __git_commit__ as __git_commit__, __version__ as __version__  # noqa: E402

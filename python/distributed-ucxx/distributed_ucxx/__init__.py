@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from .ucxx import (
-    UCXXBackend,
-    UCXXBackendLegacyPrefix,
-)  # noqa: F401
+    UCXXBackend as UCXXBackend,
+    UCXXBackendLegacyPrefix as UCXXBackendLegacyPrefix,
+)
 
 
-from ._version import __git_commit__, __version__
+from ._version import __git_commit__ as __git_commit__, __version__ as __version__
