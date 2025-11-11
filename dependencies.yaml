@@ -181,7 +181,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - *cmake_ver
-          - cython>=3.0.0
+          - cython>=3.0.0,<3.2.0a0
           - ninja
   rapids_build_skbuild:
     common:
@@ -341,7 +341,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - pytest
+          - pytest<9.0.0a0
           - pytest-asyncio>=1.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
           - rapids-dask-dependency==25.12.*,>=0.0.0a0
@@ -350,7 +350,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - *numpy
-          - pytest
+          - pytest<9.0.0a0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
   depends_on_cupy:
     common:
