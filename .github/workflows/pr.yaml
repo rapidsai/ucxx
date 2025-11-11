@@ -85,7 +85,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: pull-request
-      node_type: cpu8
+      node_type: cpu4
       script: ci/build_cpp.sh
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   docs-build:
@@ -134,7 +134,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: pull-request
-      node_type: cpu8
+      node_type: cpu4
       script: ci/build_wheel_libucxx.sh
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
@@ -147,7 +147,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: pull-request
-      node_type: cpu8
+      node_type: cpu4
       script: ci/build_wheel_ucxx.sh
       package-name: ucxx
       package-type: python
@@ -168,7 +168,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@fea/sccache-dist-in-custom-jobs
     with:
       build_type: pull-request
-      node_type: cpu8
+      node_type: cpu4
       script: ci/build_wheel_distributed_ucxx.sh
       package-name: distributed_ucxx
       package-type: python
