@@ -15,7 +15,7 @@ rapids-print-env
 
 rapids-logger "Begin C++ and Python builds"
 
-sccache --zero-stats
+sccache --stop-server >/dev/null 2>&1 || true
 
 RAPIDS_PACKAGE_VERSION=$(rapids-generate-version)
 export RAPIDS_PACKAGE_VERSION
