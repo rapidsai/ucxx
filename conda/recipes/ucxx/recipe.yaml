@@ -269,7 +269,7 @@ outputs:
         - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
-        - cython >=3.0.0
+        - cython >=3.0.0,<3.2.0a0
         # 'nvidia-ml-py' provides the 'pynvml' module
         - nvidia-ml-py>=12
         - pip
@@ -380,7 +380,7 @@ outputs:
       host:
         - ${{ pin_subpackage("ucxx", exact=True) }}
         - cuda-version =${{ cuda_version }}
-        - cython >=3.0.0
+        - cython >=3.0.0,<3.2.0a0
         - pip
         - python =${{ python }}
         - rapids-build-backend >=0.4.0,<0.5.0.dev0
