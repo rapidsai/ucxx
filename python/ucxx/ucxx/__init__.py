@@ -28,10 +28,10 @@ if "UCX_MEMTYPE_CACHE" not in os.environ:
     logger.debug("Setting env UCX_MEMTYPE_CACHE=n, which is required by UCX")
     os.environ["UCX_MEMTYPE_CACHE"] = "n"
 
-from . import exceptions as exceptions, types as types, testing as testing  # noqa: E402
-from ._lib import libucxx as libucxx  # noqa: E402
+from . import exceptions, types, testing  # noqa: E402
+from ._lib import libucxx  # noqa: E402
 from .core import *  # noqa: E402, F403
-from .utils import get_address as get_address, get_ucxpy_logger  # noqa: E402
+from .utils import get_address, get_ucxpy_logger  # noqa: E402
 
 try:
     import pynvml
@@ -124,4 +124,15 @@ if "UCX_PROTO_ENABLE" not in os.environ and (1, 12, 0) <= _ucx_version < (1, 18,
     os.environ["UCX_PROTO_ENABLE"] = "n"
 
 
-from ._version import __git_commit__ as __git_commit__, __version__ as __version__  # noqa: E402
+from ._version import __git_commit__, __version__  # noqa: E402
+
+__all__ = [
+    "exceptions",
+    "types",
+    "testing",
+    "libucxx",
+    *core.__all__,  # noqa: F405
+    "__git_commit__",
+    "__version__",
+    "get_address",
+]

@@ -2,9 +2,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from .ucxx import (
-    UCXXBackend as UCXXBackend,
-    UCXXBackendLegacyPrefix as UCXXBackendLegacyPrefix,
+    UCXXBackend,
+    UCXXBackendLegacyPrefix,
 )
 
 
-from ._version import __git_commit__ as __git_commit__, __version__ as __version__
+from ._version import __git_commit__, __version__
+
+__all__ = [
+    "UCXXBackend",
+    "UCXXBackendLegacyPrefix",
+    "__git_commit__",
+    "__version__",
+]
