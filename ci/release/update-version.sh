@@ -117,7 +117,7 @@ echo "${RAPIDS_BRANCH_NAME}" > RAPIDS_BRANCH
 
 # Update RAPIDS version
 for FILE in conda/recipes/*/conda_build_config.yaml; do
-  sed_runner "/^rapids_version:$/ {n;s/.*/  - \"${NEXT_RAPIDS_SHORT_TAG_PEP440}\.*\"/}" "${FILE}"
+  sed_runner "/^rapids_version:\$/{ n; s|.*|  - \"${NEXT_RAPIDS_SHORT_TAG_PEP440}.*\"|; }" "${FILE}"
 done
 
 DEPENDENCIES=(
