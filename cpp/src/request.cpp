@@ -20,12 +20,12 @@ namespace ucxx {
 
 Request::Request(std::shared_ptr<Component> endpointOrWorker,
                  const data::RequestData requestData,
-                 const std::string operationName,
+                 std::string operationName,
                  const bool enablePythonFuture,
                  RequestCallbackUserFunction callbackFunction,
                  RequestCallbackUserData callbackData)
   : _requestData(requestData),
-    _operationName(operationName),
+    _operationName(std::move(operationName)),
     _enablePythonFuture(enablePythonFuture),
     _callback(callbackFunction),
     _callbackData(callbackData)

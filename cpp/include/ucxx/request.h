@@ -88,7 +88,7 @@ class Request : public Component {
    */
   Request(std::shared_ptr<Component> endpointOrWorker,
           const data::RequestData requestData,
-          const std::string operationName,
+          std::string operationName,
           const bool enablePythonFuture                = false,
           RequestCallbackUserFunction callbackFunction = nullptr,
           RequestCallbackUserData callbackData         = nullptr);
@@ -188,7 +188,7 @@ class Request : public Component {
    * Generic callback executed by UCX when a request is completed, used to set the status
    * of the request and free any resources associated with it.
    *
-   * WARNING: This is not intended to be called by the user, but it currently needs to be
+   * @warning This is not intended to be called by the user, but it currently needs to be
    * a public method so that UCX may access it. In future changes this will be moved to
    * an internal object and remove this method from the public API.
    *

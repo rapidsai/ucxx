@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -229,7 +229,7 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   bool force    = _endpointErrorHandling;
 
-  auto combineCallbacksFunction = [this, &callbackFunction, &callbackData](
+  auto combineCallbacksFunction = [this, callbackFunction, callbackData](
                                     ucs_status_t status,
                                     EndpointCloseCallbackUserData /* callbackData */) {
     _status = status;
@@ -442,7 +442,7 @@ size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAtt
 size_t Endpoint::getCancelingSize() const { return _inflightRequests->getCancelingSize(); }
 
 std::shared_ptr<Request> Endpoint::amSend(
-  void* buffer,
+  const void* const buffer,
   const size_t length,
   const ucs_memory_type_t memoryType,
   const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo,
@@ -502,7 +502,7 @@ std::shared_ptr<Request> Endpoint::memGet(void* buffer,
     callbackData));
 }
 
-std::shared_ptr<Request> Endpoint::memPut(void* buffer,
+std::shared_ptr<Request> Endpoint::memPut(const void* const buffer,
                                           size_t length,
                                           uint64_t remoteAddr,
                                           ucp_rkey_h rkey,
@@ -518,7 +518,7 @@ std::shared_ptr<Request> Endpoint::memPut(void* buffer,
                                                   callbackData));
 }
 
-std::shared_ptr<Request> Endpoint::memPut(void* buffer,
+std::shared_ptr<Request> Endpoint::memPut(const void* const buffer,
                                           size_t length,
                                           std::shared_ptr<RemoteKey> remoteKey,
                                           uint64_t remoteAddressOffset,
@@ -536,7 +536,7 @@ std::shared_ptr<Request> Endpoint::memPut(void* buffer,
     callbackData));
 }
 
-std::shared_ptr<Request> Endpoint::streamSend(void* buffer,
+std::shared_ptr<Request> Endpoint::streamSend(const void* const buffer,
                                               size_t length,
                                               const bool enablePythonFuture)
 {
@@ -554,7 +554,7 @@ std::shared_ptr<Request> Endpoint::streamRecv(void* buffer,
     createRequestStream(endpoint, data::StreamReceive(buffer, length), enablePythonFuture));
 }
 
-std::shared_ptr<Request> Endpoint::tagSend(void* buffer,
+std::shared_ptr<Request> Endpoint::tagSend(const void* const buffer,
                                            size_t length,
                                            Tag tag,
                                            const bool enablePythonFuture,
@@ -585,7 +585,7 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
                                                   callbackData));
 }
 
-std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<void*>& buffer,
+std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<const void*>& buffer,
                                                 const std::vector<size_t>& size,
                                                 const std::vector<int>& isCUDA,
                                                 const Tag tag,

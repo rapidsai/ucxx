@@ -1,4 +1,12 @@
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 repos:
+      - repo: https://github.com/pre-commit/pre-commit-hooks
+        rev: v5.0.0
+        hooks:
+              - id: trailing-whitespace
+              - id: end-of-file-fixer
       - repo: https://github.com/pycqa/isort
         rev: 5.12.0
         hooks:
@@ -42,18 +50,30 @@ repos:
                 files: \.(h|cpp)$
                 # exclude: path/to/myfile.h
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.4.0
+        rev: v1.2.0
         hooks:
             - id: verify-copyright
+              args: [--fix, --spdx, --spdx-license-identifier=BSD-3-Clause]
+              files: |
+                (?x)
+                  [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|rs|java)$|
+                  CMakeLists[.]txt$|
+                  CMakeLists_standalone[.]txt$|
+                  meta[.]yaml$|
+                  pyproject[.]toml$|
+                  setup[.]cfg$|
+                  dependencies[.]yaml$|
+                  ^[.]pre-commit-config[.]yaml$|
+                  recipe[.]yaml$
             - id: verify-alpha-spec
               args:
                 - --fix
-                - --rapids-version=25.08
+                - --rapids-version-file=RAPIDS_VERSION
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.16.0
+        rev: v1.20.0
         hooks:
             - id: rapids-dependency-file-generator
-              args: ["--clean"]
+              args: ["--clean", "--warn-all", "--strict"]
       - repo: local
         hooks:
             - id: cmake-format
@@ -101,7 +121,6 @@ repos:
         rev: v0.10.0.1
         hooks:
           - id: shellcheck
-            args: ["--severity=warning"]
 
 default_language_version:
       python: python3

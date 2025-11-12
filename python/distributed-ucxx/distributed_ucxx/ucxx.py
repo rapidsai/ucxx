@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 :ref:`UCX`_ based communications for distributed.
 
@@ -8,16 +11,17 @@ See :ref:`communications` for more.
 from __future__ import annotations
 
 import functools
+import gc
 import itertools
 import logging
 import os
 import struct
 import weakref
 from collections.abc import Awaitable, Callable, Collection
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
-import dask
 from dask.utils import parse_bytes
 from distributed.comm.addressing import parse_host_port, unparse_host_port
 from distributed.comm.core import Comm, CommClosedError, Connector, Listener
@@ -30,6 +34,8 @@ from distributed.diagnostics.nvml import (
 )
 from distributed.protocol.utils import host_array
 from distributed.utils import ensure_ip, get_ip, get_ipv6, log_errors, nbytes
+
+from .config import get_rmm_config, get_ucx_config, setup_config
 
 logger = logging.getLogger(__name__)
 
@@ -82,13 +88,29 @@ def _warn_cuda_context_wrong_device(
     )
 
 
-def synchronize_stream(stream=0):
+class CudaStream(Enum):
+    Default = 0
+
+
+def synchronize_stream(stream: CudaStream = CudaStream.Default):
     import numba.cuda
 
-    ctx = numba.cuda.current_context()
-    cu_stream = numba.cuda.driver.drvapi.cu_stream(stream)
-    stream = numba.cuda.driver.Stream(ctx, cu_stream, None)
-    stream.synchronize()
+    if stream == CudaStream.Default:
+        numba_stream = numba.cuda.default_stream()
+    else:
+        raise ValueError("Unsupported stream")
+    numba_stream.synchronize()
+
+
+class gc_disabled:
+    def __enter__(self):
+        self.was_enabled = gc.isenabled()
+        if self.was_enabled:
+            gc.disable()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.was_enabled:
+            gc.enable()
 
 
 def make_register():
@@ -110,12 +132,16 @@ def make_register():
             `_deregister_dask_resource` during stop/destruction of the resource.
         """
         ctx = ucxx.core._get_ctx()
-        with ctx._dask_resources_lock:
-            resource_id = next(count)
-            ctx._dask_resources.add(resource_id)
-            ctx.start_notifier_thread()
-            ctx.continuous_ucx_progress()
-            return resource_id
+        with gc_disabled():
+            # Disable garbage collection to avoid deadlocks should the garbage collector
+            # run within the lock, where `_deregister_dask_resource` finalizer may be
+            # called.
+            with ctx._dask_resources_lock:
+                resource_id = next(count)
+                ctx._dask_resources.add(resource_id)
+                ctx.start_notifier_thread()
+                ctx.continuous_ucx_progress()
+                return resource_id
 
     return register
 
@@ -194,6 +220,9 @@ def init_once():
 
         return
 
+    # Set up configuration system with defaults
+    setup_config()
+
     # remove/process dask.ucx flags for valid ucx options
     ucx_config, ucx_environment = _prepare_ucx_config()
 
@@ -209,7 +238,7 @@ def init_once():
         ucx_config.get("TLS", ucx_environment.get("UCX_TLS", "")),
     )
     if (
-        dask.config.get("distributed.comm.ucx.create-cuda-context") is True
+        get_ucx_config("create-cuda-context") is True
         # This is not foolproof, if UCX_TLS=all we might require CUDA
         # depending on configuration of UCX, but this is better than
         # nothing
@@ -242,7 +271,7 @@ def init_once():
                 cuda_visible_device, cuda_context_created.device_info, os.getpid()
             )
 
-    multi_buffer = dask.config.get("distributed.comm.ucx.multi-buffer", default=False)
+    multi_buffer = get_ucx_config("multi-buffer", default=False)
 
     import ucxx as _ucxx
 
@@ -253,10 +282,13 @@ def init_once():
         # that don't override ucx_config or existing slots in the
         # environment, so the user's external environment can safely
         # override things here.
-        ucxx.init(options=ucx_config, env_takes_precedence=True)
+        progress_mode = None if "UCXPY_PROGRESS_MODE" in os.environ else "blocking"
+        ucxx.init(
+            options=ucx_config, env_takes_precedence=True, progress_mode=progress_mode
+        )
         _allocate_dask_resources_tracker()
 
-    pool_size_str = dask.config.get("distributed.rmm.pool-size")
+    pool_size_str = get_rmm_config("pool-size")
 
     # Find the function, `cuda_array()`, to use when allocating new CUDA arrays
     try:
@@ -334,9 +366,9 @@ class UCXX(Comm):
     ep : ucxx.Endpoint
         The UCXX endpoint.
     local_address : str
-        The local address, prefixed with `ucxx://` to use.
+        The local address, prefixed with `ucx://` to use.
     peer_address : str
-        The address of the remote peer, prefixed with `ucxx://` to use.
+        The address of the remote peer, prefixed with `ucx://` to use.
     deserialize : bool, default True
         Whether to deserialize data in :meth:`distributed.protocol.loads`
     enable_close_callback: : bool, default True
@@ -378,8 +410,8 @@ class UCXX(Comm):
         self._ep = ep
         self._ep_handle = int(self._ep._ep.handle)
         if local_addr:
-            assert local_addr.startswith("ucxx")
-        assert peer_addr.startswith("ucxx")
+            assert local_addr.startswith(("ucx://", "ucxx://"))
+        assert peer_addr.startswith(("ucx://", "ucxx://"))
         self._local_addr = local_addr
         self._peer_addr = peer_addr
         self.comm_flag = None
@@ -445,7 +477,7 @@ class UCXX(Comm):
         try:
             if multi_buffer is True:
                 if any(hasattr(f, "__cuda_array_interface__") for f in frames):
-                    synchronize_stream(0)
+                    synchronize_stream(CudaStream.Default)
 
                 close = [struct.pack("?", False)]
                 await self.ep.send_multi(close + frames)
@@ -480,7 +512,7 @@ class UCXX(Comm):
                 # non-blocking CUDA streams. Note this is only sufficient if the memory
                 # being sent is not currently in use on non-blocking CUDA streams.
                 if any(cuda_send_frames):
-                    synchronize_stream(0)
+                    synchronize_stream(CudaStream.Default)
 
                 for each_frame in send_frames:
                     await self.ep.send(each_frame)
@@ -559,7 +591,7 @@ class UCXX(Comm):
                 # synchronize the default stream before starting receiving to ensure
                 # buffers have been allocated
                 if any(cuda_recv_frames):
-                    synchronize_stream(0)
+                    synchronize_stream(CudaStream.Default)
 
                 try:
                     for each_frame in recv_frames:
@@ -635,7 +667,7 @@ class UCXX(Comm):
 
 
 class UCXXConnector(Connector):
-    prefix = "ucxx://"
+    prefix = "ucx://"
     comm_class = UCXX
     encrypted = False
 
@@ -802,12 +834,12 @@ def _prepare_ucx_config():
     # leave UCX to its default configuration
     if any(
         [
-            dask.config.get("distributed.comm.ucx.tcp"),
-            dask.config.get("distributed.comm.ucx.nvlink"),
-            dask.config.get("distributed.comm.ucx.infiniband"),
+            get_ucx_config("tcp"),
+            get_ucx_config("nvlink"),
+            get_ucx_config("infiniband"),
         ]
     ):
-        if dask.config.get("distributed.comm.ucx.rdmacm"):
+        if get_ucx_config("rdmacm"):
             tls = "tcp"
             tls_priority = "rdmacm"
         else:
@@ -819,22 +851,22 @@ def _prepare_ucx_config():
         # defining only the Infiniband flag will not enable cuda_copy
         if any(
             [
-                dask.config.get("distributed.comm.ucx.nvlink"),
-                dask.config.get("distributed.comm.ucx.cuda-copy"),
+                get_ucx_config("nvlink"),
+                get_ucx_config("cuda-copy"),
             ]
         ):
             tls = tls + ",cuda_copy"
 
-        if dask.config.get("distributed.comm.ucx.infiniband"):
+        if get_ucx_config("infiniband"):
             tls = "rc," + tls
-        if dask.config.get("distributed.comm.ucx.nvlink"):
+        if get_ucx_config("nvlink"):
             tls = tls + ",cuda_ipc"
 
         high_level_options = {"TLS": tls, "SOCKADDR_TLS_PRIORITY": tls_priority}
 
     # Pick up any other ucx environment settings
     environment_options = {}
-    for k, v in dask.config.get("distributed.comm.ucx.environment", {}).items():
+    for k, v in get_ucx_config("environment", default={}).items():
         # {"some-name": value} is translated to {"UCX_SOME_NAME": value}
         key = "_".join(map(str.upper, ("UCX", *k.split("-"))))
         if (hl_key := key[4:]) in high_level_options:
@@ -854,3 +886,28 @@ def _prepare_ucx_config():
             environment_options[key] = v
 
     return high_level_options, environment_options
+
+
+class UCXXLegacyPrefix(UCXX):
+    prefix = "ucxx://"
+
+
+class UCXXConnectorLegacyPrefix(UCXXConnector):
+    prefix = "ucxx://"
+    comm_class = UCXXLegacyPrefix
+
+
+class UCXXListenerLegacyPrefix(UCXXListener):
+    prefix = UCXXConnectorLegacyPrefix.prefix
+    comm_class = UCXXConnectorLegacyPrefix.comm_class
+    encrypted = UCXXConnectorLegacyPrefix.encrypted
+
+
+class UCXXBackendLegacyPrefix(UCXXBackend):
+    def get_connector(self):
+        return UCXXConnectorLegacyPrefix()
+
+    def get_listener(self, loc, handle_comm, deserialize, **connection_args):
+        return UCXXListenerLegacyPrefix(
+            loc, handle_comm, deserialize, **connection_args
+        )

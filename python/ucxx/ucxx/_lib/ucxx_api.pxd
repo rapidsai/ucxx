@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -57,6 +57,11 @@ cdef extern from "ucp/api/ucp.h" nogil:
 
     ctypedef struct ucp_tag_recv_info_t:
         pass
+
+    ctypedef struct ucp_tag_message:
+        pass
+
+    ctypedef ucp_tag_message* ucp_tag_message_h
 
     ctypedef enum ucs_status_t:
         pass
@@ -180,8 +185,14 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         pass
     cdef cppclass TagRecvInfo:
         TagRecvInfo(const ucp_tag_recv_info_t&)
-        Tag senderTag
-        size_t length
+        const Tag senderTag
+        const size_t length
+
+    cdef cppclass TagProbeInfo:
+        cpp_bool isMatched()
+        TagRecvInfo& getInfo() except +
+        ucp_tag_message_h getHandle() except +
+
     cdef cppclass AmReceiverCallbackInfo:
         pass
 
@@ -194,8 +205,13 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     ctypedef cpp_unordered_map[string, string] ConfigMap
 
-    shared_ptr[Context] createContext(
-        ConfigMap ucx_config, uint64_t feature_flags
+    cdef cppclass ContextBuilder "ucxx::experimental::ContextBuilder":
+        ContextBuilder(uint64_t featureFlags) except +raise_py_error
+        ContextBuilder& configMap(ConfigMap configMap) except +raise_py_error
+        shared_ptr[Context] build() except +raise_py_error
+
+    ContextBuilder createContext "ucxx::experimental::createContext"(
+        uint64_t featureFlags
     ) except +raise_py_error
 
     shared_ptr[Address] createAddressFromWorker(shared_ptr[Worker] worker)
@@ -247,7 +263,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         size_t cancelInflightRequests(
             uint64_t period, uint64_t maxAttempts
         ) except +raise_py_error
-        pair[bint, TagRecvInfo] tagProbe(const Tag, const TagMask) const
+        shared_ptr[TagProbeInfo] tagProbe(const Tag, const TagMask, bint remove) const
         void setProgressThreadStartCallback(
             function[void(void*)] callback, void* callbackArg
         )
@@ -265,6 +281,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             TagMask tag_mask,
             bint enable_python_future
         ) except +raise_py_error
+        shared_ptr[Request] tagRecvWithHandle(
+            void* buffer,
+            shared_ptr[TagProbeInfo] probe_info,
+            bint enable_python_future
+        ) except +raise_py_error
         bint isDelayedRequestSubmissionEnabled() const
         bint isFutureEnabled() const
         bint amProbe(ucp_ep_h) const
@@ -279,7 +300,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         void closeBlocking(uint64_t period, uint64_t maxAttempts)
         shared_ptr[Request] amSend(
-            void* buffer,
+            const void* const buffer,
             size_t length,
             ucs_memory_type_t memory_type,
             # Using `nullopt_t` is a workaround for Cython error
@@ -292,13 +313,13 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] streamSend(
-            void* buffer, size_t length, bint enable_python_future
+            const void* const buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] streamRecv(
             void* buffer, size_t length, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagSend(
-            void* buffer, size_t length, Tag tag, bint enable_python_future
+            const void* const buffer, size_t length, Tag tag, bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagRecv(
             void* buffer,
@@ -308,7 +329,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] tagMultiSend(
-            const vector[void*]& buffer,
+            const vector[const void*]& buffer,
             const vector[size_t]& length,
             const vector[int]& isCUDA,
             Tag tag,

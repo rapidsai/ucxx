@@ -1,11 +1,12 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <exception>
 #include <string>
+#include <utility>
 
 namespace ucxx {
 
@@ -26,7 +27,7 @@ class Error : public std::exception {
    *
    * @param[in] msg the explanatory string of the error.
    */
-  explicit Error(const std::string& msg) : _msg{msg} {}
+  explicit Error(const std::string& msg) : _msg{std::move(msg)} {}
 
   /**
    * @brief Returns an explanatory string.

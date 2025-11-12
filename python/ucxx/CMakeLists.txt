@@ -1,6 +1,8 @@
 # =================================================================================
+# cmake-format: off
 # SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
-# SPDX-License-Identifier: BSD 3-Clause License
+# SPDX-License-Identifier: BSD-3-Clause
+# cmake-format: on
 # =================================================================================
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
@@ -31,7 +33,6 @@ option(UCXX_BUILD_TESTS "Configure CMake to build Cython tests" OFF)
 
 # If the user requested it we attempt to find UCXX.
 if(FIND_UCXX_PYTHON)
-  find_package(ucx REQUIRED)
   find_package(ucxx-python ${ucxx_version} REQUIRED)
 else()
   set(ucxx-python_FOUND OFF)

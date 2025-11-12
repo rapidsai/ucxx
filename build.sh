@@ -18,16 +18,17 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd "$(dirname "$0")"; pwd)
 
-VALIDARGS="clean libucxx libucxx_python libucxx_benchmarks libucxx_examples libucxx_tests ucxx ucxx_tests distributed_ucxx -v -g -n -c --show_depr_warn -h"
-HELP="$0 [clean] [libucxx] [libucxx_python] [libucxx_benchmarks] [libucxx_examples] [libucxx_tests] [ucxx] [ucxx_tests] [distributed_ucxx] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
+VALIDARGS="clean libucxx libucxx_python libucxx_benchmarks libucxx_benchmarks_cuda libucxx_examples libucxx_tests ucxx ucxx_tests distributed_ucxx -v -g -n -c --show_depr_warn -h"
+HELP="$0 [clean] [libucxx] [libucxx_python] [libucxx_benchmarks] [libucxx_benchmarks_cuda] [libucxx_examples] [libucxx_tests] [ucxx] [ucxx_tests] [distributed_ucxx] [-vcgnh] [--cmake-args=\\\"<args>\\\"]
    clean                         - remove all existing build artifacts and configuration (start
                                    over)
    libucxx                       - build the libucxx C++ module
-   libucxx_python                - build the libucxx C++ Python support module
-   libucxx_benchmarks            - build the libucxx C++ benchmarks
+   libucxx_python                - build the libucxx C++ Python support module (enabled if ucxx selected)
+   libucxx_benchmarks            - build the libucxx C++ benchmarks (enabled if libucxx_benchmarks_cuda selected)
+   libucxx_benchmarks_cuda       - build the libucxx C++ benchmarks with CUDA support (enables libucxx_benchmarks)
    libucxx_examples              - build the libucxx C++ examples
    libucxx_tests                 - build the libucxx C++ tests
-   ucxx                          - build the ucxx Python package
+   ucxx                          - build the ucxx Python package (enables libucxx_python)
    ucxx_tests                    - build the ucxx Cython tests
    distributed_ucxx              - build the distributed_ucxx (Dask Distributed module) Python package
    -v                            - verbose build mode
@@ -38,7 +39,7 @@ HELP="$0 [clean] [libucxx] [libucxx_python] [libucxx_benchmarks] [libucxx_exampl
    --cmake-args=\\\"<args>\\\"   - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    -h | --h[elp]                 - print this text
 
-   default action (no args) is to build and install 'libucxx' and 'libucxx_python', then 'ucxx' targets, and finally 'distributed_ucxx'
+   default action (no args) is to build and install 'libucxx', then 'ucxx' targets, and finally 'distributed_ucxx'
 "
 LIB_BUILD_DIR=${LIB_BUILD_DIR:=${REPODIR}/cpp/build}
 PYTHON_BUILD_DIR=${PYTHON_BUILD_DIR:=${REPODIR}/cpp/python/build}
@@ -56,6 +57,7 @@ BUILD_EXAMPLES=OFF
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_COMPILE_COMMANDS=OFF
 UCXX_ENABLE_RMM=OFF
+UCXX_BENCHMARKS_ENABLE_CUDA=OFF
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -127,6 +129,10 @@ fi
 if hasArg libucxx_benchmarks; then
     BUILD_BENCHMARKS=ON
 fi
+if hasArg libucxx_benchmarks_cuda; then
+    BUILD_BENCHMARKS=ON
+    UCXX_BENCHMARKS_ENABLE_CUDA=ON
+fi
 if hasArg libucxx_examples; then
     BUILD_EXAMPLES=ON
 fi
@@ -143,7 +149,7 @@ if hasArg ucxx_tests && ! hasArg ucxx; then
   exit 1
 fi
 
-if buildAll || hasArg libucxx_python || hasArg libucxx_tests; then
+if buildAll || hasArg libucxx_python || hasArg libucxx_tests || hasArg libucxx_examples; then
   UCXX_ENABLE_RMM=ON
 fi
 
@@ -181,6 +187,7 @@ if buildAll || hasArg libucxx; then
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
           -DUCXX_ENABLE_RMM=${UCXX_ENABLE_RMM} \
+          -DUCXX_BENCHMARKS_ENABLE_CUDA=${UCXX_BENCHMARKS_ENABLE_CUDA} \
           "${EXTRA_CMAKE_ARGS[@]}"
 
     cd "${LIB_BUILD_DIR}"
