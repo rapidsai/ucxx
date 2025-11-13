@@ -6,6 +6,7 @@
 set -euo pipefail
 
 source rapids-configure-sccache
+export SCCACHE_RECACHE=1
 
 source rapids-date-string
 
