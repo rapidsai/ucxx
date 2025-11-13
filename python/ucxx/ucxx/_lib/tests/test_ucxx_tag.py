@@ -80,7 +80,7 @@ def test_ucxx_tag_mask_full():
     assert ucx_api.UCXXTagMaskFull == (2**64 - 1)
 
     # Test string representation
-    expected_repr = f"UCXXTagMask({2 ** 64 - 1})"
+    expected_repr = f"UCXXTagMask({2**64 - 1})"
     assert repr(ucx_api.UCXXTagMaskFull) == expected_repr
 
 

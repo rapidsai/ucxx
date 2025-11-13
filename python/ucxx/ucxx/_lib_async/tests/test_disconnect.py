@@ -125,8 +125,7 @@ def test_shutdown_unexpected_closed_peer(pytestconfig, caplog, endpoint_error_ha
         ]
     ):
         pytest.skip(
-            "Endpoint error handling is required when rc, dc or ud"
-            "transport is enabled"
+            "Endpoint error handling is required when rc, dc or ud transport is enabled"
         )
 
     client_queue = mp.Queue()

@@ -256,3 +256,24 @@ create_endpoint.__doc__ = ApplicationContext.create_endpoint.__doc__
 continuous_ucx_progress.__doc__ = ApplicationContext.continuous_ucx_progress.__doc__
 get_ucp_worker.__doc__ = ApplicationContext.get_ucp_worker.__doc__
 stop_notifier_thread.__doc__ = ApplicationContext.stop_notifier_thread.__doc__
+
+__all__ = [
+    "init",
+    "reset",
+    "stop_notifier_thread",
+    "get_ucx_version",
+    "progress",
+    "get_config",
+    "create_listener",
+    "create_endpoint",
+    "create_endpoint_from_worker_address",
+    "get_ucp_context_info",
+    "get_ucp_worker_info",
+    "get_active_transports",
+    "continuous_ucx_progress",
+    "get_ucp_worker",
+    "get_ucxx_worker",
+    "get_worker_address",
+    "get_ucx_address_from_buffer",
+    "recv",
+]
