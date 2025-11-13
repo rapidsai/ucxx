@@ -166,7 +166,7 @@ if [[ "${RUN_CONTEXT}" == "main" ]]; then
     :
 elif [[ "${RUN_CONTEXT}" == "release" ]]; then
     # In release context, use RAPIDS release branch for documentation links
-    sed_runner "s|/blob/main/|/blob/release/${NEXT_RAPIDS_SHORT_TAG}/|g" docs/ucxx/source/send_recv.rst
+    sed_runner "s|/blob/main/|/blob/release/${NEXT_SHORT_TAG}/|g" docs/ucxx/source/send_recv.rst
 fi
 
 # CI files - context-aware branch references
