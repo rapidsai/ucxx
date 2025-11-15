@@ -39,8 +39,10 @@ jobs:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
+      node_type: cpu8
       script: ci/build_cpp.sh
       sha: ${{ inputs.sha }}
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   docs-build:
     if: github.ref_type == 'branch'
     needs: conda-cpp-build
@@ -72,11 +74,13 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
+      node_type: cpu8
       script: ci/build_wheel_libucxx.sh
       # build for every combination of arch and CUDA version, but only for the latest Python
       matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       package-name: libucxx
       package-type: cpp
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-publish-libucxx:
     needs: wheel-build-libucxx
     secrets: inherit
@@ -97,9 +101,11 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
+      node_type: cpu8
       script: ci/build_wheel_ucxx.sh
       package-name: ucxx
       package-type: python
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-publish-ucxx:
     needs: wheel-build-ucxx
     secrets: inherit
@@ -119,9 +125,11 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
+      node_type: cpu8
       script: ci/build_wheel_distributed_ucxx.sh
       package-name: distributed_ucxx
       package-type: python
+      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-publish-distributed-ucxx:
     needs: [wheel-build-ucxx, wheel-build-distributed-ucxx]
     secrets: inherit
