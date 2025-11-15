@@ -8,6 +8,7 @@ See :ref:`communications` for more.
 
 .. _UCX: https://github.com/openucx/ucx
 """
+
 from __future__ import annotations
 
 import functools
@@ -432,13 +433,6 @@ class UCXX(Comm):
         logger.debug("UCX.__init__ %s", self)
 
         weakref.finalize(self, _finalizer, ep, resource_id)
-
-    def abort(self):
-        self._closed = True
-        if self._ep is not None:
-            self._ep.abort()
-            self._ep = None
-            _deregister_dask_resource(self._resource_id)
 
     @property
     def local_address(self) -> str:
