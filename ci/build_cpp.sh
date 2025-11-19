@@ -30,6 +30,7 @@ rattler-build build --recipe conda/recipes/ucxx \
                     "${RATTLER_CHANNELS[@]}"
 
 sccache --show-adv-stats
+sccache --stop-server >/dev/null 2>&1 || true
 
 # remove build_cache directory
 rm -rf "$RAPIDS_CONDA_BLD_OUTPUT_DIR"/build_cache
