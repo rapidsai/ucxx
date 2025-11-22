@@ -159,8 +159,8 @@ files:
       - depends_on_cupy
       - depends_on_cudf
 channels:
-  - rapidsai
   - rapidsai-nightly
+  - rapidsai
   - conda-forge
 dependencies:
   build_cpp:
