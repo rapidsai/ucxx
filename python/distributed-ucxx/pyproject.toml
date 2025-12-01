@@ -19,7 +19,7 @@ authors = [
 license = { text = "BSD-3-Clause" }
 requires-python = ">=3.10"
 dependencies = [
-    "numba-cuda[cu13]>=0.19.1,<0.20.0a0",
+    "numba-cuda[cu13]>=0.21.2,<0.22.0a0",
     "pyyaml>=6",
     "rapids-dask-dependency==26.2.*,>=0.0.0a0",
     "ucxx==0.48.*,>=0.0.0a0",
