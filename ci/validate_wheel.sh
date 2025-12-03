@@ -9,6 +9,9 @@ wheel_dir_relative_path=$2
 
 cd "${package_dir}"
 
+# Make glob expand to nothing if there are no matches
+shopt -s nullglob
+
 # Pure wheels can be installed on any OS and we want to avoid users being able
 # to begin installing them on Windows or OSX when we know that the dependencies
 # won't work / be available.
