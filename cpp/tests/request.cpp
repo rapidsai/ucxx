@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <string>
 #include <tuple>
 #include <ucp/api/ucp.h>
 #include <ucs/type/status.h>
@@ -294,6 +295,15 @@ TEST_P(RequestTest, ProgressTag)
   requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
   requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
   waitRequests(_worker, requests, _progressWorker);
+
+  for (const auto& request : requests) {
+    auto debugString = request->getRequestAttributes().debugString;
+    // Check that debugString contains the expected host memory length substring
+    std::string expectedSubstring = "length " + std::to_string(_messageSize);
+    ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
+    ASSERT_THAT(debugString,
+                ::testing::HasSubstr(_memoryType == UCS_MEMORY_TYPE_HOST ? "host" : "cuda"));
+  }
 
   copyResults();
 
