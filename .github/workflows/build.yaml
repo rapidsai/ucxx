@@ -129,6 +129,7 @@ jobs:
       script: ci/build_wheel_distributed_ucxx.sh
       package-name: distributed_ucxx
       package-type: python
+      pure-wheel: true
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-publish-distributed-ucxx:
     needs: [wheel-build-ucxx, wheel-build-distributed-ucxx]
@@ -141,3 +142,4 @@ jobs:
       date: ${{ inputs.date }}
       package-name: distributed_ucxx
       package-type: python
+      publish-wheel-search-key: "distributed-ucxx_wheel"
