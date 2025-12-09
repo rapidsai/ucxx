@@ -401,10 +401,8 @@ outputs:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - python =${{ python }}
         - ${{ pin_subpackage("ucxx", exact=True) }}
-        - cuda-cudart
       ignore_run_exports:
         by_name:
-          - cuda-cudart
           - cuda-version
           - librmm
           - python_abi
