@@ -233,7 +233,6 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - cuda-cudart-dev
           - cuda-nvcc
   dev:
     common:

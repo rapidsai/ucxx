@@ -10,7 +10,6 @@ dependencies:
 - c-compiler
 - cloudpickle
 - cmake>=3.26.4,!=3.30.0
-- cuda-cudart-dev
 - cuda-nvcc
 - cuda-version=13.0
 - cudf==26.2.*,>=0.0.0a0
