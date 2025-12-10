@@ -181,13 +181,13 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - *cmake_ver
-          - cython>=3.0.0,<3.2.0a0
+          - cython>=3.0.0,<3.2.0
           - ninja
   rapids_build_skbuild:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &rapids_build_backend rapids-build-backend>=0.4.0,<0.5.0.dev0
+          - &rapids_build_backend rapids-build-backend>=0.4.0,<0.5.0
       - output_types: conda
         packages:
           - scikit-build-core>=0.10.0
@@ -294,7 +294,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numpy numpy>=1.23,<3.0a0
+          - &numpy numpy>=1.23,<3.0
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
       - output_types: [conda]
@@ -341,7 +341,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - pytest<9.0.0a0
+          - pytest<9.0.0
           - pytest-asyncio>=1.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
           - rapids-dask-dependency==26.2.*,>=0.0.0a0
@@ -350,7 +350,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - *numpy
-          - pytest<9.0.0a0
+          - pytest<9.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
   depends_on_cupy:
     common:
@@ -531,15 +531,15 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.17.0,<1.17.1a0
+              - libucx-cu12>=1.17.0,<1.17.1
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu13>=1.19.0,<1.19.1a0
+              - libucx-cu13>=1.19.0,<1.19.1
           - matrix:
             packages:
-              - libucx>=1.19.0,<1.19.1a0
+              - libucx>=1.19.0,<1.19.1
   depends_on_ucx_run:
     common:
       - output_types: requirements

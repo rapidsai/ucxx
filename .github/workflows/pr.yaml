@@ -173,6 +173,7 @@ jobs:
       package-name: distributed_ucxx
       package-type: python
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      pure-wheel: true
   wheel-tests-distributed-ucxx:
     needs: [wheel-build-ucxx, wheel-build-distributed-ucxx, changed-files]
     secrets: inherit

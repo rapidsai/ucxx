@@ -10,6 +10,9 @@ CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
+rapids-logger "Configuring conda strict channel priority"
+conda config --set channel_priority strict
+
 UCXX_VERSION="$(head -1 ./VERSION)"
 export UCXX_VERSION
 UCXX_VERSION_MAJOR_MINOR="$(sed -E -e 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*$/\1.\2/' VERSION)"
