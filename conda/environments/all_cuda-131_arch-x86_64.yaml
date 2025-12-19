@@ -12,7 +12,7 @@ dependencies:
 - cmake>=3.26.4,!=3.30.0
 - cuda-cudart-dev
 - cuda-nvcc
-- cuda-version=13.0
+- cuda-version=13.1
 - cudf==26.2.*,>=0.0.0a0
 - cupy>=13.6.0
 - cxx-compiler
@@ -43,4 +43,4 @@ dependencies:
 - setuptools>=64.0.0
 - sphinx>=8.1.0
 - ucx>=1.19.0,<1.20
-name: all_cuda-130_arch-aarch64
+name: all_cuda-131_arch-x86_64
