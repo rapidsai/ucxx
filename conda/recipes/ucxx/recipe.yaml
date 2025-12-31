@@ -149,7 +149,7 @@ outputs:
             - lib/libucxx.so
     about:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license }}
       summary: ${{ load_from_file("python/libucxx/pyproject.toml").project.description }}
 
   - package:
@@ -177,7 +177,7 @@ outputs:
           - ucx
     about:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license }}
       summary: libucxx examples executables
 
   - package:
@@ -208,7 +208,7 @@ outputs:
           - ucx
     about:
       homepage: ${{ load_from_file("python/libucxx/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libucxx/pyproject.toml").project.license }}
       summary: libucxx tests executables
 
   - package:
@@ -284,7 +284,7 @@ outputs:
         - python =${{ python }}
         - rapids-build-backend >=0.4.0,<0.5.0
         - rmm ${{ rapids_version }}
-        - scikit-build-core >=0.10.0
+        - scikit-build-core>=0.11.0
         - ucx
         - ${{ pin_subpackage("libucxx", exact=True) }}
         - cuda-cudart-dev
@@ -325,7 +325,7 @@ outputs:
           pip_check: false
     about:
       homepage: ${{ load_from_file("python/ucxx/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license }}
       summary: ${{ load_from_file("python/ucxx/pyproject.toml").project.description }}
 
   - package:
@@ -396,7 +396,7 @@ outputs:
         - pip
         - python =${{ python }}
         - rapids-build-backend >=0.4.0,<0.5.0
-        - scikit-build-core >=0.10.0
+        - scikit-build-core>=0.11.0
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - python =${{ python }}
@@ -411,7 +411,7 @@ outputs:
           - ucx
     about:
       homepage: ${{ load_from_file("python/ucxx/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license }}
       summary: UCXX Cython tests
 
 
@@ -427,7 +427,7 @@ outputs:
         - pip
         - python >=3.10
         - rapids-build-backend >=0.4.0,<0.5.0
-        - setuptools
+        - setuptools>=77.0.0
         - wheel
       run:
         - numba >=0.60.0,<0.62.0
@@ -453,5 +453,5 @@ outputs:
           pip_check: false
     about:
       homepage: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.license }}
       summary: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.description }}
