@@ -17,6 +17,7 @@ authors = [
     { name = "NVIDIA Corporation" },
 ]
 license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
     "numba-cuda[cu13]>=0.22.1,<0.23.0",
@@ -107,9 +108,6 @@ skip = [
     "dist",
     "__init__.py",
 ]
-
-[tool.setuptools]
-license-files = ["LICENSE"]
 
 [tool.setuptools.packages.find]
 exclude = [
