@@ -40,7 +40,7 @@ function(ConfigureBench CMAKE_BENCH_NAME)
   if(UCXX_BENCHMARKS_ENABLE_CUDA)
     target_compile_definitions(${CMAKE_BENCH_NAME} PRIVATE UCXX_BENCHMARKS_ENABLE_CUDA)
     find_package(CUDAToolkit REQUIRED)
-    target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE CUDA::cudart)
+    target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE CUDA::cudart_static)
   endif()
 
   add_custom_command(
