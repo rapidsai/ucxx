@@ -42,7 +42,7 @@ Change `cuda-version` to pin to a different CUDA minor version if you'd like.
 
     # CUDA 13
     conda create -n ucx -c conda-forge -c rapidsai \
-      cuda-version=13.0 ucxx
+      cuda-version=13.1 ucxx
 
     # CUDA 12
     conda create -n ucx -c conda-forge -c rapidsai \
