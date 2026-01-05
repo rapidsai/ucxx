@@ -12,8 +12,10 @@ source "$(dirname "$0")/test_common.sh"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
-ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github python)
+# Download the packages built in the previous step
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 libucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
+ucxx_wheelhouse=$(rapids-download-from-github "$(rapids-package-name "wheel_python" ucxx --stable --cuda "$RAPIDS_CUDA_VERSION")")
 
 rapids-pip-retry install \
     -v \

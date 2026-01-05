@@ -104,6 +104,8 @@ jobs:
       script: ci/build_wheel_ucxx.sh
       package-name: ucxx
       package-type: python
+      # Build a wheel for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-ucxx:
     needs: wheel-build-ucxx
     secrets: inherit
@@ -115,6 +117,7 @@ jobs:
       date: ${{ inputs.date }}
       package-name: ucxx
       package-type: python
+      publish-wheel-search-key: ucxx_wheel_python_abi3
   wheel-build-distributed-ucxx:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@python-3.14
