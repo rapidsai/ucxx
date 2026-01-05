@@ -7,6 +7,9 @@ source rapids-init-pip
 
 RAPIDS_PY_CUDA_SUFFIX=$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")
 
+
+if [[ "${RAPIDS_PY_VERSION}" != "3.10" ]]; then
+
 # download wheels, store the directories holding them in variables
 LIBRMM_WHEELHOUSE=$(
   RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-artifact rmm 2184 cpp wheel
@@ -19,3 +22,5 @@ cat > "${PIP_CONSTRAINT}" <<EOF
 librmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBRMM_WHEELHOUSE}"/librmm_*.whl)
 rmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${RMM_WHEELHOUSE}"/rmm_*.whl)
 EOF
+
+fi
