@@ -151,7 +151,7 @@ After installing the necessary dependencies, it's now time to build UCX from sou
     git clone https://github.com/openucx/ucx
     cd ucx
     git checkout v1.18.0
-    8/autogen.sh
+    ./autogen.sh
     mkdir build
     cd build
     # Performance build
