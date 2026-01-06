@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 """UCXX: Python bindings for the Unified Communication X library
@@ -39,7 +39,7 @@ except ImportError:
     pynvml = None
 
 _ucx_version = get_ucx_version()  # noqa: F405
-__ucx_min_version__ = "1.17.0"
+__ucx_min_version__ = "1.18.0"
 __ucx_version__ = "%d.%d.%d" % _ucx_version
 
 if _ucx_version < tuple(int(i) for i in __ucx_min_version__.split(".")):

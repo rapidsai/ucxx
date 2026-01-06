@@ -522,7 +522,7 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - ucx==1.17.0
+              - ucx==1.18.0
           # build against 1.19.0 on CUDA 13 (and make that the default when 'cuda' filter is not provided)
           - matrix:
             packages:
@@ -535,7 +535,7 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.17.0,<1.17.1
+              - libucx-cu12>=1.18.0,<1.18.1
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
@@ -557,24 +557,24 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - ucx>=1.17.0,<1.20
+              - ucx>=1.18.0,<1.21
           # require at least 1.19.0 on CUDA 13 (and make that the default when 'cuda' filter is not provided)
           - matrix:
             packages:
-              - ucx>=1.19.0,<1.20
+              - ucx>=1.19.0,<1.21
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.17.0,<1.20
+              - libucx-cu12>=1.18.0,<1.20
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu13>=1.19.0,<1.20
+              - libucx-cu13>=1.19.0,<1.21
           # require at least 1.19.0 (CUDA 13 floor) if 'cuda' filter is not provided
           - matrix:
             packages:
-              - libucx>=1.19.0,<1.20
+              - libucx>=1.19.0,<1.21
