@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# Initializes a `pip` constraint file. Ensures that environment variable
+# `PIP_CONSTRAINT` is populated and points to a file that exists.
+#
+# This allows the unconditional use of that variable + script in CI scripts, like this:
+#
+#     source rapids-init-pip;
+#     LIBRMM_WHEELHOUSE=$(
+#       RAPIDS_PY_WHEEL_NAME="librmm_cu12" rapids-get-pr-artifact rmm 1909 cpp wheel
+#     )
+#     echo "librmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBRMM_WHEELHOUSE}"/librmm_*.whl)" >> "${PIP_CONSTRAINT}"
+#
+# This is intended to be `source`'d, not invoked as an executable.
+#
+# Note that the exact name `PIP_CONSTRAINT` is specifically recognized by `pip`:
+# https://pip.pypa.io/en/latest/cli/pip_install/#cmdoption-c. Exporting it is important
+# to ensure that the constraints are respected by all calls to `pip`, including nested
+# calls that happen when setting up an isolation build environment for wheel builds.
+#
+PIP_CONSTRAINT="${PIP_CONSTRAINT:-$(mktemp -d)/constraints.txt}"
+PIP_BUILD_CONSTRAINT="${PIP_CONSTRAINT}"
+touch "${PIP_CONSTRAINT}"
+export PIP_CONSTRAINT
+export PIP_BUILD_CONSTRAINT
+PIP_USE_FEATURE="build-constraint"
+export PIP_USE_FEATURE
