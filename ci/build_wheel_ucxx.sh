@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-source ci/rapids-init-pip
+source rapids-init-pip
 
 package_name="ucxx"
 package_dir="python/ucxx"
