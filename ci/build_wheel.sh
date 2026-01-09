@@ -21,12 +21,20 @@ cd "${package_dir}"
 sccache --stop-server 2>/dev/null || true
 
 rapids-logger "Building '${package_name}' wheel"
+
+# Only use --build-constraint when build isolation is enabled.
+# PIP_NO_BUILD_ISOLATION=0 means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
+build_constraint_arg=()
+if [[ "${PIP_NO_BUILD_ISOLATION:-}" != "0" ]]; then
+    build_constraint_arg=(--build-constraint "${PIP_CONSTRAINT}")
+fi
+
 rapids-pip-retry wheel \
     -w dist \
     -v \
     --no-deps \
     --disable-pip-version-check \
-    --build-constraint "${PIP_CONSTRAINT}" \
+    "${build_constraint_arg[@]}" \
     .
 
 sccache --show-adv-stats
