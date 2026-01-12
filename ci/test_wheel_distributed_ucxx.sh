@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-source ./ci/use_rmm_limited_wheel.sh
+source ./ci/use_upstream_sabi_wheels.sh
 
 source rapids-init-pip
 

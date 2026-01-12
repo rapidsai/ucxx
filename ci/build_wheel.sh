@@ -14,7 +14,7 @@ source rapids-init-pip
 export SCCACHE_S3_PREPROCESSOR_CACHE_KEY_PREFIX="${package_name}/${RAPIDS_CONDA_ARCH}/cuda${RAPIDS_CUDA_VERSION%%.*}/wheel/preprocessor-cache"
 export SCCACHE_S3_USE_PREPROCESSOR_CACHE_MODE=true
 
-source ./ci/use_rmm_limited_wheel.sh
+source ./ci/use_upstream_sabi_wheels.sh
 
 rapids-generate-version > ./VERSION
 

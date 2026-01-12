@@ -4,8 +4,6 @@
 
 set -euo pipefail
 
-source ./ci/use_rmm_limited_wheel.sh
-
 source rapids-init-pip
 
 package_name="ucxx"
@@ -14,7 +12,15 @@ source "$(dirname "$0")/test_common.sh"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
-ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github python)
+# Download the packages built in the previous step
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
+if [[ "${RAPIDS_PY_VERSION}" != "3.10" ]]; then
+    ucxx_wheelhouse=$(rapids-download-from-github "$(rapids-package-name "wheel_python" ucxx --stable --cuda "$RAPIDS_CUDA_VERSION")")
+    source ./ci/use_upstream_sabi_wheels.sh
+else
+    ucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github python)
+fi
+
 libucxx_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="libucxx_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
 
 rapids-pip-retry install \
