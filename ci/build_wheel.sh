@@ -9,7 +9,7 @@ package_dir=$2
 
 source rapids-configure-sccache
 source rapids-date-string
-source rapids-init-pip
+source ci/rapids-init-pip
 
 export SCCACHE_S3_PREPROCESSOR_CACHE_KEY_PREFIX="${package_name}/${RAPIDS_CONDA_ARCH}/cuda${RAPIDS_CUDA_VERSION%%.*}/wheel/preprocessor-cache"
 export SCCACHE_S3_USE_PREPROCESSOR_CACHE_MODE=true
@@ -27,17 +27,19 @@ rapids-logger "Building '${package_name}' wheel"
 # Passing '--build-constraint' and '--no-build-isolation` together results in an error from 'pip',
 # but we want to keep environment variable PIP_CONSTRAINT set unconditionally.
 # PIP_NO_BUILD_ISOLATION=0 means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
-build_constraint_arg=()
+RAPIDS_PIP_WHEEL_ARGS=(
+  -w dist
+  -v
+  --no-deps
+  --disable-pip-version-check
+)
+
 if [[ "${PIP_NO_BUILD_ISOLATION:-}" != "0" ]]; then
-    build_constraint_arg=(--build-constraint "${PIP_CONSTRAINT}")
+    RAPIDS_PIP_WHEEL_ARGS+=(--build-constraint="${PIP_CONSTRAINT}")
 fi
 
 rapids-pip-retry wheel \
-    -w dist \
-    -v \
-    --no-deps \
-    --disable-pip-version-check \
-    "${build_constraint_arg[@]}" \
+    "${RAPIDS_PIP_WHEEL_ARGS[@]}" \
     .
 
 sccache --show-adv-stats
