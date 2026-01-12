@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # cython: language_level=3
+# cython: py_limited_api=True
 
 
 from libc.stdint cimport uintptr_t
