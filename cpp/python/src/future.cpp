@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <ucxx/log.h>
@@ -95,10 +95,14 @@ PyObject* create_python_future()
   future_object = get_asyncio_future_object();
   if (future_object == NULL) { goto finish; }
   if (!PyCallable_Check(future_object)) {
+    PyObject* asyncio_encoded = PyUnicode_AsEncodedString(asyncio_str, "utf-8", "strict");
+    PyObject* future_encoded  = PyUnicode_AsEncodedString(future_str, "utf-8", "strict");
     PyErr_Format(PyExc_RuntimeError,
                  "%s.%s is not callable.",
-                 PyUnicode_1BYTE_DATA(asyncio_str),
-                 PyUnicode_1BYTE_DATA(future_str));
+                 asyncio_encoded ? PyBytes_AsString(asyncio_encoded) : "<unknown>",
+                 future_encoded ? PyBytes_AsString(future_encoded) : "<unknown>");
+    Py_XDECREF(asyncio_encoded);
+    Py_XDECREF(future_encoded);
     goto finish;
   }
 
@@ -206,7 +210,8 @@ finish:
 
 PyObject* create_python_future_with_event_loop(PyObject* event_loop)
 {
-  PyObject* result = NULL;
+  PyObject* result               = NULL;
+  PyObject* create_future_method = NULL;
 
   PyGILState_STATE state = PyGILState_Ensure();
 
@@ -215,9 +220,20 @@ PyObject* create_python_future_with_event_loop(PyObject* event_loop)
     goto finish;
   }
 
-  result = PyObject_CallMethodObjArgs(event_loop, create_future_str, NULL);
-  if (PyErr_Occurred()) {
-    ucxx_error("ucxx::python::%s, error calling `create_future` from event loop object", __func__);
+  create_future_method = PyObject_GetAttr(event_loop, create_future_str);
+  if (create_future_method != NULL) {
+    PyObject* args = PyTuple_New(0);
+    result         = PyObject_CallObject(create_future_method, args);
+    Py_DECREF(args);
+    Py_DECREF(create_future_method);
+    if (PyErr_Occurred()) {
+      ucxx_error("ucxx::python::%s, error calling `create_future` from event loop object",
+                 __func__);
+      PyErr_Print();
+    }
+  } else {
+    ucxx_error("ucxx::python::%s, error getting `create_future` method from event loop object",
+               __func__);
     PyErr_Print();
   }
 
@@ -230,6 +246,7 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop, PyObject* futu
 {
   PyObject* result              = NULL;
   PyObject* set_result_callable = NULL;
+  PyObject* call_soon_method    = NULL;
 
   PyGILState_STATE state = PyGILState_Ensure();
 
@@ -246,25 +263,44 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop, PyObject* futu
     goto finish;
   }
   if (!PyCallable_Check(set_result_callable)) {
+    PyObject* future_repr = PyObject_Repr(future);
+    PyObject* future_encoded =
+      future_repr ? PyUnicode_AsEncodedString(future_repr, "utf-8", "strict") : NULL;
+    PyObject* set_result_encoded = PyUnicode_AsEncodedString(set_result_str, "utf-8", "strict");
     PyErr_Format(PyExc_RuntimeError,
                  "%s.%s is not callable.",
-                 PyUnicode_1BYTE_DATA(future),
-                 PyUnicode_1BYTE_DATA(set_result_str));
+                 future_encoded ? PyBytes_AsString(future_encoded) : "<unknown>",
+                 set_result_encoded ? PyBytes_AsString(set_result_encoded) : "<unknown>");
+    Py_XDECREF(future_repr);
+    Py_XDECREF(future_encoded);
+    Py_XDECREF(set_result_encoded);
     goto finish;
   }
 
-  result = PyObject_CallMethodObjArgs(
-    event_loop, call_soon_threadsafe_str, set_result_callable, value, NULL);
-  if (PyErr_Occurred()) {
+  call_soon_method = PyObject_GetAttr(event_loop, call_soon_threadsafe_str);
+  if (call_soon_method != NULL) {
+    PyObject* args = PyTuple_Pack(2, set_result_callable, value);
+    result         = PyObject_CallObject(call_soon_method, args);
+    Py_DECREF(args);
+    Py_DECREF(call_soon_method);
+    if (PyErr_Occurred()) {
+      ucxx_error(
+        "ucxx::python::%s, error calling `call_soon_threadsafe` from event loop object to set "
+        "future "
+        "result",
+        __func__);
+      PyErr_Print();
+    }
+  } else {
     ucxx_error(
-      "ucxx::python::%s, error calling `call_soon_threadsafe` from event loop object to set future "
-      "result",
+      "ucxx::python::%s, error getting `call_soon_threadsafe` method from event loop object",
       __func__);
     PyErr_Print();
   }
 
 finish:
   Py_XDECREF(set_result_callable);
+  Py_XDECREF(call_soon_method);
   PyGILState_Release(state);
   return result;
 }
@@ -279,6 +315,7 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
   PyObject* message_object         = NULL;
   PyObject* message_tuple          = NULL;
   PyObject* formed_exception       = NULL;
+  PyObject* call_soon_method       = NULL;
 
   PyGILState_STATE state = PyGILState_Ensure();
 
@@ -296,10 +333,18 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
     goto finish;
   }
   if (!PyCallable_Check(set_exception_callable)) {
+    PyObject* future_repr = PyObject_Repr(future);
+    PyObject* future_encoded =
+      future_repr ? PyUnicode_AsEncodedString(future_repr, "utf-8", "strict") : NULL;
+    PyObject* set_exception_encoded =
+      PyUnicode_AsEncodedString(set_exception_str, "utf-8", "strict");
     PyErr_Format(PyExc_RuntimeError,
                  "%s.%s is not callable.",
-                 PyUnicode_1BYTE_DATA(future),
-                 PyUnicode_1BYTE_DATA(set_exception_str));
+                 future_encoded ? PyBytes_AsString(future_encoded) : "<unknown>",
+                 set_exception_encoded ? PyBytes_AsString(set_exception_encoded) : "<unknown>");
+    Py_XDECREF(future_repr);
+    Py_XDECREF(future_encoded);
+    Py_XDECREF(set_exception_encoded);
     goto finish;
   }
 
@@ -310,12 +355,23 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
   formed_exception = PyObject_Call(exception, message_tuple, NULL);
   if (formed_exception == NULL) goto err;
 
-  result = PyObject_CallMethodObjArgs(
-    event_loop, call_soon_threadsafe_str, set_exception_callable, formed_exception, NULL);
-  if (PyErr_Occurred()) {
+  call_soon_method = PyObject_GetAttr(event_loop, call_soon_threadsafe_str);
+  if (call_soon_method != NULL) {
+    PyObject* args = PyTuple_Pack(2, set_exception_callable, formed_exception);
+    result         = PyObject_CallObject(call_soon_method, args);
+    Py_DECREF(args);
+    Py_DECREF(call_soon_method);
+    if (PyErr_Occurred()) {
+      ucxx_error(
+        "ucxx::python::%s, Error calling `call_soon_threadsafe` from event loop object to set "
+        "future "
+        "exception",
+        __func__);
+      PyErr_Print();
+    }
+  } else {
     ucxx_error(
-      "ucxx::python::%s, Error calling `call_soon_threadsafe` from event loop object to set future "
-      "exception",
+      "ucxx::python::%s, Error getting `call_soon_threadsafe` method from event loop object",
       __func__);
     PyErr_Print();
   }
@@ -329,6 +385,7 @@ finish:
   Py_XDECREF(message_tuple);
   Py_XDECREF(formed_exception);
   Py_XDECREF(set_exception_callable);
+  Py_XDECREF(call_soon_method);
   PyGILState_Release(state);
   return result;
 }
