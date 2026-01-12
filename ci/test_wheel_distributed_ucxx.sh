@@ -1,8 +1,10 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
+
+source ./ci/use_upstream_sabi_wheels.sh
 
 source rapids-init-pip
 
