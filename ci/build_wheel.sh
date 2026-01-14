@@ -22,11 +22,6 @@ sccache --stop-server 2>/dev/null || true
 
 rapids-logger "Building '${package_name}' wheel"
 
-# Only use --build-constraint when build isolation is enabled.
-#
-# Passing '--build-constraint' and '--no-build-isolation` together results in an error from 'pip',
-# but we want to keep environment variable PIP_CONSTRAINT set unconditionally.
-# PIP_NO_BUILD_ISOLATION=0 means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
 RAPIDS_PIP_WHEEL_ARGS=(
   -w dist
   -v
