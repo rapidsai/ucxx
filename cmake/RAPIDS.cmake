@@ -26,7 +26,7 @@ endif()
 # Allow users to control which branch is fetched
 if(NOT rapids-cmake-branch)
   # Define a default branch if the user doesn't set one
-  set(rapids-cmake-branch "main")
+  set(rapids-cmake-branch "release/${rapids-cmake-version}")
 endif()
 
 # Allow users to control the exact URL passed to FetchContent
