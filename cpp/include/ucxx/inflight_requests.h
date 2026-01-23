@@ -116,14 +116,11 @@ class InflightRequests {
    *
    * Remove the reference to a specific request from the internal container. This should
    * be called when a request has completed and the `InflightRequests` owner does not need
-   * to keep track of it anymore. The raw pointer to a `ucxx::Request` is passed here as
-   * opposed to the usual `std::shared_ptr<ucxx::Request>` used elsewhere, this is because
-   * the raw pointer address is used as key to the requests reference, and this is called
-   * called from the object's destructor.
+   * to keep track of it anymore.
    *
-   * @param[in] request raw pointer to the request
+   * @param[in] request shared pointer to the request
    */
-  void remove(const Request* const request);
+  void remove(std::shared_ptr<Request> request);
 
   /**
    * @brief Issue cancelation of all inflight requests and clear the internal container.

@@ -43,7 +43,7 @@ void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
   }
 }
 
-void InflightRequests::remove(const Request* const request)
+void InflightRequests::remove(std::shared_ptr<Request> request)
 {
   do {
     std::scoped_lock localLock{_mutex};
@@ -62,10 +62,7 @@ void InflightRequests::remove(const Request* const request)
     if (result == 0) {
       return;
     } else if (result == -1) {
-      // Get a shared_ptr from the raw pointer using shared_from_this()
-      auto requestPtr =
-        std::dynamic_pointer_cast<Request>(const_cast<Request*>(request)->shared_from_this());
-      auto search = _trackedRequests->_inflight.find(requestPtr);
+      auto search = _trackedRequests->_inflight.find(request);
       decltype(search->second) tmpRequest;
       if (search != _trackedRequests->_inflight.end()) {
         /**
