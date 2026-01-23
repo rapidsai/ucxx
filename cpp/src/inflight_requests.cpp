@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -24,7 +24,7 @@ void InflightRequests::insert(std::shared_ptr<Request> request)
   std::scoped_lock localLock{_mutex};
   std::lock_guard<std::mutex> lock(_trackedRequests->_mutex);
 
-  _trackedRequests->_inflight.insert({request.get(), request});
+  _trackedRequests->_inflight.insert({request, request});
 }
 
 void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
@@ -62,7 +62,10 @@ void InflightRequests::remove(const Request* const request)
     if (result == 0) {
       return;
     } else if (result == -1) {
-      auto search = _trackedRequests->_inflight.find(request);
+      // Get a shared_ptr from the raw pointer using shared_from_this()
+      auto requestPtr =
+        std::dynamic_pointer_cast<Request>(const_cast<Request*>(request)->shared_from_this());
+      auto search = _trackedRequests->_inflight.find(requestPtr);
       decltype(search->second) tmpRequest;
       if (search != _trackedRequests->_inflight.end()) {
         /**

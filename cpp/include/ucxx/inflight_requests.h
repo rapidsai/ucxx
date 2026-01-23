@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -16,10 +16,12 @@ class Request;
 /**
  * @brief An inflight request map.
  *
- * A map of inflight requests, where keys are a unique identifier of the request and
- * value is the reference-counted `ucxx::Request`.
+ * A map of inflight requests, where keys are a shared pointer to the request and
+ * value is the reference-counted `ucxx::Request`, using owner-based comparison.
  */
-typedef std::map<const Request* const, std::shared_ptr<Request>> InflightRequestsMap;
+typedef std::
+  map<std::shared_ptr<Request>, std::shared_ptr<Request>, std::owner_less<std::shared_ptr<Request>>>
+    InflightRequestsMap;
 
 /**
  * @brief A container for the different types of tracked requests.
