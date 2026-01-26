@@ -309,12 +309,18 @@ dependencies:
         matrices:
           - matrix:
               cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - &numba_cuda_cu12 numba-cuda[cu12]>=0.22.1,<0.23.0
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
             packages:
               - &numba_cuda_cu13 numba-cuda[cu13]>=0.22.1,<0.23.0
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
+          - matrix:
+            packages:
+              - *numba_cuda
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -329,12 +335,18 @@ dependencies:
         matrices:
           - matrix:
               cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - *numba_cuda_cu12
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
             packages:
               - *numba_cuda_cu13
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
+          - matrix:
+            packages:
+              - *numba_cuda
   test_cpp:
     common:
       - output_types: conda
