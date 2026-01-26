@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 [build-system]
@@ -20,7 +20,7 @@ license = "BSD-3-Clause"
 requires-python = ">=3.10"
 dependencies = [
     "libucxx==0.48.*,>=0.0.0a0",
-    "numba-cuda[cu13]>=0.22.1,<0.23.0",
+    "numba-cuda>=0.22.1,<0.23.0",
     "numpy>=1.23,<3.0",
     "nvidia-ml-py>=12",
     "rmm==26.2.*,>=0.0.0a0",
