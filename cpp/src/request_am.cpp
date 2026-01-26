@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -347,7 +347,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
 
       {
         std::lock_guard<std::mutex> lock(amData->_mutex);
-        amData->_recvAmMessageMap.emplace(req.get(), recvAmMessage);
+        amData->_recvAmMessageMap.emplace(req, recvAmMessage);
       }
 
       return UCS_INPROGRESS;
