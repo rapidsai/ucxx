@@ -31,6 +31,3 @@ gmock:
 
 gtest:
   - ">=1.13.0"
-
-rapids_version:
-  - "26.4.*"
