@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -569,7 +569,7 @@ std::shared_ptr<Request> Worker::registerInflightRequest(std::shared_ptr<Request
   return request;
 }
 
-void Worker::removeInflightRequest(const Request* const request)
+void Worker::removeInflightRequest(std::shared_ptr<Request> request)
 {
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);

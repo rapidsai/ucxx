@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -24,7 +24,7 @@ void InflightRequests::insert(std::shared_ptr<Request> request)
   std::scoped_lock localLock{_mutex};
   std::lock_guard<std::mutex> lock(_trackedRequests->_mutex);
 
-  _trackedRequests->_inflight.insert({request.get(), request});
+  _trackedRequests->_inflight.insert({request, request});
 }
 
 void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
@@ -43,7 +43,7 @@ void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
   }
 }
 
-void InflightRequests::remove(const Request* const request)
+void InflightRequests::remove(std::shared_ptr<Request> request)
 {
   do {
     std::scoped_lock localLock{_mutex};

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <chrono>
@@ -202,8 +202,9 @@ void Request::setStatus(ucs_status_t status)
   {
     std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-    if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
-    _worker->removeInflightRequest(this);
+    auto requestPtr = std::dynamic_pointer_cast<Request>(shared_from_this());
+    if (_endpoint != nullptr) _endpoint->removeInflightRequest(requestPtr);
+    _worker->removeInflightRequest(requestPtr);
 
     ucxx_trace_req_f(_ownerString.c_str(),
                      this,
