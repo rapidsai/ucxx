@@ -36,6 +36,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 
+[project.entry-points."cmake.prefix"]
+ucxx = "ucxx"
+
 [project.optional-dependencies]
 test = [
     "cloudpickle",
@@ -79,16 +82,13 @@ provider = "scikit_build_core.metadata.regex"
 input = "ucxx/VERSION"
 regex = "(?P<value>.*)"
 
-[project.entry-points."cmake.prefix"]
-ucxx = "ucxx"
-
 [tool.pydistcheck]
 select = [
     "distro-too-large-compressed",
 ]
 
-# PyPI limit is 100 MiB, fail CI before we get too close to that
-max_allowed_size_compressed = '75M'
+# PyPI hard limit is 1GiB, but try to keep these as small as possible
+max_allowed_size_compressed = '10Mi'
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

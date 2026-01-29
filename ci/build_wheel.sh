@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -9,6 +9,8 @@ package_dir=$2
 
 source rapids-configure-sccache
 source rapids-date-string
+RAPIDS_INIT_PIP_REMOVE_NVIDIA_INDEX="true"
+export RAPIDS_INIT_PIP_REMOVE_NVIDIA_INDEX
 source rapids-init-pip
 
 export SCCACHE_S3_PREPROCESSOR_CACHE_KEY_PREFIX="${package_name}/${RAPIDS_CONDA_ARCH}/cuda${RAPIDS_CUDA_VERSION%%.*}/wheel/preprocessor-cache"
