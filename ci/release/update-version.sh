@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 ########################
@@ -114,11 +114,6 @@ function sed_runner() {
 echo "${NEXT_FULL_TAG}" > VERSION
 echo "${NEXT_RAPIDS_SHORT_TAG}.00" > RAPIDS_VERSION
 echo "${RAPIDS_BRANCH_NAME}" > RAPIDS_BRANCH
-
-# Update RAPIDS version
-for FILE in conda/recipes/*/conda_build_config.yaml; do
-  sed_runner "/^rapids_version:\$/{ n; s|.*|  - \"${NEXT_RAPIDS_SHORT_TAG_PEP440}.*\"|; }" "${FILE}"
-done
 
 DEPENDENCIES=(
   cudf
