@@ -24,7 +24,7 @@ dependencies:
 - libtool
 - make
 - ninja
-- numba-cuda>=0.24.0
+- numba-cuda>=0.22.1
 - numpy>=1.23,<3.0
 - nvidia-ml-py>=12
 - pip

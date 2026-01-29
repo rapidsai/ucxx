@@ -303,18 +303,18 @@ dependencies:
           - nvidia-ml-py>=12
       - output_types: [conda]
         packages:
-          - &numba_cuda numba-cuda>=0.24.0
+          - &numba_cuda numba-cuda>=0.22.1
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - &numba_cuda_cu12 numba-cuda[cu12]>=0.24.0
+              - &numba_cuda_cu12 numba-cuda[cu12]>=0.22.1
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - &numba_cuda_cu13 numba-cuda[cu13]>=0.24.0
+              - &numba_cuda_cu13 numba-cuda[cu13]>=0.22.1
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
