@@ -291,7 +291,7 @@ outputs:
         - cuda-cudart-dev
       run:
         - numba >=0.60.0,<0.62.0
-        - numba-cuda >=0.22.1,<0.23.0
+        - numba-cuda >=0.22.1
         - numpy >=1.23,<3.0
         # 'nvidia-ml-py' provides the 'pynvml' module
         - nvidia-ml-py>=12
@@ -426,13 +426,13 @@ outputs:
     requirements:
       host:
         - pip
-        - python >=3.10
+        - python >=3.11
         - rapids-build-backend >=0.4.0,<0.5.0
         - setuptools>=77.0.0
         - wheel
       run:
         - numba >=0.60.0,<0.62.0
-        - numba-cuda >=0.22.1,<0.23.0
+        - numba-cuda >=0.22.1
         - python
         - pyyaml >=6
         - rapids-dask-dependency ${{ rapids_version }}

@@ -276,10 +276,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.10"
-            packages:
-              - python=3.10
-          - matrix:
               py: "3.11"
             packages:
               - python=3.11
@@ -293,7 +289,7 @@ dependencies:
               - python=3.13
           - matrix:
             packages:
-              - python>=3.10,<3.14
+              - python>=3.11,<3.14
   run_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -303,18 +299,24 @@ dependencies:
           - nvidia-ml-py>=12
       - output_types: [conda]
         packages:
-          - &numba_cuda numba-cuda>=0.22.1,<0.23.0
+          - &numba_cuda numba-cuda>=0.22.1
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
-              - &numba_cuda_cu12 numba-cuda[cu12]>=0.22.1,<0.23.0
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+              - &numba_cuda_cu12 numba-cuda[cu12]>=0.22.1
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - &numba_cuda_cu13 numba-cuda[cu13]>=0.22.1
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
           - matrix:
             packages:
-              - &numba_cuda_cu13 numba-cuda[cu13]>=0.22.1,<0.23.0
+              - *numba_cuda
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -329,12 +331,18 @@ dependencies:
         matrices:
           - matrix:
               cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - *numba_cuda_cu12
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
             packages:
               - *numba_cuda_cu13
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
+          - matrix:
+            packages:
+              - *numba_cuda
   test_cpp:
     common:
       - output_types: conda
