@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <ucxx/log.h>
@@ -95,10 +95,7 @@ PyObject* create_python_future()
   future_object = get_asyncio_future_object();
   if (future_object == NULL) { goto finish; }
   if (!PyCallable_Check(future_object)) {
-    PyErr_Format(PyExc_RuntimeError,
-                 "%s.%s is not callable.",
-                 PyUnicode_1BYTE_DATA(asyncio_str),
-                 PyUnicode_1BYTE_DATA(future_str));
+    PyErr_Format(PyExc_RuntimeError, "%U.%U is not callable.", asyncio_str, future_str);
     goto finish;
   }
 
@@ -246,10 +243,7 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop, PyObject* futu
     goto finish;
   }
   if (!PyCallable_Check(set_result_callable)) {
-    PyErr_Format(PyExc_RuntimeError,
-                 "%s.%s is not callable.",
-                 PyUnicode_1BYTE_DATA(future),
-                 PyUnicode_1BYTE_DATA(set_result_str));
+    PyErr_Format(PyExc_RuntimeError, "%R.%U is not callable.", future, set_result_str);
     goto finish;
   }
 
@@ -296,10 +290,7 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
     goto finish;
   }
   if (!PyCallable_Check(set_exception_callable)) {
-    PyErr_Format(PyExc_RuntimeError,
-                 "%s.%s is not callable.",
-                 PyUnicode_1BYTE_DATA(future),
-                 PyUnicode_1BYTE_DATA(set_exception_str));
+    PyErr_Format(PyExc_RuntimeError, "%R.%U is not callable.", future, set_exception_str);
     goto finish;
   }
 
