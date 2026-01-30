@@ -54,6 +54,33 @@ repos:
               args:
                 - --fix
                 - --rapids-version-file=RAPIDS_VERSION
+            - id: verify-hardcoded-version
+              exclude: |
+                (?x)
+                  devcontainer[.]json$|
+                  dependencies[.]yaml$|
+                  ^[.]github/workflows/|
+                  [.]md$|
+                  pom[.]xml$|
+                  ^[.]pre-commit-config[.]yaml$|
+                  [.]rst$|
+                  ^conda/environments/|
+                  [.](png)$
+            - id: verify-hardcoded-version
+              name: verify-hardcoded-version-rapids
+              args: [--fix, --version-file=RAPIDS_VERSION]
+              exclude: |
+                (?x)
+                  devcontainer[.]json$|
+                  dependencies[.]yaml$|
+                  ^[.]github/workflows/|
+                  [.]md$|
+                  pom[.]xml$|
+                  ^[.]pre-commit-config[.]yaml$|
+                  [.]rst$|
+                  ^conda/environments/|
+                  [.](png)$|
+                  ^RAPIDS_BRANCH$
             - id: verify-pyproject-license
               # ignore the top-level pyproject.toml, which doesn't
               # have or need a [project] table
