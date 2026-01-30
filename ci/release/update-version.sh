@@ -148,13 +148,6 @@ for FILE in python/*/pyproject.toml; do
   done
 done
 
-# Update cmake/RAPIDS.cmake with context-aware branch references
-if [[ "${RUN_CONTEXT}" == "main" ]]; then
-    sed_runner "s|\"release/\${rapids-cmake-version}\"|\"main\"|g" cmake/RAPIDS.cmake
-elif [[ "${RUN_CONTEXT}" == "release" ]]; then
-    sed_runner "s|\"main\"|\"release/\${rapids-cmake-version}\"|g" cmake/RAPIDS.cmake
-fi
-
 # Documentation references - context-aware
 if [[ "${RUN_CONTEXT}" == "main" ]]; then
     # In main context, keep documentation links on main (no changes needed)
