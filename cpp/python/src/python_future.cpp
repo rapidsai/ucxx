@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -24,6 +24,7 @@ Future::Future(PyObject* asyncioEventLoop, std::shared_ptr<::ucxx::Notifier> not
     _handle{asyncioEventLoop == nullptr ? create_python_future()
                                         : create_python_future_with_event_loop(asyncioEventLoop)}
 {
+  Py_XINCREF(_asyncioEventLoop);
 }
 
 std::shared_ptr<::ucxx::Future> createFuture(std::shared_ptr<::ucxx::Notifier> notifier)
@@ -41,10 +42,11 @@ std::shared_ptr<::ucxx::Future> createFutureWithEventLoop(
 
 Future::~Future()
 {
-  // TODO: check it is truly safe to require the GIL here. Segfaults can occur
-  // if `Py_XDECREF` is called but the thread doesn't currently own the GIL.
+  // Acquire GIL before decrementing reference counts. Segfaults can occur
+  // if `Py_XDECREF` is called without the GIL.
   PyGILState_STATE state = PyGILState_Ensure();
   Py_XDECREF(_handle);
+  Py_XDECREF(_asyncioEventLoop);
   PyGILState_Release(state);
 }
 
