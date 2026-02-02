@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <ucxx/buffer.h>
@@ -43,7 +43,7 @@ void RecvAmMessage::callback(void* request, ucs_status_t status)
                  _request->callback(request, status);
                  {
                    std::lock_guard<std::mutex> lock(_amData->_mutex);
-                   _amData->_recvAmMessageMap.erase(_request.get());
+                   _amData->_recvAmMessageMap.erase(_request);
                  }
                },
                [](auto) { throw std::runtime_error("Unreachable"); },

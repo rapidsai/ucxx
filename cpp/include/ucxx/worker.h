@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -663,14 +663,11 @@ class Worker : public Component {
    *
    * Remove the reference to a specific request from the internal container. This should
    * be called when a request has completed and the `ucxx::Worker` does not need to keep
-   * track of it anymore. The raw pointer to a `ucxx::Request` is passed here as opposed
-   * to the usual `std::shared_ptr<ucxx::Request>` used elsewhere, this is because the
-   * raw pointer address is used as key to the requests reference, and this is called
-   * from the object's destructor.
+   * track of it anymore.
    *
-   * @param[in] request raw pointer to the request
+   * @param[in] request shared pointer to the request
    */
-  void removeInflightRequest(const Request* const request);
+  void removeInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Check for uncaught tag messages.

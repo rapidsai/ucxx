@@ -1,8 +1,9 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -86,7 +87,10 @@ class RecvAmMessage {
 };
 
 typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAm>>> AmPoolType;
-typedef std::unordered_map<RequestAm*, std::shared_ptr<RecvAmMessage>> RecvAmMessageMapType;
+typedef std::map<std::shared_ptr<RequestAm>,
+                 std::shared_ptr<RecvAmMessage>,
+                 std::owner_less<std::shared_ptr<RequestAm>>>
+  RecvAmMessageMapType;
 
 typedef std::unordered_map<AmReceiverCallbackIdType, AmReceiverCallbackType>
   AmReceiverCallbackMapType;
