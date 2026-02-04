@@ -2,110 +2,111 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 repos:
-      - repo: https://github.com/pre-commit/pre-commit-hooks
-        rev: v5.0.0
-        hooks:
-              - id: trailing-whitespace
-              - id: end-of-file-fixer
-      - repo: https://github.com/astral-sh/ruff-pre-commit
-        rev: v0.14.3
-        hooks:
-              - id: ruff-check
-                args: [--fix]
-              - id: ruff-format
-      - repo: https://github.com/MarcoGorelli/cython-lint
-        rev: v0.15.0
-        hooks:
-              - id: cython-lint
-      - repo: https://github.com/pre-commit/mirrors-clang-format
-        rev: v20.1.4
-        hooks:
-              - id: clang-format
-                files: \.(h|cpp)$
-                types_or: [file]
-                args: ['-fallback-style=none', '-style=file', '-i']
-      - repo: https://github.com/cpplint/cpplint
-        rev: 2.0.0
-        hooks:
-              - id: cpplint
-                name: cpplint
-                # description: Check C++ code style using cpplint.py.
-                # entry: bash ./tools/codestyle/cpplint_pre_commit.hook
-                # language: system
-                files: \.(h|cpp)$
-                # exclude: path/to/myfile.h
-      - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v1.2.1
-        hooks:
-            - id: verify-copyright
-              args: [--fix, --spdx, --spdx-license-identifier=BSD-3-Clause]
-              files: |
-                (?x)
-                  [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|rs|java)$|
-                  CMakeLists[.]txt$|
-                  CMakeLists_standalone[.]txt$|
-                  meta[.]yaml$|
-                  pyproject[.]toml$|
-                  setup[.]cfg$|
-                  dependencies[.]yaml$|
-                  ^[.]pre-commit-config[.]yaml$|
-                  recipe[.]yaml$
-            - id: verify-alpha-spec
-              args:
-                - --fix
-                - --rapids-version-file=RAPIDS_VERSION
-      - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.20.0
-        hooks:
-            - id: rapids-dependency-file-generator
-              args: ["--clean", "--warn-all", "--strict"]
-      - repo: local
-        hooks:
-            - id: cmake-format
-              name: cmake-format
-              entry: ./cmake/scripts/run-cmake-format.sh cmake-format
-              language: python
-              types: [cmake]
-              # Note that pre-commit autoupdate does not update the versions
-              # of dependencies, so we'll have to update this manually.
-              additional_dependencies:
-                - cmakelang==0.6.13
-              verbose: true
-              require_serial: true
-            - id: cmake-lint
-              name: cmake-lint
-              entry: ./cmake/scripts/run-cmake-format.sh cmake-lint
-              language: python
-              types: [cmake]
-              # Note that pre-commit autoupdate does not update the versions
-              # of dependencies, so we'll have to update this manually.
-              additional_dependencies:
-                - cmakelang==0.6.13
-              verbose: true
-              require_serial: true
-            - id: doxygen-check
-              name: doxygen-check
-              entry: ./ci/checks/doxygen.sh
-              files: ^cpp/include/
-              types_or: [file]
-              language: system
-              pass_filenames: false
-              verbose: true
-      - repo: https://github.com/codespell-project/codespell
-        rev: v2.2.2
-        hooks:
-            - id: codespell
-              additional_dependencies: [tomli]
-              args: ["--toml", "pyproject.toml"]
-              exclude: |
-                (?x)^(
-                  .*test.*|
-                  ^CHANGELOG.md$
-                )
-      - repo: https://github.com/shellcheck-py/shellcheck-py
-        rev: v0.10.0.1
-        hooks:
-          - id: shellcheck
-
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.3
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/MarcoGorelli/cython-lint
+    rev: v0.15.0
+    hooks:
+      - id: cython-lint
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v20.1.4
+    hooks:
+      - id: clang-format
+        files: \.(h|cpp)$
+        types_or: [file]
+        args: ['-fallback-style=none', '-style=file', '-i']
+  - repo: https://github.com/cpplint/cpplint
+    rev: 2.0.0
+    hooks:
+      - id: cpplint
+        name: cpplint
+        # description: Check C++ code style using cpplint.py.
+        # entry: bash ./tools/codestyle/cpplint_pre_commit.hook
+        # language: system
+        files: \.(h|cpp)$
+        # exclude: path/to/myfile.h
+  - repo: https://github.com/rapidsai/pre-commit-hooks
+    rev: v1.2.1
+    hooks:
+      - id: verify-copyright
+        args: [--fix, --spdx, --spdx-license-identifier=BSD-3-Clause]
+        files: |
+          (?x)
+            [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|rs|java)$|
+            CMakeLists[.]txt$|
+            CMakeLists_standalone[.]txt$|
+            meta[.]yaml$|
+            pyproject[.]toml$|
+            setup[.]cfg$|
+            dependencies[.]yaml$|
+            ^[.]pre-commit-config[.]yaml$|
+            recipe[.]yaml$
+      - id: verify-alpha-spec
+        args:
+          - --fix
+          - --mode
+          - release
+          - --rapids-version-file=RAPIDS_VERSION
+  - repo: https://github.com/rapidsai/dependency-file-generator
+    rev: v1.20.0
+    hooks:
+      - id: rapids-dependency-file-generator
+        args: ["--clean", "--warn-all", "--strict"]
+  - repo: local
+    hooks:
+      - id: cmake-format
+        name: cmake-format
+        entry: ./cmake/scripts/run-cmake-format.sh cmake-format
+        language: python
+        types: [cmake]
+        # Note that pre-commit autoupdate does not update the versions
+        # of dependencies, so we'll have to update this manually.
+        additional_dependencies:
+          - cmakelang==0.6.13
+        verbose: true
+        require_serial: true
+      - id: cmake-lint
+        name: cmake-lint
+        entry: ./cmake/scripts/run-cmake-format.sh cmake-lint
+        language: python
+        types: [cmake]
+        # Note that pre-commit autoupdate does not update the versions
+        # of dependencies, so we'll have to update this manually.
+        additional_dependencies:
+          - cmakelang==0.6.13
+        verbose: true
+        require_serial: true
+      - id: doxygen-check
+        name: doxygen-check
+        entry: ./ci/checks/doxygen.sh
+        files: ^cpp/include/
+        types_or: [file]
+        language: system
+        pass_filenames: false
+        verbose: true
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.2
+    hooks:
+      - id: codespell
+        additional_dependencies: [tomli]
+        args: ["--toml", "pyproject.toml"]
+        exclude: |
+          (?x)^(
+            .*test.*|
+            ^CHANGELOG.md$
+          )
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
 default_language_version:
-      python: python3
+  python: python3
