@@ -347,8 +347,9 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - gdb
           - *cmake_ver
+          - gdb  # Used for timeout_with_stack.py
+          - psutil  # Used for timeout_with_stack.py
   test_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -360,7 +361,8 @@ dependencies:
           - rapids-dask-dependency==26.4.*,>=0.0.0a0
       - output_types: conda
         packages:
-          - gdb
+          - gdb  # Used for timeout_with_stack.py
+          - psutil  # Used for timeout_with_stack.py
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -370,7 +372,8 @@ dependencies:
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
       - output_types: conda
         packages:
-          - gdb
+          - gdb  # Used for timeout_with_stack.py
+          - psutil  # Used for timeout_with_stack.py
   depends_on_cupy:
     common:
       - output_types: conda
