@@ -347,12 +347,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
+          - gdb
           - *cmake_ver
   test_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
+          - gdb
           - pytest<9.0.0
           - pytest-asyncio>=1.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
@@ -361,6 +363,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          - gdb
           - *numpy
           - pytest<9.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
