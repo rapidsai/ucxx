@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
+
+TIMEOUT_TOOL_PATH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/timeout_with_stack.py
 
 source "$(dirname "$0")/test_common.sh"
 
@@ -43,7 +45,7 @@ else
 fi
 
 run_cpp_tests() {
-  CMD_LINE="timeout 10m ${GTESTS_PATH}/UCXX_TEST"
+  CMD_LINE="python ${TIMEOUT_TOOL_PATH} $((10*60)) ${GTESTS_PATH}/UCXX_TEST"
 
   log_command "${CMD_LINE}"
   UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}
@@ -63,7 +65,7 @@ run_cpp_example() {
     return 0
   fi
 
-  CMD_LINE="timeout 1m ${EXAMPLES_PATH}/ucxx_example_basic -P ${PROGRESS_MODE} -p ${SERVER_PORT}"
+  CMD_LINE="python ${TIMEOUT_TOOL_PATH} --enable-python 60 ${EXAMPLES_PATH}/ucxx_example_basic -P ${PROGRESS_MODE} -p ${SERVER_PORT}"
 
   log_command "${CMD_LINE}"
   UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}

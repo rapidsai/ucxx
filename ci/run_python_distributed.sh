@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
+
+TIMEOUT_TOOL_PATH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/timeout_with_stack.py
 
 source "$(dirname "$0")/test_common.sh"
 
@@ -48,10 +50,10 @@ run_distributed_ucxx_tests() {
   ENABLE_DELAYED_SUBMISSION=$2
   ENABLE_PYTHON_FUTURE=$3
 
-  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/"
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((10*60)) python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/"
 
   log_command "${CMD_LINE}"
-  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/
+  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python "${TIMEOUT_TOOL_PATH}" --enable-python $((10*60)) python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/
 }
 
 run_distributed_ucxx_tests_internal() {
@@ -61,10 +63,10 @@ run_distributed_ucxx_tests_internal() {
   ENABLE_DELAYED_SUBMISSION=$2
   ENABLE_PYTHON_FUTURE=$3
 
-  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/"
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((10*60)) python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/"
 
   log_command "${CMD_LINE}"
-  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/
+  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python "${TIMEOUT_TOOL_PATH}" --enable-python $((10*60)) python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/
 }
 
 # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
