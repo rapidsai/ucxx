@@ -354,19 +354,23 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cloudpickle
-          - gdb
           - pytest<9.0.0
           - pytest-asyncio>=1.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
           - rapids-dask-dependency==26.4.*,>=0.0.0a0
+      - output_types: conda
+        packages:
+          - gdb
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - gdb
           - *numpy
           - pytest<9.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
+      - output_types: conda
+        packages:
+          - gdb
   depends_on_cupy:
     common:
       - output_types: conda
