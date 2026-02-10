@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import sys
 
 import numpy as np
 import pytest
@@ -38,6 +39,10 @@ async def client_node(port):
     # assert isinstance(ep.ucx_info(), str)
 
 
+@pytest.mark.skipif(
+    sys.version_info >= (3, 13, 12),
+    reason="Test hangs in Python 3.13.12+: https://github.com/rapidsai/ucxx/issues/586",
+)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("num_servers", [1, 2, 4])
 @pytest.mark.parametrize("num_clients", [1, 10, 50, 100])
