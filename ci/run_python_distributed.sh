@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -9,6 +9,13 @@ source "$(dirname "$0")/test_common.sh"
 
 # Support invoking run_pytests.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
+
+# Check if Python version >= 3.13.12 (has asyncio bug)
+# Returns 0 if version >= 3.13.12, 1 otherwise
+is_python_313_12_or_higher() {
+  python -c "import sys; exit(0 if sys.version_info >= (3, 13, 12) else 1)"
+  return $?
+}
 
 install_distributed_dev_mode() {
   # Running Distributed tests which access its internals requires installing it in
@@ -47,11 +54,16 @@ run_distributed_ucxx_tests() {
   PROGRESS_MODE=$1
   ENABLE_DELAYED_SUBMISSION=$2
   ENABLE_PYTHON_FUTURE=$3
+  SKIP=$4
 
   CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/"
 
-  log_command "${CMD_LINE}"
-  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/
+  if [ "$SKIP" -ne 0 ]; then
+    echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
+  else
+    log_command "${CMD_LINE}"
+    UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/
+  fi
 }
 
 run_distributed_ucxx_tests_internal() {
@@ -60,27 +72,40 @@ run_distributed_ucxx_tests_internal() {
   PROGRESS_MODE=$1
   ENABLE_DELAYED_SUBMISSION=$2
   ENABLE_PYTHON_FUTURE=$3
+  SKIP=$4
 
   CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/"
 
-  log_command "${CMD_LINE}"
-  UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/
+  if [ "$SKIP" -ne 0 ]; then
+    echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
+  else
+    log_command "${CMD_LINE}"
+    UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 10m python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests_internal/
+  fi
 }
 
-# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests      blocking        0                           0
-run_distributed_ucxx_tests      polling         0                           0
-run_distributed_ucxx_tests      thread          0                           0
-run_distributed_ucxx_tests      thread          0                           1
-run_distributed_ucxx_tests      thread          1                           0
-run_distributed_ucxx_tests      thread          1                           1
+# Determine if we should skip Python futures tests (Python 3.13.12+ has asyncio bug)
+# See: https://github.com/rapidsai/ucxx/issues/586
+if is_python_313_12_or_higher; then
+  SKIP_PYTHON_FUTURES=1
+else
+  SKIP_PYTHON_FUTURES=0
+fi
+
+# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE    SKIP
+run_distributed_ucxx_tests      blocking        0                           0                       0
+run_distributed_ucxx_tests      polling         0                           0                       0
+run_distributed_ucxx_tests      thread          0                           0                       0
+run_distributed_ucxx_tests      thread          0                           1                       ${SKIP_PYTHON_FUTURES}
+run_distributed_ucxx_tests      thread          1                           0                       0
+run_distributed_ucxx_tests      thread          1                           1                       ${SKIP_PYTHON_FUTURES}
 
 install_distributed_dev_mode
 
-# run_distributed_ucxx_tests_internal   PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests_internal     blocking        0                           0
-run_distributed_ucxx_tests_internal     polling         0                           0
-run_distributed_ucxx_tests_internal     thread          0                           0
-run_distributed_ucxx_tests_internal     thread          0                           1
-run_distributed_ucxx_tests_internal     thread          1                           0
-run_distributed_ucxx_tests_internal     thread          1                           1
+# run_distributed_ucxx_tests_internal   PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE    SKIP
+run_distributed_ucxx_tests_internal     blocking        0                           0                       0
+run_distributed_ucxx_tests_internal     polling         0                           0                       0
+run_distributed_ucxx_tests_internal     thread          0                           0                       0
+run_distributed_ucxx_tests_internal     thread          0                           1                       ${SKIP_PYTHON_FUTURES}
+run_distributed_ucxx_tests_internal     thread          1                           0                       0
+run_distributed_ucxx_tests_internal     thread          1                           1                       ${SKIP_PYTHON_FUTURES}
