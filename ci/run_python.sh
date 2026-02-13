@@ -10,13 +10,6 @@ source "$(dirname "$0")/test_common.sh"
 # Support invoking run_pytests.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
-# Check if Python version >= 3.13.12 (has asyncio bug)
-# Returns 0 if version >= 3.13.12, 1 otherwise
-is_python_313_12_or_higher() {
-  python -c "import sys; exit(0 if sys.version_info >= (3, 13, 12) else 1)"
-  return $?
-}
-
 run_py_tests() {
   if [ "${DISABLE_CYTHON:-0}" -eq 0 ]; then
     ARGS=("--run-cython")
@@ -85,12 +78,7 @@ run_py_tests
 log_message "Python Async Tests"
 # run_py_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP
 run_py_tests_async   thread          0                         0                    0
-# Skip Python futures tests on Python 3.13.12+ due to asyncio bug: https://github.com/rapidsai/ucxx/issues/586
-if is_python_313_12_or_higher; then
-  run_py_tests_async   thread          1                         1                    1
-else
-  run_py_tests_async   thread          1                         1                    0
-fi
+run_py_tests_async   thread          1                         1                    0
 run_py_tests_async   blocking        0                         0                    0
 
 log_message "Python Benchmarks"
