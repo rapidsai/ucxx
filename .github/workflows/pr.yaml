@@ -24,8 +24,11 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SHARED_ACTIONS_REF: 'check-nightly-success'
     steps:
+      - name: Get PR Info
+        id: get-pr-info
+        uses: nv-gha-runners/get-pr-info@main
       - name: Check if nightly CI is passing
         uses: rapidsai/shared-actions/check_nightly_success/dispatch@check-nightly-success
         with:
           repo: ${{ github.repository }}
-          target-branch: ${{ github.base_ref }}
+          target-branch: ${{ fromJSON(steps.get-pr-info.outputs.pr-info).base.ref }}
