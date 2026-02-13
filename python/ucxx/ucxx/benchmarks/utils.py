@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -19,12 +19,12 @@ logger = logging.getLogger("ucx")
 
 
 def _ensure_cuda_device(devs, rank):
-    import numba.cuda
+    from ucxx._cuda_context import ensure_cuda_context
 
     dev_id = devs[rank % len(devs)]
     os.environ["CUDA_VISIBLE_DEVICES"] = str(dev_id)
     logger.debug(f"{dev_id=}, {rank=}")
-    numba.cuda.current_context()
+    ensure_cuda_context(0)
 
 
 def get_allocator(
