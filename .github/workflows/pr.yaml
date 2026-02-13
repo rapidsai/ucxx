@@ -10,7 +10,6 @@ jobs:
   pr-builder:
     needs:
       - check-nightly-ci
-      - checks
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@main
     if: always()
