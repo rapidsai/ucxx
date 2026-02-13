@@ -319,7 +319,26 @@ dependencies:
           - pytest-asyncio>=1.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
           - rapids-dask-dependency==26.4.*,>=0.0.0a0
-          - numba-cuda>=0.22.1
+      - output_types: [conda]
+        packages:
+          - &numba_cuda_test numba-cuda>=0.22.1
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - &numba_cuda_cu12_test numba-cuda[cu12]>=0.22.1
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - &numba_cuda_cu13_test numba-cuda[cu13]>=0.22.1
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
+          - matrix:
+            packages:
+              - *numba_cuda_test
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -327,7 +346,25 @@ dependencies:
           - *numpy
           - pytest<9.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
-          - numba-cuda>=0.22.1
+      - output_types: [conda]
+        packages:
+          - *numba_cuda_test
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - *numba_cuda_cu12_test
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - *numba_cuda_cu13_test
+          - matrix:
+            packages:
+              - *numba_cuda_test
   depends_on_cupy:
     common:
       - output_types: conda
