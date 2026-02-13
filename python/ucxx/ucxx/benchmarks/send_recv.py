@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
@@ -54,10 +54,10 @@ def _get_backend_implementation(backend):
 
 def _set_cuda_device(object_type, device):
     if object_type in ["cupy", "rmm"]:
-        import numba.cuda
+        from ucxx._cuda_context import ensure_cuda_context
 
         os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
-        numba.cuda.current_context()
+        ensure_cuda_context(0)
 
 
 def server(queue, args):

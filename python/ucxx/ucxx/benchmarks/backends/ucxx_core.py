@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
@@ -17,9 +17,9 @@ WireupMessage = bytearray(b"wireup")
 
 
 def _create_cuda_context(device):
-    import numba.cuda
+    from ucxx._cuda_context import ensure_cuda_context
 
-    numba.cuda.current_context(0)
+    ensure_cuda_context(device)
 
 
 def _transfer_wireup(ep, server):

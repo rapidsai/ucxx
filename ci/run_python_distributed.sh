@@ -12,13 +12,6 @@ source "$(dirname "$0")/test_common.sh"
 # Support invoking run_pytests.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
-# Check if Python version >= 3.13.12 (has asyncio bug)
-# Returns 0 if version >= 3.13.12, 1 otherwise
-is_python_313_12_or_higher() {
-  python -c "import sys; exit(0 if sys.version_info >= (3, 13, 12) else 1)"
-  return $?
-}
-
 install_distributed_dev_mode() {
   # Running Distributed tests which access its internals requires installing it in
   # developer mode. This isn't a great solution but it's what we can currently do
@@ -86,21 +79,13 @@ run_distributed_ucxx_tests_internal() {
   fi
 }
 
-# Determine if we should skip Python futures tests (Python 3.13.12+ has asyncio bug)
-# See: https://github.com/rapidsai/ucxx/issues/586
-if is_python_313_12_or_higher; then
-  SKIP_PYTHON_FUTURES=1
-else
-  SKIP_PYTHON_FUTURES=0
-fi
-
 # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE    SKIP
 run_distributed_ucxx_tests      blocking        0                           0                       0
 run_distributed_ucxx_tests      polling         0                           0                       0
 run_distributed_ucxx_tests      thread          0                           0                       0
-run_distributed_ucxx_tests      thread          0                           1                       ${SKIP_PYTHON_FUTURES}
+run_distributed_ucxx_tests      thread          0                           1                       0
 run_distributed_ucxx_tests      thread          1                           0                       0
-run_distributed_ucxx_tests      thread          1                           1                       ${SKIP_PYTHON_FUTURES}
+run_distributed_ucxx_tests      thread          1                           1                       0
 
 install_distributed_dev_mode
 
@@ -108,6 +93,6 @@ install_distributed_dev_mode
 run_distributed_ucxx_tests_internal     blocking        0                           0                       0
 run_distributed_ucxx_tests_internal     polling         0                           0                       0
 run_distributed_ucxx_tests_internal     thread          0                           0                       0
-run_distributed_ucxx_tests_internal     thread          0                           1                       ${SKIP_PYTHON_FUTURES}
+run_distributed_ucxx_tests_internal     thread          0                           1                       0
 run_distributed_ucxx_tests_internal     thread          1                           0                       0
-run_distributed_ucxx_tests_internal     thread          1                           1                       ${SKIP_PYTHON_FUTURES}
+run_distributed_ucxx_tests_internal     thread          1                           1                       0
