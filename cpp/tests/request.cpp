@@ -283,9 +283,14 @@ TEST_P(RequestTest, ProgressAmMemoryTypePolicyStrict)
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->amSend(send.data(), send.size(), amSendParams));
   requests.push_back(_ep->amRecv());
-  waitRequests(_worker, requests, _progressWorker);
 
-  ASSERT_EQ(requests[0]->getStatus(), UCS_OK);
+  // Wait for completion without calling checkError(), since the receive request
+  // is expected to complete with UCS_ERR_UNSUPPORTED.
+  while (!requests[0]->isCompleted() || !requests[1]->isCompleted())
+    _progressWorker();
+
+  // When the receiver rejects a rendezvous transfer, UCX propagates the error to
+  // both sides, so the send may also complete with UCS_ERR_UNSUPPORTED.
   ASSERT_EQ(requests[1]->getStatus(), UCS_ERR_UNSUPPORTED);
 }
 
