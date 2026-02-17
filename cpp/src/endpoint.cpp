@@ -450,10 +450,44 @@ std::shared_ptr<Request> Endpoint::amSend(
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData)
 {
+  auto params                    = AmSendParams{};
+  params.memoryType              = memoryType;
+  params.receiverCallbackInfo    = receiverCallbackInfo;
+
+  return amSend(buffer,
+                length,
+                params,
+                enablePythonFuture,
+                callbackFunction,
+                callbackData);
+}
+
+std::shared_ptr<Request> Endpoint::amSend(const void* const buffer,
+                                          const size_t length,
+                                          const AmSendParams& params,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
     createRequestAm(endpoint,
-                    data::AmSend(buffer, length, memoryType, receiverCallbackInfo),
+                    data::AmSend(buffer, length, params),
+                    enablePythonFuture,
+                    callbackFunction,
+                    callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::amSend(const std::vector<ucp_dt_iov_t>& iov,
+                                          const AmSendParams& params,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(
+    createRequestAm(endpoint,
+                    data::AmSend(iov, params),
                     enablePythonFuture,
                     callbackFunction,
                     callbackData));
