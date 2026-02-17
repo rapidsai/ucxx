@@ -154,8 +154,8 @@ typedef uint64_t AmReceiverCallbackIdType;
  */
 class AmReceiverCallbackInfo {
  public:
-  const AmReceiverCallbackOwnerType owner;  ///< The owner name of the callback
-  const AmReceiverCallbackIdType id;        ///< The unique identifier of the callback
+  AmReceiverCallbackOwnerType owner;  ///< The owner name of the callback
+  AmReceiverCallbackIdType id;        ///< The unique identifier of the callback
 
   AmReceiverCallbackInfo() = delete;
 
