@@ -29,8 +29,14 @@ namespace data {
 class AmSend {
  public:
   const void* const _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
-  const size_t _length{0};             ///< The length of the message.
+  const size_t _length{0};             ///< Message length in bytes (contiguous datatype only).
+  const std::vector<ucp_dt_iov_t> _iov{};  ///< Segments for IOV datatype.
+  const size_t _count{0};                   ///< Element count according to selected datatype.
+  const uint32_t _flags{UCP_AM_SEND_FLAG_REPLY};  ///< UCP AM send flags.
+  const ucp_datatype_t _datatype{ucp_dt_make_contig(1)};  ///< UCP datatype.
   const ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_HOST};  ///< Memory type used on the operation
+  const AmSendMemoryTypePolicy _memoryTypePolicy{
+    AmSendMemoryTypePolicy::FallbackToHost};  ///< Receiver allocation policy.
   const std::optional<AmReceiverCallbackInfo> _receiverCallbackInfo{
     std::nullopt};  ///< Owner name and unique identifier of the receiver callback.
 
@@ -41,14 +47,21 @@ class AmSend {
    *
    * @param[in] buffer                  a raw pointer to the data to be sent.
    * @param[in] length                  the size in bytes of the message to be sent.
-   * @param[in] memoryType              the memory type of the buffer.
-   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
-                                        callback.
+   * @param[in] params                  send parameters controlling datatype/flags/policies.
    */
   explicit AmSend(const decltype(_buffer) buffer,
                   const decltype(_length) length,
-                  const decltype(_memoryType) memoryType                     = UCS_MEMORY_TYPE_HOST,
-                  const decltype(_receiverCallbackInfo) receiverCallbackInfo = std::nullopt);
+                  const AmSendParams& params = AmSendParams{});
+
+  /**
+   * @brief Constructor for Active Message-specific send data using IOV datatype.
+   *
+   * Construct an object containing Active Message-specific send data for `UCP_DATATYPE_IOV`.
+   *
+   * @param[in] iov     vector of IOV segments to send.
+   * @param[in] params  send parameters controlling datatype/flags/policies.
+   */
+  explicit AmSend(const decltype(_iov)& iov, const AmSendParams& params = AmSendParams{});
 
   AmSend() = delete;
 };

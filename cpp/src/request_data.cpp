@@ -21,13 +21,43 @@ namespace data {
 
 AmSend::AmSend(const void* const buffer,
                const size_t length,
-               const ucs_memory_type memoryType,
-               const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo)
+               const AmSendParams& params)
   : _buffer(buffer),
     _length(length),
-    _memoryType(memoryType),
-    _receiverCallbackInfo(receiverCallbackInfo)
+    _iov(),
+    _count(length),
+    _flags(params.flags),
+    _datatype(params.datatype),
+    _memoryType(params.memoryType),
+    _memoryTypePolicy(params.memoryTypePolicy),
+    _receiverCallbackInfo(params.receiverCallbackInfo)
 {
+  if (_datatype != ucp_dt_make_contig(1))
+    throw std::runtime_error("Contiguous AM send requires datatype `ucp_dt_make_contig(1)`.");
+
+  if (_buffer == nullptr && _length > 0) throw std::runtime_error("Buffer cannot be a nullptr.");
+}
+
+AmSend::AmSend(const std::vector<ucp_dt_iov_t>& iov, const AmSendParams& params)
+  : _buffer(nullptr),
+    _length(0),
+    _iov(iov),
+    _count(iov.size()),
+    _flags(params.flags),
+    _datatype(params.datatype),
+    _memoryType(params.memoryType),
+    _memoryTypePolicy(params.memoryTypePolicy),
+    _receiverCallbackInfo(params.receiverCallbackInfo)
+{
+  if (_datatype != UCP_DATATYPE_IOV)
+    throw std::runtime_error("IOV AM send requires datatype `UCP_DATATYPE_IOV`.");
+
+  if (_iov.empty()) throw std::runtime_error("IOV cannot be empty.");
+
+  for (const auto& segment : _iov) {
+    if (segment.buffer == nullptr && segment.length > 0)
+      throw std::runtime_error("IOV segment buffer cannot be nullptr when segment length is > 0.");
+  }
 }
 
 AmReceive::AmReceive() {}
