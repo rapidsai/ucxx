@@ -169,6 +169,33 @@ class AmReceiverCallbackInfo {
 };
 
 /**
+ * @brief Policy used to allocate receive buffers for Active Messages.
+ *
+ * Active Message receive allocations can be strict (error if no allocator is registered for
+ * sender-provided memory type) or permissive (fallback to host allocation).
+ */
+enum class AmSendMemoryTypePolicy {
+  FallbackToHost = 0,  ///< If no allocator exists for memory type, fallback to host memory.
+  ErrorOnUnsupported,  ///< If no allocator exists for memory type, fail with unsupported error.
+};
+
+/**
+ * @brief Parameters controlling Active Message send behavior.
+ *
+ * This object is used by the extended Active Message API to expose UCX send knobs without
+ * breaking existing callers.
+ */
+struct AmSendParams {
+  uint32_t flags{UCP_AM_SEND_FLAG_REPLY};  ///< UCP AM send flags.
+  ucp_datatype_t datatype{ucp_dt_make_contig(1)};  ///< Datatype used by `ucp_am_send_nbx`.
+  ucs_memory_type_t memoryType{UCS_MEMORY_TYPE_HOST};  ///< Sender memory type hint.
+  AmSendMemoryTypePolicy memoryTypePolicy{
+    AmSendMemoryTypePolicy::FallbackToHost};  ///< Receiver allocation policy.
+  std::optional<AmReceiverCallbackInfo> receiverCallbackInfo{
+    std::nullopt};  ///< Optional receiver callback metadata.
+};
+
+/**
  * @brief Serialized form of a remote key.
  *
  * A string type representing the serialized form of a remote key, used for transmission
