@@ -419,8 +419,9 @@ void RequestAm::request()
 {
   std::visit(
     data::dispatch{
-      [this](data::AmSend amSend) {
+      [this](const data::AmSend& amSend) {
         ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                                                     UCP_OP_ATTR_FIELD_DATATYPE |
                                                      UCP_OP_ATTR_FIELD_FLAGS |
                                                      UCP_OP_ATTR_FIELD_USER_DATA,
                                      .flags     = amSend._flags,
