@@ -224,6 +224,17 @@ class Request : public Component {
    * @return The received buffer (if applicable) or `nullptr`.
    */
   [[nodiscard]] virtual std::shared_ptr<Buffer> getRecvBuffer();
+
+  /**
+   * @brief Get the received user header.
+   *
+   * This method is used to get the user-defined header bytes for applicable derived classes
+   * (e.g., `RequestAm` receive operations), in all other cases this will return an empty
+   * string.
+   *
+   * @return The received user header (if applicable) or an empty string.
+   */
+  [[nodiscard]] virtual std::string getRecvHeader();
 };
 
 }  // namespace ucxx

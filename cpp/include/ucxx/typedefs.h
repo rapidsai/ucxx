@@ -192,7 +192,8 @@ struct AmSendParams {
   AmSendMemoryTypePolicy memoryTypePolicy{
     AmSendMemoryTypePolicy::FallbackToHost};  ///< Receiver allocation policy.
   std::optional<AmReceiverCallbackInfo> receiverCallbackInfo{
-    std::nullopt};  ///< Optional receiver callback metadata.
+    std::nullopt};           ///< Optional receiver callback metadata.
+  std::string userHeader{};  ///< Opaque user-defined header (arbitrary bytes, not necessarily text).
 };
 
 /**

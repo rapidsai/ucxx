@@ -34,6 +34,7 @@ struct AmHeader {
   ucs_memory_type_t memoryType;
   AmSendMemoryTypePolicy memoryTypePolicy;
   std::optional<AmReceiverCallbackInfo> receiverCallbackInfo;
+  std::string userHeader;  ///< Opaque user-defined header (arbitrary bytes, not necessarily text).
 
   static AmHeader deserialize(const std::string_view serialized)
   {
@@ -71,9 +72,20 @@ struct AmHeader {
       memoryTypePolicy = static_cast<AmSendMemoryTypePolicy>(serializedMemoryTypePolicy);
     }
 
+    std::string userHeader{};
+    if (offset + sizeof(size_t) <= serialized.size()) {
+      size_t userHeaderSize{0};
+      decode(&userHeaderSize, sizeof(userHeaderSize));
+      if (userHeaderSize > 0 && offset + userHeaderSize <= serialized.size()) {
+        userHeader.resize(userHeaderSize);
+        decode(userHeader.data(), userHeaderSize);
+      }
+    }
+
     return AmHeader{.memoryType           = memoryType,
                     .memoryTypePolicy     = memoryTypePolicy,
-                    .receiverCallbackInfo = receiverCallbackInfo};
+                    .receiverCallbackInfo = receiverCallbackInfo,
+                    .userHeader           = std::move(userHeader)};
   }
 
   const AmHeaderSerialized serialize() const
@@ -84,9 +96,10 @@ struct AmHeader {
     const size_t amReceiverCallbackInfoSize =
       (receiverCallbackInfo) ? sizeof(ownerSize) + ownerSize + sizeof(receiverCallbackInfo->id) : 0;
     const uint8_t serializedMemoryTypePolicy = static_cast<uint8_t>(memoryTypePolicy);
+    const size_t userHeaderSize = userHeader.size();
     const size_t totalSize =
       sizeof(memoryType) + sizeof(hasReceiverCallback) + amReceiverCallbackInfoSize +
-      sizeof(serializedMemoryTypePolicy);
+      sizeof(serializedMemoryTypePolicy) + sizeof(userHeaderSize) + userHeaderSize;
     std::string serialized(totalSize, 0);
 
     auto encode = [&offset, &serialized](void const* data, size_t bytes) {
@@ -102,6 +115,8 @@ struct AmHeader {
       encode(&receiverCallbackInfo->id, sizeof(receiverCallbackInfo->id));
     }
     encode(&serializedMemoryTypePolicy, sizeof(serializedMemoryTypePolicy));
+    encode(&userHeaderSize, sizeof(userHeaderSize));
+    if (userHeaderSize > 0) { encode(userHeader.data(), userHeaderSize); }
 
     return serialized;
   }
@@ -294,7 +309,8 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       if (amHeader.memoryTypePolicy == AmSendMemoryTypePolicy::ErrorOnUnsupported) {
         ucxx_debug("No allocator registered for memory type %u and strict policy is active",
                    amHeader.memoryType);
-        internal::RecvAmMessage recvAmMessage(amData, ep, req, nullptr, receiverCallback);
+        internal::RecvAmMessage recvAmMessage(
+          amData, ep, req, nullptr, receiverCallback, amHeader.userHeader);
         recvAmMessage.callback(nullptr, UCS_ERR_UNSUPPORTED);
         return UCS_ERR_UNSUPPORTED;
       } else {
@@ -311,7 +327,8 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     }
 
     auto recvAmMessage =
-      std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf, receiverCallback);
+      std::make_shared<internal::RecvAmMessage>(amData, ep, req, buf, receiverCallback,
+                                                amHeader.userHeader);
 
     ucp_request_param_t requestParam = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                                                         UCP_OP_ATTR_FIELD_USER_DATA |
@@ -370,7 +387,8 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   } else {
     buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
 
-    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf, receiverCallback);
+    internal::RecvAmMessage recvAmMessage(amData, ep, req, buf, receiverCallback,
+                                          amHeader.userHeader);
     if (buf == nullptr) {
       ucxx_debug("Failed to allocate %lu bytes of memory", length);
       recvAmMessage._request->setStatus(UCS_ERR_NO_MEMORY);
@@ -415,6 +433,16 @@ std::shared_ptr<Buffer> RequestAm::getRecvBuffer()
     _requestData);
 }
 
+std::string RequestAm::getRecvHeader()
+{
+  return std::visit(
+    data::dispatch{
+      [](const data::AmReceive& amReceive) { return amReceive._userHeader; },
+      [](auto) -> std::string { return {}; },
+    },
+    _requestData);
+}
+
 void RequestAm::request()
 {
   std::visit(
@@ -431,7 +459,8 @@ void RequestAm::request()
         param.cb.send   = _amSendCallback;
         AmHeader header = {.memoryType           = amSend._memoryType,
                            .memoryTypePolicy     = amSend._memoryTypePolicy,
-                           .receiverCallbackInfo = amSend._receiverCallbackInfo};
+                           .receiverCallbackInfo = amSend._receiverCallbackInfo,
+                           .userHeader           = amSend._userHeader};
         _header         = header.serialize();
         const void* sendBuffer =
           (amSend._datatype == UCP_DATATYPE_IOV)

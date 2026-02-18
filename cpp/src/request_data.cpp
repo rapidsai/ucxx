@@ -30,7 +30,8 @@ AmSend::AmSend(const void* const buffer,
     _datatype(params.datatype),
     _memoryType(params.memoryType),
     _memoryTypePolicy(params.memoryTypePolicy),
-    _receiverCallbackInfo(params.receiverCallbackInfo)
+    _receiverCallbackInfo(params.receiverCallbackInfo),
+    _userHeader(params.userHeader)
 {
   if (_datatype != ucp_dt_make_contig(1))
     throw std::runtime_error("Contiguous AM send requires datatype `ucp_dt_make_contig(1)`.");
@@ -47,7 +48,8 @@ AmSend::AmSend(const std::vector<ucp_dt_iov_t>& iov, const AmSendParams& params)
     _datatype(params.datatype),
     _memoryType(params.memoryType),
     _memoryTypePolicy(params.memoryTypePolicy),
-    _receiverCallbackInfo(params.receiverCallbackInfo)
+    _receiverCallbackInfo(params.receiverCallbackInfo),
+    _userHeader(params.userHeader)
 {
   if (_datatype != UCP_DATATYPE_IOV)
     throw std::runtime_error("IOV AM send requires datatype `UCP_DATATYPE_IOV`.");

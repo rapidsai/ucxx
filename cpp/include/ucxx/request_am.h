@@ -161,6 +161,8 @@ class RequestAm : public Request {
                                                  const ucp_am_recv_param_t* param);
 
   [[nodiscard]] std::shared_ptr<Buffer> getRecvBuffer() override;
+
+  [[nodiscard]] std::string getRecvHeader() override;
 };
 
 }  // namespace ucxx
