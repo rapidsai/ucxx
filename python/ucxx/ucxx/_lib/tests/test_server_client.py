@@ -17,9 +17,9 @@ mp = mp.get_context("spawn")
 WireupMessageSize = 10
 
 
-def _send(ep, api, message):
+def _send(ep, api, message, memory_type_policy=None):
     if api == "am":
-        return ep.am_send(message)
+        return ep.am_send(message, memory_type_policy=memory_type_policy)
     elif api == "stream":
         return ep.stream_send(message)
     else:
@@ -175,6 +175,115 @@ def _echo_client(transfer_api, msg_size, progress_mode, port):
 
     if progress_mode == "thread":
         worker.stop_progress_thread()
+
+
+def _echo_server_am_params(
+    get_queue, put_queue, msg_size, progress_mode, memory_type_policy
+):
+    """Server that echoes AM messages using the AmSendParams code path."""
+    feature_flags = (ucx_api.Feature.WAKEUP, ucx_api.Feature.AM)
+    ctx = ucx_api.UCXContext(feature_flags=feature_flags)
+    worker = ucx_api.UCXWorker(ctx)
+
+    if progress_mode == "blocking":
+        worker.init_blocking_progress_mode()
+    else:
+        worker.start_progress_thread()
+
+    ep = [None]
+
+    def _listener_handler(conn_request):
+        ep[0] = listener.create_endpoint_from_conn_request(conn_request, True)
+
+    listener = ucx_api.UCXListener.create(
+        worker=worker, port=0, cb_func=_listener_handler
+    )
+    put_queue.put(listener.port)
+
+    while ep[0] is None:
+        if progress_mode == "blocking":
+            worker.progress()
+
+    msg = Array(bytearray(msg_size))
+    requests = [ep[0].am_recv()]
+    wait_requests(worker, progress_mode, requests)
+    msg = Array(requests[0].recv_buffer)
+    requests = [
+        ep[0].am_send(msg, memory_type_policy=memory_type_policy)
+    ]
+    wait_requests(worker, progress_mode, requests)
+
+    while True:
+        try:
+            get_queue.get(block=True, timeout=0.1)
+        except QueueIsEmpty:
+            continue
+        else:
+            break
+
+    if progress_mode == "thread":
+        worker.stop_progress_thread()
+
+
+def _echo_client_am_params(msg_size, progress_mode, memory_type_policy, port):
+    """Client that sends and receives AM messages using AmSendParams."""
+    feature_flags = (ucx_api.Feature.WAKEUP, ucx_api.Feature.AM)
+    ctx = ucx_api.UCXContext(feature_flags=feature_flags)
+    worker = ucx_api.UCXWorker(ctx)
+
+    if progress_mode == "blocking":
+        worker.init_blocking_progress_mode()
+    else:
+        worker.start_progress_thread()
+
+    ep = ucx_api.UCXEndpoint.create(
+        worker, "127.0.0.1", port, endpoint_error_handling=True,
+    )
+
+    if progress_mode == "blocking":
+        worker.progress()
+
+    send_msg = bytes(os.urandom(msg_size))
+
+    requests = [
+        ep.am_send(Array(send_msg), memory_type_policy=memory_type_policy),
+        ep.am_recv(),
+    ]
+    wait_requests(worker, progress_mode, requests)
+
+    recv_msg = requests[1].recv_buffer
+    assert bytes(recv_msg) == send_msg
+
+    if progress_mode == "thread":
+        worker.stop_progress_thread()
+
+
+@pytest.mark.parametrize(
+    "memory_type_policy",
+    [None, ucx_api.PythonAmSendMemoryTypePolicy.FallbackToHost],
+)
+@pytest.mark.parametrize("msg_size", [10, 2**24])
+@pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
+def test_server_client_am_params(msg_size, progress_mode, memory_type_policy):
+    put_queue, get_queue = mp.Queue(), mp.Queue()
+    server = mp.Process(
+        target=_echo_server_am_params,
+        args=(
+            put_queue, get_queue, msg_size, progress_mode, memory_type_policy
+        ),
+    )
+    server.start()
+    port = get_queue.get()
+    client = mp.Process(
+        target=_echo_client_am_params,
+        args=(msg_size, progress_mode, memory_type_policy, port),
+    )
+    client.start()
+    client.join(timeout=60)
+    terminate_process(client)
+    put_queue.put("Finished")
+    server.join(timeout=10)
+    terminate_process(server)
 
 
 @pytest.mark.parametrize("transfer_api", ["am", "stream", "tag"])
