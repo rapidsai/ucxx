@@ -210,6 +210,47 @@ class Endpoint:
             if self._ep is None:
                 raise e
 
+    async def am_send_iov(self, buffers, memory_type_policy=None):
+        """Send multiple buffers as a single IOV active message.
+
+        Parameters
+        ----------
+        buffers: list
+            List of buffers exposing the buffer protocol or array/cuda
+            interface. All buffers must have the same memory type (all host
+            or all CUDA).
+        memory_type_policy: PythonAmSendMemoryTypePolicy, optional
+            Policy controlling receiver-side allocation when no allocator is
+            registered for the sender's memory type. Default ``None`` uses
+            ``FallbackToHost``.
+        """
+        self._ep.raise_on_error()
+        if self.closed:
+            raise UCXCloseError("Endpoint closed")
+        if not (isinstance(buffers, list) or isinstance(buffers, tuple)):
+            raise ValueError("The `buffers` argument must be a `list` or `tuple`")
+        arrays = [Array(b) if not isinstance(b, Array) else b for b in buffers]
+
+        if logger.isEnabledFor(logging.DEBUG):
+            log = "[AM Send IOV #%03d] ep: 0x%x, segments: %d, nbytes: %s" % (
+                self._send_count,
+                self.uid,
+                len(arrays),
+                tuple([b.nbytes for b in arrays]),
+            )
+            logger.debug(log)
+
+        self._send_count += 1
+
+        try:
+            request = self._ep.am_send_iov(
+                arrays, memory_type_policy=memory_type_policy
+            )
+            return await request.wait()
+        except UCXCanceled as e:
+            if self._ep is None:
+                raise e
+
     # @ucx_api.nvtx_annotate("UCXPY_SEND", color="green", domain="ucxpy")
     async def send(self, buffer, tag=None, force_tag=False):
         """Send `buffer` to connected peer.

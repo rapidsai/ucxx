@@ -286,6 +286,111 @@ def test_server_client_am_params(msg_size, progress_mode, memory_type_policy):
     terminate_process(server)
 
 
+def _echo_server_am_iov(get_queue, put_queue, msg_size, progress_mode):
+    """Server that receives an IOV AM message and echoes it back."""
+    feature_flags = (ucx_api.Feature.WAKEUP, ucx_api.Feature.AM)
+    ctx = ucx_api.UCXContext(feature_flags=feature_flags)
+    worker = ucx_api.UCXWorker(ctx)
+
+    if progress_mode == "blocking":
+        worker.init_blocking_progress_mode()
+    else:
+        worker.start_progress_thread()
+
+    ep = [None]
+
+    def _listener_handler(conn_request):
+        ep[0] = listener.create_endpoint_from_conn_request(conn_request, True)
+
+    listener = ucx_api.UCXListener.create(
+        worker=worker, port=0, cb_func=_listener_handler
+    )
+    put_queue.put(listener.port)
+
+    while ep[0] is None:
+        if progress_mode == "blocking":
+            worker.progress()
+
+    # Receive the IOV message (arrives as a single contiguous buffer)
+    requests = [ep[0].am_recv()]
+    wait_requests(worker, progress_mode, requests)
+    msg = Array(requests[0].recv_buffer)
+    # Echo back as a regular contiguous send
+    requests = [ep[0].am_send(msg)]
+    wait_requests(worker, progress_mode, requests)
+
+    while True:
+        try:
+            get_queue.get(block=True, timeout=0.1)
+        except QueueIsEmpty:
+            continue
+        else:
+            break
+
+    if progress_mode == "thread":
+        worker.stop_progress_thread()
+
+
+def _echo_client_am_iov(msg_size, progress_mode, port):
+    """Client that sends an IOV AM message and receives the echo."""
+    feature_flags = (ucx_api.Feature.WAKEUP, ucx_api.Feature.AM)
+    ctx = ucx_api.UCXContext(feature_flags=feature_flags)
+    worker = ucx_api.UCXWorker(ctx)
+
+    if progress_mode == "blocking":
+        worker.init_blocking_progress_mode()
+    else:
+        worker.start_progress_thread()
+
+    ep = ucx_api.UCXEndpoint.create(
+        worker, "127.0.0.1", port, endpoint_error_handling=True,
+    )
+
+    if progress_mode == "blocking":
+        worker.progress()
+
+    send_msg = bytes(os.urandom(msg_size))
+
+    # Split the message into two segments for IOV send
+    mid = msg_size // 2
+    seg1 = Array(send_msg[:mid])
+    seg2 = Array(send_msg[mid:])
+
+    requests = [
+        ep.am_send_iov([seg1, seg2]),
+        ep.am_recv(),
+    ]
+    wait_requests(worker, progress_mode, requests)
+
+    recv_msg = requests[1].recv_buffer
+    assert bytes(recv_msg) == send_msg
+
+    if progress_mode == "thread":
+        worker.stop_progress_thread()
+
+
+@pytest.mark.parametrize("msg_size", [10, 2**24])
+@pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
+def test_server_client_am_iov(msg_size, progress_mode):
+    put_queue, get_queue = mp.Queue(), mp.Queue()
+    server = mp.Process(
+        target=_echo_server_am_iov,
+        args=(put_queue, get_queue, msg_size, progress_mode),
+    )
+    server.start()
+    port = get_queue.get()
+    client = mp.Process(
+        target=_echo_client_am_iov,
+        args=(msg_size, progress_mode, port),
+    )
+    client.start()
+    client.join(timeout=60)
+    terminate_process(client)
+    put_queue.put("Finished")
+    server.join(timeout=10)
+    terminate_process(server)
+
+
 @pytest.mark.parametrize("transfer_api", ["am", "stream", "tag"])
 @pytest.mark.parametrize("msg_size", [0, 10, 2**24])
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
