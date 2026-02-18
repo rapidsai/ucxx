@@ -112,10 +112,7 @@ async def test_send_recv_am(size, recv_wait, data, memory_type_policy):
 
 def simple_user_header_server(user_header_echo):
     async def server(ep):
-        req = ep._ep.am_recv()
-        await req.wait()
-        recv_header = req.recv_header
-        recv_buffer = req.recv_buffer
+        recv_buffer, recv_header = await ep.am_recv_with_header()
         # Echo back with the same user header the client sent
         await ep.am_send(recv_buffer, user_header=recv_header)
         user_header_echo.append(recv_header)
@@ -139,11 +136,7 @@ async def test_send_recv_am_user_header(size):
     ep = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
 
     await ep.am_send(msg, user_header=user_header)
-    req = ep._ep.am_recv()
-    await req.wait()
-
-    recv_msg = req.recv_buffer
-    recv_header = req.recv_header
+    recv_msg, recv_header = await ep.am_recv_with_header()
 
     assert bytes(recv_msg) == bytes(msg)
     assert recv_header == user_header
@@ -168,11 +161,7 @@ async def test_send_recv_am_empty_user_header(size):
     ep = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
 
     await ep.am_send(msg)
-    req = ep._ep.am_recv()
-    await req.wait()
-
-    recv_msg = req.recv_buffer
-    recv_header = req.recv_header
+    recv_msg, recv_header = await ep.am_recv_with_header()
 
     assert bytes(recv_msg) == bytes(msg)
     assert recv_header == b""
@@ -214,10 +203,8 @@ async def test_send_recv_am_iov(size):
 
 def simple_iov_user_header_server(server_received_headers):
     async def server(ep):
-        req = ep._ep.am_recv()
-        await req.wait()
-        server_received_headers.append(req.recv_header)
-        recv_buffer = req.recv_buffer
+        recv_buffer, recv_header = await ep.am_recv_with_header()
+        server_received_headers.append(recv_header)
         await ep.am_send(recv_buffer)
         await ep.close()
 
@@ -242,9 +229,10 @@ async def test_send_recv_am_iov_user_header(size):
     ep = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
 
     await ep.am_send_iov([seg1, seg2], user_header=user_header)
-    recv_msg = await ep.am_recv()
+    recv_msg, recv_header = await ep.am_recv_with_header()
 
     assert bytes(recv_msg) == bytes(msg)
+    assert recv_header == user_header
     assert len(server_received_headers) == 1
     assert server_received_headers[0] == user_header
 

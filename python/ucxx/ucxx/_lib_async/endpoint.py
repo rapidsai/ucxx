@@ -390,17 +390,8 @@ class Endpoint:
         await self.send(nbytes, tag=tag)
         await self.send(obj, tag=tag)
 
-    async def am_recv(self):
-        """Receive from connected peer via active messages.
-
-        Returns the received buffer. To access the user-defined header sent
-        alongside the message, use the low-level request API instead::
-
-            req = ep._ep.am_recv()
-            await req.wait()
-            buffer = req.recv_buffer
-            header = req.recv_header  # bytes, empty if no header was sent
-        """
+    async def _am_recv_request(self):
+        """Internal helper: receive AM request, return (buffer, request)."""
         if not self._ep.am_probe():
             self._ep.raise_on_error()
             if self.closed:
@@ -435,7 +426,36 @@ class Endpoint:
             and self._finished_recv_count >= self._close_after_n_recv
         ):
             self.abort()
+        return buffer, req
+
+    async def am_recv(self):
+        """Receive from connected peer via active messages.
+
+        Returns
+        -------
+        buffer
+            The received data buffer.
+
+        See Also
+        --------
+        am_recv_with_header : Also returns the user-defined header.
+        """
+        buffer, _ = await self._am_recv_request()
         return buffer
+
+    async def am_recv_with_header(self):
+        """Receive from connected peer via active messages, including
+        the user-defined header.
+
+        Returns
+        -------
+        tuple of (buffer, header)
+            buffer: The received data buffer.
+            header: bytes, the user-defined header sent by the peer.
+                Empty bytes if no user header was sent.
+        """
+        buffer, req = await self._am_recv_request()
+        return buffer, req.recv_header
 
     def tag_probe(self, tag=None, force_tag=False, remove=False):
         """Probe for tag messages without receiving them.
