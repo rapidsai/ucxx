@@ -55,6 +55,14 @@ cdef extern from "ucp/api/ucp.h" nogil:
 
     ctypedef uint64_t ucp_tag_t
 
+    ctypedef uint64_t ucp_datatype_t
+
+    ctypedef struct ucp_dt_iov_t:
+        void* buffer
+        size_t length
+
+    ucp_datatype_t UCP_DATATYPE_IOV
+
     ctypedef struct ucp_tag_recv_info_t:
         pass
 
@@ -202,6 +210,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass AmSendParams:
         uint32_t flags
+        ucp_datatype_t datatype
         ucs_memory_type_t memoryType
         AmSendMemoryTypePolicy memoryTypePolicy
 
@@ -321,6 +330,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Request] amSend(
             const void* const buffer,
             size_t length,
+            AmSendParams params,
+            bint enable_python_future
+        ) except +raise_py_error
+        shared_ptr[Request] amSend(
+            vector[ucp_dt_iov_t] iov,
             AmSendParams params,
             bint enable_python_future
         ) except +raise_py_error

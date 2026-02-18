@@ -1490,6 +1490,56 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
+    def am_send_iov(self, list arrays, memory_type_policy=None) -> UCXRequest:
+        cdef vector[ucp_dt_iov_t] iov_vec
+        cdef ucp_dt_iov_t entry
+        cdef shared_ptr[Request] req
+        cdef AmSendParams params
+
+        if not self._context_feature_flags & Feature.AM.value:
+            raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        if len(arrays) == 0:
+            raise ValueError("IOV segment list must not be empty")
+
+        cdef list wrapped = []
+        for buf in arrays:
+            if not isinstance(buf, Array):
+                buf = Array(buf)
+            wrapped.append(buf)
+
+        # Validate all segments have the same memory type
+        cdef bint first_cuda = (<Array>wrapped[0]).cuda
+        for arr_obj in wrapped:
+            if (<Array>arr_obj).cuda != first_cuda:
+                raise ValueError(
+                    "All IOV segments must have the same memory type "
+                    "(all host or all CUDA)"
+                )
+
+        for arr_obj in wrapped:
+            entry.buffer = <void*>(<Array>arr_obj).ptr
+            entry.length = (<Array>arr_obj).nbytes
+            iov_vec.push_back(entry)
+
+        params.datatype = UCP_DATATYPE_IOV
+        params.memoryType = (
+            UCS_MEMORY_TYPE_CUDA if first_cuda else UCS_MEMORY_TYPE_HOST
+        )
+        if memory_type_policy is not None:
+            params.memoryTypePolicy = (
+                <AmSendMemoryTypePolicy>memory_type_policy.value
+            )
+
+        with nogil:
+            req = self._endpoint.get().amSend(
+                move(iov_vec),
+                params,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
     def am_recv(self) -> UCXRequest:
         cdef shared_ptr[Request] req
 

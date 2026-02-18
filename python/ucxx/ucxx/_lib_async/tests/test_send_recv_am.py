@@ -12,6 +12,7 @@ from ucxx._lib.libucxx import PythonAmSendMemoryTypePolicy
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 msg_sizes = [0] + [2**i for i in range(0, 25, 4)]
+iov_msg_sizes = [10] + [2**i for i in range(4, 25, 4)]
 
 
 def _bytearray_assert_equal(a, b):
@@ -106,4 +107,35 @@ async def test_send_recv_am(size, recv_wait, data, memory_type_policy):
             data["validator"](recv_msg, msg)
 
     await asyncio.gather(*(c.close() for c in clients))
+    await wait_listener_client_handlers(listener)
+
+
+def simple_iov_server():
+    async def server(ep):
+        recv = await ep.am_recv()
+        await ep.am_send(recv)
+        await ep.close()
+
+    return server
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("size", iov_msg_sizes)
+async def test_send_recv_am_iov(size):
+    ucxx.init()
+
+    msg = bytearray(b"m" * size)
+    mid = size // 2
+    seg1 = msg[:mid]
+    seg2 = msg[mid:]
+
+    listener = ucxx.create_listener(simple_iov_server())
+    ep = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
+
+    await ep.am_send_iov([seg1, seg2])
+    recv_msg = await ep.am_recv()
+
+    assert bytes(recv_msg) == bytes(msg)
+
+    await ep.close()
     await wait_listener_client_handlers(listener)
