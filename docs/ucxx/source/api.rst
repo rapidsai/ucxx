@@ -27,6 +27,7 @@ API
    _lib_async.Endpoint.get_ucp_endpoint
    _lib_async.Endpoint.get_ucp_worker
    _lib_async.Endpoint.am_recv
+   _lib_async.Endpoint.am_recv_with_header
    _lib_async.Endpoint.am_send
    _lib_async.Endpoint.am_send_iov
    _lib_async.Endpoint.recv
