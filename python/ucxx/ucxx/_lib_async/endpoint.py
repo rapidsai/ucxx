@@ -167,7 +167,7 @@ class Endpoint:
                 await asyncio.sleep(0)
                 self.abort(period=period, max_attempts=max_attempts)
 
-    async def am_send(self, buffer, memory_type_policy=None):
+    async def am_send(self, buffer, memory_type_policy=None, user_header=None):
         """Send `buffer` to connected peer via active messages.
 
         Parameters
@@ -179,6 +179,8 @@ class Endpoint:
             Policy controlling receiver-side allocation when no allocator is
             registered for the sender's memory type. Default ``None`` uses
             ``FallbackToHost``.
+        user_header: bytes, optional
+            Opaque user-defined header bytes to send alongside the message.
         """
         self._ep.raise_on_error()
         if self.closed:
@@ -201,7 +203,9 @@ class Endpoint:
 
         try:
             request = self._ep.am_send(
-                buffer, memory_type_policy=memory_type_policy
+                buffer,
+                memory_type_policy=memory_type_policy,
+                user_header=user_header,
             )
             return await request.wait()
         except UCXCanceled as e:
@@ -210,7 +214,7 @@ class Endpoint:
             if self._ep is None:
                 raise e
 
-    async def am_send_iov(self, buffers, memory_type_policy=None):
+    async def am_send_iov(self, buffers, memory_type_policy=None, user_header=None):
         """Send multiple buffers as a single IOV active message.
 
         Parameters
@@ -223,6 +227,8 @@ class Endpoint:
             Policy controlling receiver-side allocation when no allocator is
             registered for the sender's memory type. Default ``None`` uses
             ``FallbackToHost``.
+        user_header: bytes, optional
+            Opaque user-defined header bytes to send alongside the message.
         """
         self._ep.raise_on_error()
         if self.closed:
@@ -244,7 +250,9 @@ class Endpoint:
 
         try:
             request = self._ep.am_send_iov(
-                arrays, memory_type_policy=memory_type_policy
+                arrays,
+                memory_type_policy=memory_type_policy,
+                user_header=user_header,
             )
             return await request.wait()
         except UCXCanceled as e:

@@ -1005,6 +1005,20 @@ cdef class UCXRequest():
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
+    @property
+    def recv_header(self) -> bytes:
+        """Get the user-defined header from an AM receive request.
+
+        Returns the opaque header bytes sent by the peer. Returns empty bytes
+        if no user header was sent or for non-AM requests.
+        """
+        cdef string header
+
+        with nogil:
+            header = self._request.get().getRecvHeader()
+
+        return <bytes>header
+
     def is_completed(self) -> bool:
         warnings.warn(
             "UCXRequest.is_completed() is deprecated and will soon be removed, "
@@ -1462,7 +1476,9 @@ cdef class UCXEndpoint():
 
         return ep_matched
 
-    def am_send(self, Array arr, memory_type_policy=None) -> UCXRequest:
+    def am_send(
+        self, Array arr, memory_type_policy=None, user_header=None
+    ) -> UCXRequest:
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef bint cuda_array = arr.cuda
@@ -1479,6 +1495,10 @@ cdef class UCXEndpoint():
             params.memoryTypePolicy = (
                 <AmSendMemoryTypePolicy>memory_type_policy.value
             )
+        if user_header is not None:
+            if not isinstance(user_header, bytes):
+                raise TypeError("user_header must be bytes")
+            params.userHeader = <string>user_header
 
         with nogil:
             req = self._endpoint.get().amSend(
@@ -1490,7 +1510,9 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
-    def am_send_iov(self, list arrays, memory_type_policy=None) -> UCXRequest:
+    def am_send_iov(
+        self, list arrays, memory_type_policy=None, user_header=None
+    ) -> UCXRequest:
         cdef vector[ucp_dt_iov_t] iov_vec
         cdef ucp_dt_iov_t entry
         cdef shared_ptr[Request] req
@@ -1530,6 +1552,10 @@ cdef class UCXEndpoint():
             params.memoryTypePolicy = (
                 <AmSendMemoryTypePolicy>memory_type_policy.value
             )
+        if user_header is not None:
+            if not isinstance(user_header, bytes):
+                raise TypeError("user_header must be bytes")
+            params.userHeader = <string>user_header
 
         with nogil:
             req = self._endpoint.get().amSend(
