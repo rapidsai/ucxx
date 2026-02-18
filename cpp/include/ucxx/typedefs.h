@@ -194,6 +194,13 @@ struct AmSendParams {
   std::optional<AmReceiverCallbackInfo> receiverCallbackInfo{
     std::nullopt};           ///< Optional receiver callback metadata.
   std::string userHeader{};  ///< Opaque user-defined header (arbitrary bytes, not necessarily text).
+                             ///< This is serialized into the AM header parameter of
+                             ///< `ucp_am_send_nbx`, which is subject to transport-level size
+                             ///< limits. For TCP, the default segment size is ~8 KiB
+                             ///< (`UCX_TCP_TX_SEG_SIZE` / `UCX_TCP_RX_SEG_SIZE`). Headers that
+                             ///< exceed the transport limit will cause a fatal UCX error. Keep
+                             ///< user headers small (recommended < 4 KiB) or increase the
+                             ///< segment size environment variables as needed.
 };
 
 /**
