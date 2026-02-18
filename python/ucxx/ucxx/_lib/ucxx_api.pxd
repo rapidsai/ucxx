@@ -213,6 +213,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ucp_datatype_t datatype
         ucs_memory_type_t memoryType
         AmSendMemoryTypePolicy memoryTypePolicy
+        string userHeader
 
     # Using function[Buffer] here doesn't seem possible due to Cython bugs/limitations.
     # The workaround is to use a raw C function pointer and let it be parsed by the
@@ -393,6 +394,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void checkError() except +raise_py_error
         void* getFuture() except +raise_py_error
         shared_ptr[Buffer] getRecvBuffer() except +raise_py_error
+        string getRecvHeader() except +raise_py_error
         void cancel()
 
 
