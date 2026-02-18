@@ -31,7 +31,8 @@ class AmSend {
   const void* const _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
   const size_t _length{0};             ///< Message length in bytes (contiguous datatype only).
   const std::vector<ucp_dt_iov_t> _iov{};  ///< Segments for IOV datatype.
-  const size_t _count{0};                   ///< Element count according to selected datatype.
+  const size_t _count{0};                   ///< Count passed to `ucp_am_send_nbx`: byte count
+                                            ///< for contiguous, number of IOV segments for IOV.
   const uint32_t _flags{UCP_AM_SEND_FLAG_REPLY};  ///< UCP AM send flags.
   const ucp_datatype_t _datatype{ucp_dt_make_contig(1)};  ///< UCP datatype.
   const ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_HOST};  ///< Memory type used on the operation
