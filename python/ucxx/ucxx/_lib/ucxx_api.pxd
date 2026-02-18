@@ -4,7 +4,7 @@
 
 from posix cimport fcntl
 
-from libc.stdint cimport int64_t, uint16_t, uint64_t
+from libc.stdint cimport int64_t, uint16_t, uint32_t, uint64_t
 from libcpp cimport bool as cpp_bool
 from libcpp.functional cimport function
 from libcpp.memory cimport shared_ptr, unique_ptr
@@ -196,6 +196,15 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass AmReceiverCallbackInfo:
         pass
 
+    cdef enum class AmSendMemoryTypePolicy:
+        FallbackToHost
+        ErrorOnUnsupported
+
+    cdef cppclass AmSendParams:
+        uint32_t flags
+        ucs_memory_type_t memoryType
+        AmSendMemoryTypePolicy memoryTypePolicy
+
     # Using function[Buffer] here doesn't seem possible due to Cython bugs/limitations.
     # The workaround is to use a raw C function pointer and let it be parsed by the
     # compiler.
@@ -307,6 +316,12 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             # "Cannot assign type 'nullopt_t' to 'optional[AmReceiverCallbackInfo]'"
             # Must change when AM receiver callbacks are implemented in Python.
             nullopt_t receiver_callback_info,
+            bint enable_python_future
+        ) except +raise_py_error
+        shared_ptr[Request] amSend(
+            const void* const buffer,
+            size_t length,
+            AmSendParams params,
             bint enable_python_future
         ) except +raise_py_error
         shared_ptr[Request] amRecv(

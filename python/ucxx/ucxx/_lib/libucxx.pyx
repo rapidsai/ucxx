@@ -338,6 +338,11 @@ class Feature(enum.Enum):
     AM = UCP_FEATURE_AM
 
 
+class PythonAmSendMemoryTypePolicy(enum.Enum):
+    FallbackToHost = <int>AmSendMemoryTypePolicy.FallbackToHost
+    ErrorOnUnsupported = <int>AmSendMemoryTypePolicy.ErrorOnUnsupported
+
+
 class PythonRequestNotifierWaitState(enum.Enum):
     Ready = RequestNotifierWaitState.Ready
     Timeout = RequestNotifierWaitState.Timeout
@@ -1457,21 +1462,29 @@ cdef class UCXEndpoint():
 
         return ep_matched
 
-    def am_send(self, Array arr) -> UCXRequest:
+    def am_send(self, Array arr, memory_type_policy=None) -> UCXRequest:
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef bint cuda_array = arr.cuda
         cdef shared_ptr[Request] req
+        cdef AmSendParams params
 
         if not self._context_feature_flags & Feature.AM.value:
             raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        params.memoryType = (
+            UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST
+        )
+        if memory_type_policy is not None:
+            params.memoryTypePolicy = (
+                <AmSendMemoryTypePolicy>memory_type_policy.value
+            )
 
         with nogil:
             req = self._endpoint.get().amSend(
                 buf,
                 nbytes,
-                UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST,
-                nullopt,
+                params,
                 self._enable_python_future
             )
 

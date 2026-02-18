@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 import ucxx
+from ucxx._lib.libucxx import PythonAmSendMemoryTypePolicy
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 msg_sizes = [0] + [2**i for i in range(0, 25, 4)]
@@ -54,10 +55,10 @@ def get_data():
     return ret
 
 
-def simple_server(size, recv):
+def simple_server(size, recv, memory_type_policy=None):
     async def server(ep):
         recv = await ep.am_recv()
-        await ep.am_send(recv)
+        await ep.am_send(recv, memory_type_policy=memory_type_policy)
         await ep.close()
 
     return server
@@ -67,14 +68,20 @@ def simple_server(size, recv):
 @pytest.mark.parametrize("size", msg_sizes)
 @pytest.mark.parametrize("recv_wait", [True, False])
 @pytest.mark.parametrize("data", get_data())
-async def test_send_recv_am(size, recv_wait, data):
+@pytest.mark.parametrize(
+    "memory_type_policy",
+    [None, PythonAmSendMemoryTypePolicy.FallbackToHost],
+)
+async def test_send_recv_am(size, recv_wait, data, memory_type_policy):
     rndv_thresh = 8192
     ucxx.init(options={"RNDV_THRESH": str(rndv_thresh)})
 
     msg = data["generator"](size)
 
     recv = []
-    listener = ucxx.create_listener(simple_server(size, recv))
+    listener = ucxx.create_listener(
+        simple_server(size, recv, memory_type_policy=memory_type_policy)
+    )
     num_clients = 1
     clients = [
         await ucxx.create_endpoint(ucxx.get_address(), listener.port)
@@ -85,7 +92,9 @@ async def test_send_recv_am(size, recv_wait, data):
         # ep.am_recv call will have to wait, rather than return
         # immediately as receive data is already available.
         await asyncio.sleep(1)
-    await asyncio.gather(*(c.am_send(msg) for c in clients))
+    await asyncio.gather(
+        *(c.am_send(msg, memory_type_policy=memory_type_policy) for c in clients)
+    )
     recv_msgs = await asyncio.gather(*(c.am_recv() for c in clients))
 
     for recv_msg in recv_msgs:
