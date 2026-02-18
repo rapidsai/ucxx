@@ -110,6 +110,77 @@ async def test_send_recv_am(size, recv_wait, data, memory_type_policy):
     await wait_listener_client_handlers(listener)
 
 
+def simple_user_header_server(user_header_echo):
+    async def server(ep):
+        req = ep._ep.am_recv()
+        await req.wait()
+        recv_header = req.recv_header
+        recv_buffer = req.recv_buffer
+        # Echo back with the same user header the client sent
+        await ep.am_send(recv_buffer, user_header=recv_header)
+        user_header_echo.append(recv_header)
+        await ep.close()
+
+    return server
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("size", msg_sizes)
+async def test_send_recv_am_user_header(size):
+    ucxx.init()
+
+    msg = bytearray(b"m" * size)
+    user_header = b"test-header-\x00\x01\xff"
+
+    server_received_headers = []
+    listener = ucxx.create_listener(
+        simple_user_header_server(server_received_headers)
+    )
+    ep = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
+
+    await ep.am_send(msg, user_header=user_header)
+    req = ep._ep.am_recv()
+    await req.wait()
+
+    recv_msg = req.recv_buffer
+    recv_header = req.recv_header
+
+    assert bytes(recv_msg) == bytes(msg)
+    assert recv_header == user_header
+
+    # Verify the server also received the header correctly
+    assert len(server_received_headers) == 1
+    assert server_received_headers[0] == user_header
+
+    await ep.close()
+    await wait_listener_client_handlers(listener)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("size", msg_sizes)
+async def test_send_recv_am_empty_user_header(size):
+    """Test that recv_header is empty bytes when no user header is sent."""
+    ucxx.init()
+
+    msg = bytearray(b"m" * size)
+
+    listener = ucxx.create_listener(simple_server(size, [], memory_type_policy=None))
+    ep = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
+
+    await ep.am_send(msg)
+    req = ep._ep.am_recv()
+    await req.wait()
+
+    recv_msg = req.recv_buffer
+    recv_header = req.recv_header
+
+    assert bytes(recv_msg) == bytes(msg)
+    assert recv_header == b""
+
+    await ep.close()
+    await wait_listener_client_handlers(listener)
+
+
 def simple_iov_server():
     async def server(ep):
         recv = await ep.am_recv()
@@ -136,6 +207,46 @@ async def test_send_recv_am_iov(size):
     recv_msg = await ep.am_recv()
 
     assert bytes(recv_msg) == bytes(msg)
+
+    await ep.close()
+    await wait_listener_client_handlers(listener)
+
+
+def simple_iov_user_header_server(server_received_headers):
+    async def server(ep):
+        req = ep._ep.am_recv()
+        await req.wait()
+        server_received_headers.append(req.recv_header)
+        recv_buffer = req.recv_buffer
+        await ep.am_send(recv_buffer)
+        await ep.close()
+
+    return server
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("size", iov_msg_sizes)
+async def test_send_recv_am_iov_user_header(size):
+    ucxx.init()
+
+    msg = bytearray(b"m" * size)
+    mid = size // 2
+    seg1 = msg[:mid]
+    seg2 = msg[mid:]
+    user_header = b"iov-header-data"
+
+    server_received_headers = []
+    listener = ucxx.create_listener(
+        simple_iov_user_header_server(server_received_headers)
+    )
+    ep = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
+
+    await ep.am_send_iov([seg1, seg2], user_header=user_header)
+    recv_msg = await ep.am_recv()
+
+    assert bytes(recv_msg) == bytes(msg)
+    assert len(server_received_headers) == 1
+    assert server_received_headers[0] == user_header
 
     await ep.close()
     await wait_listener_client_handlers(listener)
