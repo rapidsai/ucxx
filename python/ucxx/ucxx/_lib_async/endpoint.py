@@ -391,7 +391,16 @@ class Endpoint:
         await self.send(obj, tag=tag)
 
     async def am_recv(self):
-        """Receive from connected peer via active messages."""
+        """Receive from connected peer via active messages.
+
+        Returns the received buffer. To access the user-defined header sent
+        alongside the message, use the low-level request API instead::
+
+            req = ep._ep.am_recv()
+            await req.wait()
+            buffer = req.recv_buffer
+            header = req.recv_header  # bytes, empty if no header was sent
+        """
         if not self._ep.am_probe():
             self._ep.raise_on_error()
             if self.closed:
