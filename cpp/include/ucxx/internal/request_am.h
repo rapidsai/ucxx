@@ -62,7 +62,8 @@ class RecvAmMessage {
                 ucp_ep_h ep,
                 std::shared_ptr<RequestAm> request,
                 std::shared_ptr<Buffer> buffer,
-                AmReceiverCallbackType receiverCallback = AmReceiverCallbackType());
+                AmReceiverCallbackType receiverCallback = AmReceiverCallbackType(),
+                std::string userHeader = {});
 
   /**
    * @brief Set the UCP request.
