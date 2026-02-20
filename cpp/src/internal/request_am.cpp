@@ -18,11 +18,15 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
                              ucp_ep_h ep,
                              std::shared_ptr<RequestAm> request,
                              std::shared_ptr<Buffer> buffer,
-                             AmReceiverCallbackType receiverCallback)
+                             AmReceiverCallbackType receiverCallback,
+                             std::string userHeader)
   : _amData(amData), _ep(ep), _request(request)
 {
   std::visit(data::dispatch{
-               [this, buffer](data::AmReceive& amReceive) { amReceive._buffer = buffer; },
+               [this, buffer, &userHeader](data::AmReceive& amReceive) {
+                 amReceive._buffer     = buffer;
+                 amReceive._userHeader = std::move(userHeader);
+               },
                [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _request->_requestData);
