@@ -63,7 +63,7 @@ class AmSend {
    * @param[in] iov     vector of IOV segments to send.
    * @param[in] params  send parameters controlling datatype/flags/policies.
    */
-  explicit AmSend(const decltype(_iov)& iov, const AmSendParams& params = AmSendParams{});
+  explicit AmSend(decltype(_iov) iov, const AmSendParams& params = AmSendParams{});
 
   AmSend() = delete;
 };

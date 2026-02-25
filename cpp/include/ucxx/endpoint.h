@@ -416,7 +416,7 @@ class Endpoint : public Component {
    * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> amSend(
-    const std::vector<ucp_dt_iov_t>& iov,
+    std::vector<ucp_dt_iov_t> iov,
     const AmSendParams& params,
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,

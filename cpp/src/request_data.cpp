@@ -39,10 +39,10 @@ AmSend::AmSend(const void* const buffer,
   if (_buffer == nullptr && _length > 0) throw std::runtime_error("Buffer cannot be a nullptr.");
 }
 
-AmSend::AmSend(const std::vector<ucp_dt_iov_t>& iov, const AmSendParams& params)
+AmSend::AmSend(std::vector<ucp_dt_iov_t> iov, const AmSendParams& params)
   : _buffer(nullptr),
     _length(0),
-    _iov(iov),
+    _iov(std::move(iov)),
     _count(iov.size()),
     _flags(params.flags),
     _datatype(params.datatype),

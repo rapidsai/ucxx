@@ -478,7 +478,7 @@ std::shared_ptr<Request> Endpoint::amSend(const void* const buffer,
                     callbackData));
 }
 
-std::shared_ptr<Request> Endpoint::amSend(const std::vector<ucp_dt_iov_t>& iov,
+std::shared_ptr<Request> Endpoint::amSend(std::vector<ucp_dt_iov_t> iov,
                                           const AmSendParams& params,
                                           const bool enablePythonFuture,
                                           RequestCallbackUserFunction callbackFunction,
@@ -487,7 +487,7 @@ std::shared_ptr<Request> Endpoint::amSend(const std::vector<ucp_dt_iov_t>& iov,
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
   return registerInflightRequest(
     createRequestAm(endpoint,
-                    data::AmSend(iov, params),
+                    data::AmSend(std::move(iov), params),
                     enablePythonFuture,
                     callbackFunction,
                     callbackData));
