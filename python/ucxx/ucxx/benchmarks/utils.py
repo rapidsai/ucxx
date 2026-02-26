@@ -163,8 +163,9 @@ def _run_cluster_server(
         A tuple with two elements: the process spawned and a queue where results
         will eventually be stored.
     """
-    q = mp.Queue()
-    p = mp.Process(
+    ctx = mp.get_context("fork")
+    q = ctx.Queue()
+    p = ctx.Process(
         target=_server_process,
         args=(
             q,
@@ -173,6 +174,7 @@ def _run_cluster_server(
             ucx_options_list,
         ),
     )
+
     p.start()
     return p, q
 
@@ -343,10 +345,11 @@ def _run_cluster_workers(
         )
 
     processes = []
+    ctx = mp.get_context("fork")
     for worker_num in range(num_node_workers):
         rank = node_idx * num_node_workers + worker_num
-        q = mp.Queue()
-        p = mp.Process(
+        q = ctx.Queue()
+        p = ctx.Process(
             target=_worker_process,
             args=(
                 q,
