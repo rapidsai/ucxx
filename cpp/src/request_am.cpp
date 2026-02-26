@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <queue>
 #include <sstream>
@@ -34,7 +35,7 @@ struct AmHeader {
   ucs_memory_type_t memoryType;
   AmSendMemoryTypePolicy memoryTypePolicy;
   std::optional<AmReceiverCallbackInfo> receiverCallbackInfo;
-  std::string userHeader;  ///< Opaque user-defined header (arbitrary bytes, not necessarily text).
+  std::vector<std::byte> userHeader;  ///< Opaque user-defined header bytes.
 
   static AmHeader deserialize(const std::string_view serialized)
   {
@@ -72,7 +73,7 @@ struct AmHeader {
       memoryTypePolicy = static_cast<AmSendMemoryTypePolicy>(serializedMemoryTypePolicy);
     }
 
-    std::string userHeader{};
+    std::vector<std::byte> userHeader{};
     if (offset + sizeof(size_t) <= serialized.size()) {
       size_t userHeaderSize{0};
       decode(&userHeaderSize, sizeof(userHeaderSize));
@@ -435,7 +436,12 @@ std::shared_ptr<Buffer> RequestAm::getRecvBuffer()
 std::string RequestAm::getRecvHeader()
 {
   return std::visit(data::dispatch{
-                      [](const data::AmReceive& amReceive) { return amReceive._userHeader; },
+                      [](const data::AmReceive& amReceive) {
+                        if (amReceive._userHeader.empty()) return std::string{};
+                        return std::string(
+                          reinterpret_cast<const char*>(amReceive._userHeader.data()),
+                          amReceive._userHeader.size());
+                      },
                       [](auto) -> std::string { return {}; },
                     },
                     _requestData);

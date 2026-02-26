@@ -41,8 +41,7 @@ class AmSend {
     AmSendMemoryTypePolicy::FallbackToHost};  ///< Receiver allocation policy.
   const std::optional<AmReceiverCallbackInfo> _receiverCallbackInfo{
     std::nullopt};  ///< Owner name and unique identifier of the receiver callback.
-  const std::string
-    _userHeader{};  ///< Opaque user-defined header (arbitrary bytes, not necessarily text).
+  const std::vector<std::byte> _userHeader{};  ///< Opaque user-defined header bytes.
 
   /**
    * @brief Constructor for Active Message-specific send data.
@@ -79,8 +78,7 @@ class AmSend {
 class AmReceive {
  public:
   std::shared_ptr<::ucxx::Buffer> _buffer{nullptr};  ///< The AM received message buffer
-  std::string _userHeader{};  ///< User-defined header from the sender (arbitrary bytes, not
-                              ///< necessarily text).
+  std::vector<std::byte> _userHeader{};              ///< User-defined header bytes from the sender.
 
   /**
    * @brief Constructor for Active Message-specific receive data.

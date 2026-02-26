@@ -9,6 +9,7 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -64,7 +65,7 @@ class RecvAmMessage {
                 std::shared_ptr<RequestAm> request,
                 std::shared_ptr<Buffer> buffer,
                 AmReceiverCallbackType receiverCallback = AmReceiverCallbackType(),
-                std::string userHeader                  = {});
+                std::vector<std::byte> userHeader       = {});
 
   /**
    * @brief Set the UCP request.

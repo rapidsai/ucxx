@@ -5,12 +5,17 @@
 #pragma once
 
 #include <atomic>
+#include <cstddef>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -192,15 +197,38 @@ struct AmSendParams {
   AmSendMemoryTypePolicy memoryTypePolicy{
     AmSendMemoryTypePolicy::FallbackToHost};  ///< Receiver allocation policy.
   std::optional<AmReceiverCallbackInfo> receiverCallbackInfo{
-    std::nullopt};           ///< Optional receiver callback metadata.
-  std::string userHeader{};  ///< Opaque user-defined header (arbitrary bytes, not necessarily
-                             ///< text). This is serialized into the AM header parameter of
-                             ///< `ucp_am_send_nbx`, which is subject to transport-level size
-                             ///< limits. For TCP, the default segment size is ~8 KiB
-                             ///< (`UCX_TCP_TX_SEG_SIZE` / `UCX_TCP_RX_SEG_SIZE`). Headers that
-                             ///< exceed the transport limit will cause a fatal UCX error. Keep
-                             ///< user headers small (recommended < 4 KiB) or increase the
-                             ///< segment size environment variables as needed.
+    std::nullopt};                      ///< Optional receiver callback metadata.
+  std::vector<std::byte> userHeader{};  ///< Opaque user-defined header bytes. This is serialized
+                                        ///< into the AM header parameter of `ucp_am_send_nbx`,
+                                        ///< which is subject to transport-level size limits. For
+                                        ///< TCP, the default segment size is ~8 KiB
+                                        ///< (`UCX_TCP_TX_SEG_SIZE` / `UCX_TCP_RX_SEG_SIZE`).
+                                        ///< Headers that exceed the transport limit will cause a
+                                        ///< fatal UCX error. Keep user headers small
+                                        ///< (recommended < 4 KiB) or increase segment size env
+                                        ///< vars as needed.
+
+  /**
+   * @brief Set opaque user header bytes from raw pointer.
+   *
+   * @param[in] data  pointer to input bytes, may be `nullptr` iff `size == 0`.
+   * @param[in] size  number of bytes in input.
+   */
+  void setUserHeader(const void* data, size_t size)
+  {
+    if (size > 0 && data == nullptr)
+      throw std::invalid_argument(
+        "AmSendParams::setUserHeader received null data with non-zero size");
+    userHeader.resize(size);
+    if (size > 0) memcpy(userHeader.data(), data, size);
+  }
+
+  /**
+   * @brief Convenience overload to set user header from string-like views.
+   *
+   * @param[in] data view of opaque bytes.
+   */
+  void setUserHeader(std::string_view data) { setUserHeader(data.data(), data.size()); }
 };
 
 /**

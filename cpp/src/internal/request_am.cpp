@@ -9,6 +9,8 @@
 #include <ucxx/typedefs.h>
 
 #include <memory>
+#include <utility>
+#include <vector>
 
 namespace ucxx {
 
@@ -19,7 +21,7 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
                              std::shared_ptr<RequestAm> request,
                              std::shared_ptr<Buffer> buffer,
                              AmReceiverCallbackType receiverCallback,
-                             std::string userHeader)
+                             std::vector<std::byte> userHeader)
   : _amData(amData), _ep(ep), _request(request)
 {
   std::visit(data::dispatch{

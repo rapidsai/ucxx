@@ -371,8 +371,8 @@ TEST_P(RequestTest, ProgressAmUserHeader)
 
   const std::string sentHeader = "test-header-payload-\x00\x01\x02\xff";
 
-  auto amSendParams       = ucxx::AmSendParams{};
-  amSendParams.userHeader = sentHeader;
+  auto amSendParams = ucxx::AmSendParams{};
+  amSendParams.setUserHeader(sentHeader);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, amSendParams));
@@ -414,7 +414,7 @@ TEST_P(RequestTest, ProgressAmIovUserHeader)
   auto amSendParams       = ucxx::AmSendParams{};
   amSendParams.datatype   = UCP_DATATYPE_IOV;
   amSendParams.memoryType = UCS_MEMORY_TYPE_HOST;
-  amSendParams.userHeader = sentHeader;
+  amSendParams.setUserHeader(sentHeader);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->amSend(iov, amSendParams));
