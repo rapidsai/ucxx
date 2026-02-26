@@ -8,6 +8,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -37,6 +38,13 @@ namespace ucxx {
  */
 class Request : public Component {
  protected:
+  /// Structure to hold cached request attributes including the debug string
+  struct RequestAttributes {
+    ucs_status_t status{UCS_INPROGRESS};                  ///< Status of the request
+    ucs_memory_type memoryType{UCS_MEMORY_TYPE_UNKNOWN};  ///< Memory type of the request
+    std::string debugString{};                            ///< Stored debug string
+  };
+
   ucs_status_t _status{UCS_INPROGRESS};      ///< Requests status
   std::string _status_msg{};                 ///< Human-readable status message
   void* _request{nullptr};                   ///< Pointer to UCP request
@@ -54,6 +62,8 @@ class Request : public Component {
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
   RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
   RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
+  RequestAttributes _requestAttr{};  ///< Request attributes queried when request is posted
+  bool _isRequestAttrValid{false};   ///< Whether the request attributes are valid
 
   /**
    * @brief Protected constructor of an abstract `ucxx::Request`.
@@ -224,6 +234,33 @@ class Request : public Component {
    * @return The received buffer (if applicable) or `nullptr`.
    */
   [[nodiscard]] virtual std::shared_ptr<Buffer> getRecvBuffer();
+
+  /**
+   * @brief Get the request attributes.
+   *
+   * Get the request attributes. If the request attributes are not available yet, this
+   * method will throw an error.
+   *
+   * @throw ucxx::Error if the request attributes are not available yet.
+   *
+   * @return A RequestAttributes containing the request attributes.
+   */
+  [[nodiscard]] RequestAttributes getRequestAttributes();
+
+ protected:
+  /**
+   * @brief Query the UCP request attributes.
+   *
+   * Helper method that queries the UCP request for its attributes using ucp_request_query.
+   * Currently queries for:
+   * - Request status
+   * - Memory type
+   * - Debug string
+   *
+   * @return A RequestAttributes containing the query status, request attributes and debug
+   * string.
+   */
+  void queryRequestAttributes();
 };
 
 }  // namespace ucxx

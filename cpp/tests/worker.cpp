@@ -108,6 +108,17 @@ class WorkerGenericCallbackSingleTest : public WorkerProgressTest {};
 
 TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr); }
 
+TEST_F(WorkerTest, QueryAttributes)
+{
+  auto attrs = _worker->queryAttributes();
+
+  // Verify that the thread mode field was requested and returned
+  ASSERT_TRUE(attrs.field_mask & UCP_WORKER_ATTR_FIELD_THREAD_MODE);
+
+  // The worker was created with UCS_THREAD_MODE_MULTI in the constructor
+  ASSERT_EQ(attrs.thread_mode, UCS_THREAD_MODE_MULTI);
+}
+
 TEST_P(WorkerCapabilityTest, CheckCapability)
 {
   ASSERT_EQ(_worker->isDelayedRequestSubmissionEnabled(), _enableDelayedSubmission);
