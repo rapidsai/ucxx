@@ -79,7 +79,6 @@ class AmReceive {
  public:
   std::shared_ptr<::ucxx::Buffer> _buffer{nullptr};  ///< The AM received message buffer
   std::vector<std::byte> _userHeader{};              ///< User-defined header bytes from the sender.
-
   /**
    * @brief Constructor for Active Message-specific receive data.
    *

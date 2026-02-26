@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -213,7 +213,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ucp_datatype_t datatype
         ucs_memory_type_t memoryType
         AmSendMemoryTypePolicy memoryTypePolicy
-        string userHeader
+        void setUserHeader(const void* data, size_t size)
 
     # Using function[Buffer] here doesn't seem possible due to Cython bugs/limitations.
     # The workaround is to use a raw C function pointer and let it be parsed by the

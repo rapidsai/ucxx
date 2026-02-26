@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -130,9 +130,7 @@ async def test_send_recv_am_user_header(size):
     user_header = b"test-header-\x00\x01\xff"
 
     server_received_headers = []
-    listener = ucxx.create_listener(
-        simple_user_header_server(server_received_headers)
-    )
+    listener = ucxx.create_listener(simple_user_header_server(server_received_headers))
     ep = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
 
     await ep.am_send(msg, user_header=user_header)

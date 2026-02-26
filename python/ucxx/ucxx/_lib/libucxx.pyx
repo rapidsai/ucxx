@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -24,7 +24,6 @@ from libcpp.memory cimport (
     shared_ptr,
     static_pointer_cast,
 )
-from libcpp.optional cimport nullopt
 from libcpp.string cimport string
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
@@ -1484,6 +1483,8 @@ cdef class UCXEndpoint():
         cdef bint cuda_array = arr.cuda
         cdef shared_ptr[Request] req
         cdef AmSendParams params
+        cdef bytes user_header_bytes
+        cdef const char* user_header_ptr
 
         if not self._context_feature_flags & Feature.AM.value:
             raise ValueError("UCXContext must be created with `Feature.AM`")
@@ -1498,7 +1499,9 @@ cdef class UCXEndpoint():
         if user_header is not None:
             if not isinstance(user_header, bytes):
                 raise TypeError("user_header must be bytes")
-            params.userHeader = <string>user_header
+            user_header_bytes = user_header
+            user_header_ptr = user_header_bytes
+            params.setUserHeader(<const void*>user_header_ptr, len(user_header_bytes))
 
         with nogil:
             req = self._endpoint.get().amSend(
@@ -1517,6 +1520,8 @@ cdef class UCXEndpoint():
         cdef ucp_dt_iov_t entry
         cdef shared_ptr[Request] req
         cdef AmSendParams params
+        cdef bytes user_header_bytes
+        cdef const char* user_header_ptr
 
         if not self._context_feature_flags & Feature.AM.value:
             raise ValueError("UCXContext must be created with `Feature.AM`")
@@ -1555,7 +1560,9 @@ cdef class UCXEndpoint():
         if user_header is not None:
             if not isinstance(user_header, bytes):
                 raise TypeError("user_header must be bytes")
-            params.userHeader = <string>user_header
+            user_header_bytes = user_header
+            user_header_ptr = user_header_bytes
+            params.setUserHeader(<const void*>user_header_ptr, len(user_header_bytes))
 
         with nogil:
             req = self._endpoint.get().amSend(

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import multiprocessing as mp
@@ -208,9 +208,7 @@ def _echo_server_am_params(
     requests = [ep[0].am_recv()]
     wait_requests(worker, progress_mode, requests)
     msg = Array(requests[0].recv_buffer)
-    requests = [
-        ep[0].am_send(msg, memory_type_policy=memory_type_policy)
-    ]
+    requests = [ep[0].am_send(msg, memory_type_policy=memory_type_policy)]
     wait_requests(worker, progress_mode, requests)
 
     while True:
@@ -237,7 +235,10 @@ def _echo_client_am_params(msg_size, progress_mode, memory_type_policy, port):
         worker.start_progress_thread()
 
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        port,
+        endpoint_error_handling=True,
     )
 
     if progress_mode == "blocking":
@@ -268,9 +269,7 @@ def test_server_client_am_params(msg_size, progress_mode, memory_type_policy):
     put_queue, get_queue = mp.Queue(), mp.Queue()
     server = mp.Process(
         target=_echo_server_am_params,
-        args=(
-            put_queue, get_queue, msg_size, progress_mode, memory_type_policy
-        ),
+        args=(put_queue, get_queue, msg_size, progress_mode, memory_type_policy),
     )
     server.start()
     port = get_queue.get()
@@ -343,7 +342,10 @@ def _echo_client_am_iov(msg_size, progress_mode, port):
         worker.start_progress_thread()
 
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        port,
+        endpoint_error_handling=True,
     )
 
     if progress_mode == "blocking":
@@ -450,7 +452,10 @@ def _user_header_client(msg_size, progress_mode, port):
         worker.start_progress_thread()
 
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        port,
+        endpoint_error_handling=True,
     )
 
     if progress_mode == "blocking":
@@ -486,7 +491,10 @@ def _user_header_iov_client(msg_size, progress_mode, port):
         worker.start_progress_thread()
 
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        port,
+        endpoint_error_handling=True,
     )
 
     if progress_mode == "blocking":
@@ -526,7 +534,10 @@ def _empty_user_header_client(msg_size, progress_mode, port):
         worker.start_progress_thread()
 
     ep = ucx_api.UCXEndpoint.create(
-        worker, "127.0.0.1", port, endpoint_error_handling=True,
+        worker,
+        "127.0.0.1",
+        port,
+        endpoint_error_handling=True,
     )
 
     if progress_mode == "blocking":
