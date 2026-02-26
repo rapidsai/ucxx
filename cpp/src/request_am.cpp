@@ -2,11 +2,9 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <queue>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -29,7 +27,7 @@ AmReceiverCallbackInfo::AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType
 {
 }
 
-typedef std::string AmHeaderSerialized;
+typedef std::vector<std::byte> AmHeaderSerialized;
 
 struct AmHeader {
   ucs_memory_type_t memoryType;
@@ -37,12 +35,12 @@ struct AmHeader {
   std::optional<AmReceiverCallbackInfo> receiverCallbackInfo;
   std::vector<std::byte> userHeader;  ///< Opaque user-defined header bytes.
 
-  static AmHeader deserialize(const std::string_view serialized)
+  static AmHeader deserialize(const std::byte* serialized, size_t serializedSize)
   {
     size_t offset{0};
 
     auto decode = [&offset, &serialized](void* data, size_t bytes) {
-      memcpy(data, serialized.data() + offset, bytes);
+      memcpy(data, serialized + offset, bytes);
       offset += bytes;
     };
 
@@ -67,17 +65,17 @@ struct AmHeader {
     }
 
     AmSendMemoryTypePolicy memoryTypePolicy = AmSendMemoryTypePolicy::FallbackToHost;
-    if (offset + sizeof(uint8_t) <= serialized.size()) {
+    if (offset + sizeof(uint8_t) <= serializedSize) {
       uint8_t serializedMemoryTypePolicy{0};
       decode(&serializedMemoryTypePolicy, sizeof(serializedMemoryTypePolicy));
       memoryTypePolicy = static_cast<AmSendMemoryTypePolicy>(serializedMemoryTypePolicy);
     }
 
     std::vector<std::byte> userHeader{};
-    if (offset + sizeof(size_t) <= serialized.size()) {
+    if (offset + sizeof(size_t) <= serializedSize) {
       size_t userHeaderSize{0};
       decode(&userHeaderSize, sizeof(userHeaderSize));
-      if (userHeaderSize > 0 && offset + userHeaderSize <= serialized.size()) {
+      if (userHeaderSize > 0 && offset + userHeaderSize <= serializedSize) {
         userHeader.resize(userHeaderSize);
         decode(userHeader.data(), userHeaderSize);
       }
@@ -101,7 +99,7 @@ struct AmHeader {
     const size_t totalSize                   = sizeof(memoryType) + sizeof(hasReceiverCallback) +
                              amReceiverCallbackInfoSize + sizeof(serializedMemoryTypePolicy) +
                              sizeof(userHeaderSize) + userHeaderSize;
-    std::string serialized(totalSize, 0);
+    std::vector<std::byte> serialized(totalSize, std::byte{0});
 
     auto encode = [&offset, &serialized](void const* data, size_t bytes) {
       memcpy(serialized.data() + offset, data, bytes);
@@ -253,8 +251,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   bool is_rndv = param->recv_attr & UCP_AM_RECV_ATTR_FLAG_RNDV;
 
   std::shared_ptr<Buffer> buf{nullptr};
-  auto amHeader =
-    AmHeader::deserialize(std::string_view(static_cast<const char*>(header), header_length));
+  auto amHeader = AmHeader::deserialize(static_cast<const std::byte*>(header), header_length);
   auto receiverCallback = [&amHeader, &amData]() {
     if (amHeader.receiverCallbackInfo) {
       try {
@@ -470,7 +467,7 @@ void RequestAm::request()
                                    : amSend._buffer;
         void* request          = ucp_am_send_nbx(_endpoint->getHandle(),
                                         0,
-                                        _header.data(),
+                                        reinterpret_cast<const void*>(_header.data()),
                                         _header.size(),
                                         sendBuffer,
                                         amSend._count,

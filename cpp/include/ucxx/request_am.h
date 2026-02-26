@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -31,8 +33,9 @@ class RequestAm : public Request {
  private:
   friend class internal::RecvAmMessage;
 
-  std::string _header{};  ///< Retain copy of header for send requests as workaround for
-                          ///< https://github.com/openucx/ucx/issues/10424
+  std::vector<std::byte> _header{};  ///< Retain copy of header bytes for send requests as
+                                     ///< workaround for
+                                     ///< https://github.com/openucx/ucx/issues/10424
 
   /**
    * @brief Private constructor of `ucxx::RequestAm`.
