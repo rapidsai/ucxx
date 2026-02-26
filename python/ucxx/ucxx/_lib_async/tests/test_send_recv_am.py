@@ -203,7 +203,7 @@ def simple_iov_user_header_server(server_received_headers):
     async def server(ep):
         recv_buffer, recv_header = await ep.am_recv_with_header()
         server_received_headers.append(recv_header)
-        await ep.am_send(recv_buffer)
+        await ep.am_send(recv_buffer, user_header=recv_header)
         await ep.close()
 
     return server
