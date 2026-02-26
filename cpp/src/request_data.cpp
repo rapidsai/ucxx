@@ -36,7 +36,7 @@ AmSend::AmSend(const void* const buffer,
   if (_datatype != ucp_dt_make_contig(1))
     throw std::runtime_error("Contiguous AM send requires datatype `ucp_dt_make_contig(1)`.");
 
-  if (_buffer == nullptr && _length > 0) throw std::runtime_error("Buffer cannot be a nullptr.");
+  if (_buffer == nullptr && _length > 0) throw std::runtime_error("Buffer cannot be a nullptr when length is > 0.");
 }
 
 AmSend::AmSend(std::vector<ucp_dt_iov_t> iov, const AmSendParams& params)
