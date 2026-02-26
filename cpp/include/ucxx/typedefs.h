@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -186,15 +186,15 @@ enum class AmSendMemoryTypePolicy {
  * breaking existing callers.
  */
 struct AmSendParams {
-  uint32_t flags{UCP_AM_SEND_FLAG_REPLY};  ///< UCP AM send flags.
-  ucp_datatype_t datatype{ucp_dt_make_contig(1)};  ///< Datatype used by `ucp_am_send_nbx`.
+  uint32_t flags{UCP_AM_SEND_FLAG_REPLY};              ///< UCP AM send flags.
+  ucp_datatype_t datatype{ucp_dt_make_contig(1)};      ///< Datatype used by `ucp_am_send_nbx`.
   ucs_memory_type_t memoryType{UCS_MEMORY_TYPE_HOST};  ///< Sender memory type hint.
   AmSendMemoryTypePolicy memoryTypePolicy{
     AmSendMemoryTypePolicy::FallbackToHost};  ///< Receiver allocation policy.
   std::optional<AmReceiverCallbackInfo> receiverCallbackInfo{
     std::nullopt};           ///< Optional receiver callback metadata.
-  std::string userHeader{};  ///< Opaque user-defined header (arbitrary bytes, not necessarily text).
-                             ///< This is serialized into the AM header parameter of
+  std::string userHeader{};  ///< Opaque user-defined header (arbitrary bytes, not necessarily
+                             ///< text). This is serialized into the AM header parameter of
                              ///< `ucp_am_send_nbx`, which is subject to transport-level size
                              ///< limits. For TCP, the default segment size is ~8 KiB
                              ///< (`UCX_TCP_TX_SEG_SIZE` / `UCX_TCP_RX_SEG_SIZE`). Headers that

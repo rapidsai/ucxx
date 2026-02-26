@@ -450,16 +450,11 @@ std::shared_ptr<Request> Endpoint::amSend(
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData)
 {
-  auto params                    = AmSendParams{};
-  params.memoryType              = memoryType;
-  params.receiverCallbackInfo    = receiverCallbackInfo;
+  auto params                 = AmSendParams{};
+  params.memoryType           = memoryType;
+  params.receiverCallbackInfo = receiverCallbackInfo;
 
-  return amSend(buffer,
-                length,
-                params,
-                enablePythonFuture,
-                callbackFunction,
-                callbackData);
+  return amSend(buffer, length, params, enablePythonFuture, callbackFunction, callbackData);
 }
 
 std::shared_ptr<Request> Endpoint::amSend(const void* const buffer,
@@ -470,12 +465,11 @@ std::shared_ptr<Request> Endpoint::amSend(const void* const buffer,
                                           RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(
-    createRequestAm(endpoint,
-                    data::AmSend(buffer, length, params),
-                    enablePythonFuture,
-                    callbackFunction,
-                    callbackData));
+  return registerInflightRequest(createRequestAm(endpoint,
+                                                 data::AmSend(buffer, length, params),
+                                                 enablePythonFuture,
+                                                 callbackFunction,
+                                                 callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::amSend(std::vector<ucp_dt_iov_t> iov,
@@ -485,12 +479,11 @@ std::shared_ptr<Request> Endpoint::amSend(std::vector<ucp_dt_iov_t> iov,
                                           RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(
-    createRequestAm(endpoint,
-                    data::AmSend(std::move(iov), params),
-                    enablePythonFuture,
-                    callbackFunction,
-                    callbackData));
+  return registerInflightRequest(createRequestAm(endpoint,
+                                                 data::AmSend(std::move(iov), params),
+                                                 enablePythonFuture,
+                                                 callbackFunction,
+                                                 callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,

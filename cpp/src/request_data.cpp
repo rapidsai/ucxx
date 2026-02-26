@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -19,9 +19,7 @@ namespace ucxx {
 
 namespace data {
 
-AmSend::AmSend(const void* const buffer,
-               const size_t length,
-               const AmSendParams& params)
+AmSend::AmSend(const void* const buffer, const size_t length, const AmSendParams& params)
   : _buffer(buffer),
     _length(length),
     _iov(),

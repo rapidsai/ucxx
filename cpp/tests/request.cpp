@@ -1,10 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <string>
 #include <tuple>
 #include <ucp/api/ucp.h>
 #include <ucs/type/status.h>
@@ -216,7 +217,7 @@ TEST_P(RequestTest, ProgressAmIovHost)
   std::vector<int> send(messageLength);
   std::iota(send.begin(), send.end(), 0);
 
-  const size_t firstSegmentLength = messageLength / 2;
+  const size_t firstSegmentLength  = messageLength / 2;
   const size_t secondSegmentLength = messageLength - firstSegmentLength;
   std::vector<ucp_dt_iov_t> iov(2);
   iov[0].buffer = send.data();
@@ -276,9 +277,9 @@ TEST_P(RequestTest, ProgressAmMemoryTypePolicyStrict)
   const size_t bytes = std::max(_rndvThresh + 128, sizeof(int));
   std::vector<uint8_t> send(bytes, 42);
 
-  auto amSendParams                = ucxx::AmSendParams{};
-  amSendParams.memoryType          = UCS_MEMORY_TYPE_CUDA;
-  amSendParams.memoryTypePolicy    = ucxx::AmSendMemoryTypePolicy::ErrorOnUnsupported;
+  auto amSendParams             = ucxx::AmSendParams{};
+  amSendParams.memoryType       = UCS_MEMORY_TYPE_CUDA;
+  amSendParams.memoryTypePolicy = ucxx::AmSendMemoryTypePolicy::ErrorOnUnsupported;
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->amSend(send.data(), send.size(), amSendParams));
