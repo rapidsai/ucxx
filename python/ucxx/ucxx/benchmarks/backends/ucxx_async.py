@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -65,9 +65,11 @@ class UCXPyAsyncServer(BaseServer):
         register_am_allocators(self.args)
 
         async def server_handler(ep):
+            length = ((self.args.n_bytes + 3) // 4) * 4
+            shape = (length // 4, 2, 2)
             if not self.args.enable_am:
                 if self.args.reuse_alloc and self.args.n_buffers == 1:
-                    reuse_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
+                    reuse_msg = Array(xp.reshape(xp.zeros(length, dtype="u1"), shape))
 
             for i in range(self.args.n_iter + self.args.n_warmup_iter):
                 if self.args.enable_am:
@@ -78,9 +80,9 @@ class UCXPyAsyncServer(BaseServer):
                         msg = (
                             reuse_msg
                             if self.args.reuse_alloc
-                            else xp.zeros(self.args.n_bytes, dtype="u1")
+                            else xp.reshape(xp.zeros(length, dtype="u1"), shape)
                         )
-                        assert msg.nbytes == self.args.n_bytes
+                        assert msg.nbytes == length
 
                         await ep.recv(msg)
                         await ep.send(msg)
@@ -135,14 +137,18 @@ class UCXPyAsyncClient(BaseClient):
             endpoint_error_handling=self.args.error_handling,
         )
 
+        length = ((self.args.n_bytes + 3) // 4) * 4
+        shape = (length // 4, 2, 2)
         if self.args.enable_am:
-            msg = xp.arange(self.args.n_bytes, dtype="u1")
+            msg = xp.reshape(xp.arange(length, dtype="u1"), shape)
         else:
             if self.args.reuse_alloc:
-                reuse_msg_send = Array(xp.arange(self.args.n_bytes, dtype="u1"))
+                reuse_msg_send = Array(xp.reshape(xp.arange(length, dtype="u1"), shape))
 
                 if self.args.n_buffers == 1:
-                    reuse_msg_recv = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
+                    reuse_msg_recv = Array(
+                        xp.reshape(xp.zeros(length, dtype="u1"), shape)
+                    )
                 else:
                     reuse_msg_send = [reuse_msg_send] * self.args.n_buffers
 
@@ -168,8 +174,12 @@ class UCXPyAsyncClient(BaseClient):
                         msg_send = reuse_msg_send
                         msg_recv = reuse_msg_recv
                     else:
-                        msg_send = Array(xp.arange(self.args.n_bytes, dtype="u1"))
-                        msg_recv = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
+                        msg_send = Array(
+                            xp.reshape(xp.arange(length, dtype="u1"), shape)
+                        )
+                        msg_recv = Array(
+                            xp.reshape(xp.zeros(length, dtype="u1"), shape)
+                        )
                     await ep.send(msg_send)
                     await ep.recv(msg_recv)
                 else:
@@ -177,7 +187,7 @@ class UCXPyAsyncClient(BaseClient):
                         msg_send = reuse_msg_send
                     else:
                         msg_send = [
-                            Array(xp.arange(self.args.n_bytes, dtype="u1"))
+                            Array(xp.reshape(xp.arange(length, dtype="u1"), shape))
                             for i in range(self.args.n_buffers)
                         ]
                     await ep.send_multi(msg_send)
