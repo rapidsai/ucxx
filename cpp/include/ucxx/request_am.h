@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -161,6 +161,8 @@ class RequestAm : public Request {
                                                  const ucp_am_recv_param_t* param);
 
   [[nodiscard]] std::shared_ptr<Buffer> getRecvBuffer() override;
+
+  [[nodiscard]] std::string getRecvHeader() override;
 };
 
 }  // namespace ucxx

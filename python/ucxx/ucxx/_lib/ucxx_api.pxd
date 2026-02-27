@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
 from posix cimport fcntl
 
-from libc.stdint cimport int64_t, uint16_t, uint64_t
+from libc.stdint cimport int64_t, uint16_t, uint32_t, uint64_t
 from libcpp cimport bool as cpp_bool
 from libcpp.functional cimport function
 from libcpp.memory cimport shared_ptr, unique_ptr
@@ -54,6 +54,14 @@ cdef extern from "ucp/api/ucp.h" nogil:
         pass
 
     ctypedef uint64_t ucp_tag_t
+
+    ctypedef uint64_t ucp_datatype_t
+
+    ctypedef struct ucp_dt_iov_t:
+        void* buffer
+        size_t length
+
+    ucp_datatype_t UCP_DATATYPE_IOV
 
     ctypedef struct ucp_tag_recv_info_t:
         pass
@@ -196,6 +204,17 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass AmReceiverCallbackInfo:
         pass
 
+    cdef enum class AmSendMemoryTypePolicy:
+        FallbackToHost
+        ErrorOnUnsupported
+
+    cdef cppclass AmSendParams:
+        uint32_t flags
+        ucp_datatype_t datatype
+        ucs_memory_type_t memoryType
+        AmSendMemoryTypePolicy memoryTypePolicy
+        void setUserHeader(const void* data, size_t size)
+
     # Using function[Buffer] here doesn't seem possible due to Cython bugs/limitations.
     # The workaround is to use a raw C function pointer and let it be parsed by the
     # compiler.
@@ -309,6 +328,17 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             nullopt_t receiver_callback_info,
             bint enable_python_future
         ) except +raise_py_error
+        shared_ptr[Request] amSend(
+            const void* const buffer,
+            size_t length,
+            AmSendParams params,
+            bint enable_python_future
+        ) except +raise_py_error
+        shared_ptr[Request] amSend(
+            vector[ucp_dt_iov_t] iov,
+            AmSendParams params,
+            bint enable_python_future
+        ) except +raise_py_error
         shared_ptr[Request] amRecv(
             bint enable_python_future
         ) except +raise_py_error
@@ -364,6 +394,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void checkError() except +raise_py_error
         void* getFuture() except +raise_py_error
         shared_ptr[Buffer] getRecvBuffer() except +raise_py_error
+        string getRecvHeader() except +raise_py_error
         void cancel()
 
 

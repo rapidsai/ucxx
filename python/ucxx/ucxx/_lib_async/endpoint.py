@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -167,7 +167,7 @@ class Endpoint:
                 await asyncio.sleep(0)
                 self.abort(period=period, max_attempts=max_attempts)
 
-    async def am_send(self, buffer):
+    async def am_send(self, buffer, memory_type_policy=None, user_header=None):
         """Send `buffer` to connected peer via active messages.
 
         Parameters
@@ -175,6 +175,12 @@ class Endpoint:
         buffer: exposing the buffer protocol or array/cuda interface
             The buffer to send. Raise ValueError if buffer is smaller
             than nbytes.
+        memory_type_policy: PythonAmSendMemoryTypePolicy, optional
+            Policy controlling receiver-side allocation when no allocator is
+            registered for the sender's memory type. Default ``None`` uses
+            ``FallbackToHost``.
+        user_header: bytes, optional
+            Opaque user-defined header bytes to send alongside the message.
         """
         self._ep.raise_on_error()
         if self.closed:
@@ -196,11 +202,60 @@ class Endpoint:
         self._send_count += 1
 
         try:
-            request = self._ep.am_send(buffer)
+            request = self._ep.am_send(
+                buffer,
+                memory_type_policy=memory_type_policy,
+                user_header=user_header,
+            )
             return await request.wait()
         except UCXCanceled as e:
             # If self._ep has already been closed and destroyed, we reraise the
             # UCXCanceled exception.
+            if self._ep is None:
+                raise e
+
+    async def am_send_iov(self, buffers, memory_type_policy=None, user_header=None):
+        """Send multiple buffers as a single IOV active message.
+
+        Parameters
+        ----------
+        buffers: list
+            List of buffers exposing the buffer protocol or array/cuda
+            interface. All buffers must have the same memory type (all host
+            or all CUDA).
+        memory_type_policy: PythonAmSendMemoryTypePolicy, optional
+            Policy controlling receiver-side allocation when no allocator is
+            registered for the sender's memory type. Default ``None`` uses
+            ``FallbackToHost``.
+        user_header: bytes, optional
+            Opaque user-defined header bytes to send alongside the message.
+        """
+        self._ep.raise_on_error()
+        if self.closed:
+            raise UCXCloseError("Endpoint closed")
+        if not (isinstance(buffers, list) or isinstance(buffers, tuple)):
+            raise ValueError("The `buffers` argument must be a `list` or `tuple`")
+        arrays = [Array(b) if not isinstance(b, Array) else b for b in buffers]
+
+        if logger.isEnabledFor(logging.DEBUG):
+            log = "[AM Send IOV #%03d] ep: 0x%x, segments: %d, nbytes: %s" % (
+                self._send_count,
+                self.uid,
+                len(arrays),
+                tuple([b.nbytes for b in arrays]),
+            )
+            logger.debug(log)
+
+        self._send_count += 1
+
+        try:
+            request = self._ep.am_send_iov(
+                arrays,
+                memory_type_policy=memory_type_policy,
+                user_header=user_header,
+            )
+            return await request.wait()
+        except UCXCanceled as e:
             if self._ep is None:
                 raise e
 
@@ -335,8 +390,8 @@ class Endpoint:
         await self.send(nbytes, tag=tag)
         await self.send(obj, tag=tag)
 
-    async def am_recv(self):
-        """Receive from connected peer via active messages."""
+    async def _am_recv_request(self):
+        """Internal helper: receive AM request, return (buffer, request)."""
         if not self._ep.am_probe():
             self._ep.raise_on_error()
             if self.closed:
@@ -371,7 +426,36 @@ class Endpoint:
             and self._finished_recv_count >= self._close_after_n_recv
         ):
             self.abort()
+        return buffer, req
+
+    async def am_recv(self):
+        """Receive from connected peer via active messages.
+
+        Returns
+        -------
+        buffer
+            The received data buffer.
+
+        See Also
+        --------
+        am_recv_with_header : Also returns the user-defined header.
+        """
+        buffer, _ = await self._am_recv_request()
         return buffer
+
+    async def am_recv_with_header(self):
+        """Receive from connected peer via active messages, including
+        the user-defined header.
+
+        Returns
+        -------
+        tuple of (buffer, header)
+            buffer: The received data buffer.
+            header: bytes, the user-defined header sent by the peer.
+                Empty bytes if no user header was sent.
+        """
+        buffer, req = await self._am_recv_request()
+        return buffer, req.recv_header
 
     def tag_probe(self, tag=None, force_tag=False, remove=False):
         """Probe for tag messages without receiving them.

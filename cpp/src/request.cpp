@@ -242,4 +242,6 @@ const std::string& Request::getOwnerString() const { return _ownerString; }
 
 std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }
 
+std::string Request::getRecvHeader() { return {}; }
+
 }  // namespace ucxx

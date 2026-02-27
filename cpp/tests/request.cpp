@@ -1,10 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <string>
 #include <tuple>
 #include <ucp/api/ucp.h>
 #include <ucs/type/status.h>
@@ -202,6 +203,98 @@ TEST_P(RequestTest, ProgressAm)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
+TEST_P(RequestTest, ProgressAmIovHost)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_memoryType != UCS_MEMORY_TYPE_HOST) {
+    GTEST_SKIP() << "IOV test uses host buffers for deterministic validation";
+  }
+
+  const size_t messageLength = std::max<size_t>(4, _messageLength);
+  std::vector<int> send(messageLength);
+  std::iota(send.begin(), send.end(), 0);
+
+  const size_t firstSegmentLength  = messageLength / 2;
+  const size_t secondSegmentLength = messageLength - firstSegmentLength;
+  std::vector<ucp_dt_iov_t> iov(2);
+  iov[0].buffer = send.data();
+  iov[0].length = firstSegmentLength * sizeof(int);
+  iov[1].buffer = send.data() + firstSegmentLength;
+  iov[1].length = secondSegmentLength * sizeof(int);
+
+  auto amSendParams       = ucxx::AmSendParams{};
+  amSendParams.datatype   = UCP_DATATYPE_IOV;
+  amSendParams.memoryType = UCS_MEMORY_TYPE_HOST;
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(iov, amSendParams));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto recvReq    = requests[1];
+  auto recvBuffer = recvReq->getRecvBuffer();
+  ASSERT_EQ(recvBuffer->getType(), ucxx::BufferType::Host);
+  ASSERT_EQ(recvBuffer->getSize(), messageLength * sizeof(int));
+
+  std::vector<int> recv(reinterpret_cast<int*>(recvBuffer->data()),
+                        reinterpret_cast<int*>(recvBuffer->data()) + messageLength);
+  ASSERT_THAT(recv, ContainerEq(send));
+}
+
+TEST_P(RequestTest, ProgressAmIovValidation)
+{
+  auto amSendParams       = ucxx::AmSendParams{};
+  amSendParams.datatype   = UCP_DATATYPE_IOV;
+  amSendParams.memoryType = UCS_MEMORY_TYPE_HOST;
+
+  EXPECT_THROW(std::ignore = _ep->amSend(std::vector<ucp_dt_iov_t>{}, amSendParams),
+               std::runtime_error);
+
+  std::vector<ucp_dt_iov_t> iovWithNullBuffer(1);
+  iovWithNullBuffer[0].buffer = nullptr;
+  iovWithNullBuffer[0].length = 16;
+  EXPECT_THROW(std::ignore = _ep->amSend(iovWithNullBuffer, amSendParams), std::runtime_error);
+
+  std::vector<int> send{1, 2, 3, 4};
+  std::vector<ucp_dt_iov_t> validIov(1);
+  validIov[0].buffer = send.data();
+  validIov[0].length = send.size() * sizeof(send[0]);
+
+  auto wrongDatatypeParams     = amSendParams;
+  wrongDatatypeParams.datatype = ucp_dt_make_contig(1);
+  EXPECT_THROW(std::ignore = _ep->amSend(validIov, wrongDatatypeParams), std::runtime_error);
+}
+
+TEST_P(RequestTest, ProgressAmMemoryTypePolicyStrict)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  const size_t bytes = std::max(_rndvThresh + 128, sizeof(int));
+  std::vector<uint8_t> send(bytes, 42);
+
+  auto amSendParams             = ucxx::AmSendParams{};
+  amSendParams.memoryType       = UCS_MEMORY_TYPE_CUDA;
+  amSendParams.memoryTypePolicy = ucxx::AmSendMemoryTypePolicy::ErrorOnUnsupported;
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(send.data(), send.size(), amSendParams));
+  requests.push_back(_ep->amRecv());
+
+  // Wait for completion without calling checkError(), since the receive request
+  // is expected to complete with UCS_ERR_UNSUPPORTED.
+  while (!requests[0]->isCompleted() || !requests[1]->isCompleted())
+    _progressWorker();
+
+  // When the receiver rejects a rendezvous transfer, UCX propagates the error to
+  // both sides, so the send may also complete with UCS_ERR_UNSUPPORTED.
+  ASSERT_EQ(requests[1]->getStatus(), UCS_ERR_UNSUPPORTED);
+}
+
 TEST_P(RequestTest, ProgressAmReceiverCallback)
 {
   if (_progressMode == ProgressMode::Wait) {
@@ -261,6 +354,107 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
   copyResults();
 
   // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, ProgressAmUserHeader)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_memoryType != UCS_MEMORY_TYPE_HOST) {
+    GTEST_SKIP() << "User header test uses host buffers only";
+  }
+
+  allocate(1, false);
+
+  const std::string sentHeader = "test-header-payload-\x00\x01\x02\xff";
+
+  auto amSendParams = ucxx::AmSendParams{};
+  amSendParams.setUserHeader(sentHeader);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, amSendParams));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto recvReq = requests[1];
+  ASSERT_EQ(recvReq->getRecvHeader(), sentHeader);
+
+  _recvPtr[0] = recvReq->getRecvBuffer()->data();
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, ProgressAmIovUserHeader)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_memoryType != UCS_MEMORY_TYPE_HOST) {
+    GTEST_SKIP() << "IOV user header test uses host buffers only";
+  }
+
+  const size_t messageLength = std::max<size_t>(4, _messageLength);
+  std::vector<int> send(messageLength);
+  std::iota(send.begin(), send.end(), 0);
+
+  const size_t firstSegmentLength  = messageLength / 2;
+  const size_t secondSegmentLength = messageLength - firstSegmentLength;
+  std::vector<ucp_dt_iov_t> iov(2);
+  iov[0].buffer = send.data();
+  iov[0].length = firstSegmentLength * sizeof(int);
+  iov[1].buffer = send.data() + firstSegmentLength;
+  iov[1].length = secondSegmentLength * sizeof(int);
+
+  const std::string sentHeader = "iov-user-header-data";
+
+  auto amSendParams       = ucxx::AmSendParams{};
+  amSendParams.datatype   = UCP_DATATYPE_IOV;
+  amSendParams.memoryType = UCS_MEMORY_TYPE_HOST;
+  amSendParams.setUserHeader(sentHeader);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(iov, amSendParams));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto recvReq    = requests[1];
+  auto recvBuffer = recvReq->getRecvBuffer();
+  ASSERT_EQ(recvBuffer->getType(), ucxx::BufferType::Host);
+  ASSERT_EQ(recvBuffer->getSize(), messageLength * sizeof(int));
+  ASSERT_EQ(recvReq->getRecvHeader(), sentHeader);
+
+  std::vector<int> recv(reinterpret_cast<int*>(recvBuffer->data()),
+                        reinterpret_cast<int*>(recvBuffer->data()) + messageLength);
+  ASSERT_THAT(recv, ContainerEq(send));
+}
+
+TEST_P(RequestTest, ProgressAmEmptyUserHeader)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_memoryType != UCS_MEMORY_TYPE_HOST) {
+    GTEST_SKIP() << "User header test uses host buffers only";
+  }
+
+  allocate(1, false);
+
+  // Send without user header (default empty)
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto recvReq = requests[1];
+  ASSERT_EQ(recvReq->getRecvHeader(), std::string{});
+
+  _recvPtr[0] = recvReq->getRecvBuffer()->data();
+  copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
