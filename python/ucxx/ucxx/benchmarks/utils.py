@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import inspect
 import json
 import logging
 import multiprocessing as mp
@@ -256,7 +257,7 @@ def _worker_process(
 
         logger.debug(f"Running worker {rank=}")
 
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             results = await func(rank, eps, args)
         else:
             results = func(rank, eps, args)
