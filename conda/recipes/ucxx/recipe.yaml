@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 context:
-  version: ${{ env.get("RAPIDS_PACKAGE_VERSION") }}
+  version: ${{ env.get("UCXX_PACKAGE_VERSION") }}
   cuda_version: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[:2] | join(".") }}
   cuda_major: '${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}'
   date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
   head_rev: '${{ git.head_rev(".")[:8] }}'
+  rapids_version: '${{ env.get("RAPIDS_PACKAGE_DEPENDENCY") }}'
 
 recipe:
   name: libucxx-split
@@ -289,8 +290,7 @@ outputs:
         - ${{ pin_subpackage("libucxx", exact=True) }}
         - cuda-cudart-dev
       run:
-        - numba >=0.60.0,<0.62.0
-        - numba-cuda >=0.22.1,<0.23.0
+        - cuda-core >=0.3.2
         - numpy >=1.23,<3.0
         # 'nvidia-ml-py' provides the 'pynvml' module
         - nvidia-ml-py>=12
@@ -425,13 +425,12 @@ outputs:
     requirements:
       host:
         - pip
-        - python >=3.10
+        - python >=3.11
         - rapids-build-backend >=0.4.0,<0.5.0
         - setuptools>=77.0.0
         - wheel
       run:
-        - numba >=0.60.0,<0.62.0
-        - numba-cuda >=0.22.1,<0.23.0
+        - cuda-core >=0.3.2
         - python
         - pyyaml >=6
         - rapids-dask-dependency ${{ rapids_version }}

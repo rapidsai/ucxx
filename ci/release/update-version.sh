@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 ########################
@@ -115,11 +115,6 @@ echo "${NEXT_FULL_TAG}" > VERSION
 echo "${NEXT_RAPIDS_SHORT_TAG}.00" > RAPIDS_VERSION
 echo "${RAPIDS_BRANCH_NAME}" > RAPIDS_BRANCH
 
-# Update RAPIDS version
-for FILE in conda/recipes/*/conda_build_config.yaml; do
-  sed_runner "/^rapids_version:\$/{ n; s|.*|  - \"${NEXT_RAPIDS_SHORT_TAG_PEP440}.*\"|; }" "${FILE}"
-done
-
 DEPENDENCIES=(
   cudf
   dask-cuda
@@ -152,13 +147,6 @@ for FILE in python/*/pyproject.toml; do
     sed_runner "/\"${DEP}\(-cu[[:digit:]]\{2\}\)\{0,1\}==/ s/==.*\"/==${NEXT_SHORT_TAG_PEP440}\.*,>=0.0.0a0\"/g" "${FILE}"
   done
 done
-
-# Update cmake/RAPIDS.cmake with context-aware branch references
-if [[ "${RUN_CONTEXT}" == "main" ]]; then
-    sed_runner "s|\"release/\${rapids-cmake-version}\"|\"main\"|g" cmake/RAPIDS.cmake
-elif [[ "${RUN_CONTEXT}" == "release" ]]; then
-    sed_runner "s|\"main\"|\"release/\${rapids-cmake-version}\"|g" cmake/RAPIDS.cmake
-fi
 
 # Documentation references - context-aware
 if [[ "${RUN_CONTEXT}" == "main" ]]; then

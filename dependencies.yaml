@@ -276,10 +276,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.10"
-            packages:
-              - python=3.10
-          - matrix:
               py: "3.11"
             packages:
               - python=3.11
@@ -292,8 +288,12 @@ dependencies:
             packages:
               - python=3.13
           - matrix:
+              py: "3.14"
             packages:
-              - python>=3.10,<3.14
+              - python=3.14
+          - matrix:
+            packages:
+              - python>=3.11
   run_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -301,45 +301,21 @@ dependencies:
           - &numpy numpy>=1.23,<3.0
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
-      - output_types: [conda]
-        packages:
-          - &numba_cuda numba-cuda>=0.22.1,<0.23.0
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - &numba_cuda_cu12 numba-cuda[cu12]>=0.22.1,<0.23.0
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
-          - matrix:
-            packages:
-              - &numba_cuda_cu13 numba-cuda[cu13]>=0.22.1,<0.23.0
+          - cuda-core>=0.3.2
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - rapids-dask-dependency==26.4.*,>=0.0.0a0
           - pyyaml>=6
-      - output_types: [conda]
-        packages:
-          - *numba_cuda
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - *numba_cuda_cu12
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
-          - matrix:
-            packages:
-              - *numba_cuda_cu13
+          - cuda-core>=0.3.2
   test_cpp:
     common:
       - output_types: conda
         packages:
           - *cmake_ver
+          - gdb  # Used for timeout_with_stack.py
+          - psutil  # Used for timeout_with_stack.py
   test_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -349,6 +325,28 @@ dependencies:
           - pytest-asyncio>=1.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
           - rapids-dask-dependency==26.4.*,>=0.0.0a0
+      - output_types: [conda]
+        packages:
+          - gdb  # Used for timeout_with_stack.py
+          - &numba_cuda_test numba-cuda>=0.22.1
+          - psutil  # Used for timeout_with_stack.py
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - &numba_cuda_cu12_test numba-cuda[cu12]>=0.22.1
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - &numba_cuda_cu13_test numba-cuda[cu13]>=0.22.1
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
+          - matrix:
+            packages:
+              - *numba_cuda_test
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -356,6 +354,27 @@ dependencies:
           - *numpy
           - pytest<9.0.0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
+      - output_types: [conda]
+        packages:
+          - gdb  # Used for timeout_with_stack.py
+          - *numba_cuda_test
+          - psutil  # Used for timeout_with_stack.py
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - *numba_cuda_cu12_test
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - *numba_cuda_cu13_test
+          - matrix:
+            packages:
+              - *numba_cuda_test
   depends_on_cupy:
     common:
       - output_types: conda
@@ -380,7 +399,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -404,7 +422,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -428,7 +445,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -488,7 +504,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -510,12 +525,6 @@ dependencies:
         packages:
           - ucxx-tests==0.49.*,>=0.0.0a0
   depends_on_ucx_build:
-    common:
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda]
         matrices:
@@ -545,12 +554,6 @@ dependencies:
             packages:
               - libucx>=1.19.0,<1.19.1
   depends_on_ucx_run:
-    common:
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [conda]
         matrices:

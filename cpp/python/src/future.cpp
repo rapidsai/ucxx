@@ -235,6 +235,11 @@ PyObject* future_set_result_with_event_loop(PyObject* event_loop, PyObject* futu
     goto finish;
   }
 
+  if (event_loop == NULL || !PyObject_TypeCheck(event_loop, &PyBaseObject_Type)) {
+    ucxx_error("ucxx::python::%s, invalid or NULL event loop", __func__);
+    goto finish;
+  }
+
   set_result_callable = PyObject_GetAttr(future, set_result_str);
   if (PyErr_Occurred()) {
     ucxx_error("ucxx::python::%s, error getting `set_result` method from `asyncio.Future` object",
@@ -278,6 +283,11 @@ PyObject* future_set_exception_with_event_loop(PyObject* event_loop,
 
   if (init_ucxx_python() < 0) {
     if (!PyErr_Occurred()) PyErr_SetString(PyExc_RuntimeError, "could not allocate internals.");
+    goto finish;
+  }
+
+  if (event_loop == NULL || !PyObject_TypeCheck(event_loop, &PyBaseObject_Type)) {
+    ucxx_error("ucxx::python::%s, invalid or NULL event loop", __func__);
     goto finish;
   }
 

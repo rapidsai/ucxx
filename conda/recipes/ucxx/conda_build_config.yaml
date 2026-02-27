@@ -17,10 +17,10 @@ cmake:
   - ">=3.26.4"
 
 python:
-  - 3.10
   - 3.11
   - 3.12
   - 3.13
+  - 3.14
 
 ucx:
   - "==1.18.*"  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("12")]
@@ -31,6 +31,3 @@ gmock:
 
 gtest:
   - ">=1.13.0"
-
-rapids_version:
-  - "26.4.*"

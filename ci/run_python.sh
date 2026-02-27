@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
+
+TIMEOUT_TOOL_PATH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/timeout_with_stack.py
 
 source "$(dirname "$0")/test_common.sh"
 
@@ -17,10 +19,11 @@ run_py_tests() {
     ARGS=()
   fi
 
-  CMD_LINE="timeout 4m python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ ${ARGS[*]}"
+  CMD_LINE="python ${TIMEOUT_TOOL_PATH} --enable-python $((4*60)) python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ ${ARGS[*]}"
   log_command "${CMD_LINE}"
   # Without append import mode, tests that create subprocess fail
-  timeout 4m python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ "${ARGS[@]}"
+  python "${TIMEOUT_TOOL_PATH}" --enable-python $((4*60)) \
+    python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ "${ARGS[@]}"
 }
 
 run_py_tests_async() {
@@ -29,14 +32,18 @@ run_py_tests_async() {
   ENABLE_PYTHON_FUTURE=$3
   SKIP=$4
 
-  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 30m python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow"
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((30*60)) python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow"
 
   if [ "$SKIP" -ne 0 ]; then
     echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
   else
     log_command "${CMD_LINE}"
     # Without append import mode, tests that create subprocess fail
-    UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 30m python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow
+    UCXPY_PROGRESS_MODE=${PROGRESS_MODE} \
+    UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
+    UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
+    python "${TIMEOUT_TOOL_PATH}" --enable-python $((30*60)) \
+    python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow
   fi
 }
 
@@ -55,7 +62,7 @@ run_py_benchmark() {
     ASYNCIO_WAIT=""
   fi
 
-  CMD_LINE="UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} timeout 2m python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}"
+  CMD_LINE="UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((2*60)) python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}"
 
   # Workaround for https://github.com/rapidsai/ucxx/issues/15
   CMD_LINE="UCX_KEEPALIVE_INTERVAL=1ms ${CMD_LINE}"
@@ -68,7 +75,8 @@ run_py_benchmark() {
   UCX_KEEPALIVE_INTERVAL=1ms \
   UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
   UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
-  timeout 2m python -m ucxx.benchmarks.send_recv --backend "${BACKEND}" \
+  python "${TIMEOUT_TOOL_PATH}" --enable-python $((2*60)) \
+  python -m ucxx.benchmarks.send_recv --backend "${BACKEND}" \
   -o cupy --reuse-alloc -n 8MiB --n-buffers "$N_BUFFERS" --progress-mode "${PROGRESS_MODE}" ${ASYNCIO_WAIT}
 }
 
@@ -101,4 +109,4 @@ for progress_mode in "blocking" "thread"; do
 done
 
 log_message "C++ future -> Python future notifier example"
-timeout 1m python -m ucxx.examples.python_future_task_example
+python "${TIMEOUT_TOOL_PATH}" --enable-python 60 python -m ucxx.examples.python_future_task_example

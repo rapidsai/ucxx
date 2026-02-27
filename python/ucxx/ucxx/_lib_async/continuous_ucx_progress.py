@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -70,9 +70,9 @@ class ProgressTask(object):
 
 
 def _create_context():
-    import numba.cuda
+    from ucxx._cuda_context import ensure_cuda_context
 
-    numba.cuda.current_context()
+    ensure_cuda_context(0)
 
 
 class ThreadMode(ProgressTask):

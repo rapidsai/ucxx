@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
@@ -94,13 +94,12 @@ class CudaStream(Enum):
 
 
 def synchronize_stream(stream: CudaStream = CudaStream.Default):
-    import numba.cuda
+    from ucxx._cuda_context import synchronize_default_stream
 
     if stream == CudaStream.Default:
-        numba_stream = numba.cuda.default_stream()
+        synchronize_default_stream()
     else:
         raise ValueError("Unsupported stream")
-    numba_stream.synchronize()
 
 
 class gc_disabled:
@@ -246,11 +245,11 @@ def init_once():
         or ("cuda" in ucx_tls and "^cuda" not in ucx_tls)
     ):
         try:
-            import numba.cuda
-        except ImportError:
+            from ucxx._cuda_context import ensure_cuda_context
+        except ImportError as e:
             raise ImportError(
-                "CUDA support with UCX requires Numba for context management"
-            )
+                "CUDA support with UCX requires cuda-core for context management."
+            ) from e
 
         cuda_visible_device = get_device_index_and_uuid(
             os.environ.get("CUDA_VISIBLE_DEVICES", "0").split(",")[0]
@@ -261,7 +260,7 @@ def init_once():
                 pre_existing_cuda_context.device_info, os.getpid()
             )
 
-        numba.cuda.current_context()
+        ensure_cuda_context(0)
 
         cuda_context_created = has_cuda_context()
         if (
@@ -291,7 +290,8 @@ def init_once():
 
     pool_size_str = get_rmm_config("pool-size")
 
-    # Find the function, `cuda_array()`, to use when allocating new CUDA arrays
+    # Find the function, `cuda_array()`, to use when allocating new CUDA arrays.
+    # RMM is required for CUDA array allocation at runtime (numba is only for tests).
     try:
         import rmm
 
@@ -304,22 +304,9 @@ def init_once():
                 pool_allocator=True, managed_memory=False, initial_pool_size=pool_size
             )
     except ImportError:
-        try:
-            import numba.cuda
 
-            def numba_device_array(n):
-                a = numba.cuda.device_array((n,), dtype="u1")
-                weakref.finalize(a, numba.cuda.current_context)
-                return a
-
-            device_array = numba_device_array
-
-        except ImportError:
-
-            def device_array(n):
-                raise RuntimeError(
-                    "In order to send/recv CUDA arrays, Numba or RMM is required"
-                )
+        def device_array(n):
+            raise RuntimeError("In order to send/recv CUDA arrays, RMM is required.")
 
         if pool_size_str is not None:
             logger.warning(

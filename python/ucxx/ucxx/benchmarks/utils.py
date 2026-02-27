@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -19,12 +19,12 @@ logger = logging.getLogger("ucx")
 
 
 def _ensure_cuda_device(devs, rank):
-    import numba.cuda
+    from ucxx._cuda_context import ensure_cuda_context
 
     dev_id = devs[rank % len(devs)]
     os.environ["CUDA_VISIBLE_DEVICES"] = str(dev_id)
     logger.debug(f"{dev_id=}, {rank=}")
-    numba.cuda.current_context()
+    ensure_cuda_context(0)
 
 
 def get_allocator(
@@ -163,8 +163,9 @@ def _run_cluster_server(
         A tuple with two elements: the process spawned and a queue where results
         will eventually be stored.
     """
-    q = mp.Queue()
-    p = mp.Process(
+    ctx = mp.get_context("fork")
+    q = ctx.Queue()
+    p = ctx.Process(
         target=_server_process,
         args=(
             q,
@@ -173,6 +174,7 @@ def _run_cluster_server(
             ucx_options_list,
         ),
     )
+
     p.start()
     return p, q
 
@@ -343,10 +345,11 @@ def _run_cluster_workers(
         )
 
     processes = []
+    ctx = mp.get_context("fork")
     for worker_num in range(num_node_workers):
         rank = node_idx * num_node_workers + worker_num
-        q = mp.Queue()
-        p = mp.Process(
+        q = ctx.Queue()
+        p = ctx.Process(
             target=_worker_process,
             args=(
                 q,

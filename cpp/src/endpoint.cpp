@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -395,7 +395,7 @@ std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Reque
   return request;
 }
 
-void Endpoint::removeInflightRequest(const Request* const request)
+void Endpoint::removeInflightRequest(std::shared_ptr<Request> request)
 {
   _inflightRequests->remove(request);
 }

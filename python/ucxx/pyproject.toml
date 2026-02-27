@@ -17,10 +17,10 @@ authors = [
     { name = "NVIDIA Corporation" },
 ]
 license = "BSD-3-Clause"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
+    "cuda-core>=0.3.2",
     "libucxx==0.49.*,>=0.0.0a0",
-    "numba-cuda[cu13]>=0.22.1,<0.23.0",
     "numpy>=1.23,<3.0",
     "nvidia-ml-py>=12",
     "rmm==26.4.*,>=0.0.0a0",
@@ -36,11 +36,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 
+[project.entry-points."cmake.prefix"]
+ucxx = "ucxx"
+
 [project.optional-dependencies]
 test = [
     "cloudpickle",
     "cudf==26.4.*,>=0.0.0a0",
     "cupy-cuda13x>=13.6.0",
+    "numba-cuda>=0.22.1",
     "pytest-asyncio>=1.0.0",
     "pytest-rerunfailures!=16.0.0",
     "pytest<9.0.0",
@@ -79,16 +83,13 @@ provider = "scikit_build_core.metadata.regex"
 input = "ucxx/VERSION"
 regex = "(?P<value>.*)"
 
-[project.entry-points."cmake.prefix"]
-ucxx = "ucxx"
-
 [tool.pydistcheck]
 select = [
     "distro-too-large-compressed",
 ]
 
-# PyPI limit is 100 MiB, fail CI before we get too close to that
-max_allowed_size_compressed = '75M'
+# PyPI hard limit is 1GiB, but try to keep these as small as possible
+max_allowed_size_compressed = '10Mi'
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
