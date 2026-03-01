@@ -1,16 +1,21 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <atomic>
+#include <cstddef>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -154,8 +159,8 @@ typedef uint64_t AmReceiverCallbackIdType;
  */
 class AmReceiverCallbackInfo {
  public:
-  const AmReceiverCallbackOwnerType owner;  ///< The owner name of the callback
-  const AmReceiverCallbackIdType id;        ///< The unique identifier of the callback
+  AmReceiverCallbackOwnerType owner;  ///< The owner name of the callback
+  AmReceiverCallbackIdType id;        ///< The unique identifier of the callback
 
   AmReceiverCallbackInfo() = delete;
 
@@ -166,6 +171,64 @@ class AmReceiverCallbackInfo {
    * @param[in] id     The unique identifier of the callback.
    */
   AmReceiverCallbackInfo(const AmReceiverCallbackOwnerType owner, AmReceiverCallbackIdType id);
+};
+
+/**
+ * @brief Policy used to allocate receive buffers for Active Messages.
+ *
+ * Active Message receive allocations can be strict (error if no allocator is registered for
+ * sender-provided memory type) or permissive (fallback to host allocation).
+ */
+enum class AmSendMemoryTypePolicy {
+  FallbackToHost = 0,  ///< If no allocator exists for memory type, fallback to host memory.
+  ErrorOnUnsupported,  ///< If no allocator exists for memory type, fail with unsupported error.
+};
+
+/**
+ * @brief Parameters controlling Active Message send behavior.
+ *
+ * This object is used by the extended Active Message API to expose UCX send knobs without
+ * breaking existing callers.
+ */
+struct AmSendParams {
+  uint32_t flags{UCP_AM_SEND_FLAG_REPLY};              ///< UCP AM send flags.
+  ucp_datatype_t datatype{ucp_dt_make_contig(1)};      ///< Datatype used by `ucp_am_send_nbx`.
+  ucs_memory_type_t memoryType{UCS_MEMORY_TYPE_HOST};  ///< Sender memory type hint.
+  AmSendMemoryTypePolicy memoryTypePolicy{
+    AmSendMemoryTypePolicy::FallbackToHost};  ///< Receiver allocation policy.
+  std::optional<AmReceiverCallbackInfo> receiverCallbackInfo{
+    std::nullopt};                      ///< Optional receiver callback metadata.
+  std::vector<std::byte> userHeader{};  ///< Opaque user-defined header bytes. This is serialized
+                                        ///< into the AM header parameter of `ucp_am_send_nbx`,
+                                        ///< which is subject to transport-level size limits. For
+                                        ///< TCP, the default segment size is ~8 KiB
+                                        ///< (`UCX_TCP_TX_SEG_SIZE` / `UCX_TCP_RX_SEG_SIZE`).
+                                        ///< Headers that exceed the transport limit will cause a
+                                        ///< fatal UCX error. Keep user headers small
+                                        ///< (recommended < 4 KiB) or increase segment size env
+                                        ///< vars as needed.
+
+  /**
+   * @brief Set opaque user header bytes from raw pointer.
+   *
+   * @param[in] data  pointer to input bytes, may be `nullptr` iff `size == 0`.
+   * @param[in] size  number of bytes in input.
+   */
+  void setUserHeader(const void* data, size_t size)
+  {
+    if (size > 0 && data == nullptr)
+      throw std::invalid_argument(
+        "AmSendParams::setUserHeader received null data with non-zero size");
+    userHeader.resize(size);
+    if (size > 0) memcpy(userHeader.data(), data, size);
+  }
+
+  /**
+   * @brief Convenience overload to set user header from string-like views.
+   *
+   * @param[in] data view of opaque bytes.
+   */
+  void setUserHeader(std::string_view data) { setUserHeader(data.data(), data.size()); }
 };
 
 /**

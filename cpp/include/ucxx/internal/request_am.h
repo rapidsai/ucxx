@@ -9,6 +9,7 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -57,12 +58,14 @@ class RecvAmMessage {
    * @param[in] request             request to be later notified/delivered to user.
    * @param[in] buffer              buffer containing the received data
    * @param[in] receiverCallback    receiver callback to execute when request completes.
+   * @param[in] userHeader          user-defined header associated with the received message.
    */
   RecvAmMessage(internal::AmData* amData,
                 ucp_ep_h ep,
                 std::shared_ptr<RequestAm> request,
                 std::shared_ptr<Buffer> buffer,
-                AmReceiverCallbackType receiverCallback = AmReceiverCallbackType());
+                AmReceiverCallbackType receiverCallback = AmReceiverCallbackType(),
+                std::vector<std::byte> userHeader       = {});
 
   /**
    * @brief Set the UCP request.
