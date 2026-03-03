@@ -1,8 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
 import gc
+import inspect
 import os
 
 import pytest
@@ -67,8 +68,14 @@ def ucxx_setup_teardown():
     ucxx.reset()
     # Let's make sure that UCX gets time to cancel
     # progress tasks before closing the event loop.
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # Python 3.14+ raises if there is no event loop
+        loop = None
+    if loop is None:
+        pass
+    elif loop.is_running():
         # If loop is running, we can't run_until_complete
         # The cleanup will happen when the loop is closed
         pass
@@ -117,7 +124,7 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
     else:
         reruns = 1
 
-    if asyncio.iscoroutinefunction(pyfuncitem.obj) and timeout > 0.0:
+    if inspect.iscoroutinefunction(pyfuncitem.obj) and timeout > 0.0:
 
         async def wrapped_obj(*args, **kwargs):
             for i in range(reruns):

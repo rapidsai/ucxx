@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import inspect
 import json
 import logging
 import multiprocessing as mp
@@ -163,8 +164,9 @@ def _run_cluster_server(
         A tuple with two elements: the process spawned and a queue where results
         will eventually be stored.
     """
-    q = mp.Queue()
-    p = mp.Process(
+    ctx = mp.get_context("fork")
+    q = ctx.Queue()
+    p = ctx.Process(
         target=_server_process,
         args=(
             q,
@@ -173,6 +175,7 @@ def _run_cluster_server(
             ucx_options_list,
         ),
     )
+
     p.start()
     return p, q
 
@@ -254,7 +257,7 @@ def _worker_process(
 
         logger.debug(f"Running worker {rank=}")
 
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             results = await func(rank, eps, args)
         else:
             results = func(rank, eps, args)
@@ -343,10 +346,11 @@ def _run_cluster_workers(
         )
 
     processes = []
+    ctx = mp.get_context("fork")
     for worker_num in range(num_node_workers):
         rank = node_idx * num_node_workers + worker_num
-        q = mp.Queue()
-        p = mp.Process(
+        q = ctx.Queue()
+        p = ctx.Process(
             target=_worker_process,
             args=(
                 q,

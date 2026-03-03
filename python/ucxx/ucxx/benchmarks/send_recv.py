@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
-import asyncio
+import inspect
 import multiprocessing as mp
 import os
 
@@ -68,7 +68,7 @@ def server(queue, args):
 
     server = _get_backend_implementation(args.backend)["server"](args, queue)
 
-    if asyncio.iscoroutinefunction(server.run):
+    if inspect.iscoroutinefunction(server.run):
         loop = get_event_loop()
         loop.run_until_complete(server.run())
     else:
@@ -85,7 +85,7 @@ def client(queue, port, server_address, args):
         args, queue, server_address, port
     )
 
-    if asyncio.iscoroutinefunction(client.run):
+    if inspect.iscoroutinefunction(client.run):
         loop = get_event_loop()
         loop.run_until_complete(client.run())
     else:

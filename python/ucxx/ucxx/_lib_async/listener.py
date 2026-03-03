@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import inspect
 import logging
 import os
 import threading
@@ -189,7 +190,7 @@ async def _listener_handler_coroutine(
     del ctx
 
     # Finally, we call `func`
-    if asyncio.iscoroutinefunction(func):
+    if inspect.iscoroutinefunction(func):
         try:
             await func(ep)
         except Exception as e:
