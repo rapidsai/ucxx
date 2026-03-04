@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from distributed import Nanny, Scheduler
 from distributed.utils_test import gen_test
 from distributed.worker import Worker
@@ -15,7 +18,7 @@ class KeyboardInterruptWorker(Worker):
 
 @gen_test(timeout=120)
 async def test_nanny_closed_by_keyboard_interrupt(ucxx_loop):
-    async with Scheduler(protocol="ucxx", dashboard_address=":0") as s:
+    async with Scheduler(protocol="ucx", dashboard_address=":0") as s:
         async with Nanny(
             s.address, nthreads=1, worker_class=KeyboardInterruptWorker
         ) as n:

@@ -1,8 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
 import gc
+import inspect
 import os
 
 import pytest
@@ -42,19 +43,48 @@ def handle_exception(loop, context):
     print(msg)
 
 
-# Let's make sure that UCX gets time to cancel
-# progress tasks before closing the event loop.
-@pytest.fixture()
-def event_loop(scope="session"):
-    loop = asyncio.new_event_loop()
-    try:
+class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
+    """Custom event loop policy providing custom event loop with UCXX setup/teardown."""
+
+    def new_event_loop(self):
+        loop = super().new_event_loop()
         loop.set_exception_handler(handle_exception)
-        ucxx.reset()
-        yield loop
-        ucxx.reset()
-        loop.run_until_complete(asyncio.sleep(0))
-    finally:
-        loop.close()
+        return loop
+
+
+@pytest.fixture(scope="session")
+def event_loop_policy():
+    """Provide a custom event loop policy for the entire test session."""
+    policy = CustomEventLoopPolicy()
+    asyncio.set_event_loop_policy(policy)
+    return policy
+
+
+@pytest.fixture(autouse=True)
+def ucxx_setup_teardown():
+    """Automatically setup and teardown UCX for each test."""
+    ucxx.reset()
+    yield
+    ucxx.reset()
+    # Let's make sure that UCX gets time to cancel
+    # progress tasks before closing the event loop.
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # Python 3.14+ raises if there is no event loop
+        loop = None
+    if loop is None:
+        pass
+    elif loop.is_running():
+        # If loop is running, we can't run_until_complete
+        # The cleanup will happen when the loop is closed
+        pass
+    else:
+        try:
+            loop.run_until_complete(asyncio.sleep(0))
+        except RuntimeError:
+            # Loop might already be closed
+            pass
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -94,7 +124,7 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
     else:
         reruns = 1
 
-    if asyncio.iscoroutinefunction(pyfuncitem.obj) and timeout > 0.0:
+    if inspect.iscoroutinefunction(pyfuncitem.obj) and timeout > 0.0:
 
         async def wrapped_obj(*args, **kwargs):
             for i in range(reruns):

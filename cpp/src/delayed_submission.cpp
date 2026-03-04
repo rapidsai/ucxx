@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -14,10 +14,10 @@
 
 namespace ucxx {
 
-RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(const std::string name,
+RequestDelayedSubmissionCollection::RequestDelayedSubmissionCollection(std::string name,
                                                                        const bool enabled)
   : BaseDelayedSubmissionCollection<
-      std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>{name, enabled}
+      std::pair<std::shared_ptr<Request>, DelayedSubmissionCallbackType>>{std::move(name), enabled}
 {
 }
 
@@ -38,8 +38,8 @@ void RequestDelayedSubmissionCollection::processItem(
   if (callback) callback();
 }
 
-GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(const std::string name)
-  : BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType>{name, true}
+GenericDelayedSubmissionCollection::GenericDelayedSubmissionCollection(std::string name)
+  : BaseDelayedSubmissionCollection<DelayedSubmissionCallbackType>{std::move(name), true}
 {
 }
 

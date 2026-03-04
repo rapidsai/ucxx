@@ -1,6 +1,8 @@
 # =================================================================================
-# SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
-# SPDX-License-Identifier: BSD 3-Clause License
+# cmake-format: off
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+# cmake-format: on
 # =================================================================================
 
 find_package(Threads REQUIRED)
@@ -28,10 +30,7 @@ function(ConfigureBench CMAKE_BENCH_NAME)
                CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
   )
-  target_link_libraries(
-    ${CMAKE_BENCH_NAME} PRIVATE ucxx
-                                $<TARGET_NAME_IF_EXISTS:conda_env>
-  )
+  target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE ucxx $<TARGET_NAME_IF_EXISTS:conda_env>)
   add_custom_command(
     OUTPUT UCXX_EXAMPLES
     COMMAND ${CMAKE_BENCH_NAME}

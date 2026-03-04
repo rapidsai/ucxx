@@ -9,7 +9,7 @@ _build
 __pytestcache__
 __pycache__
 build
-cpp/compile_commands.json
+compile_commands.json
 
 # Python build directories and artifcats
 dask-worker-space

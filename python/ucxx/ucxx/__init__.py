@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""UCXX: Python bindings for the Unified Communication X library (UCX <www.openucx.org>)"""
+"""UCXX: Python bindings for the Unified Communication X library
+(UCX <www.openucx.org>)"""
 
 import logging
 import os
@@ -27,18 +28,18 @@ if "UCX_MEMTYPE_CACHE" not in os.environ:
     logger.debug("Setting env UCX_MEMTYPE_CACHE=n, which is required by UCX")
     os.environ["UCX_MEMTYPE_CACHE"] = "n"
 
-from . import exceptions, types, testing  # noqa
-from ._lib import libucxx  # type: ignore
-from .core import *  # noqa
-from .utils import get_address, get_ucxpy_logger  # noqa
+from . import exceptions, types, testing  # noqa: E402
+from ._lib import libucxx  # noqa: E402
+from .core import *  # noqa: E402, F403
+from .utils import get_address, get_ucxpy_logger  # noqa: E402
 
 try:
     import pynvml
 except ImportError:
     pynvml = None
 
-_ucx_version = get_ucx_version()
-__ucx_min_version__ = "1.15.0"
+_ucx_version = get_ucx_version()  # noqa: F405
+__ucx_min_version__ = "1.18.0"
 __ucx_version__ = "%d.%d.%d" % _ucx_version
 
 if _ucx_version < tuple(int(i) for i in __ucx_min_version__.split(".")):
@@ -80,15 +81,25 @@ if (
         for dev_idx in range(device_count):
             handle = pynvml.nvmlDeviceGetHandleByIndex(dev_idx)
 
-            # Ignore MIG devices and use rely on UCX's default for now. Increasing
-            # `UCX_CUDA_COPY_MAX_REG_RATIO` should be thoroughly tested, as it's
-            # not yet clear whether it would be safe to set `1.0` for those
-            # instances too.
-            if _is_mig_device(handle):
+            try:
+                total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).total
+            except pynvml.NVMLError_NotSupported:
+                total_memory = None
+
+            # Ignore MIG devices and devices with no memory resource (i.e., only
+            # integrated CPU+GPU memory resource) and rely on UCX's default for
+            # now. Increasing `UCX_CUDA_COPY_MAX_REG_RATIO` should be thoroughly
+            # tested, as it's not yet clear whether it would be safe to set `1.0`
+            # for those instances too.
+            if _is_mig_device(handle) or total_memory is None:
                 continue
 
-            total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).total
-            bar1_total = pynvml.nvmlDeviceGetBAR1MemoryInfo(handle).bar1Total
+            try:
+                bar1_total = pynvml.nvmlDeviceGetBAR1MemoryInfo(handle).bar1Total
+            except pynvml.NVMLError_NotSupported:
+                # Bar1 access not supported on this device, set it to
+                # zero (always lower than device memory).
+                bar1_total = 0
 
             if total_memory <= bar1_total:
                 large_bar1[dev_idx] = True
@@ -113,4 +124,15 @@ if "UCX_PROTO_ENABLE" not in os.environ and (1, 12, 0) <= _ucx_version < (1, 18,
     os.environ["UCX_PROTO_ENABLE"] = "n"
 
 
-from ._version import __git_commit__, __version__
+from ._version import __git_commit__, __version__  # noqa: E402
+
+__all__ = [
+    "exceptions",
+    "types",
+    "testing",
+    "libucxx",
+    *core.__all__,  # noqa: F405
+    "__git_commit__",
+    "__version__",
+    "get_address",
+]

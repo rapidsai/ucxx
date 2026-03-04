@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -40,8 +40,11 @@ class AsyncioServer(BaseServer):
 
     async def serve_forever(self):
         if self.args.port is not None:
-            port, server = self.args.port, await asyncio.start_server(
-                self.handle_stream, "0.0.0.0", self.args.port
+            port, server = (
+                self.args.port,
+                await asyncio.start_server(
+                    self.handle_stream, "0.0.0.0", self.args.port
+                ),
             )
         else:
             port, server = await self._start_listener(None)
@@ -81,6 +84,14 @@ class AsyncioClient(BaseClient):
 
         send_msg = ("x" * self.args.n_bytes).encode()
 
+        if self.args.report_gil_contention:
+            from gilknocker import KnockKnock
+
+            # Use smallest polling interval possible to ensure, contention will always
+            # be zero for small messages otherwise and inconsistent for large messages.
+            knocker = KnockKnock(polling_interval_micros=1)
+            knocker.start()
+
         times = []
         for i in range(self.args.n_iter + self.args.n_warmup_iter):
             start = monotonic()
@@ -95,6 +106,11 @@ class AsyncioClient(BaseClient):
             stop = monotonic()
             if i >= self.args.n_warmup_iter:
                 times.append(stop - start)
+
+        if self.args.report_gil_contention:
+            knocker.stop()
         self.queue.put(times)
+        if self.args.report_gil_contention:
+            self.queue.put(knocker.contention_metric)
         writer.close()
         await writer.wait_closed()

@@ -8,10 +8,13 @@ set -euo pipefail
 source "$(dirname "$0")/test_common.sh"
 
 rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
+
+rapids-logger "Configuring conda strict channel priority"
+conda config --set channel_priority strict
 
 rapids-dependency-file-generator \
   --output conda \
@@ -30,20 +33,4 @@ print_system_stats
 print_ucx_config
 
 rapids-logger "Run distributed-ucxx tests with conda package"
-# run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests      blocking        0                           0
-run_distributed_ucxx_tests      polling         0                           0
-run_distributed_ucxx_tests      thread          0                           0
-run_distributed_ucxx_tests      thread          0                           1
-run_distributed_ucxx_tests      thread          1                           0
-run_distributed_ucxx_tests      thread          1                           1
-
-install_distributed_dev_mode
-
-# run_distributed_ucxx_tests_internal   PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE
-run_distributed_ucxx_tests_internal     blocking        0                           0
-run_distributed_ucxx_tests_internal     polling         0                           0
-run_distributed_ucxx_tests_internal     thread          0                           0
-run_distributed_ucxx_tests_internal     thread          0                           1
-run_distributed_ucxx_tests_internal     thread          1                           0
-run_distributed_ucxx_tests_internal     thread          1                           1
+./ci/run_python_distributed.sh

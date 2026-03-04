@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -36,7 +36,7 @@ cuda = pytest.importorskip("numba.cuda")
         lambda cudf: cudf.datasets.timeseries(),  # ts index with ints, cats, floats
     ],
 )
-async def test_send_recv_cudf(event_loop, g):
+async def test_send_recv_cudf(g):
     from distributed.utils import nbytes
 
     class UCX:

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import array
@@ -44,8 +44,11 @@ def test_Array_readonly_builtins(buffer):
 @pytest.mark.parametrize("buffer", builtin_buffers)
 def test_Array_obj_builtins(buffer):
     arr = Array(buffer)
+    obj = arr.obj
+    while isinstance(obj, memoryview):
+        obj = obj.obj
     mv = memoryview(buffer)
-    assert arr.obj is mv.obj
+    assert obj is mv.obj
 
 
 @pytest.mark.parametrize("buffer", builtin_buffers)

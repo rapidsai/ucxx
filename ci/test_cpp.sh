@@ -8,10 +8,13 @@ set -euo pipefail
 source "$(dirname "$0")/test_common.sh"
 
 rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
+
+rapids-logger "Configuring conda strict channel priority"
+conda config --set channel_priority strict
 
 rapids-dependency-file-generator \
   --output conda \
@@ -29,22 +32,8 @@ print_system_stats
 
 print_ucx_config
 
-rapids-logger "Run tests with conda package"
-rapids-logger "C++ Tests"
-run_cpp_tests
+rapids-logger "Run C++ tests with conda package"
+./ci/run_cpp.sh
 
-rapids-logger "C++ Benchmarks"
-# run_cpp_port_retry MAX_ATTEMPTS RUN_TYPE PROGRESS_MODE
-run_cpp_port_retry 10 "benchmark" "polling"
-run_cpp_port_retry 10 "benchmark" "blocking"
-run_cpp_port_retry 10 "benchmark" "thread-polling"
-run_cpp_port_retry 10 "benchmark" "thread-blocking"
-run_cpp_port_retry 10 "benchmark" "wait"
-
-rapids-logger "C++ Examples"
-# run_cpp_port_retry MAX_ATTEMPTS RUN_TYPE PROGRESS_MODE
-run_cpp_port_retry 10 "example" "polling"
-run_cpp_port_retry 10 "example" "blocking"
-run_cpp_port_retry 10 "example" "thread-polling"
-run_cpp_port_retry 10 "example" "thread-blocking"
-run_cpp_port_retry 10 "example" "wait"
+rapids-logger "Run C++ ucxx_perftest benchmarks with conda package"
+./ci/run_cpp_benchmarks.sh

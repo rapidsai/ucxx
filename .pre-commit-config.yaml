@@ -1,31 +1,24 @@
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
+
 repos:
-      - repo: https://github.com/pycqa/isort
-        rev: 5.12.0
+      - repo: https://github.com/pre-commit/pre-commit-hooks
+        rev: v5.0.0
         hooks:
-              - id: isort
-                # Use the config file specific to each subproject so that each
-                # project can specify its own first/third-party packages.
-                args: ["--config-root=python/", "--resolve-all-configs"]
-                files: python/.*
-                exclude: __init__.py$
-                types: [text]
-                types_or: [python, cython, pyi]
-      - repo: https://github.com/ambv/black
-        rev: 22.3.0
-        hooks:
-              - id: black
-                files: python/.*
+              - id: trailing-whitespace
+              - id: end-of-file-fixer
       - repo: https://github.com/astral-sh/ruff-pre-commit
-        rev: v0.0.278
+        rev: v0.14.3
         hooks:
-              - id: ruff
-                files: python/.*$
+              - id: ruff-check
+                args: [--fix]
+              - id: ruff-format
       - repo: https://github.com/MarcoGorelli/cython-lint
         rev: v0.15.0
         hooks:
               - id: cython-lint
       - repo: https://github.com/pre-commit/mirrors-clang-format
-        rev: v16.0.6
+        rev: v20.1.4
         hooks:
               - id: clang-format
                 files: \.(h|cpp)$
@@ -42,20 +35,87 @@ repos:
                 files: \.(h|cpp)$
                 # exclude: path/to/myfile.h
       - repo: https://github.com/rapidsai/pre-commit-hooks
-        rev: v0.4.0
+        rev: v1.3.3
         hooks:
             - id: verify-copyright
+              args: [--fix, --spdx, --spdx-license-identifier=BSD-3-Clause]
+              files: |
+                (?x)
+                  [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx|rs|java)$|
+                  CMakeLists[.]txt$|
+                  CMakeLists_standalone[.]txt$|
+                  meta[.]yaml$|
+                  pyproject[.]toml$|
+                  setup[.]cfg$|
+                  dependencies[.]yaml$|
+                  ^[.]pre-commit-config[.]yaml$|
+                  recipe[.]yaml$
             - id: verify-alpha-spec
               args:
                 - --fix
-                - --rapids-version=25.06
+                - --rapids-version-file=RAPIDS_VERSION
+            - id: verify-hardcoded-version
+              exclude: |
+                (?x)
+                  devcontainer[.]json$|
+                  dependencies[.]yaml$|
+                  ^[.]github/workflows/|
+                  [.]md$|
+                  pom[.]xml$|
+                  ^[.]pre-commit-config[.]yaml$|
+                  [.]rst$|
+                  ^conda/environments/|
+                  [.](png)$
+            - id: verify-hardcoded-version
+              name: verify-hardcoded-version-rapids
+              args: [--fix, --version-file=RAPIDS_VERSION]
+              exclude: |
+                (?x)
+                  devcontainer[.]json$|
+                  dependencies[.]yaml$|
+                  ^[.]github/workflows/|
+                  [.]md$|
+                  pom[.]xml$|
+                  ^[.]pre-commit-config[.]yaml$|
+                  [.]rst$|
+                  ^conda/environments/|
+                  [.](png)$|
+                  ^RAPIDS_BRANCH$
+            - id: verify-pyproject-license
+              # ignore the top-level pyproject.toml, which doesn't
+              # have or need a [project] table
+              exclude: |
+                (?x)
+                  ^pyproject[.]toml$
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.16.0
+        rev: v1.20.0
         hooks:
             - id: rapids-dependency-file-generator
-              args: ["--clean"]
+              args: ["--clean", "--warn-all", "--strict"]
       - repo: local
         hooks:
+            - id: cmake-format
+              name: cmake-format
+              entry: ./cmake/scripts/run-cmake-format.sh cmake-format
+              language: python
+              types: [cmake]
+              # Note that pre-commit autoupdate does not update the versions
+              # of dependencies, so we'll have to update this manually.
+              additional_dependencies:
+                - cmakelang==0.6.13
+              verbose: true
+              require_serial: true
+            - id: cmake-lint
+              name: cmake-lint
+              entry: ./cmake/scripts/run-cmake-format.sh cmake-lint
+              language: python
+              types: [cmake]
+              # Note that pre-commit autoupdate does not update the versions
+              # of dependencies, so we'll have to update this manually.
+              additional_dependencies:
+                - cmakelang==0.6.13
+              verbose: true
+              require_serial: true
             - id: doxygen-check
               name: doxygen-check
               entry: ./ci/checks/doxygen.sh
@@ -69,7 +129,7 @@ repos:
         hooks:
             - id: codespell
               additional_dependencies: [tomli]
-              args: ["--toml", "python/pyproject.toml"]
+              args: ["--toml", "pyproject.toml"]
               exclude: |
                 (?x)^(
                   .*test.*|
@@ -79,7 +139,6 @@ repos:
         rev: v0.10.0.1
         hooks:
           - id: shellcheck
-            args: ["--severity=warning"]
 
 default_language_version:
       python: python3

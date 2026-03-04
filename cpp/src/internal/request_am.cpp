@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <ucxx/buffer.h>
@@ -9,6 +9,8 @@
 #include <ucxx/typedefs.h>
 
 #include <memory>
+#include <utility>
+#include <vector>
 
 namespace ucxx {
 
@@ -18,11 +20,15 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
                              ucp_ep_h ep,
                              std::shared_ptr<RequestAm> request,
                              std::shared_ptr<Buffer> buffer,
-                             AmReceiverCallbackType receiverCallback)
+                             AmReceiverCallbackType receiverCallback,
+                             std::vector<std::byte> userHeader)
   : _amData(amData), _ep(ep), _request(request)
 {
   std::visit(data::dispatch{
-               [this, buffer](data::AmReceive& amReceive) { amReceive._buffer = buffer; },
+               [this, buffer, &userHeader](data::AmReceive& amReceive) {
+                 amReceive._buffer     = buffer;
+                 amReceive._userHeader = std::move(userHeader);
+               },
                [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _request->_requestData);
@@ -43,7 +49,7 @@ void RecvAmMessage::callback(void* request, ucs_status_t status)
                  _request->callback(request, status);
                  {
                    std::lock_guard<std::mutex> lock(_amData->_mutex);
-                   _amData->_recvAmMessageMap.erase(_request.get());
+                   _amData->_recvAmMessageMap.erase(_request);
                  }
                },
                [](auto) { throw std::runtime_error("Unreachable"); },

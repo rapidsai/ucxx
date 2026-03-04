@@ -1,13 +1,17 @@
 #!/bin/bash
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
 
 rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
+
+rapids-logger "Configuring conda strict channel priority"
+conda config --set channel_priority strict
 
 UCXX_VERSION="$(head -1 ./VERSION)"
 export UCXX_VERSION
@@ -35,6 +39,13 @@ pushd cpp/doxygen
 doxygen Doxyfile
 mkdir -p "${RAPIDS_DOCS_DIR}/libucxx/html"
 mv html/* "${RAPIDS_DOCS_DIR}/libucxx/html"
+popd
+
+rapids-logger "Build Python docs"
+pushd docs/ucxx
+make dirhtml O="-j 8"
+mkdir -p "${RAPIDS_DOCS_DIR}/ucxx/html"
+mv build/dirhtml/* "${RAPIDS_DOCS_DIR}/ucxx/html"
 popd
 
 RAPIDS_VERSION_NUMBER="${UCXX_VERSION_MAJOR_MINOR}" rapids-upload-docs

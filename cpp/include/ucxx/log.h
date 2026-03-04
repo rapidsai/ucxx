@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -25,11 +25,12 @@ extern ucs_log_component_config_t ucxx_log_component_config;
 #define UCXX_MAX_LOG_LEVEL ucxx::UCXX_LOG_LEVEL_LAST
 #endif
 
-#define ucxx_log_component_is_enabled(_level, _comp_log_config) \
-  ucs_unlikely(                                                 \
-    ((_level) <= UCXX_MAX_LOG_LEVEL) &&                         \
-    ((_level) <= (ucxx::ucxx_log_level_t)(                      \
-                   reinterpret_cast<ucs_log_component_config_t*>(_comp_log_config)->log_level)))
+#define ucxx_log_component_is_enabled(_level, _comp_log_config)                               \
+  ucs_unlikely(                                                                               \
+    ((_level) <= UCXX_MAX_LOG_LEVEL) &&                                                       \
+    ((_level) <=                                                                              \
+     (ucxx::ucxx_log_level_t)(reinterpret_cast<ucs_log_component_config_t*>(_comp_log_config) \
+                                ->log_level)))
 
 #define ucxx_log_is_enabled(_level) \
   ucxx_log_component_is_enabled(_level, &ucxx::ucxx_log_component_config)

@@ -1,11 +1,13 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -31,8 +33,9 @@ class RequestAm : public Request {
  private:
   friend class internal::RecvAmMessage;
 
-  std::string _header{};  ///< Retain copy of header for send requests as workaround for
-                          ///< https://github.com/openucx/ucx/issues/10424
+  std::vector<std::byte> _header{};  ///< Retain copy of header bytes for send requests as
+                                     ///< workaround for
+                                     ///< https://github.com/openucx/ucx/issues/10424
 
   /**
    * @brief Private constructor of `ucxx::RequestAm`.
@@ -62,7 +65,7 @@ class RequestAm : public Request {
    */
   RequestAm(std::shared_ptr<Component> endpointOrWorker,
             const std::variant<data::AmSend, data::AmReceive> requestData,
-            const std::string operationName,
+            std::string operationName,
             const bool enablePythonFuture                = false,
             RequestCallbackUserFunction callbackFunction = nullptr,
             RequestCallbackUserData callbackData         = nullptr);
@@ -78,6 +81,13 @@ class RequestAm : public Request {
    * this is a send operation, or consumed if this is a receive operation. Received data is
    * available via the `getRecvBuffer()` method if the receive transfer request completed
    * successfully.
+   *
+   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
+   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
+   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
+   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
+   * in which case the callback will also execute immediately within the calling thread and
+   * before the method returns.
    *
    * @throws ucxx::Error  if `endpoint` is not a valid
    *                      `std::shared_ptr<ucxx::Endpoint>`.
@@ -154,6 +164,8 @@ class RequestAm : public Request {
                                                  const ucp_am_recv_param_t* param);
 
   [[nodiscard]] std::shared_ptr<Buffer> getRecvBuffer() override;
+
+  [[nodiscard]] std::string getRecvHeader() override;
 };
 
 }  // namespace ucxx

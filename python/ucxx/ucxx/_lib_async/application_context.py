@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
@@ -46,7 +46,7 @@ class ApplicationContext:
         progress_mode=None,
         enable_delayed_submission=None,
         enable_python_future=None,
-        exchange_peer_info_timeout=10.0,
+        connect_timeout=None,
     ):
         self.notifier_thread_q = None
         self.notifier_thread = None
@@ -57,7 +57,10 @@ class ApplicationContext:
         self.enable_delayed_submission = enable_delayed_submission
         self.enable_python_future = enable_python_future
 
-        self.exchange_peer_info_timeout = exchange_peer_info_timeout
+        if connect_timeout is None:
+            self.connect_timeout = float(os.environ.get("UCXPY_CONNECT_TIMEOUT", 5))
+        else:
+            self.connect_timeout = connect_timeout
 
         # For now, a application context only has one worker
         self.context = ucx_api.UCXContext(config_dict)
@@ -254,7 +257,7 @@ class ApplicationContext:
         callback_func,
         port=0,
         endpoint_error_handling=True,
-        exchange_peer_info_timeout=5.0,
+        connect_timeout=5.0,
     ):
         """Create and start a listener to accept incoming connections
 
@@ -278,7 +281,7 @@ class ApplicationContext:
             but prevents a process from terminating unexpectedly that may
             happen when disabled. If `False` endpoint endpoint error handling
             is disabled.
-        exchange_peer_info_timeout: float
+        connect_timeout: float
             Timeout in seconds for exchanging peer info. In some cases, exchanging
             peer information may hang indefinitely, a timeout prevents that. If the
             chosen value is too high it may cause the operation to be stuck for too
@@ -310,7 +313,7 @@ class ApplicationContext:
                     callback_func,
                     self,
                     endpoint_error_handling,
-                    exchange_peer_info_timeout,
+                    connect_timeout,
                     listener_id,
                     self._listener_active_clients,
                 ),
@@ -326,7 +329,7 @@ class ApplicationContext:
         ip_address,
         port,
         endpoint_error_handling=True,
-        exchange_peer_info_timeout=5.0,
+        connect_timeout=5.0,
     ):
         """Create a new endpoint to a server
 
@@ -342,7 +345,7 @@ class ApplicationContext:
             but prevents a process from terminating unexpectedly that may
             happen when disabled. If `False` endpoint endpoint error handling
             is disabled.
-        exchange_peer_info_timeout: float
+        connect_timeout: float
             Timeout in seconds for exchanging peer info. In some cases, exchanging
             peer information may hang indefinitely, a timeout prevents that. If the
             chosen value is too high it may cause the operation to be stuck for too
@@ -369,14 +372,12 @@ class ApplicationContext:
         #  3) Use the info to create an endpoint
         seed = os.urandom(16)
         msg_tag = hash64bits("msg_tag", seed, ucx_ep.handle)
-        ctrl_tag = hash64bits("ctrl_tag", seed, ucx_ep.handle)
         try:
             peer_info = await exchange_peer_info(
                 endpoint=ucx_ep,
                 msg_tag=msg_tag,
-                ctrl_tag=ctrl_tag,
                 listener=False,
-                stream_timeout=exchange_peer_info_timeout,
+                connect_timeout=connect_timeout,
             )
         except UCXMessageTruncatedError as e:
             # A truncated message occurs if the remote endpoint closed before
@@ -389,21 +390,17 @@ class ApplicationContext:
         tags = {
             "msg_send": peer_info["msg_tag"],
             "msg_recv": msg_tag,
-            "ctrl_send": peer_info["ctrl_tag"],
-            "ctrl_recv": ctrl_tag,
         }
         ep = Endpoint(endpoint=ucx_ep, ctx=self, tags=tags)
 
         logger.debug(
             "create_endpoint() client: %s, error handling: %s, msg-tag-send: %s, "
-            "msg-tag-recv: %s, ctrl-tag-send: %s, ctrl-tag-recv: %s"
+            "msg-tag-recv: %s"
             % (
                 hex(ep._ep.handle),
                 endpoint_error_handling,
                 hex(ep._tags["msg_send"]),
                 hex(ep._tags["msg_recv"]),
-                hex(ep._tags["ctrl_send"]),
-                hex(ep._tags["ctrl_recv"]),
             )
         )
 
@@ -471,6 +468,8 @@ class ApplicationContext:
         if loop in ProgressTasks:
             return  # Progress has already been guaranteed for the current event loop
 
+        logger.info(f"Starting progress in '{self.progress_mode}' mode")
+
         if self.progress_mode == "thread":
             task = ThreadMode(self.worker, loop, polling_mode=False)
         elif self.progress_mode == "thread-polling":
@@ -531,6 +530,37 @@ class ApplicationContext:
         )
         return self.worker.address
 
+    def tag_probe(self, tag, remove=False):
+        """Probe for tag messages directly on worker without a local Endpoint.
+
+        This method checks if a message with the specified tag is available
+        without actually receiving it. This is useful for non-blocking
+        message checking.
+
+        Parameters
+        ----------
+        tag: hashable
+            Set a tag that must match the received message.
+        remove: bool
+            If true, remove the message from the queue and return a
+            message handle for efficient reception. If false, leave
+            the message in the queue.
+
+        Returns
+        -------
+        TagProbeResult
+            A result object containing:
+            - matched: bool indicating if a message was found
+            - sender_tag: int sender tag (when matched=True)
+            - length: int message length in bytes (when matched=True)
+            - handle: int message handle for efficient reception (when matched=True and
+                      remove=True)
+        """
+        if not isinstance(tag, Tag):
+            tag = Tag(tag)
+
+        return self.worker.tag_probe(tag, remove=remove)
+
     # @ucx_api.nvtx_annotate("UCXPY_WORKER_RECV", color="red", domain="ucxpy")
     async def recv(self, buffer, tag):
         """Receive directly on worker without a local Endpoint into `buffer`.
@@ -557,4 +587,36 @@ class ApplicationContext:
         logger.debug(log)
 
         req = self.worker.tag_recv(buffer, tag)
+        return await req.wait()
+
+    async def recv_with_handle(self, buffer, probe_result):
+        """Receive tag message using message handle obtained from tag_probe.
+
+        This is more efficient than regular recv as it doesn't need to go through
+        the message matching queue again.
+
+        Parameters
+        ----------
+        buffer: exposing the buffer protocol or array/cuda interface
+            The buffer to receive into. Raise ValueError if buffer
+            is smaller than nbytes or read-only.
+        probe_result: TagProbeResult
+            The probe result obtained from tag_probe with remove=True.
+
+        Returns
+        -------
+        The received data
+        """
+        if not isinstance(buffer, Array):
+            buffer = Array(buffer)
+
+        nbytes = buffer.nbytes
+        log = "[Worker Recv With Handle] worker: %s, nbytes: %d, type: %s" % (
+            hex(self.worker.handle),
+            nbytes,
+            type(buffer.obj),
+        )
+        logger.debug(log)
+
+        req = self.worker.tag_recv_with_handle(buffer, probe_result)
         return await req.wait()

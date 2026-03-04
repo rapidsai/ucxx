@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
@@ -12,9 +12,9 @@ from ucxx._lib_async.utils import get_event_loop
 
 
 def _create_cuda_context():
-    import numba.cuda
+    from ucxx._cuda_context import ensure_cuda_context
 
-    numba.cuda.current_context()
+    ensure_cuda_context(0)
 
 
 async def _progress_coroutine(worker):

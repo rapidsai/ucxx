@@ -1,14 +1,11 @@
 c_compiler_version:
-  - 13  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
-  - 11  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
+  - 14
 
 cxx_compiler_version:
-  - 13  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
-  - 11  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
+  - 14
 
 cuda_compiler:
-  - cuda-nvcc  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
-  - nvcc  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
+  - cuda-nvcc
 
 c_stdlib:
   - sysroot
@@ -20,18 +17,17 @@ cmake:
   - ">=3.26.4"
 
 python:
-  - 3.10
   - 3.11
   - 3.12
+  - 3.13
+  - 3.14
 
 ucx:
-  - "==1.15.*"
+  - "==1.18.*"  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("12")]
+  - "==1.19.*"  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("12")]
 
 gmock:
   - ">=1.13.0"
 
 gtest:
   - ">=1.13.0"
-
-rapids_version:
-  - "25.6.*"

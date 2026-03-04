@@ -1,10 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -21,8 +22,12 @@ std::shared_ptr<RequestFlush> createRequestFlush(
   RequestCallbackUserFunction callbackFunction = nullptr,
   RequestCallbackUserData callbackData         = nullptr)
 {
-  auto req = std::shared_ptr<RequestFlush>(new RequestFlush(
-    endpointOrWorker, requestData, "flush", enablePythonFuture, callbackFunction, callbackData));
+  auto req = std::shared_ptr<RequestFlush>(new RequestFlush(endpointOrWorker,
+                                                            requestData,
+                                                            std::move("flush"),
+                                                            enablePythonFuture,
+                                                            callbackFunction,
+                                                            callbackData));
 
   // A delayed notification request is not populated immediately, instead it is
   // delayed to allow the worker progress thread to set its status, and more
@@ -35,13 +40,13 @@ std::shared_ptr<RequestFlush> createRequestFlush(
 
 RequestFlush::RequestFlush(std::shared_ptr<Component> endpointOrWorker,
                            const data::Flush requestData,
-                           const std::string operationName,
+                           std::string operationName,
                            const bool enablePythonFuture,
                            RequestCallbackUserFunction callbackFunction,
                            RequestCallbackUserData callbackData)
   : Request(endpointOrWorker,
             requestData,
-            operationName,
+            std::move(operationName),
             enablePythonFuture,
             callbackFunction,
             callbackData)

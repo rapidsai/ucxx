@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -58,8 +58,10 @@ def _notifierThread(event_loop, worker, q):
         try:
             task.result(0.01)
         except TimeoutError:
-            task.cancel()
-            logger.debug("Notifier Thread Result Timeout")
+            # Do NOT cancel the task here. run_request_notifier() sets asyncio
+            # Futures for completed UCX requests; cancelling leaves them unset and
+            # causes send/recv to hang.
+            logger.debug("Notifier Thread Result Timeout (task left scheduled)")
         except Exception as e:
             logger.debug(f"Notifier Thread Result Exception: {e}")
 
