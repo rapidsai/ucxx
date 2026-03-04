@@ -52,3 +52,26 @@ def test_pickle_ucx_address():
 
     assert org_address_hash == hash(new_address)
     assert org_address_bytes == new_address_bytes
+
+
+def test_picklebuffer_ucx_address():
+    ctx = ucx_api.UCXContext()
+    worker = ucx_api.UCXWorker(ctx)
+    org_address = worker.address
+    org_address_bytes = bytes(org_address)
+    org_address_hash = hash(org_address)
+    dumped_address_list = [None]
+    dumped_address_list[0] = pickle.dumps(
+        org_address, protocol=5, buffer_callback=dumped_address_list.append
+    )
+    new_address = pickle.loads(
+        dumped_address_list[0], protocol=5, buffers=dumped_address_list[1:]
+    )
+    new_address_bytes = bytes(new_address)
+
+    assert org_address_hash == hash(new_address)
+    assert org_address_bytes == new_address_bytes
+
+    assert len(dumped_address_list) == 2
+    assert isinstance(dumped_address_list[1], pickle.PickleBuffer)
+    assert dumped_address_list[1].raw().obj is org_address

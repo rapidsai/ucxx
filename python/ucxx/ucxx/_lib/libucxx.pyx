@@ -5,6 +5,7 @@
 import asyncio
 import enum
 import functools
+from pickle import PickleBuffer
 import logging
 import warnings
 import weakref
@@ -582,8 +583,11 @@ cdef class UCXAddress():
     def __releasebuffer__(self, Py_buffer *buffer) -> None:
         pass
 
-    def __reduce__(self) -> tuple:
-        return (UCXAddress.create_from_buffer, (bytes(self),))
+    def __reduce_ex__(self, Py_ssize_t protocol) -> tuple:
+        if protocol >= 5:
+            return (UCXAddress.create_from_buffer, (PickleBuffer(self),))
+        else:
+            return (UCXAddress.create_from_buffer, (bytes(self),))
 
     def __hash__(self) -> int:
         return hash(bytes(self))
