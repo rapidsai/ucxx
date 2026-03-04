@@ -511,9 +511,9 @@ cdef class UCXAddress():
         return address
 
     @classmethod
-    def create_from_buffer(cls, bytes buf) -> UCXAddress:
+    def create_from_buffer(cls, const uint8_t[::1] buf) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
-        cdef string_view address_strv = string_view(<const char*>buf, len(buf))
+        cdef string_view address_strv = string_view(<const char*>&buf[0], len(buf))
 
         with nogil:
             address._address = createAddressFromString(address_strv)
