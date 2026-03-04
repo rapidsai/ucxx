@@ -105,7 +105,7 @@ class Address : public Component {
   [[nodiscard]] size_t getLength() const;
 
   /**
-   * @brief Get a non-owning view of the address.
+   * @brief Get a non-owning view of the address as a string.
    *
    * Convenience method to view the underlying address as a `std::string_view` and return it as
    * a single object.
