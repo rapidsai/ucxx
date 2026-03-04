@@ -105,10 +105,13 @@ class Address : public Component {
   [[nodiscard]] size_t getLength() const;
 
   /**
-   * @brief Get the address as a string.
+   * @brief Get a non-owning view of the address.
    *
-   * Convenience method to copy the underlying address to a `std::string` and return it as
+   * Convenience method to view the underlying address as a `std::string_view` and return it as
    * a single object.
+   *
+   * @note If the user would like to own the object, they can assign it to a `std::string` object,
+   * which will copy the memory.
    *
    * @returns The underlying `ucp_address_t` handle.
    */
