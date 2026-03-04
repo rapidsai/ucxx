@@ -29,6 +29,17 @@ def test_ucx_address_bytes():
     assert org_address_bytes == new_address_bytes
 
 
+def test_ucx_address_bytearray():
+    ctx = ucx_api.UCXContext()
+    worker = ucx_api.UCXWorker(ctx)
+    org_address = worker.address
+    org_address_bytearray = bytearray(org_address)
+    new_address = ucx_api.UCXAddress.create_from_buffer(org_address_bytearray)
+    new_address_bytearray = bytearray(new_address)
+    assert hash(org_address) == hash(new_address)
+    assert org_address_bytearray == new_address_bytearray
+
+
 def test_pickle_ucx_address():
     ctx = ucx_api.UCXContext()
     worker = ucx_api.UCXWorker(ctx)
