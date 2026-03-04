@@ -1,12 +1,12 @@
 # =================================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 # cmake-format: on
 # =================================================================================
 
 set(cython_sources test_cython.pyx)
-set(linked_libraries ucxx::ucxx ucxx::python Python3::Python)
+set(linked_libraries ucxx::ucxx ucxx::python)
 
 rapids_cython_create_modules(
   CXX
