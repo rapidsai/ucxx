@@ -64,9 +64,7 @@ def test_picklebuffer_ucx_address():
     dumped_address_list[0] = pickle.dumps(
         org_address, protocol=5, buffer_callback=dumped_address_list.append
     )
-    new_address = pickle.loads(
-        dumped_address_list[0], protocol=5, buffers=dumped_address_list[1:]
-    )
+    new_address = pickle.loads(dumped_address_list[0], buffers=dumped_address_list[1:])
     new_address_bytes = bytes(new_address)
 
     assert org_address_hash == hash(new_address)
