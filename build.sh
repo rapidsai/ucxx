@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # UCXX build script
@@ -245,6 +245,14 @@ if buildAll || hasArg libucxx_python; then
     fi
 fi
 
+
+# If `RAPIDS_PY_VERSION` is set, use that as the lower-bound for the stable ABI CPython version
+PY_API_ARGS=()
+if [ -n "${RAPIDS_PY_VERSION:-}" ]; then
+    RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
+    PY_API_ARGS+=("--config-settings" "skbuild.wheel.py-api=${RAPIDS_PY_API}")
+fi
+
 # Build and install the UCXX Python package
 if buildAll || hasArg ucxx; then
     read -ra SKBUILD_EXTRA_PIP_ARGS <<< "$SKBUILD_EXTRA_PIP_ARGS"
@@ -266,6 +274,7 @@ if buildAll || hasArg ucxx; then
             --config-settings rapidsai.disable-cuda=true \
             --config-settings skbuild.install.components=ucxx \
             --config-settings skbuild.install.components=examples \
+            "${PY_API_ARGS[@]}" \
             "${SKBUILD_EXTRA_PIP_ARGS[@]}" \
             .
     # restore to default space

@@ -21,7 +21,12 @@ echo "libucxx-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBUCXX_WHEELHOUSE}"/l
 
 export SKBUILD_CMAKE_ARGS="-DFIND_UCXX_CPP=ON;-DCMAKE_INSTALL_LIBDIR=ucxx/lib64;-DCMAKE_INSTALL_INCLUDEDIR=ucxx/include"
 
-./ci/build_wheel.sh "${package_name}" "${package_dir}"
+# TODO: move this variable into `ci-wheel`
+# Format Python limited API version string
+RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
+export RAPIDS_PY_API
+
+./ci/build_wheel.sh "${package_name}" "${package_dir}" --stable
 
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
@@ -32,3 +37,6 @@ python -m auditwheel repair \
     ${package_dir}/dist/*
 
 ./ci/validate_wheel.sh "${package_dir}" "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
+
+RAPIDS_PACKAGE_NAME="$(rapids-package-name wheel_python ucxx --stable --cuda)"
+export RAPIDS_PACKAGE_NAME
