@@ -11,16 +11,16 @@ export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
 
-rapids-generate-version > ./VERSION
-
 rapids-logger "Begin py build"
 
 CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
 
 sccache --stop-server 2>/dev/null || true
 
-RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION)
-export RAPIDS_PACKAGE_VERSION
+UCXX_PACKAGE_VERSION=$(rapids-generate-version)
+export UCXX_PACKAGE_VERSION
+RAPIDS_PACKAGE_DEPENDENCY=$(sed -E -e 's/^([0-9]+\.)0?([1-9][0-9]?)\.[0-9]+$/\1\2.*/' RAPIDS_VERSION)
+export RAPIDS_PACKAGE_DEPENDENCY
 
 # Creates and exports $RATTLER_CHANNELS
 source rapids-rattler-channel-string
