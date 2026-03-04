@@ -26,6 +26,7 @@ from libcpp.memory cimport (
 )
 from libcpp.optional cimport nullopt
 from libcpp.string cimport string
+from libcpp.string_view cimport string_view
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
@@ -512,10 +513,10 @@ cdef class UCXAddress():
     @classmethod
     def create_from_buffer(cls, bytes buf) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
-        cdef string address_str = string(<const char*>buf, len(buf))
+        cdef string_view address_strv = string_view(<const char*>buf, len(buf))
 
         with nogil:
-            address._address = createAddressFromString(address_str)
+            address._address = createAddressFromString(address_strv)
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
             address._string = address._address.get().getString()
