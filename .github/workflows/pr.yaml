@@ -13,6 +13,7 @@ jobs:
       - changed-files
       - checks
       - conda-cpp-build
+      - conda-python-build
       - devcontainer
       - docs-build
       - conda-cpp-tests
@@ -160,8 +161,17 @@ jobs:
       build_type: pull-request
       node_type: cpu8
       script: ci/build_cpp.sh
+  conda-python-build:
+    needs: conda-cpp-build
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@python-3.14
+    with:
+      build_type: pull-request
+      script: ci/build_python.sh
+      # Build a conda package for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   docs-build:
-    needs: [conda-cpp-build, changed-files]
+    needs: [conda-cpp-build, conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@python-3.14
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).build_docs
@@ -181,7 +191,7 @@ jobs:
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_cpp.sh
   conda-python-tests:
-    needs: [conda-cpp-build, changed-files]
+    needs: [conda-cpp-build, conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@python-3.14
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
@@ -190,7 +200,7 @@ jobs:
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_python.sh
   conda-python-distributed-tests:
-    needs: [conda-cpp-build, changed-files]
+    needs: [conda-cpp-build, conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@python-3.14
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
