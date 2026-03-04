@@ -247,7 +247,6 @@ fi
 
 
 # If `RAPIDS_PY_VERSION` is set, use that as the lower-bound for the stable ABI CPython version
-# This is only applied to pylibcudf, cudf, and cudf_kafka, not other Python packages
 PY_API_ARGS=()
 if [ -n "${RAPIDS_PY_VERSION:-}" ]; then
     RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
