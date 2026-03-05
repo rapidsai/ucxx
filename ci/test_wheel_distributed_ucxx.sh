@@ -13,6 +13,7 @@ export PATH="/tmp/gha-tools/tools:${PATH}"
 
 source rapids-init-pip
 
+# TODO(jameslamb): revert before merging
 source ci/use_wheels_from_prs.sh
 
 package_name="distributed_ucxx"
