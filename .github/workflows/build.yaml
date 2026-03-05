@@ -70,7 +70,7 @@ jobs:
       script: "ci/build_docs.sh"
       sha: ${{ inputs.sha }}
   upload-conda:
-    needs: [conda-cpp-build]
+    needs: [conda-cpp-build, conda-python-build]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@python-3.14
     with:
