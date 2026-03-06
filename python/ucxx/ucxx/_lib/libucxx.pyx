@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -24,7 +24,6 @@ from libcpp.memory cimport (
     shared_ptr,
     static_pointer_cast,
 )
-from libcpp.optional cimport nullopt
 from libcpp.string cimport string
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
@@ -336,6 +335,11 @@ class Feature(enum.Enum):
     WAKEUP = UCP_FEATURE_WAKEUP
     STREAM = UCP_FEATURE_STREAM
     AM = UCP_FEATURE_AM
+
+
+class PythonAmSendMemoryTypePolicy(enum.Enum):
+    FallbackToHost = <int>AmSendMemoryTypePolicy.FallbackToHost
+    ErrorOnUnsupported = <int>AmSendMemoryTypePolicy.ErrorOnUnsupported
 
 
 class PythonRequestNotifierWaitState(enum.Enum):
@@ -1000,6 +1004,20 @@ cdef class UCXRequest():
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
+    @property
+    def recv_header(self) -> bytes:
+        """Get the user-defined header from an AM receive request.
+
+        Returns the opaque header bytes sent by the peer. Returns empty bytes
+        if no user header was sent or for non-AM requests.
+        """
+        cdef string header
+
+        with nogil:
+            header = self._request.get().getRecvHeader()
+
+        return <bytes>header
+
     def is_completed(self) -> bool:
         warnings.warn(
             "UCXRequest.is_completed() is deprecated and will soon be removed, "
@@ -1457,21 +1475,99 @@ cdef class UCXEndpoint():
 
         return ep_matched
 
-    def am_send(self, Array arr) -> UCXRequest:
+    def am_send(
+        self, Array arr, memory_type_policy=None, user_header=None
+    ) -> UCXRequest:
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef bint cuda_array = arr.cuda
         cdef shared_ptr[Request] req
+        cdef AmSendParams params
+        cdef bytes user_header_bytes
+        cdef const char* user_header_ptr
 
         if not self._context_feature_flags & Feature.AM.value:
             raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        params.memoryType = (
+            UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST
+        )
+        if memory_type_policy is not None:
+            params.memoryTypePolicy = (
+                <AmSendMemoryTypePolicy>memory_type_policy.value
+            )
+        if user_header is not None:
+            if not isinstance(user_header, bytes):
+                raise TypeError("user_header must be bytes")
+            user_header_bytes = user_header
+            user_header_ptr = user_header_bytes
+            params.setUserHeader(<const void*>user_header_ptr, len(user_header_bytes))
 
         with nogil:
             req = self._endpoint.get().amSend(
                 buf,
                 nbytes,
-                UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST,
-                nullopt,
+                params,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
+    def am_send_iov(
+        self, list arrays, memory_type_policy=None, user_header=None
+    ) -> UCXRequest:
+        cdef vector[ucp_dt_iov_t] iov_vec
+        cdef ucp_dt_iov_t entry
+        cdef shared_ptr[Request] req
+        cdef AmSendParams params
+        cdef bytes user_header_bytes
+        cdef const char* user_header_ptr
+
+        if not self._context_feature_flags & Feature.AM.value:
+            raise ValueError("UCXContext must be created with `Feature.AM`")
+
+        if len(arrays) == 0:
+            raise ValueError("IOV segment list must not be empty")
+
+        cdef list wrapped = []
+        for buf in arrays:
+            if not isinstance(buf, Array):
+                buf = Array(buf)
+            wrapped.append(buf)
+
+        # Validate all segments have the same memory type
+        cdef bint first_cuda = (<Array>wrapped[0]).cuda
+        for arr_obj in wrapped:
+            if (<Array>arr_obj).cuda != first_cuda:
+                raise ValueError(
+                    "All IOV segments must have the same memory type "
+                    "(all host or all CUDA)"
+                )
+
+        for arr_obj in wrapped:
+            entry.buffer = <void*>(<Array>arr_obj).ptr
+            entry.length = (<Array>arr_obj).nbytes
+            iov_vec.push_back(entry)
+
+        params.datatype = UCP_DATATYPE_IOV
+        params.memoryType = (
+            UCS_MEMORY_TYPE_CUDA if first_cuda else UCS_MEMORY_TYPE_HOST
+        )
+        if memory_type_policy is not None:
+            params.memoryTypePolicy = (
+                <AmSendMemoryTypePolicy>memory_type_policy.value
+            )
+        if user_header is not None:
+            if not isinstance(user_header, bytes):
+                raise TypeError("user_header must be bytes")
+            user_header_bytes = user_header
+            user_header_ptr = user_header_bytes
+            params.setUserHeader(<const void*>user_header_ptr, len(user_header_bytes))
+
+        with nogil:
+            req = self._endpoint.get().amSend(
+                move(iov_vec),
+                params,
                 self._enable_python_future
             )
 
