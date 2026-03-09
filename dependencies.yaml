@@ -576,6 +576,9 @@ dependencies:
       - output_types: [conda]
         matrices:
           - matrix:
+              no_libucx: "true"
+            packages:
+          - matrix:
               cuda: "12.*"
             packages:
               - ucx==1.18.0
@@ -587,6 +590,9 @@ dependencies:
       # to allow for installation of post release like 1.19.0.post1
       - output_types: [requirements, pyproject]
         matrices:
+          - matrix:
+              no_libucx: "true"
+            packages:
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "true"
@@ -605,6 +611,9 @@ dependencies:
       - output_types: [conda]
         matrices:
           - matrix:
+              no_libucx: "true"
+            packages:
+          - matrix:
               cuda: "12.*"
             packages:
               - ucx>=1.18.0,<1.21
@@ -614,6 +623,9 @@ dependencies:
               - ucx>=1.19.0,<1.21
       - output_types: [requirements, pyproject]
         matrices:
+          - matrix:
+              no_libucx: "true"
+            packages:
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "true"
