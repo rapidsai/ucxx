@@ -8,7 +8,7 @@ source rapids-init-pip
 RAPIDS_PY_CUDA_SUFFIX=$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")
 
 # download wheels, store the directories holding them in variables
-RMM_COMMIT=af96977c404565bbb0657c490d407a561cedc3fc
+RMM_COMMIT=0465f7cbc3acfa95dc5b83bdc6682db108e8b1b2
 LIBRMM_WHEELHOUSE=$(
   RAPIDS_PY_WHEEL_NAME="librmm_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-artifact rmm 2270 cpp wheel "${RMM_COMMIT}"
 )
