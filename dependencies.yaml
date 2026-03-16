@@ -328,7 +328,7 @@ dependencies:
       - output_types: [conda]
         packages:
           - gdb  # Used for timeout_with_stack.py
-          - &numba_cuda_test numba-cuda>=0.22.1
+          - &numba_cuda_test numba-cuda>=0.22.1,<0.29.0
           - psutil  # Used for timeout_with_stack.py
     specific:
       - output_types: [requirements, pyproject]
@@ -337,12 +337,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - &numba_cuda_cu12_test numba-cuda[cu12]>=0.22.1
+              - &numba_cuda_cu12_test numba-cuda[cu12]>=0.22.1,<0.29.0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - &numba_cuda_cu13_test numba-cuda[cu13]>=0.22.1
+              - &numba_cuda_cu13_test numba-cuda[cu13]>=0.22.1,<0.29.0
           # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
           - matrix:
             packages:

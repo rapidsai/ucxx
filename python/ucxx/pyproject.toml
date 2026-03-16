@@ -44,7 +44,7 @@ test = [
     "cloudpickle",
     "cudf==26.6.*,>=0.0.0a0",
     "cupy-cuda13x>=13.6.0",
-    "numba-cuda>=0.22.1",
+    "numba-cuda>=0.22.1,<0.29.0",
     "pytest",
     "pytest-asyncio>=1.0.0",
     "pytest-rerunfailures!=16.0.0",
