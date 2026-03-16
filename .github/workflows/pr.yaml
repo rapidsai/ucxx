@@ -244,11 +244,7 @@ jobs:
   wheel-build-distributed-ucxx:
     needs: checks
     secrets: inherit
-<<<<<<< HEAD
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@build-wheels-old-ctk
-=======
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/26.04
->>>>>>> release/0.49
     with:
       build_type: pull-request
       node_type: cpu8
