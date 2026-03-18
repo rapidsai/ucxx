@@ -6,9 +6,6 @@ set -euo pipefail
 
 source rapids-init-pip
 
-# TODO(jameslamb): revert before merging
-source ci/use_wheels_from_prs.sh
-
 package_dir="python/distributed-ucxx"
 
 ./ci/build_wheel.sh distributed-ucxx "${package_dir}"

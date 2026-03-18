@@ -80,7 +80,7 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-libucxx:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@build-wheels-old-ctk
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/26.04
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -106,7 +106,7 @@ jobs:
   wheel-build-ucxx:
     needs: wheel-build-libucxx
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@build-wheels-old-ctk
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/26.04
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -132,7 +132,7 @@ jobs:
       publish-wheel-search-key: ucxx_wheel_python_abi3
   wheel-build-distributed-ucxx:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@build-wheels-old-ctk
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/26.04
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
