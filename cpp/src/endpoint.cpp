@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -34,6 +34,26 @@
 
 namespace ucxx {
 
+/**
+ * Context passed to UCP endpoint error callback. Holds a weak_ptr to the endpoint
+ * so the callback can safely check if the endpoint still exists (lock() before use).
+ * If the endpoint was already destroyed, lock() returns null and we skip the callback body.
+ *
+ * The pointer we pass to UCP (err_handler.arg) is a heap-allocated EndpointErrorCallbackContext.
+ * We only free it inside the callback when it runs. UCP is expected to invoke the error callback
+ * when the endpoint is closed (e.g. ucp_ep_close_nbx) or when it errors; in those cases the
+ * callback runs and we do not leak. If the callback is never invoked (e.g. process exit without
+ * closing endpoints, or worker destroyed without closing), that allocation is intentionally not
+ * freed because the callback may still run asynchronously after ~Endpoint() and would then
+ * dereference a freed pointer, however, this likely indicates an implementation bug, since
+ * ~Endpoint() ensures the underlying UCP endpoint is closed.
+ */
+struct EndpointErrorCallbackContext {
+  std::weak_ptr<Endpoint> endpoint;
+
+  explicit EndpointErrorCallbackContext(std::shared_ptr<Endpoint> ep) : endpoint(std::move(ep)) {}
+};
+
 static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrListener)
 {
   auto worker = std::dynamic_pointer_cast<Worker>(workerOrListener);
@@ -50,17 +70,13 @@ static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrList
 
 void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
-  auto endpoint = static_cast<Endpoint*>(arg);
+  if (arg == nullptr) return;
 
-  // Unable to cast to `Endpoint*`: invalid `arg`.
-  if (endpoint == nullptr) {
-    ucxx_error("ucxx::Endpoint::%s, UCP handle: %p, error callback called with status %d: %s",
-               __func__,
-               ep,
-               status,
-               ucs_status_string(status));
-    return;
-  }
+  std::unique_ptr<EndpointErrorCallbackContext> ctx(
+    static_cast<EndpointErrorCallbackContext*>(arg));
+  auto endpoint = ctx->endpoint.lock();
+  // Endpoint has been destroyed.
+  if (!endpoint) return;
 
   // Endpoint is already closing.
   if (endpoint->_closing.exchange(true)) return;
@@ -73,7 +89,7 @@ void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
     if (endpoint->_closeCallback) {
       ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, calling user close callback",
                  __func__,
-                 endpoint,
+                 endpoint.get(),
                  ep);
       endpoint->_closeCallback(status, endpoint->_closeCallbackArg);
       endpoint->_closeCallback    = nullptr;
@@ -86,14 +102,14 @@ void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
     ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
                __func__,
-               endpoint,
+               endpoint.get(),
                ep,
                status,
                ucs_status_string(status));
   else
     ucxx_error("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
                __func__,
-               endpoint,
+               endpoint.get(),
                ep,
                status,
                ucs_status_string(status));
@@ -115,9 +131,10 @@ void Endpoint::create(ucp_ep_params_t* params)
   auto worker = ::ucxx::getWorker(_parent);
 
   if (_endpointErrorHandling) {
-    params->err_mode        = UCP_ERR_HANDLING_MODE_PEER;
-    params->err_handler.cb  = endpointErrorCallback;
-    params->err_handler.arg = this;
+    params->err_mode       = UCP_ERR_HANDLING_MODE_PEER;
+    params->err_handler.cb = endpointErrorCallback;
+    params->err_handler.arg =
+      new EndpointErrorCallbackContext(std::dynamic_pointer_cast<Endpoint>(shared_from_this()));
   } else {
     params->err_mode        = UCP_ERR_HANDLING_MODE_NONE;
     params->err_handler.cb  = nullptr;
@@ -395,7 +412,7 @@ std::shared_ptr<Request> Endpoint::registerInflightRequest(std::shared_ptr<Reque
   return request;
 }
 
-void Endpoint::removeInflightRequest(const Request* const request)
+void Endpoint::removeInflightRequest(std::shared_ptr<Request> request)
 {
   _inflightRequests->remove(request);
 }
@@ -450,13 +467,40 @@ std::shared_ptr<Request> Endpoint::amSend(
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData)
 {
+  auto params                 = AmSendParams{};
+  params.memoryType           = memoryType;
+  params.receiverCallbackInfo = receiverCallbackInfo;
+
+  return amSend(buffer, length, params, enablePythonFuture, callbackFunction, callbackData);
+}
+
+std::shared_ptr<Request> Endpoint::amSend(const void* const buffer,
+                                          const size_t length,
+                                          const AmSendParams& params,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(
-    createRequestAm(endpoint,
-                    data::AmSend(buffer, length, memoryType, receiverCallbackInfo),
-                    enablePythonFuture,
-                    callbackFunction,
-                    callbackData));
+  return registerInflightRequest(createRequestAm(endpoint,
+                                                 data::AmSend(buffer, length, params),
+                                                 enablePythonFuture,
+                                                 callbackFunction,
+                                                 callbackData));
+}
+
+std::shared_ptr<Request> Endpoint::amSend(std::vector<ucp_dt_iov_t> iov,
+                                          const AmSendParams& params,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return registerInflightRequest(createRequestAm(endpoint,
+                                                 data::AmSend(std::move(iov), params),
+                                                 enablePythonFuture,
+                                                 callbackFunction,
+                                                 callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,

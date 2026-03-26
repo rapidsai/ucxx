@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
-import asyncio
+import inspect
 import multiprocessing as mp
 import os
 
@@ -54,10 +54,10 @@ def _get_backend_implementation(backend):
 
 def _set_cuda_device(object_type, device):
     if object_type in ["cupy", "rmm"]:
-        import numba.cuda
+        from ucxx._cuda_context import ensure_cuda_context
 
         os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
-        numba.cuda.current_context()
+        ensure_cuda_context(0)
 
 
 def server(queue, args):
@@ -68,7 +68,7 @@ def server(queue, args):
 
     server = _get_backend_implementation(args.backend)["server"](args, queue)
 
-    if asyncio.iscoroutinefunction(server.run):
+    if inspect.iscoroutinefunction(server.run):
         loop = get_event_loop()
         loop.run_until_complete(server.run())
     else:
@@ -85,7 +85,7 @@ def client(queue, port, server_address, args):
         args, queue, server_address, port
     )
 
-    if asyncio.iscoroutinefunction(client.run):
+    if inspect.iscoroutinefunction(client.run):
         loop = get_event_loop()
         loop.run_until_complete(client.run())
     else:

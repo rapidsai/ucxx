@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -10,7 +10,7 @@ import warnings
 import weakref
 from typing import Optional
 
-from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
+from cpython.buffer cimport PyBuffer_FillInfo
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uint8_t, uintptr_t
@@ -558,25 +558,7 @@ cdef class UCXAddress():
         return bytes(self._string)
 
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
-        if bool(flags & PyBUF_WRITABLE):
-            raise BufferError("Requested writable view on readonly data")
-        buffer.buf = self._handle
-        buffer.len = self._length
-        buffer.obj = self
-        buffer.readonly = True
-        buffer.itemsize = 1
-        if bool(flags & PyBUF_FORMAT):
-            buffer.format = b"B"
-        else:
-            buffer.format = NULL
-        buffer.ndim = 1
-        if bool(flags & PyBUF_ND):
-            buffer.shape = &buffer.len
-        else:
-            buffer.shape = NULL
-        buffer.strides = NULL
-        buffer.suboffsets = NULL
-        buffer.internal = NULL
+        PyBuffer_FillInfo(buffer, self, self._handle, self._length, True, flags)
 
     def __releasebuffer__(self, Py_buffer *buffer) -> None:
         pass

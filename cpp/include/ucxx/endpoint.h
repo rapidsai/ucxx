@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -257,14 +257,11 @@ class Endpoint : public Component {
    *
    * Remove the reference to a specific request from the internal container. This should
    * be called when a request has completed and the `ucxx::Endpoint` does not need to keep
-   * track of it anymore. The raw pointer to a `ucxx::Request` is passed here as opposed
-   * to the usual `std::shared_ptr<ucxx::Request>` used elsewhere, this is because the
-   * raw pointer address is used as key to the requests reference, and this is called
-   * from the object's destructor.
+   * track of it anymore.
    *
-   * @param[in] request raw pointer to the request
+   * @param[in] request shared pointer to the request
    */
-  void removeInflightRequest(const Request* const request);
+  void removeInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Cancel inflight requests.
@@ -378,6 +375,52 @@ class Endpoint : public Component {
     const bool enablePythonFuture                                    = false,
     RequestCallbackUserFunction callbackFunction                     = nullptr,
     RequestCallbackUserData callbackData                             = nullptr);
+
+  /**
+   * @brief Enqueue an active message send operation with explicit policy parameters.
+   *
+   * This overload extends `amSend()` with explicit UCX datatype/flags controls and receive
+   * allocation policy metadata while keeping callback behavior identical to the legacy API.
+   *
+   * @param[in] buffer              a raw pointer to the data to be sent.
+   * @param[in] length              the size in bytes of the message to be sent.
+   * @param[in] params              active message send parameters.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  [[nodiscard]] std::shared_ptr<Request> amSend(
+    const void* const buffer,
+    const size_t length,
+    const AmSendParams& params,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Enqueue an active message send operation with IOV datatype.
+   *
+   * This overload submits `UCP_DATATYPE_IOV` active message sends.
+   *
+   * @param[in] iov                 vector of IOV segments to be sent.
+   * @param[in] params              active message send parameters. Datatype must be
+   *                                `UCP_DATATYPE_IOV`.
+   * @param[in] enablePythonFuture  whether a python future should be created and
+   *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for the completion and its state.
+   */
+  [[nodiscard]] std::shared_ptr<Request> amSend(
+    std::vector<ucp_dt_iov_t> iov,
+    const AmSendParams& params,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue an active message receive operation.

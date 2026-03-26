@@ -4,7 +4,14 @@
 from .ucxx import (
     UCXXBackend,
     UCXXBackendLegacyPrefix,
-)  # noqa: F401
+)
 
 
 from ._version import __git_commit__, __version__
+
+__all__ = [
+    "UCXXBackend",
+    "UCXXBackendLegacyPrefix",
+    "__git_commit__",
+    "__version__",
+]

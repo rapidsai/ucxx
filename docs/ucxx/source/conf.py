@@ -6,26 +6,9 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 import datetime
-import filecmp
-import glob
-import inspect
-import os
-import re
-import sys
-import tempfile
-import warnings
-import xml.etree.ElementTree as ET
-from enum import IntEnum
-from typing import Any
 
 import ucxx
-from docutils.nodes import Text
 from packaging.version import Version
-from pygments.lexer import RegexLexer
-from pygments.token import Text as PText
-from sphinx.addnodes import pending_xref
-from sphinx.ext import intersphinx
-from sphinx.ext.autodoc import ClassDocumenter
 
 
 # -- Project information -----------------------------------------------------
@@ -44,9 +27,7 @@ UCXX_VERSION = Version(ucxx.__version__)
 # The short X.Y version.
 version = f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}"
 # The full version.
-release = (
-    f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}.{UCXX_VERSION.micro:02}"
-)
+release = f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}.{UCXX_VERSION.micro:02}"
 
 
 # -- General configuration ---------------------------------------------------
@@ -213,6 +194,7 @@ numpydoc_class_members_toctree = False
 numpydoc_attributes_as_param_list = False
 
 autoclass_content = "class"
+
 
 def setup(app):
     app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")

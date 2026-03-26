@@ -40,8 +40,11 @@ class AsyncioServer(BaseServer):
 
     async def serve_forever(self):
         if self.args.port is not None:
-            port, server = self.args.port, await asyncio.start_server(
-                self.handle_stream, "0.0.0.0", self.args.port
+            port, server = (
+                self.args.port,
+                await asyncio.start_server(
+                    self.handle_stream, "0.0.0.0", self.args.port
+                ),
             )
         else:
             port, server = await self._start_listener(None)

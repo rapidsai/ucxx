@@ -44,7 +44,7 @@ async def exchange_peer_info(endpoint, msg_tag, listener, connect_timeout=5.0):
 
     if expected_checksum != ret["checksum"]:
         raise RuntimeError(
-            f'Checksum invalid! {hex(expected_checksum)} != {hex(ret["checksum"])}'
+            f"Checksum invalid! {hex(expected_checksum)} != {hex(ret['checksum'])}"
         )
 
     return ret
