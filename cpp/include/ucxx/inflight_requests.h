@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include <algorithm>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -32,44 +31,21 @@ struct TrackedRequests {
  * Handle tracked requests, providing functionality so that its owner can modify those
  * requests, performing operations such as insertion, removal and cancelation.
  *
- * Two container backends are available, selected at construction time via the
- * `UCXX_INFLIGHT_REQUESTS_BACKEND` environment variable:
- * - `vector` (default): best latency for small request counts, cache-friendly,
- *   no per-insert heap allocation, O(n) removal.
- * - `map`: O(1) amortized insert/remove, scales to thousands of concurrent
- *   inflight requests.
+ * Uses `std::unordered_map<Request*, shared_ptr<Request>>` for O(1) amortized
+ * insert/remove that scales to thousands of concurrent inflight requests.
  */
 class InflightRequests {
  private:
-  bool _useMap{false};
-
-  std::vector<std::shared_ptr<Request>> _inflightVec{};
-  std::vector<std::shared_ptr<Request>> _cancelingVec{};
-
-  std::unordered_map<Request*, std::shared_ptr<Request>> _inflightMap{};
-  std::unordered_map<Request*, std::shared_ptr<Request>> _cancelingMap{};
+  std::unordered_map<Request*, std::shared_ptr<Request>> _inflight{};
+  std::unordered_map<Request*, std::shared_ptr<Request>> _canceling{};
 
   std::mutex _mutex{};
 
-  void _doInsert(const std::shared_ptr<Request>& request);
-  void _doRemove(const std::shared_ptr<Request>& request);
-  size_t _doInflightSize() const;
-  std::vector<std::shared_ptr<Request>> _doTakeInflight();
-  void _doPutCanceling(std::vector<std::shared_ptr<Request>>* requests);
-  size_t _doDropCanceled();
-  size_t _doCancelingSize() const;
-  void _doMergeInflight(std::vector<std::shared_ptr<Request>>* requests);
-  void _doMergeCanceling(std::vector<std::shared_ptr<Request>>* requests);
-  std::vector<std::shared_ptr<Request>> _doTakeCanceling();
-
  public:
   /**
-   * @brief Construct with backend selected from UCXX_INFLIGHT_REQUESTS_BACKEND env var.
-   *
-   * Reads the `UCXX_INFLIGHT_REQUESTS_BACKEND` environment variable to select the
-   * container backend. Valid values are `vector` (default) and `map`.
+   * @brief Default constructor.
    */
-  InflightRequests();
+  InflightRequests() = default;
 
   InflightRequests(const InflightRequests&)            = delete;
   InflightRequests& operator=(InflightRequests const&) = delete;
