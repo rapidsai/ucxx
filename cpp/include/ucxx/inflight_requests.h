@@ -4,75 +4,72 @@
  */
 #pragma once
 
-#include <map>
+#include <algorithm>
 #include <memory>
 #include <mutex>
-#include <utility>
+#include <unordered_map>
+#include <vector>
 
 namespace ucxx {
 
 class Request;
 
 /**
- * @brief An inflight request map.
+ * @brief Container for transferring tracked requests between InflightRequests instances.
  *
- * A map of inflight requests, where keys are a shared pointer to the request and
- * value is the reference-counted `ucxx::Request`, using owner-based comparison.
+ * Used by `InflightRequests::release()` and `InflightRequests::merge()` to move
+ * request ownership between instances (e.g., from an endpoint to the worker during
+ * endpoint close).
  */
-typedef std::
-  map<std::shared_ptr<Request>, std::shared_ptr<Request>, std::owner_less<std::shared_ptr<Request>>>
-    InflightRequestsMap;
-
-/**
- * @brief A container for the different types of tracked requests.
- *
- * A container encapsulating the different types of handled tracked requests, currently
- * those still valid (inflight), and those scheduled for cancelation (canceling).
- */
-typedef struct TrackedRequests {
-  InflightRequestsMap _inflight{};   ///< Valid requests awaiting completion.
-  InflightRequestsMap _canceling{};  ///< Requests scheduled for cancelation.
-  std::mutex _mutex{};               ///< Mutex to control access to inflight requests container
-  std::mutex
-    _cancelMutex{};  ///< Mutex to allow cancelation and prevent removing requests simultaneously
-} TrackedRequests;
-
-/**
- * @brief Pre-defined type for a pointer to a container of tracked requests.
- *
- * A pre-defined type for a pointer to a container of tracked requests, used as a
- * convenience type.
- */
-typedef std::unique_ptr<TrackedRequests> TrackedRequestsPtr;
+struct TrackedRequests {
+  std::vector<std::shared_ptr<Request>> inflight{};   ///< Valid requests awaiting completion.
+  std::vector<std::shared_ptr<Request>> canceling{};  ///< Requests scheduled for cancelation.
+};
 
 /**
  * @brief Handle tracked requests.
  *
  * Handle tracked requests, providing functionality so that its owner can modify those
  * requests, performing operations such as insertion, removal and cancelation.
+ *
+ * Two container backends are available, selected at construction time via the
+ * `UCXX_INFLIGHT_REQUESTS_BACKEND` environment variable:
+ * - `vector` (default): best latency for small request counts, cache-friendly,
+ *   no per-insert heap allocation, O(n) removal.
+ * - `map`: O(1) amortized insert/remove, scales to thousands of concurrent
+ *   inflight requests.
  */
 class InflightRequests {
  private:
-  TrackedRequestsPtr _trackedRequests{
-    std::make_unique<TrackedRequests>()};  ///< Container storing pointers to all inflight
-                                           ///< and in cancelation process requests known to
-                                           ///< the owner of this object
-  std::recursive_mutex _mutex{};           ///< Mutex to control access to class resources
+  bool _useMap{false};
 
-  /**
-   * @brief Drop references to requests that completed cancelation.
-   *
-   * Drops references to requests that completed cancelation and stop tracking them.
-   *
-   * @returns The number of requests that have completed cancelation since last call.
-   */
-  size_t dropCanceled();
+  std::vector<std::shared_ptr<Request>> _inflightVec{};
+  std::vector<std::shared_ptr<Request>> _cancelingVec{};
+
+  std::unordered_map<Request*, std::shared_ptr<Request>> _inflightMap{};
+  std::unordered_map<Request*, std::shared_ptr<Request>> _cancelingMap{};
+
+  std::mutex _mutex{};
+
+  void _doInsert(const std::shared_ptr<Request>& request);
+  void _doRemove(const std::shared_ptr<Request>& request);
+  size_t _doInflightSize() const;
+  std::vector<std::shared_ptr<Request>> _doTakeInflight();
+  void _doPutCanceling(std::vector<std::shared_ptr<Request>>* requests);
+  size_t _doDropCanceled();
+  size_t _doCancelingSize() const;
+  void _doMergeInflight(std::vector<std::shared_ptr<Request>>* requests);
+  void _doMergeCanceling(std::vector<std::shared_ptr<Request>>* requests);
+  std::vector<std::shared_ptr<Request>> _doTakeCanceling();
 
  public:
   /**
-   * @brief Default constructor.
+   * @brief Construct with backend selected from UCXX_INFLIGHT_REQUESTS_BACKEND env var.
+   *
+   * Reads the `UCXX_INFLIGHT_REQUESTS_BACKEND` environment variable to select the
+   * container backend. Valid values are `vector` (default) and `map`.
    */
-  InflightRequests() = default;
+  InflightRequests();
 
   InflightRequests(const InflightRequests&)            = delete;
   InflightRequests& operator=(InflightRequests const&) = delete;
@@ -94,11 +91,11 @@ class InflightRequests {
   [[nodiscard]] size_t size();
 
   /**
-   * @brief Insert an inflight requests to the container.
+   * @brief Insert an inflight request into the container.
    *
    * @param[in] request a `std::shared_ptr<Request>` with the inflight request.
    */
-  void insert(std::shared_ptr<Request> request);
+  void insert(const std::shared_ptr<Request>& request);
 
   /**
    * @brief Merge containers of inflight requests with the internal containers.
@@ -109,7 +106,7 @@ class InflightRequests {
    * @param[in] trackedRequests containers of tracked inflight requests to merge with the
    *                            internal tracked inflight requests.
    */
-  void merge(TrackedRequestsPtr trackedRequests);
+  void merge(TrackedRequests&& trackedRequests);
 
   /**
    * @brief Remove an inflight request from the internal container.
@@ -120,7 +117,7 @@ class InflightRequests {
    *
    * @param[in] request shared pointer to the request
    */
-  void remove(std::shared_ptr<Request> request);
+  void remove(const std::shared_ptr<Request>& request);
 
   /**
    * @brief Issue cancelation of all inflight requests and clear the internal container.
@@ -139,9 +136,9 @@ class InflightRequests {
    * `InflightRequests` object with `InflightRequests::merge()`. Effectively leaves the
    * internal state as a clean, new object.
    *
-   * @returns The internally-tracked containers.
+   * @returns The tracked requests as vectors for transfer.
    */
-  [[nodiscard]] TrackedRequestsPtr release();
+  [[nodiscard]] TrackedRequests release();
 
   /**
    * @brief Get count of requests in process of cancelation.
