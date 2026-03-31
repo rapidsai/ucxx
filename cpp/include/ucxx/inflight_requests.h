@@ -6,7 +6,7 @@
 
 #include <memory>
 #include <mutex>
-#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace ucxx {
@@ -36,8 +36,8 @@ struct TrackedRequests {
  */
 class InflightRequests {
  private:
-  std::unordered_map<Request*, std::shared_ptr<Request>> _inflight{};
-  std::unordered_map<Request*, std::shared_ptr<Request>> _canceling{};
+  std::unordered_set<std::shared_ptr<Request>> _inflight{};
+  std::unordered_set<std::shared_ptr<Request>> _canceling{};
 
   std::mutex _mutex{};
 

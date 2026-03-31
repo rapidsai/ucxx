@@ -23,33 +23,30 @@ size_t InflightRequests::size()
 void InflightRequests::insert(const std::shared_ptr<Request>& request)
 {
   std::lock_guard<std::mutex> lock(_mutex);
-  _inflight.emplace(request.get(), request);
+  _inflight.insert(request);
 }
 
 void InflightRequests::remove(const std::shared_ptr<Request>& request)
 {
   std::lock_guard<std::mutex> lock(_mutex);
-  _inflight.erase(request.get());
+  _inflight.erase(request);
 }
 
 void InflightRequests::merge(TrackedRequests&& trackedRequests)
 {
   std::lock_guard<std::mutex> lock(_mutex);
   for (auto& r : trackedRequests.inflight)
-    if (r) _inflight.emplace(r.get(), std::move(r));
+    if (r) _inflight.insert(std::move(r));
   for (auto& r : trackedRequests.canceling)
-    if (r) _canceling.emplace(r.get(), std::move(r));
+    if (r) _canceling.insert(std::move(r));
 }
 
 size_t InflightRequests::cancelAll()
 {
-  std::vector<std::shared_ptr<Request>> toCancel;
+  decltype(_inflight) toCancel;
   {
     std::lock_guard<std::mutex> lock(_mutex);
-    toCancel.reserve(_inflight.size());
-    for (auto& kv : _inflight)
-      toCancel.push_back(std::move(kv.second));
-    _inflight.clear();
+    toCancel = std::exchange(_inflight, {});
   }
 
   size_t total = toCancel.size();
@@ -64,7 +61,8 @@ size_t InflightRequests::cancelAll()
   {
     std::lock_guard<std::mutex> lock(_mutex);
     for (auto& r : toCancel) {
-      if (r && r->getStatus() == UCS_INPROGRESS) _canceling.emplace(r.get(), std::move(r));
+      if (r && r->getStatus() == UCS_INPROGRESS)
+        _canceling.insert(std::move(const_cast<std::shared_ptr<Request>&>(r)));
     }
   }
 
@@ -77,13 +75,13 @@ TrackedRequests InflightRequests::release()
   TrackedRequests result;
 
   result.inflight.reserve(_inflight.size());
-  for (auto& kv : _inflight)
-    result.inflight.push_back(std::move(kv.second));
+  for (auto& r : _inflight)
+    result.inflight.push_back(r);
   _inflight.clear();
 
   result.canceling.reserve(_canceling.size());
-  for (auto& kv : _canceling)
-    result.canceling.push_back(std::move(kv.second));
+  for (auto& r : _canceling)
+    result.canceling.push_back(r);
   _canceling.clear();
 
   return result;
@@ -94,7 +92,7 @@ size_t InflightRequests::getCancelingSize()
   std::lock_guard<std::mutex> lock(_mutex);
 
   for (auto it = _canceling.begin(); it != _canceling.end();) {
-    if (it->second && it->second->getStatus() != UCS_INPROGRESS)
+    if (*it && (*it)->getStatus() != UCS_INPROGRESS)
       it = _canceling.erase(it);
     else
       ++it;
