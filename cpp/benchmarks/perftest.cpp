@@ -137,7 +137,7 @@ struct ApplicationContext {
   bool endpointErrorHandling                   = false;
   bool reuseAllocations                        = true;
   bool verifyResults                           = false;
-  bool singleProcess                           = false;
+  bool loopback                                = false;
   MemoryType memoryType                        = MemoryType::Host;
 };
 
@@ -276,9 +276,10 @@ static void printUsage(std::string_view executablePath)
   std::cerr << "  -e                  create endpoints with error handling support (disabled)"
             << std::endl;
   std::cerr << "  -v                  verify results (disabled)" << std::endl;
-  std::cerr << "  -S                  single-process mode: transfer data within one process"
-            << std::endl
-            << "                      (cannot be used with server-hostname)" << std::endl;
+  std::cerr << "  -l             use loopback connection" << std::endl;
+  std::cerr << "                 in this case, the process will communicate with itself,"
+            << std::endl;
+  std::cerr << "                 so passing server hostname is not allowed" << std::endl;
   std::cerr
     << "  -R <rank>           percentile rank of the percentile data in latency tests (50.0)"
     << std::endl;
@@ -388,7 +389,7 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "t:m:P:p:s:n:w:LevSR:h")) != -1) {
+  while ((c = getopt(argc, argv, "t:m:P:p:s:n:w:LevlR:h")) != -1) {
     switch (c) {
       case 't': {
         auto testAttributes = testAttributesDefinitions.find(optarg);
@@ -450,7 +451,7 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
       case 'L': appContext->reuseAllocations = false; break;
       case 'e': appContext->endpointErrorHandling = true; break;
       case 'v': appContext->verifyResults = true; break;
-      case 'S': appContext->singleProcess = true; break;
+      case 'l': appContext->loopback = true; break;
       case 'R': {
         ucs_status_t status =
           parseDouble(optarg, &appContext->percentileRank, "percentile rank", 0.0, 100.0);
@@ -469,8 +470,8 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
 
   if (optind < argc) { appContext->serverAddress = argv[optind]; }
 
-  if (appContext->singleProcess && appContext->serverAddress != NULL) {
-    std::cerr << "Cannot specify both single-process mode (-S) and server address" << std::endl;
+  if (appContext->loopback && appContext->serverAddress != NULL) {
+    std::cerr << "Cannot use loopback connection (-l) with a server hostname" << std::endl;
     return UCS_ERR_INVALID_PARAM;
   }
 
@@ -685,9 +686,9 @@ class Application {
                                           (*_tagMap)[DirectionType::Recv],
                                           ucxx::TagMaskFull));
 
-    // In single-process mode, also schedule the peer (server-side) wireup
+    // In loopback mode, also schedule the peer (server-side) wireup
     std::shared_ptr<BufferMap> peerWireupBufferMap;
-    if (_appContext.singleProcess) {
+    if (_appContext.loopback) {
       peerWireupBufferMap =
         std::make_shared<BufferMap>(BufferMap{{DirectionType::Send, std::vector<char>{1, 2, 3}},
                                               {DirectionType::Recv, std::vector<char>(3, 0)}});
@@ -736,7 +737,7 @@ class Application {
     auto bufferInterface = createBufferInterface();
 
     std::unique_ptr<BufferInterface> peerBufferInterface;
-    if (_appContext.singleProcess) { peerBufferInterface = createBufferInterface(); }
+    if (_appContext.loopback) { peerBufferInterface = createBufferInterface(); }
 
     std::vector<std::shared_ptr<ucxx::Request>> requests;
 
@@ -749,7 +750,7 @@ class Application {
                            _appContext.messageSize,
                            (*_tagMap)[DirectionType::Recv],
                            ucxx::TagMaskFull)};
-      if (_appContext.singleProcess) {
+      if (_appContext.loopback) {
         requests.push_back(_peerEndpoint->tagSend(peerBufferInterface->getSendPtr(),
                                                   _appContext.messageSize,
                                                   (*_peerTagMap)[DirectionType::Send]));
@@ -759,7 +760,7 @@ class Application {
                                                   ucxx::TagMaskFull));
       }
     } else {
-      if (_appContext.singleProcess) {
+      if (_appContext.loopback) {
         requests = {_endpoint->tagSend(bufferInterface->getSendPtr(),
                                        _appContext.messageSize,
                                        (*_tagMap)[DirectionType::Send]),
@@ -861,8 +862,7 @@ class Application {
 
  public:
   explicit Application(ApplicationContext&& appContext)
-    : _appContext(appContext),
-      _isServer(appContext.serverAddress == NULL && !appContext.singleProcess)
+    : _appContext(appContext), _isServer(appContext.serverAddress == NULL && !appContext.loopback)
   {
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
     // Check CUDA support if CUDA memory is requested
@@ -883,8 +883,8 @@ class Application {
     _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucpFeatures), "Context creation");
     _worker  = UCXX_EXIT_ON_ERROR(_context->createWorker(), "Worker creation");
 
-    if (_appContext.singleProcess) {
-      // In single-process mode, _endpoint acts as the "client" side and
+    if (_appContext.loopback) {
+      // In loopback mode, _endpoint acts as the "client" side and
       // _peerEndpoint acts as the "server" side.
       _tagMap     = std::make_shared<TagMap>(TagMap{
             {DirectionType::Send, ucxx::Tag{1}},
@@ -901,7 +901,7 @@ class Application {
       });
     }
 
-    if (_isServer || _appContext.singleProcess) {
+    if (_isServer || _appContext.loopback) {
       _listenerContext =
         std::make_unique<ListenerContext>(_worker, _appContext.endpointErrorHandling);
       _listener = UCXX_EXIT_ON_ERROR(
@@ -920,7 +920,7 @@ class Application {
 
     auto progress = getProgressFunction();
 
-    if (_appContext.singleProcess) {
+    if (_appContext.loopback) {
       // Connect to our own listener
       _endpoint = UCXX_EXIT_ON_ERROR(
         _worker->createEndpointFromHostname(
@@ -1036,7 +1036,7 @@ class Application {
  * @brief Entry point for the UCXX performance test application.
  *
  * Parses command-line arguments, initializes the application context, and runs the selected UCX tag
- * matching performance test as either server or client.
+ * matching performance test as server, client, or loopback (-l).
  *
  * @return int Returns 0 on success, or -1 if argument parsing fails.
  */
