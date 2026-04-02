@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <unistd.h>  // for getopt, optarg
@@ -137,6 +137,7 @@ struct ApplicationContext {
   bool endpointErrorHandling                   = false;
   bool reuseAllocations                        = true;
   bool verifyResults                           = false;
+  bool loopback                                = false;
   MemoryType memoryType                        = MemoryType::Host;
 };
 
@@ -275,6 +276,10 @@ static void printUsage(std::string_view executablePath)
   std::cerr << "  -e                  create endpoints with error handling support (disabled)"
             << std::endl;
   std::cerr << "  -v                  verify results (disabled)" << std::endl;
+  std::cerr << "  -l             use loopback connection" << std::endl;
+  std::cerr << "                 in this case, the process will communicate with itself,"
+            << std::endl;
+  std::cerr << "                 so passing server hostname is not allowed" << std::endl;
   std::cerr
     << "  -R <rank>           percentile rank of the percentile data in latency tests (50.0)"
     << std::endl;
@@ -384,7 +389,7 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "t:m:P:p:s:n:w:LevR:h")) != -1) {
+  while ((c = getopt(argc, argv, "t:m:P:p:s:n:w:LevlR:h")) != -1) {
     switch (c) {
       case 't': {
         auto testAttributes = testAttributesDefinitions.find(optarg);
@@ -446,6 +451,7 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
       case 'L': appContext->reuseAllocations = false; break;
       case 'e': appContext->endpointErrorHandling = true; break;
       case 'v': appContext->verifyResults = true; break;
+      case 'l': appContext->loopback = true; break;
       case 'R': {
         ucs_status_t status =
           parseDouble(optarg, &appContext->percentileRank, "percentile rank", 0.0, 100.0);
@@ -463,6 +469,11 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
   }
 
   if (optind < argc) { appContext->serverAddress = argv[optind]; }
+
+  if (appContext->loopback && appContext->serverAddress != NULL) {
+    std::cerr << "Cannot use loopback connection (-l) with a server hostname" << std::endl;
+    return UCS_ERR_INVALID_PARAM;
+  }
 
   return UCS_OK;
 }
@@ -627,9 +638,11 @@ class Application {
   std::shared_ptr<ucxx::Context> _context{nullptr};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   std::shared_ptr<ucxx::Endpoint> _endpoint{nullptr};
+  std::shared_ptr<ucxx::Endpoint> _peerEndpoint{nullptr};
   std::shared_ptr<ucxx::Listener> _listener{nullptr};
   std::unique_ptr<ListenerContext> _listenerContext{nullptr};
   std::shared_ptr<TagMap> _tagMap{nullptr};
+  std::shared_ptr<TagMap> _peerTagMap{nullptr};
 
   std::function<void()> getProgressFunction()
   {
@@ -673,6 +686,22 @@ class Application {
                                           (*_tagMap)[DirectionType::Recv],
                                           ucxx::TagMaskFull));
 
+    // In loopback mode, also schedule the peer (server-side) wireup
+    std::shared_ptr<BufferMap> peerWireupBufferMap;
+    if (_appContext.loopback) {
+      peerWireupBufferMap =
+        std::make_shared<BufferMap>(BufferMap{{DirectionType::Send, std::vector<char>{1, 2, 3}},
+                                              {DirectionType::Recv, std::vector<char>(3, 0)}});
+
+      requests.push_back(_peerEndpoint->tagSend((*peerWireupBufferMap)[DirectionType::Send].data(),
+                                                (*peerWireupBufferMap)[DirectionType::Send].size(),
+                                                (*_peerTagMap)[DirectionType::Send]));
+      requests.push_back(_peerEndpoint->tagRecv((*peerWireupBufferMap)[DirectionType::Recv].data(),
+                                                (*peerWireupBufferMap)[DirectionType::Recv].size(),
+                                                (*_peerTagMap)[DirectionType::Recv],
+                                                ucxx::TagMaskFull));
+    }
+
     // Wait for wireup requests and clear requests
     waitRequests(requests);
 
@@ -680,27 +709,35 @@ class Application {
     for (size_t i = 0; i < (*wireupBufferMap)[DirectionType::Send].size(); ++i)
       assert((*wireupBufferMap)[DirectionType::Recv][i] ==
              (*wireupBufferMap)[DirectionType::Send][i]);
+    if (peerWireupBufferMap) {
+      for (size_t i = 0; i < (*peerWireupBufferMap)[DirectionType::Send].size(); ++i)
+        assert((*peerWireupBufferMap)[DirectionType::Recv][i] ==
+               (*peerWireupBufferMap)[DirectionType::Send][i]);
+    }
   }
 
-  auto doTransfer()
+  std::unique_ptr<BufferInterface> createBufferInterface()
   {
-    std::unique_ptr<BufferInterface> bufferInterface;
-
-    // Allocate buffers based on memory type
     if (_appContext.memoryType == MemoryType::Host) {
-      // Use the factory method to create the appropriate host buffer interface
-      bufferInterface = HostBufferInterface::createBufferInterface(_appContext.messageSize,
-                                                                   _appContext.reuseAllocations);
+      return HostBufferInterface::createBufferInterface(_appContext.messageSize,
+                                                        _appContext.reuseAllocations);
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
     } else {
-      // Use the factory method to create the appropriate CUDA buffer interface
-      bufferInterface = CudaBufferInterfaceBase::createBufferInterface(
+      return CudaBufferInterfaceBase::createBufferInterface(
         _appContext.memoryType, _appContext.messageSize, _appContext.reuseAllocations);
 #else
     } else {
       throw std::runtime_error("Memory type not supported.");
 #endif
     }
+  }
+
+  auto doTransfer()
+  {
+    auto bufferInterface = createBufferInterface();
+
+    std::unique_ptr<BufferInterface> peerBufferInterface;
+    if (_appContext.loopback) { peerBufferInterface = createBufferInterface(); }
 
     std::vector<std::shared_ptr<ucxx::Request>> requests;
 
@@ -713,22 +750,43 @@ class Application {
                            _appContext.messageSize,
                            (*_tagMap)[DirectionType::Recv],
                            ucxx::TagMaskFull)};
+      if (_appContext.loopback) {
+        requests.push_back(_peerEndpoint->tagSend(peerBufferInterface->getSendPtr(),
+                                                  _appContext.messageSize,
+                                                  (*_peerTagMap)[DirectionType::Send]));
+        requests.push_back(_peerEndpoint->tagRecv(peerBufferInterface->getRecvPtr(),
+                                                  _appContext.messageSize,
+                                                  (*_peerTagMap)[DirectionType::Recv],
+                                                  ucxx::TagMaskFull));
+      }
     } else {
-      if (_isServer)
+      if (_appContext.loopback) {
+        requests = {_endpoint->tagSend(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send]),
+                    _peerEndpoint->tagRecv(peerBufferInterface->getRecvPtr(),
+                                           _appContext.messageSize,
+                                           (*_peerTagMap)[DirectionType::Recv],
+                                           ucxx::TagMaskFull)};
+      } else if (_isServer) {
         requests = {_endpoint->tagRecv(bufferInterface->getRecvPtr(),
                                        _appContext.messageSize,
                                        (*_tagMap)[DirectionType::Recv],
                                        ucxx::TagMaskFull)};
-      else
+      } else {
         requests = {_endpoint->tagSend(
           bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send])};
+      }
     }
 
     // Wait for requests and clear requests
     waitRequests(requests);
     auto stop = std::chrono::high_resolution_clock::now();
 
-    if (_appContext.verifyResults) { bufferInterface->verifyResults(_appContext.messageSize); }
+    if (_appContext.verifyResults) {
+      bufferInterface->verifyResults(_appContext.messageSize);
+      if (peerBufferInterface) { peerBufferInterface->verifyResults(_appContext.messageSize); }
+    }
 
     return stop - start;
   }
@@ -804,7 +862,7 @@ class Application {
 
  public:
   explicit Application(ApplicationContext&& appContext)
-    : _appContext(appContext), _isServer(appContext.serverAddress == NULL)
+    : _appContext(appContext), _isServer(appContext.serverAddress == NULL && !appContext.loopback)
   {
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
     // Check CUDA support if CUDA memory is requested
@@ -825,12 +883,25 @@ class Application {
     _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucpFeatures), "Context creation");
     _worker  = UCXX_EXIT_ON_ERROR(_context->createWorker(), "Worker creation");
 
-    _tagMap = std::make_shared<TagMap>(TagMap{
-      {DirectionType::Send, _isServer ? ucxx::Tag{0} : ucxx::Tag{1}},
-      {DirectionType::Recv, _isServer ? ucxx::Tag{1} : ucxx::Tag{0}},
-    });
+    if (_appContext.loopback) {
+      // In loopback mode, _endpoint acts as the "client" side and
+      // _peerEndpoint acts as the "server" side.
+      _tagMap     = std::make_shared<TagMap>(TagMap{
+            {DirectionType::Send, ucxx::Tag{1}},
+            {DirectionType::Recv, ucxx::Tag{0}},
+      });
+      _peerTagMap = std::make_shared<TagMap>(TagMap{
+        {DirectionType::Send, ucxx::Tag{0}},
+        {DirectionType::Recv, ucxx::Tag{1}},
+      });
+    } else {
+      _tagMap = std::make_shared<TagMap>(TagMap{
+        {DirectionType::Send, _isServer ? ucxx::Tag{0} : ucxx::Tag{1}},
+        {DirectionType::Recv, _isServer ? ucxx::Tag{1} : ucxx::Tag{0}},
+      });
+    }
 
-    if (_isServer) {
+    if (_isServer || _appContext.loopback) {
       _listenerContext =
         std::make_unique<ListenerContext>(_worker, _appContext.endpointErrorHandling);
       _listener = UCXX_EXIT_ON_ERROR(
@@ -849,15 +920,29 @@ class Application {
 
     auto progress = getProgressFunction();
 
-    if (_isServer) {
+    if (_appContext.loopback) {
+      // Connect to our own listener
+      _endpoint = UCXX_EXIT_ON_ERROR(
+        _worker->createEndpointFromHostname(
+          "127.0.0.1", _appContext.listenerPort, _appContext.endpointErrorHandling),
+        "Self-endpoint creation");
+
+      // Wait for the listener to accept our connection
+      while (_listenerContext->isAvailable())
+        progress();
+
+      _peerEndpoint = _listenerContext->getEndpoint();
+
+      printServerHeader(
+        appContext.testAttributes->description, appContext.memoryType, appContext.memoryType);
+      printClientHeader(appContext.testAttributes->category);
+    } else if (_isServer) {
       std::cout << "Waiting for connection..." << std::endl;
 
       // Block until client connects
       while (_listenerContext->isAvailable())
         progress();
-    }
 
-    if (_isServer) {
       _endpoint = _listenerContext->getEndpoint();
       printServerHeader(
         appContext.testAttributes->description, appContext.memoryType, appContext.memoryType);
@@ -951,7 +1036,7 @@ class Application {
  * @brief Entry point for the UCXX performance test application.
  *
  * Parses command-line arguments, initializes the application context, and runs the selected UCX tag
- * matching performance test as either server or client.
+ * matching performance test as server, client, or loopback (-l).
  *
  * @return int Returns 0 on success, or -1 if argument parsing fails.
  */
