@@ -158,7 +158,9 @@ std::shared_ptr<RequestAm> createRequestAm(
                                                             callbackFunction,
                                                             callbackData));
           };
-        return worker->getAmRecv(endpoint->getHandle(), createRequest);
+        auto req       = worker->getAmRecv(endpoint->getHandle(), createRequest);
+        req->_endpoint = endpoint;
+        return req;
       },
     },
     requestData);

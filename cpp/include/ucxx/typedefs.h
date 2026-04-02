@@ -239,4 +239,14 @@ struct AmSendParams {
  */
 typedef const std::string SerializedRemoteKey;
 
+/**
+ * @brief A user-defined callback with no parameters or return value.
+ *
+ * Used where UCXX needs a simple notification hook, for example optional callbacks on
+ * `ucxx::InflightRequests::remove()` and `cancelAll()` when no inflight or canceling
+ * requests remain, and for endpoint-driven cancelation completion in
+ * `ucxx::Endpoint::cancelInflightRequests()`.
+ */
+typedef std::function<void()> VoidCallbackUserFunction;
+
 }  // namespace ucxx
