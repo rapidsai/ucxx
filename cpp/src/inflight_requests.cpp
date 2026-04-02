@@ -34,7 +34,9 @@ void InflightRequests::remove(const std::shared_ptr<Request>& request,
     std::lock_guard<std::mutex> lock(_mutex);
     _inflight.erase(request);
     _canceling.erase(request);
-    if (callbackFunction && _inflight.empty() && _canceling.empty()) { shouldCallback = true; }
+    if (!_cancelAllInProgress && callbackFunction && _inflight.empty() && _canceling.empty()) {
+      shouldCallback = true;
+    }
   }
 
   if (shouldCallback) {
@@ -78,9 +80,11 @@ size_t InflightRequests::cancelAll(VoidCallbackUserFunction callbackFunction)
 
   ucxx_debug("ucxx::InflightRequests::%s, canceling %lu requests", __func__, total);
 
+  _cancelAllInProgress = true;
   for (auto& r : toCancel) {
     if (r) r->cancel();
   }
+  _cancelAllInProgress = false;
 
   bool shouldCallback = false;
   {

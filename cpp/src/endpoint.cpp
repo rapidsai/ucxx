@@ -423,11 +423,17 @@ size_t Endpoint::cancelInflightRequests(VoidCallbackUserFunction callback)
 {
   _cancelInflightCallbackOriginal = callback;
 
-  // Wrapper responsible for deregistering after callback is called.
+  /**
+   * Wrapper responsible for deregistering before callback is called. The member
+   * `_cancelInflightCallback` is moved into a local (`selfCopy`) before invoking the
+   * user callback so that any new inflight requests created during the callback (e.g., the
+   * close request) will NOT re-trigger this callback when they complete and are removed.
+   * `selfCopy` keeps the wrapper lambda alive for the duration of this invocation.
+   */
   _cancelInflightCallback = [this]() {
-    if (_cancelInflightCallbackOriginal != nullptr) _cancelInflightCallbackOriginal();
-    _cancelInflightCallback         = nullptr;
-    _cancelInflightCallbackOriginal = nullptr;
+    auto selfCopy = std::move(_cancelInflightCallback);
+    auto callback = std::exchange(_cancelInflightCallbackOriginal, nullptr);
+    if (callback) callback();
   };
 
   auto canceled = _inflightRequests->cancelAll(_cancelInflightCallback);

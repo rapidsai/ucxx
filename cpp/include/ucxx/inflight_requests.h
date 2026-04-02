@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <unordered_set>
@@ -42,6 +43,7 @@ class InflightRequests {
   std::unordered_set<std::shared_ptr<Request>> _canceling{};
 
   std::mutex _mutex{};
+  std::atomic<bool> _cancelAllInProgress{false};
 
  public:
   /**
