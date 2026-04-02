@@ -247,6 +247,6 @@ typedef const std::string SerializedRemoteKey;
  * requests remain, and for endpoint-driven cancelation completion in
  * `ucxx::Endpoint::cancelInflightRequests()`.
  */
-typedef std::function<void()> GenericCallbackUserFunction;
+typedef std::function<void()> VoidCallbackUserFunction;
 
 }  // namespace ucxx

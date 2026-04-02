@@ -132,7 +132,7 @@ class InflightRequests {
    *                              further requests inflight or canceling remain.
    */
   void remove(std::shared_ptr<Request> request,
-              GenericCallbackUserFunction callbackFunction = nullptr);
+              VoidCallbackUserFunction callbackFunction = nullptr);
 
   /**
    * @brief Issue cancelation of all inflight requests and clear the internal container.
@@ -152,7 +152,7 @@ class InflightRequests {
    *
    * @returns The total number of canceled requests.
    */
-  size_t cancelAll(GenericCallbackUserFunction callbackFunction = nullptr);
+  size_t cancelAll(VoidCallbackUserFunction callbackFunction = nullptr);
 
   /**
    * @brief Releases the internally-tracked containers.

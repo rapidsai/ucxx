@@ -64,10 +64,10 @@ class Endpoint : public Component {
   EndpointCloseCallbackUserFunction _closeCallback{nullptr};  ///< Close callback to call
   EndpointCloseCallbackUserData _closeCallbackArg{
     nullptr};  ///< Argument to be passed to close callback
-  GenericCallbackUserFunction _cancelInflightCallback{
+  VoidCallbackUserFunction _cancelInflightCallback{
     nullptr};  ///< The wrapper to the callback registered via `cancelInflightRequests()` that will
                ///< deregister once the callback is called.
-  GenericCallbackUserFunction _cancelInflightCallbackOriginal{
+  VoidCallbackUserFunction _cancelInflightCallbackOriginal{
     nullptr};  ///< The original user callback registered via `cancelInflightRequests()`
 
   /**
@@ -291,7 +291,7 @@ class Endpoint : public Component {
    *
    * @returns Number of requests that were scheduled for cancelation.
    */
-  size_t cancelInflightRequests(GenericCallbackUserFunction callbackFunction = nullptr);
+  size_t cancelInflightRequests(VoidCallbackUserFunction callbackFunction = nullptr);
 
   /**
    * @brief Check the number of inflight requests being canceled.

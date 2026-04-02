@@ -66,7 +66,7 @@ static std::unique_ptr<InflightRequestsMap> findAndRemove(InflightRequestsMap* r
 }
 
 void InflightRequests::remove(std::shared_ptr<Request> request,
-                              GenericCallbackUserFunction cancelInflightCallback)
+                              VoidCallbackUserFunction cancelInflightCallback)
 {
   do {
     std::scoped_lock localLock{_mutex};
@@ -164,7 +164,7 @@ size_t InflightRequests::getInflightSize()
   return inflightSize;
 }
 
-size_t InflightRequests::cancelAll(GenericCallbackUserFunction cancelInflightCallback)
+size_t InflightRequests::cancelAll(VoidCallbackUserFunction cancelInflightCallback)
 {
   size_t total = 0;
 
