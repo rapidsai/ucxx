@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <mutex>
 
 #include <ucxx/inflight_requests.h>
 #include <ucxx/log.h>
@@ -69,7 +70,7 @@ void InflightRequests::remove(std::shared_ptr<Request> request,
                               VoidCallbackUserFunction cancelInflightCallback)
 {
   do {
-    std::scoped_lock localLock{_mutex};
+    std::unique_lock<std::recursive_mutex> localLock{_mutex};
     int result = std::try_lock(_trackedRequests->_cancelMutex, _trackedRequests->_mutex);
 
     /**
@@ -97,10 +98,14 @@ void InflightRequests::remove(std::shared_ptr<Request> request,
         _trackedRequests->_inflight.size() + _trackedRequests->_canceling.size();
 
       /**
-       * Unlock `_mutex` before calling the user callback to prevent deadlocks in case the
-       * user callback happens to register another inflight request.
+       * Unlock the outer mutex before calling the user callback to prevent deadlocks in
+       * case the user callback happens to register another inflight request. Use
+       * `unique_lock` so we do not double-unlock when this scope ends.
+       *
+       * `std::try_lock` locked `_cancelMutex` then `_trackedRequests->_mutex`; unlock both
+       * in reverse order before returning.
        */
-      _mutex.unlock();
+      localLock.unlock();
       try {
         if (cancelInflightCallback && trackedRequestsCount == 0) {
           ucxx_trace("ucxx::InflightRequests::%s: %p, calling user cancel inflight callback",
@@ -108,12 +113,18 @@ void InflightRequests::remove(std::shared_ptr<Request> request,
                      this);
           cancelInflightCallback();
         }
+        _trackedRequests->_mutex.unlock();
         _trackedRequests->_cancelMutex.unlock();
         return;
       } catch (const std::exception& e) {
         ucxx_warn("Exception in callback: %s", e.what());
+        _trackedRequests->_mutex.unlock();
         _trackedRequests->_cancelMutex.unlock();
-        throw(e);
+        throw;
+      } catch (...) {
+        _trackedRequests->_mutex.unlock();
+        _trackedRequests->_cancelMutex.unlock();
+        throw;
       }
     }
   } while (true);
