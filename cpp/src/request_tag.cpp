@@ -163,6 +163,7 @@ void RequestTag::request()
 
   std::lock_guard<std::recursive_mutex> lock(_mutex);
   _request = request;
+  queryRequestAttributes();
 }
 
 void RequestTag::populateDelayedSubmission()
