@@ -1,7 +1,8 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <algorithm>
 #include <memory>
 #include <numeric>
 #include <ucs/memory/memory_type.h>
@@ -164,12 +165,15 @@ TEST_F(EndpointTest, StoppingRejectRequests)
 
   std::vector<int> tmp(10, 42);
 
-  EXPECT_THROW(ep->amSend(tmp.data(), tmp.size() * sizeof(int), UCS_MEMORY_TYPE_HOST),
+  EXPECT_THROW(
+    static_cast<void>(ep->amSend(tmp.data(), tmp.size() * sizeof(int), UCS_MEMORY_TYPE_HOST)),
+    ucxx::RejectedError);
+  EXPECT_THROW(static_cast<void>(ep->tagSend(tmp.data(), tmp.size() * sizeof(int), ucxx::Tag{0})),
                ucxx::RejectedError);
-  EXPECT_THROW(ep->tagSend(tmp.data(), tmp.size() * sizeof(int), ucxx::Tag{0}),
+  EXPECT_THROW(static_cast<void>(ep->streamRecv(tmp.data(), tmp.size() * sizeof(int))),
                ucxx::RejectedError);
-  EXPECT_THROW(ep->streamRecv(tmp.data(), tmp.size() * sizeof(int)), ucxx::RejectedError);
-  EXPECT_THROW(ep->streamSend(tmp.data(), tmp.size() * sizeof(int)), ucxx::RejectedError);
+  EXPECT_THROW(static_cast<void>(ep->streamSend(tmp.data(), tmp.size() * sizeof(int))),
+               ucxx::RejectedError);
 
   {
     auto memoryHandle = _context->createMemoryHandle(tmp.size() * sizeof(int), nullptr);
@@ -179,23 +183,26 @@ TEST_F(EndpointTest, StoppingRejectRequests)
     auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
 
     std::vector<std::shared_ptr<ucxx::Request>> requests;
-    EXPECT_THROW(ep->memPut(tmp.data(), tmp.size() * sizeof(int), remoteKey), ucxx::RejectedError);
+    EXPECT_THROW(static_cast<void>(ep->memPut(tmp.data(), tmp.size() * sizeof(int), remoteKey)),
+                 ucxx::RejectedError);
     EXPECT_THROW(
-      ep->memPut(
-        tmp.data(), tmp.size() * sizeof(int), remoteKey->getBaseAddress(), remoteKey->getHandle()),
+      static_cast<void>(ep->memPut(
+        tmp.data(), tmp.size() * sizeof(int), remoteKey->getBaseAddress(), remoteKey->getHandle())),
       ucxx::RejectedError);
-    EXPECT_THROW(ep->memGet(tmp.data(), tmp.size() * sizeof(int), remoteKey), ucxx::RejectedError);
+    EXPECT_THROW(static_cast<void>(ep->memGet(tmp.data(), tmp.size() * sizeof(int), remoteKey)),
+                 ucxx::RejectedError);
     EXPECT_THROW(
-      ep->memGet(
-        tmp.data(), tmp.size() * sizeof(int), remoteKey->getBaseAddress(), remoteKey->getHandle()),
+      static_cast<void>(ep->memGet(
+        tmp.data(), tmp.size() * sizeof(int), remoteKey->getBaseAddress(), remoteKey->getHandle())),
       ucxx::RejectedError);
   }
 
   {
-    std::vector<void*> buffers{tmp.data()};
+    std::vector<const void*> buffers{tmp.data()};
     std::vector<size_t> sizes{tmp.size()};
     std::vector<int> isCUDA{false};
-    EXPECT_THROW(ep->tagMultiSend(buffers, sizes, isCUDA, ucxx::Tag{0}), ucxx::RejectedError);
+    EXPECT_THROW(static_cast<void>(ep->tagMultiSend(buffers, sizes, isCUDA, ucxx::Tag{0})),
+                 ucxx::RejectedError);
   }
 }
 
