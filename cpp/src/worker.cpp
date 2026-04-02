@@ -538,13 +538,13 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 
   if (inflightRequestsToCancel->getCancelingSize() > 0) {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
-    _inflightRequestsToCancel->merge(inflightRequestsToCancel->release());
+    _inflightRequestsToCancel->merge(std::move(inflightRequestsToCancel->release()));
   }
 
   return canceled;
 }
 
-void Worker::scheduleRequestCancel(TrackedRequestsPtr trackedRequests)
+void Worker::scheduleRequestCancel(TrackedRequests trackedRequests)
 {
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
@@ -554,7 +554,7 @@ void Worker::scheduleRequestCancel(TrackedRequestsPtr trackedRequests)
       __func__,
       this,
       _handle,
-      trackedRequests->_inflight.size() + trackedRequests->_canceling.size());
+      trackedRequests.inflight.size() + trackedRequests.canceling.size());
     _inflightRequestsToCancel->merge(std::move(trackedRequests));
   }
 }
