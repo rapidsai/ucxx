@@ -656,7 +656,7 @@ class Worker : public Component {
    * @param[in] trackedRequests the requests tracked by a child of this class to be
    *                            scheduled for cancelation.
    */
-  void scheduleRequestCancel(TrackedRequestsPtr trackedRequests);
+  void scheduleRequestCancel(TrackedRequests trackedRequests);
 
   /**
    * @brief Remove reference to request from internal container.
