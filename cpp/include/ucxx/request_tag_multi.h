@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -98,7 +98,7 @@ class RequestTagMulti : public Request {
    */
   RequestTagMulti(std::shared_ptr<Endpoint> endpoint,
                   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
-                  const std::string operationName,
+                  std::string operationName,
                   const bool enablePythonFuture);
 
   /**
@@ -171,7 +171,7 @@ class RequestTagMulti : public Request {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] friend std::shared_ptr<RequestTagMulti> createRequestTagMulti(
+  friend std::shared_ptr<RequestTagMulti> createRequestTagMulti(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
     const bool enablePythonFuture);
@@ -198,9 +198,8 @@ class RequestTagMulti : public Request {
    * may still verify each of the underlying requests individually.
    *
    * @param[in] status the status of the request being completed.
-   * @param[in] request the `ucxx::BufferRequest` object containing a single tag .
    */
-  void markCompleted(ucs_status_t status, RequestCallbackUserData request);
+  void markCompleted(ucs_status_t status);
 
   /**
    * @brief Callback to submit request to receive new header or frames.

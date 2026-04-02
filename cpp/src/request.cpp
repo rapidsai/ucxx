@@ -1,11 +1,13 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <chrono>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <tuple>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -18,12 +20,12 @@ namespace ucxx {
 
 Request::Request(std::shared_ptr<Component> endpointOrWorker,
                  const data::RequestData requestData,
-                 const std::string operationName,
+                 std::string operationName,
                  const bool enablePythonFuture,
                  RequestCallbackUserFunction callbackFunction,
                  RequestCallbackUserData callbackData)
   : _requestData(requestData),
-    _operationName(operationName),
+    _operationName(std::move(operationName)),
     _enablePythonFuture(enablePythonFuture),
     _callback(callbackFunction),
     _callbackData(callbackData)
@@ -68,7 +70,7 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
 Request::~Request()
 {
   if (_cancelCallback != nullptr) {
-    auto completed  = _cancelCallbackNotifier.wait(1000000000 /* 1s */);
+    std::ignore = _cancelCallbackNotifier.wait(1000000000 /* 1s */);
     _cancelCallback = nullptr;
   }
   if (UCS_PTR_IS_PTR(_request)) {
@@ -80,8 +82,9 @@ Request::~Request()
 
 void Request::removeInflightRequest()
 {
-  if (_endpoint != nullptr) _endpoint->removeInflightRequest(this);
-  _worker->removeInflightRequest(this);
+  auto requestPtr = std::dynamic_pointer_cast<Request>(shared_from_this());
+  if (_endpoint != nullptr) _endpoint->removeInflightRequest(requestPtr);
+  _worker->removeInflightRequest(requestPtr);
 }
 
 void Request::cancelImpl()
@@ -99,10 +102,8 @@ void Request::cancelImpl()
                        ucs_status_string(status));
     } else {
       if (_request != nullptr) {
-        ucs_status_t status = UCS_PTR_STATUS(_request);
         ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "canceling");
         ucp_request_cancel(_worker->getHandle(), _request);
-        status = UCS_PTR_STATUS(_request);
 
         /**
          * Tag send requests cannot be canceled: https://github.com/openucx/ucx/issues/1162
@@ -297,5 +298,7 @@ void Request::setStatus(ucs_status_t status)
 const std::string& Request::getOwnerString() const { return _ownerString; }
 
 std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }
+
+std::string Request::getRecvHeader() { return {}; }
 
 }  // namespace ucxx

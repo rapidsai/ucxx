@@ -1,11 +1,13 @@
 # =================================================================================
-# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
-# SPDX-License-Identifier: BSD 3-Clause License
+# cmake-format: off
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+# cmake-format: on
 # =================================================================================
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-include(../fetch_rapids.cmake)
+include(../cmake/rapids_config.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-export)
@@ -16,7 +18,10 @@ if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
   set(libucxx_version "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
 else()
   string(REPLACE "\n" "\n  " _version_contents_formatted "${_version_contents}")
-  message(FATAL_ERROR "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}")
+  message(
+    FATAL_ERROR
+      "Could not determine ucxx version. Contents of VERSION file:\n  ${_version_contents_formatted}"
+  )
 endif()
 
 project(
@@ -52,22 +57,14 @@ message(
 
 # Set a default build type if none was specified
 rapids_cmake_build_type("Release")
-set(UCXX_BUILD_TESTS ${BUILD_TESTS})
-set(UCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
-set(UCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
+set(LIBUCXX_BUILD_TESTS ${BUILD_TESTS})
+set(LIBUCXX_BUILD_BENCHMARKS ${BUILD_BENCHMARKS})
+set(LIBUCXX_BUILD_EXAMPLES ${BUILD_EXAMPLES})
 
-set(UCXX_CXX_FLAGS "")
+set(UCXX_CXX_FLAGS -Wall -Wattributes -Werror -Wextra -Wsign-conversion
+                   -Wno-missing-field-initializers
+)
 set(UCXX_CXX_DEFINITIONS "")
-
-# Set RMM logging level
-set(RMM_LOGGING_LEVEL
-    "INFO"
-    CACHE STRING "Choose the logging level."
-)
-set_property(
-  CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF"
-)
-message(VERBOSE "UCXX: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
 # ##################################################################################################
 # * conda environment -----------------------------------------------------------------------------
@@ -75,25 +72,12 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 # ##################################################################################################
 # * compiler options ------------------------------------------------------------------------------
-# Due to https://github.com/openucx/ucx/issues/9614, we cannot export the ucx
-# dependency because users would then have no control over whether ucx is found
-# multiple times, causing potential configure errors. Therefore, we use a raw
-# find_package call instead of rapids_find_package and skip exporting the ucx
-# dependency. Consumers of ucxx must find ucx themselves. Once we move the
-# minimum version to UCX 1.16 we can remove the above find_package in favor of
-# the commented out lines below. For the same reason, we must also gate this
-# find_package call behind a check for the target already existing so that
-# consumers can use tools like CPM.cmake to either find or build ucxx from
-# source if it cannot be found (i.e. both cases must allow prior finding of
-# ucx).
-if(NOT TARGET ucx::ucp)
-  find_package(ucx REQUIRED)
-endif()
-#rapids_find_package(
-#  ucx REQUIRED
-#  BUILD_EXPORT_SET ucxx-exports
-#  INSTALL_EXPORT_SET ucxx-exports
-#)
+rapids_find_package(
+  ucx REQUIRED
+  GLOBAL_TARGETS ucx::ucp
+  BUILD_EXPORT_SET ucxx-exports
+  INSTALL_EXPORT_SET ucxx-exports
+)
 
 # ##################################################################################################
 # * dependencies ----------------------------------------------------------------------------------
@@ -132,6 +116,8 @@ add_library(
   src/context.cpp
   src/delayed_submission.cpp
   src/endpoint.cpp
+  src/experimental/context_builder.cpp
+  src/experimental/worker_builder.cpp
   src/header.cpp
   src/inflight_requests.cpp
   src/internal/request_am.cpp
@@ -149,6 +135,7 @@ add_library(
   src/request_stream.cpp
   src/request_tag.cpp
   src/request_tag_multi.cpp
+  src/tag_probe.cpp
   src/worker.cpp
   src/worker_progress_thread.cpp
   src/utils/callback_notifier.cpp
@@ -169,9 +156,7 @@ set_target_properties(
              INTERFACE_POSITION_INDEPENDENT_CODE ON
 )
 
-target_compile_options(
-  ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>"
-)
+target_compile_options(ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>")
 
 # Specify include paths for the current target and dependents
 target_include_directories(
@@ -181,21 +166,17 @@ target_include_directories(
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
-target_compile_definitions(
-  ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>"
-)
+target_compile_definitions(ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>")
 
 # Enable RMM if necessary
 if(UCXX_ENABLE_RMM)
-    target_link_libraries(ucxx PUBLIC rmm::rmm)
+  target_link_libraries(ucxx PUBLIC rmm::rmm)
 
-    # Define spdlog level
-    target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM "SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_${RMM_LOGGING_LEVEL}")
+  target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
 endif()
 
 # Specify the target module library dependencies
 target_link_libraries(ucxx PUBLIC ucx::ucp)
-
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
@@ -211,7 +192,7 @@ add_library(ucxx::ucxx ALIAS ucxx)
 # ##################################################################################################
 # * add tests -------------------------------------------------------------------------------------
 
-if(UCXX_BUILD_TESTS)
+if(LIBUCXX_BUILD_TESTS)
   # include CTest module -- automatically calls enable_testing()
   include(CTest)
 
@@ -223,14 +204,14 @@ endif()
 # ##################################################################################################
 # * add benchmarks --------------------------------------------------------------------------------
 
-if(UCXX_BUILD_BENCHMARKS)
+if(LIBUCXX_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
 endif()
 
 # ##################################################################################################
 # * add examples ----------------------------------------------------------------------------------
 
-if(UCXX_BUILD_EXAMPLES)
+if(LIBUCXX_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
@@ -249,9 +230,7 @@ install(
   EXPORT ucxx-exports
 )
 
-install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx
-                  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+install(DIRECTORY ${UCXX_SOURCE_DIR}/include/ucxx DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 set(doc_string
     [=[

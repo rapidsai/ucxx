@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -39,6 +39,35 @@ def get_cuda_devices():
     else:
         ngpus = get_num_gpus()
         return list(range(ngpus))
+
+
+def compute_timeouts(pytestconfig: pytest.Config) -> tuple[float, float]:
+    """
+    Calculate low and high timeouts.
+
+    The purpose of those timeouts is ensuring internal tasks can have timeouts
+    adjusted based on the total test timeout, for example using low for async
+    tasks and high for subprocesses, ensuring timeouts occur in the order: low
+    timeout, high timeout and finally test timeout. This is useful to preserve
+    information such as async stack and the process that timed out, this can aid
+    in resolving issues.
+
+    Parameters
+    ----------
+    pytestconfig : pytestconfig
+        The pytestconfig object retrieved by the object when the fixture with
+        same name is added as argument to that function.
+
+    Returns
+    -------
+    tuple: floats
+        Element 0 is the low timeout, and element 1 is the high timeout.
+    """
+    plugin_timeout = pytestconfig.cache.get("asyncio_timeout", {})["timeout"]
+    async_timeout = max(plugin_timeout * 0.8, plugin_timeout - 10)
+    join_timeout = max(plugin_timeout * 0.9, plugin_timeout - 5)
+
+    return (async_timeout, join_timeout)
 
 
 @contextmanager
@@ -156,8 +185,10 @@ async def am_recv(ep):
 
 
 async def wait_listener_client_handlers(listener):
-    pass
     while listener.active_clients > 0:
-        await asyncio.sleep(0)
+        # Minimal delay to yield to the event loop so call_soon_threadsafe callbacks
+        # run. Using a very short positive sleep ensures pending callbacks are
+        # processed and significantly reduces "coroutine never awaited" warnings.
+        await asyncio.sleep(1e-9)
         if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
             ucxx.progress()

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -68,7 +68,7 @@ class Header {
    *
    * @param[in] serializedHeader  the header in serialized format.
    */
-  explicit Header(std::string serializedHeader);
+  explicit Header(const std::string& serializedHeader);
 
   /**
    * @brief Get the size of the underlying data.

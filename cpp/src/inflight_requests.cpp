@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -24,7 +24,7 @@ void InflightRequests::insert(std::shared_ptr<Request> request)
   std::scoped_lock localLock{_mutex};
   std::lock_guard<std::mutex> lock(_trackedRequests->_mutex);
 
-  _trackedRequests->_inflight.insert({request.get(), request});
+  _trackedRequests->_inflight.insert({request, request});
 }
 
 void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
@@ -44,7 +44,7 @@ void InflightRequests::merge(TrackedRequestsPtr trackedRequests)
 }
 
 static std::unique_ptr<InflightRequestsMap> findAndRemove(InflightRequestsMap* requestsMap,
-                                                          const Request* const request)
+                                                          std::shared_ptr<Request> request)
 {
   auto removed = std::make_unique<InflightRequestsMap>();
   auto search  = requestsMap->find(request);
@@ -57,7 +57,7 @@ static std::unique_ptr<InflightRequestsMap> findAndRemove(InflightRequestsMap* r
      * erased from `_trackedRequests->_inflight` in `removed` to allow the caller to unlock
      * the mutexes and only then destroy the object.
      */
-    removed->insert({request, search->second});
+    removed->insert({search->first, search->second});
 
     requestsMap->erase(search);
   }
@@ -65,7 +65,7 @@ static std::unique_ptr<InflightRequestsMap> findAndRemove(InflightRequestsMap* r
   return removed;
 }
 
-void InflightRequests::remove(const Request* const request,
+void InflightRequests::remove(std::shared_ptr<Request> request,
                               GenericCallbackUserFunction cancelInflightCallback)
 {
   do {

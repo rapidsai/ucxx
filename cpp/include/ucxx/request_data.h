@@ -1,16 +1,18 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <variant>
 #include <vector>
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -27,11 +29,19 @@ namespace data {
  */
 class AmSend {
  public:
-  const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
-  const size_t _length{0};       ///< The length of the message.
+  const void* const _buffer{nullptr};      ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};                 ///< Message length in bytes (contiguous datatype only).
+  const std::vector<ucp_dt_iov_t> _iov{};  ///< Segments for IOV datatype.
+  const size_t _count{0};                  ///< Count passed to `ucp_am_send_nbx`: byte count
+                                           ///< for contiguous, number of IOV segments for IOV.
+  const uint32_t _flags{UCP_AM_SEND_FLAG_REPLY};              ///< UCP AM send flags.
+  const ucp_datatype_t _datatype{ucp_dt_make_contig(1)};      ///< UCP datatype.
   const ucs_memory_type_t _memoryType{UCS_MEMORY_TYPE_HOST};  ///< Memory type used on the operation
+  const AmSendMemoryTypePolicy _memoryTypePolicy{
+    AmSendMemoryTypePolicy::FallbackToHost};  ///< Receiver allocation policy.
   const std::optional<AmReceiverCallbackInfo> _receiverCallbackInfo{
     std::nullopt};  ///< Owner name and unique identifier of the receiver callback.
+  const std::vector<std::byte> _userHeader{};  ///< Opaque user-defined header bytes.
 
   /**
    * @brief Constructor for Active Message-specific send data.
@@ -40,14 +50,21 @@ class AmSend {
    *
    * @param[in] buffer                  a raw pointer to the data to be sent.
    * @param[in] length                  the size in bytes of the message to be sent.
-   * @param[in] memoryType              the memory type of the buffer.
-   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
-                                        callback.
+   * @param[in] params                  send parameters controlling datatype/flags/policies.
    */
   explicit AmSend(const decltype(_buffer) buffer,
                   const decltype(_length) length,
-                  const decltype(_memoryType) memoryType                     = UCS_MEMORY_TYPE_HOST,
-                  const decltype(_receiverCallbackInfo) receiverCallbackInfo = std::nullopt);
+                  const AmSendParams& params = AmSendParams{});
+
+  /**
+   * @brief Constructor for Active Message-specific send data using IOV datatype.
+   *
+   * Construct an object containing Active Message-specific send data for `UCP_DATATYPE_IOV`.
+   *
+   * @param[in] iov     vector of IOV segments to send.
+   * @param[in] params  send parameters controlling datatype/flags/policies.
+   */
+  explicit AmSend(decltype(_iov) iov, const AmSendParams& params = AmSendParams{});
 
   AmSend() = delete;
 };
@@ -61,6 +78,7 @@ class AmSend {
 class AmReceive {
  public:
   std::shared_ptr<::ucxx::Buffer> _buffer{nullptr};  ///< The AM received message buffer
+  std::vector<std::byte> _userHeader{};              ///< User-defined header bytes from the sender.
 
   /**
    * @brief Constructor for Active Message-specific receive data.
@@ -115,10 +133,10 @@ class Flush {
  */
 class MemPut {
  public:
-  const void* _buffer{nullptr};   ///< The raw pointer where data to be sent is stored.
-  const size_t _length{0};        ///< The length of the message.
-  const uint64_t _remoteAddr{0};  ///< Remote memory address to write to.
-  const ucp_rkey_h _rkey{};       ///< UCX remote key associated with the remote memory address.
+  const void* const _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};             ///< The length of the message.
+  const uint64_t _remoteAddr{0};       ///< Remote memory address to write to.
+  const ucp_rkey_h _rkey{};  ///< UCX remote key associated with the remote memory address.
 
   /**
    * @brief Constructor for memory-specific data.
@@ -177,8 +195,8 @@ class MemGet {
  */
 class StreamSend {
  public:
-  const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
-  const size_t _length{0};       ///< The length of the message.
+  const void* const _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};             ///< The length of the message.
 
   /**
    * @brief Constructor for stream-specific data.
@@ -225,9 +243,9 @@ class StreamReceive {
  */
 class TagSend {
  public:
-  const void* _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
-  const size_t _length{0};       ///< The length of the message.
-  const ::ucxx::Tag _tag{0};     ///< Tag to match
+  const void* const _buffer{nullptr};  ///< The raw pointer where data to be sent is stored.
+  const size_t _length{0};             ///< The length of the message.
+  const ::ucxx::Tag _tag{0};           ///< Tag to match
 
   /**
    * @brief Constructor for tag-specific data.
@@ -277,6 +295,33 @@ class TagReceive {
 };
 
 /**
+ * @brief Data for a Tag receive using a message handle.
+ *
+ * Type identifying a Tag receive operation using a message handle and containing data
+ * specific to this request type.
+ */
+class TagReceiveWithHandle {
+ public:
+  void* _buffer{nullptr};  ///< The raw pointer where received data should be stored.
+  const std::shared_ptr<TagProbeInfo> _probeInfo{
+    nullptr};  ///< TagProbeInfo containing message length and handle
+
+  /**
+   * @brief Constructor for tag receive with handle-specific data.
+   *
+   * Construct an object containing tag receive with handle-specific data.
+   *
+   * @param[out] buffer      a raw pointer to the received data. The buffer must be large
+   *                         enough to hold the message data, otherwise the behavior is
+   *                         undefined. The buffer must be pre-allocated.
+   * @param[in]  probeInfo   the TagProbeInfo object containing message length and handle.
+   */
+  explicit TagReceiveWithHandle(decltype(_buffer) buffer, std::shared_ptr<TagProbeInfo> probeInfo);
+
+  TagReceiveWithHandle() = delete;
+};
+
+/**
  * @brief Data for a multi-buffer Tag send.
  *
  * Type identifying a multi-buffer Tag send operation and containing data specific to this
@@ -284,10 +329,10 @@ class TagReceive {
  */
 class TagMultiSend {
  public:
-  const std::vector<void*> _buffer{};   ///< Raw pointers where data to be sent is stored.
-  const std::vector<size_t> _length{};  ///< Lengths of messages.
-  const std::vector<int> _isCUDA{};     ///< Flags indicating whether the buffer is CUDA or not.
-  const ::ucxx::Tag _tag{0};            ///< Tag to match
+  const std::vector<const void*> _buffer{};  ///< Raw pointers where data to be sent is stored.
+  const std::vector<size_t> _length{};       ///< Lengths of messages.
+  const std::vector<int> _isCUDA{};  ///< Flags indicating whether the buffer is CUDA or not.
+  const ::ucxx::Tag _tag{0};         ///< Tag to match
 
   /**
    * @brief Constructor for send multi-buffer tag-specific data.
@@ -342,6 +387,7 @@ using RequestData = std::variant<std::monostate,
                                  StreamReceive,
                                  TagSend,
                                  TagReceive,
+                                 TagReceiveWithHandle,
                                  TagMultiSend,
                                  TagMultiReceive>;
 

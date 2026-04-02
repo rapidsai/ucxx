@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -38,23 +38,23 @@ namespace ucxx {
  */
 class Request : public Component {
  protected:
-  ucs_status_t _status{UCS_INPROGRESS};            ///< Requests status
-  std::string _status_msg{};                       ///< Human-readable status message
-  void* _request{nullptr};                         ///< Pointer to UCP request
-  std::shared_ptr<Future> _future{nullptr};        ///< Future to notify upon completion
-  RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
-  RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
+  ucs_status_t _status{UCS_INPROGRESS};      ///< Requests status
+  std::string _status_msg{};                 ///< Human-readable status message
+  void* _request{nullptr};                   ///< Pointer to UCP request
+  std::shared_ptr<Future> _future{nullptr};  ///< Future to notify upon completion
   std::shared_ptr<Worker> _worker{
     nullptr};  ///< Worker that generated request (if not from endpoint)
   std::shared_ptr<Endpoint> _endpoint{
     nullptr};  ///< Endpoint that generated request (if not from worker)
   std::string _ownerString{
     "undetermined owner"};           ///< String to print owner (endpoint or worker) when logging
+  std::recursive_mutex _mutex{};     ///< Mutex to prevent checking status while it's being set
   data::RequestData _requestData{};  ///< The operation-specific data to be used in the request
   std::string _operationName{
     "request_undefined"};          ///< Human-readable operation name, mostly used for log messages
-  std::recursive_mutex _mutex{};   ///< Mutex to prevent checking status while it's being set
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
+  RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
+  RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
   DelayedSubmissionCallbackType
     _cancelCallback{};  ///< Callback function to use when canceling in thread progress mode.
   utils::CallbackNotifier _cancelCallbackNotifier{};  ///< Callback notifier to use when canceling
@@ -78,10 +78,12 @@ class Request : public Component {
    *                                requests by their types when UCXX logging is enabled.
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
   Request(std::shared_ptr<Component> endpointOrWorker,
           const data::RequestData requestData,
-          const std::string operationName,
+          std::string operationName,
           const bool enablePythonFuture                = false,
           RequestCallbackUserFunction callbackFunction = nullptr,
           RequestCallbackUserData callbackData         = nullptr);
@@ -202,7 +204,7 @@ class Request : public Component {
    * Generic callback executed by UCX when a request is completed, used to set the status
    * of the request and free any resources associated with it.
    *
-   * WARNING: This is not intended to be called by the user, but it currently needs to be
+   * @warning This is not intended to be called by the user, but it currently needs to be
    * a public method so that UCX may access it. In future changes this will be moved to
    * an internal object and remove this method from the public API.
    *
@@ -248,6 +250,17 @@ class Request : public Component {
    * @return The received buffer (if applicable) or `nullptr`.
    */
   [[nodiscard]] virtual std::shared_ptr<Buffer> getRecvBuffer();
+
+  /**
+   * @brief Get the received user header.
+   *
+   * This method is used to get the user-defined header bytes for applicable derived classes
+   * (e.g., `RequestAm` receive operations), in all other cases this will return an empty
+   * string.
+   *
+   * @return The received user header (if applicable) or an empty string.
+   */
+  [[nodiscard]] virtual std::string getRecvHeader();
 };
 
 }  // namespace ucxx

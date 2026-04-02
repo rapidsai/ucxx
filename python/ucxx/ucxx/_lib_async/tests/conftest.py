@@ -1,8 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
 import gc
+import inspect
 import os
 
 import pytest
@@ -42,19 +43,48 @@ def handle_exception(loop, context):
     print(msg)
 
 
-# Let's make sure that UCX gets time to cancel
-# progress tasks before closing the event loop.
-@pytest.fixture()
-def event_loop(scope="session"):
-    loop = asyncio.new_event_loop()
-    try:
+class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
+    """Custom event loop policy providing custom event loop with UCXX setup/teardown."""
+
+    def new_event_loop(self):
+        loop = super().new_event_loop()
         loop.set_exception_handler(handle_exception)
-        ucxx.reset()
-        yield loop
-        ucxx.reset()
-        loop.run_until_complete(asyncio.sleep(0))
-    finally:
-        loop.close()
+        return loop
+
+
+@pytest.fixture(scope="session")
+def event_loop_policy():
+    """Provide a custom event loop policy for the entire test session."""
+    policy = CustomEventLoopPolicy()
+    asyncio.set_event_loop_policy(policy)
+    return policy
+
+
+@pytest.fixture(autouse=True)
+def ucxx_setup_teardown():
+    """Automatically setup and teardown UCX for each test."""
+    ucxx.reset()
+    yield
+    ucxx.reset()
+    # Let's make sure that UCX gets time to cancel
+    # progress tasks before closing the event loop.
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # Python 3.14+ raises if there is no event loop
+        loop = None
+    if loop is None:
+        pass
+    elif loop.is_running():
+        # If loop is running, we can't run_until_complete
+        # The cleanup will happen when the loop is closed
+        pass
+    else:
+        try:
+            loop.run_until_complete(asyncio.sleep(0))
+        except RuntimeError:
+            # Loop might already be closed
+            pass
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -70,12 +100,20 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
     `pytest.mark.rerun_on_failure(reruns)`. This is similar to `pytest-rerunfailures`,
     but that module closes the event loop before this function has awaited, making the
     two incompatible.
+
+    The timeout value is made available to the test functions via `pytestconfig`. This
+    can be used to determine internal timeouts, for example to ensure subprocesses
+    timeout before the test timeout hits and thus prints internal information, such as
+    the call stack. The timeout value may be retrieved by calling
+    `pytestconfig.cache.get("asyncio_timeout", {})["timeout"]`, for that the test must
+    include the `pytestconfig` fixture as argument.
     """
     timeout_marker = pyfuncitem.get_closest_marker("asyncio_timeout")
     slow_marker = pyfuncitem.get_closest_marker("slow")
     rerun_marker = pyfuncitem.get_closest_marker("rerun_on_failure")
     default_timeout = 600.0 if slow_marker else 60.0
     timeout = float(timeout_marker.args[0]) if timeout_marker else default_timeout
+    pyfuncitem.config.cache.set("asyncio_timeout", {"timeout": timeout})
     if timeout <= 0.0:
         raise ValueError("The `pytest.mark.asyncio_timeout` value must be positive.")
 
@@ -86,7 +124,7 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
     else:
         reruns = 1
 
-    if asyncio.iscoroutinefunction(pyfuncitem.obj) and timeout > 0.0:
+    if inspect.iscoroutinefunction(pyfuncitem.obj) and timeout > 0.0:
 
         async def wrapped_obj(*args, **kwargs):
             for i in range(reruns):

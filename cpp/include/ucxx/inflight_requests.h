@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -18,10 +18,12 @@ class Request;
 /**
  * @brief An inflight request map.
  *
- * A map of inflight requests, where keys are a unique identifier of the request and
- * value is the reference-counted `ucxx::Request`.
+ * A map of inflight requests, where keys are a shared pointer to the request and
+ * value is the reference-counted `ucxx::Request`, using owner-based comparison.
  */
-typedef std::map<const Request* const, std::shared_ptr<Request>> InflightRequestsMap;
+typedef std::
+  map<std::shared_ptr<Request>, std::shared_ptr<Request>, std::owner_less<std::shared_ptr<Request>>>
+    InflightRequestsMap;
 
 /**
  * @brief A container for the different types of tracked requests.
@@ -116,10 +118,7 @@ class InflightRequests {
    *
    * Remove the reference to a specific request from the internal container. This should
    * be called when a request has completed and the `InflightRequests` owner does not need
-   * to keep track of it anymore. The raw pointer to a `ucxx::Request` is passed here as
-   * opposed to the usual `std::shared_ptr<ucxx::Request>` used elsewhere, this is because
-   * the raw pointer address is used as key to the requests reference, and this is called
-   * called from the object's destructor.
+   * to keep track of it anymore.
    *
    * Supports an optional callback function to be called exclusively if there are no
    * more requests inflight or canceling. Be advised that before the callback is called the
@@ -128,11 +127,11 @@ class InflightRequests {
    * that another inflight request won't be registered between the time in which the mutex
    * is released and the callback is executed.
    *
-   * @param[in] request raw pointer to the request
+   * @param[in] request shared pointer to the request
    * @param[in] callbackFunction  function to be called upon termination and only if no
    *                              further requests inflight or canceling remain.
    */
-  void remove(const Request* const request, GenericCallbackUserFunction callbackFunction = nullptr);
+  void remove(std::shared_ptr<Request> request, GenericCallbackUserFunction callbackFunction = nullptr);
 
   /**
    * @brief Issue cancelation of all inflight requests and clear the internal container.

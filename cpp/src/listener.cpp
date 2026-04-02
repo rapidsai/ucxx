@@ -4,6 +4,7 @@
  */
 #include <memory>
 #include <netinet/in.h>
+#include <string>
 #include <utility>
 
 #include <ucp/api/ucp.h>
@@ -42,7 +43,7 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   ucxx::utils::sockaddr_get_ip_port_str(&attr.sockaddr, ipString, portString, INET6_ADDRSTRLEN);
 
   _ip   = std::string(ipString);
-  _port = (uint16_t)atoi(portString);
+  _port = static_cast<uint16_t>(atoi(portString));
 
   setParent(worker);
 }

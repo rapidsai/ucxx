@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import gc
@@ -35,6 +35,7 @@ def init(
     progress_mode=None,
     enable_delayed_submission=None,
     enable_python_future=None,
+    connect_timeout=None,
 ):
     """Initiate UCX.
 
@@ -59,6 +60,11 @@ def init(
     enable_python_future: boolean, optional
         If None, request notification via Python futures is disabled unless
         `UCXPY_ENABLE_PYTHON_FUTURE` is defined with a value other than `0`.
+    connect_timeout: float, optional
+        The timeout in seconds for exchanging endpoint information upon endpoint
+        establishment. If None, use the value from `UCXPY_CONNECT_TIMEOUT` if defined,
+        otherwise fallback to the default of 5 seconds.
+
     """
     global _ctx
     if _ctx is not None:
@@ -86,6 +92,7 @@ def init(
         progress_mode=progress_mode,
         enable_delayed_submission=enable_delayed_submission,
         enable_python_future=enable_python_future,
+        connect_timeout=connect_timeout,
     )
 
 
@@ -164,24 +171,24 @@ def create_listener(
     callback_func,
     port=None,
     endpoint_error_handling=True,
-    exchange_peer_info_timeout=5.0,
+    connect_timeout=5.0,
 ):
     return _get_ctx().create_listener(
         callback_func,
         port,
         endpoint_error_handling=endpoint_error_handling,
-        exchange_peer_info_timeout=exchange_peer_info_timeout,
+        connect_timeout=connect_timeout,
     )
 
 
 async def create_endpoint(
-    ip_address, port, endpoint_error_handling=True, exchange_peer_info_timeout=5.0
+    ip_address, port, endpoint_error_handling=True, connect_timeout=5.0
 ):
     return await _get_ctx().create_endpoint(
         ip_address,
         port,
         endpoint_error_handling=endpoint_error_handling,
-        exchange_peer_info_timeout=exchange_peer_info_timeout,
+        connect_timeout=connect_timeout,
     )
 
 
@@ -249,3 +256,24 @@ create_endpoint.__doc__ = ApplicationContext.create_endpoint.__doc__
 continuous_ucx_progress.__doc__ = ApplicationContext.continuous_ucx_progress.__doc__
 get_ucp_worker.__doc__ = ApplicationContext.get_ucp_worker.__doc__
 stop_notifier_thread.__doc__ = ApplicationContext.stop_notifier_thread.__doc__
+
+__all__ = [
+    "init",
+    "reset",
+    "stop_notifier_thread",
+    "get_ucx_version",
+    "progress",
+    "get_config",
+    "create_listener",
+    "create_endpoint",
+    "create_endpoint_from_worker_address",
+    "get_ucp_context_info",
+    "get_ucp_worker_info",
+    "get_active_transports",
+    "continuous_ucx_progress",
+    "get_ucp_worker",
+    "get_ucxx_worker",
+    "get_worker_address",
+    "get_ucx_address_from_buffer",
+    "recv",
+]

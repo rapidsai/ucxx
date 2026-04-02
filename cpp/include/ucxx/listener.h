@@ -92,11 +92,10 @@ class Listener : public Component {
    *
    * @returns The `shared_ptr<ucxx::Listener>` object.
    */
-  [[nodiscard]] friend std::shared_ptr<Listener> createListener(
-    std::shared_ptr<Worker> worker,
-    uint16_t port,
-    ucp_listener_conn_callback_t callback,
-    void* callbackArgs);
+  friend std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
+                                                  uint16_t port,
+                                                  ucp_listener_conn_callback_t callback,
+                                                  void* callbackArgs);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.

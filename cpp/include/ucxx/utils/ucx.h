@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -53,7 +53,7 @@ namespace utils {
  * @throw EndpointTimeoutError if `status == UCS_ERR_ENDPOINT_TIMEOUT`
  * @throw LastEndpointFailureError if `status == UCS_ERR_LAST_ENDPOINT_FAILURE`
  */
-void ucsErrorThrow(const ucs_status_t status, const std::string& userMessage = "");
+void ucsErrorThrow(const ucs_status_t status, std::string userMessage = "");
 
 }  // namespace utils
 

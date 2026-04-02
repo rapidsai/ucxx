@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -21,6 +21,12 @@ namespace internal {
 class RecvMemMessage;
 }  // namespace internal
 
+/**
+ * @brief Send or receive a message with the UCX RMA API.
+ *
+ * Send or receive a message with the UCX RMA API, using non-blocking UCP calls
+ * `ucp_put_nbx` or `ucp_get_nbx`.
+ */
 class RequestMem : public Request {
  private:
   friend class internal::RecvMemMessage;
@@ -56,7 +62,7 @@ class RequestMem : public Request {
    */
   RequestMem(std::shared_ptr<Endpoint> endpoint,
              const std::variant<data::MemPut, data::MemGet> requestData,
-             const std::string operationName,
+             std::string operationName,
              const bool enablePythonFuture                = false,
              RequestCallbackUserFunction callbackFunction = nullptr,
              RequestCallbackUserData callbackData         = nullptr);
@@ -72,13 +78,18 @@ class RequestMem : public Request {
    * be released and the local data (on get operations) or remote data (on put operations)
    * can be consumed.
    *
+   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
+   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
+   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
+   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
+   * in which case the callback will also execute immediately within the calling thread and
+   * before the method returns.
+   *
    * @throws ucxx::Error  if `endpointOrWorker` is not a valid
    *                      `std::shared_ptr<ucxx::Endpoint>` or
    *                      `std::shared_ptr<ucxx::Worker>`.
    *
-   * @param[in] endpointOrWorker    the parent component, which may either be a
-   *                                `std::shared_ptr<Endpoint>` or
-   *                                `std::shared_ptr<Worker>`.
+   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component.
    * @param[in] requestData         container of the specified message type, including all
    *                                type-specific data.
    * @param[in] enablePythonFuture  whether a python future should be created and
@@ -86,9 +97,9 @@ class RequestMem : public Request {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns The `shared_ptr<ucxx::RequestTag>` object
+   * @returns The `shared_ptr<ucxx::RequestMem>` object
    */
-  [[nodiscard]] friend std::shared_ptr<RequestMem> createRequestMem(
+  friend std::shared_ptr<RequestMem> createRequestMem(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::MemPut, data::MemGet> requestData,
     const bool enablePythonFuture,
@@ -103,7 +114,7 @@ class RequestMem : public Request {
    * Callback executed by UCX when a memory put request is completed, that will dispatch
    * `ucxx::Request::callback()`.
    *
-   * WARNING: This is not intended to be called by the user, but it currently needs to be
+   * @warning This is not intended to be called by the user, but it currently needs to be
    * a public method so that UCX may access it. In future changes this will be moved to
    * an internal object and remove this method from the public API.
    *
@@ -120,7 +131,7 @@ class RequestMem : public Request {
    * Callback executed by UCX when a memory get request is completed, that will dispatch
    * `ucxx::Request::callback()`.
    *
-   * WARNING: This is not intended to be called by the user, but it currently needs to be
+   * @warning This is not intended to be called by the user, but it currently needs to be
    * a public method so that UCX may access it. In future changes this will be moved to
    * an internal object and remove this method from the public API.
    *

@@ -1,10 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ucxx/buffer.h>
@@ -26,9 +27,10 @@ BufferRequest::~BufferRequest() { ucxx_trace_req("ucxx::BufferRequest destroyed:
 RequestTagMulti::RequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
-  const std::string operationName,
+  std::string operationName,
   const bool enablePythonFuture)
-  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
+  : Request(
+      endpoint, data::getRequestData(requestData), std::move(operationName), enablePythonFuture)
 {
   auto worker = endpoint->getWorker();
   if (enablePythonFuture) _future = worker->getFuture();
@@ -66,13 +68,13 @@ std::shared_ptr<RequestTagMulti> createRequestTagMulti(
     std::visit(data::dispatch{
                  [&endpoint, &enablePythonFuture](data::TagMultiSend tagMultiSend) {
                    auto req = std::shared_ptr<RequestTagMulti>(new RequestTagMulti(
-                     endpoint, tagMultiSend, "tagMultiSend", enablePythonFuture));
+                     endpoint, tagMultiSend, std::move("tagMultiSend"), enablePythonFuture));
                    req->send();
                    return req;
                  },
                  [&endpoint, &enablePythonFuture](data::TagMultiReceive tagMultiReceive) {
                    auto req = std::shared_ptr<RequestTagMulti>(new RequestTagMulti(
-                     endpoint, tagMultiReceive, "tagMultiRecv", enablePythonFuture));
+                     endpoint, tagMultiReceive, std::move("tagMultiRecv"), enablePythonFuture));
                    req->recvCallback(UCS_OK);
                    return req;
                  },
@@ -82,8 +84,7 @@ std::shared_ptr<RequestTagMulti> createRequestTagMulti(
   return req;
 }
 
-static TagPair checkAndGetTagPair(const data::RequestData& requestData,
-                                  const std::string methodName)
+static TagPair checkAndGetTagPair(const data::RequestData& requestData, std::string methodName)
 {
   return std::visit(
     data::dispatch{
@@ -99,7 +100,7 @@ static TagPair checkAndGetTagPair(const data::RequestData& requestData,
 
 void RequestTagMulti::recvFrames()
 {
-  auto tagPair = checkAndGetTagPair(_requestData, std::string("recvFrames"));
+  auto tagPair = checkAndGetTagPair(_requestData, std::move("recvFrames"));
 
   std::vector<Header> headers;
 
@@ -123,7 +124,7 @@ void RequestTagMulti::recvFrames()
                      tagPair.first,
                      tagPair.second,
                      br->stringBuffer->size());
-    headers.push_back(Header(*br->stringBuffer));
+    headers.push_back(Header(std::move(*br->stringBuffer)));
   }
 
   for (auto& h : headers) {
@@ -139,8 +140,8 @@ void RequestTagMulti::recvFrames()
         tagPair.first,
         tagPair.second,
         false,
-        [this](ucs_status_t status, RequestCallbackUserData arg) {
-          return this->markCompleted(status, arg);
+        [this](ucs_status_t status, RequestCallbackUserData /* callbackData */) {
+          return this->markCompleted(status);
         },
         bufferRequest);
       bufferRequest->buffer = buf;
@@ -167,7 +168,7 @@ void RequestTagMulti::recvFrames()
                    _isFilled);
 };
 
-void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData request)
+void RequestTagMulti::markCompleted(ucs_status_t status)
 {
   /**
    * Prevent reference count to self from going to zero and thus cause self to be destroyed
@@ -183,16 +184,15 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
     return;
   }
 
-  TagPair tagPair = std::visit(data::dispatch{
-                                 [](data::TagMultiSend tagMultiSend) {
-                                   return TagPair{tagMultiSend._tag, TagMaskFull};
-                                 },
-                                 [](data::TagMultiReceive tagMultiReceive) {
-                                   return TagPair{tagMultiReceive._tag, tagMultiReceive._tagMask};
-                                 },
-                                 [](auto) -> TagPair { throw std::runtime_error("Unreachable"); },
-                               },
-                               _requestData);
+  TagPair tagPair = std::visit(
+    data::dispatch{
+      [](data::TagMultiSend tagMultiSend) { return TagPair{tagMultiSend._tag, TagMaskFull}; },
+      [](data::TagMultiReceive tagMultiReceive) {
+        return TagPair{tagMultiReceive._tag, tagMultiReceive._tagMask};
+      },
+      [](auto) -> TagPair { throw std::runtime_error("Unreachable"); },
+    },
+    _requestData);
 
   ucxx_trace_req_f(_ownerString.c_str(),
                    this,
@@ -237,7 +237,7 @@ void RequestTagMulti::markCompleted(ucs_status_t status, RequestCallbackUserData
 
 void RequestTagMulti::recvHeader()
 {
-  auto tagPair = checkAndGetTagPair(_requestData, std::string("recvHeader"));
+  auto tagPair = checkAndGetTagPair(_requestData, std::move("recvHeader"));
 
   ucxx_trace_req_f(_ownerString.c_str(),
                    this,
@@ -256,7 +256,7 @@ void RequestTagMulti::recvHeader()
                        tagPair.first,
                        tagPair.second,
                        false,
-                       [this](ucs_status_t status, RequestCallbackUserData arg) {
+                       [this](ucs_status_t status, RequestCallbackUserData /* callbackData */) {
                          return this->recvCallback(status);
                        });
 
@@ -277,7 +277,7 @@ void RequestTagMulti::recvHeader()
 
 void RequestTagMulti::recvCallback(ucs_status_t status)
 {
-  auto tagPair = checkAndGetTagPair(_requestData, std::string("recvCallback"));
+  auto tagPair = checkAndGetTagPair(_requestData, std::move("recvCallback"));
 
   ucxx_trace_req_f(_ownerString.c_str(),
                    this,
@@ -337,25 +337,25 @@ void RequestTagMulti::send()
         auto headers = Header::buildHeaders(tagMultiSend._length, tagMultiSend._isCUDA);
 
         for (const auto& header : headers) {
-          auto serializedHeader = std::make_shared<std::string>(header.serialize());
+          auto serializedHeader = std::make_shared<std::string>(std::move(header.serialize()));
           auto bufferRequest    = std::make_shared<BufferRequest>();
           _bufferRequests.push_back(bufferRequest);
           bufferRequest->request = _endpoint->tagSend(
             &serializedHeader->front(), serializedHeader->size(), tagMultiSend._tag, false);
-          bufferRequest->stringBuffer = serializedHeader;
+          bufferRequest->stringBuffer = std::move(serializedHeader);
         }
 
         for (size_t i = 0; i < _totalFrames; ++i) {
           auto bufferRequest = std::make_shared<BufferRequest>();
           _bufferRequests.push_back(bufferRequest);
-          bufferRequest->request =
-            _endpoint->tagSend(tagMultiSend._buffer[i],
-                               tagMultiSend._length[i],
-                               tagMultiSend._tag,
-                               false,
-                               [this](ucs_status_t status, RequestCallbackUserData arg) {
-                                 return this->markCompleted(status, arg);
-                               });
+          bufferRequest->request = _endpoint->tagSend(
+            tagMultiSend._buffer[i],
+            tagMultiSend._length[i],
+            tagMultiSend._tag,
+            false,
+            [this](ucs_status_t status, RequestCallbackUserData /* callbackData */) {
+              return this->markCompleted(status);
+            });
         }
 
         _isFilled = true;

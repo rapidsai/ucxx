@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -231,20 +231,6 @@ TEST_P(ListenerTest, EndpointCloseCallback)
   EXPECT_NE(callbackData->status, UCS_INPROGRESS);
 }
 
-bool checkRequestWithTimeout(std::chrono::milliseconds timeout,
-                             std::shared_ptr<ucxx::Worker> worker,
-                             std::shared_ptr<ucxx::Request> closeRequest)
-{
-  auto startTime = std::chrono::system_clock::now();
-  auto endTime   = startTime + std::chrono::milliseconds(timeout);
-
-  while (std::chrono::system_clock::now() < endTime) {
-    worker->progress();
-    if (closeRequest->isCompleted()) return true;
-  }
-  return false;
-}
-
 TEST_P(ListenerTest, EndpointNonBlockingClose)
 {
   auto listenerContainer = createListenerContainer();
@@ -259,22 +245,11 @@ TEST_P(ListenerTest, EndpointNonBlockingClose)
 
   auto closeRequest = ep->close();
 
-  /**
-   * FIXME: For some reason the code below calls `_worker->progress()` from within
-   * `_worker->progress()`, which is invalid in UCX. The `checkRequestWithTimeout` below
-   * which is functionally equivalent has no such problem. The lambda seems to behave in
-   * unexpected way here. The issue also goes away if in `Endpoint::close()` the
-   * line `if (callbackFunction) callbackFunction(status, callbackData);` is commented
-   * out from the `combineCallbacksFunction` lambda, even when no callback is specified
-   * to `ep->close()` above.
-   */
-  // auto f = [this, &closeRequest]() {
-  //   _worker->progress();
-  //   return closeRequest->isCompleted();
-  // };
-  // loopWithTimeout(std::chrono::milliseconds(5000), f);
-
-  checkRequestWithTimeout(std::chrono::milliseconds(5000), _worker, closeRequest);
+  auto f = [this, &closeRequest]() {
+    _worker->progress();
+    return closeRequest->isCompleted();
+  };
+  loopWithTimeout(std::chrono::milliseconds(5000), f);
 
   if (_endpointErrorHandling)
     ASSERT_FALSE(ep->isAlive());
@@ -305,22 +280,11 @@ TEST_P(ListenerTest, EndpointNonBlockingCloseWithCallbacks)
 
   auto closeRequest = ep->close(false, closeCallback, closeCallbackRequest);
 
-  /**
-   * FIXME: For some reason the code below calls `_worker->progress()` from within
-   * `_worker->progress()`, which is invalid in UCX. The `checkRequestWithTimeout` below
-   * which is functionally equivalent has no such problem. The lambda seems to behave in
-   * unexpected way here. The issue also goes away if in `Endpoint::close()` the
-   * line `if (callbackFunction) callbackFunction(status, callbackData);` is commented
-   * out from the `combineCallbacksFunction` lambda, even when no callback is specified
-   * to `ep->close()` above.
-   */
-  // auto f = [this, &closeRequest]() {
-  //   _worker->progress();
-  //   return closeRequest->isCompleted();
-  // };
-  // loopWithTimeout(std::chrono::milliseconds(5000), f);
-
-  checkRequestWithTimeout(std::chrono::milliseconds(5000), _worker, closeRequest);
+  auto f = [this, &closeRequest]() {
+    _worker->progress();
+    return closeRequest->isCompleted();
+  };
+  loopWithTimeout(std::chrono::milliseconds(5000), f);
 
   if (_endpointErrorHandling)
     ASSERT_FALSE(ep->isAlive());

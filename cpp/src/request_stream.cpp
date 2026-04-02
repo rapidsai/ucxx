@@ -1,9 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -13,16 +15,17 @@
 namespace ucxx {
 RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
                              const std::variant<data::StreamSend, data::StreamReceive> requestData,
-                             const std::string operationName,
+                             std::string operationName,
                              const bool enablePythonFuture)
-  : Request(endpoint, data::getRequestData(requestData), operationName, enablePythonFuture)
+  : Request(
+      endpoint, data::getRequestData(requestData), std::move(operationName), enablePythonFuture)
 {
   std::visit(data::dispatch{
-               [this](data::StreamSend streamSend) {
+               [this](data::StreamSend) {
                  if (_endpoint == nullptr)
                    throw ucxx::Error("A valid endpoint is required to send stream messages.");
                },
-               [this](data::StreamReceive streamReceive) {
+               [this](data::StreamReceive) {
                  if (_endpoint == nullptr)
                    throw ucxx::Error("A valid endpoint is required to receive stream messages.");
                },
@@ -39,12 +42,12 @@ std::shared_ptr<RequestStream> createRequestStream(
   std::shared_ptr<RequestStream> req =
     std::visit(data::dispatch{
                  [&endpoint, &enablePythonFuture](data::StreamSend streamSend) {
-                   return std::shared_ptr<RequestStream>(
-                     new RequestStream(endpoint, streamSend, "streamSend", enablePythonFuture));
+                   return std::shared_ptr<RequestStream>(new RequestStream(
+                     endpoint, streamSend, std::move("streamSend"), enablePythonFuture));
                  },
                  [&endpoint, &enablePythonFuture](data::StreamReceive streamReceive) {
                    return std::shared_ptr<RequestStream>(new RequestStream(
-                     endpoint, streamReceive, "streamReceive", enablePythonFuture));
+                     endpoint, streamReceive, std::move("streamReceive"), enablePythonFuture));
                  },
                  [](auto) -> decltype(req) { throw std::runtime_error("Unreachable"); },
                },
@@ -96,7 +99,7 @@ void RequestStream::populateDelayedSubmission()
 {
   bool terminate =
     std::visit(data::dispatch{
-                 [this](data::StreamSend streamSend) {
+                 [this](data::StreamSend) {
                    if (_endpoint->getHandle() == nullptr) {
                      ucxx_warn("Endpoint was closed before message could be sent");
                      Request::callback(this, UCS_ERR_CANCELED);
@@ -104,7 +107,7 @@ void RequestStream::populateDelayedSubmission()
                    }
                    return false;
                  },
-                 [this](data::StreamReceive streamReceive) {
+                 [this](data::StreamReceive) {
                    if (_worker->getHandle() == nullptr) {
                      ucxx_warn("Worker was closed before message could be received");
                      Request::callback(this, UCS_ERR_CANCELED);
@@ -162,10 +165,13 @@ void RequestStream::callback(void* request, ucs_status_t status, size_t length)
 
                  if (status == UCS_ERR_MESSAGE_TRUNCATED) {
                    const char* fmt = "length mismatch: %llu (got) != %llu (expected)";
-                   size_t len      = std::snprintf(nullptr, 0, fmt, length, streamReceive._length);
-                   _status_msg     = std::string(len + 1, '\0');  // +1 for null terminator
-                   std::snprintf(
-                     _status_msg.data(), _status_msg.size(), fmt, length, streamReceive._length);
+                   int charsLen    = std::snprintf(nullptr, 0, fmt, length, streamReceive._length);
+                   if (charsLen > 0) {
+                     _status_msg = std::string(static_cast<size_t>(charsLen) + 1,
+                                               '\0');  // +1 for null terminator
+                     std::snprintf(
+                       _status_msg.data(), _status_msg.size(), fmt, length, streamReceive._length);
+                   }
                  }
 
                  Request::callback(request, status);

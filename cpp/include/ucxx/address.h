@@ -63,8 +63,7 @@ class Address : public Component {
    *
    * @returns The `shared_ptr<ucxx::Address>` object.
    */
-  [[nodiscard]] friend std::shared_ptr<Address> createAddressFromWorker(
-    std::shared_ptr<Worker> worker);
+  friend std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Address>` from string.
@@ -76,7 +75,7 @@ class Address : public Component {
    *
    * @returns The `shared_ptr<ucxx::Address>` object.
    */
-  [[nodiscard]] friend std::shared_ptr<Address> createAddressFromString(std::string addressString);
+  friend std::shared_ptr<Address> createAddressFromString(std::string addressString);
 
   /**
    * @brief Get the underlying `ucp_address_t*` handle.

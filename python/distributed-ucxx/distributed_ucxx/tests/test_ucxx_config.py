@@ -1,9 +1,15 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from __future__ import annotations
 
 import os
-from time import sleep
+import pathlib
+from contextlib import contextmanager
+from time import sleep, time
 
 import pytest
+import yaml
 
 import dask
 from distributed import Client
@@ -18,7 +24,6 @@ try:
 except Exception:
     HOST = "127.0.0.1"
 
-ucxx = pytest.importorskip("ucxx")
 rmm = pytest.importorskip("rmm")
 
 
@@ -32,7 +37,7 @@ async def test_ucx_config(ucxx_loop, cleanup):
         "cuda-copy": True,
     }
 
-    with dask.config.set({"distributed.comm.ucx": ucx}):
+    with dask.config.set({"distributed-ucxx": ucx}):
         ucx_config, ucx_environment = _prepare_ucx_config()
         assert ucx_config == {
             "TLS": "rc,tcp,cuda_copy,cuda_ipc",
@@ -48,7 +53,7 @@ async def test_ucx_config(ucxx_loop, cleanup):
         "cuda-copy": False,
     }
 
-    with dask.config.set({"distributed.comm.ucx": ucx}):
+    with dask.config.set({"distributed-ucxx": ucx}):
         ucx_config, ucx_environment = _prepare_ucx_config()
         assert ucx_config == {"TLS": "rc,tcp", "SOCKADDR_TLS_PRIORITY": "tcp"}
         assert ucx_environment == {}
@@ -61,7 +66,7 @@ async def test_ucx_config(ucxx_loop, cleanup):
         "cuda-copy": True,
     }
 
-    with dask.config.set({"distributed.comm.ucx": ucx}):
+    with dask.config.set({"distributed-ucxx": ucx}):
         ucx_config, ucx_environment = _prepare_ucx_config()
         assert ucx_config == {
             "TLS": "rc,tcp,cuda_copy",
@@ -77,7 +82,7 @@ async def test_ucx_config(ucxx_loop, cleanup):
         "cuda-copy": None,
     }
 
-    with dask.config.set({"distributed.comm.ucx": ucx}):
+    with dask.config.set({"distributed-ucxx": ucx}):
         ucx_config, ucx_environment = _prepare_ucx_config()
         assert ucx_config == {}
         assert ucx_environment == {}
@@ -90,15 +95,12 @@ async def test_ucx_config(ucxx_loop, cleanup):
         "cuda-copy": True,
     }
 
-    with dask.config.set(
-        {
-            "distributed.comm.ucx": ucx,
-            "distributed.comm.ucx.environment": {
-                "tls": "all",
-                "memtrack-dest": "stdout",
-            },
-        }
-    ):
+    ucx["environment"] = {
+        "tls": "all",
+        "memtrack-dest": "stdout",
+    }
+
+    with dask.config.set({"distributed-ucxx": ucx}):
         ucx_config, ucx_environment = _prepare_ucx_config()
         assert ucx_config == {
             "TLS": "rc,tcp,cuda_copy",
@@ -107,23 +109,87 @@ async def test_ucx_config(ucxx_loop, cleanup):
         assert ucx_environment == {"UCX_MEMTRACK_DEST": "stdout"}
 
 
+@contextmanager
+def start_dask_scheduler(
+    env: list[str], protocol: str, max_attempts: int = 5, timeout: int = 10
+):
+    """
+    Start Dask scheduler in subprocess.
+
+    Attempts to start a Dask scheduler in subprocess, if the port is not available
+    retry on a different port up to a maximum of `max_attempts` attempts. The stdout
+    and stderr of the process is read to determine whether the scheduler failed to
+    bind to port or succeeded, and ensures no more than `timeout` seconds are awaited
+    for between reads.
+
+    Parameters
+    ----------
+    env: list[str]
+        Environment variables to start scheduler process with.
+    protocol: str
+        Communication protocol name to use, either "ucx" or "ucxx".
+    max_attempts: int
+        Maximum attempts to try to open scheduler.
+    timeout: int
+        Time to wait while reading stdout/stderr of subprocess.
+    """
+    port = open_port()
+    for _ in range(max_attempts):
+        with popen(
+            [
+                "dask",
+                "scheduler",
+                "--no-dashboard",
+                "--protocol",
+                protocol,
+                "--port",
+                str(port),
+            ],
+            env=env,
+            capture_output=True,  # Capture stdout and stderr
+        ) as scheduler_process:
+            # Check if the scheduler process started successfully by streaming output
+            try:
+                start_time = time()
+                while True:
+                    if time() - start_time > timeout:
+                        raise TimeoutError("Timeout while waiting for scheduler output")
+
+                    # Use select to wait for data with a timeout
+                    line = scheduler_process.stdout.readline()
+                    if not line:
+                        break  # End of output
+                    print(
+                        line.decode(), end=""
+                    )  # Since capture_output=True, print the line here
+                    if b"Scheduler at:" in line:
+                        # Scheduler is now listening
+                        break
+                    elif b"UCXXBusyError" in line:
+                        raise Exception("UCXXBusyError detected in scheduler output")
+            except Exception:
+                port += 1
+            else:
+                yield scheduler_process, port
+                return
+    else:
+        pytest.fail(f"Failed to start dask scheduler after {max_attempts} attempts.")
+
+
+@pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.skipif(
     int(os.environ.get("UCXPY_ENABLE_PYTHON_FUTURE", "0")) != 0,
     reason="Workers running without a `Nanny` can't be closed properly",
 )
-def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop):
+def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
     env = os.environ.copy()
     env["DASK_DISTRIBUTED__RMM__POOL_SIZE"] = "1000.00 MB"
 
-    port = str(open_port())
-    # Using localhost appears to be less flaky than {HOST}. Additionally, this is
-    # closer to how other dask worker tests are written.
-    sched_addr = f"ucxx://127.0.0.1:{port}"
+    with start_dask_scheduler(env=env, protocol=protocol) as scheduler_process_port:
+        scheduler_process, scheduler_port = scheduler_process_port
+        sched_addr = f"{protocol}://127.0.0.1:{scheduler_port}"
+        print(f"{sched_addr=}", flush=True)
 
-    with popen(
-        ["dask", "scheduler", "--no-dashboard", "--protocol", "ucxx", "--port", port],
-        env=env,
-    ):
         with popen(
             [
                 "dask",
@@ -133,7 +199,7 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop):
                 "127.0.0.1",
                 "--no-dashboard",
                 "--protocol",
-                "ucxx",
+                protocol,
                 "--no-nanny",
             ],
             env=env,
@@ -151,3 +217,13 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop):
                 rmm_resource_workers = c.run(rmm.mr.get_current_device_resource_type)
                 for v in rmm_resource_workers.values():
                     assert v == rmm.mr.PoolMemoryResource
+
+
+def test_schema():
+    jsonschema = pytest.importorskip("jsonschema")
+
+    root_dir = pathlib.Path(__file__).parent.parent
+    config = yaml.safe_load((root_dir / "distributed-ucxx.yaml").read_text())
+    schema = yaml.safe_load((root_dir / "distributed-ucxx-schema.yaml").read_text())
+
+    jsonschema.validate(config, schema)

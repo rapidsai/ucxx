@@ -1,7 +1,8 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdio>
 #include <functional>
 #include <ios>
 #include <memory>
@@ -21,6 +22,7 @@
 #include <ucxx/request_am.h>
 #include <ucxx/request_flush.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/file_descriptor.h>
@@ -74,8 +76,8 @@ Worker::Worker(std::shared_ptr<Context> context,
 
 static void _drainCallback(void* request,
                            ucs_status_t status,
-                           const ucp_tag_recv_info_t* info,
-                           void* arg)
+                           const ucp_tag_recv_info_t* /* info */,
+                           void* /* arg */)
 {
   *reinterpret_cast<ucs_status_t*>(request) = status;
 }
@@ -422,12 +424,11 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
 
 void Worker::populateFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
+void Worker::clearFuturesPool() { THROW_FUTURE_NOT_IMPLEMENTED(); }
+
 std::shared_ptr<Future> Worker::getFuture() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
-RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t periodNs)
-{
-  THROW_FUTURE_NOT_IMPLEMENTED();
-}
+RequestNotifierWaitState Worker::waitRequestNotifier(uint64_t) { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
 void Worker::runRequestNotifier() { THROW_FUTURE_NOT_IMPLEMENTED(); }
 
@@ -568,7 +569,7 @@ std::shared_ptr<Request> Worker::registerInflightRequest(std::shared_ptr<Request
   return request;
 }
 
-void Worker::removeInflightRequest(const Request* const request)
+void Worker::removeInflightRequest(std::shared_ptr<Request> request)
 {
   {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
@@ -576,25 +577,18 @@ void Worker::removeInflightRequest(const Request* const request)
   }
 }
 
-bool Worker::tagProbe(const Tag tag)
+std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
+                                               const TagMask tagMask,
+                                               const bool remove) const
 {
-  if (!isProgressThreadRunning()) {
-    progress();
-  } else {
-    /**
-     * To ensure the worker was progressed at least once, we must make sure a callback runs
-     * pre-progressing, and another one runs post-progress. Running post-progress only may
-     * indicate the progress thread has immediately finished executing and post-progress
-     * ran without a further progress operation.
-     */
-    std::ignore = registerGenericPre([]() {}, 3000000000 /* 3s */);
-    std::ignore = registerGenericPost([]() {}, 3000000000 /* 3s */);
-  }
-
   ucp_tag_recv_info_t info;
-  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, -1, 0, &info);
+  ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
 
-  return tag_message != NULL;
+  if (tag_message != NULL) {
+    return createTagProbeInfo(info, remove ? tag_message : nullptr);
+  } else {
+    return createTagProbeInfo();
+  }
 }
 
 std::shared_ptr<Request> Worker::tagRecv(void* buffer,
@@ -611,6 +605,32 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                                   enableFuture,
                                                   callbackFunction,
                                                   callbackData));
+}
+
+std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
+                                                   std::shared_ptr<TagProbeInfo> probeInfo,
+                                                   const bool enableFuture,
+                                                   RequestCallbackUserFunction callbackFunction,
+                                                   RequestCallbackUserData callbackData)
+{
+  if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
+
+  // getHandle() will throw runtime_error if handle is nullptr or consumed
+  try {
+    probeInfo->getHandle();
+  } catch (const std::runtime_error& e) {
+    throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
+  }
+
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto request =
+    registerInflightRequest(createRequestTag(worker,
+                                             data::TagReceiveWithHandle(buffer, probeInfo),
+                                             enableFuture,
+                                             callbackFunction,
+                                             callbackData));
+
+  return request;
 }
 
 std::shared_ptr<Address> Worker::getAddress()

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -8,8 +8,9 @@ import functools
 import logging
 import warnings
 import weakref
+from typing import Optional
 
-from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBUF_WRITABLE
+from cpython.buffer cimport PyBuffer_FillInfo
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uint8_t, uintptr_t
@@ -22,7 +23,6 @@ from libcpp.memory cimport (
     make_unique,
     shared_ptr,
     static_pointer_cast,
-    unique_ptr,
 )
 from libcpp.optional cimport nullopt
 from libcpp.string cimport string
@@ -41,13 +41,107 @@ include "tag.pyx"
 logger = logging.getLogger("ucx")
 
 
+cdef class TagProbeResult:
+    """Result of a tag probe operation.
+
+    This class provides a clean, typed interface for accessing tag probe results.
+    It wraps the C++ TagProbeInfo structure and provides Python-friendly access
+    to the probe information.
+    """
+
+    cdef shared_ptr[TagProbeInfo] _probe_info_ptr
+
+    @property
+    def matched(self) -> bool:
+        """Whether a message was matched.
+
+        Returns:
+            True if a message was matched, False otherwise.
+        """
+        return self._probe_info_ptr.get().isMatched()
+
+    @property
+    def sender_tag(self) -> UCXXTag:
+        """The sender tag of the matched message.
+
+        Returns:
+            The sender tag value.
+
+        Raises:
+            AttributeError: If no message was matched.
+        """
+        if not self.matched:
+            raise AttributeError("No message was matched")
+        return UCXXTag(self._probe_info_ptr.get().getInfo().senderTag)
+
+    @property
+    def length(self) -> int:
+        """The length of the matched message.
+
+        Returns:
+            The message length in bytes.
+
+        Raises:
+            AttributeError: If no message was matched.
+        """
+        if not self.matched:
+            raise AttributeError("No message was matched")
+        return self._probe_info_ptr.get().getInfo().length
+
+    @property
+    def handle(self) -> Optional[int]:
+        """The message handle for efficient reception.
+
+        Returns:
+            The message handle as an integer, or None if no handle is available.
+
+        Raises:
+            AttributeError: If no message was matched.
+        """
+        if not self.matched:
+            raise AttributeError("No message was matched")
+
+        cdef ucp_tag_message_h handle
+        cdef uintptr_t handle_ptr
+
+        try:
+            handle = self._probe_info_ptr.get().getHandle()
+            if handle == NULL:
+                return None
+            handle_ptr = <uintptr_t>handle
+        except RuntimeError:
+            return None
+        return int(handle_ptr)
+
+    def __bool__(self) -> bool:
+        """Return whether a message was matched.
+
+        Returns:
+            True if a message was matched, False otherwise.
+        """
+        return self.matched
+
+    def __repr__(self) -> str:
+        """String representation of the probe result.
+
+        Returns:
+            A string representation showing the probe result state.
+        """
+        if self.matched:
+            handle_val = self.handle
+            result = (
+                "TagProbeResult("
+                f"matched=True, sender_tag={self.sender_tag}, length={self.length}"
+                + (f", handle={handle_val}" if handle_val is not None else "")
+                + ")"
+            )
+            return result
+        else:
+            return "TagProbeResult(matched=False)"
+
+
 cdef class HostBufferAdapter:
     """A simple adapter around HostBuffer implementing the buffer protocol"""
-    cdef Py_ssize_t _size
-    cdef void* _ptr
-    cdef Py_ssize_t[1] _shape
-    cdef Py_ssize_t[1] _strides
-    cdef Py_ssize_t _itemsize
 
     @staticmethod
     cdef _from_host_buffer(HostBuffer* host_buffer):
@@ -255,11 +349,6 @@ class PythonRequestNotifierWaitState(enum.Enum):
 ###############################################################################
 
 cdef class UCXConfig():
-    cdef:
-        unique_ptr[Config] _config
-        bint _enable_python_future
-        dict _cb_data
-
     def __init__(self, ConfigMap user_options=ConfigMap()) -> None:
         # TODO: Replace unique_ptr by stack object. Rule-of-five is not allowed
         # by Config, and Cython seems not to handle constructors without moving
@@ -298,10 +387,6 @@ cdef class UCXContext():
     feature_flags: Iterable[Feature]
         Tuple of UCX feature flags
     """
-    cdef:
-        shared_ptr[Context] _context
-        dict _config
-
     def __init__(
         self,
         dict config_dict=None,
@@ -313,6 +398,7 @@ cdef class UCXContext():
             Feature.RMA
         )
     ) -> None:
+        cdef unique_ptr[ContextBuilder] builder
         cdef ConfigMap cpp_config_in, cpp_config_out
         cdef dict context_config
 
@@ -326,7 +412,12 @@ cdef class UCXContext():
         )
 
         with nogil:
-            self._context = createContext(cpp_config_in, feature_flags_uint)
+            # Use unique_ptr for heap allocation to avoid requiring a default
+            # constructor, Cython requires stack-allocated C++ objects to have nullary
+            # constructors
+            builder = make_unique[ContextBuilder](feature_flags_uint)
+            builder.get().configMap(cpp_config_in)
+            self._context = builder.get().build()
             cpp_config_out = self._context.get().getConfig()
 
         context_config = cpp_config_out
@@ -365,6 +456,18 @@ cdef class UCXContext():
         return int(<uintptr_t>handle)
 
     @property
+    def ucxx_ptr(self) -> int:
+        cdef Context* context
+
+        with nogil:
+            context = self._context.get()
+
+        return int(<uintptr_t>context)
+
+    cdef shared_ptr[Context] get_ucxx_shared_ptr(self) nogil:
+        return self._context
+
+    @property
     def info(self) -> str:
         cdef Context* ucxx_context
         cdef string info
@@ -386,12 +489,6 @@ cdef class UCXContext():
 
 
 cdef class UCXAddress():
-    cdef:
-        shared_ptr[Address] _address
-        size_t _length
-        ucp_address_t *_handle
-        string _string
-
     def __init__(self) -> None:
         raise TypeError("UCXListener cannot be instantiated directly.")
 
@@ -413,28 +510,17 @@ cdef class UCXAddress():
         return address
 
     @classmethod
-    def create_from_string(cls, string address_str) -> UCXAddress:
+    def create_from_buffer(cls, bytes buf) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
-        cdef string cpp_address_str = address_str
+        cdef string address_str = string(<const char*>buf, len(buf))
 
         with nogil:
-            address._address = createAddressFromString(cpp_address_str)
+            address._address = createAddressFromString(address_str)
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
             address._string = address._address.get().getString()
 
         return address
-
-    @classmethod
-    def create_from_buffer(cls, bytes buffer) -> UCXAddress:
-        cdef string address_str
-
-        buf = Array(buffer)
-        assert buf.c_contiguous
-
-        address_str = string(<char*>buf.ptr, <size_t>buf.nbytes)
-
-        return UCXAddress.create_from_string(address_str)
 
     # For old UCX-Py API compatibility
     @classmethod
@@ -453,42 +539,35 @@ cdef class UCXAddress():
         return int(<uintptr_t>self._handle)
 
     @property
+    def ucxx_ptr(self) -> int:
+        cdef Address* address
+
+        with nogil:
+            address = self._address.get()
+
+        return int(<uintptr_t>address)
+
+    cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil:
+        return self._address
+
+    @property
     def length(self) -> int:
         return int(self._length)
 
-    @property
-    def string(self) -> bytes:
+    def __bytes__(self) -> bytes:
         return bytes(self._string)
 
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
-        if bool(flags & PyBUF_WRITABLE):
-            raise BufferError("Requested writable view on readonly data")
-        buffer.buf = self._handle
-        buffer.len = self._length
-        buffer.obj = self
-        buffer.readonly = True
-        buffer.itemsize = 1
-        if bool(flags & PyBUF_FORMAT):
-            buffer.format = b"B"
-        else:
-            buffer.format = NULL
-        buffer.ndim = 1
-        if bool(flags & PyBUF_ND):
-            buffer.shape = &buffer.len
-        else:
-            buffer.shape = NULL
-        buffer.strides = NULL
-        buffer.suboffsets = NULL
-        buffer.internal = NULL
+        PyBuffer_FillInfo(buffer, self, self._handle, self._length, True, flags)
 
     def __releasebuffer__(self, Py_buffer *buffer) -> None:
         pass
 
     def __reduce__(self) -> tuple:
-        return (UCXAddress.create_from_buffer, (self.string,))
+        return (UCXAddress.create_from_buffer, (bytes(self),))
 
     def __hash__(self) -> int:
-        return hash(bytes(self.string))
+        return hash(bytes(self))
 
 
 cdef void _generic_callback(void *args) with gil:
@@ -506,13 +585,6 @@ cdef void _generic_callback(void *args) with gil:
 
 cdef class UCXWorker():
     """Python representation of `ucp_worker_h`"""
-    cdef:
-        shared_ptr[Worker] _worker
-        dict _progress_thread_start_cb_data
-        bint _enable_delayed_submission
-        bint _enable_python_future
-        uint64_t _context_feature_flags
-
     def __init__(
             self,
             UCXContext context,
@@ -563,6 +635,9 @@ cdef class UCXWorker():
             worker = self._worker.get()
 
         return int(<uintptr_t>worker)
+
+    cdef shared_ptr[Worker] get_ucxx_shared_ptr(self) nogil:
+        return self._worker
 
     @property
     def info(self) -> str:
@@ -684,14 +759,33 @@ cdef class UCXWorker():
 
         return num_canceled
 
-    def tag_probe(self, UCXXTag tag) -> bool:
-        cdef bint tag_matched
+    def tag_probe(
+        self,
+        UCXXTag tag,
+        UCXXTagMask tag_mask = UCXXTagMaskFull,
+        bint remove = False
+    ) -> TagProbeResult:
+        """Probe for tag messages.
+
+        Returns
+        -------
+        TagProbeResult object containing:
+        - matched: bool indicating if a message was matched
+        - sender_tag: int sender tag (when matched=True)
+        - length: int message length in bytes (when matched=True)
+        - handle: int message handle for efficient reception (when matched=True and
+                  remove=True)
+        """
         cdef Tag cpp_tag = <Tag><size_t>tag.value
+        cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
+        cdef shared_ptr[TagProbeInfo] probe_info_ptr
 
         with nogil:
-            tag_matched = self._worker.get().tagProbe(cpp_tag)
+            probe_info_ptr = self._worker.get().tagProbe(cpp_tag, cpp_tag_mask, remove)
 
-        return tag_matched
+        cdef TagProbeResult result = TagProbeResult.__new__(TagProbeResult)
+        result._probe_info_ptr = probe_info_ptr
+        return result
 
     def set_progress_thread_start_callback(
             self, cb_func, tuple cb_args=None, dict cb_kwargs=None
@@ -741,6 +835,10 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().populateFuturesPool()
 
+    def clear_python_futures_pool(self) -> None:
+        with nogil:
+            self._worker.get().clearFuturesPool()
+
     def is_delayed_submission_enabled(self) -> bool:
         warnings.warn(
             "UCXWorker.is_delayed_submission_enabled() is deprecated and will soon "
@@ -785,13 +883,36 @@ cdef class UCXWorker():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
+    def tag_recv_with_handle(
+        self,
+        Array arr,
+        TagProbeResult probe_result
+    ) -> UCXRequest:
+        """Receive tag message using message handle obtained from tag_probe_with_handle.
+
+        This is more efficient than regular tag_recv as it doesn't need to go through
+        the message matching queue again.
+        """
+        cdef void* buf = <void*>arr.ptr
+        cdef shared_ptr[Request] req
+
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
+
+        if not probe_result.matched:
+            raise ValueError("TagProbeResult must be matched")
+
+        with nogil:
+            req = self._worker.get().tagRecvWithHandle(
+                buf,
+                probe_result._probe_info_ptr,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
 
 cdef class UCXRequest():
-    cdef:
-        shared_ptr[Request] _request
-        bint _enable_python_future
-        bint _completed
-
     def __init__(self, uintptr_t shared_ptr_request, bint enable_python_future) -> None:
         self._request = deref(<shared_ptr[Request] *> shared_ptr_request)
         self._enable_python_future = enable_python_future
@@ -801,6 +922,18 @@ cdef class UCXRequest():
         with nogil:
             self._request.get().cancel()
             self._request.reset()
+
+    @property
+    def ucxx_ptr(self) -> int:
+        cdef Request* request
+
+        with nogil:
+            request = self._request.get()
+
+        return int(<uintptr_t>request)
+
+    cdef shared_ptr[Request] get_ucxx_shared_ptr(self) nogil:
+        return self._request
 
     @property
     def completed(self) -> bool:
@@ -903,10 +1036,6 @@ cdef class UCXRequest():
 
 
 cdef class UCXBufferRequest:
-    cdef:
-        BufferRequestPtr _buffer_request
-        bint _enable_python_future
-
     def __init__(
             self,
             uintptr_t shared_ptr_buffer_request,
@@ -963,13 +1092,6 @@ cdef class UCXBufferRequest:
 
 
 cdef class UCXBufferRequests:
-    cdef:
-        RequestTagMultiPtr _ucxx_request_tag_multi
-        bint _enable_python_future
-        bint _completed
-        tuple _buffer_requests
-        tuple _requests
-
     def __init__(
         self,
         uintptr_t unique_ptr_buffer_requests,
@@ -1149,14 +1271,6 @@ cdef void _endpoint_close_callback(ucs_status_t status, shared_ptr[void] args) w
 
 
 cdef class UCXEndpoint():
-    cdef:
-        shared_ptr[Endpoint] _endpoint
-        uint64_t _context_feature_flags
-        bint _cuda_support
-        bint _enable_python_future
-        dict _close_cb_data
-        shared_ptr[uintptr_t] _close_cb_data_ptr
-
     def __init__(self) -> None:
         raise TypeError("UCXListener cannot be instantiated directly.")
 
@@ -1265,6 +1379,9 @@ cdef class UCXEndpoint():
             endpoint = self._endpoint.get()
 
         return int(<uintptr_t>endpoint)
+
+    cdef shared_ptr[Endpoint] get_ucxx_shared_ptr(self) nogil:
+        return self._endpoint
 
     @property
     def worker_handle(self) -> int:
@@ -1460,8 +1577,38 @@ cdef class UCXEndpoint():
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
+    def tag_recv_with_handle(
+        self,
+        Array arr,
+        TagProbeResult probe_result
+    ) -> UCXRequest:
+        """Receive tag message using message handle obtained from tag_probe_with_handle.
+
+        This is more efficient than regular tag_recv as it doesn't need to go through
+        the message matching queue again.
+        """
+        cdef void* buf = <void*>arr.ptr
+        cdef shared_ptr[Request] req
+        cdef shared_ptr[Worker] worker
+
+        if not self._context_feature_flags & Feature.TAG.value:
+            raise ValueError("UCXContext must be created with `Feature.TAG`")
+
+        if not probe_result.matched:
+            raise ValueError("TagProbeResult must be matched")
+
+        with nogil:
+            worker = self._endpoint.get().getWorker()
+            req = worker.get().tagRecvWithHandle(
+                buf,
+                probe_result._probe_info_ptr,
+                self._enable_python_future
+            )
+
+        return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
+
     def tag_send_multi(self, tuple arrays, UCXXTag tag) -> UCXBufferRequests:
-        cdef vector[void*] v_buffer
+        cdef vector[const void*] v_buffer
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
         cdef shared_ptr[Request] ucxx_buffer_requests
@@ -1481,7 +1628,7 @@ cdef class UCXEndpoint():
                 )
 
         for arr in arrays:
-            v_buffer.push_back(<void*><uintptr_t>arr.ptr)
+            v_buffer.push_back(<const void*><uintptr_t>arr.ptr)
             v_size.push_back(arr.nbytes)
             v_is_cuda.push_back(arr.cuda)
 
@@ -1594,12 +1741,6 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
 
 
 cdef class UCXListener():
-    cdef:
-        shared_ptr[Listener] _listener
-        bint _enable_python_future
-        dict _cb_data
-        object __weakref__
-
     def __init__(self) -> None:
         raise TypeError("UCXListener cannot be instantiated directly.")
 
@@ -1643,6 +1784,18 @@ cdef class UCXListener():
             )
 
         return listener
+
+    @property
+    def ucxx_ptr(self) -> int:
+        cdef Listener* listener
+
+        with nogil:
+            listener = self._listener.get()
+
+        return int(<uintptr_t>listener)
+
+    cdef shared_ptr[Listener] get_ucxx_shared_ptr(self) nogil:
+        return self._listener
 
     @property
     def port(self) -> int:

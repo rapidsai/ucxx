@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -31,6 +31,12 @@ namespace ucxx {
  */
 typedef std::function<void()> DelayedSubmissionCallbackType;
 
+/**
+ * @brief Type for identifying items in `DelayedSubmissionCollection`.
+ *
+ * A 64-bit unsigned integer used to uniquely identify items in `DelayedSubmissionCollection`,
+ * allowing for tracking and cancellation of specific items.
+ */
 typedef uint64_t ItemIdType;
 
 /**
@@ -87,8 +93,8 @@ class BaseDelayedSubmissionCollection {
    *                    class should only be used to provide a consistent interface among
    *                    implementations.
    */
-  explicit BaseDelayedSubmissionCollection(const std::string name, const bool enabled)
-    : _name{name}, _enabled{enabled}
+  explicit BaseDelayedSubmissionCollection(std::string name, const bool enabled)
+    : _name{std::move(name)}, _enabled{enabled}
   {
   }
 
@@ -145,7 +151,7 @@ class BaseDelayedSubmissionCollection {
       toProcess = _collection.size();
     }
 
-    for (auto i = 0; i < toProcess; ++i) {
+    for (size_t i = 0; i < toProcess; ++i) {
       std::pair<ItemIdType, T> item;
       {
         std::lock_guard<std::mutex> lock(_mutex);
@@ -216,7 +222,7 @@ class RequestDelayedSubmissionCollection
    *                    debugging purposes.
    * @param[in] enabled whether delayed request submissions should be enabled.
    */
-  explicit RequestDelayedSubmissionCollection(const std::string name, const bool enabled);
+  explicit RequestDelayedSubmissionCollection(std::string name, const bool enabled);
 };
 
 /**
@@ -242,7 +248,7 @@ class GenericDelayedSubmissionCollection
    * @param[in] name    the human-readable name of the type of delayed submission for
    *                    debugging purposes.
    */
-  explicit GenericDelayedSubmissionCollection(const std::string name);
+  explicit GenericDelayedSubmissionCollection(std::string name);
 };
 
 /**
