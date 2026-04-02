@@ -113,9 +113,10 @@ async def test_send_recv_am(size, recv_wait, data, memory_type_policy):
 def simple_user_header_server(user_header_echo):
     async def server(ep):
         recv_buffer, recv_header = await ep.am_recv_with_header()
-        # Echo back with the same user header the client sent
-        await ep.am_send(recv_buffer, user_header=recv_header)
+        # Append before am_send so the client cannot observe the list before this
+        # (asyncio scheduling).
         user_header_echo.append(recv_header)
+        await ep.am_send(recv_buffer, user_header=recv_header)
         await ep.close()
 
     return server
