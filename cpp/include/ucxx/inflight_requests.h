@@ -131,7 +131,8 @@ class InflightRequests {
    * @param[in] callbackFunction  function to be called upon termination and only if no
    *                              further requests inflight or canceling remain.
    */
-  void remove(std::shared_ptr<Request> request, GenericCallbackUserFunction callbackFunction = nullptr);
+  void remove(std::shared_ptr<Request> request,
+              GenericCallbackUserFunction callbackFunction = nullptr);
 
   /**
    * @brief Issue cancelation of all inflight requests and clear the internal container.

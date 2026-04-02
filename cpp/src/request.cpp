@@ -70,7 +70,7 @@ Request::Request(std::shared_ptr<Component> endpointOrWorker,
 Request::~Request()
 {
   if (_cancelCallback != nullptr) {
-    std::ignore = _cancelCallbackNotifier.wait(1000000000 /* 1s */);
+    std::ignore     = _cancelCallbackNotifier.wait(1000000000 /* 1s */);
     _cancelCallback = nullptr;
   }
   if (UCS_PTR_IS_PTR(_request)) {

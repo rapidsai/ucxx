@@ -495,11 +495,11 @@ std::shared_ptr<Request> Endpoint::amSend(
 }
 
 std::shared_ptr<Request> Endpoint::amSend(const void* const buffer,
-                                            const size_t length,
-                                            const AmSendParams& params,
-                                            const bool enablePythonFuture,
-                                            RequestCallbackUserFunction callbackFunction,
-                                            RequestCallbackUserData callbackData)
+                                          const size_t length,
+                                          const AmSendParams& params,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
 {
   if (_stopping.load()) throw RejectedError("Endpoint is stopping.");
 
