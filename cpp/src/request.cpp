@@ -261,8 +261,6 @@ void Request::setStatus(ucs_status_t status)
   {
     std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-    removeInflightRequest();
-
     ucxx_trace_req_f(_ownerString.c_str(),
                      this,
                      _request,
@@ -271,15 +269,20 @@ void Request::setStatus(ucs_status_t status)
                      status,
                      ucs_status_string(status));
 
-    if (_status != UCS_INPROGRESS)
-      ucxx_error(
+    if (_status != UCS_INPROGRESS) {
+      ucxx_warn(
         "ucxx::Request: %p, setStatus called with status: %d (%s) but status: %d (%s) was "
-        "already set",
+        "already set, ignoring",
         this,
         status,
         ucs_status_string(status),
         _status,
         ucs_status_string(_status));
+      return;
+    }
+
+    removeInflightRequest();
+
     _status = status;
 
     if (_enablePythonFuture) {
