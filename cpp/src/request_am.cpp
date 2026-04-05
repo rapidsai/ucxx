@@ -365,14 +365,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                        buf->data(),
                        length);
 
-    if (req->isCompleted()) {
-      // The request completed/errored immediately
-      ucs_status_t s = UCS_PTR_STATUS(status);
-      recvAmMessage->callback(nullptr, s);
-
-      return s;
-    } else {
-      // The request will be handled by the callback
+    if (UCS_PTR_IS_PTR(status)) {
+      // The request is in progress, register for the completion callback. The
+      // recvAmMessage must be stored in the map to prevent use-after-free when
+      // the UCX callback fires.
       recvAmMessage->setUcpRequest(status);
       amData->_registerInflightRequest(req);
 
@@ -382,6 +378,12 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       }
 
       return UCS_INPROGRESS;
+    } else {
+      // The request completed/errored immediately
+      ucs_status_t s = UCS_PTR_RAW_STATUS(status);
+      recvAmMessage->callback(nullptr, s);
+
+      return s;
     }
   } else {
     buf = amData->_allocators.at(UCS_MEMORY_TYPE_HOST)(length);
