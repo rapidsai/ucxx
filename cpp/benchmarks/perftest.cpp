@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cassert>
 #include <cerrno>
 #include <chrono>
 #include <climits>
@@ -689,8 +688,8 @@ class Application {
 
     // Verify wireup result
     for (size_t i = 0; i < (*wireupBufferMap)[DirectionType::Send].size(); ++i)
-      assert((*wireupBufferMap)[DirectionType::Recv][i] ==
-             (*wireupBufferMap)[DirectionType::Send][i]);
+      if ((*wireupBufferMap)[DirectionType::Recv][i] != (*wireupBufferMap)[DirectionType::Send][i])
+        throw std::runtime_error("Wireup data verification failed at byte " + std::to_string(i));
   }
 
   auto doTransfer()

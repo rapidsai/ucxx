@@ -5,8 +5,8 @@
 #pragma once
 
 #include <algorithm>
-#include <cassert>
 #include <iostream>
+#include <stdexcept>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -331,7 +331,8 @@ struct HostBufferInterface : public BufferInterface {
   void verifyResults(size_t messageSize) override
   {
     for (size_t j = 0; j < (*bufferMap)[DirectionType::Send].size(); ++j)
-      assert((*bufferMap)[DirectionType::Recv][j] == (*bufferMap)[DirectionType::Send][j]);
+      if ((*bufferMap)[DirectionType::Recv][j] != (*bufferMap)[DirectionType::Send][j])
+        throw std::runtime_error("Host data verification failed at byte " + std::to_string(j));
   }
 
   // Static factory method to create host buffer interface
@@ -512,7 +513,8 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
     }
 
     for (size_t j = 0; j < sendData.size(); ++j)
-      assert(recvData[j] == sendData[j]);
+      if (recvData[j] != sendData[j])
+        throw std::runtime_error("CUDA data verification failed at byte " + std::to_string(j));
   }
 
   // Static allocation methods
@@ -728,7 +730,9 @@ inline void verify_device_buffers(rmm::device_buffer& send,
                      "RMM send stream synchronization for verification");
   CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(recv.stream()),
                      "RMM recv stream synchronization for verification");
-  for (std::size_t j = 0; j < messageSize; ++j) assert(recvData[j] == sendData[j]);
+  for (std::size_t j = 0; j < messageSize; ++j)
+    if (recvData[j] != sendData[j])
+      throw std::runtime_error("RMM data verification failed at byte " + std::to_string(j));
 }
 
 struct RmmDeviceMrBuffers {
