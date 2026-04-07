@@ -51,6 +51,17 @@ def test_ucx_address_memoryview():
     assert org_address_mv == new_address_mv
 
 
+def test_ucx_address_picklebuffer():
+    ctx = ucx_api.UCXContext()
+    worker = ucx_api.UCXWorker(ctx)
+    org_address = worker.address
+    org_address_pb = pickle.PickleBuffer(org_address)
+    new_address = ucx_api.UCXAddress.create_from_buffer(org_address_pb)
+    new_address_pb = pickle.PickleBuffer(new_address)
+    assert hash(org_address) == hash(new_address)
+    assert org_address_pb.raw() == new_address_pb.raw()
+
+
 def test_pickle_ucx_address():
     ctx = ucx_api.UCXContext()
     worker = ucx_api.UCXWorker(ctx)
