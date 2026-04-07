@@ -110,7 +110,7 @@ class Address : public Component {
    * Convenience method to view the underlying address as a `std::string_view` and return it as
    * a single object.
    *
-   * @note If the user would like to own the object, they can assign it to a `std::string` object,
+   * @note If the user would like to own the object, they can pass the result to `std::string`,
    * which will copy the memory.
    *
    * @returns The underlying `ucp_address_t` handle.
