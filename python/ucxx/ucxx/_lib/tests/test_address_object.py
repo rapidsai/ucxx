@@ -65,7 +65,7 @@ def test_pickle_ucx_address():
     assert org_address_bytes == new_address_bytes
 
 
-def test_picklebuffer_ucx_address():
+def test_pickle5_ucx_address():
     ctx = ucx_api.UCXContext()
     worker = ucx_api.UCXWorker(ctx)
     org_address = worker.address
