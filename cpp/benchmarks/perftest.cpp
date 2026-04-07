@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cassert>
 #include <cerrno>
 #include <chrono>
 #include <climits>
@@ -247,43 +246,56 @@ static void printUsage(std::string_view executablePath)
   std::cerr << "Usage: " << executablePath << " [server-hostname] [options]" << std::endl;
   std::cerr << std::endl;
   std::cerr << "Parameters are:" << std::endl;
-  std::cerr << "  -t <test>           test to run (required)" << std::endl;
-  std::cerr << "            tag_lat - UCP tag match latency" << std::endl;
-  std::cerr << "             tag_bw - UCP tag match bandwidth" << std::endl;
+  std::cerr << "  -t <test>                   test to run (required)" << std::endl;
+  std::cerr << "                    tag_lat - UCP tag match latency" << std::endl;
+  std::cerr << "                     tag_bw - UCP tag match bandwidth" << std::endl;
+  std::cerr << "  -m <type>                   memory type to use" << std::endl;
+  std::cerr << "                       host - Host/system memory" << std::endl;
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default), 'cuda', "
-            << std::endl
-            << "              'cuda-managed', and 'cuda-async'" << std::endl;
-#else
-  std::cerr << "  -m <type>   memory type to use, valid values are: 'host' (default)" << std::endl;
+  std::cerr << "                       cuda - CUDA default memory" << std::endl;
+  std::cerr << "               cuda-managed - CUDA managed memory/unified virtual memory (UVM)"
+            << std::endl;
+  std::cerr << "                 cuda-async - CUDA stream-ordered memory" << std::endl;
+#ifdef UCXX_BENCHMARKS_ENABLE_RMM
+  std::cerr << "                   rmm-cuda - RMM CUDA default memory" << std::endl;
+  std::cerr << "              rmm-cuda-pool - RMM pool backed by CUDA default memory" << std::endl;
+  std::cerr << "             rmm-cuda-async - RMM stream-ordered memory" << std::endl;
+  std::cerr << "     rmm-cuda-async-managed - RMM stream-ordered memory backed by pool"
+            << std::endl;
 #endif
-  std::cerr << "  -P <progress_mode>  worker progress mode to use" << std::endl;
-  std::cerr << "           blocking - Blocking progress mode, equivalent to `ucx_perftest -E sleep`"
+#endif
+  std::cerr << "  -P <progress_mode>          worker progress mode to use" << std::endl;
+  std::cerr
+    << "                   blocking - Blocking progress mode, equivalent to `ucx_perftest -E sleep`"
+    << std::endl;
+  std::cerr << "                    polling - Polling progress mode, equivalent to `ucx_perftest "
+               "-E poll` (default)"
+            << std::endl;
+  std::cerr << "            thread-blocking - Blocking progress mode in exclusive progress thread"
+            << std::endl;
+  std::cerr << "             thread-polling - Polling progress mode in exclusive progress thread"
+            << std::endl;
+  std::cerr << "                       wait - Wait progress mode" << std::endl;
+  std::cerr << "  -p <port>                   port number to listen at (12345)" << std::endl;
+  std::cerr << "  -s <size>                   message size (8)" << std::endl;
+  std::cerr << "  -n <iters>                  number of iterations to run (100)" << std::endl;
+  std::cerr << "  -w <iters>                  number of warmup iterations to run (3)" << std::endl;
+  std::cerr << "  -L                          disable reuse memory allocation (enabled)"
             << std::endl;
   std::cerr
-    << "            polling - Polling progress mode, equivalent to `ucx_perftest -E poll` (default)"
+    << "  -e                          create endpoints with error handling support (disabled)"
     << std::endl;
-  std::cerr << "    thread-blocking - Blocking progress mode in exclusive progress thread"
+  std::cerr << "  -v                          verify results (disabled)" << std::endl;
+  std::cerr << "  -l                          use loopback connection: in this case, the process "
+               "will communicate"
             << std::endl;
-  std::cerr << "     thread-polling - Polling progress mode in exclusive progress thread"
-            << std::endl;
-  std::cerr << "               wait - Wait progress mode" << std::endl;
-  std::cerr << "  -p <port>           port number to listen at (12345)" << std::endl;
-  std::cerr << "  -s <size>           message size (8)" << std::endl;
-  std::cerr << "  -n <iters>          number of iterations to run (100)" << std::endl;
-  std::cerr << "  -w <iters>          number of warmup iterations to run (3)" << std::endl;
-  std::cerr << "  -L                  disable reuse memory allocation (enabled)" << std::endl;
-  std::cerr << "  -e                  create endpoints with error handling support (disabled)"
-            << std::endl;
-  std::cerr << "  -v                  verify results (disabled)" << std::endl;
-  std::cerr << "  -l             use loopback connection" << std::endl;
-  std::cerr << "                 in this case, the process will communicate with itself,"
-            << std::endl;
-  std::cerr << "                 so passing server hostname is not allowed" << std::endl;
   std::cerr
-    << "  -R <rank>           percentile rank of the percentile data in latency tests (50.0)"
+    << "                              with itself, so passing server hostname is not allowed"
     << std::endl;
-  std::cerr << "  -h                  print this help" << std::endl;
+  std::cerr << "  -R <rank>                   percentile rank of the percentile data in latency "
+               "tests (50.0)"
+            << std::endl;
+  std::cerr << "  -h                          print this help" << std::endl;
   std::cerr << std::endl;
 }
 
@@ -706,13 +718,20 @@ class Application {
     waitRequests(requests);
 
     // Verify wireup result
-    for (size_t i = 0; i < (*wireupBufferMap)[DirectionType::Send].size(); ++i)
-      assert((*wireupBufferMap)[DirectionType::Recv][i] ==
-             (*wireupBufferMap)[DirectionType::Send][i]);
+    for (size_t i = 0; i < (*wireupBufferMap)[DirectionType::Send].size(); ++i) {
+      if ((*wireupBufferMap)[DirectionType::Recv][i] !=
+          (*wireupBufferMap)[DirectionType::Send][i]) {
+        throw std::runtime_error("Wireup data verification failed at byte " + std::to_string(i));
+      }
+    }
     if (peerWireupBufferMap) {
-      for (size_t i = 0; i < (*peerWireupBufferMap)[DirectionType::Send].size(); ++i)
-        assert((*peerWireupBufferMap)[DirectionType::Recv][i] ==
-               (*peerWireupBufferMap)[DirectionType::Send][i]);
+      for (size_t i = 0; i < (*peerWireupBufferMap)[DirectionType::Send].size(); ++i) {
+        if ((*peerWireupBufferMap)[DirectionType::Recv][i] !=
+            (*peerWireupBufferMap)[DirectionType::Send][i]) {
+          throw std::runtime_error("Peer wireup data verification failed at byte " +
+                                   std::to_string(i));
+        }
+      }
     }
   }
 
@@ -722,6 +741,11 @@ class Application {
       return HostBufferInterface::createBufferInterface(_appContext.messageSize,
                                                         _appContext.reuseAllocations);
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
+#ifdef UCXX_BENCHMARKS_ENABLE_RMM
+    } else if (isRmmMemoryType(_appContext.memoryType)) {
+      return RmmBufferInterfaceBase::createBufferInterface(
+        _appContext.memoryType, _appContext.messageSize, _appContext.reuseAllocations);
+#endif
     } else {
       return CudaBufferInterfaceBase::createBufferInterface(
         _appContext.memoryType, _appContext.messageSize, _appContext.reuseAllocations);
@@ -865,10 +889,8 @@ class Application {
     : _appContext(appContext), _isServer(appContext.serverAddress == NULL && !appContext.loopback)
   {
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
-    // Check CUDA support if CUDA memory is requested
-    if (appContext.memoryType == MemoryType::Cuda ||
-        appContext.memoryType == MemoryType::CudaManaged ||
-        appContext.memoryType == MemoryType::CudaAsync) {
+    // Check CUDA support if CUDA or RMM device memory is requested
+    if (appContext.memoryType != MemoryType::Host) {
       CUDA_EXIT_ON_ERROR(cudaSetDevice(0), "CUDA device initialization");
     }
 #endif
