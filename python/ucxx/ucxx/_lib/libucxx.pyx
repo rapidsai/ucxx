@@ -490,7 +490,7 @@ cdef class UCXContext():
 
 cdef class UCXAddress():
     def __init__(self) -> None:
-        raise TypeError("UCXListener cannot be instantiated directly.")
+        raise TypeError("UCXAddress cannot be instantiated directly.")
 
     def __dealloc__(self) -> None:
         with nogil:
