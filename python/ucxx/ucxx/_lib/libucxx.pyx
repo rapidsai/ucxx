@@ -1272,7 +1272,7 @@ cdef void _endpoint_close_callback(ucs_status_t status, shared_ptr[void] args) w
 
 cdef class UCXEndpoint():
     def __init__(self) -> None:
-        raise TypeError("UCXListener cannot be instantiated directly.")
+        raise TypeError("UCXEndpoint cannot be instantiated directly.")
 
     def __dealloc__(self) -> None:
         self.remove_close_callback()
