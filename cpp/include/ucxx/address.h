@@ -1,11 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <memory>
-#include <string>
+#include <string_view>
 
 #include <ucp/api/ucp.h>
 
@@ -75,7 +75,7 @@ class Address : public Component {
    *
    * @returns The `shared_ptr<ucxx::Address>` object.
    */
-  friend std::shared_ptr<Address> createAddressFromString(std::string addressString);
+  friend std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
 
   /**
    * @brief Get the underlying `ucp_address_t*` handle.
@@ -105,14 +105,17 @@ class Address : public Component {
   [[nodiscard]] size_t getLength() const;
 
   /**
-   * @brief Get the address as a string.
+   * @brief Get a non-owning view of the address as a string.
    *
-   * Convenience method to copy the underlying address to a `std::string` and return it as
+   * Convenience method to view the underlying address as a `std::string_view` and return it as
    * a single object.
+   *
+   * @note If the user would like to own the object, they can pass the result to `std::string`,
+   * which will copy the memory.
    *
    * @returns The underlying `ucp_address_t` handle.
    */
-  [[nodiscard]] std::string getString() const;
+  [[nodiscard]] std::string_view getString() const;
 };
 
 }  // namespace ucxx

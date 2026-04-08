@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -11,6 +11,7 @@ from libcpp.memory cimport shared_ptr, unique_ptr
 from libcpp.optional cimport nullopt_t, optional
 from libcpp.pair cimport pair
 from libcpp.string cimport string
+from libcpp.string_view cimport string_view
 from libcpp.unordered_map cimport unordered_map as cpp_unordered_map
 from libcpp.vector cimport vector
 
@@ -215,7 +216,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     ) except +raise_py_error
 
     shared_ptr[Address] createAddressFromWorker(shared_ptr[Worker] worker)
-    shared_ptr[Address] createAddressFromString(string address_string)
+    shared_ptr[Address] createAddressFromString(string_view address_string)
 
     cdef cppclass Config:
         Config()
@@ -356,7 +357,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass Address(Component):
         ucp_address_t* getHandle()
         size_t getLength()
-        string getString()
+        string_view getString()
 
     cdef cppclass Request(Component):
         cpp_bool isCompleted()
