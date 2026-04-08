@@ -42,7 +42,7 @@ cdef class UCXAddress:
         shared_ptr[Address] _address
         size_t _length
         ucp_address_t *_handle
-        string _string
+        string_view _string
 
     cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil
 

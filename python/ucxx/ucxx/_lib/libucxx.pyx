@@ -507,7 +507,7 @@ cdef class UCXAddress():
             address._address = worker._worker.get().getAddress()
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
-            address._string = string(address._address.get().getString())
+            address._string = address._address.get().getString()
 
         return address
 
@@ -520,7 +520,7 @@ cdef class UCXAddress():
             address._address = createAddressFromString(address_strv)
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
-            address._string = string(address._address.get().getString())
+            address._string = address._address.get().getString()
 
         return address
 
