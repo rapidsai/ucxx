@@ -1,11 +1,12 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include <ucxx/component.h>
 #include <ucxx/request_data.h>
@@ -34,7 +35,7 @@ class Worker;
 // Components
 [[nodiscard]] std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
 
-[[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string addressString);
+[[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
 
 [[nodiscard]] std::shared_ptr<Context> createContext(const ConfigMap ucxConfig,
                                                      const uint64_t featureFlags);

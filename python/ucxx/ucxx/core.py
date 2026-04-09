@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import gc
@@ -243,7 +243,7 @@ def get_worker_address():
 
 
 def get_ucx_address_from_buffer(buffer):
-    return ucx_api.UCXAddress.create_from_buffer(bytes(buffer))
+    return ucx_api.UCXAddress.create_from_buffer(buffer)
 
 
 async def recv(buffer, tag):

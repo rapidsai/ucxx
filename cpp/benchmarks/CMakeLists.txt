@@ -1,6 +1,6 @@
 # ======================================================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # cmake-format: on
 # ======================================================================================================
@@ -41,6 +41,12 @@ function(ConfigureBench CMAKE_BENCH_NAME)
     target_compile_definitions(${CMAKE_BENCH_NAME} PRIVATE UCXX_BENCHMARKS_ENABLE_CUDA)
     find_package(CUDAToolkit REQUIRED)
     target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE CUDA::cudart)
+  endif()
+
+  # RMM memory resources for CUDA benchmarks (requires UCXX_ENABLE_RMM and get_rmm.cmake)
+  if(UCXX_BENCHMARKS_ENABLE_CUDA AND UCXX_ENABLE_RMM)
+    target_compile_definitions(${CMAKE_BENCH_NAME} PRIVATE UCXX_BENCHMARKS_ENABLE_RMM)
+    target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE rmm::rmm)
   endif()
 
   add_custom_command(

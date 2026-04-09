@@ -1,11 +1,12 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
-#include <cassert>
+#include <algorithm>
 #include <iostream>
+#include <stdexcept>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -15,7 +16,20 @@
 
 #ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 #include <cuda_runtime.h>
+#endif
 
+#ifdef UCXX_BENCHMARKS_ENABLE_RMM
+#include <rmm/aligned.hpp>
+#include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_buffer.hpp>
+#include <rmm/mr/cuda_async_managed_memory_resource.hpp>
+#include <rmm/mr/cuda_async_memory_resource.hpp>
+#include <rmm/mr/cuda_memory_resource.hpp>
+#include <rmm/mr/pool_memory_resource.hpp>
+#include <rmm/resource_ref.hpp>
+#endif
+
+#ifdef UCXX_BENCHMARKS_ENABLE_CUDA
 // CUDA error checking macro (if not already defined)
 #ifndef CUDA_EXIT_ON_ERROR
 #define CUDA_EXIT_ON_ERROR(operation, context)                                                  \
@@ -37,6 +51,12 @@ enum class MemoryType {
   Cuda,
   CudaManaged,
   CudaAsync,
+#endif
+#ifdef UCXX_BENCHMARKS_ENABLE_RMM
+  RmmDeviceMemoryResource,
+  RmmPoolMemoryResource,
+  RmmCudaAsyncMemoryResource,
+  RmmCudaAsyncManagedMemoryResource,
 #endif
 };
 
@@ -60,6 +80,16 @@ std::string getMemoryTypeString(MemoryType memoryType) {
     return "cuda-managed";
   else if (memoryType == MemoryType::CudaAsync)
     return "cuda-async";
+#endif
+#ifdef UCXX_BENCHMARKS_ENABLE_RMM
+  else if (memoryType == MemoryType::RmmDeviceMemoryResource)
+    return "rmm-cuda";
+  else if (memoryType == MemoryType::RmmPoolMemoryResource)
+    return "rmm-pool";
+  else if (memoryType == MemoryType::RmmCudaAsyncMemoryResource)
+    return "rmm-cuda-async";
+  else if (memoryType == MemoryType::RmmCudaAsyncManagedMemoryResource)
+    return "rmm-cuda-async-managed";
 #endif
   else {
     throw std::runtime_error("Unknown memory type");
@@ -88,10 +118,31 @@ MemoryType getMemoryTypeFromString(std::string memoryTypeString) {
   else if (memoryTypeString == "cuda-async")
     return MemoryType::CudaAsync;
 #endif
+#ifdef UCXX_BENCHMARKS_ENABLE_RMM
+  else if (memoryTypeString == "rmm-cuda")
+    return MemoryType::RmmDeviceMemoryResource;
+  else if (memoryTypeString == "rmm-pool")
+    return MemoryType::RmmPoolMemoryResource;
+  else if (memoryTypeString == "rmm-cuda-async")
+    return MemoryType::RmmCudaAsyncMemoryResource;
+  else if (memoryTypeString == "rmm-cuda-async-managed")
+    return MemoryType::RmmCudaAsyncManagedMemoryResource;
+#endif
   else {
     throw std::runtime_error("Unknown memory type");
   }
 }
+
+#ifdef UCXX_BENCHMARKS_ENABLE_RMM
+/**
+ * @brief Returns true if \p t selects an RMM memory resource allocation path.
+ */
+inline bool isRmmMemoryType(MemoryType t)
+{
+  return t == MemoryType::RmmDeviceMemoryResource || t == MemoryType::RmmPoolMemoryResource ||
+         t == MemoryType::RmmCudaAsyncMemoryResource || t == MemoryType::RmmCudaAsyncManagedMemoryResource;
+}
+#endif
 
 enum class DirectionType { Send, Recv };
 
@@ -280,7 +331,8 @@ struct HostBufferInterface : public BufferInterface {
   void verifyResults(size_t messageSize) override
   {
     for (size_t j = 0; j < (*bufferMap)[DirectionType::Send].size(); ++j)
-      assert((*bufferMap)[DirectionType::Recv][j] == (*bufferMap)[DirectionType::Send][j]);
+      if ((*bufferMap)[DirectionType::Recv][j] != (*bufferMap)[DirectionType::Send][j])
+        throw std::runtime_error("Host data verification failed at byte " + std::to_string(j));
   }
 
   // Static factory method to create host buffer interface
@@ -461,7 +513,8 @@ struct CudaBufferInterface : public CudaBufferInterfaceBase {
     }
 
     for (size_t j = 0; j < sendData.size(); ++j)
-      assert(recvData[j] == sendData[j]);
+      if (recvData[j] != sendData[j])
+        throw std::runtime_error("CUDA data verification failed at byte " + std::to_string(j));
   }
 
   // Static allocation methods
@@ -631,3 +684,194 @@ std::unique_ptr<CudaBufferInterfaceBase> CudaBufferInterfaceBase::allocateBuffer
   }
 }
 #endif
+
+#ifdef UCXX_BENCHMARKS_ENABLE_RMM
+
+namespace rmm_benchmark_detail {
+
+inline std::size_t initial_pool_size(std::size_t messageSize)
+{
+  constexpr std::size_t kMinPool = 1ull << 20;
+  const std::size_t scaled       = (std::max)(messageSize * 4, kMinPool);
+  return rmm::align_up(scaled, rmm::CUDA_ALLOCATION_ALIGNMENT);
+}
+
+inline void initialize_send_pattern(rmm::device_buffer& send, std::size_t messageSize)
+{
+  std::vector<char> pattern(messageSize, 0xaa);
+  CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(send.data(),
+                                     pattern.data(),
+                                     messageSize,
+                                     cudaMemcpyHostToDevice,
+                                     send.stream()),
+                     "RMM send buffer initialization");
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream()), "RMM stream synchronization");
+}
+
+inline void verify_device_buffers(rmm::device_buffer& send,
+                                  rmm::device_buffer& recv,
+                                  std::size_t messageSize)
+{
+  std::vector<char> sendData(messageSize);
+  std::vector<char> recvData(messageSize);
+  CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(sendData.data(),
+                                     send.data(),
+                                     messageSize,
+                                     cudaMemcpyDeviceToHost,
+                                     send.stream()),
+                     "RMM send data copy for verification");
+  CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recvData.data(),
+                                     recv.data(),
+                                     messageSize,
+                                     cudaMemcpyDeviceToHost,
+                                     recv.stream()),
+                     "RMM recv data copy for verification");
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream()),
+                     "RMM send stream synchronization for verification");
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(recv.stream()),
+                     "RMM recv stream synchronization for verification");
+  for (std::size_t j = 0; j < messageSize; ++j)
+    if (recvData[j] != sendData[j])
+      throw std::runtime_error("RMM data verification failed at byte " + std::to_string(j));
+}
+
+struct RmmDeviceMrBuffers {
+  rmm::mr::cuda_memory_resource mr{};
+  std::unique_ptr<rmm::device_buffer> send;
+  std::unique_ptr<rmm::device_buffer> recv;
+
+  static std::shared_ptr<RmmDeviceMrBuffers> allocate(std::size_t messageSize)
+  {
+    auto p    = std::make_shared<RmmDeviceMrBuffers>();
+    auto ref  = rmm::to_device_async_resource_ref_checked(&p->mr);
+    p->send   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    p->recv   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    initialize_send_pattern(*p->send, messageSize);
+    return p;
+  }
+};
+
+struct RmmPoolBuffers {
+  rmm::mr::cuda_memory_resource upstream{};
+  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool;
+  std::unique_ptr<rmm::device_buffer> send;
+  std::unique_ptr<rmm::device_buffer> recv;
+
+  explicit RmmPoolBuffers(std::size_t messageSize)
+    : pool(&upstream, rmm_benchmark_detail::initial_pool_size(messageSize))
+  {
+    auto ref = rmm::to_device_async_resource_ref_checked(&pool);
+    send     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    recv     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    rmm_benchmark_detail::initialize_send_pattern(*send, messageSize);
+  }
+
+  static std::shared_ptr<RmmPoolBuffers> allocate(std::size_t messageSize)
+  {
+    return std::make_shared<RmmPoolBuffers>(messageSize);
+  }
+};
+
+struct RmmCudaAsyncMrBuffers {
+  rmm::mr::cuda_async_memory_resource mr{};
+  std::unique_ptr<rmm::device_buffer> send;
+  std::unique_ptr<rmm::device_buffer> recv;
+
+  static std::shared_ptr<RmmCudaAsyncMrBuffers> allocate(std::size_t messageSize)
+  {
+    auto p   = std::make_shared<RmmCudaAsyncMrBuffers>();
+    auto ref = rmm::to_device_async_resource_ref_checked(&p->mr);
+    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    initialize_send_pattern(*p->send, messageSize);
+    return p;
+  }
+};
+
+struct RmmCudaAsyncManagedMrBuffers {
+  rmm::mr::cuda_async_managed_memory_resource mr{};
+  std::unique_ptr<rmm::device_buffer> send;
+  std::unique_ptr<rmm::device_buffer> recv;
+
+  static std::shared_ptr<RmmCudaAsyncManagedMrBuffers> allocate(std::size_t messageSize)
+  {
+    auto p   = std::make_shared<RmmCudaAsyncManagedMrBuffers>();
+    auto ref = rmm::to_device_async_resource_ref_checked(&p->mr);
+    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    initialize_send_pattern(*p->send, messageSize);
+    return p;
+  }
+};
+
+}  // namespace rmm_benchmark_detail
+
+struct RmmBufferInterfaceBase : public BufferInterface {
+  virtual ~RmmBufferInterfaceBase() = default;
+
+  virtual std::unique_ptr<RmmBufferInterfaceBase> clone() const = 0;
+
+  static std::unique_ptr<RmmBufferInterfaceBase> createBufferInterface(MemoryType memoryType,
+                                                                     std::size_t messageSize,
+                                                                     bool reuseAlloc);
+
+  static std::unique_ptr<RmmBufferInterfaceBase> allocateBuffers(MemoryType memoryType,
+                                                                 std::size_t messageSize);
+};
+
+template <typename BufferPack>
+struct RmmBufferInterface : public RmmBufferInterfaceBase {
+  std::shared_ptr<BufferPack> pack;
+
+  explicit RmmBufferInterface(std::shared_ptr<BufferPack> p) : pack(std::move(p)) {}
+
+  void* getSendPtr() override { return pack->send->data(); }
+
+  void* getRecvPtr() override { return pack->recv->data(); }
+
+  void verifyResults(std::size_t messageSize) override
+  {
+    rmm_benchmark_detail::verify_device_buffers(*pack->send, *pack->recv, messageSize);
+  }
+
+  std::unique_ptr<RmmBufferInterfaceBase> clone() const override
+  {
+    return std::make_unique<RmmBufferInterface<BufferPack>>(pack);
+  }
+};
+
+inline std::unique_ptr<RmmBufferInterfaceBase> RmmBufferInterfaceBase::allocateBuffers(
+  MemoryType memoryType, std::size_t messageSize)
+{
+  using namespace rmm_benchmark_detail;
+  switch (memoryType) {
+    case MemoryType::RmmDeviceMemoryResource:
+      return std::make_unique<RmmBufferInterface<RmmDeviceMrBuffers>>(
+        RmmDeviceMrBuffers::allocate(messageSize));
+    case MemoryType::RmmPoolMemoryResource:
+      return std::make_unique<RmmBufferInterface<RmmPoolBuffers>>(RmmPoolBuffers::allocate(messageSize));
+    case MemoryType::RmmCudaAsyncMemoryResource:
+      return std::make_unique<RmmBufferInterface<RmmCudaAsyncMrBuffers>>(
+        RmmCudaAsyncMrBuffers::allocate(messageSize));
+    case MemoryType::RmmCudaAsyncManagedMemoryResource:
+      return std::make_unique<RmmBufferInterface<RmmCudaAsyncManagedMrBuffers>>(
+        RmmCudaAsyncManagedMrBuffers::allocate(messageSize));
+    default: throw std::runtime_error("Unsupported RMM memory type");
+  }
+}
+
+inline std::unique_ptr<RmmBufferInterfaceBase> RmmBufferInterfaceBase::createBufferInterface(
+  MemoryType memoryType, std::size_t messageSize, bool reuseAlloc)
+{
+  if (reuseAlloc) {
+    static std::unordered_map<MemoryType, std::unique_ptr<RmmBufferInterfaceBase>> reuseBuffers;
+
+    auto it = reuseBuffers.find(memoryType);
+    if (it == reuseBuffers.end()) { reuseBuffers[memoryType] = allocateBuffers(memoryType, messageSize); }
+
+    return reuseBuffers[memoryType]->clone();
+  }
+  return allocateBuffers(memoryType, messageSize);
+}
+
+#endif  // UCXX_BENCHMARKS_ENABLE_RMM
