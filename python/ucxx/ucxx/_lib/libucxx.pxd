@@ -47,7 +47,7 @@ cdef class UCXAddress:
 
     cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil
 
-    cpdef bytes tobytes()
+    cpdef bytes tobytes(self)
 
 
 cdef class UCXWorker:

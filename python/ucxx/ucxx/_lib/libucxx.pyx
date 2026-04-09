@@ -554,7 +554,7 @@ cdef class UCXAddress():
     cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil:
         return self._address
 
-    cpdef bytes tobytes():
+    cpdef bytes tobytes(self):
         if self._bytes is None:
             self._bytes = bytes(self._string)
         return self._bytes
