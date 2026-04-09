@@ -564,7 +564,7 @@ cdef class UCXAddress():
         return int(self._length)
 
     def __bytes__(self) -> bytes:
-        return bytes(self._string)
+        return self.tobytes()
 
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
         PyBuffer_FillInfo(buffer, self, self._handle, self._length, True, flags)
