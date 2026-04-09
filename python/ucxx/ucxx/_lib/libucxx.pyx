@@ -576,7 +576,7 @@ cdef class UCXAddress():
         if protocol >= 5:
             return (UCXAddress.create_from_buffer, (PickleBuffer(self),))
         else:
-            return (UCXAddress.create_from_buffer, (bytes(self),))
+            return (UCXAddress.create_from_buffer, (self.tobytes(),))
 
     def __hash__(self) -> Py_hash_t:
         return hash(self.tobytes())
