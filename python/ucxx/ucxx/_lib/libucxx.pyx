@@ -571,7 +571,7 @@ cdef class UCXAddress():
         else:
             return (UCXAddress.create_from_buffer, (bytes(self),))
 
-    def __hash__(self) -> int:
+    def __hash__(self) -> Py_hash_t:
         return hash(bytes(self))
 
 
