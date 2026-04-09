@@ -130,14 +130,14 @@ def _get_address_info(address=None):
 def _pack_address_and_tag(address, recv_tag, send_tag):
     address_info = _get_address_info(address)
 
-    fixed_size_address_packed = struct.pack(
+    fixed_size_address_packed = np.empty(address_info["frame_size"], dtype=np.uint8)
+    struct.pack_into(
         address_info["fixed_size_address_buffer_fmt"],
-        recv_tag,  # Recv Tag
-        send_tag,  # Send Tag
-        address.length,  # Address buffer length
-        (
-            bytearray(address) + bytearray(address_info["padding_length"])
-        ),  # Address buffer + padding
+        fixed_size_address_packed, 0,  # Buffer to fill & Starting Offset
+        recv_tag,                      # Recv Tag
+        send_tag,                      # Send Tag
+        address.length,                # Address buffer length
+        address,                       # Address buffer
     )
 
     assert len(fixed_size_address_packed) == address_info["frame_size"]
