@@ -45,8 +45,11 @@ cdef class UCXAddress:
         size_t _length
         ucp_address_t *_handle
         string_view _string
+        bytes _bytes
 
     cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil
+
+    cpdef bytes tobytes(self)
 
 
 cdef class UCXWorker:
