@@ -56,9 +56,6 @@ std::string_view Address::getStringView() const
   return std::string_view{reinterpret_cast<const char*>(_handle), _length};
 }
 
-std::string Address::getString() const
-{
-  return std::string{getStringView()};
-}
+std::string Address::getString() const { return std::string{getStringView()}; }
 
 }  // namespace ucxx
