@@ -579,7 +579,7 @@ cdef class UCXAddress():
             return (UCXAddress.create_from_buffer, (bytes(self),))
 
     def __hash__(self) -> Py_hash_t:
-        return hash(bytes(self))
+        return hash(self.tobytes())
 
 
 cdef void _generic_callback(void *args) with gil:
