@@ -126,8 +126,9 @@ class Address : public Component {
    *
    * @returns The underlying `ucp_address_t` handle.
    */
-  [[deprecated("Removing in UCXX 0.51. Switch to `getStringView`.")]]
-  [[nodiscard]] std::string getString() const;
+  [[deprecated(
+    "Removing in UCXX 0.51. Switch to `getStringView`."
+  )]] [[nodiscard]] std::string getString() const;
 };
 
 }  // namespace ucxx
