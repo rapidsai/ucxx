@@ -503,6 +503,7 @@ cdef class UCXAddress():
     def create_from_worker(cls, UCXWorker worker) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
 
+        address._bytes = None
         with nogil:
             address._address = worker._worker.get().getAddress()
             address._handle = address._address.get().getHandle()
@@ -516,6 +517,7 @@ cdef class UCXAddress():
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
         cdef string_view address_strv = string_view(<const char*>&buf[0], len(buf))
 
+        address._bytes = None
         with nogil:
             address._address = createAddressFromString(address_strv)
             address._handle = address._address.get().getHandle()
@@ -551,6 +553,11 @@ cdef class UCXAddress():
 
     cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil:
         return self._address
+
+    cpdef bytes tobytes():
+        if self._bytes is None:
+            self._bytes = bytes(self._string)
+        return self._bytes
 
     @property
     def length(self) -> int:
