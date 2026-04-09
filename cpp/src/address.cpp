@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <string>
 #include <string_view>
 
 #include <ucxx/address.h>
@@ -50,9 +51,14 @@ ucp_address_t* Address::getHandle() const { return _handle; }
 
 size_t Address::getLength() const { return _length; }
 
-std::string_view Address::getString() const
+std::string_view Address::getStringView() const
 {
   return std::string_view{reinterpret_cast<const char*>(_handle), _length};
+}
+
+std::string Address::getString() const
+{
+  return std::string{getStringView()};
 }
 
 }  // namespace ucxx
