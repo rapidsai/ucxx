@@ -3,7 +3,9 @@
 
 
 from libc.stdint cimport uint64_t, uintptr_t
+
 from libcpp.memory cimport shared_ptr, unique_ptr
+from libcpp.string_view cimport string_view
 
 from .ucxx_api cimport *
 
