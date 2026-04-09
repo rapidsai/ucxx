@@ -503,6 +503,7 @@ cdef class UCXAddress():
     def create_from_worker(cls, UCXWorker worker) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
 
+        address._bytes = None
         with nogil:
             address._address = worker._worker.get().getAddress()
             address._handle = address._address.get().getHandle()
@@ -516,6 +517,7 @@ cdef class UCXAddress():
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
         cdef string_view address_strv = string_view(<const char*>&buf[0], len(buf))
 
+        address._bytes = None
         with nogil:
             address._address = createAddressFromString(address_strv)
             address._handle = address._address.get().getHandle()
@@ -552,12 +554,17 @@ cdef class UCXAddress():
     cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil:
         return self._address
 
+    cpdef bytes tobytes(self):
+        if self._bytes is None:
+            self._bytes = bytes(self._string)
+        return self._bytes
+
     @property
     def length(self) -> int:
         return int(self._length)
 
     def __bytes__(self) -> bytes:
-        return bytes(self._string)
+        return self.tobytes()
 
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
         PyBuffer_FillInfo(buffer, self, self._handle, self._length, True, flags)
@@ -569,10 +576,10 @@ cdef class UCXAddress():
         if protocol >= 5:
             return (UCXAddress.create_from_buffer, (PickleBuffer(self),))
         else:
-            return (UCXAddress.create_from_buffer, (bytes(self),))
+            return (UCXAddress.create_from_buffer, (self.tobytes(),))
 
-    def __hash__(self) -> int:
-        return hash(bytes(self))
+    def __hash__(self) -> Py_hash_t:
+        return hash(self.tobytes())
 
 
 cdef void _generic_callback(void *args) with gil:
