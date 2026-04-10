@@ -538,7 +538,7 @@ size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 
   if (inflightRequestsToCancel->getCancelingSize() > 0) {
     std::lock_guard<std::mutex> lock(_inflightRequestsMutex);
-    _inflightRequestsToCancel->merge(std::move(inflightRequestsToCancel->release()));
+    _inflightRequestsToCancel->merge(inflightRequestsToCancel->release());
   }
 
   return canceled;

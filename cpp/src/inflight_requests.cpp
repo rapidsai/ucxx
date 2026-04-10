@@ -62,7 +62,7 @@ size_t InflightRequests::cancelAll()
     std::lock_guard<std::mutex> lock(_mutex);
     for (auto& r : toCancel) {
       if (r && r->getStatus() == UCS_INPROGRESS)
-        _canceling.insert(std::move(const_cast<std::shared_ptr<Request>&>(r)));
+        _canceling.insert(r);
     }
   }
 
