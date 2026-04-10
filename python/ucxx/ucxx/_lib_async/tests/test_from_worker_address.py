@@ -101,7 +101,7 @@ def test_from_worker_address(pytestconfig):
     terminate_process(server)
 
 
-def _get_address_info(address=None):
+def _get_address_header_info():
     # Fixed frame size
     frame_size = 10000
 
@@ -117,11 +117,11 @@ def _get_address_info(address=None):
 
 
 def _pack_address_and_tag(address, recv_tag, send_tag):
-    address_info = _get_address_info(address)
+    header_info = _get_address_header_info()
 
-    fixed_size_address_packed = np.empty(address_info["frame_size"], dtype=np.uint8)
+    fixed_size_address_packed = np.empty(header_info["frame_size"], dtype=np.uint8)
     struct.pack_into(
-        f"""{address_info["header_fmt"]}{address.length}s""",
+        f"""{header_info["header_fmt"]}{address.length}s""",
         fixed_size_address_packed,  # Buffer to fill
         0,  # Starting Offset
         recv_tag,  # Recv Tag
@@ -134,16 +134,16 @@ def _pack_address_and_tag(address, recv_tag, send_tag):
 
 
 def _unpack_address_and_tag(address_packed):
-    address_info = _get_address_info()
+    header_info = _get_address_header_info()
 
     recv_tag, send_tag, address_length = struct.unpack_from(
-        address_info["header_fmt"],
+        header_info["header_fmt"],
         address_packed,
     )
     (address,) = struct.unpack_from(
         f"{address_length}s",
         address_packed,
-        address_info["header_fmt_size"],
+        header_info["header_fmt_size"],
     )
 
     # Swap send and recv tags, as they are used by the remote process in the
@@ -181,12 +181,12 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue, timeout):
         for i in range(num_nodes):
             queue.put(address)
 
-        address_info = _get_address_info()
+        header_info = _get_address_header_info()
 
         server_tasks = []
         for i in range(num_nodes):
             # Receive fixed-size address+tag buffer on tag 0
-            packed_remote_address = np.empty(address_info["frame_size"], dtype=np.uint8)
+            packed_remote_address = np.empty(header_info["frame_size"], dtype=np.uint8)
             await ucxx.recv(packed_remote_address, tag=0)
 
             # Create an async task for client
