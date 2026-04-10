@@ -146,15 +146,20 @@ def _pack_address_and_tag(address, recv_tag, send_tag):
 def _unpack_address_and_tag(address_packed):
     address_info = _get_address_info()
 
-    recv_tag, send_tag, address_length, address_padded = struct.unpack(
-        address_info["fixed_size_address_buffer_fmt"],
+    recv_tag, send_tag, address_length = struct.unpack_from(
+        address_info["header_fmt"],
         address_packed,
+    )
+    (address,) = struct.unpack_from(
+        f"{address_length}s",
+        address_packed,
+        address_info["header_fmt_size"],
     )
 
     # Swap send and recv tags, as they are used by the remote process in the
     # opposite direction.
     return {
-        "address": address_padded[:address_length],
+        "address": address,
         "recv_tag": send_tag,
         "send_tag": recv_tag,
     }
