@@ -109,20 +109,10 @@ def _get_address_info(address=None):
     header_fmt = "QQQ"
     header_fmt_size = struct.calcsize(header_fmt)
 
-    # Data length
-    data_length = frame_size - header_fmt_size
-
-    # Header + UCXAddress string + padding
-    fixed_size_address_buffer_fmt = f"{header_fmt}{data_length}s"
-
-    assert struct.calcsize(fixed_size_address_buffer_fmt) == frame_size
-
     return {
         "frame_size": frame_size,
         "header_fmt": header_fmt,
         "header_fmt_size": header_fmt_size,
-        "data_length": data_length,
-        "fixed_size_address_buffer_fmt": fixed_size_address_buffer_fmt,
     }
 
 
