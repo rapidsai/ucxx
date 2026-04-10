@@ -63,7 +63,18 @@ def compute_timeouts(pytestconfig: pytest.Config) -> tuple[float, float]:
     tuple: floats
         Element 0 is the low timeout, and element 1 is the high timeout.
     """
-    plugin_timeout = pytestconfig.cache.get("asyncio_timeout", {})["timeout"]
+    cached = pytestconfig.cache.get("asyncio_timeout", {})
+    try:
+        plugin_timeout = cached["timeout"]
+    except KeyError as e:
+        raise RuntimeError(
+            "asyncio test timeout was not written to pytest's cache before the test "
+            "body ran. `compute_timeouts()` expects `pytest_runtest_setup` in "
+            "`python/ucxx/ucxx/_lib_async/tests/conftest.py` to have set "
+            '`cache["asyncio_timeout"]["timeout"]`. If you see this, a plugin or '
+            "runner may be invoking tests without that setup phase (e.g. unusual "
+            "pytest-xdist or hook ordering); do not add a silent fallback here."
+        ) from e
     async_timeout = max(plugin_timeout * 0.8, plugin_timeout - 10)
     join_timeout = max(plugin_timeout * 0.9, plugin_timeout - 5)
 
