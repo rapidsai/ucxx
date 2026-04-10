@@ -28,7 +28,7 @@ def _test_from_worker_address_server(queue, timeout):
         await ucxx.recv(address_size, tag=0)
 
         # Receive address buffer on tag 0 and create UCXAddress from it
-        address_size = np.empty(address_size[0], dtype=np.uint8)
+        remote_address = np.empty(address_size[0], dtype=np.uint8)
         await ucxx.recv(remote_address, tag=0)
         remote_address = ucxx.get_ucx_address_from_buffer(remote_address)
 
