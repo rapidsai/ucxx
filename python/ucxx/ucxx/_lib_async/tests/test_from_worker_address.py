@@ -17,6 +17,14 @@ from ucxx.testing import join_processes, terminate_process
 mp = mp.get_context("spawn")
 
 
+# Fixed frame size
+FRAME_SIZE = 10000
+
+
+# Header format: Recv Tag (Q) + Send Tag (Q) + UCXAddress.length (Q)
+HEADER_STRUCT = struct.Struct("QQQ")
+
+
 def _test_from_worker_address_server(queue, timeout):
     async def run():
         # Send worker address to client process via multiprocessing.Queue
@@ -101,32 +109,19 @@ def test_from_worker_address(pytestconfig):
     terminate_process(server)
 
 
-def _get_address_header_info():
-    # Fixed frame size
-    frame_size = 10000
-
-    # Header format: Recv Tag (Q) + Send Tag (Q) + UCXAddress.length (Q)
-    header_fmt = "QQQ"
-    header_fmt_size = struct.calcsize(header_fmt)
-
-    return {
-        "frame_size": frame_size,
-        "header_fmt": header_fmt,
-        "header_fmt_size": header_fmt_size,
-    }
-
-
 def _pack_address_and_tag(address, recv_tag, send_tag):
-    header_info = _get_address_header_info()
-
-    fixed_size_address_packed = np.empty(header_info["frame_size"], dtype=np.uint8)
-    struct.pack_into(
-        f"""{header_info["header_fmt"]}{address.length}s""",
+    fixed_size_address_packed = np.empty(FRAME_SIZE, dtype=np.uint8)
+    HEADER_STRUCT.pack_into(
         fixed_size_address_packed,  # Buffer to fill
         0,  # Starting Offset
         recv_tag,  # Recv Tag
         send_tag,  # Send Tag
         address.length,  # Address buffer length
+    )
+    struct.pack_into(
+        f"{address.length}s",
+        fixed_size_address_packed,  # Buffer to fill & Starting Offset
+        HEADER_STRUCT.size,  # Offset by header
         bytes(address),  # Address buffer
     )
 
@@ -134,16 +129,13 @@ def _pack_address_and_tag(address, recv_tag, send_tag):
 
 
 def _unpack_address_and_tag(address_packed):
-    header_info = _get_address_header_info()
-
-    recv_tag, send_tag, address_length = struct.unpack_from(
-        header_info["header_fmt"],
+    recv_tag, send_tag, address_length = HEADER_STRUCT.unpack_from(
         address_packed,
     )
     (address,) = struct.unpack_from(
         f"{address_length}s",
         address_packed,
-        header_info["header_fmt_size"],
+        HEADER_STRUCT.size,
     )
 
     # Swap send and recv tags, as they are used by the remote process in the
@@ -181,12 +173,10 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue, timeout):
         for i in range(num_nodes):
             queue.put(address)
 
-        header_info = _get_address_header_info()
-
         server_tasks = []
         for i in range(num_nodes):
             # Receive fixed-size address+tag buffer on tag 0
-            packed_remote_address = np.empty(header_info["frame_size"], dtype=np.uint8)
+            packed_remote_address = np.empty(FRAME_SIZE, dtype=np.uint8)
             await ucxx.recv(packed_remote_address, tag=0)
 
             # Create an async task for client
