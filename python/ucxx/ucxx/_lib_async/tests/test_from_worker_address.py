@@ -111,9 +111,6 @@ def _get_address_info(address=None):
     # Data length
     data_length = frame_size - struct.calcsize(header_fmt)
 
-    # Padding length
-    padding_length = None if address is None else (data_length - address.length)
-
     # Header + UCXAddress string + padding
     fixed_size_address_buffer_fmt = f"{header_fmt}{data_length}s"
 
@@ -122,7 +119,6 @@ def _get_address_info(address=None):
     return {
         "frame_size": frame_size,
         "data_length": data_length,
-        "padding_length": padding_length,
         "fixed_size_address_buffer_fmt": fixed_size_address_buffer_fmt,
     }
 
