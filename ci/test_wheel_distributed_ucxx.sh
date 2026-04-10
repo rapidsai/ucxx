@@ -33,5 +33,9 @@ rapids-pip-retry install \
     "${ucxx_wheelhouse}/ucxx_${RAPIDS_PY_CUDA_SUFFIX}"*.whl \
     "$(echo "${distributed_ucxx_wheelhouse}"/"${package_name}_${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
 
+print_system_stats
+
+print_ucx_config
+
 rapids-logger "Run distributed-ucxx tests with wheels"
 ./ci/run_python_distributed.sh

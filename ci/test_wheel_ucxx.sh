@@ -33,5 +33,9 @@ rapids-pip-retry install \
     "${libucxx_wheelhouse}/libucxx_${RAPIDS_PY_CUDA_SUFFIX}"*.whl \
     "$(echo "${ucxx_wheelhouse}"/"${package_name}_${RAPIDS_PY_CUDA_SUFFIX}"*.whl)[test]"
 
+print_system_stats
+
+print_ucx_config
+
 rapids-logger "Run Python tests with wheels"
 DISABLE_CYTHON=1 ./ci/run_python.sh
