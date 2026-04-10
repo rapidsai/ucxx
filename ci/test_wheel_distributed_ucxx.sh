@@ -35,7 +35,5 @@ rapids-pip-retry install \
 
 print_system_stats
 
-print_ucx_config
-
 rapids-logger "Run distributed-ucxx tests with wheels"
 ./ci/run_python_distributed.sh

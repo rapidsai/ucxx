@@ -35,7 +35,5 @@ rapids-pip-retry install \
 
 print_system_stats
 
-print_ucx_config
-
 rapids-logger "Run Python tests with wheels"
 DISABLE_CYTHON=1 ./ci/run_python.sh
