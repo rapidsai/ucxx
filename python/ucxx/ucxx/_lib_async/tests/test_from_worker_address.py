@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -28,7 +28,7 @@ def _test_from_worker_address_server(queue, timeout):
         await ucxx.recv(address_size, tag=0)
 
         # Receive address buffer on tag 0 and create UCXAddress from it
-        remote_address = bytearray(address_size[0])
+        remote_address = np.empty(address_size[0], dtype=np.uint8)
         await ucxx.recv(remote_address, tag=0)
         remote_address = ucxx.get_ucx_address_from_buffer(remote_address)
 
@@ -111,18 +111,14 @@ def _get_address_info(address=None):
     # Data length
     data_length = frame_size - struct.calcsize(header_fmt)
 
-    # Padding length
-    padding_length = None if address is None else (data_length - address.length)
-
     # Header + UCXAddress string + padding
-    fixed_size_address_buffer_fmt = header_fmt + str(data_length) + "s"
+    fixed_size_address_buffer_fmt = f"{header_fmt}{data_length}s"
 
     assert struct.calcsize(fixed_size_address_buffer_fmt) == frame_size
 
     return {
         "frame_size": frame_size,
         "data_length": data_length,
-        "padding_length": padding_length,
         "fixed_size_address_buffer_fmt": fixed_size_address_buffer_fmt,
     }
 
@@ -130,14 +126,15 @@ def _get_address_info(address=None):
 def _pack_address_and_tag(address, recv_tag, send_tag):
     address_info = _get_address_info(address)
 
-    fixed_size_address_packed = struct.pack(
+    fixed_size_address_packed = np.empty(address_info["frame_size"], dtype=np.uint8)
+    struct.pack_into(
         address_info["fixed_size_address_buffer_fmt"],
+        fixed_size_address_packed,  # Buffer to fill
+        0,  # Starting Offset
         recv_tag,  # Recv Tag
         send_tag,  # Send Tag
         address.length,  # Address buffer length
-        (
-            bytearray(address) + bytearray(address_info["padding_length"])
-        ),  # Address buffer + padding
+        bytes(address),  # Address buffer
     )
 
     assert len(fixed_size_address_packed) == address_info["frame_size"]
@@ -193,7 +190,7 @@ def _test_from_worker_address_server_fixedsize(num_nodes, queue, timeout):
         server_tasks = []
         for i in range(num_nodes):
             # Receive fixed-size address+tag buffer on tag 0
-            packed_remote_address = bytearray(address_info["frame_size"])
+            packed_remote_address = np.empty(address_info["frame_size"], dtype=np.uint8)
             await ucxx.recv(packed_remote_address, tag=0)
 
             # Create an async task for client
