@@ -129,7 +129,8 @@ def _pack_address_and_tag(address, recv_tag, send_tag):
     fixed_size_address_packed = np.empty(address_info["frame_size"], dtype=np.uint8)
     struct.pack_into(
         address_info["fixed_size_address_buffer_fmt"],
-        fixed_size_address_packed, 0,  # Buffer to fill & Starting Offset
+        fixed_size_address_packed,     # Buffer to fill
+        0,                             # Starting Offset
         recv_tag,                      # Recv Tag
         send_tag,                      # Send Tag
         address.length,                # Address buffer length
