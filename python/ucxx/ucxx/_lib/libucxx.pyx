@@ -5,6 +5,7 @@
 import asyncio
 import enum
 import functools
+from pickle import PickleBuffer
 import logging
 import warnings
 import weakref
@@ -26,6 +27,7 @@ from libcpp.memory cimport (
 )
 from libcpp.optional cimport nullopt
 from libcpp.string cimport string
+from libcpp.string_view cimport string_view
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
@@ -490,7 +492,7 @@ cdef class UCXContext():
 
 cdef class UCXAddress():
     def __init__(self) -> None:
-        raise TypeError("UCXListener cannot be instantiated directly.")
+        raise TypeError("UCXAddress cannot be instantiated directly.")
 
     def __dealloc__(self) -> None:
         with nogil:
@@ -501,24 +503,26 @@ cdef class UCXAddress():
     def create_from_worker(cls, UCXWorker worker) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
 
+        address._bytes = None
         with nogil:
             address._address = worker._worker.get().getAddress()
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
-            address._string = address._address.get().getString()
+            address._string = address._address.get().getStringView()
 
         return address
 
     @classmethod
-    def create_from_buffer(cls, bytes buf) -> UCXAddress:
+    def create_from_buffer(cls, const uint8_t[::1] buf) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
-        cdef string address_str = string(<const char*>buf, len(buf))
+        cdef string_view address_strv = string_view(<const char*>&buf[0], len(buf))
 
+        address._bytes = None
         with nogil:
-            address._address = createAddressFromString(address_str)
+            address._address = createAddressFromString(address_strv)
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
-            address._string = address._address.get().getString()
+            address._string = address._address.get().getStringView()
 
         return address
 
@@ -550,12 +554,17 @@ cdef class UCXAddress():
     cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil:
         return self._address
 
+    cpdef bytes tobytes(self):
+        if self._bytes is None:
+            self._bytes = bytes(self._string)
+        return self._bytes
+
     @property
     def length(self) -> int:
         return int(self._length)
 
     def __bytes__(self) -> bytes:
-        return bytes(self._string)
+        return self.tobytes()
 
     def __getbuffer__(self, Py_buffer *buffer, int flags) -> None:
         PyBuffer_FillInfo(buffer, self, self._handle, self._length, True, flags)
@@ -563,11 +572,14 @@ cdef class UCXAddress():
     def __releasebuffer__(self, Py_buffer *buffer) -> None:
         pass
 
-    def __reduce__(self) -> tuple:
-        return (UCXAddress.create_from_buffer, (bytes(self),))
+    def __reduce_ex__(self, Py_ssize_t protocol) -> tuple:
+        if protocol >= 5:
+            return (UCXAddress.create_from_buffer, (PickleBuffer(self),))
+        else:
+            return (UCXAddress.create_from_buffer, (self.tobytes(),))
 
-    def __hash__(self) -> int:
-        return hash(bytes(self))
+    def __hash__(self) -> Py_hash_t:
+        return hash(self.tobytes())
 
 
 cdef void _generic_callback(void *args) with gil:
@@ -1272,7 +1284,7 @@ cdef void _endpoint_close_callback(ucs_status_t status, shared_ptr[void] args) w
 
 cdef class UCXEndpoint():
     def __init__(self) -> None:
-        raise TypeError("UCXListener cannot be instantiated directly.")
+        raise TypeError("UCXEndpoint cannot be instantiated directly.")
 
     def __dealloc__(self) -> None:
         self.remove_close_callback()
