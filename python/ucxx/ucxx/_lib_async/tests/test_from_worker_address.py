@@ -244,6 +244,7 @@ def _test_from_worker_address_client_fixedsize(queue, timeout):
 
 
 @pytest.mark.slow
+@pytest.mark.xdist_group("test_from_worker_address_multinode")
 @pytest.mark.parametrize("num_nodes", [1, 2, 4, 8])
 def test_from_worker_address_multinode(pytestconfig, num_nodes):
     async_timeout, join_timeout = compute_timeouts(pytestconfig)
