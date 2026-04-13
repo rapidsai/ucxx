@@ -128,6 +128,8 @@ def _pack_address_and_tag(address, recv_tag, send_tag):
 
 
 def _unpack_address_and_tag(address_packed):
+    address_packed = memoryview(address_packed)
+
     recv_tag, send_tag, address_length = HEADER_STRUCT.unpack_from(
         address_packed,
     )
