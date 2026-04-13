@@ -111,6 +111,7 @@ def test_from_worker_address(pytestconfig):
 
 def _pack_address_and_tag(address, recv_tag, send_tag):
     address_packed = np.empty(FRAME_SIZE, dtype=np.uint8)
+
     HEADER_STRUCT.pack_into(
         address_packed,  # Buffer to fill
         0,  # Starting Offset
