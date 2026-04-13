@@ -110,9 +110,9 @@ def test_from_worker_address(pytestconfig):
 
 
 def _pack_address_and_tag(address, recv_tag, send_tag):
-    fixed_size_address_packed = np.empty(FRAME_SIZE, dtype=np.uint8)
+    address_packed = np.empty(FRAME_SIZE, dtype=np.uint8)
     HEADER_STRUCT.pack_into(
-        fixed_size_address_packed,  # Buffer to fill
+        address_packed,  # Buffer to fill
         0,  # Starting Offset
         recv_tag,  # Recv Tag
         send_tag,  # Send Tag
@@ -121,9 +121,9 @@ def _pack_address_and_tag(address, recv_tag, send_tag):
 
     address_start = HEADER_STRUCT.size
     address_stop = address_start + address.length
-    fixed_size_address_packed[address_start:address_stop] = memoryview(address)
+    address_packed[address_start:address_stop] = memoryview(address)
 
-    return fixed_size_address_packed
+    return address_packed
 
 
 def _unpack_address_and_tag(address_packed):
