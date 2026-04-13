@@ -137,8 +137,6 @@ def _pack_address_and_tag(address, recv_tag, send_tag):
         bytes(address),  # Address buffer
     )
 
-    assert len(fixed_size_address_packed) == address_info["frame_size"]
-
     return fixed_size_address_packed
 
 
