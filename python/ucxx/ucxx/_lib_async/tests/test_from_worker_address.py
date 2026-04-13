@@ -130,11 +130,10 @@ def _unpack_address_and_tag(address_packed):
     recv_tag, send_tag, address_length = HEADER_STRUCT.unpack_from(
         address_packed,
     )
-    (address,) = struct.unpack_from(
-        f"{address_length}s",
-        address_packed,
-        HEADER_STRUCT.size,
-    )
+
+    address_start = HEADER_STRUCT.size
+    address_stop = address_start + address_length
+    address = address_packed[address_start:address_stop]
 
     # Swap send and recv tags, as they are used by the remote process in the
     # opposite direction.
