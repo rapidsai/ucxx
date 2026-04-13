@@ -118,12 +118,10 @@ def _pack_address_and_tag(address, recv_tag, send_tag):
         send_tag,  # Send Tag
         address.length,  # Address buffer length
     )
-    struct.pack_into(
-        f"{address.length}s",
-        fixed_size_address_packed,  # Buffer to fill & Starting Offset
-        HEADER_STRUCT.size,  # Offset by header
-        bytes(address),  # Address buffer
-    )
+
+    address_start = HEADER_STRUCT.size
+    address_stop = address_start + address.length
+    fixed_size_address_packed[address_start:address_stop] = memoryview(address)
 
     return fixed_size_address_packed
 
