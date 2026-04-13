@@ -20,7 +20,6 @@ mp = mp.get_context("spawn")
 # Fixed frame size
 FRAME_SIZE = 10000
 
-
 # Header format: Recv Tag (Q) + Send Tag (Q) + UCXAddress.length (Q)
 HEADER_STRUCT = struct.Struct("QQQ")
 
