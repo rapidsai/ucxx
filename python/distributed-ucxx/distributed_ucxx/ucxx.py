@@ -555,26 +555,26 @@ class UCXX(Comm):
                     f"Connection closed by writer.\nInner exception: {e!r}"
                 )
             else:
-                # Recv frames
-                frames = [
-                    device_array(each_size) if is_cuda else host_array(each_size)
-                    for is_cuda, each_size in zip(cuda_frames, sizes)
-                ]
-                cuda_recv_frames, recv_frames = zip(
-                    *(
-                        (is_cuda, each_frame)
-                        for is_cuda, each_frame in zip(cuda_frames, frames)
-                        if nbytes(each_frame) > 0
-                    )
-                )
-
-                # It is necessary to first populate `frames` with CUDA arrays and
-                # synchronize the default stream before starting receiving to ensure
-                # buffers have been allocated
-                if any(cuda_recv_frames):
-                    synchronize_stream(CudaStream.Default)
-
                 try:
+                    # Recv frames
+                    frames = [
+                        device_array(each_size) if is_cuda else host_array(each_size)
+                        for is_cuda, each_size in zip(cuda_frames, sizes)
+                    ]
+                    cuda_recv_frames, recv_frames = zip(
+                        *(
+                            (is_cuda, each_frame)
+                            for is_cuda, each_frame in zip(cuda_frames, frames)
+                            if nbytes(each_frame) > 0
+                        )
+                    )
+
+                    # It is necessary to first populate `frames` with CUDA arrays
+                    # and synchronize the default stream before starting receiving
+                    # to ensure buffers have been allocated
+                    if any(cuda_recv_frames):
+                        synchronize_stream(CudaStream.Default)
+
                     for each_frame in recv_frames:
                         await self.ep.recv(each_frame)
                 except BaseException as e:
