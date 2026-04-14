@@ -142,9 +142,6 @@ async def _listener_handler_coroutine(
     ident,
     active_clients,
 ):
-    # def _listener_handler_coroutine(
-    #     conn_request, ctx, func, endpoint_error_handling, ident, active_clients
-    # ):
     # We create the Endpoint in five steps:
     #  1) Create endpoint from conn_request
     #  2) Generate unique IDs to use as tags
@@ -152,56 +149,59 @@ async def _listener_handler_coroutine(
     #  4) Setup control receive callback
     #  5) Execute the listener's callback function
     active_clients.inc(ident)
-    endpoint = conn_request
-
-    seed = os.urandom(16)
-    msg_tag = hash64bits("msg_tag", seed, endpoint.handle)
-
+    ep = None
     try:
-        peer_info = await exchange_peer_info(
-            endpoint=endpoint,
-            msg_tag=msg_tag,
-            listener=True,
-            connect_timeout=connect_timeout,
-        )
-    except UCXMessageTruncatedError:
-        # A truncated message occurs if the remote endpoint closed before
-        # exchanging peer info, in that case we should raise the endpoint
-        # error instead.
-        endpoint.raise_on_error()
-    tags = {
-        "msg_send": peer_info["msg_tag"],
-        "msg_recv": msg_tag,
-    }
-    ep = Endpoint(endpoint=endpoint, ctx=ctx, tags=tags)
+        endpoint = conn_request
 
-    logger.debug(
-        "_listener_handler() server: %s, error handling: %s, msg-tag-send: %s, "
-        "msg-tag-recv: %s"
-        % (
-            hex(endpoint.handle),
-            endpoint_error_handling,
-            hex(ep._tags["msg_send"]),
-            hex(ep._tags["msg_recv"]),
-        )
-    )
+        seed = os.urandom(16)
+        msg_tag = hash64bits("msg_tag", seed, endpoint.handle)
 
-    # Removing references here to avoid delayed clean up
-    del ctx
-
-    # Finally, we call `func`
-    if inspect.iscoroutinefunction(func):
         try:
-            await func(ep)
-        except Exception as e:
-            logger.error(f"Uncatched listener callback error {type(e)}: {e}")
-    else:
-        func(ep)
+            peer_info = await exchange_peer_info(
+                endpoint=endpoint,
+                msg_tag=msg_tag,
+                listener=True,
+                connect_timeout=connect_timeout,
+            )
+        except UCXMessageTruncatedError:
+            # A truncated message occurs if the remote endpoint closed before
+            # exchanging peer info, in that case we should raise the endpoint
+            # error instead.
+            endpoint.raise_on_error()
+            return
+        tags = {
+            "msg_send": peer_info["msg_tag"],
+            "msg_recv": msg_tag,
+        }
+        ep = Endpoint(endpoint=endpoint, ctx=ctx, tags=tags)
 
-    active_clients.dec(ident)
+        logger.debug(
+            "_listener_handler() server: %s, error handling: %s, msg-tag-send: %s, "
+            "msg-tag-recv: %s"
+            % (
+                hex(endpoint.handle),
+                endpoint_error_handling,
+                hex(ep._tags["msg_send"]),
+                hex(ep._tags["msg_recv"]),
+            )
+        )
 
-    # Ensure no references to `ep` remain to permit garbage collection.
-    del ep
+        # Removing references here to avoid delayed clean up
+        del ctx
+
+        # Finally, we call `func`
+        if inspect.iscoroutinefunction(func):
+            try:
+                await func(ep)
+            except Exception as e:
+                logger.error(f"Uncatched listener callback error {type(e)}: {e}")
+        else:
+            func(ep)
+    except Exception as e:
+        logger.error(f"Unexpected error in listener handler coroutine {type(e)}: {e}")
+    finally:
+        active_clients.dec(ident)
+        del ep
 
 
 def _listener_handler(
