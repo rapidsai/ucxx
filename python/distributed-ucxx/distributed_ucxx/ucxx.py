@@ -524,9 +524,7 @@ class UCXX(Comm):
                 # "low-level" exception. The only safe thing to do is to abort.
                 # (See also https://github.com/dask/distributed/pull/6574).
                 self.abort()
-                raise CommClosedError(
-                    f"Connection closed by writer.\nInner exception: {e!r}"
-                )
+                raise CommClosedError("Connection closed by writer") from e
         else:
             try:
                 # Recv meta data
@@ -551,9 +549,7 @@ class UCXX(Comm):
                 # "low-level" exception. The only safe thing to do is to abort.
                 # (See also https://github.com/dask/distributed/pull/6574).
                 self.abort()
-                raise CommClosedError(
-                    f"Connection closed by writer.\nInner exception: {e!r}"
-                )
+                raise CommClosedError("Connection closed by writer") from e
             else:
                 try:
                     # Recv frames
@@ -582,9 +578,7 @@ class UCXX(Comm):
                     # "low-level" exception. The only safe thing to do is to abort.
                     # (See also https://github.com/dask/distributed/pull/6574).
                     self.abort()
-                    raise CommClosedError(
-                        f"Connection closed by writer.\nInner exception: {e!r}"
-                    )
+                    raise CommClosedError("Connection closed by writer") from e
 
         try:
             return await from_frames(
