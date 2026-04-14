@@ -193,12 +193,12 @@ async def _listener_handler_coroutine(
         if inspect.iscoroutinefunction(func):
             try:
                 await func(ep)
-            except Exception as e:
-                logger.error(f"Uncatched listener callback error {type(e)}: {e}")
+            except Exception:
+                logger.exception("Uncaught listener callback error")
         else:
             func(ep)
-    except Exception as e:
-        logger.error(f"Unexpected error in listener handler coroutine {type(e)}: {e}")
+    except Exception:
+        logger.exception("Unexpected error in listener handler coroutine")
     finally:
         active_clients.dec(ident)
         del ep
