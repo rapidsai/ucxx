@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
@@ -265,10 +265,6 @@ async def test_ping_pong_numba(ucxx_loop):
 
 @pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.parametrize("processes", [True, False])
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes):
     async with LocalCluster(
@@ -365,10 +361,6 @@ async def test_cuda_context(
                     )
 
 
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_transpose(
     ucxx_loop,
@@ -423,10 +415,6 @@ async def test_comm_closed_on_read_error():
     assert writer.closed()
 
 
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_embedded_cupy_array(
     ucxx_loop,
