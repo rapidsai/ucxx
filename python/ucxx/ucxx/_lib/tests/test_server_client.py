@@ -267,22 +267,39 @@ def _echo_client_am_params(msg_size, progress_mode, memory_type_policy, port):
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
 def test_server_client_am_params(msg_size, progress_mode, memory_type_policy):
     put_queue, get_queue = mp.Queue(), mp.Queue()
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
     server = mp.Process(
-        target=_echo_server_am_params,
-        args=(put_queue, get_queue, msg_size, progress_mode, memory_type_policy),
+        target=run_in_subprocess,
+        args=(
+            _echo_server_am_params,
+            server_error_q,
+            put_queue,
+            get_queue,
+            msg_size,
+            progress_mode,
+            memory_type_policy,
+        ),
     )
     server.start()
     port = get_queue.get()
     client = mp.Process(
-        target=_echo_client_am_params,
-        args=(msg_size, progress_mode, memory_type_policy, port),
+        target=run_in_subprocess,
+        args=(
+            _echo_client_am_params,
+            client_error_q,
+            msg_size,
+            progress_mode,
+            memory_type_policy,
+            port,
+        ),
     )
     client.start()
     client.join(timeout=60)
-    terminate_process(client)
+    terminate_process(client, error_queue=client_error_q)
     put_queue.put("Finished")
     server.join(timeout=10)
-    terminate_process(server)
+    terminate_process(server, error_queue=server_error_q)
 
 
 def _echo_server_am_iov(get_queue, put_queue, msg_size, progress_mode):
@@ -375,22 +392,37 @@ def _echo_client_am_iov(msg_size, progress_mode, port):
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
 def test_server_client_am_iov(msg_size, progress_mode):
     put_queue, get_queue = mp.Queue(), mp.Queue()
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
     server = mp.Process(
-        target=_echo_server_am_iov,
-        args=(put_queue, get_queue, msg_size, progress_mode),
+        target=run_in_subprocess,
+        args=(
+            _echo_server_am_iov,
+            server_error_q,
+            put_queue,
+            get_queue,
+            msg_size,
+            progress_mode,
+        ),
     )
     server.start()
     port = get_queue.get()
     client = mp.Process(
-        target=_echo_client_am_iov,
-        args=(msg_size, progress_mode, port),
+        target=run_in_subprocess,
+        args=(
+            _echo_client_am_iov,
+            client_error_q,
+            msg_size,
+            progress_mode,
+            port,
+        ),
     )
     client.start()
     client.join(timeout=60)
-    terminate_process(client)
+    terminate_process(client, error_queue=client_error_q)
     put_queue.put("Finished")
     server.join(timeout=10)
-    terminate_process(server)
+    terminate_process(server, error_queue=server_error_q)
 
 
 def _user_header_server(get_queue, put_queue, msg_size, progress_mode):
@@ -564,44 +596,74 @@ def _empty_user_header_client(msg_size, progress_mode, port):
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
 def test_server_client_am_user_header(msg_size, progress_mode):
     put_queue, get_queue = mp.Queue(), mp.Queue()
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
     server = mp.Process(
-        target=_user_header_server,
-        args=(put_queue, get_queue, msg_size, progress_mode),
+        target=run_in_subprocess,
+        args=(
+            _user_header_server,
+            server_error_q,
+            put_queue,
+            get_queue,
+            msg_size,
+            progress_mode,
+        ),
     )
     server.start()
     port = get_queue.get()
     client = mp.Process(
-        target=_user_header_client,
-        args=(msg_size, progress_mode, port),
+        target=run_in_subprocess,
+        args=(
+            _user_header_client,
+            client_error_q,
+            msg_size,
+            progress_mode,
+            port,
+        ),
     )
     client.start()
     client.join(timeout=60)
-    terminate_process(client)
+    terminate_process(client, error_queue=client_error_q)
     put_queue.put("Finished")
     server.join(timeout=10)
-    terminate_process(server)
+    terminate_process(server, error_queue=server_error_q)
 
 
 @pytest.mark.parametrize("msg_size", [10, 2**24])
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
 def test_server_client_am_iov_user_header(msg_size, progress_mode):
     put_queue, get_queue = mp.Queue(), mp.Queue()
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
     server = mp.Process(
-        target=_user_header_server,
-        args=(put_queue, get_queue, msg_size, progress_mode),
+        target=run_in_subprocess,
+        args=(
+            _user_header_server,
+            server_error_q,
+            put_queue,
+            get_queue,
+            msg_size,
+            progress_mode,
+        ),
     )
     server.start()
     port = get_queue.get()
     client = mp.Process(
-        target=_user_header_iov_client,
-        args=(msg_size, progress_mode, port),
+        target=run_in_subprocess,
+        args=(
+            _user_header_iov_client,
+            client_error_q,
+            msg_size,
+            progress_mode,
+            port,
+        ),
     )
     client.start()
     client.join(timeout=60)
-    terminate_process(client)
+    terminate_process(client, error_queue=client_error_q)
     put_queue.put("Finished")
     server.join(timeout=10)
-    terminate_process(server)
+    terminate_process(server, error_queue=server_error_q)
 
 
 @pytest.mark.parametrize("msg_size", [10, 2**24])
@@ -609,23 +671,39 @@ def test_server_client_am_iov_user_header(msg_size, progress_mode):
 def test_server_client_am_empty_user_header(msg_size, progress_mode):
     """Test that recv_header is empty bytes when no user header is sent."""
     put_queue, get_queue = mp.Queue(), mp.Queue()
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
     # Reuse the echo server that doesn't set user_header
     server = mp.Process(
-        target=_echo_server_am_params,
-        args=(put_queue, get_queue, msg_size, progress_mode, None),
+        target=run_in_subprocess,
+        args=(
+            _echo_server_am_params,
+            server_error_q,
+            put_queue,
+            get_queue,
+            msg_size,
+            progress_mode,
+            None,
+        ),
     )
     server.start()
     port = get_queue.get()
     client = mp.Process(
-        target=_empty_user_header_client,
-        args=(msg_size, progress_mode, port),
+        target=run_in_subprocess,
+        args=(
+            _empty_user_header_client,
+            client_error_q,
+            msg_size,
+            progress_mode,
+            port,
+        ),
     )
     client.start()
     client.join(timeout=60)
-    terminate_process(client)
+    terminate_process(client, error_queue=client_error_q)
     put_queue.put("Finished")
     server.join(timeout=10)
-    terminate_process(server)
+    terminate_process(server, error_queue=server_error_q)
 
 
 @pytest.mark.parametrize("transfer_api", ["am", "stream", "tag"])
