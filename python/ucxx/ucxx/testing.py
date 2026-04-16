@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from __future__ import annotations
+
 import queue as _queue_module
 import traceback as _traceback_module
 import time
