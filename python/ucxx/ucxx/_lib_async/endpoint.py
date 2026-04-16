@@ -450,9 +450,9 @@ class Endpoint:
         Returns
         -------
         tuple of (buffer, header)
-            buffer: The received data buffer.
-            header: bytes, the user-defined header sent by the peer.
-                Empty bytes if no user header was sent.
+            - buffer: The received data buffer.
+            - header: bytes, the user-defined header sent by the peer.
+              Empty bytes if no user header was sent.
         """
         buffer, req = await self._am_recv_request()
         return buffer, req.recv_header
