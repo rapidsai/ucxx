@@ -23,7 +23,7 @@ run_py_tests() {
   log_command "${CMD_LINE}"
   # Without append import mode, tests that create subprocess fail
   python "${TIMEOUT_TOOL_PATH}" --enable-python $((4*60)) \
-    python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ "${ARGS[@]}"
+    python -m pytest -n 4 --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ "${ARGS[@]}"
 }
 
 run_py_tests_async() {
@@ -43,7 +43,7 @@ run_py_tests_async() {
     UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
     UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
     python "${TIMEOUT_TOOL_PATH}" --enable-python $((30*60)) \
-    python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow
+    python -m pytest -n 4 --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow
   fi
 }
 

@@ -125,7 +125,51 @@ jobs:
           - '!ci/test_wheel*.sh'
           - '!ci/validate_wheel.sh'
           - '!docs/**'
+          - '!python/distributed-ucxx/**'
+        test_python_distributed_conda:
+          - '**'
+          - '!.clang-format'
+          - '!.devcontainer/**'
+          - '!.github/CODEOWNERS'
+          - '!.github/copy-pr-bot.yaml'
+          - '!.github/ops-bot.yaml'
+          - '!.github/release.yml'
+          - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.pre-commit-config.yaml'
+          - '!.shellcheckrc'
+          - '!CPPLINT.cfg'
+          - '!README.md'
+          - '!ci/build_docs.sh'
+          - '!ci/build_wheel*.sh'
+          - '!ci/check_style.sh'
+          - '!ci/release/update-version.sh'
+          - '!ci/test_cpp.sh'
+          - '!ci/test_wheel*.sh'
+          - '!ci/validate_wheel.sh'
+          - '!docs/**'
         test_python_wheels:
+          - '**'
+          - '!.clang-format'
+          - '!.devcontainer/**'
+          - '!.github/CODEOWNERS'
+          - '!.github/copy-pr-bot.yaml'
+          - '!.github/ops-bot.yaml'
+          - '!.github/release.yml'
+          - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.pre-commit-config.yaml'
+          - '!.shellcheckrc'
+          - '!CPPLINT.cfg'
+          - '!README.md'
+          - '!ci/build_cpp.sh'
+          - '!ci/build_docs.sh'
+          - '!ci/check_style.sh'
+          - '!ci/release/update-version.sh'
+          - '!ci/test_cpp.sh'
+          - '!ci/test_python*.sh'
+          - '!conda/**'
+          - '!docs/**'
+          - '!python/distributed-ucxx/**'
+        test_python_distributed_wheels:
           - '**'
           - '!.clang-format'
           - '!.devcontainer/**'
@@ -203,7 +247,7 @@ jobs:
     needs: [conda-cpp-build, conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_distributed_conda
     with:
       build_type: pull-request
       script: "ci/test_python_distributed.sh"
@@ -256,7 +300,7 @@ jobs:
     needs: [wheel-build-ucxx, wheel-build-distributed-ucxx, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_distributed_wheels
     with:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"

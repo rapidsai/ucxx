@@ -1,9 +1,11 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
 from libc.stdint cimport uint64_t, uintptr_t
+
 from libcpp.memory cimport shared_ptr, unique_ptr
+from libcpp.string_view cimport string_view
 
 from .ucxx_api cimport *
 
@@ -42,9 +44,12 @@ cdef class UCXAddress:
         shared_ptr[Address] _address
         size_t _length
         ucp_address_t *_handle
-        string _string
+        string_view _string
+        bytes _bytes
 
     cdef shared_ptr[Address] get_ucxx_shared_ptr(self) nogil
+
+    cpdef bytes tobytes(self)
 
 
 cdef class UCXWorker:
