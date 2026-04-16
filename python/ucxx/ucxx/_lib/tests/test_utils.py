@@ -191,7 +191,7 @@ def test_run_in_subprocess_failure_terminate_surfaces_traceback(mp_context):
     with pytest.raises(
         RuntimeError,
         match=(
-            r"Process did not exit cleanly.*\n\nSubprocess traceback:"
+            r"(?s)Process did not exit cleanly.*Subprocess traceback:"
             r".*RuntimeError.*subprocess raised"
         ),
     ):
