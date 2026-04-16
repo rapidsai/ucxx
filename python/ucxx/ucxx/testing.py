@@ -1,9 +1,47 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import queue as _queue_module
+import traceback as _traceback_module
 import time
 from multiprocessing.process import BaseProcess
-from typing import Type, Union
+from multiprocessing.queues import Queue as _MPQueue
+from typing import Any, Callable, Optional, Type, Union
+
+
+def run_in_subprocess(
+    target: Callable[..., Any],
+    error_queue: _MPQueue[str],
+    *args: Any,
+    **kwargs: Any,
+) -> None:
+    """Run function in a subprocess, forwarding exceptions to an error queue.
+
+    Use this as the ``target`` for ``multiprocessing.Process``, passing the
+    same ``error_queue`` to :func:`terminate_process`.  Any unhandled exception
+    raised by ``target`` will be serialized as a formatted traceback string and
+    placed in ``error_queue`` before being re-raised, so the process still
+    exits with a non-zero code.  :func:`terminate_process` then reads from
+    that queue and raises a :class:`RuntimeError` that includes the full
+    subprocess traceback rather than the generic "Process did not exit cleanly"
+    message.
+
+    Parameters
+    ----------
+    target : callable
+        The function to run in the subprocess.
+    error_queue : multiprocessing.Queue
+        Queue that receives the formatted traceback string on failure.
+    *args
+        Positional arguments forwarded to ``target``.
+    **kwargs
+        Keyword arguments forwarded to ``target``.
+    """
+    try:
+        target(*args, **kwargs)
+    except Exception:
+        error_queue.put(_traceback_module.format_exc())
+        raise
 
 
 def join_processes(
@@ -31,7 +69,9 @@ def join_processes(
 
 
 def terminate_process(
-    process: Type[BaseProcess], kill_wait: Union[float, int] = 3.0
+    process: Type[BaseProcess],
+    kill_wait: Union[float, int] = 3.0,
+    error_queue: Optional[_MPQueue[str]] = None,
 ) -> None:
     """
     Ensure a spawned process is terminated.
@@ -45,6 +85,12 @@ def terminate_process(
         The process to be terminated.
     kill_wait: float or integer
         Maximum time to wait for the kill signal to terminate the process.
+    error_queue: multiprocessing.Queue, optional
+        When the subprocess was started via :func:`run_in_subprocess`, pass
+        the same queue here.  If the process exited with a non-zero code,
+        ``terminate_process`` will pull the formatted traceback from the queue
+        and include it in the raised :class:`RuntimeError`, making the root
+        cause visible without digging into subprocess logs.
 
     Raises
     ------
@@ -65,9 +111,14 @@ def terminate_process(
     if process.is_alive():
         process.close()
     elif process.exitcode != 0:
-        raise RuntimeError(
-            f"Process did not exit cleanly (exit code: {process.exitcode})"
-        )
+        msg = f"Process did not exit cleanly (exit code: {process.exitcode})"
+        if error_queue is not None:
+            try:
+                tb = error_queue.get_nowait()
+                raise RuntimeError(f"{msg}\n\nSubprocess traceback:\n{tb}")
+            except _queue_module.Empty:
+                pass
+        raise RuntimeError(msg)
 
 
 def wait_requests(worker, progress_mode, requests):
