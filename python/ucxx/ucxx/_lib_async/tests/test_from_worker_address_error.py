@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -13,7 +13,7 @@ import pytest
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
 from ucxx._lib_async.utils_test import compute_timeouts
-from ucxx.testing import join_processes, terminate_process
+from ucxx.testing import join_processes, run_in_subprocess, terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -172,16 +172,32 @@ def test_from_worker_address_error(pytestconfig, error_type):
 
     q1 = mp.Queue()
     q2 = mp.Queue()
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
 
     server = mp.Process(
-        target=_test_from_worker_address_error_server,
-        args=(q1, q2, error_type, async_timeout),
+        target=run_in_subprocess,
+        args=(
+            _test_from_worker_address_error_server,
+            server_error_q,
+            q1,
+            q2,
+            error_type,
+            async_timeout,
+        ),
     )
     server.start()
 
     client = mp.Process(
-        target=_test_from_worker_address_error_client,
-        args=(q1, q2, error_type, async_timeout),
+        target=run_in_subprocess,
+        args=(
+            _test_from_worker_address_error_client,
+            client_error_q,
+            q1,
+            q2,
+            error_type,
+            async_timeout,
+        ),
     )
     client.start()
 
@@ -190,9 +206,9 @@ def test_from_worker_address_error(pytestconfig, error_type):
         q1.put("Server closed")
 
     join_processes([client, server], timeout=join_timeout)
-    terminate_process(server)
+    terminate_process(server, error_queue=server_error_q)
     try:
-        terminate_process(client)
+        terminate_process(client, error_queue=client_error_q)
     except RuntimeError as e:
         if ucxx.get_ucx_version() < (1, 12, 0):
             if all(t in error_type for t in ["timeout", "send"]):

@@ -9,7 +9,7 @@ import pytest
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
-from ucxx.testing import terminate_process, wait_requests
+from ucxx.testing import run_in_subprocess, terminate_process, wait_requests
 
 mp = mp.get_context("spawn")
 
@@ -633,18 +633,36 @@ def test_server_client_am_empty_user_header(msg_size, progress_mode):
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
 def test_server_client(transfer_api, msg_size, progress_mode):
     put_queue, get_queue = mp.Queue(), mp.Queue()
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
     server = mp.Process(
-        target=_echo_server,
-        args=(put_queue, get_queue, transfer_api, msg_size, progress_mode),
+        target=run_in_subprocess,
+        args=(
+            _echo_server,
+            server_error_q,
+            put_queue,
+            get_queue,
+            transfer_api,
+            msg_size,
+            progress_mode,
+        ),
     )
     server.start()
     port = get_queue.get()
     client = mp.Process(
-        target=_echo_client, args=(transfer_api, msg_size, progress_mode, port)
+        target=run_in_subprocess,
+        args=(
+            _echo_client,
+            client_error_q,
+            transfer_api,
+            msg_size,
+            progress_mode,
+            port,
+        ),
     )
     client.start()
     client.join(timeout=60)
-    terminate_process(client)
+    terminate_process(client, error_queue=client_error_q)
     put_queue.put("Finished")
     server.join(timeout=10)
-    terminate_process(server)
+    terminate_process(server, error_queue=server_error_q)
