@@ -203,8 +203,6 @@ async def _listener_handler_coroutine(
         logger.exception("Unexpected error in listener handler coroutine")
     finally:
         active_clients.dec(ident)
-        if ep is not None:
-            ep._ctx = None
         del ep
 
 
