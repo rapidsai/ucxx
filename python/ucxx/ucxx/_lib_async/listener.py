@@ -34,7 +34,9 @@ class ActiveClients:
 
     def add_listener(self, ident: int) -> None:
         if ident in self._active_clients:
-            raise ValueError("Listener {ident} is already registered in ActiveClients.")
+            raise ValueError(
+                f"Listener {ident} is already registered in ActiveClients."
+            )
 
         self._locks[ident] = threading.Lock()
         self._active_clients[ident] = 0
@@ -44,7 +46,7 @@ class ActiveClients:
             active_clients = self.get_active(ident)
             if active_clients > 0:
                 raise RuntimeError(
-                    "Listener {ident} is being removed from ActiveClients, but "
+                    f"Listener {ident} is being removed from ActiveClients, but "
                     f"{active_clients} active client(s) is(are) still accounted for."
                 )
 
@@ -201,6 +203,8 @@ async def _listener_handler_coroutine(
         logger.exception("Unexpected error in listener handler coroutine")
     finally:
         active_clients.dec(ident)
+        if ep is not None:
+            ep._ctx = None
         del ep
 
 
