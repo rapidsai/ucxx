@@ -498,9 +498,9 @@ class UCXX(Comm):
                 for each_frame in send_frames:
                     await self.ep.send(each_frame)
             return sum(sizes)
-        except ucxx.exceptions.UCXError:
+        except BaseException as e:
             self.abort()
-            raise CommClosedError("While writing, the connection was closed")
+            raise CommClosedError("While writing, the connection was closed") from e
 
     @log_errors
     async def read(self, deserializers=("cuda", "dask", "pickle", "error")):
