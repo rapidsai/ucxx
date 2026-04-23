@@ -39,7 +39,7 @@ namespace experimental {
  *   std::shared_ptr<ucxx::Context> ctx = ucxx::experimental::createContext(UCP_FEATURE_RMA);
  * @endcode
  */
-class ContextBuilder {
+class ContextBuilder final {
  public:
   /**
    * @brief Constructor for `ContextBuilder` with required feature flags.

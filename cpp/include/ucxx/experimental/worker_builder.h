@@ -39,7 +39,7 @@ namespace experimental {
  *   std::shared_ptr<ucxx::Worker> worker = ucxx::experimental::createWorker(context);
  * @endcode
  */
-class WorkerBuilder {
+class WorkerBuilder final {
  public:
   /**
    * @brief Constructor for `WorkerBuilder` with required context.
