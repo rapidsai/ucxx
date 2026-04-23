@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -38,6 +38,15 @@ inline void waitRequests(std::shared_ptr<ucxx::Worker> worker,
         r->checkError();
     }
   }
+}
+
+template <typename RequestType>
+inline void waitSingleRequest(const std::shared_ptr<RequestType>& request,
+                              const std::function<void()>& progressWorker)
+{
+  while (!request->isCompleted())
+    if (progressWorker) progressWorker();
+  request->checkError();
 }
 
 std::function<void()> getProgressFunction(std::shared_ptr<ucxx::Worker> worker,

@@ -26,10 +26,24 @@ void InflightRequests::insert(const std::shared_ptr<Request>& request)
   _inflight.insert(request);
 }
 
-void InflightRequests::remove(const std::shared_ptr<Request>& request)
+void InflightRequests::remove(const std::shared_ptr<Request>& request,
+                              VoidCallbackUserFunction callbackFunction)
 {
-  std::lock_guard<std::mutex> lock(_mutex);
-  _inflight.erase(request);
+  bool shouldCallback = false;
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _inflight.erase(request);
+    _canceling.erase(request);
+    if (!_cancelAllInProgress && callbackFunction && _inflight.empty() && _canceling.empty()) {
+      shouldCallback = true;
+    }
+  }
+
+  if (shouldCallback) {
+    ucxx_trace(
+      "ucxx::InflightRequests::%s: %p, calling user cancel inflight callback", __func__, this);
+    callbackFunction();
+  }
 }
 
 void InflightRequests::merge(TrackedRequests&& trackedRequests)
@@ -41,7 +55,7 @@ void InflightRequests::merge(TrackedRequests&& trackedRequests)
     if (r) _canceling.insert(std::move(r));
 }
 
-size_t InflightRequests::cancelAll()
+size_t InflightRequests::cancelAll(VoidCallbackUserFunction callbackFunction)
 {
   decltype(_inflight) toCancel;
   {
@@ -50,19 +64,42 @@ size_t InflightRequests::cancelAll()
   }
 
   size_t total = toCancel.size();
-  if (total == 0) return 0;
+  if (total == 0) {
+    bool shouldCallback = false;
+    {
+      std::lock_guard<std::mutex> lock(_mutex);
+      if (callbackFunction && _inflight.empty() && _canceling.empty()) { shouldCallback = true; }
+    }
+    if (shouldCallback) {
+      ucxx_trace(
+        "ucxx::InflightRequests::%s: %p, calling user cancel inflight callback", __func__, this);
+      callbackFunction();
+    }
+    return 0;
+  }
 
   ucxx_debug("ucxx::InflightRequests::%s, canceling %lu requests", __func__, total);
 
+  _cancelAllInProgress = true;
   for (auto& r : toCancel) {
     if (r) r->cancel();
   }
+  _cancelAllInProgress = false;
 
+  bool shouldCallback = false;
   {
     std::lock_guard<std::mutex> lock(_mutex);
     for (auto& r : toCancel) {
-      if (r && r->getStatus() == UCS_INPROGRESS) _canceling.insert(r);
+      if (r && r->getStatus() == UCS_INPROGRESS)
+        _canceling.insert(std::move(const_cast<std::shared_ptr<Request>&>(r)));
     }
+    if (callbackFunction && _inflight.empty() && _canceling.empty()) { shouldCallback = true; }
+  }
+
+  if (shouldCallback) {
+    ucxx_trace(
+      "ucxx::InflightRequests::%s: %p, calling user cancel inflight callback", __func__, this);
+    callbackFunction();
   }
 
   return total;
@@ -84,6 +121,12 @@ TrackedRequests InflightRequests::release()
   _canceling.clear();
 
   return result;
+}
+
+size_t InflightRequests::getInflightSize()
+{
+  std::lock_guard<std::mutex> lock(_mutex);
+  return _inflight.size();
 }
 
 size_t InflightRequests::getCancelingSize()

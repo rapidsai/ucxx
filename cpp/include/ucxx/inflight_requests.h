@@ -4,10 +4,13 @@
  */
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <unordered_set>
 #include <vector>
+
+#include <ucxx/typedefs.h>
 
 namespace ucxx {
 
@@ -31,8 +34,8 @@ struct TrackedRequests {
  * Handle tracked requests, providing functionality so that its owner can modify those
  * requests, performing operations such as insertion, removal and cancelation.
  *
- * Uses `std::unordered_map<Request*, shared_ptr<Request>>` for O(1) amortized
- * insert/remove that scales to thousands of concurrent inflight requests.
+ * Uses `std::unordered_set<shared_ptr<Request>>` for O(1) amortized insert/remove that
+ * scales to thousands of concurrent inflight requests.
  */
 class InflightRequests {
  private:
@@ -40,6 +43,7 @@ class InflightRequests {
   std::unordered_set<std::shared_ptr<Request>> _canceling{};
 
   std::mutex _mutex{};
+  std::atomic<bool> _cancelAllInProgress{false};
 
  public:
   /**
@@ -91,9 +95,19 @@ class InflightRequests {
    * be called when a request has completed and the `InflightRequests` owner does not need
    * to keep track of it anymore.
    *
+   * Supports an optional callback function to be called exclusively if there are no
+   * more requests inflight or canceling. Be advised that before the callback is called the
+   * mutex that controls inflight requests is released to prevent deadlocks in case the
+   * callback happens to register a new inflight request, therefore there's no guarantee
+   * that another inflight request won't be registered between the time in which the mutex
+   * is released and the callback is executed.
+   *
    * @param[in] request shared pointer to the request
+   * @param[in] callbackFunction  function to be called upon termination and only if no
+   *                              further requests inflight or canceling remain.
    */
-  void remove(const std::shared_ptr<Request>& request);
+  void remove(const std::shared_ptr<Request>& request,
+              VoidCallbackUserFunction callbackFunction = nullptr);
 
   /**
    * @brief Issue cancelation of all inflight requests and clear the internal container.
@@ -101,9 +115,19 @@ class InflightRequests {
    * Issue cancelation of all inflight requests known to this object and clear the
    * internal container. The total number of canceled requests is returned.
    *
+   * Supports an optional callback function to be called exclusively if there are no
+   * more requests inflight or canceling. Be advised that before the callback is called the
+   * mutex that controls inflight requests is released to prevent deadlocks in case the
+   * callback happens to register a new inflight request, therefore there's no guarantee
+   * that another inflight request won't be registered between the time in which the mutex
+   * is released and the callback is executed.
+   *
+   * @param[in] callbackFunction  function to be called upon termination and only if no
+   *                              further requests inflight or canceling remain.
+   *
    * @returns The total number of canceled requests.
    */
-  size_t cancelAll();
+  size_t cancelAll(VoidCallbackUserFunction callbackFunction = nullptr);
 
   /**
    * @brief Releases the internally-tracked containers.
@@ -127,6 +151,16 @@ class InflightRequests {
    * @returns The count of requests that are in process of cancelation.
    */
   [[nodiscard]] size_t getCancelingSize();
+
+  /**
+   * @brief Get count of inflight requests.
+   *
+   * Get the count of inflight requests that have not yet completed nor have been scheduled
+   * for cancelation.
+   *
+   * @returns The count of inflight requests.
+   */
+  [[nodiscard]] size_t getInflightSize();
 };
 
 }  // namespace ucxx
