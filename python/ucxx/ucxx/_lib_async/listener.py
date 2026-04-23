@@ -150,10 +150,6 @@ async def _listener_handler_coroutine(
     #  3) Exchange endpoint info such as tags
     #  4) Setup control receive callback
     #  5) Execute the listener's callback function
-    if isinstance(ctx, weakref.ref):
-        ctx = ctx()
-        if ctx is None:
-            return
     active_clients.inc(ident)
     ep = None
     try:
