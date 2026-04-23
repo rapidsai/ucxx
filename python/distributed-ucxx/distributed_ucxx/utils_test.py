@@ -86,22 +86,7 @@ def ucxx_loop(request):
     with check_thread_leak():
         yield loop
 
-        # Flush the event loop so that any in-flight _listener_handler_coroutine
-        # finally-blocks (which release Endpoint._ctx) have a chance to complete
-        # before we call ucxx.reset().  We also collect garbage to break the
-        # UCXXListener -> Listener -> UCXListener -> cb_args -> serve_forever closure
-        # -> UCXXListener reference cycle that CPython's reference counting alone
-        # won't free.
-        try:
-            asyncio_loop = loop.asyncio_loop
-            asyncio.run_coroutine_threadsafe(asyncio.sleep(0), asyncio_loop).result(
-                timeout=5
-            )
-            asyncio.run_coroutine_threadsafe(asyncio.sleep(0), asyncio_loop).result(
-                timeout=5
-            )
-        except Exception:
-            pass
+        # Collect garbage to break any remaining reference cycles before reset.
         gc.collect()
 
         if ignore_alive_references:

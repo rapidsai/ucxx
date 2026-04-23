@@ -707,21 +707,26 @@ class UCXXListener(Listener):
         return f"{self.prefix}{self.ip}:{self.port}"
 
     async def start(self):
+        listener_ref = weakref.ref(self)
+
         async def serve_forever(client_ep):
-            ucx = self.comm_class(
+            listener = listener_ref()
+            if listener is None:
+                return
+            ucx = listener.comm_class(
                 client_ep,
-                local_addr=self.address,
-                peer_addr=self.address,
-                deserialize=self.deserialize,
+                local_addr=listener.address,
+                peer_addr=listener.address,
+                deserialize=listener.deserialize,
             )
-            ucx.allow_offload = self.allow_offload
+            ucx.allow_offload = listener.allow_offload
             try:
-                await self.on_connection(ucx)
+                await listener.on_connection(ucx)
             except CommClosedError:
                 logger.debug("Connection closed before handshake completed")
                 return
-            if self.comm_handler:
-                await self.comm_handler(ucx)
+            if listener.comm_handler:
+                await listener.comm_handler(ucx)
 
         init_once()
         self._resource_id = _register_dask_resource()
