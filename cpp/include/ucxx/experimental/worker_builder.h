@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -40,11 +40,6 @@ namespace experimental {
  * @endcode
  */
 class WorkerBuilder {
- private:
-  std::shared_ptr<Context> _context;     ///< UCXX context (required)
-  bool _enableDelayedSubmission{false};  ///< Enable delayed submission to progress thread
-  bool _enableFuture{false};             ///< Enable future support
-
  public:
   /**
    * @brief Constructor for `WorkerBuilder` with required context.
@@ -52,6 +47,30 @@ class WorkerBuilder {
    * @param[in] context context from which the worker will be created (required).
    */
   explicit WorkerBuilder(std::shared_ptr<Context> context);
+
+  /**
+   * @brief `WorkerBuilder` destructor.
+   */
+  ~WorkerBuilder();
+
+  /** @brief Copy constructor (deep-copies internal state). */
+  WorkerBuilder(const WorkerBuilder& other);
+  /** @brief Copy assignment operator (deep-copies internal state). */
+  WorkerBuilder& operator=(const WorkerBuilder& other);
+  /** @brief Move constructor. */
+  WorkerBuilder(WorkerBuilder&&) noexcept;
+  /** @brief Move assignment operator. */
+  WorkerBuilder& operator=(WorkerBuilder&&) noexcept;
+
+  /**
+   * @brief Implicit conversion operator to `shared_ptr<Worker>`.
+   *
+   * Enables automatic construction of the `Worker` when the builder is used in a context
+   * requiring a `shared_ptr<Worker>`, delegating to `build()`.
+   *
+   * @return The constructed `shared_ptr<ucxx::Worker>` object.
+   */
+  operator std::shared_ptr<Worker>() const;
 
   /**
    * @brief Configure delayed submission to the progress thread.
@@ -77,18 +96,11 @@ class WorkerBuilder {
    *
    * @return The constructed `shared_ptr<ucxx::Worker>` object.
    */
-  std::shared_ptr<Worker> build() const;
+  [[nodiscard]] std::shared_ptr<Worker> build() const;
 
-  /**
-   * @brief Implicit conversion operator to `shared_ptr<Worker>`.
-   *
-   * This operator enables automatic construction of the `Worker` when the builder
-   * is used in a context requiring a `shared_ptr<Worker>`. This allows seamless
-   * use with `auto` variables.
-   *
-   * @return The constructed `shared_ptr<ucxx::Worker>` object.
-   */
-  operator std::shared_ptr<Worker>() const;
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> _impl;
 };
 
 /**
