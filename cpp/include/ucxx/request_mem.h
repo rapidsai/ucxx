@@ -154,3 +154,6 @@ class RequestMem : public Request {
 };
 
 }  // namespace ucxx
+
+// Include experimental features
+#include <ucxx/experimental/request_mem_builder.h>

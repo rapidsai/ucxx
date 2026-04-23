@@ -131,3 +131,6 @@ class RequestFlush : public Request {
 };
 
 }  // namespace ucxx
+
+// Include experimental features
+#include <ucxx/experimental/request_flush_builder.h>

@@ -120,3 +120,6 @@ class RequestEndpointClose : public Request {
 };
 
 }  // namespace ucxx
+
+// Include experimental features
+#include <ucxx/experimental/request_endpoint_close_builder.h>

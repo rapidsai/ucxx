@@ -138,3 +138,6 @@ class RequestStream : public Request {
 };
 
 }  // namespace ucxx
+
+// Include experimental features
+#include <ucxx/experimental/request_stream_builder.h>
