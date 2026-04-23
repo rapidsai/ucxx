@@ -17,11 +17,13 @@ struct WorkerBuilder::Impl {
   std::shared_ptr<Context> context;
   bool enableDelayedSubmission{false};
   bool enableFuture{false};
+
+  explicit Impl(std::shared_ptr<Context> ctx) : context(std::move(ctx)) {}
 };
 
-WorkerBuilder::WorkerBuilder(std::shared_ptr<Context> context) : _impl(std::make_unique<Impl>())
+WorkerBuilder::WorkerBuilder(std::shared_ptr<Context> context)
+  : _impl(std::make_unique<Impl>(std::move(context)))
 {
-  _impl->context = std::move(context);
 }
 
 UCXX_BUILDER_PIMPL_DEFAULTS(WorkerBuilder, Worker)

@@ -16,11 +16,12 @@ namespace experimental {
 struct ContextBuilder::Impl {
   ConfigMap configMap{};
   uint64_t featureFlags;
+
+  explicit Impl(uint64_t flags) : featureFlags(flags) {}
 };
 
-ContextBuilder::ContextBuilder(uint64_t featureFlags) : _impl(std::make_unique<Impl>())
+ContextBuilder::ContextBuilder(uint64_t featureFlags) : _impl(std::make_unique<Impl>(featureFlags))
 {
-  _impl->featureFlags = featureFlags;
 }
 
 UCXX_BUILDER_PIMPL_DEFAULTS(ContextBuilder, Context)
