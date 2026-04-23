@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdlib>
@@ -63,7 +63,7 @@ TEST(ContextTest, CustomFlags)
 
 TEST(ContextTest, Info)
 {
-  auto context = ucxx::createContext({{"UCX_TLS", "tcp"}}, ucxx::Context::defaultFeatureFlags);
+  auto context = ucxx::createContext({{"TLS", "tcp"}}, ucxx::Context::defaultFeatureFlags);
 
   ASSERT_GT(context->getInfo().size(), 0u);
 }
