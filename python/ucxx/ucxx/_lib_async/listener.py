@@ -99,11 +99,15 @@ class Listener:
     Please use `create_listener()` to create an Listener.
     """
 
-    def __init__(self, listener, ident, active_clients):
+    def __init__(self, listener, ident, active_clients, ctx=None):
         if not isinstance(listener, ucx_api.UCXListener):
             raise ValueError("listener must be an instance of UCXListener")
 
         self._listener = listener
+        # Hold a strong reference to ApplicationContext so that reset() correctly
+        # detects a live Listener. Released by close() so the context can be freed
+        # even if UCXListener is still in a reference cycle.
+        self._ctx = ctx
 
         active_clients.add_listener(ident)
         self._ident = ident
@@ -132,12 +136,13 @@ class Listener:
 
     def close(self):
         """Closing the listener"""
+        self._ctx = None
         self._listener = None
 
 
 async def _listener_handler_coroutine(
     conn_request,
-    ctx,
+    ctx_weakref,
     func,
     endpoint_error_handling,
     connect_timeout,
@@ -150,6 +155,17 @@ async def _listener_handler_coroutine(
     #  3) Exchange endpoint info such as tags
     #  4) Setup control receive callback
     #  5) Execute the listener's callback function
+
+    # Dereference the weakref immediately so the UCXListener's cb_args tuple
+    # does not keep ApplicationContext alive through this coroutine's frame.
+    ctx = ctx_weakref()
+    del ctx_weakref
+    if ctx is None:
+        logger.debug(
+            "ApplicationContext was freed before listener handler coroutine ran"
+        )
+        return
+
     active_clients.inc(ident)
     ep = None
     try:
@@ -189,7 +205,7 @@ async def _listener_handler_coroutine(
         )
 
         # Removing references here to avoid delayed clean up
-        del ctx
+        ctx = None
 
         # Finally, we call `func`
         if inspect.iscoroutinefunction(func):
@@ -203,6 +219,9 @@ async def _listener_handler_coroutine(
         logger.exception("Unexpected error in listener handler coroutine")
     finally:
         active_clients.dec(ident)
+        # Release ApplicationContext reference even on early exits (e.g., cancellation
+        # before the explicit ctx = None above).
+        del ctx
         del ep
 
 
@@ -210,7 +229,7 @@ def _listener_handler(
     conn_request,
     event_loop,
     callback_func,
-    ctx,
+    ctx_weakref,
     endpoint_error_handling,
     connect_timeout,
     ident,
@@ -219,7 +238,7 @@ def _listener_handler(
     asyncio.run_coroutine_threadsafe(
         _listener_handler_coroutine(
             conn_request,
-            ctx,
+            ctx_weakref,
             callback_func,
             endpoint_error_handling,
             connect_timeout,
