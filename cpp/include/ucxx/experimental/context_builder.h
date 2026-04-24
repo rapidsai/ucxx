@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -39,11 +39,7 @@ namespace experimental {
  *   std::shared_ptr<ucxx::Context> ctx = ucxx::experimental::createContext(UCP_FEATURE_RMA);
  * @endcode
  */
-class ContextBuilder {
- private:
-  ConfigMap _configMap{};  ///< Configuration map for UCP context
-  uint64_t _featureFlags;  ///< Feature flags for UCP context (required)
-
+class ContextBuilder final {
  public:
   /**
    * @brief Constructor for `ContextBuilder` with required feature flags.
@@ -51,6 +47,30 @@ class ContextBuilder {
    * @param[in] featureFlags feature flags to be used at UCP context construction time (required).
    */
   explicit ContextBuilder(uint64_t featureFlags);
+
+  /**
+   * @brief `ContextBuilder` destructor.
+   */
+  ~ContextBuilder();
+
+  /** @brief Copy constructor (deep-copies internal state). */
+  ContextBuilder(const ContextBuilder& other);
+  /** @brief Copy assignment operator (deep-copies internal state). */
+  ContextBuilder& operator=(const ContextBuilder& other);
+  /** @brief Move constructor. */
+  ContextBuilder(ContextBuilder&&) noexcept;
+  /** @brief Move assignment operator. */
+  ContextBuilder& operator=(ContextBuilder&&) noexcept;
+
+  /**
+   * @brief Implicit conversion operator to `shared_ptr<Context>`.
+   *
+   * Enables automatic construction of the `Context` when the builder is used in a context
+   * requiring a `shared_ptr<Context>`, delegating to `build()`.
+   *
+   * @return The constructed `shared_ptr<ucxx::Context>` object.
+   */
+  operator std::shared_ptr<Context>() const;
 
   /**
    * @brief Set the configuration map for the context.
@@ -68,18 +88,11 @@ class ContextBuilder {
    *
    * @return The constructed `shared_ptr<ucxx::Context>` object.
    */
-  std::shared_ptr<Context> build() const;
+  [[nodiscard]] std::shared_ptr<Context> build() const;
 
-  /**
-   * @brief Implicit conversion operator to `shared_ptr<Context>`.
-   *
-   * This operator enables automatic construction of the `Context` when the builder
-   * is used in a context requiring a `shared_ptr<Context>`. This allows seamless
-   * use with `auto` variables.
-   *
-   * @return The constructed `shared_ptr<ucxx::Context>` object.
-   */
-  operator std::shared_ptr<Context>() const;
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> _impl;
 };
 
 /**
