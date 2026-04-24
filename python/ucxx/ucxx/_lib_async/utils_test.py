@@ -196,8 +196,15 @@ async def am_recv(ep):
     return frames, msg
 
 
-async def wait_listener_client_handlers(listener):
+async def wait_listener_client_handlers(listener, timeout=None):
+    loop = asyncio.get_event_loop()
+    deadline = (loop.time() + timeout) if timeout is not None else None
     while listener.active_clients > 0:
+        if deadline is not None and loop.time() >= deadline:
+            raise asyncio.TimeoutError(
+                f"Listener still has {listener.active_clients} active client(s) "
+                f"after {timeout}s, likely due to a deadlock in the handler coroutine."
+            )
         # Minimal delay to yield to the event loop so call_soon_threadsafe callbacks
         # run. Using a very short positive sleep ensures pending callbacks are
         # processed and significantly reduces "coroutine never awaited" warnings.
