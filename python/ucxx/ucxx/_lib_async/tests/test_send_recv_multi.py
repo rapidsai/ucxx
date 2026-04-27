@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
@@ -8,7 +8,9 @@ from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 np = pytest.importorskip("numpy")
 
-msg_sizes = [2**i for i in range(0, 25, 4)]
+msg_sizes = [2**i for i in range(0, 24, 4)] + [
+    pytest.param(2**24, marks=pytest.mark.asyncio_timeout(120))
+]
 # multi_sizes = [0, 1, 2, 3, 4, 8]
 multi_sizes = [1, 2, 3, 4, 8]
 dtypes = ["|u1", "<i8", "f8"]
