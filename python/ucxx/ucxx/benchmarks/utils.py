@@ -136,6 +136,7 @@ def _run_cluster_server(
     server_file,
     n_workers,
     ucx_options_list=None,
+    error_wrapper=None,
 ):
     """
     Create a server that synchronizes workers.
@@ -157,26 +158,49 @@ def _run_cluster_server(
         workers have connected and completed.
     ucx_options_list: list of dict
         Options to pass to UCX when initializing workers, one for each worker.
+    error_wrapper: callable, optional
+        When set (e.g. to :func:`ucxx.testing.run_in_subprocess`), each
+        spawned process target is wrapped so that unhandled exceptions are
+        forwarded to an error queue. The return value gains an extra element:
+        ``(process, result_queue, error_queue)``.
 
     Returns
     -------
     return : tuple
-        A tuple with two elements: the process spawned and a queue where results
-        will eventually be stored.
+        ``(process, result_queue)`` when *error_wrapper* is ``None``, or
+        ``(process, result_queue, error_queue)`` otherwise.
     """
     ctx = mp.get_context("fork")
     q = ctx.Queue()
-    p = ctx.Process(
-        target=_server_process,
-        args=(
-            q,
-            server_file,
-            n_workers,
-            ucx_options_list,
-        ),
-    )
+
+    if error_wrapper is not None:
+        error_q = ctx.Queue()
+        p = ctx.Process(
+            target=error_wrapper,
+            args=(
+                _server_process,
+                error_q,
+                q,
+                server_file,
+                n_workers,
+                ucx_options_list,
+            ),
+        )
+    else:
+        error_q = None
+        p = ctx.Process(
+            target=_server_process,
+            args=(
+                q,
+                server_file,
+                n_workers,
+                ucx_options_list,
+            ),
+        )
 
     p.start()
+    if error_q is not None:
+        return p, q, error_q
     return p, q
 
 
@@ -280,6 +304,7 @@ def _run_cluster_workers(
     worker_args=None,
     ucx_options_list=None,
     ensure_cuda_device=False,
+    error_wrapper=None,
 ):
     """
     Create `n_workers` UCX processes that each run `worker_func`.
@@ -329,11 +354,17 @@ def _run_cluster_workers(
         device 0 and will not ensure proper InfiniBand<->GPU mapping on UCX,
         potentially leading to low performance as GPUDirectRDMA will not be
         active.
+    error_wrapper: callable, optional
+        When set (e.g. to :func:`ucxx.testing.run_in_subprocess`), each
+        spawned process target is wrapped so that unhandled exceptions are
+        forwarded to an error queue. The returned list then contains
+        ``(process, error_queue)`` tuples instead of bare processes.
 
     Returns
     -------
     processes : list
-        The list of processes spawned (one for each worker).
+        A list of processes (when *error_wrapper* is ``None``) or a list of
+        ``(process, error_queue)`` tuples otherwise.
     """
 
     if isinstance(server_info, str):
@@ -350,21 +381,43 @@ def _run_cluster_workers(
     for worker_num in range(num_node_workers):
         rank = node_idx * num_node_workers + worker_num
         q = ctx.Queue()
-        p = ctx.Process(
-            target=_worker_process,
-            args=(
-                q,
-                server_info,
-                num_node_workers,
-                rank,
-                ucx_options_list,
-                ensure_cuda_device,
-                worker_func,
-                worker_args,
-            ),
-        )
+        if error_wrapper is not None:
+            error_q = ctx.Queue()
+            p = ctx.Process(
+                target=error_wrapper,
+                args=(
+                    _worker_process,
+                    error_q,
+                    q,
+                    server_info,
+                    num_node_workers,
+                    rank,
+                    ucx_options_list,
+                    ensure_cuda_device,
+                    worker_func,
+                    worker_args,
+                ),
+            )
+        else:
+            error_q = None
+            p = ctx.Process(
+                target=_worker_process,
+                args=(
+                    q,
+                    server_info,
+                    num_node_workers,
+                    rank,
+                    ucx_options_list,
+                    ensure_cuda_device,
+                    worker_func,
+                    worker_args,
+                ),
+            )
         p.start()
-        processes.append(p)
+        if error_q is not None:
+            processes.append((p, error_q))
+        else:
+            processes.append(p)
 
     return processes
 
