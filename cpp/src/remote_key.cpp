@@ -136,13 +136,13 @@ void RemoteKey::deserialize(const SerializedRemoteKey& serializedRemoteKey)
 
   ss.read(reinterpret_cast<char*>(&_packedRemoteKeySize), sizeof(_packedRemoteKeySize));
 
-  // Use a vector to store data so we don't need to bother releasing it later.
+  const size_t fixedFieldsSize =
+    sizeof(_packedRemoteKeySize) + sizeof(_memoryBaseAddress) + sizeof(_memorySize);
+  if (_packedRemoteKeySize > serializedRemoteKeyData.size() - fixedFieldsSize)
+    throw std::overflow_error("Packed remote key size exceeds serialized data length");
+
   _packedRemoteKeyVector = std::vector<char>(_packedRemoteKeySize);
   _packedRemoteKey       = _packedRemoteKeyVector.data();
-
-  if (_packedRemoteKeySize > std::numeric_limits<std::streamsize>::max())
-    // We should never have a remote key this big, but just in case.
-    throw std::overflow_error("Remote key is too large to deserialize");
 
   ss.read(reinterpret_cast<char*>(_packedRemoteKey),
           static_cast<std::streamsize>(_packedRemoteKeySize));
