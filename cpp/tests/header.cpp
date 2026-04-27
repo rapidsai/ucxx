@@ -4,6 +4,7 @@
  */
 #include <algorithm>
 #include <numeric>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -128,5 +129,15 @@ TEST_P(FromPointerGenerator, PointerConstructor)
 INSTANTIATE_TEST_SUITE_P(SingleFrame,
                          FromPointerGenerator,
                          testing::Values(0, 1, 5, 10, 100, 101, 200, 201));
+
+TEST(HeaderTest, DeserializeOversizedNframes)
+{
+  std::stringstream ss;
+  bool next      = false;
+  size_t nframes = ucxx::HeaderFramesSize + 1;
+  ss.write(reinterpret_cast<const char*>(&next), sizeof(next));
+  ss.write(reinterpret_cast<const char*>(&nframes), sizeof(nframes));
+  EXPECT_THROW(ucxx::Header(ss.str()), std::overflow_error);
+}
 
 }  // namespace
