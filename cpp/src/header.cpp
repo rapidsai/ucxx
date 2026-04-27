@@ -7,6 +7,7 @@
 #include <iterator>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -49,6 +50,10 @@ void Header::deserialize(const std::string& serializedHeader)
 
   ss.read(reinterpret_cast<char*>(&next), sizeof(next));
   ss.read(reinterpret_cast<char*>(&nframes), sizeof(nframes));
+  if (nframes > HeaderFramesSize)
+    throw std::overflow_error("Header nframes (" + std::to_string(nframes) +
+                              ") exceeds HeaderFramesSize (" + std::to_string(HeaderFramesSize) +
+                              ")");
   for (size_t i = 0; i < HeaderFramesSize; ++i)
     ss.read(reinterpret_cast<char*>(&isCUDA[i]), sizeof(isCUDA[i]));
   for (size_t i = 0; i < HeaderFramesSize; ++i)
