@@ -97,8 +97,9 @@ typedef std::map<std::shared_ptr<RequestAm>,
 
 typedef std::unordered_map<AmReceiverCallbackIdType, AmReceiverCallbackType>
   AmReceiverCallbackMapType;
-typedef std::unordered_map<AmReceiverCallbackOwnerType, AmReceiverCallbackMapType>
-  AmReceiverCallbackOwnerMapType;
+typedef std::
+  unordered_map<AmReceiverCallbackOwnerType, AmReceiverCallbackMapType, AmReceiverCallbackOwnerHash>
+    AmReceiverCallbackOwnerMapType;
 
 /**
  * @brief Active Message data owned by a `ucxx::Worker`.

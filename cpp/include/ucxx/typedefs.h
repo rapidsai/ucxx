@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstring>
@@ -137,13 +138,76 @@ typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
 typedef std::function<void(std::shared_ptr<Request>, ucp_ep_h)> AmReceiverCallbackType;
 
 /**
- * @brief Active Message receiver callback owner name.
+ * @brief Maximum number of usable characters in an Active Message receiver callback owner name.
+ */
+static constexpr size_t AmReceiverCallbackOwnerMaxLen = 63;
+
+/**
+ * @brief On-wire and in-memory storage size for an Active Message receiver callback owner name.
+ */
+static constexpr size_t AmReceiverCallbackOwnerStorageSize = AmReceiverCallbackOwnerMaxLen + 1;
+
+/**
+ * @brief Active Message receiver callback owner name (fixed-size).
  *
- * A string containing the owner's name of an Active Message receiver callback. The owner
+ * A fixed-size identifier for the owner of an Active Message receiver callback. The owner
  * should be a reasonably unique name, usually identifying the application, to allow other
  * applications to coexist and register their own receiver callbacks.
+ *
+ * Names are stored in a fixed 64-byte buffer, zero-padded. The maximum string length is
+ * 63 characters. Attempting to construct from a longer string throws @c std::invalid_argument.
+ *
+ * Implicit construction from `const char*` and `std::string` is supported so that existing
+ * call sites such as `AmReceiverCallbackInfo("MyApp", 0)` compile unchanged.
  */
-typedef std::string AmReceiverCallbackOwnerType;
+class AmReceiverCallbackOwnerType {
+ public:
+  /** @brief Construct an empty (all-zero) owner name. */
+  AmReceiverCallbackOwnerType() = default;
+
+  /** @brief Construct from a null-terminated C string. Throws if length exceeds the limit. */
+  AmReceiverCallbackOwnerType(const char* s)  // NOLINT(runtime/explicit)
+  {
+    if (s == nullptr) return;
+    const size_t len = std::strlen(s);
+    if (len > AmReceiverCallbackOwnerMaxLen)
+      throw std::invalid_argument(
+        "AmReceiverCallbackOwnerType: owner name exceeds "
+        "maximum length of " +
+        std::to_string(AmReceiverCallbackOwnerMaxLen) + " characters");
+    std::memcpy(_data.data(), s, len);
+  }
+
+  /** @brief Construct from a @c std::string. Throws if length exceeds the limit. */
+  AmReceiverCallbackOwnerType(const std::string& s)  // NOLINT(runtime/explicit)
+    : AmReceiverCallbackOwnerType(s.c_str())
+  {
+  }
+
+  /** @brief Pointer to the raw fixed-size storage. */
+  [[nodiscard]] const char* data() const noexcept { return _data.data(); }
+
+  /** @brief Mutable pointer to the raw fixed-size storage (for deserialization). */
+  [[nodiscard]] char* data() noexcept { return _data.data(); }
+
+  /** @brief The fixed storage size that is always sent on the wire. */
+  static constexpr size_t storageSize() noexcept { return AmReceiverCallbackOwnerStorageSize; }
+
+  /** @brief Equality comparison. */
+  bool operator==(const AmReceiverCallbackOwnerType& other) const noexcept
+  {
+    return _data == other._data;
+  }
+
+  /** @brief Inequality comparison. */
+  bool operator!=(const AmReceiverCallbackOwnerType& other) const noexcept
+  {
+    return !(*this == other);
+  }
+
+ private:
+  std::array<char, AmReceiverCallbackOwnerStorageSize> _data{};
+};
 
 /**
  * @brief Active Message receiver callback identifier.
@@ -238,5 +302,20 @@ struct AmSendParams {
  * and storage of remote memory access information.
  */
 typedef const std::string SerializedRemoteKey;
+
+/**
+ * @brief Hash functor for @c AmReceiverCallbackOwnerType.
+ *
+ * Hashes the full fixed-size storage so that zero-padded names compare deterministically.
+ * Used as the hasher for @c std::unordered_map keyed by @c AmReceiverCallbackOwnerType.
+ */
+struct AmReceiverCallbackOwnerHash {
+  /** @brief Compute hash of an @c AmReceiverCallbackOwnerType. */
+  size_t operator()(const AmReceiverCallbackOwnerType& o) const noexcept
+  {
+    return std::hash<std::string_view>{}(
+      std::string_view(o.data(), AmReceiverCallbackOwnerStorageSize));
+  }
+};
 
 }  // namespace ucxx

@@ -52,11 +52,8 @@ struct AmHeader {
 
     std::optional<AmReceiverCallbackInfo> receiverCallbackInfo = std::nullopt;
     if (hasReceiverCallback) {
-      size_t ownerSize{0};
-      decode(&ownerSize, sizeof(ownerSize));
-
-      auto owner = AmReceiverCallbackOwnerType(ownerSize, 0);
-      decode(owner.data(), ownerSize);
+      AmReceiverCallbackOwnerType owner;
+      decode(owner.data(), AmReceiverCallbackOwnerType::storageSize());
 
       AmReceiverCallbackIdType id{};
       decode(&id, sizeof(id));
@@ -91,9 +88,10 @@ struct AmHeader {
   {
     size_t offset{0};
     bool hasReceiverCallback{static_cast<bool>(receiverCallbackInfo)};
-    const size_t ownerSize = (receiverCallbackInfo) ? receiverCallbackInfo->owner.size() : 0;
     const size_t amReceiverCallbackInfoSize =
-      (receiverCallbackInfo) ? sizeof(ownerSize) + ownerSize + sizeof(receiverCallbackInfo->id) : 0;
+      (receiverCallbackInfo)
+        ? AmReceiverCallbackOwnerType::storageSize() + sizeof(receiverCallbackInfo->id)
+        : 0;
     const uint8_t serializedMemoryTypePolicy = static_cast<uint8_t>(memoryTypePolicy);
     const size_t userHeaderSize              = userHeader.size();
     const size_t totalSize                   = sizeof(memoryType) + sizeof(hasReceiverCallback) +
@@ -109,8 +107,7 @@ struct AmHeader {
     encode(&memoryType, sizeof(memoryType));
     encode(&hasReceiverCallback, sizeof(hasReceiverCallback));
     if (hasReceiverCallback) {
-      encode(&ownerSize, sizeof(ownerSize));
-      encode(receiverCallbackInfo->owner.c_str(), ownerSize);
+      encode(receiverCallbackInfo->owner.data(), AmReceiverCallbackOwnerType::storageSize());
       encode(&receiverCallbackInfo->id, sizeof(receiverCallbackInfo->id));
     }
     encode(&serializedMemoryTypePolicy, sizeof(serializedMemoryTypePolicy));
@@ -259,7 +256,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
           .at(amHeader.receiverCallbackInfo->id);
       } catch (const std::out_of_range& e) {
         ucxx_error("No AM receiver callback registered for owner '%s' with id %lu",
-                   std::string(amHeader.receiverCallbackInfo->owner).data(),
+                   amHeader.receiverCallbackInfo->owner.data(),
                    amHeader.receiverCallbackInfo->id);
       }
     }
