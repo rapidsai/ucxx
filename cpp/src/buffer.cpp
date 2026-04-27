@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iterator>
 #include <memory>
+#include <new>
 #include <utility>
 
 #include <ucxx/buffer.h>
@@ -28,6 +29,7 @@ size_t Buffer::getSize() const noexcept { return _size; }
 
 HostBuffer::HostBuffer(const size_t size) : Buffer(BufferType::Host, size), _buffer{malloc(size)}
 {
+  if (size > 0 && _buffer == nullptr) throw std::bad_alloc();
   ucxx_trace_data("ucxx::HostBuffer created: %p, buffer: %p, size: %lu", this, _buffer, size);
 }
 
