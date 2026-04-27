@@ -8,6 +8,8 @@ from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 np = pytest.importorskip("numpy")
 
+# Some CI nodes can be _very_ slow for large sized messages, generally only on
+# 4 or 8 messages, thus substantially increase the timeouts for 16MiB messages.
 msg_sizes = [2**i for i in range(0, 24, 4)] + [
     pytest.param(2**24, marks=pytest.mark.asyncio_timeout(240))
 ]
