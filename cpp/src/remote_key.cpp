@@ -138,7 +138,8 @@ void RemoteKey::deserialize(const SerializedRemoteKey& serializedRemoteKey)
 
   const size_t fixedFieldsSize =
     sizeof(_packedRemoteKeySize) + sizeof(_memoryBaseAddress) + sizeof(_memorySize);
-  if (_packedRemoteKeySize > serializedRemoteKeyData.size() - fixedFieldsSize)
+  if (serializedRemoteKeyData.size() < fixedFieldsSize ||
+      _packedRemoteKeySize > serializedRemoteKeyData.size() - fixedFieldsSize)
     throw std::overflow_error("Packed remote key size exceeds serialized data length");
 
   _packedRemoteKeyVector = std::vector<char>(_packedRemoteKeySize);
