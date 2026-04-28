@@ -69,6 +69,7 @@ async def test_send_recv_numpy(size, multi_size, dtype):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         np.testing.assert_array_equal(r.view(dtype), s)
+    await client.close()
     await wait_listener_client_handlers(listener)
 
 
@@ -88,6 +89,7 @@ async def test_send_recv_cupy(size, multi_size, dtype):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         cupy.testing.assert_array_equal(cupy.asarray(r).view(dtype), cupy.asarray(s))
+    await client.close()
     await wait_listener_client_handlers(listener)
 
 
@@ -109,4 +111,5 @@ async def test_send_recv_numba(size, multi_size, dtype):
         np.testing.assert_array_equal(
             r.copy_to_host().view(dtype), s.copy_to_host().view(dtype)
         )
+    await client.close()
     await wait_listener_client_handlers(listener)
