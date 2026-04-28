@@ -1,8 +1,10 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <stdexcept>
+#include <tuple>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -54,6 +56,11 @@ TEST_F(EndpointTest, IsAlive)
   _remoteContext = nullptr;
   _worker->progress();
   ASSERT_FALSE(ep->isAlive());
+}
+
+TEST(AddressTest, EmptyAddressRejected)
+{
+  EXPECT_THROW(std::ignore = ucxx::createAddressFromString(""), std::invalid_argument);
 }
 
 }  // namespace

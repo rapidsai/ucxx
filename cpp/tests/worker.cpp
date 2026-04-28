@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -874,6 +874,40 @@ TEST(WorkerBuilderTest, BuilderBackwardCompatibility)
   ASSERT_TRUE(worker2->getHandle() != nullptr);
   ASSERT_TRUE(worker2->isDelayedRequestSubmissionEnabled());
   ASSERT_TRUE(worker2->isFutureEnabled());
+}
+
+TEST(AmReceiverCallbackOwnerTypeTest, DefaultConstructsEmpty)
+{
+  ucxx::AmReceiverCallbackOwnerType owner;
+  EXPECT_EQ(std::string(owner.data()), "");
+}
+
+TEST(AmReceiverCallbackOwnerTypeTest, ConstructsFromString)
+{
+  ucxx::AmReceiverCallbackOwnerType owner("MyApp");
+  EXPECT_EQ(std::string(owner.data()), "MyApp");
+}
+
+TEST(AmReceiverCallbackOwnerTypeTest, MaxLengthAccepted)
+{
+  std::string maxLen(ucxx::AmReceiverCallbackOwnerMaxLen, 'x');
+  EXPECT_NO_THROW(ucxx::AmReceiverCallbackOwnerType(maxLen));
+}
+
+TEST(AmReceiverCallbackOwnerTypeTest, OversizedStringRejected)
+{
+  std::string tooLong(ucxx::AmReceiverCallbackOwnerMaxLen + 1, 'x');
+  EXPECT_THROW(
+    { [[maybe_unused]] ucxx::AmReceiverCallbackOwnerType owner(tooLong); }, std::invalid_argument);
+}
+
+TEST(AmReceiverCallbackOwnerTypeTest, EqualityComparison)
+{
+  ucxx::AmReceiverCallbackOwnerType a("Test");
+  ucxx::AmReceiverCallbackOwnerType b("Test");
+  ucxx::AmReceiverCallbackOwnerType c("Other");
+  EXPECT_EQ(a, b);
+  EXPECT_NE(a, c);
 }
 
 }  // namespace
