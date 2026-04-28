@@ -19,24 +19,6 @@ RequestMemBuilder::RequestMemBuilder(std::shared_ptr<Endpoint> endpoint,
 {
 }
 
-RequestMemBuilder& RequestMemBuilder::pythonFuture(bool enable)
-{
-  _enablePythonFuture = enable;
-  return *this;
-}
-
-RequestMemBuilder& RequestMemBuilder::callbackFunction(RequestCallbackUserFunction fn)
-{
-  _callbackFunction = std::move(fn);
-  return *this;
-}
-
-RequestMemBuilder& RequestMemBuilder::callbackData(RequestCallbackUserData data)
-{
-  _callbackData = std::move(data);
-  return *this;
-}
-
 std::shared_ptr<RequestMem> RequestMemBuilder::build() const
 {
   return ucxx::createRequestMem(

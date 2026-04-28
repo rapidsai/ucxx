@@ -20,24 +20,6 @@ RequestTagBuilder::RequestTagBuilder(
 {
 }
 
-RequestTagBuilder& RequestTagBuilder::pythonFuture(bool enable)
-{
-  _enablePythonFuture = enable;
-  return *this;
-}
-
-RequestTagBuilder& RequestTagBuilder::callbackFunction(RequestCallbackUserFunction fn)
-{
-  _callbackFunction = std::move(fn);
-  return *this;
-}
-
-RequestTagBuilder& RequestTagBuilder::callbackData(RequestCallbackUserData data)
-{
-  _callbackData = std::move(data);
-  return *this;
-}
-
 std::shared_ptr<RequestTag> RequestTagBuilder::build() const
 {
   return ucxx::createRequestTag(

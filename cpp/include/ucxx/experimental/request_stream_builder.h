@@ -8,6 +8,7 @@
 #include <utility>
 #include <variant>
 
+#include <ucxx/experimental/request_builder_base.h>
 #include <ucxx/request_data.h>
 
 namespace ucxx {
@@ -42,11 +43,10 @@ namespace experimental {
  *     ucxx::experimental::createRequestStream(endpoint, streamRecvData);
  * @endcode
  */
-class RequestStreamBuilder {
+class RequestStreamBuilder : public RequestBuilderBase<RequestStreamBuilder> {
  private:
   std::shared_ptr<Endpoint> _endpoint;                              ///< Parent endpoint (required)
   std::variant<data::StreamSend, data::StreamReceive> _requestData; ///< Request-specific data (required)
-  bool _enablePythonFuture{false};                                  ///< Enable Python future support
 
  public:
   /**
@@ -59,14 +59,6 @@ class RequestStreamBuilder {
   explicit RequestStreamBuilder(
     std::shared_ptr<Endpoint> endpoint,
     std::variant<data::StreamSend, data::StreamReceive> requestData);
-
-  /**
-   * @brief Configure Python future support.
-   *
-   * @param[in] enable whether a Python future should be created and notified (default: true).
-   * @return Reference to this builder for method chaining.
-   */
-  RequestStreamBuilder& pythonFuture(bool enable = true);
 
   /**
    * @brief Build and return the `RequestStream`.

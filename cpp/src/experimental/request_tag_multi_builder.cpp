@@ -20,12 +20,6 @@ RequestTagMultiBuilder::RequestTagMultiBuilder(
 {
 }
 
-RequestTagMultiBuilder& RequestTagMultiBuilder::pythonFuture(bool enable)
-{
-  _enablePythonFuture = enable;
-  return *this;
-}
-
 std::shared_ptr<RequestTagMulti> RequestTagMultiBuilder::build() const
 {
   return ucxx::createRequestTagMulti(_endpoint, _requestData, _enablePythonFuture);

@@ -18,24 +18,6 @@ RequestFlushBuilder::RequestFlushBuilder(std::shared_ptr<Component> endpointOrWo
 {
 }
 
-RequestFlushBuilder& RequestFlushBuilder::pythonFuture(bool enable)
-{
-  _enablePythonFuture = enable;
-  return *this;
-}
-
-RequestFlushBuilder& RequestFlushBuilder::callbackFunction(RequestCallbackUserFunction fn)
-{
-  _callbackFunction = std::move(fn);
-  return *this;
-}
-
-RequestFlushBuilder& RequestFlushBuilder::callbackData(RequestCallbackUserData data)
-{
-  _callbackData = std::move(data);
-  return *this;
-}
-
 std::shared_ptr<RequestFlush> RequestFlushBuilder::build() const
 {
   return ucxx::createRequestFlush(

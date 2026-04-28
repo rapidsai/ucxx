@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include <ucxx/experimental/request_builder_base.h>
 #include <ucxx/request_data.h>
 
 namespace ucxx {
@@ -43,13 +44,10 @@ namespace experimental {
  *     ucxx::experimental::createRequestEndpointClose(endpoint, closeData);
  * @endcode
  */
-class RequestEndpointCloseBuilder {
+class RequestEndpointCloseBuilder : public RequestCallbackBuilderBase<RequestEndpointCloseBuilder> {
  private:
-  std::shared_ptr<Endpoint> _endpoint;                    ///< Parent endpoint (required)
-  data::EndpointClose _requestData;                       ///< Request-specific data (required)
-  bool _enablePythonFuture{false};                        ///< Enable Python future support
-  RequestCallbackUserFunction _callbackFunction{nullptr}; ///< User callback on completion
-  RequestCallbackUserData _callbackData{nullptr};         ///< Data passed to callback
+  std::shared_ptr<Endpoint> _endpoint;  ///< Parent endpoint (required)
+  data::EndpointClose _requestData;     ///< Request-specific data (required)
 
  public:
   /**
@@ -60,30 +58,6 @@ class RequestEndpointCloseBuilder {
    */
   explicit RequestEndpointCloseBuilder(std::shared_ptr<Endpoint> endpoint,
                                        data::EndpointClose requestData);
-
-  /**
-   * @brief Configure Python future support.
-   *
-   * @param[in] enable whether a Python future should be created and notified (default: true).
-   * @return Reference to this builder for method chaining.
-   */
-  RequestEndpointCloseBuilder& pythonFuture(bool enable = true);
-
-  /**
-   * @brief Set the user-defined callback function to call upon completion.
-   *
-   * @param[in] fn user-defined callback function.
-   * @return Reference to this builder for method chaining.
-   */
-  RequestEndpointCloseBuilder& callbackFunction(RequestCallbackUserFunction fn);
-
-  /**
-   * @brief Set the user-defined data to pass to the callback function.
-   *
-   * @param[in] data user-defined data passed to `callbackFunction`.
-   * @return Reference to this builder for method chaining.
-   */
-  RequestEndpointCloseBuilder& callbackData(RequestCallbackUserData data);
 
   /**
    * @brief Build and return the `RequestEndpointClose`.

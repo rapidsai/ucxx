@@ -8,6 +8,7 @@
 #include <utility>
 #include <variant>
 
+#include <ucxx/experimental/request_builder_base.h>
 #include <ucxx/request_data.h>
 
 namespace ucxx {
@@ -44,14 +45,11 @@ namespace experimental {
  *     ucxx::experimental::createRequestTag(endpointOrWorker, tagRecvData);
  * @endcode
  */
-class RequestTagBuilder {
+class RequestTagBuilder : public RequestCallbackBuilderBase<RequestTagBuilder> {
  private:
-  std::shared_ptr<Component> _endpointOrWorker;           ///< Parent endpoint or worker (required)
+  std::shared_ptr<Component> _endpointOrWorker;  ///< Parent endpoint or worker (required)
   std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle>
-    _requestData;                                         ///< Request-specific data (required)
-  bool _enablePythonFuture{false};                        ///< Enable Python future support
-  RequestCallbackUserFunction _callbackFunction{nullptr}; ///< User callback on completion
-  RequestCallbackUserData _callbackData{nullptr};         ///< Data passed to callback
+    _requestData;                                ///< Request-specific data (required)
 
  public:
   /**
@@ -65,30 +63,6 @@ class RequestTagBuilder {
   explicit RequestTagBuilder(
     std::shared_ptr<Component> endpointOrWorker,
     std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData);
-
-  /**
-   * @brief Configure Python future support.
-   *
-   * @param[in] enable whether a Python future should be created and notified (default: true).
-   * @return Reference to this builder for method chaining.
-   */
-  RequestTagBuilder& pythonFuture(bool enable = true);
-
-  /**
-   * @brief Set the user-defined callback function to call upon completion.
-   *
-   * @param[in] fn user-defined callback function.
-   * @return Reference to this builder for method chaining.
-   */
-  RequestTagBuilder& callbackFunction(RequestCallbackUserFunction fn);
-
-  /**
-   * @brief Set the user-defined data to pass to the callback function.
-   *
-   * @param[in] data user-defined data passed to `callbackFunction`.
-   * @return Reference to this builder for method chaining.
-   */
-  RequestTagBuilder& callbackData(RequestCallbackUserData data);
 
   /**
    * @brief Build and return the `RequestTag`.

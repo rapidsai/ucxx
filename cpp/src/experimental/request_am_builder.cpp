@@ -19,24 +19,6 @@ RequestAmBuilder::RequestAmBuilder(std::shared_ptr<Endpoint> endpoint,
 {
 }
 
-RequestAmBuilder& RequestAmBuilder::pythonFuture(bool enable)
-{
-  _enablePythonFuture = enable;
-  return *this;
-}
-
-RequestAmBuilder& RequestAmBuilder::callbackFunction(RequestCallbackUserFunction fn)
-{
-  _callbackFunction = std::move(fn);
-  return *this;
-}
-
-RequestAmBuilder& RequestAmBuilder::callbackData(RequestCallbackUserData data)
-{
-  _callbackData = std::move(data);
-  return *this;
-}
-
 std::shared_ptr<RequestAm> RequestAmBuilder::build() const
 {
   return ucxx::createRequestAm(

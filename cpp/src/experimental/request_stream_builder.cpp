@@ -20,12 +20,6 @@ RequestStreamBuilder::RequestStreamBuilder(
 {
 }
 
-RequestStreamBuilder& RequestStreamBuilder::pythonFuture(bool enable)
-{
-  _enablePythonFuture = enable;
-  return *this;
-}
-
 std::shared_ptr<RequestStream> RequestStreamBuilder::build() const
 {
   return ucxx::createRequestStream(_endpoint, _requestData, _enablePythonFuture);

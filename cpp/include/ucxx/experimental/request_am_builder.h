@@ -8,6 +8,7 @@
 #include <utility>
 #include <variant>
 
+#include <ucxx/experimental/request_builder_base.h>
 #include <ucxx/request_data.h>
 
 namespace ucxx {
@@ -44,13 +45,10 @@ namespace experimental {
  *     ucxx::experimental::createRequestAm(endpoint, amReceiveData);
  * @endcode
  */
-class RequestAmBuilder {
+class RequestAmBuilder : public RequestCallbackBuilderBase<RequestAmBuilder> {
  private:
-  std::shared_ptr<Endpoint> _endpoint;                    ///< Parent endpoint (required)
+  std::shared_ptr<Endpoint> _endpoint;                      ///< Parent endpoint (required)
   std::variant<data::AmSend, data::AmReceive> _requestData; ///< Request-specific data (required)
-  bool _enablePythonFuture{false};                        ///< Enable Python future support
-  RequestCallbackUserFunction _callbackFunction{nullptr}; ///< User callback on completion
-  RequestCallbackUserData _callbackData{nullptr};         ///< Data passed to callback
 
  public:
   /**
@@ -62,30 +60,6 @@ class RequestAmBuilder {
    */
   explicit RequestAmBuilder(std::shared_ptr<Endpoint> endpoint,
                             std::variant<data::AmSend, data::AmReceive> requestData);
-
-  /**
-   * @brief Configure Python future support.
-   *
-   * @param[in] enable whether a Python future should be created and notified (default: true).
-   * @return Reference to this builder for method chaining.
-   */
-  RequestAmBuilder& pythonFuture(bool enable = true);
-
-  /**
-   * @brief Set the user-defined callback function to call upon completion.
-   *
-   * @param[in] fn user-defined callback function.
-   * @return Reference to this builder for method chaining.
-   */
-  RequestAmBuilder& callbackFunction(RequestCallbackUserFunction fn);
-
-  /**
-   * @brief Set the user-defined data to pass to the callback function.
-   *
-   * @param[in] data user-defined data passed to `callbackFunction`.
-   * @return Reference to this builder for method chaining.
-   */
-  RequestAmBuilder& callbackData(RequestCallbackUserData data);
 
   /**
    * @brief Build and return the `RequestAm`.

@@ -18,26 +18,6 @@ RequestEndpointCloseBuilder::RequestEndpointCloseBuilder(std::shared_ptr<Endpoin
 {
 }
 
-RequestEndpointCloseBuilder& RequestEndpointCloseBuilder::pythonFuture(bool enable)
-{
-  _enablePythonFuture = enable;
-  return *this;
-}
-
-RequestEndpointCloseBuilder& RequestEndpointCloseBuilder::callbackFunction(
-  RequestCallbackUserFunction fn)
-{
-  _callbackFunction = std::move(fn);
-  return *this;
-}
-
-RequestEndpointCloseBuilder& RequestEndpointCloseBuilder::callbackData(
-  RequestCallbackUserData data)
-{
-  _callbackData = std::move(data);
-  return *this;
-}
-
 std::shared_ptr<RequestEndpointClose> RequestEndpointCloseBuilder::build() const
 {
   return ucxx::createRequestEndpointClose(
