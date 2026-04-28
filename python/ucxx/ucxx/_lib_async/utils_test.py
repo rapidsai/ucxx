@@ -199,6 +199,12 @@ async def am_recv(ep):
 async def wait_listener_client_handlers(listener, timeout=None):
     loop = asyncio.get_event_loop()
     deadline = (loop.time() + timeout) if timeout is not None else None
+    # If this coroutine is cancelled (e.g., by asyncio.wait_for test timeout)
+    # while handlers are still active, we defer the CancelledError until all
+    # handlers finish.  Raising immediately would let the Listener be GC'd
+    # while a handler holds an in-flight CUDA transfer, which races with the
+    # UCX progress thread and causes a segfault.
+    cancelled = False
     while listener.active_clients > 0:
         if deadline is not None and loop.time() >= deadline:
             raise asyncio.TimeoutError(
@@ -208,6 +214,17 @@ async def wait_listener_client_handlers(listener, timeout=None):
         # Minimal delay to yield to the event loop so call_soon_threadsafe callbacks
         # run. Using a very short positive sleep ensures pending callbacks are
         # processed and significantly reduces "coroutine never awaited" warnings.
-        await asyncio.sleep(1e-9)
+        try:
+            await asyncio.sleep(1e-9)
+        except asyncio.CancelledError:
+            cancelled = True
+            # Python 3.11+ tracks cancellation depth; calling uncancel() lets
+            # this loop continue iterating rather than being re-cancelled on
+            # the very next await.
+            task = asyncio.current_task()
+            if task is not None and hasattr(task, "uncancel"):
+                task.uncancel()
         if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
             ucxx.progress()
+    if cancelled:
+        raise asyncio.CancelledError()
