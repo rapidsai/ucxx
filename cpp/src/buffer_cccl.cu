@@ -23,6 +23,9 @@ struct CCCLBufferImpl {
   using cccl_buffer_type = ::cuda::buffer<::cuda::std::byte, ::cuda::mr::device_accessible>;
   cccl_buffer_type buffer;
 
+  // CCCL's cuda::device_default_memory_pool() requires an active CUDA primary context.
+  // Unlike RMM (which initializes context internally via its device resource setup),
+  // CCCL needs explicit initialization. cudaFree(0) is the standard zero-cost idiom.
   static auto get_device_pool() {
     cudaFree(0);  // Ensure CUDA primary context is initialized
     return ::cuda::device_default_memory_pool(::cuda::device_ref{0});
@@ -34,39 +37,37 @@ struct CCCLBufferImpl {
 };
 
 CCCLBuffer::CCCLBuffer(const size_t size)
-  : Buffer(BufferType::CCCL, size), _impl{new CCCLBufferImpl(size)}
+  : Buffer(BufferType::CCCL, size), _impl{std::make_unique<CCCLBufferImpl>(size)}
 {
-  ucxx_trace_data("ucxx::CCCLBuffer created: %p, impl: %p, size: %lu", this, _impl, size);
+  ucxx_trace_data("ucxx::CCCLBuffer created: %p, impl: %p, size: %lu", this, _impl.get(), size);
 }
 
 CCCLBuffer::CCCLBuffer(CCCLBufferImpl* impl)
   : Buffer(BufferType::CCCL, impl->buffer.size()), _impl{impl}
 {
-  ucxx_trace_data("ucxx::CCCLBuffer created: %p, impl: %p, size: %lu", this, _impl, _size);
+  ucxx_trace_data("ucxx::CCCLBuffer created: %p, impl: %p, size: %lu", this, _impl.get(), _size);
 }
 
-CCCLBuffer::~CCCLBuffer()
-{
-  delete _impl;
-  _impl = nullptr;
-}
+CCCLBuffer::~CCCLBuffer() = default;
 
 CCCLBufferImpl* CCCLBuffer::release()
 {
-  ucxx_trace_data("ucxx::CCCLBuffer::%s, CCCLBuffer: %p, _impl: %p", __func__, this, _impl);
+  ucxx_trace_data("ucxx::CCCLBuffer::%s, CCCLBuffer: %p, _impl: %p", __func__, this, _impl.get());
   if (!_impl) throw std::runtime_error("Invalid object or already released");
 
   _bufferType = ucxx::BufferType::Invalid;
   _size       = 0;
 
-  return std::exchange(_impl, nullptr);
+  return _impl.release();
 }
 
 void* CCCLBuffer::data()
 {
-  ucxx_trace_data("ucxx::CCCLBuffer::%s, CCCLBuffer: %p, impl: %p", __func__, this, _impl);
+  ucxx_trace_data("ucxx::CCCLBuffer::%s, CCCLBuffer: %p, impl: %p", __func__, this, _impl.get());
   if (!_impl) throw std::runtime_error("Invalid object or already released");
 
+  // Explicit cast required: cuda::buffer::data() returns cuda::std::byte*, not void*.
+  // RMMBuffer::data() needs no cast since rmm::device_buffer::data() returns void* directly.
   return static_cast<void*>(_impl->buffer.data());
 }
 

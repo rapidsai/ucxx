@@ -912,6 +912,9 @@ inline std::unique_ptr<RmmBufferInterfaceBase> RmmBufferInterfaceBase::createBuf
 
 namespace cccl_benchmark_detail {
 
+// CCCL benchmarks use nullptr (the default CUDA stream) for async operations because
+// CCCLBuffer is constructed with cudaStream_t{0} and does not expose a per-buffer stream.
+// Compare with RMM where each rmm::device_buffer owns its own stream (accessed via send.stream()).
 inline void initialize_send_pattern(ucxx::CCCLBuffer& send, std::size_t messageSize)
 {
   std::vector<char> pattern(messageSize, 0xaa);

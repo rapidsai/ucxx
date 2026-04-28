@@ -195,6 +195,9 @@ cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length) noexcept nogil:
     cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
     return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
 
+# Unlike RMM which has a Python DeviceBuffer class (from the rmm package),
+# CCCL has no Python buffer equivalent. This wrapper provides __cuda_array_interface__
+# for interoperability with CuPy/cuDF without requiring an external CCCL Python package.
 IF UCXX_ENABLE_CCCL:
     cdef class _CCCLBufferWrapper:
         """Wraps a CCCLBuffer device pointer as cuda_array_interface object."""
@@ -653,6 +656,9 @@ cdef class UCXWorker():
                     UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
                 )
 
+            # When both RMM and CCCL are enabled, CCCL registration intentionally
+            # overwrites RMM's UCS_MEMORY_TYPE_CUDA allocator. This implements
+            # the "CCCL priority over RMM" design decision: isCUDA uses CCCL.
             IF UCXX_ENABLE_CCCL:
                 if self._context_feature_flags & UCP_FEATURE_AM:
                     cccl_am_allocator = <AmAllocatorType>(&_cccl_am_allocator)
