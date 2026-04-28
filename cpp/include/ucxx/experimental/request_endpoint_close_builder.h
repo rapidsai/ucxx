@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -88,8 +88,8 @@ class RequestEndpointCloseBuilder : public RequestCallbackBuilderBase<RequestEnd
  * @param[in] requestData  container of the endpoint close request data (required).
  * @return A RequestEndpointCloseBuilder object that can be used to set optional parameters.
  */
-inline RequestEndpointCloseBuilder createRequestEndpointClose(
-  std::shared_ptr<Endpoint> endpoint, data::EndpointClose requestData)
+inline RequestEndpointCloseBuilder createRequestEndpointClose(std::shared_ptr<Endpoint> endpoint,
+                                                              data::EndpointClose requestData)
 {
   return RequestEndpointCloseBuilder(std::move(endpoint), std::move(requestData));
 }

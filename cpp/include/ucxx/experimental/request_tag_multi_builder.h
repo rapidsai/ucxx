@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -45,9 +45,9 @@ namespace experimental {
  */
 class RequestTagMultiBuilder : public RequestBuilderBase<RequestTagMultiBuilder> {
  private:
-  std::shared_ptr<Endpoint> _endpoint;                            ///< Parent endpoint (required)
+  std::shared_ptr<Endpoint> _endpoint;  ///< Parent endpoint (required)
   std::variant<data::TagMultiSend, data::TagMultiReceive>
-    _requestData;                                                 ///< Request-specific data (required)
+    _requestData;  ///< Request-specific data (required)
 
  public:
   /**

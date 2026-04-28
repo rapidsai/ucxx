@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -49,7 +49,7 @@ class RequestTagBuilder : public RequestCallbackBuilderBase<RequestTagBuilder> {
  private:
   std::shared_ptr<Component> _endpointOrWorker;  ///< Parent endpoint or worker (required)
   std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle>
-    _requestData;                                ///< Request-specific data (required)
+    _requestData;  ///< Request-specific data (required)
 
  public:
   /**

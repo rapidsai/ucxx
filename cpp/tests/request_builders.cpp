@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -64,8 +64,9 @@ TEST_F(RequestBuilderTest, FlushBuilderBasicEndpoint)
 
 TEST_F(RequestBuilderTest, FlushBuilderWithPythonFuture)
 {
-  auto req =
-    ucxx::experimental::createRequestFlush(_worker, ucxx::data::Flush{}).pythonFuture(false).build();
+  auto req = ucxx::experimental::createRequestFlush(_worker, ucxx::data::Flush{})
+               .pythonFuture(false)
+               .build();
 
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
@@ -132,8 +133,7 @@ TEST_F(RequestBuilderTest, TagBuilderWithPythonFuture)
   auto recvData =
     ucxx::data::TagReceive(recvBuf.data(), recvBuf.size() * sizeof(int), tag, ucxx::TagMaskFull);
 
-  auto sendReq =
-    ucxx::experimental::createRequestTag(_ep, sendData).pythonFuture(false).build();
+  auto sendReq = ucxx::experimental::createRequestTag(_ep, sendData).pythonFuture(false).build();
   auto recvReq =
     ucxx::experimental::createRequestTag(_worker, recvData).pythonFuture(false).build();
 
@@ -156,8 +156,7 @@ TEST_F(RequestBuilderTest, TagBuilderImplicitConversion)
   auto recvData =
     ucxx::data::TagReceive(recvBuf.data(), recvBuf.size() * sizeof(int), tag, ucxx::TagMaskFull);
 
-  std::shared_ptr<ucxx::RequestTag> sendReq =
-    ucxx::experimental::createRequestTag(_ep, sendData);
+  std::shared_ptr<ucxx::RequestTag> sendReq = ucxx::experimental::createRequestTag(_ep, sendData);
   std::shared_ptr<ucxx::RequestTag> recvReq =
     ucxx::experimental::createRequestTag(_worker, recvData);
 
@@ -179,10 +178,10 @@ TEST_F(RequestBuilderTest, StreamBuilderSendReceivePair)
   std::vector<int> sendBuf{10, 20};
   std::vector<int> recvBuf(2);
 
-  auto sendData  = ucxx::data::StreamSend(sendBuf.data(), sendBuf.size() * sizeof(int));
-  auto recvData  = ucxx::data::StreamReceive(recvBuf.data(), recvBuf.size() * sizeof(int));
-  auto sendReq   = ucxx::experimental::createRequestStream(_ep, sendData).build();
-  auto recvReq   = ucxx::experimental::createRequestStream(_ep, recvData).build();
+  auto sendData = ucxx::data::StreamSend(sendBuf.data(), sendBuf.size() * sizeof(int));
+  auto recvData = ucxx::data::StreamReceive(recvBuf.data(), recvBuf.size() * sizeof(int));
+  auto sendReq  = ucxx::experimental::createRequestStream(_ep, sendData).build();
+  auto recvReq  = ucxx::experimental::createRequestStream(_ep, recvData).build();
 
   ASSERT_TRUE(sendReq != nullptr);
   ASSERT_TRUE(recvReq != nullptr);
@@ -225,8 +224,9 @@ TEST_F(RequestBuilderTest, StreamBuilderImplicitConversion)
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderAutoType)
 {
-  auto ep      = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
-  auto builder = ucxx::experimental::createRequestEndpointClose(ep, ucxx::data::EndpointClose{false});
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto builder =
+    ucxx::experimental::createRequestEndpointClose(ep, ucxx::data::EndpointClose{false});
   static_assert(
     std::is_same<decltype(builder), ucxx::experimental::RequestEndpointCloseBuilder>::value,
     "auto without .build() is RequestEndpointCloseBuilder");
@@ -238,10 +238,11 @@ TEST_F(RequestBuilderTest, EndpointCloseBuilderMethodChaining)
 
   ucxx::RequestCallbackUserFunction callbackFn{nullptr};
   ucxx::RequestCallbackUserData callbackData{nullptr};
-  auto builder = ucxx::experimental::createRequestEndpointClose(ep, ucxx::data::EndpointClose{false})
-                   .pythonFuture(false)
-                   .callbackFunction(callbackFn)
-                   .callbackData(callbackData);
+  auto builder =
+    ucxx::experimental::createRequestEndpointClose(ep, ucxx::data::EndpointClose{false})
+      .pythonFuture(false)
+      .callbackFunction(callbackFn)
+      .callbackData(callbackData);
 
   static_assert(
     std::is_same<decltype(builder), ucxx::experimental::RequestEndpointCloseBuilder>::value,
@@ -258,25 +259,23 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
   auto tag = ucxx::Tag{0};
 
   // RequestTagBuilder
-  auto tagBuilder = ucxx::experimental::createRequestTag(
-    _ep, ucxx::data::TagSend(buf.data(), sizeof(int), tag));
-  static_assert(
-    std::is_same<decltype(tagBuilder), ucxx::experimental::RequestTagBuilder>::value,
-    "auto without .build() is RequestTagBuilder");
+  auto tagBuilder =
+    ucxx::experimental::createRequestTag(_ep, ucxx::data::TagSend(buf.data(), sizeof(int), tag));
+  static_assert(std::is_same<decltype(tagBuilder), ucxx::experimental::RequestTagBuilder>::value,
+                "auto without .build() is RequestTagBuilder");
 
   // RequestAmBuilder
-  auto amBuilder = ucxx::experimental::createRequestAm(
-    _ep, ucxx::data::AmSend(buf.data(), sizeof(int)));
-  static_assert(
-    std::is_same<decltype(amBuilder), ucxx::experimental::RequestAmBuilder>::value,
-    "auto without .build() is RequestAmBuilder");
+  auto amBuilder =
+    ucxx::experimental::createRequestAm(_ep, ucxx::data::AmSend(buf.data(), sizeof(int)));
+  static_assert(std::is_same<decltype(amBuilder), ucxx::experimental::RequestAmBuilder>::value,
+                "auto without .build() is RequestAmBuilder");
 
   // RequestMemBuilder - just test the builder type, don't build (needs real rkey)
   // (ucp_rkey_h cannot be constructed in tests without remote memory registration)
 
   // RequestStreamBuilder
-  auto streamBuilder = ucxx::experimental::createRequestStream(
-    _ep, ucxx::data::StreamSend(buf.data(), sizeof(int)));
+  auto streamBuilder =
+    ucxx::experimental::createRequestStream(_ep, ucxx::data::StreamSend(buf.data(), sizeof(int)));
   static_assert(
     std::is_same<decltype(streamBuilder), ucxx::experimental::RequestStreamBuilder>::value,
     "auto without .build() is RequestStreamBuilder");
@@ -309,9 +308,8 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
 
   // Verify .build() types
   auto flushReq = flushBuilder.build();
-  static_assert(
-    std::is_same<decltype(flushReq), std::shared_ptr<ucxx::RequestFlush>>::value,
-    "calling .build() on RequestFlushBuilder returns shared_ptr<RequestFlush>");
+  static_assert(std::is_same<decltype(flushReq), std::shared_ptr<ucxx::RequestFlush>>::value,
+                "calling .build() on RequestFlushBuilder returns shared_ptr<RequestFlush>");
 
   ASSERT_TRUE(flushReq != nullptr);
   progressUntilCompleted(flushReq);

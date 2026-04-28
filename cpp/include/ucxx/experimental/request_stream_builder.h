@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -45,8 +45,9 @@ namespace experimental {
  */
 class RequestStreamBuilder : public RequestBuilderBase<RequestStreamBuilder> {
  private:
-  std::shared_ptr<Endpoint> _endpoint;                              ///< Parent endpoint (required)
-  std::variant<data::StreamSend, data::StreamReceive> _requestData; ///< Request-specific data (required)
+  std::shared_ptr<Endpoint> _endpoint;  ///< Parent endpoint (required)
+  std::variant<data::StreamSend, data::StreamReceive>
+    _requestData;  ///< Request-specific data (required)
 
  public:
   /**
@@ -56,9 +57,8 @@ class RequestStreamBuilder : public RequestBuilderBase<RequestStreamBuilder> {
    * @param[in] requestData  container of the specified message type, including all
    *                         type-specific data.
    */
-  explicit RequestStreamBuilder(
-    std::shared_ptr<Endpoint> endpoint,
-    std::variant<data::StreamSend, data::StreamReceive> requestData);
+  explicit RequestStreamBuilder(std::shared_ptr<Endpoint> endpoint,
+                                std::variant<data::StreamSend, data::StreamReceive> requestData);
 
   /**
    * @brief Build and return the `RequestStream`.
