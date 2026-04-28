@@ -1,11 +1,10 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <memory>
-#include <utility>
 
 #include <ucxx/log.h>
 
@@ -15,7 +14,6 @@ class device_buffer;
 }  // namespace rmm
 
 namespace ucxx {
-
 /**
  * @brief The type of a buffer.
  *
@@ -24,6 +22,7 @@ namespace ucxx {
 enum class BufferType {
   Host = 0,
   RMM,
+  CCCL,
   Invalid,
 };
 
@@ -193,7 +192,7 @@ class HostBuffer : public Buffer {
    *
    * @return the void pointer to the buffer.
    */
-  [[nodiscard]] virtual void* data();
+  [[nodiscard]] void* data() override;
 };
 
 #if UCXX_ENABLE_RMM
@@ -286,7 +285,75 @@ class RMMBuffer : public Buffer {
    *
    * @return the void pointer to the device buffer.
    */
-  [[nodiscard]] virtual void* data();
+  [[nodiscard]] void* data() override;
+};
+#endif
+
+#if UCXX_ENABLE_CCCL
+/**
+ * @brief Opaque implementation struct for CCCLBuffer (defined in buffer_cccl.cu).
+ * Users should NOT access this type directly.
+ */
+struct CCCLBufferImpl;
+
+/**
+ * @brief A simple object containing a CCCL (CUDA) buffer.
+ *
+ * A buffer encapsulating a CCCL (CUDA) buffer with its properties.
+ */
+class CCCLBuffer : public Buffer {
+ private:
+  CCCLBufferImpl* _impl{nullptr};  ///< Opaque pointer to CCCL buffer implementation
+
+ public:
+  CCCLBuffer()                             = delete;
+  CCCLBuffer(const CCCLBuffer&)            = delete;
+  CCCLBuffer& operator=(CCCLBuffer const&) = delete;
+  CCCLBuffer(CCCLBuffer&& o)               = delete;
+  CCCLBuffer& operator=(CCCLBuffer&& o)    = delete;
+
+  ~CCCLBuffer() override;
+
+  /**
+   * @brief Constructor of concrete type `CCCLBuffer`.
+   *
+   * Constructor to materialize a buffer holding device memory.
+   *
+   * @param[in] size the size of the device buffer to allocate.
+   */
+  explicit CCCLBuffer(const size_t size);
+
+  /**
+   * @brief Construct from an existing CCCLBufferImpl.
+   *
+   * Takes ownership of the implementation pointer.
+   *
+   * @param[in] impl opaque pointer to CCCL buffer implementation (takes ownership).
+   */
+  explicit CCCLBuffer(CCCLBufferImpl* impl);
+
+  /**
+   * @brief Release the allocated CCCL buffer implementation to the caller.
+   *
+   * Release ownership of the CCCLBufferImpl to the caller. After this
+   * method is called, the caller becomes responsible for deleting the pointer.
+   *
+   * The original `CCCLBuffer` object becomes invalid.
+   *
+   * @throws std::runtime_error if object has been released.
+   *
+   * @return the opaque pointer to the CCCL buffer implementation.
+   */
+  [[nodiscard]] CCCLBufferImpl* release();
+
+  /**
+   * @brief Get a pointer to the allocated raw device buffer.
+   *
+   * @throws std::runtime_error if object has been released.
+   *
+   * @return the void pointer to the device buffer.
+   */
+  [[nodiscard]] void* data() override;
 };
 #endif
 
