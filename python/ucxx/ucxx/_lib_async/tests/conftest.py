@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import functools
 import gc
 import inspect
 import os
@@ -110,6 +111,39 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     if timeout <= 0.0:
         raise ValueError("The `pytest.mark.asyncio_timeout` value must be positive.")
     item.config.stash[ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY] = timeout
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_call(item: pytest.Item):
+    """
+    Inject the asyncio timeout BEFORE pytest-asyncio applies its MonkeyPatch.
+
+    In pytest-asyncio 1.3.0 (asyncio_mode=auto) + Python 3.14, the framework
+    replaces ``item.obj`` with a sync wrapper inside
+    ``PytestAsyncioFunction.runtest()``, which is called during
+    ``pytest_runtest_call``.  By the time ``pytest_pyfunc_call`` fires,
+    ``item.obj`` is already a sync function and
+    ``inspect.iscoroutinefunction()`` returns False.  Wrapping here instead
+    guarantees ``asyncio.wait_for`` is present in the coroutine that
+    pytest-asyncio eventually passes to its ``asyncio.Runner``.
+    """
+    if isinstance(item, pytest.Function) and inspect.iscoroutinefunction(item.obj):
+        timeout = _asyncio_plugin_timeout_seconds(item)
+        if timeout > 0.0:
+            original = item.obj
+            test_name = item.name
+
+            @functools.wraps(original)
+            async def timed_coroutine(*args, **kwargs):
+                try:
+                    return await asyncio.wait_for(
+                        original(*args, **kwargs), timeout=timeout
+                    )
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pytest.fail(f"{test_name} timed out after {timeout} seconds.")
+
+            item.obj = timed_coroutine
+    yield
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
