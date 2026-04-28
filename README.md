@@ -120,6 +120,35 @@ $ ./benchmarks/ucxx_perftest -m cuda-async -s 1048576 -n 10 127.0.0.1
 
 It is recommended to use `UCX_TCP_CM_REUSEADDR=y` when binding to interfaces with TCP support to prevent waiting for the process' `TIME_WAIT` state to complete, which often takes 60 seconds after the server has terminated.
 
+#### CCCL Memory Support
+
+When built with `UCXX_ENABLE_CCCL=ON`, additional CCCL-based memory types are available:
+
+```
+# Server with CCCL device memory pool
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cccl-device -s 1048576 -n 10 &
+
+# Client with CCCL device memory pool
+$ ./benchmarks/ucxx_perftest -m cccl-device -s 1048576 -n 10 127.0.0.1
+
+# Server with CCCL shared memory resource
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cccl-shared -s 1048576 -n 10 &
+
+# Client with CCCL shared memory resource
+$ ./benchmarks/ucxx_perftest -m cccl-shared -s 1048576 -n 10 127.0.0.1
+```
+
+**Additional CCCL Memory Types (with `-DUCXX_ENABLE_CCCL=ON`):**
+- `cccl-device` - CCCL device memory pool
+- `cccl-shared` - CCCL shared memory resource
+- `cccl-cuda-async` - CCCL CUDA async memory resource
+- `cccl-cuda-async-managed` - CCCL CUDA async managed memory resource
+
+**Requirements for CCCL Support:**
+- UCXX compiled with `UCXX_ENABLE_CCCL=ON`
+- CCCL library available (fetched automatically via CMake)
+- CUDA 12+ runtime
+
 ### Python
 
 Benchmarks are available for both the Python "core" (synchronous) API and the "high-level" (asynchronous) API.
