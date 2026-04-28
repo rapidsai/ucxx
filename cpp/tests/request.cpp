@@ -58,6 +58,36 @@ class RequestTest : public ::testing::TestWithParam<
   std::vector<const void*> _sendPtr{nullptr};
   std::vector<void*> _recvPtr{nullptr};
 
+  void buildWorker(bool enableRequestAttributes)
+  {
+    _worker = ucxx::experimental::createWorker(_context)
+                .delayedSubmission(_enableDelayedSubmission)
+                .requestAttributes(enableRequestAttributes)
+                .build();
+
+    if (_progressMode == ProgressMode::Blocking) {
+      _worker->initBlockingProgressMode();
+    } else if (_progressMode == ProgressMode::ThreadPolling ||
+               _progressMode == ProgressMode::ThreadBlocking) {
+      _worker->setProgressThreadStartCallback(::createCudaContextCallback, nullptr);
+
+      if (_progressMode == ProgressMode::ThreadPolling) _worker->startProgressThread(true);
+      if (_progressMode == ProgressMode::ThreadBlocking) _worker->startProgressThread(false);
+    }
+
+    _progressWorker = getProgressFunction(_worker, _progressMode);
+
+    _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  }
+
+  void rebuildWorker(bool enableRequestAttributes)
+  {
+    if (_worker && _worker->isProgressThreadRunning()) _worker->stopProgressThread();
+    _ep.reset();
+    _worker.reset();
+    buildWorker(enableRequestAttributes);
+  }
+
   void SetUp()
   {
     std::tie(_bufferType,
@@ -78,24 +108,7 @@ class RequestTest : public ::testing::TestWithParam<
 
     _context = ucxx::createContext({{"RNDV_THRESH", std::to_string(_rndvThresh)}},
                                    ucxx::Context::defaultFeatureFlags);
-    _worker  = ucxx::experimental::createWorker(_context)
-                .delayedSubmission(_enableDelayedSubmission)
-                .requestAttributes(true)
-                .build();
-
-    if (_progressMode == ProgressMode::Blocking) {
-      _worker->initBlockingProgressMode();
-    } else if (_progressMode == ProgressMode::ThreadPolling ||
-               _progressMode == ProgressMode::ThreadBlocking) {
-      _worker->setProgressThreadStartCallback(::createCudaContextCallback, nullptr);
-
-      if (_progressMode == ProgressMode::ThreadPolling) _worker->startProgressThread(true);
-      if (_progressMode == ProgressMode::ThreadBlocking) _worker->startProgressThread(false);
-    }
-
-    _progressWorker = getProgressFunction(_worker, _progressMode);
-
-    _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    buildWorker(false);
   }
 
   void TearDown()
@@ -484,6 +497,8 @@ TEST_P(RequestTest, ProgressStream)
 
 TEST_P(RequestTest, ProgressTag)
 {
+  rebuildWorker(true);
+
   allocate();
 
   // Submit and wait for transfers to complete
@@ -504,6 +519,25 @@ TEST_P(RequestTest, ProgressTag)
   copyResults();
 
   // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, ProgressTagRequestAttributesDisabled)
+{
+  ASSERT_FALSE(_worker->isRequestAttributesEnabled());
+
+  allocate();
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
+  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  waitRequests(_worker, requests, _progressWorker);
+
+  for (const auto& request : requests) {
+    EXPECT_THROW(std::ignore = request->getRequestAttributes(), ucxx::Error);
+  }
+
+  copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
