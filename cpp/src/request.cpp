@@ -246,6 +246,7 @@ void Request::queryRequestAttributes()
   std::lock_guard<std::recursive_mutex> lock(_mutex);
 
   if (_isRequestAttrValid) return;
+  if (!_worker->isRequestAttributesEnabled()) return;
 
   ucp_request_attr_t result;
 

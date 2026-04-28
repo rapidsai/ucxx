@@ -78,7 +78,10 @@ class RequestTest : public ::testing::TestWithParam<
 
     _context = ucxx::createContext({{"RNDV_THRESH", std::to_string(_rndvThresh)}},
                                    ucxx::Context::defaultFeatureFlags);
-    _worker  = _context->createWorker(_enableDelayedSubmission);
+    _worker  = ucxx::experimental::createWorker(_context)
+                .delayedSubmission(_enableDelayedSubmission)
+                .requestAttributes(true)
+                .build();
 
     if (_progressMode == ProgressMode::Blocking) {
       _worker->initBlockingProgressMode();

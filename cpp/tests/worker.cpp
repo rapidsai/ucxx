@@ -887,6 +887,35 @@ TEST(WorkerBuilderTest, BuilderBackwardCompatibility)
   ASSERT_TRUE(worker2->isFutureEnabled());
 }
 
+TEST(WorkerBuilderTest, RequestAttributesDefaultDisabled)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker  = ucxx::experimental::createWorker(context).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_FALSE(worker->isRequestAttributesEnabled());
+}
+
+TEST(WorkerBuilderTest, RequestAttributesEnabled)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker  = ucxx::experimental::createWorker(context).requestAttributes(true).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_TRUE(worker->isRequestAttributesEnabled());
+  ASSERT_FALSE(worker->isDelayedRequestSubmissionEnabled());
+  ASSERT_FALSE(worker->isFutureEnabled());
+}
+
+TEST(WorkerBuilderTest, RequestAttributesExplicitDisable)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker  = ucxx::experimental::createWorker(context).requestAttributes(false).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_FALSE(worker->isRequestAttributesEnabled());
+}
+
 TEST(AmReceiverCallbackOwnerTypeTest, DefaultConstructsEmpty)
 {
   ucxx::AmReceiverCallbackOwnerType owner;

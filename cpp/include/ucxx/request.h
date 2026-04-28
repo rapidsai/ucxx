@@ -249,10 +249,13 @@ class Request : public Component {
   /**
    * @brief Get the request attributes.
    *
-   * Get the request attributes. If the request attributes are not available yet, this
-   * method will throw an error.
+   * Get the request attributes. The owning `ucxx::Worker` must have been created with
+   * request attributes querying enabled (see
+   * `ucxx::experimental::WorkerBuilder::requestAttributes()`); otherwise the attributes
+   * are never populated and this method throws.
    *
-   * @throw ucxx::Error if the request attributes are not available yet.
+   * @throw ucxx::Error if the request attributes are not available yet, including when
+   *                    request attributes querying is disabled on the owning worker.
    *
    * @return A RequestAttributes containing the request attributes.
    */

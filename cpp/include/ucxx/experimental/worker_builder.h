@@ -89,6 +89,19 @@ class WorkerBuilder final {
   WorkerBuilder& pythonFuture(bool enable = true);
 
   /**
+   * @brief Configure request attributes querying.
+   *
+   * When enabled, each `ucxx::Request` created from the worker will have its UCP
+   * attributes (such as the debug string) queried immediately after submission, making
+   * them available via `ucxx::Request::getRequestAttributes()`. This may have
+   * non-negligible runtime cost and is therefore disabled by default.
+   *
+   * @param[in] enable whether request attributes querying is enabled (default: true).
+   * @return Reference to this builder for method chaining.
+   */
+  WorkerBuilder& requestAttributes(bool enable = true);
+
+  /**
    * @brief Build and return the `Worker`.
    *
    * This method constructs the `Worker` with the specified parameters and returns it.

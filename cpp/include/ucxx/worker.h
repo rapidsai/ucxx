@@ -78,6 +78,8 @@ class Worker : public Component {
  protected:
   bool _enableFuture{
     false};  ///< Boolean identifying whether the worker was created with future capability
+  bool _enableRequestAttributes{
+    false};  ///< Whether request attributes (e.g. UCP debug info) are queried for each request
   std::mutex _futuresPoolMutex{};  ///< Mutex to access the futures pool
   std::queue<std::shared_ptr<Future>>
     _futuresPool{};  ///< Futures pool to prevent running out of fresh futures
@@ -491,6 +493,19 @@ class Worker : public Component {
    * @returns `true` if future support is enabled, `false` otherwise.
    */
   [[nodiscard]] bool isFutureEnabled() const;
+
+  /**
+   * @brief Inquire if worker has been created with request attributes querying enabled.
+   *
+   * Check whether the worker has been created with request attributes querying enabled.
+   * When enabled, each `ucxx::Request` will have its UCP attributes (such as the debug
+   * string) queried immediately after submission, making them available via
+   * `ucxx::Request::getRequestAttributes()`. Querying request attributes has a
+   * non-negligible runtime cost and is therefore disabled by default.
+   *
+   * @returns `true` if request attributes querying is enabled, `false` otherwise.
+   */
+  [[nodiscard]] bool isRequestAttributesEnabled() const;
 
   /**
    * @brief Populate the futures pool.
