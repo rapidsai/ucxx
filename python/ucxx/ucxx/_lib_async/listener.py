@@ -156,10 +156,7 @@ async def _listener_handler_coroutine(
     #  4) Setup control receive callback
     #  5) Execute the listener's callback function
 
-    # Dereference the weakref immediately so the UCXListener's cb_args tuple
-    # does not keep ApplicationContext alive through this coroutine's frame.
     ctx = ctx_weakref()
-    del ctx_weakref
     if ctx is None:
         logger.debug(
             "ApplicationContext was freed before listener handler coroutine ran"
@@ -219,8 +216,6 @@ async def _listener_handler_coroutine(
         logger.exception("Unexpected error in listener handler coroutine")
     finally:
         active_clients.dec(ident)
-        # Release ApplicationContext reference even on early exits (e.g., cancellation
-        # before the explicit ctx = None above).
         del ctx
         del ep
 
