@@ -288,8 +288,33 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
     bool submitted    = false;
     for (uint64_t i = 0; i < maxAttempts && !closeSuccess; ++i) {
       if (!submitted) {
+        // Cancel inflight requests and submit FORCE close ATOMICALLY in a
+        // single pre-callback, with no ucp_worker_progress() between them.
+        //
+        // Why cancel here at all (UCX FORCE close already cancels endpoint
+        // operations):
+        //   tag_recv requests are worker-scoped (ucp_tag_recv_nbx(worker, ...)),
+        //   not endpoint-scoped, so ucp_ep_close_nbx(FORCE) leaves them pending.
+        //   Without ucp_request_cancel() here, an `await ep.close()` running
+        //   alongside an outstanding `await ep.recv()` would hang forever.
+        //   See test_shutdown.py::test_{server,client}_shutdown.
+        //
+        // Why atomic with FORCE close (not as a separate pre-callback):
+        //   When cancelAll and FORCE close were separate pre-callbacks (the
+        //   old cancelInflightRequestsBlocking path), a full ucp_worker_progress()
+        //   ran between them.  That intermediate progress could leave UCT-level
+        //   TCP pending entries half-dispatched (mid-cuMemcpyAsync staging of
+        //   a CUDA send); the next progress after FORCE close then crashed
+        //   dispatching them on a freed staging buffer (uct_cuda_copy_ep_get_short
+        //   -> cuMemcpyAsync -> SIGSEGV).  Running them in a single pre-callback
+        //   matches the safe single-threaded ordering proven by the regression
+        //   test in cpp/tests/endpoint_close_force_tcp_cuda_race.cpp.
         if (!worker->registerGenericPre(
-              [this, &status, &param]() { status = ucp_ep_close_nbx(_handle, &param); }, period))
+              [this, &status, &param]() {
+                _inflightRequests->cancelAll();
+                status = ucp_ep_close_nbx(_handle, &param);
+              },
+              period))
           continue;
         submitted = true;
       }
@@ -326,6 +351,10 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
         _handle);
     }
   } else {
+    // No progress thread: cancel inflight + FORCE close back-to-back, then
+    // drive progress here.  Same atomicity reasoning as the progress-thread
+    // path above (no ucp_worker_progress() between cancel and FORCE close).
+    _inflightRequests->cancelAll();
     status = ucp_ep_close_nbx(_handle, &param);
     if (UCS_PTR_IS_PTR(status)) {
       ucs_status_t s;
