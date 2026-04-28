@@ -269,13 +269,6 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 {
   if (_closing.exchange(true) || _handle == nullptr) return;
 
-  size_t canceled = cancelInflightRequestsBlocking(3000000000 /* 3s */, 3);
-  ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, canceled %lu requests",
-             __func__,
-             this,
-             _handle,
-             canceled);
-
   ucp_request_param_t param{};
   if (_endpointErrorHandling)
     param = {.op_attr_mask = UCP_OP_ATTR_FIELD_FLAGS, .flags = UCP_EP_CLOSE_FLAG_FORCE};
