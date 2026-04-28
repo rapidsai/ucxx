@@ -87,8 +87,6 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - cython >=3.2.2
-        # 'nvidia-ml-py' provides the 'pynvml' module
-        - nvidia-ml-py>=12
         - pip
         - python =${{ py_abi_min }}
         - python-abi3 ${{ py_abi_min }}.*
@@ -98,16 +96,19 @@ outputs:
         - ucx
         - libucxx =${{ version }}
         - cuda-cudart-dev
+        - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
+        # TODO: Change to cuda-core >= 1.0.0 once that's released
+        - cuda-core @ git+https://github.com/nvidia/cuda-python@main#subdirectory=cuda_core
       run:
-        - cuda-core >=0.3.2
         - numpy >=1.23,<3.0
-        # 'nvidia-ml-py' provides the 'pynvml' module
-        - nvidia-ml-py>=12
         - python
         - ucx >=1.18.0,<1.21.0
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_compatible("rmm", upper_bound="x.x") }}
         - libucxx =${{ version }}
+        - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
+        # TODO: Change to cuda-core >= 1.0.0 once that's released
+        - cuda-core @ git+https://github.com/nvidia/cuda-python@main#subdirectory=cuda_core
       run_constraints:
         - cupy >=13.6.0
       ignore_run_exports:
