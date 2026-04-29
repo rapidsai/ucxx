@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 source "$(dirname "$0")/test_common.sh"
 
 rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
+CPP_CHANNEL=$(rapids-download-from-github "$(rapids-artifact-name conda_cpp libucxx ucxx --cuda "$RAPIDS_CUDA_VERSION")")
 
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
