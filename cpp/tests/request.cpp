@@ -541,6 +541,91 @@ TEST_P(RequestTest, ProgressTagRequestAttributesDisabled)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
+TEST_P(RequestTest, ProgressStreamRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Stream rejects zero-length transfers";
+  if (_progressMode == ProgressMode::ThreadPolling || _progressMode == ProgressMode::ThreadBlocking)
+    GTEST_SKIP() << "Threaded progress modes can race the attribute query";
+
+  rebuildWorker(/* enableRequestAttributes */ true);
+
+  allocate();
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->streamSend(_sendPtr[0], _messageSize, 0));
+  requests.push_back(_ep->streamRecv(_recvPtr[0], _messageSize, 0));
+  waitRequests(_worker, requests, _progressWorker);
+
+  for (const auto& request : requests) {
+    auto debugString = request->getRequestAttributes().debugString;
+    ASSERT_FALSE(debugString.empty());
+  }
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, ProgressAmRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Zero-length AM completes without a UCP request";
+  if (_messageSize < _rndvThresh)
+    GTEST_SKIP() << "Eager AM completes inline without a UCP request to query";
+  if (_progressMode == ProgressMode::Wait)
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  if (_progressMode == ProgressMode::ThreadPolling || _progressMode == ProgressMode::ThreadBlocking)
+    GTEST_SKIP() << "Threaded progress modes can race the attribute query";
+
+  rebuildWorker(/* enableRequestAttributes */ true);
+
+  allocate(1, false);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  for (const auto& request : requests) {
+    auto debugString = request->getRequestAttributes().debugString;
+    ASSERT_FALSE(debugString.empty());
+  }
+
+  auto recvReq = requests[1];
+  _recvPtr[0]  = recvReq->getRecvBuffer()->data();
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryGetRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Zero-length memGet completes without a UCP request";
+  if (_progressMode == ProgressMode::ThreadPolling || _progressMode == ProgressMode::ThreadBlocking)
+    GTEST_SKIP() << "Threaded progress modes can race the attribute query";
+
+  rebuildWorker(/* enableRequestAttributes */ true);
+
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  copyMemoryTypeAware(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memGet(_recvPtr[0], _messageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(request);
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto debugString = request->getRequestAttributes().debugString;
+  ASSERT_FALSE(debugString.empty());
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
 TEST_P(RequestTest, ProgressTagMulti)
 {
   if (_progressMode == ProgressMode::Wait) {

@@ -369,6 +369,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     } else {
       // The request will be handled by the callback
       recvAmMessage->setUcpRequest(status);
+      req->queryRequestAttributes();
       amData->_registerInflightRequest(req);
 
       {
@@ -472,6 +473,7 @@ void RequestAm::request()
 
         std::lock_guard<std::recursive_mutex> lock(_mutex);
         _request = request;
+        queryRequestAttributes();
       },
       [](auto) { throw ucxx::UnsupportedError("Only send active messages can call request()"); },
     },
