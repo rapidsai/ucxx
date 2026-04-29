@@ -12,7 +12,6 @@ include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
-include(rapids-cuda)
 
 file(READ "${CMAKE_CURRENT_LIST_DIR}/../VERSION" _version_contents)
 if(_version_contents MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+).*$")
@@ -184,12 +183,10 @@ endif()
 
 # Enable CCCL if necessary
 if(UCXX_ENABLE_CCCL)
+  find_package(CUDAToolkit REQUIRED)
   target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_CCCL)
-  target_link_libraries(ucxx PUBLIC CCCL::CCCL)
-  enable_language(CUDA)
-  rapids_cuda_set_architectures(RAPIDS)
-  target_sources(ucxx PRIVATE src/buffer_cccl.cu)
-  set_target_properties(ucxx PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+  target_link_libraries(ucxx PUBLIC CCCL::CCCL CUDA::cudart)
+  target_sources(ucxx PRIVATE src/buffer_cccl.cpp)
 endif()
 
 # Specify the target module library dependencies
