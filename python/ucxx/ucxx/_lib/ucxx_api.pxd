@@ -178,7 +178,6 @@ IF UCXX_ENABLE_CCCL:
             CCCLBuffer(const size_t size) except +raise_py_error
             BufferType getType()
             size_t getSize()
-            void* release() except +raise_py_error
             void* data() except +raise_py_error
 
 cdef extern from "<ucxx/notifier.h>" namespace "ucxx" nogil:

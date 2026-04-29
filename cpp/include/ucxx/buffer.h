@@ -336,44 +336,6 @@ class CCCLBuffer : public Buffer {
   explicit CCCLBuffer(const size_t size);
 
   /**
-   * @brief Construct from an existing CCCLBufferImpl.
-   *
-   * Takes ownership of the implementation pointer, wrapping it in a unique_ptr
-   * for automatic cleanup.
-   *
-   * @param[in] impl opaque pointer to CCCL buffer implementation (takes ownership).
-   */
-  explicit CCCLBuffer(CCCLBufferImpl* impl);
-
-  /**
-   * @brief Release the allocated CCCL buffer implementation to the caller.
-   *
-   * Release ownership of the CCCLBufferImpl to the caller. After this
-   * method is called, the caller becomes responsible for the pointer.
-   *
-   * The original `CCCLBuffer` object becomes invalid.
-   *
-   * @code{.cpp}
-   * auto buffer = CCCLBuffer(1024);
-   * CCCLBufferImpl* impl = buffer.release();
-   *
-   * // do work on impl
-   *
-   * // Wrap in new CCCLBuffer to ensure proper cleanup:
-   * { ucxx::CCCLBuffer temp(impl); }
-   * @endcode
-   *
-   * @note Returns a raw pointer (not unique_ptr) to preserve C and Cython ABI
-   *       compatibility. The caller must either delete the pointer or wrap it in
-   *       a new CCCLBuffer to ensure cleanup.
-   *
-   * @throws std::runtime_error if object has been released.
-   *
-   * @return the opaque pointer to the CCCL buffer implementation.
-   */
-  [[nodiscard]] CCCLBufferImpl* release();
-
-  /**
    * @brief Get a pointer to the allocated raw device buffer.
    *
    * Get a pointer to the underlying buffer, but does not release ownership.

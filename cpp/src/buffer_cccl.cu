@@ -42,24 +42,9 @@ CCCLBuffer::CCCLBuffer(const size_t size)
   ucxx_trace_data("ucxx::CCCLBuffer created: %p, impl: %p, size: %lu", this, _impl.get(), size);
 }
 
-CCCLBuffer::CCCLBuffer(CCCLBufferImpl* impl)
-  : Buffer(BufferType::CCCL, impl->buffer.size()), _impl{impl}
-{
-  ucxx_trace_data("ucxx::CCCLBuffer created: %p, impl: %p, size: %lu", this, _impl.get(), _size);
-}
 
 CCCLBuffer::~CCCLBuffer() = default;
 
-CCCLBufferImpl* CCCLBuffer::release()
-{
-  ucxx_trace_data("ucxx::CCCLBuffer::%s, CCCLBuffer: %p, _impl: %p", __func__, this, _impl.get());
-  if (!_impl) throw std::runtime_error("Invalid object or already released");
-
-  _bufferType = ucxx::BufferType::Invalid;
-  _size       = 0;
-
-  return _impl.release();
-}
 
 void* CCCLBuffer::data()
 {
