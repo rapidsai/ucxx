@@ -172,13 +172,12 @@ cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
         unique_ptr[device_buffer] release() except +raise_py_error
         void* data() except +raise_py_error
 
-IF UCXX_ENABLE_CCCL:
-    cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
-        cdef cppclass CCCLBuffer:
-            CCCLBuffer(const size_t size) except +raise_py_error
-            BufferType getType()
-            size_t getSize()
-            void* data() except +raise_py_error
+cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
+    cdef cppclass CCCLBuffer:
+        CCCLBuffer(const size_t size) except +raise_py_error
+        BufferType getType()
+        size_t getSize()
+        void* data() except +raise_py_error
 
 cdef extern from "<ucxx/notifier.h>" namespace "ucxx" nogil:
     cdef enum class RequestNotifierWaitState:
