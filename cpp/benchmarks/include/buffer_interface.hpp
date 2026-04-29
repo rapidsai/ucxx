@@ -743,26 +743,23 @@ struct RmmDeviceMrBuffers {
   static std::shared_ptr<RmmDeviceMrBuffers> allocate(std::size_t messageSize)
   {
     auto p    = std::make_shared<RmmDeviceMrBuffers>();
-    auto ref  = rmm::to_device_async_resource_ref_checked(&p->mr);
-    p->send   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
-    p->recv   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    p->send   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
+    p->recv   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
     initialize_send_pattern(*p->send, messageSize);
     return p;
   }
 };
 
 struct RmmPoolBuffers {
-  rmm::mr::cuda_memory_resource upstream{};
-  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool;
+  rmm::mr::pool_memory_resource pool;
   std::unique_ptr<rmm::device_buffer> send;
   std::unique_ptr<rmm::device_buffer> recv;
 
   explicit RmmPoolBuffers(std::size_t messageSize)
-    : pool(&upstream, rmm_benchmark_detail::initial_pool_size(messageSize))
+    : pool(rmm::mr::cuda_memory_resource{}, rmm_benchmark_detail::initial_pool_size(messageSize))
   {
-    auto ref = rmm::to_device_async_resource_ref_checked(&pool);
-    send     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
-    recv     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    send     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, pool);
+    recv     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, pool);
     rmm_benchmark_detail::initialize_send_pattern(*send, messageSize);
   }
 
@@ -780,9 +777,8 @@ struct RmmCudaAsyncMrBuffers {
   static std::shared_ptr<RmmCudaAsyncMrBuffers> allocate(std::size_t messageSize)
   {
     auto p   = std::make_shared<RmmCudaAsyncMrBuffers>();
-    auto ref = rmm::to_device_async_resource_ref_checked(&p->mr);
-    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
-    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
+    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
     initialize_send_pattern(*p->send, messageSize);
     return p;
   }
@@ -796,9 +792,8 @@ struct RmmCudaAsyncManagedMrBuffers {
   static std::shared_ptr<RmmCudaAsyncManagedMrBuffers> allocate(std::size_t messageSize)
   {
     auto p   = std::make_shared<RmmCudaAsyncManagedMrBuffers>();
-    auto ref = rmm::to_device_async_resource_ref_checked(&p->mr);
-    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
-    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
+    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
     initialize_send_pattern(*p->send, messageSize);
     return p;
   }

@@ -19,6 +19,9 @@ log_message() {
 }
 
 print_system_stats() {
+  rapids-logger "Number of CPU cores"
+  nproc --all
+
   rapids-logger "Check GPU usage"
   nvidia-smi
 

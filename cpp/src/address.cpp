@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -41,7 +42,9 @@ std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
 
 std::shared_ptr<Address> createAddressFromString(std::string_view addressString)
 {
-  size_t length          = addressString.length();
+  size_t length = addressString.length();
+  if (length == 0) throw std::invalid_argument("UCP address must not be empty");
+
   ucp_address_t* address = reinterpret_cast<ucp_address_t*>(new char[length]);
   memcpy(address, addressString.data(), length);
   return std::shared_ptr<Address>(new Address(nullptr, address, length));

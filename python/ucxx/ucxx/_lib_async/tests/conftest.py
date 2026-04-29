@@ -9,6 +9,7 @@ import os
 import pytest
 
 import ucxx
+from ucxx._lib_async.pytest_stash_keys import ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY
 
 # Prevent calls such as `cudf = pytest.importorskip("cudf")` from initializing
 # a CUDA context. Such calls may cause tests that must initialize the CUDA
@@ -87,6 +88,30 @@ def ucxx_setup_teardown():
             pass
 
 
+def _asyncio_plugin_timeout_seconds(item: pytest.Item) -> float:
+    """Timeout used by asyncio test wrapper and exposed via ``config.stash``."""
+    timeout_marker = item.get_closest_marker("asyncio_timeout")
+    slow_marker = item.get_closest_marker("slow")
+    default_timeout = 600.0 if slow_marker else 60.0
+    return float(timeout_marker.args[0]) if timeout_marker else default_timeout
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    """
+    Record the effective asyncio timeout before the test body runs.
+
+    ``compute_timeouts(pytestconfig)`` reads this from ``config.stash``. We use stash
+    instead of ``config.cache`` because the cache backend is unreliable on
+    ``pytest-xdist`` workers (values may not round-trip or may be isolated per hook).
+    """
+    if not isinstance(item, pytest.Function):
+        return
+    timeout = _asyncio_plugin_timeout_seconds(item)
+    if timeout <= 0.0:
+        raise ValueError("The `pytest.mark.asyncio_timeout` value must be positive.")
+    item.config.stash[ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY] = timeout
+
+
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_pyfunc_call(pyfuncitem: pytest.Function):
     """
@@ -104,18 +129,12 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
     The timeout value is made available to the test functions via `pytestconfig`. This
     can be used to determine internal timeouts, for example to ensure subprocesses
     timeout before the test timeout hits and thus prints internal information, such as
-    the call stack. The timeout value may be retrieved by calling
-    `pytestconfig.cache.get("asyncio_timeout", {})["timeout"]`, for that the test must
-    include the `pytestconfig` fixture as argument.
+    the call stack. The timeout is stored in ``config.stash`` (see
+    ``pytest_runtest_setup`` and ``compute_timeouts``).
     """
-    timeout_marker = pyfuncitem.get_closest_marker("asyncio_timeout")
-    slow_marker = pyfuncitem.get_closest_marker("slow")
+    timeout = _asyncio_plugin_timeout_seconds(pyfuncitem)
+    pyfuncitem.config.stash[ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY] = timeout
     rerun_marker = pyfuncitem.get_closest_marker("rerun_on_failure")
-    default_timeout = 600.0 if slow_marker else 60.0
-    timeout = float(timeout_marker.args[0]) if timeout_marker else default_timeout
-    pyfuncitem.config.cache.set("asyncio_timeout", {"timeout": timeout})
-    if timeout <= 0.0:
-        raise ValueError("The `pytest.mark.asyncio_timeout` value must be positive.")
 
     if rerun_marker and len(rerun_marker.args) >= 0:
         reruns = rerun_marker.args[0]

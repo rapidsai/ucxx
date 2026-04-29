@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import multiprocessing as mp
@@ -7,7 +7,7 @@ import pytest
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
-from ucxx.testing import join_processes, terminate_process
+from ucxx.testing import join_processes, run_in_subprocess, terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -70,16 +70,18 @@ def _client_cancel(queue):
 
 def test_message_probe():
     queue = mp.Queue()
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
     server = mp.Process(
-        target=_server_cancel,
-        args=(queue,),
+        target=run_in_subprocess,
+        args=(_server_cancel, server_error_q, queue),
     )
     server.start()
     client = mp.Process(
-        target=_client_cancel,
-        args=(queue,),
+        target=run_in_subprocess,
+        args=(_client_cancel, client_error_q, queue),
     )
     client.start()
     join_processes([client, server], timeout=10)
-    terminate_process(client)
-    terminate_process(server)
+    terminate_process(client, error_queue=client_error_q)
+    terminate_process(server, error_queue=server_error_q)

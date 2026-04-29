@@ -12,6 +12,8 @@ import pytest
 
 import ucxx
 
+from ucxx._lib_async.pytest_stash_keys import ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY
+
 normal_env = {
     "UCX_RNDV_SCHEME": "put_zcopy",
     "UCX_MEMTYPE_CACHE": "n",
@@ -63,7 +65,17 @@ def compute_timeouts(pytestconfig: pytest.Config) -> tuple[float, float]:
     tuple: floats
         Element 0 is the low timeout, and element 1 is the high timeout.
     """
-    plugin_timeout = pytestconfig.cache.get("asyncio_timeout", {})["timeout"]
+    try:
+        plugin_timeout = pytestconfig.stash[ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY]
+    except KeyError as e:
+        raise RuntimeError(
+            "asyncio test timeout was not written to `pytestconfig.stash` before the "
+            "test body ran. `compute_timeouts()` expects `pytest_runtest_setup` or "
+            "`pytest_pyfunc_call` in `python/ucxx/ucxx/_lib_async/tests/conftest.py` "
+            f"to set `stash[{ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY!r}]`. "
+            "Do not use `pytestconfig.cache` for this: it is not reliable on "
+            "`pytest-xdist` worker processes."
+        ) from e
     async_timeout = max(plugin_timeout * 0.8, plugin_timeout - 10)
     join_timeout = max(plugin_timeout * 0.9, plugin_timeout - 5)
 

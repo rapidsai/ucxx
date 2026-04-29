@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <sched.h>   // for cpu_set_t, CPU_SET, CPU_ZERO, sched_setaffinity
 #include <unistd.h>  // for getopt, optarg
 
 #include <algorithm>
@@ -138,6 +139,7 @@ struct ApplicationContext {
   bool verifyResults                           = false;
   bool loopback                                = false;
   MemoryType memoryType                        = MemoryType::Host;
+  std::vector<unsigned> cpuList                = {};
 };
 
 class ListenerContext {
@@ -292,6 +294,9 @@ static void printUsage(std::string_view executablePath)
   std::cerr
     << "                              with itself, so passing server hostname is not allowed"
     << std::endl;
+  std::cerr
+    << "  -c <cpulist>                set affinity to this CPU list (separated by comma) (off)"
+    << std::endl;
   std::cerr << "  -R <rank>                   percentile rank of the percentile data in latency "
                "tests (50.0)"
             << std::endl;
@@ -385,6 +390,100 @@ static ucs_status_t parsePort(const char* arg, uint16_t* result, const char* par
 }
 
 /**
+ * @brief Parses a comma-separated CPU list string into a vector of CPU indices.
+ *
+ * @param arg Comma-separated string of CPU numbers (e.g. "0,2,4").
+ * @param cpuList Pointer to output vector to populate with parsed CPU indices.
+ * @return UCS_OK on success, UCS_ERR_INVALID_PARAM on parse error or invalid CPU number.
+ */
+static ucs_status_t parseCpuList(const char* arg, std::vector<unsigned>* cpuList)
+{
+  cpuList->clear();
+  const char* ptr = arg;
+  char* endptr;
+
+  while (*ptr != '\0') {
+    errno       = 0;
+    int64_t cpu = std::strtol(ptr, &endptr, 10);
+    if (errno != 0 || endptr == ptr || cpu < 0) {
+      std::cerr << "Invalid CPU number in list: " << arg << std::endl;
+      return UCS_ERR_INVALID_PARAM;
+    }
+    cpuList->push_back(static_cast<unsigned>(cpu));
+
+    if (*endptr == ',') {
+      ptr = endptr + 1;
+    } else if (*endptr == '\0') {
+      break;
+    } else {
+      std::cerr << "Invalid character in CPU list: " << arg << std::endl;
+      return UCS_ERR_INVALID_PARAM;
+    }
+  }
+
+  if (cpuList->empty()) {
+    std::cerr << "Empty CPU list" << std::endl;
+    return UCS_ERR_INVALID_PARAM;
+  }
+
+  return UCS_OK;
+}
+
+/**
+ * @brief Sets the process CPU affinity to the specified list of CPUs.
+ *
+ * Validates that each CPU index is within the system's range, builds a cpu_set_t, and applies it
+ * via sched_setaffinity. If no CPU list is provided, warns when the process is bound to more than
+ * 2 CPUs (matching ucx_perftest behavior).
+ *
+ * @param cpuList Vector of CPU indices to bind to. If empty, only a warning check is performed.
+ * @return UCS_OK on success, UCS_ERR_INVALID_PARAM on failure.
+ */
+static ucs_status_t setCpuAffinity(const std::vector<unsigned>& cpuList)
+{
+  int64_t nprocs = sysconf(_SC_NPROCESSORS_ONLN);
+  if (nprocs < 0) {
+    std::cerr << "Failed to get number of CPUs" << std::endl;
+    return UCS_ERR_INVALID_PARAM;
+  }
+  unsigned nr_cpus = static_cast<unsigned>(nprocs);
+
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+
+  if (!cpuList.empty()) {
+    for (auto cpu : cpuList) {
+      if (cpu >= nr_cpus) {
+        std::cerr << "CPU " << cpu << " out of range [0.." << nr_cpus - 1 << "]" << std::endl;
+        return UCS_ERR_INVALID_PARAM;
+      }
+      CPU_SET(cpu, &cpuset);
+    }
+
+    if (sched_setaffinity(0, sizeof(cpuset), &cpuset) != 0) {
+      std::cerr << "sched_setaffinity() failed: " << strerror(errno) << std::endl;
+      return UCS_ERR_INVALID_PARAM;
+    }
+  } else {
+    if (sched_getaffinity(0, sizeof(cpuset), &cpuset) != 0) {
+      std::cerr << "sched_getaffinity() failed: " << strerror(errno) << std::endl;
+      return UCS_ERR_INVALID_PARAM;
+    }
+
+    unsigned count = 0;
+    for (unsigned i = 0; i < CPU_SETSIZE; ++i) {
+      if (CPU_ISSET(i, &cpuset)) ++count;
+    }
+    if (count > 2) {
+      std::cerr << "Warning: CPU affinity is not set (bound to " << count
+                << " cpus). Performance may be impacted." << std::endl;
+    }
+  }
+
+  return UCS_OK;
+}
+
+/**
  * @brief Parses command-line arguments and populates the application context.
  *
  * Processes command-line options to configure the test type, memory type, progress mode, port,
@@ -401,7 +500,7 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
 {
   optind = 1;
   int c;
-  while ((c = getopt(argc, argv, "t:m:P:p:s:n:w:LevlR:h")) != -1) {
+  while ((c = getopt(argc, argv, "t:m:P:p:s:n:w:Levlc:R:h")) != -1) {
     switch (c) {
       case 't': {
         auto testAttributes = testAttributesDefinitions.find(optarg);
@@ -464,6 +563,11 @@ ucs_status_t parseCommand(ApplicationContext* appContext, int argc, char* const 
       case 'e': appContext->endpointErrorHandling = true; break;
       case 'v': appContext->verifyResults = true; break;
       case 'l': appContext->loopback = true; break;
+      case 'c': {
+        ucs_status_t status = parseCpuList(optarg, &appContext->cpuList);
+        if (status != UCS_OK) return status;
+        break;
+      }
       case 'R': {
         ucs_status_t status =
           parseDouble(optarg, &appContext->percentileRank, "percentile rank", 0.0, 100.0);
@@ -1066,6 +1170,7 @@ int main(int argc, char** argv)
 {
   ApplicationContext appContext;
   if (parseCommand(&appContext, argc, argv) != UCS_OK) return -1;
+  if (setCpuAffinity(appContext.cpuList) != UCS_OK) return -1;
 
   auto app = Application(std::move(appContext));
   app.run();

@@ -370,8 +370,9 @@ dependencies:
           - cloudpickle
           - pytest
           - pytest-asyncio>=1.0.0
-          - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
           - rapids-dask-dependency==26.6.*,>=0.0.0a0
+          - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
+          - pytest-xdist
       - output_types: [conda]
         packages:
           - gdb  # Used for timeout_with_stack.py
