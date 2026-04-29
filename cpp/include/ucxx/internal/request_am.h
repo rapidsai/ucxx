@@ -68,15 +68,6 @@ class RecvAmMessage {
                 std::vector<std::byte> userHeader       = {});
 
   /**
-   * @brief Set the UCP request.
-   *
-   * Set the underlying UCP request (`_request` attribute) of the `RequestAm`.
-   *
-   * @param[in] request the UCP request associated to the active message receive operation.
-   */
-  void setUcpRequest(void* request);
-
-  /**
    * @brief Execute the `ucxx::Request::callback()`.
    *
    * Execute the `ucxx::Request::callback()` method to set the status of the request, the

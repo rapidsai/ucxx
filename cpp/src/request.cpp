@@ -141,7 +141,7 @@ void Request::callback(void* request, ucs_status_t status)
   if (_status != UCS_INPROGRESS)
     ucxx_trace_req_f(_ownerString.c_str(),
                      this,
-                     _request,
+                     request,
                      _operationName.c_str(),
                      "has status already set to %d (%s), callback setting %d (%s)",
                      _status,
@@ -149,12 +149,10 @@ void Request::callback(void* request, ucs_status_t status)
                      status,
                      ucs_status_string(status));
 
-  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
-
-  ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "completed");
+  ucxx_trace_req_f(_ownerString.c_str(), this, request, _operationName.c_str(), "completed");
   setStatus(status);
   ucxx_trace_req_f(
-    _ownerString.c_str(), this, _request, _operationName.c_str(), "isCompleted: %d", isCompleted());
+    _ownerString.c_str(), this, request, _operationName.c_str(), "isCompleted: %d", isCompleted());
 }
 
 void Request::process()
@@ -236,6 +234,14 @@ void Request::setStatus(ucs_status_t status)
         _ownerString.c_str(), this, _request, _operationName.c_str(), "invoking user callback");
       _callback(status, _callbackData);
     }
+
+    // Free the UCP request inside the lock so it is mutually exclusive with
+    // `publishRequest()`/`queryRequestAttributes()` on the submit thread. Clearing
+    // `_request` afterwards keeps this idempotent if `setStatus` ever re-enters.
+    if (UCS_PTR_IS_PTR(_request)) {
+      ucp_request_free(_request);
+      _request = nullptr;
+    }
   }
 }
 
@@ -274,6 +280,13 @@ void Request::queryRequestAttributes()
       _isRequestAttrValid      = true;
     }
   }
+}
+
+void Request::publishRequest(void* request)
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  _request = request;
+  queryRequestAttributes();
 }
 
 Request::RequestAttributes Request::getRequestAttributes()

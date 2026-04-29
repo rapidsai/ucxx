@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -77,8 +77,7 @@ void RequestFlush::request()
   else
     throw ucxx::Error("A valid endpoint or worker is required for a flush operation.");
 
-  std::lock_guard<std::recursive_mutex> lock(_mutex);
-  _request = request;
+  publishRequest(request);
 }
 
 void RequestFlush::populateDelayedSubmission()

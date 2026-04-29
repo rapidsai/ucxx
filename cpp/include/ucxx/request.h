@@ -275,6 +275,23 @@ class Request : public Component {
    * string.
    */
   void queryRequestAttributes();
+
+  /**
+   * @brief Publish the UCP request handle and capture its attributes.
+   *
+   * Single critical section that stores the UCP request pointer in `_request` and, when
+   * the owning worker has request attributes querying enabled, immediately queries those
+   * attributes. The completion path frees the UCP request inside `setStatus` under the
+   * same `_mutex`, so this helper guarantees the query and the free are mutually
+   * exclusive and that there are no use-after-free in threaded progress modes.
+   *
+   * Every submit site (all `request` methods from child classes and the AM
+   * rendezvous-receive path) calls this after obtaining the request handle from the
+   * corresponding `ucp_*_nbx` function.
+   *
+   * @param[in] request the UCP request pointer returned by a non-blocking submit.
+   */
+  void publishRequest(void* request);
 };
 
 }  // namespace ucxx

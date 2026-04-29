@@ -91,9 +91,7 @@ void RequestStream::request()
              },
              _requestData);
 
-  std::lock_guard<std::recursive_mutex> lock(_mutex);
-  _request = request;
-  queryRequestAttributes();
+  publishRequest(request);
 }
 
 void RequestStream::populateDelayedSubmission()
