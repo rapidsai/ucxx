@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -109,26 +110,38 @@ def capture_stack_trace(pid: int, stack_type=StackType.C) -> None:
     else:
         bt_command = "thread apply all py-bt"
         print(f"\nCapturing Python stack trace for process {pid}:")
-    proc = subprocess.run(
-        [
-            "gdb",
-            "--quiet",
-            "--pid",
-            str(pid),
-            "-ex",
-            "set pagination off",
-            "-ex",
-            "set confirm off",
-            "-ex",
-            bt_command,
-            "-ex",
-            "quit",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    gdb = shutil.which("gdb")
+    if gdb is None:
+        print(f"Skipping stack trace for process {pid}: gdb not found")
+        return
+
+    try:
+        proc = subprocess.run(
+            [
+                gdb,
+                "--quiet",
+                "--pid",
+                str(pid),
+                "-ex",
+                "set pagination off",
+                "-ex",
+                "set confirm off",
+                "-ex",
+                bt_command,
+                "-ex",
+                "quit",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        print(f"Skipping stack trace for process {pid}: gdb not found")
+        return
+
     print(proc.stdout)
+    if proc.stderr:
+        print(proc.stderr, file=sys.stderr)
 
 
 def capture_all_stacks(pid: int, *, enable_python: bool = False) -> None:
