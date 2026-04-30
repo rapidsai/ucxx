@@ -497,6 +497,25 @@ TEST_P(RequestTest, ProgressStream)
 
 TEST_P(RequestTest, ProgressTag)
 {
+  // `ucp_request_query` only works on a real UCP request handle, but UCX does not
+  // always allocate one. Skip the configurations where it doesn't, so the
+  // assertions on the debug string content are deterministic:
+  //   - Zero-length CUDA transfers report host memtype in UCX debug strings (no
+  //     device buffer is involved), so the "cuda" substring assertion would fail.
+  //   - In threaded progress modes the worker progress thread advances the first
+  //     half of an eager tag pair into the peer's unexpected queue before the
+  //     second half is submitted; UCX then matches and completes the second
+  //     submission inline (returning `UCS_OK_PTR`), leaving no request handle to
+  //     query. Non-threaded modes don't progress between submissions, so both
+  //     halves get real handles, and rendezvous-protocol messages always defer.
+  if (_bufferType == ucxx::BufferType::RMM && _messageSize == 0)
+    GTEST_SKIP() << "Zero-length CUDA transfers report host memtype in UCX debug strings";
+  if ((_progressMode == ProgressMode::ThreadPolling ||
+       _progressMode == ProgressMode::ThreadBlocking) &&
+      _messageSize < _rndvThresh)
+    GTEST_SKIP() << "Worker progress thread completes eager tag pairs inline at submission "
+                    "(UCS_OK_PTR), leaving no UCP request handle to query";
+
   rebuildWorker(true);
 
   allocate();
