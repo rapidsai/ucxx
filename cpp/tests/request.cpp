@@ -497,6 +497,22 @@ TEST_P(RequestTest, ProgressStream)
 
 TEST_P(RequestTest, ProgressTag)
 {
+  allocate();
+
+  // Submit and wait for transfers to complete
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
+  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  waitRequests(_worker, requests, _progressWorker);
+
+  copyResults();
+
+  // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, ProgressTagRequestAttributes)
+{
   // `ucp_request_query` only works on a real UCP request handle, but UCX does not
   // always allocate one. Skip the configurations where it doesn't, so the
   // assertions on the debug string content are deterministic:
@@ -516,19 +532,17 @@ TEST_P(RequestTest, ProgressTag)
     GTEST_SKIP() << "Worker progress thread completes eager tag pairs inline at submission "
                     "(UCS_OK_PTR), leaving no UCP request handle to query";
 
-  rebuildWorker(true);
+  rebuildWorker(/* enableRequestAttributes */ true);
 
   allocate();
 
-  // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
   requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& request : requests) {
-    auto debugString = request->getRequestAttributes().debugString;
-    // Check that debugString contains the expected host memory length substring
+    auto debugString              = request->getRequestAttributes().debugString;
     std::string expectedSubstring = "length " + std::to_string(_messageSize);
     ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
     ASSERT_THAT(debugString,
@@ -536,8 +550,6 @@ TEST_P(RequestTest, ProgressTag)
   }
 
   copyResults();
-
-  // Assert data correctness
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
