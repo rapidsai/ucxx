@@ -157,6 +157,7 @@ cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
         Buffer(const BufferType bufferType, const size_t size_t)
         BufferType getType()
         size_t getSize()
+        void* data()
 
     cdef cppclass HostBuffer:
         HostBuffer(const size_t size_t)
