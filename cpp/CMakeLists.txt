@@ -43,6 +43,7 @@ option(BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
 option(BUILD_EXAMPLES "Configure CMake to build examples" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
 option(UCXX_ENABLE_RMM "Enable support for CUDA multi-buffer transfer with RMM" OFF)
+# TODO: Flip UCXX_ENABLE_CCCL default to OFF once devcontainer builds pass -DUCXX_ENABLE_CCCL=ON
 option(UCXX_ENABLE_CCCL "Enable support for CUDA buffer with CCCL" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable warnings generated from deprecated declarations." OFF)
 
