@@ -194,12 +194,19 @@ TEST_P(RequestTest, ProgressAm)
   }
 
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
-#if !UCXX_ENABLE_RMM
-    GTEST_SKIP() << "UCXX was not built with RMM support";
-#else
-    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
-      return std::make_shared<ucxx::RMMBuffer>(length);
-    });
+#if UCXX_ENABLE_RMM
+    if (_bufferType == ucxx::BufferType::RMM) {
+      _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+        return std::make_shared<ucxx::RMMBuffer>(length);
+      });
+    }
+#endif
+#if UCXX_ENABLE_CCCL
+    if (_bufferType == ucxx::BufferType::CCCL) {
+      _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+        return std::make_shared<ucxx::CCCLBuffer>(length);
+      });
+    }
 #endif
   }
 
@@ -325,12 +332,19 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
   }
 
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
-#if !UCXX_ENABLE_RMM
-    GTEST_SKIP() << "UCXX was not built with RMM support";
-#else
-    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
-      return std::make_shared<ucxx::RMMBuffer>(length);
-    });
+#if UCXX_ENABLE_RMM
+    if (_bufferType == ucxx::BufferType::RMM) {
+      _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+        return std::make_shared<ucxx::RMMBuffer>(length);
+      });
+    }
+#endif
+#if UCXX_ENABLE_CCCL
+    if (_bufferType == ucxx::BufferType::CCCL) {
+      _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+        return std::make_shared<ucxx::CCCLBuffer>(length);
+      });
+    }
 #endif
   }
 
