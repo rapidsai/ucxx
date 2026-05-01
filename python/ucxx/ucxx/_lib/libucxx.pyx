@@ -1146,6 +1146,8 @@ cdef class UCXBufferRequest:
             return None
         elif bufType == BufferType.RMM:
             return _get_rmm_buffer(<uintptr_t><void*>buf.get())
+        elif bufType == BufferType.CCCL:
+            return _get_cccl_buffer(<uintptr_t><void*>buf.get())
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
