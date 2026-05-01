@@ -199,13 +199,22 @@ cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length) noexcept nogil:
 # CCCL has no Python buffer equivalent. This wrapper provides __cuda_array_interface__
 # for interoperability with CuPy/cuDF without requiring an external CCCL Python package.
 cdef class CCCLBufferWrapper:
-    """Wraps a CCCLBuffer device pointer as cuda_array_interface object."""
+    """Wraps a CCCLBuffer device pointer as cuda_array_interface object.
+
+    Retains a shared_ptr to the underlying Buffer to prevent the CUDA
+    allocation from being freed while this wrapper is alive.
+    """
+    cdef shared_ptr[Buffer] _buf
     cdef uintptr_t _ptr
     cdef size_t _size
 
-    def __init__(self, uintptr_t ptr, size_t size):
-        self._ptr = ptr
-        self._size = size
+    @staticmethod
+    cdef CCCLBufferWrapper _from_buffer(shared_ptr[Buffer] buf):
+        cdef CCCLBufferWrapper wrapper = CCCLBufferWrapper.__new__(CCCLBufferWrapper)
+        wrapper._buf = buf
+        wrapper._ptr = <uintptr_t>buf.get().data()
+        wrapper._size = buf.get().getSize()
+        return wrapper
 
     @property
     def __cuda_array_interface__(self):
@@ -216,10 +225,13 @@ cdef class CCCLBufferWrapper:
             "version": 2,
         }
 
+    @property
+    def nbytes(self):
+        return self._size
 
-def _get_cccl_buffer(uintptr_t recv_buffer_ptr):
-    cdef CCCLBuffer* cccl_buffer = <CCCLBuffer*>recv_buffer_ptr
-    return CCCLBufferWrapper(<uintptr_t>cccl_buffer.data(), cccl_buffer.getSize())
+
+cdef _get_cccl_buffer(shared_ptr[Buffer] buf):
+    return CCCLBufferWrapper._from_buffer(buf)
 
 
 cdef shared_ptr[Buffer] _cccl_am_allocator(size_t length) noexcept nogil:
@@ -1055,7 +1067,7 @@ cdef class UCXRequest():
         elif bufType == BufferType.RMM:
             return _get_rmm_buffer(<uintptr_t><void*>buf.get())
         elif bufType == BufferType.CCCL:
-            return _get_cccl_buffer(<uintptr_t><void*>buf.get())
+            return _get_cccl_buffer(buf)
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
@@ -1147,7 +1159,7 @@ cdef class UCXBufferRequest:
         elif bufType == BufferType.RMM:
             return _get_rmm_buffer(<uintptr_t><void*>buf.get())
         elif bufType == BufferType.CCCL:
-            return _get_cccl_buffer(<uintptr_t><void*>buf.get())
+            return _get_cccl_buffer(buf)
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
