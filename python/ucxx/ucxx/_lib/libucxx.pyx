@@ -198,7 +198,7 @@ cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length) noexcept nogil:
 # Unlike RMM which has a Python DeviceBuffer class (from the rmm package),
 # CCCL has no Python buffer equivalent. This wrapper provides __cuda_array_interface__
 # for interoperability with CuPy/cuDF without requiring an external CCCL Python package.
-cdef class _CCCLBufferWrapper:
+cdef class CCCLBufferWrapper:
     """Wraps a CCCLBuffer device pointer as cuda_array_interface object."""
     cdef uintptr_t _ptr
     cdef size_t _size
@@ -219,7 +219,7 @@ cdef class _CCCLBufferWrapper:
 
 def _get_cccl_buffer(uintptr_t recv_buffer_ptr):
     cdef CCCLBuffer* cccl_buffer = <CCCLBuffer*>recv_buffer_ptr
-    return _CCCLBufferWrapper(<uintptr_t>cccl_buffer.data(), cccl_buffer.getSize())
+    return CCCLBufferWrapper(<uintptr_t>cccl_buffer.data(), cccl_buffer.getSize())
 
 
 cdef shared_ptr[Buffer] _cccl_am_allocator(size_t length) noexcept nogil:
@@ -652,19 +652,16 @@ cdef class UCXWorker():
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
             if self._context_feature_flags & UCP_FEATURE_AM:
-                rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
-                self._worker.get().registerAmAllocator(
-                    UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
-                )
-
-            # When both RMM and CCCL are enabled, CCCL registration intentionally
-            # overwrites RMM's UCS_MEMORY_TYPE_CUDA allocator. This implements
-            # the "CCCL priority over RMM" design decision: isCUDA uses CCCL.
-            if self._context_feature_flags & UCP_FEATURE_AM:
-                cccl_am_allocator = <AmAllocatorType>(&_cccl_am_allocator)
-                self._worker.get().registerAmAllocator(
-                    UCS_MEMORY_TYPE_CUDA, cccl_am_allocator
-                )
+                if self._worker.get().getCudaBufferType() == BufferType.RMM:
+                    rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
+                    self._worker.get().registerAmAllocator(
+                        UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
+                    )
+                elif self._worker.get().getCudaBufferType() == BufferType.CCCL:
+                    cccl_am_allocator = <AmAllocatorType>(&_cccl_am_allocator)
+                    self._worker.get().registerAmAllocator(
+                        UCS_MEMORY_TYPE_CUDA, cccl_am_allocator
+                    )
 
     def __dealloc__(self) -> None:
         with nogil:
@@ -713,6 +710,32 @@ cdef class UCXWorker():
     @property
     def enable_python_future(self) -> bool:
         return self._enable_python_future
+
+    @property
+    def cuda_buffer_type(self) -> str:
+        """Return the preferred CUDA buffer type ('rmm', 'cccl', or 'none')."""
+        cdef BufferType bt
+        with nogil:
+            bt = self._worker.get().getCudaBufferType()
+        if bt == BufferType.RMM:
+            return "rmm"
+        elif bt == BufferType.CCCL:
+            return "cccl"
+        else:
+            return "none"
+
+    @cuda_buffer_type.setter
+    def cuda_buffer_type(self, str value):
+        """Set the preferred CUDA buffer type ('rmm' or 'cccl')."""
+        cdef BufferType bt
+        if value == "rmm":
+            bt = BufferType.RMM
+        elif value == "cccl":
+            bt = BufferType.CCCL
+        else:
+            raise ValueError("cuda_buffer_type must be 'rmm' or 'cccl'")
+        with nogil:
+            self._worker.get().setCudaBufferType(bt)
 
     def get_address(self) -> UCXAddress:
         warnings.warn(

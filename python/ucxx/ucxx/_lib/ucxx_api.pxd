@@ -300,6 +300,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void registerAmAllocator(
             ucs_memory_type_t memoryType, AmAllocatorType allocator
         )
+        BufferType getCudaBufferType() const
+        void setCudaBufferType(BufferType bufferType)
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()

@@ -132,14 +132,9 @@ void RequestTagMulti::recvFrames()
     for (size_t i = 0; i < h.nframes; ++i) {
       auto bufferRequest = std::make_shared<BufferRequest>();
       _bufferRequests.push_back(bufferRequest);
-#if UCXX_ENABLE_CCCL
-      const auto bufferType = h.isCUDA[i] ? ucxx::BufferType::CCCL : ucxx::BufferType::Host;
-#elif UCXX_ENABLE_RMM
-      const auto bufferType = h.isCUDA[i] ? ucxx::BufferType::RMM : ucxx::BufferType::Host;
-#else
-      if (h.isCUDA[i]) throw std::runtime_error("CUDA buffer support not enabled");
-      const auto bufferType = ucxx::BufferType::Host;
-#endif
+      const auto bufferType = h.isCUDA[i] ? _worker->getCudaBufferType() : ucxx::BufferType::Host;
+      if (h.isCUDA[i] && bufferType == ucxx::BufferType::Invalid)
+        throw std::runtime_error("CUDA buffer support not enabled, no buffer type configured");
       auto buf               = allocateBuffer(bufferType, h.size[i]);
       bufferRequest->request = _endpoint->tagRecv(
         buf->data(),

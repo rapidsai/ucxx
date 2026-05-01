@@ -15,6 +15,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/buffer.h>
 #include <ucxx/component.h>
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
@@ -84,6 +85,7 @@ class Worker : public Component {
   std::shared_ptr<Notifier> _notifier{nullptr};  ///< Notifier object
   std::shared_ptr<internal::AmData>
     _amData;  ///< Worker data made available to Active Messages callback
+  BufferType _cudaBufferType{BufferType::Invalid};  ///< Preferred buffer type for CUDA allocations
 
  private:
   /**
@@ -157,10 +159,14 @@ class Worker : public Component {
    *                                    progress thread.
    * @param[in] enableFuture if `true`, notifies the future associated with each
    *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
+   * @param[in] cudaBufferType the preferred buffer type for CUDA allocations. If
+   *                           `BufferType::Invalid` (default), will use CCCL if compiled
+   *                           with CCCL support, otherwise RMM if compiled with RMM support.
    */
   explicit Worker(std::shared_ptr<Context> context,
                   const bool enableDelayedSubmission = false,
-                  const bool enableFuture            = false);
+                  const bool enableFuture            = false,
+                  const BufferType cudaBufferType    = BufferType::Invalid);
 
  public:
   Worker()                         = delete;
@@ -177,7 +183,8 @@ class Worker : public Component {
    */
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                               const bool enableDelayedSubmission,
-                                              const bool enableFuture);
+                                              const bool enableFuture,
+                                              const BufferType cudaBufferType);
 
   /**
    * @brief Allow experimental::WorkerBuilder to access protected/private constructor.
@@ -491,6 +498,30 @@ class Worker : public Component {
    * @returns `true` if future support is enabled, `false` otherwise.
    */
   [[nodiscard]] bool isFutureEnabled() const;
+
+  /**
+   * @brief Get the preferred buffer type for CUDA allocations.
+   *
+   * Returns the buffer type used when allocating CUDA buffers for incoming
+   * multi-buffer tag receives. Defaults to CCCL if compiled with CCCL support,
+   * otherwise RMM if compiled with RMM support, otherwise Invalid.
+   *
+   * @returns The preferred `BufferType` for CUDA allocations.
+   */
+  [[nodiscard]] BufferType getCudaBufferType() const;
+
+  /**
+   * @brief Set the preferred buffer type for CUDA allocations.
+   *
+   * Configure which buffer type to use when allocating CUDA buffers for incoming
+   * multi-buffer tag receives.
+   *
+   * @param[in] bufferType  the preferred buffer type (must be `BufferType::RMM` or
+   *                        `BufferType::CCCL`).
+   *
+   * @throws std::invalid_argument if bufferType is not RMM or CCCL.
+   */
+  void setCudaBufferType(BufferType bufferType);
 
   /**
    * @brief Populate the futures pool.
@@ -1015,11 +1046,15 @@ class Worker : public Component {
  *                                    progress thread.
  * @param[in] enableFuture if `true`, notifies the future associated with each
  *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
+ * @param[in] cudaBufferType the preferred buffer type for CUDA allocations. If
+ *                           `BufferType::Invalid` (default), will use CCCL if compiled
+ *                           with CCCL support, otherwise RMM if compiled with RMM support.
  * @returns The `shared_ptr<ucxx::Worker>` object
  */
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableDelayedSubmission,
-                                     const bool enableFuture);
+                                     const bool enableFuture,
+                                     const BufferType cudaBufferType);
 
 }  // namespace ucxx
 
