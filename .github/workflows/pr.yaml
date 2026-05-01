@@ -6,6 +6,9 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions: {}
+
 jobs:
   pr-builder:
     needs:
@@ -25,6 +28,12 @@ jobs:
       - wheel-build-distributed-ucxx
       - wheel-tests-distributed-ucxx
       - telemetry-setup
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@main
     if: always()
@@ -34,7 +43,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
+      contents: read
       id-token: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -48,6 +59,8 @@ jobs:
           target-branch: ${{ fromJSON(steps.get-pr-info.outputs.pr-info).base.ref }}
   telemetry-setup:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     continue-on-error: true
     env:
       OTEL_SERVICE_NAME: "pr-ucxx"
@@ -58,8 +71,14 @@ jobs:
         if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
         uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   changed-files:
-    secrets: inherit
     needs: telemetry-setup
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@main
     with:
       files_yaml: |
@@ -191,14 +210,26 @@ jobs:
           - '!conda/**'
           - '!docs/**'
   checks:
+    needs: telemetry-setup
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@main
-    needs: telemetry-setup
     with:
       enable_check_generated_files: false
       ignored_pr_jobs: telemetry-summarize
   conda-cpp-build:
     needs: checks
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
     with:
@@ -207,6 +238,12 @@ jobs:
       script: ci/build_cpp.sh
   conda-python-build:
     needs: conda-cpp-build
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
     with:
@@ -216,6 +253,12 @@ jobs:
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   docs-build:
     needs: [conda-cpp-build, conda-python-build, changed-files]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).build_docs
@@ -227,6 +270,12 @@ jobs:
       script: "ci/build_docs.sh"
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@main
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
@@ -236,6 +285,12 @@ jobs:
       script: ci/test_cpp.sh
   conda-python-tests:
     needs: [conda-cpp-build, conda-python-build, changed-files]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
@@ -245,6 +300,12 @@ jobs:
       script: ci/test_python.sh
   conda-python-distributed-tests:
     needs: [conda-cpp-build, conda-python-build, changed-files]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_distributed_conda
@@ -254,6 +315,12 @@ jobs:
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   wheel-build-libucxx:
     needs: checks
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
@@ -266,6 +333,12 @@ jobs:
       package-type: cpp
   wheel-build-ucxx:
     needs: wheel-build-libucxx
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
@@ -278,6 +351,12 @@ jobs:
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-tests-ucxx:
     needs: [wheel-build-ucxx, changed-files]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
@@ -287,6 +366,12 @@ jobs:
       script: ci/test_wheel_ucxx.sh
   wheel-build-distributed-ucxx:
     needs: checks
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
@@ -298,6 +383,12 @@ jobs:
       pure-wheel: true
   wheel-tests-distributed-ucxx:
     needs: [wheel-build-ucxx, wheel-build-distributed-ucxx, changed-files]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_distributed_wheels
@@ -306,8 +397,14 @@ jobs:
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_wheel_distributed_ucxx.sh
   devcontainer:
-    secrets: inherit
     needs: [checks, telemetry-setup]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@main
     with:
       arch: '["amd64", "arm64"]'
@@ -325,6 +422,8 @@ jobs:
     # This job must use a self-hosted runner to record telemetry traces.
     runs-on: linux-amd64-cpu4
     needs: pr-builder
+    permissions:
+      actions: read
     if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
     continue-on-error: true
     steps:
