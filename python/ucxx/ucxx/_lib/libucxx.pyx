@@ -31,6 +31,12 @@ from libcpp.string_view cimport string_view
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
+cdef extern from "cuda_runtime.h" nogil:
+    enum cudaMemcpyKind:
+        cudaMemcpyDeviceToHost
+    int cudaMemcpy(void* dst, const void* src, size_t count,
+                   cudaMemcpyKind kind)
+
 import numpy as np
 
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
@@ -229,6 +235,33 @@ cdef class CCCLBufferWrapper:
     def nbytes(self):
         return self._size
 
+    def copy_to_host(self, ary=None):
+        """Copy device buffer content to host.
+
+        Parameters
+        ----------
+        ary : optional
+            A bytes-like buffer to write into. If None, a new numpy
+            array is allocated.
+
+        Returns
+        -------
+        numpy.ndarray
+            Host array with dtype uint8.
+        """
+        cdef size_t s = self._size
+        cdef unsigned char[::1] hb
+        if ary is None:
+            ary = np.empty((s,), dtype="u1")
+        hb = ary
+        if <size_t>len(hb) < s:
+            raise ValueError(
+                f"Argument `ary` is too small. Need space for {s} bytes."
+            )
+        with nogil:
+            cudaMemcpy(<void*>&hb[0], <const void*>self._ptr, s,
+                       cudaMemcpyDeviceToHost)
+        return ary
 
 cdef _get_cccl_buffer(shared_ptr[Buffer] buf):
     return CCCLBufferWrapper._from_buffer(buf)
