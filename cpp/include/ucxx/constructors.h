@@ -57,10 +57,9 @@ class Worker;
                                                        ucp_listener_conn_callback_t callback,
                                                        void* callbackArgs);
 
-[[nodiscard]] std::shared_ptr<Worker> createWorker(
-  std::shared_ptr<Context> context,
-  const bool enableDelayedSubmission,
-  const bool enableFuture,
+[[nodiscard]] std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
+                                                   const bool enableDelayedSubmission,
+                                                   const bool enableFuture);
 
 [[nodiscard]] std::shared_ptr<MemoryHandle> createMemoryHandle(
   std::shared_ptr<Context> context,
