@@ -590,16 +590,10 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
   // expose a queryable handle so we know the feature wired up.
   size_t requestsWithAttributes = 0;
   for (const auto& request : requests) {
-    try {
-      auto debugString = request->getRequestAttributes().debugString;
-      EXPECT_FALSE(debugString.empty());
-      ++requestsWithAttributes;
-    } catch (const ucxx::Error&) {
-      // Inline completion: no UCP request, nothing to query.
-    }
+    auto debugString              = request->getRequestAttributes().debugString;
+    std::string expectedSubstring = "length " + std::to_string(_messageSize);
+    ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
   }
-  EXPECT_GT(requestsWithAttributes, 0u)
-    << "Expected at least one request to expose queryable attributes";
 
   copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
@@ -626,15 +620,10 @@ TEST_P(RequestTest, ProgressAmRequestAttributes)
   // request to have populated attributes.
   size_t requestsWithAttributes = 0;
   for (const auto& request : requests) {
-    try {
-      auto debugString = request->getRequestAttributes().debugString;
-      EXPECT_FALSE(debugString.empty());
-      ++requestsWithAttributes;
-    } catch (const ucxx::Error&) {
-    }
+    auto debugString              = request->getRequestAttributes().debugString;
+    std::string expectedSubstring = "length " + std::to_string(_messageSize);
+    ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
   }
-  EXPECT_GT(requestsWithAttributes, 0u)
-    << "Expected at least one request to expose queryable attributes";
 
   auto recvReq = requests[1];
   _recvPtr[0]  = recvReq->getRecvBuffer()->data();
@@ -666,11 +655,9 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
 
   // The memGet may complete inline on loopback (no UCP handle to query); accept that
   // and exercise the path either way.
-  try {
-    auto debugString = request->getRequestAttributes().debugString;
-    EXPECT_FALSE(debugString.empty());
-  } catch (const ucxx::Error&) {
-  }
+  auto debugString              = request->getRequestAttributes().debugString;
+  std::string expectedSubstring = "length " + std::to_string(_messageSize);
+  ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
 
   copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
