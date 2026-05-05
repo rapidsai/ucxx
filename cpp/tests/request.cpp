@@ -210,8 +210,8 @@ TEST_P(RequestTest, ProgressAm)
   // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
   // smaller messages are eager and will always be host-allocated.
   ASSERT_THAT(recvReq->getRecvBuffer()->getType(),
-              (_registerCustomAmAllocator && _messageSize >= _rndvThresh) ? _bufferType
-                                                                          : ucxx::BufferType::Host);
+              (_registerCustomAmAllocator && _messageSize > _rndvThresh) ? _bufferType
+                                                                         : ucxx::BufferType::Host);
 
   copyResults();
 
@@ -362,7 +362,7 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
     // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
     // smaller messages are eager and will always be host-allocated.
     ASSERT_THAT(receivedRequests[0]->getRecvBuffer()->getType(),
-                (_registerCustomAmAllocator && _messageSize >= _rndvThresh)
+                (_registerCustomAmAllocator && _messageSize > _rndvThresh)
                   ? _bufferType
                   : ucxx::BufferType::Host);
   }
@@ -526,11 +526,8 @@ TEST_P(RequestTest, ProgressTagRequestAttributes)
   //     halves get real handles, and rendezvous-protocol messages always defer.
   if (_bufferType == ucxx::BufferType::RMM && _messageSize == 0)
     GTEST_SKIP() << "Zero-length CUDA transfers report host memtype in UCX debug strings";
-  if ((_progressMode == ProgressMode::ThreadPolling ||
-       _progressMode == ProgressMode::ThreadBlocking) &&
-      _messageSize < _rndvThresh)
-    GTEST_SKIP() << "Worker progress thread completes eager tag pairs inline at submission "
-                    "(UCS_OK_PTR), leaving no UCP request handle to query";
+  if (_messageSize <= _rndvThresh)
+    GTEST_SKIP() << "Eager messages do not create a ucp_request and thus no debug info";
 
   rebuildWorker(/* enableRequestAttributes */ true);
 
@@ -575,11 +572,8 @@ TEST_P(RequestTest, ProgressTagRequestAttributesDisabled)
 TEST_P(RequestTest, ProgressStreamRequestAttributes)
 {
   if (_messageSize == 0) GTEST_SKIP() << "Stream rejects zero-length transfers";
-  if (_progressMode == ProgressMode::ThreadPolling || _progressMode == ProgressMode::ThreadBlocking)
-    GTEST_SKIP() << "On loopback with a worker progress thread, UCX often completes both "
-                    "stream send and recv inline (returns UCS_OK_PTR), so no UCP request "
-                    "handle exists to query. The feature is correctly reporting no "
-                    "attributes are available rather than racing.";
+  if (_messageSize <= _rndvThresh)
+    GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
 
   rebuildWorker(/* enableRequestAttributes */ true);
 
@@ -614,8 +608,8 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
 TEST_P(RequestTest, ProgressAmRequestAttributes)
 {
   if (_messageSize == 0) GTEST_SKIP() << "Zero-length AM completes without a UCP request";
-  if (_messageSize < _rndvThresh)
-    GTEST_SKIP() << "Eager AM completes inline without a UCP request to query";
+  if (_messageSize <= _rndvThresh)
+    GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
   if (_progressMode == ProgressMode::Wait)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
 
