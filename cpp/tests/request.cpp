@@ -579,21 +579,16 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
 
   allocate();
 
-  std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->streamSend(_sendPtr[0], _messageSize, 0));
-  requests.push_back(_ep->streamRecv(_recvPtr[0], _messageSize, 0));
+  auto sendRequest = _ep->streamSend(_sendPtr[0], _messageSize, 0);
+  auto recvRequest = _ep->streamRecv(_recvPtr[0], _messageSize, 0);
+  std::vector<std::shared_ptr<ucxx::Request>> requests{sendRequest, recvRequest};
   waitRequests(_worker, requests, _progressWorker);
 
-  // UCX may complete a request inline (e.g. very small loopback sends), in which case
-  // there is no UCP request handle to query and `getRequestAttributes()` legitimately
-  // throws. Accept that, but require at least one request (typically the receive) to
-  // expose a queryable handle so we know the feature wired up.
-  size_t requestsWithAttributes = 0;
-  for (const auto& request : requests) {
-    auto debugString              = request->getRequestAttributes().debugString;
-    std::string expectedSubstring = "length " + std::to_string(_messageSize);
-    ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
-  }
+  auto sendDebug = sendRequest->getRequestAttributes().debugString;
+  ASSERT_THAT(sendDebug, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+
+  auto recvDebug = recvRequest->getRequestAttributes().debugString;
+  ASSERT_THAT(recvDebug, ::testing::HasSubstr("no debug info"));
 
   copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
