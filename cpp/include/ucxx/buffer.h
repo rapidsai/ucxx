@@ -294,11 +294,6 @@ class RMMBuffer : public Buffer {
  * @brief Opaque implementation struct for CCCLBuffer (defined in buffer_cccl.cu).
  * Users should NOT access this type directly.
  */
-// CCCLBuffer uses PIMPL pattern (opaque impl defined in buffer_cccl.cu) because CCCL
-// template types (cuda::buffer<cuda::std::byte, cuda::mr::device_accessible>) require
-// nvcc compilation and cannot be forward-declared in a standard C++ header. Compare
-// with RMMBuffer which forward-declares rmm::device_buffer directly since rmm types
-// are standard C++ headers.
 struct CCCLBufferImpl;
 
 /**

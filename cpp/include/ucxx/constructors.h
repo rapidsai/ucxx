@@ -61,7 +61,6 @@ class Worker;
   std::shared_ptr<Context> context,
   const bool enableDelayedSubmission,
   const bool enableFuture,
-  const BufferType cudaBufferType = BufferType::Invalid);
 
 [[nodiscard]] std::shared_ptr<MemoryHandle> createMemoryHandle(
   std::shared_ptr<Context> context,

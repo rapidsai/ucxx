@@ -147,7 +147,6 @@ $ ./benchmarks/ucxx_perftest -m cccl-shared -s 1048576 -n 10 127.0.0.1
 **Requirements for CCCL Support:**
 - UCXX compiled with `UCXX_ENABLE_CCCL=ON`
 - CCCL library available (fetched automatically via CMake)
-- CUDA 12+ runtime
 
 ### Python
 

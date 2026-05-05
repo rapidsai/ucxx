@@ -63,7 +63,7 @@ TEST_P(BufferAllocator, TestType)
 #if UCXX_ENABLE_CCCL
     auto buffer = std::dynamic_pointer_cast<ucxx::CCCLBuffer>(_buffer);
     ASSERT_EQ(buffer->getType(), _type);
-    return;  // CCCLBuffer does not expose release(); post-release assertions do not apply
+    return;  // CCCLBuffer uses PIMPL - lifetime managed by unique_ptr, no release() needed
 #else
     GTEST_SKIP() << "UCXX was not built with CCCL support";
 #endif

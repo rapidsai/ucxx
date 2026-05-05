@@ -159,14 +159,10 @@ class Worker : public Component {
    *                                    progress thread.
    * @param[in] enableFuture if `true`, notifies the future associated with each
    *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
-   * @param[in] cudaBufferType the preferred buffer type for CUDA allocations. If
-   *                           `BufferType::Invalid` (default), will use CCCL if compiled
-   *                           with CCCL support, otherwise RMM if compiled with RMM support.
    */
   explicit Worker(std::shared_ptr<Context> context,
                   const bool enableDelayedSubmission = false,
-                  const bool enableFuture            = false,
-                  const BufferType cudaBufferType    = BufferType::Invalid);
+                  const bool enableFuture            = false);
 
  public:
   Worker()                         = delete;
@@ -183,8 +179,7 @@ class Worker : public Component {
    */
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                               const bool enableDelayedSubmission,
-                                              const bool enableFuture,
-                                              const BufferType cudaBufferType);
+                                              const bool enableFuture);
 
   /**
    * @brief Allow experimental::WorkerBuilder to access protected/private constructor.
@@ -1046,15 +1041,11 @@ class Worker : public Component {
  *                                    progress thread.
  * @param[in] enableFuture if `true`, notifies the future associated with each
  *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
- * @param[in] cudaBufferType the preferred buffer type for CUDA allocations. If
- *                           `BufferType::Invalid` (default), will use CCCL if compiled
- *                           with CCCL support, otherwise RMM if compiled with RMM support.
  * @returns The `shared_ptr<ucxx::Worker>` object
  */
 std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableDelayedSubmission,
-                                     const bool enableFuture,
-                                     const BufferType cudaBufferType);
+                                     const bool enableFuture);
 
 }  // namespace ucxx
 

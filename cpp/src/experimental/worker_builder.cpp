@@ -49,8 +49,11 @@ WorkerBuilder& WorkerBuilder::cudaBufferType(BufferType bufferType)
 
 std::shared_ptr<Worker> WorkerBuilder::build() const
 {
-  return ucxx::createWorker(
-    _impl->context, _impl->enableDelayedSubmission, _impl->enableFuture, _impl->cudaBufferType);
+  auto worker =
+    ucxx::createWorker(_impl->context, _impl->enableDelayedSubmission, _impl->enableFuture);
+  if (_impl->cudaBufferType != BufferType::Invalid)
+    worker->setCudaBufferType(_impl->cudaBufferType);
+  return worker;
 }
 
 }  // namespace experimental

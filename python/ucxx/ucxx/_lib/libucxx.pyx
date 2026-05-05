@@ -695,6 +695,7 @@ cdef class UCXWorker():
                 self._worker.get().isDelayedRequestSubmissionEnabled()
             )
             self._enable_python_future = self._worker.get().isFutureEnabled()
+            self._worker.get().setCudaBufferType(BufferType.CCCL)
 
             if self._context_feature_flags & UCP_FEATURE_AM:
                 if self._worker.get().getCudaBufferType() == BufferType.RMM:
