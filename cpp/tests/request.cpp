@@ -580,8 +580,14 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
   auto sendDebug = sendRequest->getRequestAttributes().debugString;
   ASSERT_THAT(sendDebug, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
 
-  auto recvDebug = recvRequest->getRequestAttributes().debugString;
-  ASSERT_THAT(recvDebug, ::testing::HasSubstr("no debug info"));
+  try {
+    // Stream recv requests have no rendezvous path, thus debug info cannot be generated.
+    auto recvDebug = recvRequest->getRequestAttributes().debugString;
+    EXPECT_THAT(recvDebug, ::testing::HasSubstr("no debug info"));
+  } catch (const ucxx::Error&) {
+    // Recv completed inline (send completed before recv was posted); no UCP request to
+    // query.
+  }
 
   copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
