@@ -513,7 +513,7 @@ TEST_P(RequestTest, ProgressTag)
 
 TEST_P(RequestTest, ProgressTagRequestAttributes)
 {
-  if (_messageSize <= _rndvThresh)
+  if (_messageSize < _rndvThresh)
     GTEST_SKIP() << "Eager messages do not create a ucp_request and thus no debug info";
 
   rebuildWorker(true);
@@ -689,7 +689,7 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
 TEST_P(RequestTest, ProgressAmRequestAttributes)
 {
   if (_messageSize == 0) GTEST_SKIP() << "Zero-length AM completes without a UCP request";
-  if (_messageSize <= _rndvThresh)
+  if (_messageSize < _rndvThresh)
     GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
   if (_progressMode == ProgressMode::Wait)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
