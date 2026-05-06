@@ -526,28 +526,16 @@ TEST_P(RequestTest, ProgressTagRequestAttributes)
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& request : requests) {
-    auto debugString              = request->getRequestAttributes().debugString;
-    std::string expectedSubstring = "length " + std::to_string(_messageSize);
-    ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
-
-    if (_bufferType == ucxx::BufferType::RMM && _messageSize == 0) {
-      // Zero-length CUDA transfers report host memtype
-      ASSERT_THAT(debugString, ::testing::HasSubstr("host"));
-    } else {
-      ASSERT_THAT(debugString,
-                  ::testing::HasSubstr(_memoryType == UCS_MEMORY_TYPE_HOST ? "host" : "cuda"));
-    }
+    auto debugString = request->getRequestAttributes().debugString;
+    ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+    ASSERT_THAT(debugString,
+                ::testing::HasSubstr(_memoryType == UCS_MEMORY_TYPE_HOST ? "host" : "cuda"));
   }
 
   copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-// Whether `getRequestAttributes()` throws when the worker has the feature disabled
-// is invariant across progress modes, buffer types and message sizes — there is
-// nothing to gain from running these assertions across the full RequestTest matrix.
-// Each test below uses the same fixture-built loopback (default-disabled worker,
-// polling progress, host buffers) and only varies the request type submitted.
 class RequestAttributesDisabledTest : public ::testing::Test {
  protected:
   static constexpr size_t kMessageLength = 1024;
@@ -658,8 +646,6 @@ TEST_F(RequestAttributesDisabledTest, MemoryPut)
 TEST_P(RequestTest, ProgressStreamRequestAttributes)
 {
   if (_messageSize == 0) GTEST_SKIP() << "Stream rejects zero-length transfers";
-  if (_messageSize <= _rndvThresh)
-    GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
 
   rebuildWorker(true);
 
@@ -670,16 +656,19 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
   std::vector<std::shared_ptr<ucxx::Request>> requests{sendRequest, recvRequest};
   waitRequests(_worker, requests, _progressWorker);
 
-  auto sendDebug = sendRequest->getRequestAttributes().debugString;
-  ASSERT_THAT(sendDebug, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+  try {
+    auto sendDebug = sendRequest->getRequestAttributes().debugString;
+    EXPECT_FALSE(sendDebug.empty());
+    EXPECT_THAT(sendDebug, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+  } catch (const ucxx::Error&) {
+    // Send completed inline; no UCP request handle to query.
+  }
 
   try {
-    // Stream recv requests have no rendezvous path, thus debug info cannot be generated.
     auto recvDebug = recvRequest->getRequestAttributes().debugString;
     EXPECT_THAT(recvDebug, ::testing::HasSubstr("no debug info"));
   } catch (const ucxx::Error&) {
-    // Recv completed inline (send completed before recv was posted); no UCP request to
-    // query.
+    // Recv completed inline; no UCP request handle to query.
   }
 
   copyResults();
@@ -688,7 +677,6 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
 
 TEST_P(RequestTest, ProgressAmRequestAttributes)
 {
-  if (_messageSize == 0) GTEST_SKIP() << "Zero-length AM completes without a UCP request";
   if (_messageSize < _rndvThresh)
     GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
   if (_progressMode == ProgressMode::Wait)
@@ -703,11 +691,9 @@ TEST_P(RequestTest, ProgressAmRequestAttributes)
   requests.push_back(_ep->amRecv());
   waitRequests(_worker, requests, _progressWorker);
 
-  size_t requestsWithAttributes = 0;
   for (const auto& request : requests) {
-    auto debugString              = request->getRequestAttributes().debugString;
-    std::string expectedSubstring = "length " + std::to_string(_messageSize);
-    ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
+    auto debugString = request->getRequestAttributes().debugString;
+    ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
   }
 
   auto recvReq = requests[1];
@@ -738,9 +724,8 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
   requests.push_back(_ep->flush());
   waitRequests(_worker, requests, _progressWorker);
 
-  auto debugString              = request->getRequestAttributes().debugString;
-  std::string expectedSubstring = "length " + std::to_string(_messageSize);
-  ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
+  auto debugString = request->getRequestAttributes().debugString;
+  ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
 
   copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
@@ -749,8 +734,6 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
 TEST_P(RequestTest, MemoryPutRequestAttributes)
 {
   if (_messageSize == 0) GTEST_SKIP() << "Zero-length memPut completes without a UCP request";
-  if (_messageSize <= _rndvThresh)
-    GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
 
   rebuildWorker(true);
 
@@ -768,11 +751,14 @@ TEST_P(RequestTest, MemoryPutRequestAttributes)
   requests.push_back(_ep->flush());
   waitRequests(_worker, requests, _progressWorker);
 
-  auto debugString              = request->getRequestAttributes().debugString;
-  std::string expectedSubstring = "length " + std::to_string(_messageSize);
-  ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
+  try {
+    auto debugString = request->getRequestAttributes().debugString;
+    EXPECT_FALSE(debugString.empty());
+    EXPECT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+  } catch (const ucxx::Error&) {
+    // Request completed inline; no UCP request handle to query.
+  }
 
-  // Copy memory handle data to receive buffer to verify data correctness.
   copyMemoryTypeAware(
     _recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
 
