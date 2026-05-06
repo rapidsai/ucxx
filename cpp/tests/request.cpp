@@ -543,36 +543,116 @@ TEST_P(RequestTest, ProgressTagRequestAttributes)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST(RequestTagRequestAttributesDisabledTest, GetRequestAttributesThrows)
-{
-  // Whether the request attributes query is gated on the worker flag is invariant
-  // across progress modes, buffer types and message sizes — there is nothing to
-  // gain from running this assertion across the full RequestTest matrix. Use a
-  // single fixed configuration: a default-built worker (requestAttributes disabled)
-  // and a small host loopback tag transfer.
-  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
-  auto worker  = ucxx::experimental::createWorker(context).build();
-  ASSERT_FALSE(worker->isRequestAttributesEnabled());
+// Whether `getRequestAttributes()` throws when the worker has the feature disabled
+// is invariant across progress modes, buffer types and message sizes — there is
+// nothing to gain from running these assertions across the full RequestTest matrix.
+// Each test below uses the same fixture-built loopback (default-disabled worker,
+// polling progress, host buffers) and only varies the request type submitted.
+class RequestAttributesDisabledTest : public ::testing::Test {
+ protected:
+  static constexpr size_t kMessageLength = 1024;
+  static constexpr size_t kMessageSize   = kMessageLength * sizeof(int);
 
-  auto ep             = worker->createEndpointFromWorkerAddress(worker->getAddress());
-  auto progressWorker = getProgressFunction(worker, ProgressMode::Polling);
+  std::shared_ptr<ucxx::Context> _context;
+  std::shared_ptr<ucxx::Worker> _worker;
+  std::shared_ptr<ucxx::Endpoint> _ep;
+  std::function<void()> _progressWorker;
+  std::vector<int> _sendBuf;
+  std::vector<int> _recvBuf;
 
-  constexpr size_t messageLength = 1024;
-  constexpr size_t messageSize   = messageLength * sizeof(int);
-  std::vector<int> sendBuf(messageLength);
-  std::vector<int> recvBuf(messageLength);
-  std::iota(sendBuf.begin(), sendBuf.end(), 0);
+  void SetUp() override
+  {
+    _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+    _worker  = ucxx::experimental::createWorker(_context).build();
+    ASSERT_FALSE(_worker->isRequestAttributesEnabled());
 
-  std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagSend(sendBuf.data(), messageSize, ucxx::Tag{0}));
-  requests.push_back(ep->tagRecv(recvBuf.data(), messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
-  waitRequests(worker, requests, progressWorker);
+    _ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    _progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
 
-  for (const auto& request : requests) {
-    EXPECT_THROW(std::ignore = request->getRequestAttributes(), ucxx::Error);
+    _sendBuf.resize(kMessageLength);
+    _recvBuf.resize(kMessageLength);
+    std::iota(_sendBuf.begin(), _sendBuf.end(), 0);
   }
 
-  ASSERT_THAT(recvBuf, ::testing::ContainerEq(sendBuf));
+  void expectAllThrow(const std::vector<std::shared_ptr<ucxx::Request>>& requests) const
+  {
+    for (const auto& request : requests) {
+      EXPECT_THROW(std::ignore = request->getRequestAttributes(), ucxx::Error);
+    }
+  }
+};
+
+TEST_F(RequestAttributesDisabledTest, Tag)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->tagSend(_sendBuf.data(), kMessageSize, ucxx::Tag{0}));
+  requests.push_back(_ep->tagRecv(_recvBuf.data(), kMessageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow(requests);
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, Stream)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->streamSend(_sendBuf.data(), kMessageSize, 0));
+  requests.push_back(_ep->streamRecv(_recvBuf.data(), kMessageSize, 0));
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow(requests);
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, Am)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendBuf.data(), kMessageSize, UCS_MEMORY_TYPE_HOST));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow(requests);
+
+  auto recvBuffer = requests[1]->getRecvBuffer();
+  ASSERT_EQ(recvBuffer->getSize(), kMessageSize);
+  std::vector<int> received(reinterpret_cast<int*>(recvBuffer->data()),
+                            reinterpret_cast<int*>(recvBuffer->data()) + kMessageLength);
+  ASSERT_THAT(received, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, MemoryGet)
+{
+  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+  std::memcpy(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendBuf.data(), kMessageSize);
+
+  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memGet(_recvBuf.data(), kMessageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow({request});
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, MemoryPut)
+{
+  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+
+  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memPut(_sendBuf.data(), kMessageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow({request});
+
+  std::memcpy(
+    _recvBuf.data(), reinterpret_cast<void*>(memoryHandle->getBaseAddress()), kMessageSize);
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
 }
 
 TEST_P(RequestTest, ProgressStreamRequestAttributes)
