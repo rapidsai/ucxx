@@ -513,23 +513,10 @@ TEST_P(RequestTest, ProgressTag)
 
 TEST_P(RequestTest, ProgressTagRequestAttributes)
 {
-  // `ucp_request_query` only works on a real UCP request handle, but UCX does not
-  // always allocate one. Skip the configurations where it doesn't, so the
-  // assertions on the debug string content are deterministic:
-  //   - Zero-length CUDA transfers report host memtype in UCX debug strings (no
-  //     device buffer is involved), so the "cuda" substring assertion would fail.
-  //   - In threaded progress modes the worker progress thread advances the first
-  //     half of an eager tag pair into the peer's unexpected queue before the
-  //     second half is submitted; UCX then matches and completes the second
-  //     submission inline (returning `UCS_OK_PTR`), leaving no request handle to
-  //     query. Non-threaded modes don't progress between submissions, so both
-  //     halves get real handles, and rendezvous-protocol messages always defer.
-  if (_bufferType == ucxx::BufferType::RMM && _messageSize == 0)
-    GTEST_SKIP() << "Zero-length CUDA transfers report host memtype in UCX debug strings";
   if (_messageSize <= _rndvThresh)
     GTEST_SKIP() << "Eager messages do not create a ucp_request and thus no debug info";
 
-  rebuildWorker(/* enableRequestAttributes */ true);
+  rebuildWorker(true);
 
   allocate();
 
@@ -542,8 +529,14 @@ TEST_P(RequestTest, ProgressTagRequestAttributes)
     auto debugString              = request->getRequestAttributes().debugString;
     std::string expectedSubstring = "length " + std::to_string(_messageSize);
     ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
-    ASSERT_THAT(debugString,
-                ::testing::HasSubstr(_memoryType == UCS_MEMORY_TYPE_HOST ? "host" : "cuda"));
+
+    if (_bufferType == ucxx::BufferType::RMM && _messageSize == 0) {
+      // Zero-length CUDA transfers report host memtype
+      ASSERT_THAT(debugString, ::testing::HasSubstr("host"));
+    } else {
+      ASSERT_THAT(debugString,
+                  ::testing::HasSubstr(_memoryType == UCS_MEMORY_TYPE_HOST ? "host" : "cuda"));
+    }
   }
 
   copyResults();
@@ -575,7 +568,7 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
   if (_messageSize <= _rndvThresh)
     GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
 
-  rebuildWorker(/* enableRequestAttributes */ true);
+  rebuildWorker(true);
 
   allocate();
 
@@ -602,7 +595,7 @@ TEST_P(RequestTest, ProgressAmRequestAttributes)
   if (_progressMode == ProgressMode::Wait)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
 
-  rebuildWorker(/* enableRequestAttributes */ true);
+  rebuildWorker(true);
 
   allocate(1, false);
 
@@ -611,8 +604,6 @@ TEST_P(RequestTest, ProgressAmRequestAttributes)
   requests.push_back(_ep->amRecv());
   waitRequests(_worker, requests, _progressWorker);
 
-  // Inline completion is acceptable (no UCP handle to query); require at least one
-  // request to have populated attributes.
   size_t requestsWithAttributes = 0;
   for (const auto& request : requests) {
     auto debugString              = request->getRequestAttributes().debugString;
@@ -630,7 +621,7 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
 {
   if (_messageSize == 0) GTEST_SKIP() << "Zero-length memGet completes without a UCP request";
 
-  rebuildWorker(/* enableRequestAttributes */ true);
+  rebuildWorker(true);
 
   allocate();
 
@@ -648,8 +639,6 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
   requests.push_back(_ep->flush());
   waitRequests(_worker, requests, _progressWorker);
 
-  // The memGet may complete inline on loopback (no UCP handle to query); accept that
-  // and exercise the path either way.
   auto debugString              = request->getRequestAttributes().debugString;
   std::string expectedSubstring = "length " + std::to_string(_messageSize);
   ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
