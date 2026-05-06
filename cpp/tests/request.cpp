@@ -543,23 +543,36 @@ TEST_P(RequestTest, ProgressTagRequestAttributes)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressTagRequestAttributesDisabled)
+TEST(RequestTagRequestAttributesDisabledTest, GetRequestAttributesThrows)
 {
-  ASSERT_FALSE(_worker->isRequestAttributesEnabled());
+  // Whether the request attributes query is gated on the worker flag is invariant
+  // across progress modes, buffer types and message sizes — there is nothing to
+  // gain from running this assertion across the full RequestTest matrix. Use a
+  // single fixed configuration: a default-built worker (requestAttributes disabled)
+  // and a small host loopback tag transfer.
+  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+  auto worker  = ucxx::experimental::createWorker(context).build();
+  ASSERT_FALSE(worker->isRequestAttributesEnabled());
 
-  allocate();
+  auto ep             = worker->createEndpointFromWorkerAddress(worker->getAddress());
+  auto progressWorker = getProgressFunction(worker, ProgressMode::Polling);
+
+  constexpr size_t messageLength = 1024;
+  constexpr size_t messageSize   = messageLength * sizeof(int);
+  std::vector<int> sendBuf(messageLength);
+  std::vector<int> recvBuf(messageLength);
+  std::iota(sendBuf.begin(), sendBuf.end(), 0);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
-  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
-  waitRequests(_worker, requests, _progressWorker);
+  requests.push_back(ep->tagSend(sendBuf.data(), messageSize, ucxx::Tag{0}));
+  requests.push_back(ep->tagRecv(recvBuf.data(), messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  waitRequests(worker, requests, progressWorker);
 
   for (const auto& request : requests) {
     EXPECT_THROW(std::ignore = request->getRequestAttributes(), ucxx::Error);
   }
 
-  copyResults();
-  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+  ASSERT_THAT(recvBuf, ::testing::ContainerEq(sendBuf));
 }
 
 TEST_P(RequestTest, ProgressStreamRequestAttributes)
