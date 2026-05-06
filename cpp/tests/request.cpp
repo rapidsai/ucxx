@@ -746,6 +746,40 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
+TEST_P(RequestTest, MemoryPutRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Zero-length memPut completes without a UCP request";
+  if (_messageSize <= _rndvThresh)
+    GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
+
+  rebuildWorker(true);
+
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memPut(_sendPtr[0], _messageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(request);
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto debugString              = request->getRequestAttributes().debugString;
+  std::string expectedSubstring = "length " + std::to_string(_messageSize);
+  ASSERT_THAT(debugString, ::testing::HasSubstr(expectedSubstring));
+
+  // Copy memory handle data to receive buffer to verify data correctness.
+  copyMemoryTypeAware(
+    _recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
 TEST_P(RequestTest, ProgressTagMulti)
 {
   if (_progressMode == ProgressMode::Wait) {
