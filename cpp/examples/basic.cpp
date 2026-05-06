@@ -241,7 +241,8 @@ std::shared_ptr<ucxx::Buffer> makeBuffer(ucxx::BufferType bufferType, T* values,
 #if UCXX_ENABLE_CCCL
     {
       auto buf = std::make_shared<ucxx::CCCLBuffer>(size * sizeof(T));
-      cudaMemcpy(buf->data(), values, size * sizeof(T), cudaMemcpyHostToDevice);
+      cudaMemcpyAsync(buf->data(), values, size * sizeof(T), cudaMemcpyHostToDevice, 0);
+      cudaStreamSynchronize(0);
       return buf;
     }
 #endif
@@ -258,8 +259,10 @@ auto verify_buffers(ucxx::Buffer* expected, ucxx::Buffer* actual)
   auto copy_to_host = [](auto& buffer, auto& host_buffer) {
     // copy device buffer to host
     host_buffer.resize(buffer->getSize());
-    assert(cudaMemcpy(host_buffer.data(), buffer->data(), buffer->getSize(), cudaMemcpyDefault) ==
+    assert(cudaMemcpyAsync(
+             host_buffer.data(), buffer->data(), buffer->getSize(), cudaMemcpyDefault, 0) ==
            cudaSuccess);
+    cudaStreamSynchronize(0);
     return host_buffer.data();
   };
 #else
