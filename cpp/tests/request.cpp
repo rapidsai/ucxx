@@ -207,11 +207,11 @@ TEST_P(RequestTest, ProgressAm)
   auto recvReq = requests[1];
   _recvPtr[0]  = recvReq->getRecvBuffer()->data();
 
-  // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
-  // smaller messages are eager and will always be host-allocated.
+  // Messages of size `_rndvThresh` or larger are rendezvous and will use the custom
+  // allocator, smaller messages are eager and will always be host-allocated.
   ASSERT_THAT(recvReq->getRecvBuffer()->getType(),
-              (_registerCustomAmAllocator && _messageSize > _rndvThresh) ? _bufferType
-                                                                         : ucxx::BufferType::Host);
+              (_registerCustomAmAllocator && _messageSize >= _rndvThresh) ? _bufferType
+                                                                          : ucxx::BufferType::Host);
 
   copyResults();
 
@@ -362,7 +362,7 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
     // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
     // smaller messages are eager and will always be host-allocated.
     ASSERT_THAT(receivedRequests[0]->getRecvBuffer()->getType(),
-                (_registerCustomAmAllocator && _messageSize > _rndvThresh)
+                (_registerCustomAmAllocator && _messageSize >= _rndvThresh)
                   ? _bufferType
                   : ucxx::BufferType::Host);
   }
