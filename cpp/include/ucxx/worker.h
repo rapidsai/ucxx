@@ -142,6 +142,19 @@ class Worker : public Component {
    */
   bool progressPending();
 
+  /**
+   * @brief Set the preferred buffer type for CUDA allocations.
+   *
+   * Configure which buffer type to use when allocating CUDA buffers for incoming
+   * multi-buffer tag receives.
+   *
+   * @param[in] bufferType  the preferred buffer type (must be `BufferType::RMM` or
+   *                        `BufferType::CCCL`).
+   *
+   * @throws std::invalid_argument if bufferType is not RMM or CCCL.
+   */
+  void setCudaBufferType(BufferType bufferType);
+
  protected:
   /**
    * @brief Protected constructor of `ucxx::Worker`.
@@ -504,19 +517,6 @@ class Worker : public Component {
    * @returns The preferred `BufferType` for CUDA allocations.
    */
   [[nodiscard]] BufferType getCudaBufferType() const;
-
-  /**
-   * @brief Set the preferred buffer type for CUDA allocations.
-   *
-   * Configure which buffer type to use when allocating CUDA buffers for incoming
-   * multi-buffer tag receives.
-   *
-   * @param[in] bufferType  the preferred buffer type (must be `BufferType::RMM` or
-   *                        `BufferType::CCCL`).
-   *
-   * @throws std::invalid_argument if bufferType is not RMM or CCCL.
-   */
-  void setCudaBufferType(BufferType bufferType);
 
   /**
    * @brief Populate the futures pool.

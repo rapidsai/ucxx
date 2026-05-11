@@ -695,7 +695,6 @@ cdef class UCXWorker():
                 self._worker.get().isDelayedRequestSubmissionEnabled()
             )
             self._enable_python_future = self._worker.get().isFutureEnabled()
-            self._worker.get().setCudaBufferType(BufferType.CCCL)
 
             if self._context_feature_flags & UCP_FEATURE_AM:
                 if self._worker.get().getCudaBufferType() == BufferType.RMM:
@@ -769,19 +768,6 @@ cdef class UCXWorker():
             return "cccl"
         else:
             return "none"
-
-    @cuda_buffer_type.setter
-    def cuda_buffer_type(self, str value):
-        """Set the preferred CUDA buffer type ('rmm' or 'cccl')."""
-        cdef BufferType bt
-        if value == "rmm":
-            bt = BufferType.RMM
-        elif value == "cccl":
-            bt = BufferType.CCCL
-        else:
-            raise ValueError("cuda_buffer_type must be 'rmm' or 'cccl'")
-        with nogil:
-            self._worker.get().setCudaBufferType(bt)
 
     def get_address(self) -> UCXAddress:
         warnings.warn(

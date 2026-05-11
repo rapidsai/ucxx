@@ -88,10 +88,11 @@ class RequestTest : public ::testing::TestWithParam<
 
     _context = ucxx::createContext({{"RNDV_THRESH", std::to_string(_rndvThresh)}},
                                    ucxx::Context::defaultFeatureFlags);
-    _worker  = _context->createWorker(_enableDelayedSubmission);
-
+    auto builder =
+      ucxx::experimental::createWorker(_context).delayedSubmission(_enableDelayedSubmission);
     if (_bufferType == ucxx::BufferType::RMM || _bufferType == ucxx::BufferType::CCCL)
-      _worker->setCudaBufferType(_bufferType);
+      builder.cudaBufferType(_bufferType);
+    _worker = builder.build();
 
     if (_progressMode == ProgressMode::Blocking) {
       _worker->initBlockingProgressMode();
