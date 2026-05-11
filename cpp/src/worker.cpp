@@ -38,10 +38,10 @@ Worker::Worker(std::shared_ptr<Context> context,
 {
   if (context == nullptr || context->getHandle() == nullptr)
     throw std::runtime_error("Context not initialized");
-#if UCXX_ENABLE_RMM
-  _cudaBufferType = BufferType::RMM;
-#elif UCXX_ENABLE_CCCL
+#if UCXX_ENABLE_CCCL
   _cudaBufferType = BufferType::CCCL;
+#elif UCXX_ENABLE_RMM
+  _cudaBufferType = BufferType::RMM;
 #endif
 
   ucp_worker_params_t params = {.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE,

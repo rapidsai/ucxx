@@ -228,6 +228,9 @@ class RMMBuffer : public Buffer {
    * auto buffer = RMMBuffer(1024);
    * @endcode
    */
+  [[deprecated(
+    "RMMBuffer is deprecated and will be removed in a future release. Use CCCL buffers instead "
+    "(UCXX_ENABLE_CCCL).")]]
   explicit RMMBuffer(const size_t size);
 
   /**
@@ -235,6 +238,9 @@ class RMMBuffer : public Buffer {
    *
    * @param[in] rmm_buffer the `rmm::device_buffer` to hold.
    */
+  [[deprecated(
+    "RMMBuffer is deprecated and will be removed in a future release. Use CCCL buffers instead "
+    "(UCXX_ENABLE_CCCL).")]]
   explicit RMMBuffer(std::unique_ptr<rmm::device_buffer> rmm_buffer);
 
   /**

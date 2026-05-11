@@ -51,7 +51,10 @@ message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
 message(VERBOSE "UCXX: Configure CMake to build benchmarks: ${BUILD_BENCHMARKS}")
 message(VERBOSE "UCXX: Configure CMake to build examples: ${BUILD_EXAMPLES}")
 message(VERBOSE "UCXX: Build UCXX shared libraries: ${BUILD_SHARED_LIBS}")
-message(VERBOSE "UCXX: Enable support for CUDA multi-buffer transfer with RMM: ${UCXX_ENABLE_RMM}")
+message(
+  VERBOSE
+  "UCXX: Enable support for CUDA multi-buffer transfer with RMM (DEPRECATED): ${UCXX_ENABLE_RMM}"
+)
 message(VERBOSE "UCXX: Enable support for CUDA buffer with CCCL: ${UCXX_ENABLE_CCCL}")
 message(
   VERBOSE
@@ -96,6 +99,9 @@ rapids_find_package(
 rapids_cpm_init()
 # find rmm
 if(UCXX_ENABLE_RMM)
+  message(DEPRECATION "UCXX_ENABLE_RMM is deprecated and will be removed in a future release. "
+                      "Use UCXX_ENABLE_CCCL instead."
+  )
   include(cmake/thirdparty/get_rmm.cmake)
 endif()
 # find cccl
