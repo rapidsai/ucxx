@@ -115,29 +115,25 @@ def capture_stack_trace(pid: int, stack_type=StackType.C) -> None:
         print(f"Skipping stack trace for process {pid}: gdb not found")
         return
 
-    try:
-        proc = subprocess.run(
-            [
-                gdb,
-                "--quiet",
-                "--pid",
-                str(pid),
-                "-ex",
-                "set pagination off",
-                "-ex",
-                "set confirm off",
-                "-ex",
-                bt_command,
-                "-ex",
-                "quit",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except FileNotFoundError:
-        print(f"Skipping stack trace for process {pid}: gdb not found")
-        return
+    proc = subprocess.run(
+        [
+            gdb,
+            "--quiet",
+            "--pid",
+            str(pid),
+            "-ex",
+            "set pagination off",
+            "-ex",
+            "set confirm off",
+            "-ex",
+            bt_command,
+            "-ex",
+            "quit",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
     print(proc.stdout)
     if proc.stderr:
