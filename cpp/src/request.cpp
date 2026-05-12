@@ -246,9 +246,10 @@ void Request::setStatus(ucs_status_t status)
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
 
-void Request::queryRequestAttributes()
+void Request::publishRequest(void* request)
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);
+  _request = request;
 
   if (_requestAttr.memoryType != UCS_MEMORY_TYPE_UNKNOWN) return;
   if (!_worker->isRequestAttributesEnabled()) return;
@@ -272,13 +273,6 @@ void Request::queryRequestAttributes()
       _requestAttr.memoryType  = result.mem_type;
     }
   }
-}
-
-void Request::publishRequest(void* request)
-{
-  std::lock_guard<std::recursive_mutex> lock(_mutex);
-  _request = request;
-  queryRequestAttributes();
 }
 
 Request::Attributes Request::queryAttributes()

@@ -275,20 +275,6 @@ class Request : public Component {
 
  protected:
   /**
-   * @brief Query the UCP request attributes.
-   *
-   * Helper method that queries the UCP request for its attributes using ucp_request_query.
-   * Currently queries for:
-   * - Request status
-   * - Memory type
-   * - Debug string
-   *
-   * Internal companion to `queryAttributes()`: this is the side that actually calls into
-   * UCP and populates the cached attributes; `queryAttributes()` only returns the cache.
-   */
-  void queryRequestAttributes();
-
-  /**
    * @brief Publish the UCP request handle and capture its attributes.
    *
    * Single critical section that stores the UCP request pointer in `_request` and, when
