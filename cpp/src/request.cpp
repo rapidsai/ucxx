@@ -296,7 +296,7 @@ Request::Attributes Request::queryAttributes()
   if (_isRequestAttrValid)
     return _requestAttr;
   else
-    throw ucxx::Error("Request attributes not available yet");
+    throw ucxx::NoElemError("Request attributes not available yet");
 }
 
 std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }

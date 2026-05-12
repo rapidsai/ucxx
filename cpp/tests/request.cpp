@@ -565,7 +565,7 @@ class RequestAttributesDisabledTest : public ::testing::Test {
   void expectAllThrow(const std::vector<std::shared_ptr<ucxx::Request>>& requests) const
   {
     for (const auto& request : requests) {
-      EXPECT_THROW(std::ignore = request->queryAttributes(), ucxx::Error);
+      EXPECT_THROW(std::ignore = request->queryAttributes(), ucxx::NoElemError);
     }
   }
 };
@@ -660,14 +660,14 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
     auto sendDebug = sendRequest->queryAttributes().debugString;
     EXPECT_FALSE(sendDebug.empty());
     EXPECT_THAT(sendDebug, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
-  } catch (const ucxx::Error&) {
+  } catch (const ucxx::NoElemError&) {
     // Send completed inline; no UCP request handle to query.
   }
 
   try {
     auto recvDebug = recvRequest->queryAttributes().debugString;
     EXPECT_THAT(recvDebug, ::testing::HasSubstr("no debug info"));
-  } catch (const ucxx::Error&) {
+  } catch (const ucxx::NoElemError&) {
     // Recv completed inline; no UCP request handle to query.
   }
 
@@ -755,7 +755,7 @@ TEST_P(RequestTest, MemoryPutRequestAttributes)
     auto debugString = request->queryAttributes().debugString;
     EXPECT_FALSE(debugString.empty());
     EXPECT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
-  } catch (const ucxx::Error&) {
+  } catch (const ucxx::NoElemError&) {
     // Request completed inline; no UCP request handle to query.
   }
 

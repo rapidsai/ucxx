@@ -255,8 +255,10 @@ class Request : public Component {
    * are never populated and this method throws. Querying the underlying UCP request is
    * an implementation detail performed eagerly when the request is submitted.
    *
-   * @throw ucxx::Error if the request attributes are not available yet, including when
-   *                    request attributes querying is disabled on the owning worker.
+   * @throw ucxx::NoElemError if the request attributes are not available, either
+   *                          because the feature is disabled on the owning worker, or
+   *                          because UCX took an inline-completion path that produced
+   *                          no UCP request handle to query.
    *
    * @return An `Attributes` containing the request attributes.
    */
