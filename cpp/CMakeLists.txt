@@ -192,7 +192,7 @@ endif()
 if(UCXX_ENABLE_CCCL)
   find_package(CUDAToolkit REQUIRED)
   target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_CCCL)
-  target_link_libraries(ucxx PRIVATE CCCL::CCCL CUDA::cudart)
+  target_link_libraries(ucxx PRIVATE CCCL::CCCL CUDA::cudart_static)
   target_sources(ucxx PRIVATE src/buffer_cccl.cpp)
 endif()
 
