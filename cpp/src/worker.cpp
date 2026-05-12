@@ -220,7 +220,7 @@ bool Worker::isDelayedRequestSubmissionEnabled() const
 
 bool Worker::isFutureEnabled() const { return _enableFuture; }
 
-bool Worker::isRequestAttributesEnabled() const { return _enableRequestAttributes; }
+bool Worker::isRequestAttributesEnabled() const noexcept { return _enableRequestAttributes; }
 
 void Worker::initBlockingProgressMode()
 {
