@@ -7,6 +7,8 @@
 #include <memory>
 #include <utility>
 
+#include <ucxx/buffer.h>
+
 namespace ucxx {
 
 // Forward declarations
@@ -87,6 +89,14 @@ class WorkerBuilder final {
    * @return Reference to this builder for method chaining.
    */
   WorkerBuilder& pythonFuture(bool enable = true);
+
+  /**
+   * @brief Configure the preferred buffer type for CUDA allocations.
+   *
+   * @param[in] bufferType the preferred buffer type for CUDA allocations.
+   * @return Reference to this builder for method chaining.
+   */
+  WorkerBuilder& cudaBufferType(BufferType bufferType);
 
   /**
    * @brief Build and return the `Worker`.
