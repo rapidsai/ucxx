@@ -265,6 +265,12 @@ static void printUsage(std::string_view executablePath)
   std::cerr << "     rmm-cuda-async-managed - RMM stream-ordered memory backed by pool"
             << std::endl;
 #endif
+#ifdef UCXX_BENCHMARKS_ENABLE_CCCL
+  std::cerr << "                cccl-device - CCCL device memory pool" << std::endl;
+  std::cerr << "                cccl-shared - CCCL shared resource" << std::endl;
+  std::cerr << "            cccl-cuda-async - CCCL CUDA async resource" << std::endl;
+  std::cerr << "    cccl-cuda-async-managed - CCCL CUDA async managed resource" << std::endl;
+#endif
 #endif
   std::cerr << "  -P <progress_mode>          worker progress mode to use" << std::endl;
   std::cerr
@@ -848,6 +854,11 @@ class Application {
 #ifdef UCXX_BENCHMARKS_ENABLE_RMM
     } else if (isRmmMemoryType(_appContext.memoryType)) {
       return RmmBufferInterfaceBase::createBufferInterface(
+        _appContext.memoryType, _appContext.messageSize, _appContext.reuseAllocations);
+#endif
+#ifdef UCXX_BENCHMARKS_ENABLE_CCCL
+    } else if (isCcclMemoryType(_appContext.memoryType)) {
+      return CcclBufferInterfaceBase::createBufferInterface(
         _appContext.memoryType, _appContext.messageSize, _appContext.reuseAllocations);
 #endif
     } else {

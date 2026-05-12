@@ -39,6 +39,11 @@ Worker::Worker(std::shared_ptr<Context> context,
 {
   if (context == nullptr || context->getHandle() == nullptr)
     throw std::runtime_error("Context not initialized");
+#if UCXX_ENABLE_CCCL
+  _cudaBufferType = BufferType::CCCL;
+#elif UCXX_ENABLE_RMM
+  _cudaBufferType = BufferType::RMM;
+#endif
 
   ucp_worker_params_t params = {.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE,
                                 .thread_mode = UCS_THREAD_MODE_MULTI};
@@ -144,7 +149,6 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableFuture)
 {
   auto worker = std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
-
   // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
   // been created, thus this cannot be in the constructor.
   if (worker->_amData != nullptr) {
@@ -221,6 +225,15 @@ bool Worker::isDelayedRequestSubmissionEnabled() const
 bool Worker::isFutureEnabled() const { return _enableFuture; }
 
 bool Worker::isRequestAttributesEnabled() const noexcept { return _enableRequestAttributes; }
+
+BufferType Worker::getCudaBufferType() const { return _cudaBufferType; }
+
+void Worker::setCudaBufferType(BufferType bufferType)
+{
+  if (bufferType != BufferType::RMM && bufferType != BufferType::CCCL)
+    throw std::invalid_argument("cudaBufferType must be BufferType::RMM or BufferType::CCCL");
+  _cudaBufferType = bufferType;
+}
 
 void Worker::initBlockingProgressMode()
 {

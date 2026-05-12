@@ -31,6 +31,12 @@ from libcpp.string_view cimport string_view
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
+cdef extern from "cuda_runtime.h" nogil:
+    enum cudaMemcpyKind:
+        cudaMemcpyDeviceToHost
+    int cudaMemcpy(void* dst, const void* src, size_t count,
+                   cudaMemcpyKind kind)
+
 import numpy as np
 
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
@@ -195,6 +201,75 @@ cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length) noexcept nogil:
     cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
     return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
 
+# Unlike RMM which has a Python DeviceBuffer class (from the rmm package),
+# CCCL has no Python buffer equivalent. This wrapper provides __cuda_array_interface__
+# for interoperability with CuPy/cuDF without requiring an external CCCL Python package.
+cdef class CCCLBufferWrapper:
+    """Wraps a CCCLBuffer device pointer as cuda_array_interface object.
+
+    Retains a shared_ptr to the underlying Buffer to prevent the CUDA
+    allocation from being freed while this wrapper is alive.
+    """
+    cdef shared_ptr[Buffer] _buf
+    cdef uintptr_t _ptr
+    cdef size_t _size
+
+    @staticmethod
+    cdef CCCLBufferWrapper _from_buffer(shared_ptr[Buffer] buf):
+        cdef CCCLBufferWrapper wrapper = CCCLBufferWrapper.__new__(CCCLBufferWrapper)
+        wrapper._buf = buf
+        wrapper._ptr = <uintptr_t>buf.get().data()
+        wrapper._size = buf.get().getSize()
+        return wrapper
+
+    @property
+    def __cuda_array_interface__(self):
+        return {
+            "shape": (self._size,),
+            "typestr": "|u1",
+            "data": (self._ptr, False),
+            "version": 2,
+        }
+
+    @property
+    def nbytes(self):
+        return self._size
+
+    def copy_to_host(self, ary=None):
+        """Copy device buffer content to host.
+
+        Parameters
+        ----------
+        ary : optional
+            A bytes-like buffer to write into. If None, a new numpy
+            array is allocated.
+
+        Returns
+        -------
+        numpy.ndarray
+            Host array with dtype uint8.
+        """
+        cdef size_t s = self._size
+        cdef unsigned char[::1] hb
+        if ary is None:
+            ary = np.empty((s,), dtype="u1")
+        hb = ary
+        if <size_t>len(hb) < s:
+            raise ValueError(
+                f"Argument `ary` is too small. Need space for {s} bytes."
+            )
+        with nogil:
+            cudaMemcpy(<void*>&hb[0], <const void*>self._ptr, s,
+                       cudaMemcpyDeviceToHost)
+        return ary
+
+cdef _get_cccl_buffer(shared_ptr[Buffer] buf):
+    return CCCLBufferWrapper._from_buffer(buf)
+
+
+cdef shared_ptr[Buffer] _cccl_am_allocator(size_t length) noexcept nogil:
+    cdef shared_ptr[CCCLBuffer] cccl_buffer = make_shared[CCCLBuffer](length)
+    return dynamic_pointer_cast[Buffer, CCCLBuffer](cccl_buffer)
 
 ###############################################################################
 #                               Exceptions                                    #
@@ -606,6 +681,7 @@ cdef class UCXWorker():
         cdef bint ucxx_enable_delayed_submission = enable_delayed_submission
         cdef bint ucxx_enable_python_future = enable_python_future
         cdef AmAllocatorType rmm_am_allocator
+        cdef AmAllocatorType cccl_am_allocator
 
         self._context_feature_flags = <uint64_t>(context.feature_flags)
 
@@ -621,10 +697,26 @@ cdef class UCXWorker():
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
             if self._context_feature_flags & UCP_FEATURE_AM:
-                rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
-                self._worker.get().registerAmAllocator(
-                    UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
-                )
+                if self._worker.get().getCudaBufferType() == BufferType.RMM:
+                    with gil:
+                        warnings.warn(
+                            "RMM CUDA buffer support is deprecated and "
+                            "will be removed in a future release. Use "
+                            "CCCL buffers instead (set "
+                            "UCXX_ENABLE_CCCL=ON and "
+                            "UCXX_ENABLE_RMM=OFF).",
+                            FutureWarning,
+                            stacklevel=2,
+                        )
+                    rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
+                    self._worker.get().registerAmAllocator(
+                        UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
+                    )
+                elif self._worker.get().getCudaBufferType() == BufferType.CCCL:
+                    cccl_am_allocator = <AmAllocatorType>(&_cccl_am_allocator)
+                    self._worker.get().registerAmAllocator(
+                        UCS_MEMORY_TYPE_CUDA, cccl_am_allocator
+                    )
 
     def __dealloc__(self) -> None:
         with nogil:
@@ -673,6 +765,19 @@ cdef class UCXWorker():
     @property
     def enable_python_future(self) -> bool:
         return self._enable_python_future
+
+    @property
+    def cuda_buffer_type(self) -> str:
+        """Return the preferred CUDA buffer type ('rmm', 'cccl', or 'none')."""
+        cdef BufferType bt
+        with nogil:
+            bt = self._worker.get().getCudaBufferType()
+        if bt == BufferType.RMM:
+            return "rmm"
+        elif bt == BufferType.CCCL:
+            return "cccl"
+        else:
+            return "none"
 
     def get_address(self) -> UCXAddress:
         warnings.warn(
@@ -991,6 +1096,8 @@ cdef class UCXRequest():
             return None
         elif bufType == BufferType.RMM:
             return _get_rmm_buffer(<uintptr_t><void*>buf.get())
+        elif bufType == BufferType.CCCL:
+            return _get_cccl_buffer(buf)
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
@@ -1081,6 +1188,8 @@ cdef class UCXBufferRequest:
             return None
         elif bufType == BufferType.RMM:
             return _get_rmm_buffer(<uintptr_t><void*>buf.get())
+        elif bufType == BufferType.CCCL:
+            return _get_cccl_buffer(buf)
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 

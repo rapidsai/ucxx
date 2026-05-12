@@ -15,6 +15,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/buffer.h>
 #include <ucxx/component.h>
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
@@ -86,6 +87,7 @@ class Worker : public Component {
   std::shared_ptr<Notifier> _notifier{nullptr};  ///< Notifier object
   std::shared_ptr<internal::AmData>
     _amData;  ///< Worker data made available to Active Messages callback
+  BufferType _cudaBufferType{BufferType::Invalid};  ///< Preferred buffer type for CUDA allocations
 
  private:
   /**
@@ -141,6 +143,19 @@ class Worker : public Component {
    * @returns whether any communication events have been progressed.
    */
   bool progressPending();
+
+  /**
+   * @brief Set the preferred buffer type for CUDA allocations.
+   *
+   * Configure which buffer type to use when allocating CUDA buffers for incoming
+   * multi-buffer tag receives.
+   *
+   * @param[in] bufferType  the preferred buffer type (must be `BufferType::RMM` or
+   *                        `BufferType::CCCL`).
+   *
+   * @throws std::invalid_argument if bufferType is not RMM or CCCL.
+   */
+  void setCudaBufferType(BufferType bufferType);
 
  protected:
   /**
@@ -506,6 +521,17 @@ class Worker : public Component {
    * @returns `true` if request attributes querying is enabled, `false` otherwise.
    */
   [[nodiscard]] bool isRequestAttributesEnabled() const noexcept;
+
+  /**
+   * @brief Get the preferred buffer type for CUDA allocations.
+   *
+   * Returns the buffer type used when allocating CUDA buffers for incoming
+   * multi-buffer tag receives. Defaults to CCCL if compiled with CCCL support,
+   * otherwise RMM if compiled with RMM support, otherwise Invalid.
+   *
+   * @returns The preferred `BufferType` for CUDA allocations.
+   */
+  [[nodiscard]] BufferType getCudaBufferType() const;
 
   /**
    * @brief Populate the futures pool.

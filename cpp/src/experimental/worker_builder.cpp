@@ -18,6 +18,7 @@ struct WorkerBuilder::Impl {
   bool enableDelayedSubmission{false};
   bool enableFuture{false};
   bool enableRequestAttributes{false};
+  BufferType cudaBufferType{BufferType::Invalid};
 
   explicit Impl(std::shared_ptr<Context> ctx) : context(std::move(ctx)) {}
 };
@@ -47,11 +48,19 @@ WorkerBuilder& WorkerBuilder::requestAttributes(bool enable)
   return *this;
 }
 
+WorkerBuilder& WorkerBuilder::cudaBufferType(BufferType bufferType)
+{
+  _impl->cudaBufferType = bufferType;
+  return *this;
+}
+
 std::shared_ptr<Worker> WorkerBuilder::build() const
 {
   auto worker =
     ucxx::createWorker(_impl->context, _impl->enableDelayedSubmission, _impl->enableFuture);
   worker->_enableRequestAttributes = _impl->enableRequestAttributes;
+  if (_impl->cudaBufferType != BufferType::Invalid)
+    worker->setCudaBufferType(_impl->cudaBufferType);
   return worker;
 }
 

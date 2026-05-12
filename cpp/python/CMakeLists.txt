@@ -1,6 +1,6 @@
 # ======================================================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # cmake-format: on
 # ======================================================================================================
@@ -48,6 +48,7 @@ if(FIND_UCXX_CPP)
   )
 else()
   set(UCXX_ENABLE_RMM ON)
+  set(UCXX_ENABLE_CCCL ON)
   add_subdirectory(.. ucxx-cpp)
 endif()
 
@@ -102,6 +103,10 @@ target_compile_definitions(
   ucxx_python PUBLIC UCXX_ENABLE_PYTHON
                      "RMM_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LEVEL_${RMM_LOGGING_LEVEL}"
 )
+
+if(UCXX_ENABLE_CCCL)
+  target_compile_definitions(ucxx_python PUBLIC UCXX_ENABLE_CCCL)
+endif()
 
 # Specify the target module library dependencies. We use COMPILE_ONLY for Python because Python does
 # not need to be linked since its symbols will always be available at runtime since we are running
