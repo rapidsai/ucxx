@@ -71,6 +71,24 @@ Request::~Request()
   ucxx_trace("ucxx::Request destroyed (%s): %p", _operationName.c_str(), this);
 }
 
+bool Request::isWorkerOperation() const
+{
+  // Receive operations go through ucp_tag_recv_nbx / ucp_am_recv_nbx and friends,
+  // which post requests against the UCP worker rather than a specific endpoint.
+  // ucp_ep_close_nbx(FORCE) does not cancel them, so closeBlocking() must do so
+  // explicitly.  Send / RMA operations are endpoint-bound and are cleaned up by
+  // FORCE close itself.
+  return std::visit(data::dispatch{
+                      [](const data::TagReceive&) { return true; },
+                      [](const data::TagReceiveWithHandle&) { return true; },
+                      [](const data::TagMultiReceive&) { return true; },
+                      [](const data::AmReceive&) { return true; },
+                      [](const data::StreamReceive&) { return true; },
+                      [](const auto&) { return false; },
+                    },
+                    _requestData);
+}
+
 void Request::cancel()
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);

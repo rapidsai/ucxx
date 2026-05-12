@@ -128,6 +128,27 @@ class Request : public Component {
   virtual void cancel();
 
   /**
+   * @brief Whether this request is worker-scoped (vs endpoint-scoped).
+   *
+   * Returns `true` for operations that are tracked by the UCP worker rather than a
+   * specific UCP endpoint, currently the receive variants (`TagReceive`,
+   * `TagReceiveWithHandle`, `AmReceive`, `StreamReceive`, `TagMultiReceive`).
+   *
+   * `Endpoint::closeBlocking()` uses this to decide which requests must be cancelled
+   * explicitly via `ucp_request_cancel`: worker-scoped requests are not cancelled by
+   * `ucp_ep_close_nbx(UCP_EP_CLOSE_FLAG_FORCE)` (which only tears down endpoint-bound
+   * state) and would otherwise hang forever. Endpoint-scoped requests are left to
+   * UCX's FORCE close, which handles their UCT-level cleanup atomically, calling
+   * `ucp_request_cancel` on them in addition to FORCE close has been observed to
+   * leave UCT-level pending queue entries referencing freed staging buffers, which
+   * the next `ucp_worker_progress()` then crashes dispatching (see
+   * test_send_recv_multi.py CUDA segfault).
+   *
+   * @returns `true` if this request is worker-scoped, `false` if endpoint-scoped.
+   */
+  [[nodiscard]] bool isWorkerOperation() const;
+
+  /**
    * @brief Return the status of the request.
    *
    * Return a `ucs_status_t` that may be used for more fine-grained error handling than

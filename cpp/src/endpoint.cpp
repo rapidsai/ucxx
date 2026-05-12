@@ -281,30 +281,37 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
     bool submitted    = false;
     for (uint64_t i = 0; i < maxAttempts && !closeSuccess; ++i) {
       if (!submitted) {
-        // Cancel inflight requests and submit FORCE close ATOMICALLY in a
-        // single pre-callback, with no ucp_worker_progress() between them.
+        // Cancel WORKER-SCOPED inflight requests (tag_recv & friends) and submit
+        // FORCE close ATOMICALLY in a single pre-callback no
+        // ucp_worker_progress() between them, and no ucp_request_cancel() on
+        // endpoint-scoped operations.
         //
-        // Why cancel here at all (UCX FORCE close already cancels endpoint
-        // operations):
-        //   tag_recv requests are worker-scoped (ucp_tag_recv_nbx(worker, ...)),
-        //   not endpoint-scoped, so ucp_ep_close_nbx(FORCE) leaves them pending.
-        //   Without ucp_request_cancel() here, an `await ep.close()` running
-        //   alongside an outstanding `await ep.recv()` would hang forever.
-        //   See test_shutdown.py::test_{server,client}_shutdown.
+        // Why cancel anything at all (UCX FORCE close handles endpoint state):
+        //   Receive operations (`tag_recv`, `am_recv`, ...) post requests on the
+        //   UCP worker via `ucp_*_recv_nbx(worker, ...)`. ucp_ep_close_nbx(FORCE)
+        //   tears down the UCP endpoint but leaves worker-scoped requests
+        //   pending forever, an `await ep.close()` racing with an outstanding
+        //   `await ep.recv()` would hang. See
+        //   test_shutdown.py::test_{server,client}_shutdown.
+        //
+        // Why ONLY worker-scoped (not endpoint-scoped sends/RMA):
+        //   Calling ucp_request_cancel() on an endpoint-scoped tag_send and then
+        //   FORCE-closing the endpoint has been observed to leave UCT-level TCP
+        //   pending queue entries pointing at freed staging buffers; the next
+        //   ucp_worker_progress() then crashed dispatching them
+        //   (uct_tcp_pending_queue_dispatch -> uct_cuda_copy_ep_get_short ->
+        //   cuMemcpyAsync -> SIGSEGV), see test_send_recv_multi.py CUDA segfault.
+        //   FORCE close handles endpoint-scoped requests' UCT cleanup atomically
+        //   on its own, so we leave them alone.
         //
         // Why atomic with FORCE close (not as a separate pre-callback):
         //   When cancelAll and FORCE close were separate pre-callbacks (the
         //   old cancelInflightRequestsBlocking path), a full ucp_worker_progress()
-        //   ran between them.  That intermediate progress could leave UCT-level
-        //   TCP pending entries half-dispatched (mid-cuMemcpyAsync staging of
-        //   a CUDA send); the next progress after FORCE close then crashed
-        //   dispatching them on a freed staging buffer (uct_cuda_copy_ep_get_short
-        //   -> cuMemcpyAsync -> SIGSEGV).  Running them in a single pre-callback
-        //   matches the safe single-threaded ordering proven by the regression
-        //   test in cpp/tests/endpoint_close_force_tcp_cuda_race.cpp.
+        //   ran between them, see prior commit "Cancel inflight requests and
+        //   submit force-close atomically in a single pre-callback".
         if (!worker->registerGenericPre(
               [this, &status, &param]() {
-                _inflightRequests->cancelAll();
+                _inflightRequests->cancelAll(/*workerOnly=*/true);
                 status = ucp_ep_close_nbx(_handle, &param);
                 // Invalidate _handle synchronously immediately, to prevent
                 // time window where _handle` points to freed UCP memory, usually
@@ -350,9 +357,9 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
     }
   } else {
     // No progress thread: cancel inflight + FORCE close back-to-back, then
-    // drive progress here.  Same atomicity reasoning as the progress-thread
+    // drive progress here. Same atomicity reasoning as the progress-thread
     // path above (no ucp_worker_progress() between cancel and FORCE close).
-    _inflightRequests->cancelAll();
+    _inflightRequests->cancelAll(/*workerOnly=*/true);
     status          = ucp_ep_close_nbx(_handle, &param);
     _originalHandle = _handle;
     _handle         = nullptr;
@@ -476,7 +483,7 @@ size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAtt
         "cancel inflight requests failed",
         __func__,
         this,
-        _handle);
+        _originalHandle != nullptr ? _originalHandle : _handle);
   } else {
     canceled = _inflightRequests->cancelAll();
   }
