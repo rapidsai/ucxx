@@ -63,8 +63,9 @@ class Request : public Component {
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
   RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
   RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
-  Attributes _requestAttr{};        ///< Request attributes queried when request is posted
-  bool _isRequestAttrValid{false};  ///< Whether the request attributes are valid
+  Attributes _requestAttr{};  ///< Request attributes queried when request is posted; the
+                              ///< default `memoryType == UCS_MEMORY_TYPE_UNKNOWN` doubles
+                              ///< as the "not populated yet" sentinel
 
   /**
    * @brief Protected constructor of an abstract `ucxx::Request`.

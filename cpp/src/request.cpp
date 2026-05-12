@@ -250,7 +250,7 @@ void Request::queryRequestAttributes()
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-  if (_isRequestAttrValid) return;
+  if (_requestAttr.memoryType != UCS_MEMORY_TYPE_UNKNOWN) return;
   if (!_worker->isRequestAttributesEnabled()) return;
 
   ucp_request_attr_t result;
@@ -259,8 +259,7 @@ void Request::queryRequestAttributes()
 
   std::vector<char> debug_str(worker_attr.maxDebugString, '\0');
 
-  result.field_mask = UCP_REQUEST_ATTR_FIELD_MEM_TYPE |
-                      UCP_REQUEST_ATTR_FIELD_INFO_STRING |
+  result.field_mask = UCP_REQUEST_ATTR_FIELD_MEM_TYPE | UCP_REQUEST_ATTR_FIELD_INFO_STRING |
                       UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;
 
   result.debug_string      = debug_str.data();
@@ -271,7 +270,6 @@ void Request::queryRequestAttributes()
     if (queryStatus == UCS_OK && result.debug_string != nullptr) {
       _requestAttr.debugString = std::string(result.debug_string);
       _requestAttr.memoryType  = result.mem_type;
-      _isRequestAttrValid      = true;
     }
   }
 }
@@ -287,7 +285,7 @@ Request::Attributes Request::queryAttributes()
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-  if (_isRequestAttrValid) return _requestAttr;
+  if (_requestAttr.memoryType != UCS_MEMORY_TYPE_UNKNOWN) return _requestAttr;
 
   if (!_worker->isRequestAttributesEnabled())
     throw ucxx::UnsupportedError(
