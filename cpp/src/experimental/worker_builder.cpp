@@ -17,6 +17,7 @@ struct WorkerBuilder::Impl {
   std::shared_ptr<Context> context;
   bool enableDelayedSubmission{false};
   bool enableFuture{false};
+  BufferType cudaBufferType{BufferType::Invalid};
 
   explicit Impl(std::shared_ptr<Context> ctx) : context(std::move(ctx)) {}
 };
@@ -40,9 +41,19 @@ WorkerBuilder& WorkerBuilder::pythonFuture(bool enable)
   return *this;
 }
 
+WorkerBuilder& WorkerBuilder::cudaBufferType(BufferType bufferType)
+{
+  _impl->cudaBufferType = bufferType;
+  return *this;
+}
+
 std::shared_ptr<Worker> WorkerBuilder::build() const
 {
-  return ucxx::createWorker(_impl->context, _impl->enableDelayedSubmission, _impl->enableFuture);
+  auto worker =
+    ucxx::createWorker(_impl->context, _impl->enableDelayedSubmission, _impl->enableFuture);
+  if (_impl->cudaBufferType != BufferType::Invalid)
+    worker->setCudaBufferType(_impl->cudaBufferType);
+  return worker;
 }
 
 }  // namespace experimental
