@@ -700,11 +700,11 @@ cdef class UCXWorker():
                 if self._worker.get().getCudaBufferType() == BufferType.RMM:
                     with gil:
                         warnings.warn(
-                            "RMM CUDA buffer support is deprecated and"
-                            " will be removed in a future release. Use"
-                            " CCCL buffers instead (set"
-                            " UCXX_ENABLE_CCCL=ON and"
-                            " UCXX_ENABLE_RMM=OFF).",
+                            "RMM CUDA buffer support is deprecated and "
+                            "will be removed in a future release. Use "
+                            "CCCL buffers instead (set "
+                            "UCXX_ENABLE_CCCL=ON and "
+                            "UCXX_ENABLE_RMM=OFF).",
                             FutureWarning,
                             stacklevel=2,
                         )
