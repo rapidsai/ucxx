@@ -38,9 +38,10 @@ namespace ucxx {
  */
 class Request : public Component {
  protected:
-  /// Structure to hold cached request attributes including the debug string
+  /**
+   * @brief Request attributes reported by `ucp_request_query`.
+   */
   struct Attributes {
-    ucs_status_t status{UCS_INPROGRESS};                  ///< Status of the request
     ucs_memory_type memoryType{UCS_MEMORY_TYPE_UNKNOWN};  ///< Memory type of the request
     std::string debugString{};                            ///< Stored debug string
   };
@@ -247,13 +248,14 @@ class Request : public Component {
   [[nodiscard]] virtual std::string getRecvHeader();
 
   /**
-   * @brief Get the request attributes.
+   * @brief Get the requests's attributes.
    *
-   * Get the request attributes. The owning `ucxx::Worker` must have been created with
-   * request attributes querying enabled (see
+   * Returns the request attributes as a struct. The owning `ucxx::Worker` must have been
+   * created with request attributes querying enabled (see
    * `ucxx::experimental::WorkerBuilder::requestAttributes()`); otherwise the attributes
    * are never populated and this method throws. Querying the underlying UCP request is
-   * an implementation detail performed eagerly when the request is submitted.
+   * an implementation detail performed eagerly when the request is submitted. All
+   * non-status fields exposed by UCP are queried, use `getStatus()` to obtain the status.
    *
    * @throw ucxx::UnsupportedError if the owning worker was not built with request
    *                               attributes querying enabled. Requires `Worker`

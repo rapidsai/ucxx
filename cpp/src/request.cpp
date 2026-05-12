@@ -262,8 +262,7 @@ void Request::queryRequestAttributes()
   // Allocate buffer for debug string with size from worker attributes
   std::vector<char> debug_str(worker_attr.maxDebugString, '\0');
 
-  result.field_mask = UCP_REQUEST_ATTR_FIELD_STATUS |           // Request status
-                      UCP_REQUEST_ATTR_FIELD_MEM_TYPE |         // Memory type
+  result.field_mask = UCP_REQUEST_ATTR_FIELD_MEM_TYPE |         // Memory type
                       UCP_REQUEST_ATTR_FIELD_INFO_STRING |      // Debug string
                       UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;  // Debug string size
 
@@ -272,11 +271,10 @@ void Request::queryRequestAttributes()
   result.debug_string_size = debug_str.size();
 
   if (UCS_PTR_IS_PTR(_request)) {
-    result.status = ucp_request_query(_request, &result);
-    if (result.status == UCS_OK && result.debug_string != nullptr) {
+    auto queryStatus = ucp_request_query(_request, &result);
+    if (queryStatus == UCS_OK && result.debug_string != nullptr) {
       _requestAttr.debugString = std::string(result.debug_string);
       _requestAttr.memoryType  = result.mem_type;
-      _requestAttr.status      = result.status;
       _isRequestAttrValid      = true;
     }
   }

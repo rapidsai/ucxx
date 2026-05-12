@@ -1011,13 +1011,7 @@ class Worker : public Component {
     RequestCallbackUserData callbackData         = nullptr);
 
   /**
-   * @brief Idiomatic C++ snapshot of the worker attributes reported by `ucp_worker_query`.
-   *
-   * Returned by `queryAttributes()`. The address attributes (`address` /
-   * `address_length`) are intentionally omitted: ucxx already exposes the worker
-   * address via `getAddress()` as a `std::shared_ptr<Address>` with proper RAII,
-   * and folding the raw pointer here would either duplicate that or force the
-   * caller to remember `ucp_worker_release_address`.
+   * @brief Worker attributes reported by `ucp_worker_query`.
    */
   struct Attributes {
     /// Thread safety level the worker was created with.
@@ -1033,10 +1027,9 @@ class Worker : public Component {
   /**
    * @brief Get the worker's attributes.
    *
-   * Returns the worker attributes as a C++ struct, querying UCP via
-   * `ucp_worker_query` under the hood. All non-address fields exposed by UCP are
-   * queried; see `Attributes` for the field list and the rationale for omitting
-   * the address.
+   * Returns the worker attributes as a struct, querying UCP via `ucp_worker_query` under
+   * the hood. All non-address fields exposed by UCP are queried, use `getAddress()` to
+   * obtain the address.
    *
    * @returns An `Attributes` filled with all queried fields.
    * @throws ucxx::Error if an error occurred while querying worker attributes.
