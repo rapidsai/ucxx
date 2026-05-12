@@ -698,13 +698,16 @@ cdef class UCXWorker():
 
             if self._context_feature_flags & UCP_FEATURE_AM:
                 if self._worker.get().getCudaBufferType() == BufferType.RMM:
-                    warnings.warn(
-                        "RMM CUDA buffer support is deprecated and will be removed in"
-                        " a future release. Use CCCL buffers instead (set"
-                        " UCXX_ENABLE_CCCL=ON and UCXX_ENABLE_RMM=OFF).",
-                        FutureWarning,
-                        stacklevel=2,
-                    )
+                    with gil:
+                        warnings.warn(
+                            "RMM CUDA buffer support is deprecated and"
+                            " will be removed in a future release. Use"
+                            " CCCL buffers instead (set"
+                            " UCXX_ENABLE_CCCL=ON and"
+                            " UCXX_ENABLE_RMM=OFF).",
+                            FutureWarning,
+                            stacklevel=2,
+                        )
                     rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
                     self._worker.get().registerAmAllocator(
                         UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
