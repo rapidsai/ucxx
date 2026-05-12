@@ -1011,15 +1011,36 @@ class Worker : public Component {
     RequestCallbackUserData callbackData         = nullptr);
 
   /**
-   * @brief Query worker attributes.
+   * @brief Idiomatic C++ snapshot of the worker attributes reported by `ucp_worker_query`.
    *
-   * Queries the worker attributes using ucp_worker_query. This provides information about
-   * the worker's thread mode and other attributes.
+   * Returned by `queryAttributes()`. The address attributes (`address` /
+   * `address_length`) are intentionally omitted: ucxx already exposes the worker
+   * address via `getAddress()` as a `std::shared_ptr<Address>` with proper RAII,
+   * and folding the raw pointer here would either duplicate that or force the
+   * caller to remember `ucp_worker_release_address`.
+   */
+  struct WorkerAttributes {
+    /// Thread safety level the worker was created with.
+    ucs_thread_mode_t threadMode{UCS_THREAD_MODE_MULTI};
+    /// Maximum allowed header size for `ucp_am_send_nbx`.
+    size_t maxAmHeader{0};
+    /// Worker name used by tracing and analysis tools.
+    std::string name{};
+    /// Maximum debug-string buffer size accepted by `ucp_request_query`.
+    size_t maxDebugString{0};
+  };
+
+  /**
+   * @brief Query the worker's attributes.
    *
-   * @returns The worker attributes structure.
+   * Wraps `ucp_worker_query` and returns the populated attributes as a C++ struct.
+   * All non-address fields exposed by UCP are queried; see `WorkerAttributes` for
+   * the field list and the rationale for omitting the address.
+   *
+   * @returns A `WorkerAttributes` filled with all queried fields.
    * @throws ucxx::Error if an error occurred while querying worker attributes.
    */
-  [[nodiscard]] ucp_worker_attr_t queryAttributes() const;
+  [[nodiscard]] WorkerAttributes queryAttributes() const;
 };
 
 /**

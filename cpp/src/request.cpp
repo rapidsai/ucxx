@@ -260,7 +260,7 @@ void Request::queryRequestAttributes()
   auto worker_attr = _worker->queryAttributes();
 
   // Allocate buffer for debug string with size from worker attributes
-  std::vector<char> debug_str(worker_attr.max_debug_string, '\0');
+  std::vector<char> debug_str(worker_attr.maxDebugString, '\0');
 
   result.field_mask = UCP_REQUEST_ATTR_FIELD_STATUS |           // Request status
                       UCP_REQUEST_ATTR_FIELD_MEM_TYPE |         // Memory type

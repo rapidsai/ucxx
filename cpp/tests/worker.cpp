@@ -112,11 +112,15 @@ TEST_F(WorkerTest, QueryAttributes)
 {
   auto attrs = _worker->queryAttributes();
 
-  // Verify that the thread mode field was requested and returned
-  ASSERT_TRUE(attrs.field_mask & UCP_WORKER_ATTR_FIELD_THREAD_MODE);
+  // The worker was created with UCS_THREAD_MODE_MULTI in the constructor.
+  EXPECT_EQ(attrs.threadMode, UCS_THREAD_MODE_MULTI);
 
-  // The worker was created with UCS_THREAD_MODE_MULTI in the constructor
-  ASSERT_EQ(attrs.thread_mode, UCS_THREAD_MODE_MULTI);
+  // The remaining fields are determined by UCX configuration, so the strongest
+  // portable assertion is that they were populated with non-zero / non-empty
+  // values.
+  EXPECT_GT(attrs.maxAmHeader, 0u);
+  EXPECT_FALSE(attrs.name.empty());
+  EXPECT_GT(attrs.maxDebugString, 0u);
 }
 
 TEST_P(WorkerCapabilityTest, CheckCapability)
