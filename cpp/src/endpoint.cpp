@@ -313,11 +313,6 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
               [this, &status, &param]() {
                 _inflightRequests->cancelAll();
                 status = ucp_ep_close_nbx(_handle, &param);
-                // Invalidate _handle synchronously immediately, to prevent
-                // time window where _handle` points to freed UCP memory, usually
-                // observed in `populateDelayedSubmission()`.
-                _originalHandle = _handle;
-                _handle         = nullptr;
               },
               period))
           continue;
@@ -336,7 +331,7 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
                     "endpoint: %s",
                     __func__,
                     this,
-                    _originalHandle,
+                    _handle,
                     ucs_status_string(UCS_PTR_STATUS(status)));
                 }
               },
@@ -353,16 +348,14 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, all attempts to close timed out",
         __func__,
         this,
-        _originalHandle != nullptr ? _originalHandle : _handle);
+        _handle);
     }
   } else {
     // No progress thread: cancel inflight + FORCE close back-to-back, then
     // drive progress here.  Same atomicity reasoning as the progress-thread
     // path above (no ucp_worker_progress() between cancel and FORCE close).
     _inflightRequests->cancelAll();
-    status          = ucp_ep_close_nbx(_handle, &param);
-    _originalHandle = _handle;
-    _handle         = nullptr;
+    status = ucp_ep_close_nbx(_handle, &param);
     if (UCS_PTR_IS_PTR(status)) {
       ucs_status_t s;
       while ((s = ucp_request_check_status(status)) == UCS_INPROGRESS)
@@ -373,12 +366,11 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
         __func__,
         this,
-        _originalHandle,
+        _handle,
         ucs_status_string(UCS_PTR_STATUS(status)));
     }
   }
-  ucxx_trace(
-    "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _originalHandle);
+  ucxx_trace("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _handle);
 
   if (UCS_PTR_IS_PTR(status)) ucp_request_free(status);
 
@@ -388,12 +380,14 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
       ucxx_debug("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, calling user close callback",
                  __func__,
                  this,
-                 _originalHandle);
+                 _handle);
       _closeCallback(_status, _closeCallbackArg);
       _closeCallback    = nullptr;
       _closeCallbackArg = nullptr;
     }
   }
+
+  std::swap(_handle, _originalHandle);
 }
 
 ucp_ep_h Endpoint::getHandle() { return _handle; }
