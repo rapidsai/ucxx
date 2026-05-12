@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <chrono>
+#include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -263,18 +263,19 @@ void Request::publishRequest(void* request)
 
   auto worker_attr = _worker->queryAttributes();
 
-  std::vector<char> debug_str(worker_attr.maxDebugString, '\0');
+  std::string debugString(worker_attr.maxDebugString, '\0');
 
   result.field_mask = UCP_REQUEST_ATTR_FIELD_MEM_TYPE | UCP_REQUEST_ATTR_FIELD_INFO_STRING |
                       UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;
 
-  result.debug_string      = debug_str.data();
-  result.debug_string_size = debug_str.size();
+  result.debug_string      = debugString.data();
+  result.debug_string_size = debugString.size();
 
   if (UCS_PTR_IS_PTR(_request)) {
     auto queryStatus = ucp_request_query(_request, &result);
     if (queryStatus == UCS_OK && result.debug_string != nullptr) {
-      _requestAttr.debugString = std::string(result.debug_string);
+      debug_str.resize(std::strlen(debugString.c_str()));
+      _requestAttr.debugString = std::move(debug_str);
       _requestAttr.memoryType  = result.mem_type;
     }
   }
