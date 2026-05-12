@@ -248,11 +248,16 @@ const std::string& Request::getOwnerString() const { return _ownerString; }
 
 void Request::publishRequest(void* request)
 {
+  if (!_worker->isRequestAttributesEnabled()) {
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
+    _request = request;
+    return;
+  }
+
   std::lock_guard<std::recursive_mutex> lock(_mutex);
   _request = request;
 
   if (_requestAttr.memoryType != UCS_MEMORY_TYPE_UNKNOWN) return;
-  if (!_worker->isRequestAttributesEnabled()) return;
 
   ucp_request_attr_t result;
 
@@ -277,14 +282,14 @@ void Request::publishRequest(void* request)
 
 Request::Attributes Request::queryAttributes()
 {
-  std::lock_guard<std::recursive_mutex> lock(_mutex);
-
-  if (_requestAttr.memoryType != UCS_MEMORY_TYPE_UNKNOWN) return _requestAttr;
-
   if (!_worker->isRequestAttributesEnabled())
     throw ucxx::UnsupportedError(
       "Request attributes querying is disabled on the owning worker; build the worker "
       "with `ucxx::experimental::WorkerBuilder::requestAttributes(true)` to enable it");
+
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  if (_requestAttr.memoryType != UCS_MEMORY_TYPE_UNKNOWN) return _requestAttr;
 
   throw ucxx::NoElemError(
     "Request attributes are not available for this request: UCX took an inline-completion "
