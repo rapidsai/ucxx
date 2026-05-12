@@ -236,8 +236,7 @@ void Request::setStatus(ucs_status_t status)
     }
 
     // Free the UCP request inside the lock so it is mutually exclusive with
-    // `publishRequest()`/`queryRequestAttributes()` on the submit thread. Clearing
-    // `_request` afterwards keeps this idempotent if `setStatus` ever re-enters.
+    // `publishRequest()`/`queryRequestAttributes()` on the submit thread.
     if (UCS_PTR_IS_PTR(_request)) {
       ucp_request_free(_request);
       _request = nullptr;
@@ -256,17 +255,14 @@ void Request::queryRequestAttributes()
 
   ucp_request_attr_t result;
 
-  // Get the debug string size from worker attributes
   auto worker_attr = _worker->queryAttributes();
 
-  // Allocate buffer for debug string with size from worker attributes
   std::vector<char> debug_str(worker_attr.maxDebugString, '\0');
 
-  result.field_mask = UCP_REQUEST_ATTR_FIELD_MEM_TYPE |         // Memory type
-                      UCP_REQUEST_ATTR_FIELD_INFO_STRING |      // Debug string
-                      UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;  // Debug string size
+  result.field_mask = UCP_REQUEST_ATTR_FIELD_MEM_TYPE |
+                      UCP_REQUEST_ATTR_FIELD_INFO_STRING |
+                      UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;
 
-  // Set up the debug string buffer
   result.debug_string      = debug_str.data();
   result.debug_string_size = debug_str.size();
 

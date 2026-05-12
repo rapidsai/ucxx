@@ -505,7 +505,7 @@ class Worker : public Component {
    *
    * @returns `true` if request attributes querying is enabled, `false` otherwise.
    */
-  [[nodiscard]] bool isRequestAttributesEnabled() const;
+  [[nodiscard]] bool isRequestAttributesEnabled() const noexcept;
 
   /**
    * @brief Populate the futures pool.
