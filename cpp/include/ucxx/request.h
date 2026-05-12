@@ -39,7 +39,7 @@ namespace ucxx {
 class Request : public Component {
  protected:
   /// Structure to hold cached request attributes including the debug string
-  struct RequestAttributes {
+  struct Attributes {
     ucs_status_t status{UCS_INPROGRESS};                  ///< Status of the request
     ucs_memory_type memoryType{UCS_MEMORY_TYPE_UNKNOWN};  ///< Memory type of the request
     std::string debugString{};                            ///< Stored debug string
@@ -62,8 +62,8 @@ class Request : public Component {
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
   RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
   RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
-  RequestAttributes _requestAttr{};  ///< Request attributes queried when request is posted
-  bool _isRequestAttrValid{false};   ///< Whether the request attributes are valid
+  Attributes _requestAttr{};        ///< Request attributes queried when request is posted
+  bool _isRequestAttrValid{false};  ///< Whether the request attributes are valid
 
   /**
    * @brief Protected constructor of an abstract `ucxx::Request`.
@@ -252,14 +252,15 @@ class Request : public Component {
    * Get the request attributes. The owning `ucxx::Worker` must have been created with
    * request attributes querying enabled (see
    * `ucxx::experimental::WorkerBuilder::requestAttributes()`); otherwise the attributes
-   * are never populated and this method throws.
+   * are never populated and this method throws. Querying the underlying UCP request is
+   * an implementation detail performed eagerly when the request is submitted.
    *
    * @throw ucxx::Error if the request attributes are not available yet, including when
    *                    request attributes querying is disabled on the owning worker.
    *
-   * @return A RequestAttributes containing the request attributes.
+   * @return An `Attributes` containing the request attributes.
    */
-  [[nodiscard]] RequestAttributes getRequestAttributes();
+  [[nodiscard]] Attributes getAttributes();
 
  protected:
   /**
@@ -271,8 +272,8 @@ class Request : public Component {
    * - Memory type
    * - Debug string
    *
-   * @return A RequestAttributes containing the query status, request attributes and debug
-   * string.
+   * Internal companion to `getAttributes()`: this is the side that actually calls into
+   * UCP and populates the cached attributes; `getAttributes()` only returns the cache.
    */
   void queryRequestAttributes();
 

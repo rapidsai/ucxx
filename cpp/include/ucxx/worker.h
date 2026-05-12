@@ -500,7 +500,7 @@ class Worker : public Component {
    * Check whether the worker has been created with request attributes querying enabled.
    * When enabled, each `ucxx::Request` will have its UCP attributes (such as the debug
    * string) queried immediately after submission, making them available via
-   * `ucxx::Request::getRequestAttributes()`. Querying request attributes has a
+   * `ucxx::Request::getAttributes()`. Querying request attributes has a
    * non-negligible runtime cost and is therefore disabled by default.
    *
    * @returns `true` if request attributes querying is enabled, `false` otherwise.
@@ -1013,13 +1013,13 @@ class Worker : public Component {
   /**
    * @brief Idiomatic C++ snapshot of the worker attributes reported by `ucp_worker_query`.
    *
-   * Returned by `queryAttributes()`. The address attributes (`address` /
+   * Returned by `getAttributes()`. The address attributes (`address` /
    * `address_length`) are intentionally omitted: ucxx already exposes the worker
    * address via `getAddress()` as a `std::shared_ptr<Address>` with proper RAII,
    * and folding the raw pointer here would either duplicate that or force the
    * caller to remember `ucp_worker_release_address`.
    */
-  struct WorkerAttributes {
+  struct Attributes {
     /// Thread safety level the worker was created with.
     ucs_thread_mode_t threadMode{UCS_THREAD_MODE_MULTI};
     /// Maximum allowed header size for `ucp_am_send_nbx`.
@@ -1031,16 +1031,17 @@ class Worker : public Component {
   };
 
   /**
-   * @brief Query the worker's attributes.
+   * @brief Get the worker's attributes.
    *
-   * Wraps `ucp_worker_query` and returns the populated attributes as a C++ struct.
-   * All non-address fields exposed by UCP are queried; see `WorkerAttributes` for
-   * the field list and the rationale for omitting the address.
+   * Returns the worker attributes as a C++ struct, querying UCP via
+   * `ucp_worker_query` under the hood. All non-address fields exposed by UCP are
+   * queried; see `Attributes` for the field list and the rationale for omitting
+   * the address.
    *
-   * @returns A `WorkerAttributes` filled with all queried fields.
+   * @returns An `Attributes` filled with all queried fields.
    * @throws ucxx::Error if an error occurred while querying worker attributes.
    */
-  [[nodiscard]] WorkerAttributes queryAttributes() const;
+  [[nodiscard]] Attributes getAttributes() const;
 };
 
 /**
