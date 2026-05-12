@@ -293,10 +293,16 @@ Request::Attributes Request::queryAttributes()
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-  if (_isRequestAttrValid)
-    return _requestAttr;
-  else
-    throw ucxx::NoElemError("Request attributes not available yet");
+  if (_isRequestAttrValid) return _requestAttr;
+
+  if (!_worker->isRequestAttributesEnabled())
+    throw ucxx::UnsupportedError(
+      "Request attributes querying is disabled on the owning worker; build the worker "
+      "with `ucxx::experimental::WorkerBuilder::requestAttributes(true)` to enable it");
+
+  throw ucxx::NoElemError(
+    "Request attributes are not available for this request: UCX took an inline-completion "
+    "path with no queryable UCP request, or the request has not completed yet");
 }
 
 std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }

@@ -565,7 +565,7 @@ class RequestAttributesDisabledTest : public ::testing::Test {
   void expectAllThrow(const std::vector<std::shared_ptr<ucxx::Request>>& requests) const
   {
     for (const auto& request : requests) {
-      EXPECT_THROW(std::ignore = request->queryAttributes(), ucxx::NoElemError);
+      EXPECT_THROW(std::ignore = request->queryAttributes(), ucxx::UnsupportedError);
     }
   }
 };
