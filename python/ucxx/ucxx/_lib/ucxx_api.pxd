@@ -150,12 +150,14 @@ cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
     cdef enum class BufferType:
         Host
         RMM
+        CCCL
         Invalid
 
     cdef cppclass Buffer:
         Buffer(const BufferType bufferType, const size_t size_t)
         BufferType getType()
         size_t getSize()
+        void* data()
 
     cdef cppclass HostBuffer:
         HostBuffer(const size_t size_t)
@@ -171,6 +173,12 @@ cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
         unique_ptr[device_buffer] release() except +raise_py_error
         void* data() except +raise_py_error
 
+cdef extern from "<ucxx/buffer.h>" namespace "ucxx" nogil:
+    cdef cppclass CCCLBuffer:
+        CCCLBuffer(const size_t size) except +raise_py_error
+        BufferType getType()
+        size_t getSize()
+        void* data() except +raise_py_error
 
 cdef extern from "<ucxx/notifier.h>" namespace "ucxx" nogil:
     cdef enum class RequestNotifierWaitState:
@@ -293,6 +301,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void registerAmAllocator(
             ucs_memory_type_t memoryType, AmAllocatorType allocator
         )
+        BufferType getCudaBufferType() const
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()

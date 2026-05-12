@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 
+#include <ucxx/buffer.h>
 #include <ucxx/component.h>
 #include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>

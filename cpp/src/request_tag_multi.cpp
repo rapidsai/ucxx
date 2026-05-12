@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -132,7 +132,9 @@ void RequestTagMulti::recvFrames()
     for (size_t i = 0; i < h.nframes; ++i) {
       auto bufferRequest = std::make_shared<BufferRequest>();
       _bufferRequests.push_back(bufferRequest);
-      const auto bufferType  = h.isCUDA[i] ? ucxx::BufferType::RMM : ucxx::BufferType::Host;
+      const auto bufferType = h.isCUDA[i] ? _worker->getCudaBufferType() : ucxx::BufferType::Host;
+      if (h.isCUDA[i] && bufferType == ucxx::BufferType::Invalid)
+        throw std::runtime_error("CUDA buffer support not enabled, no buffer type configured");
       auto buf               = allocateBuffer(bufferType, h.size[i]);
       bufferRequest->request = _endpoint->tagRecv(
         buf->data(),

@@ -1,10 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <string>
 #include <tuple>
 #include <ucp/api/ucp.h>
 #include <ucs/memory/memory_type.h>
@@ -169,6 +170,27 @@ INSTANTIATE_TEST_SUITE_P(AttributeTests,
                          Combine(Values(UCS_MEMORY_TYPE_HOST),
                                  Values(0, 1, 4, 4096, 8192, 4194304),
                                  Values(false, true)));
+
+TEST_P(BasicUcxxRmaTest, RemoteKeyTruncatedSerializedData)
+{
+  // Build a data portion shorter than the fixed fields:
+  // packedRemoteKeySize + memoryBaseAddress + memorySize = 24 bytes
+  // This ensures no underflow can occur.
+  std::stringstream ssData;
+  size_t bogusPackedSize = 9999;
+  ssData.write(reinterpret_cast<const char*>(&bogusPackedSize), sizeof(bogusPackedSize));
+  auto dataStr = ssData.str();
+
+  std::hash<std::string> hasher;
+  size_t hash = hasher(dataStr);
+
+  std::stringstream ssFull;
+  ssFull.write(reinterpret_cast<const char*>(&hash), sizeof(hash));
+  ssFull << dataStr;
+
+  EXPECT_THROW(std::ignore = ucxx::createRemoteKeyFromSerialized(_ep, ssFull.str()),
+               std::overflow_error);
+}
 
 INSTANTIATE_TEST_SUITE_P(FailureTests, BasicUcxxRmaTest, Combine(Values(0, 4194304)));
 
