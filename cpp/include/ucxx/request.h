@@ -260,7 +260,7 @@ class Request : public Component {
    *
    * @return An `Attributes` containing the request attributes.
    */
-  [[nodiscard]] Attributes getAttributes();
+  [[nodiscard]] Attributes queryAttributes();
 
  protected:
   /**
@@ -272,8 +272,8 @@ class Request : public Component {
    * - Memory type
    * - Debug string
    *
-   * Internal companion to `getAttributes()`: this is the side that actually calls into
-   * UCP and populates the cached attributes; `getAttributes()` only returns the cache.
+   * Internal companion to `queryAttributes()`: this is the side that actually calls into
+   * UCP and populates the cached attributes; `queryAttributes()` only returns the cache.
    */
   void queryRequestAttributes();
 

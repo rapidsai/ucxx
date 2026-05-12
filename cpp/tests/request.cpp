@@ -526,7 +526,7 @@ TEST_P(RequestTest, ProgressTagRequestAttributes)
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& request : requests) {
-    auto debugString = request->getAttributes().debugString;
+    auto debugString = request->queryAttributes().debugString;
     ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
     ASSERT_THAT(debugString,
                 ::testing::HasSubstr(_memoryType == UCS_MEMORY_TYPE_HOST ? "host" : "cuda"));
@@ -565,7 +565,7 @@ class RequestAttributesDisabledTest : public ::testing::Test {
   void expectAllThrow(const std::vector<std::shared_ptr<ucxx::Request>>& requests) const
   {
     for (const auto& request : requests) {
-      EXPECT_THROW(std::ignore = request->getAttributes(), ucxx::Error);
+      EXPECT_THROW(std::ignore = request->queryAttributes(), ucxx::Error);
     }
   }
 };
@@ -657,7 +657,7 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
   waitRequests(_worker, requests, _progressWorker);
 
   try {
-    auto sendDebug = sendRequest->getAttributes().debugString;
+    auto sendDebug = sendRequest->queryAttributes().debugString;
     EXPECT_FALSE(sendDebug.empty());
     EXPECT_THAT(sendDebug, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
   } catch (const ucxx::Error&) {
@@ -665,7 +665,7 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
   }
 
   try {
-    auto recvDebug = recvRequest->getAttributes().debugString;
+    auto recvDebug = recvRequest->queryAttributes().debugString;
     EXPECT_THAT(recvDebug, ::testing::HasSubstr("no debug info"));
   } catch (const ucxx::Error&) {
     // Recv completed inline; no UCP request handle to query.
@@ -692,7 +692,7 @@ TEST_P(RequestTest, ProgressAmRequestAttributes)
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& request : requests) {
-    auto debugString = request->getAttributes().debugString;
+    auto debugString = request->queryAttributes().debugString;
     ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
   }
 
@@ -724,7 +724,7 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
   requests.push_back(_ep->flush());
   waitRequests(_worker, requests, _progressWorker);
 
-  auto debugString = request->getAttributes().debugString;
+  auto debugString = request->queryAttributes().debugString;
   ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
 
   copyResults();
@@ -752,7 +752,7 @@ TEST_P(RequestTest, MemoryPutRequestAttributes)
   waitRequests(_worker, requests, _progressWorker);
 
   try {
-    auto debugString = request->getAttributes().debugString;
+    auto debugString = request->queryAttributes().debugString;
     EXPECT_FALSE(debugString.empty());
     EXPECT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
   } catch (const ucxx::Error&) {

@@ -197,7 +197,7 @@ std::string Worker::getInfo()
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 
-Worker::Attributes Worker::getAttributes() const
+Worker::Attributes Worker::queryAttributes() const
 {
   ucp_worker_attr_t attr = {
     .field_mask = UCP_WORKER_ATTR_FIELD_THREAD_MODE | UCP_WORKER_ATTR_FIELD_MAX_AM_HEADER |

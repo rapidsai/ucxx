@@ -110,7 +110,7 @@ TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr)
 
 TEST_F(WorkerTest, QueryAttributes)
 {
-  auto attrs = _worker->getAttributes();
+  auto attrs = _worker->queryAttributes();
 
   // The worker was created with UCS_THREAD_MODE_MULTI in the constructor.
   EXPECT_EQ(attrs.threadMode, UCS_THREAD_MODE_MULTI);

@@ -257,7 +257,7 @@ void Request::queryRequestAttributes()
   ucp_request_attr_t result;
 
   // Get the debug string size from worker attributes
-  auto worker_attr = _worker->getAttributes();
+  auto worker_attr = _worker->queryAttributes();
 
   // Allocate buffer for debug string with size from worker attributes
   std::vector<char> debug_str(worker_attr.maxDebugString, '\0');
@@ -289,7 +289,7 @@ void Request::publishRequest(void* request)
   queryRequestAttributes();
 }
 
-Request::Attributes Request::getAttributes()
+Request::Attributes Request::queryAttributes()
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);
 

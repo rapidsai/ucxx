@@ -500,7 +500,7 @@ class Worker : public Component {
    * Check whether the worker has been created with request attributes querying enabled.
    * When enabled, each `ucxx::Request` will have its UCP attributes (such as the debug
    * string) queried immediately after submission, making them available via
-   * `ucxx::Request::getAttributes()`. Querying request attributes has a
+   * `ucxx::Request::queryAttributes()`. Querying request attributes has a
    * non-negligible runtime cost and is therefore disabled by default.
    *
    * @returns `true` if request attributes querying is enabled, `false` otherwise.
@@ -1013,7 +1013,7 @@ class Worker : public Component {
   /**
    * @brief Idiomatic C++ snapshot of the worker attributes reported by `ucp_worker_query`.
    *
-   * Returned by `getAttributes()`. The address attributes (`address` /
+   * Returned by `queryAttributes()`. The address attributes (`address` /
    * `address_length`) are intentionally omitted: ucxx already exposes the worker
    * address via `getAddress()` as a `std::shared_ptr<Address>` with proper RAII,
    * and folding the raw pointer here would either duplicate that or force the
@@ -1041,7 +1041,7 @@ class Worker : public Component {
    * @returns An `Attributes` filled with all queried fields.
    * @throws ucxx::Error if an error occurred while querying worker attributes.
    */
-  [[nodiscard]] Attributes getAttributes() const;
+  [[nodiscard]] Attributes queryAttributes() const;
 };
 
 /**
