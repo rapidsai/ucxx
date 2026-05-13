@@ -275,7 +275,7 @@ void Request::publishRequest(void* request)
     auto queryStatus = ucp_request_query(_request, &result);
     if (queryStatus == UCS_OK && result.debug_string != nullptr) {
       debugString.resize(std::strlen(debugString.c_str()));
-      _requestAttr.debugString = std::move(debug_str);
+      _requestAttr.debugString = std::move(debugString);
       _requestAttr.memoryType  = result.mem_type;
     }
   }
