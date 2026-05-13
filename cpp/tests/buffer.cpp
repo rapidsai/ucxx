@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
@@ -59,6 +59,14 @@ TEST_P(BufferAllocator, TestType)
 #else
     GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
+  } else if (_type == ucxx::BufferType::CCCL) {
+#if UCXX_ENABLE_CCCL
+    auto buffer = std::dynamic_pointer_cast<ucxx::CCCLBuffer>(_buffer);
+    ASSERT_EQ(buffer->getType(), _type);
+    return;  // CCCLBuffer uses PIMPL - lifetime managed by unique_ptr, no release() needed
+#else
+    GTEST_SKIP() << "UCXX was not built with CCCL support";
+#endif
   }
 
   ASSERT_EQ(_buffer->getType(), ucxx::BufferType::Invalid);
@@ -87,6 +95,14 @@ TEST_P(BufferAllocator, TestSize)
     ASSERT_EQ(buffer->getSize(), 0u);
 #else
     GTEST_SKIP() << "UCXX was not built with RMM support";
+#endif
+  } else if (_type == ucxx::BufferType::CCCL) {
+#if UCXX_ENABLE_CCCL
+    auto buffer = std::dynamic_pointer_cast<ucxx::CCCLBuffer>(_buffer);
+    ASSERT_EQ(buffer->getSize(), _size);
+    return;  // CCCLBuffer does not expose release(); post-release assertions do not apply
+#else
+    GTEST_SKIP() << "UCXX was not built with CCCL support";
 #endif
   }
 
@@ -119,6 +135,14 @@ TEST_P(BufferAllocator, TestData)
 #else
     GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
+  } else if (_type == ucxx::BufferType::CCCL) {
+#if UCXX_ENABLE_CCCL
+    auto buffer = std::dynamic_pointer_cast<ucxx::CCCLBuffer>(_buffer);
+    ASSERT_EQ(buffer->data(), _buffer->data());
+    return;  // CCCLBuffer does not expose release(); post-release assertions do not apply
+#else
+    GTEST_SKIP() << "UCXX was not built with CCCL support";
+#endif
   }
 
   EXPECT_THROW(_buffer->data(), std::runtime_error);
@@ -144,6 +168,12 @@ TEST_P(BufferAllocator, TestThrowAfterRelease)
 #else
     GTEST_SKIP() << "UCXX was not built with RMM support";
 #endif
+  } else if (_type == ucxx::BufferType::CCCL) {
+#if UCXX_ENABLE_CCCL
+    GTEST_SKIP() << "CCCLBuffer does not expose release()";
+#else
+    GTEST_SKIP() << "UCXX was not built with CCCL support";
+#endif
   }
   EXPECT_THROW(_buffer->data(), std::runtime_error);
 }
@@ -160,6 +190,14 @@ INSTANTIATE_TEST_SUITE_P(RMM,
                          testing::Values(std::make_pair(ucxx::BufferType::RMM, 1),
                                          std::make_pair(ucxx::BufferType::RMM, 1000),
                                          std::make_pair(ucxx::BufferType::RMM, 1000000)));
+#endif
+
+#if UCXX_ENABLE_CCCL
+INSTANTIATE_TEST_SUITE_P(CCCL,
+                         BufferAllocator,
+                         testing::Values(std::make_pair(ucxx::BufferType::CCCL, 1),
+                                         std::make_pair(ucxx::BufferType::CCCL, 1000),
+                                         std::make_pair(ucxx::BufferType::CCCL, 1000000)));
 #endif
 
 }  // namespace

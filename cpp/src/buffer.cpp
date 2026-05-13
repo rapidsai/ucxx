@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstring>
-#include <iterator>
 #include <memory>
 #include <new>
 #include <utility>
@@ -105,6 +104,12 @@ std::shared_ptr<Buffer> allocateBuffer(const BufferType bufferType, const size_t
     return std::make_shared<RMMBuffer>(size);
 #else
     throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
+#endif
+  } else if (bufferType == BufferType::CCCL) {
+#if UCXX_ENABLE_CCCL
+    return std::make_shared<CCCLBuffer>(size);
+#else
+    throw std::runtime_error("CCCL support not enabled, please compile with -DUCXX_ENABLE_CCCL=1");
 #endif
   } else {
     return std::make_shared<HostBuffer>(size);

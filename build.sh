@@ -57,6 +57,7 @@ BUILD_EXAMPLES=OFF
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_COMPILE_COMMANDS=OFF
 UCXX_ENABLE_RMM=OFF
+UCXX_ENABLE_CCCL=OFF
 UCXX_BENCHMARKS_ENABLE_CUDA=OFF
 
 # Set defaults for vars that may not have been defined externally
@@ -151,6 +152,7 @@ fi
 
 if buildAll || hasArg libucxx_python || hasArg libucxx_tests || hasArg libucxx_examples; then
   UCXX_ENABLE_RMM=ON
+  UCXX_ENABLE_CCCL=ON
 fi
 
 # If clean given, run it prior to any other steps
@@ -187,6 +189,7 @@ if buildAll || hasArg libucxx; then
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
           -DUCXX_ENABLE_RMM=${UCXX_ENABLE_RMM} \
+          -DUCXX_ENABLE_CCCL=${UCXX_ENABLE_CCCL} \
           -DUCXX_BENCHMARKS_ENABLE_CUDA=${UCXX_BENCHMARKS_ENABLE_CUDA} \
           "${EXTRA_CMAKE_ARGS[@]}"
 
