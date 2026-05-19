@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
@@ -23,7 +23,7 @@ async def test_get_ucp_worker():
 
 
 @pytest.mark.asyncio
-async def test_get_ucp_endpoint():
+async def test_ucp_endpoint_property():
     async def server(ep):
         ucp_ep = ep.ucp_endpoint
         assert isinstance(ucp_ep, int)
@@ -54,7 +54,7 @@ async def test_get_ucxx_worker():
 
 
 @pytest.mark.asyncio
-async def test_get_ucxx_endpoint():
+async def test_ucxx_endpoint_property():
     async def server(ep):
         ucxx_ep = ep.ucxx_endpoint
         assert isinstance(ucxx_ep, int)
