@@ -28,14 +28,12 @@ rapids-pip-retry install \
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
 export PIP_NO_BUILD_ISOLATION=0
 
-export SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_RMM=ON -DUCXX_ENABLE_CCCL=ON"
+export SKBUILD_CMAKE_ARGS="-DUCXX_ENABLE_CCCL=ON"
 
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 python -m auditwheel repair \
     --exclude "libucp.so.0" \
-    --exclude "librapids_logger.so" \
-    --exclude "librmm.so" \
     -w "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}" \
     ${package_dir}/dist/*
 

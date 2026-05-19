@@ -151,7 +151,6 @@ if hasArg ucxx_tests && ! hasArg ucxx; then
 fi
 
 if buildAll || hasArg libucxx_python || hasArg libucxx_tests || hasArg libucxx_examples; then
-  UCXX_ENABLE_RMM=ON
   UCXX_ENABLE_CCCL=ON
 fi
 

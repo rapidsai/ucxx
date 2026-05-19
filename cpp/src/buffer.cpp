@@ -5,13 +5,10 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <stdexcept>
 #include <utility>
 
 #include <ucxx/buffer.h>
-
-#if UCXX_ENABLE_RMM
-#include <rmm/device_buffer.hpp>
-#endif
 
 namespace ucxx {
 
@@ -61,51 +58,9 @@ void* HostBuffer::data()
   return _buffer;
 }
 
-#if UCXX_ENABLE_RMM
-RMMBuffer::RMMBuffer(const size_t size)
-  : Buffer(BufferType::RMM, size),
-    _buffer{std::make_unique<rmm::device_buffer>(size, rmm::cuda_stream_default)}
-{
-  ucxx_trace_data("ucxx::RMMBuffer created: %p, buffer: %p, size: %lu", this, _buffer.get(), size);
-}
-
-RMMBuffer::RMMBuffer(std::unique_ptr<rmm::device_buffer> rmm_buffer)
-  : Buffer(BufferType::RMM, rmm_buffer->size()), _buffer{std::move(rmm_buffer)}
-{
-  ucxx_trace_data("ucxx::RMMBuffer created: %p, buffer: %p, size: %lu", this, _buffer.get(), _size);
-}
-
-RMMBuffer::~RMMBuffer() = default;
-
-std::unique_ptr<rmm::device_buffer> RMMBuffer::release()
-{
-  ucxx_trace_data("ucxx::RMMBuffer::%s, RMMBuffer: %p, _buffer: %p", __func__, this, _buffer.get());
-  if (!_buffer) throw std::runtime_error("Invalid object or already released");
-
-  _bufferType = ucxx::BufferType::Invalid;
-  _size       = 0;
-
-  return std::move(_buffer);
-}
-
-void* RMMBuffer::data()
-{
-  ucxx_trace_data("ucxx::RMMBuffer::%s, RMMBuffer: %p, buffer: %p", __func__, this, _buffer.get());
-  if (!_buffer) throw std::runtime_error("Invalid object or already released");
-
-  return _buffer->data();
-}
-#endif
-
 std::shared_ptr<Buffer> allocateBuffer(const BufferType bufferType, const size_t size)
 {
-  if (bufferType == BufferType::RMM) {
-#if UCXX_ENABLE_RMM
-    return std::make_shared<RMMBuffer>(size);
-#else
-    throw std::runtime_error("RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1");
-#endif
-  } else if (bufferType == BufferType::CCCL) {
+  if (bufferType == BufferType::CCCL) {
 #if UCXX_ENABLE_CCCL
     return std::make_shared<CCCLBuffer>(size);
 #else

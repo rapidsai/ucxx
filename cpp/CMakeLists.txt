@@ -42,7 +42,7 @@ option(BUILD_TESTS "Configure CMake to build tests" ON)
 option(BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
 option(BUILD_EXAMPLES "Configure CMake to build examples" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
-option(UCXX_ENABLE_RMM "Enable support for CUDA multi-buffer transfer with RMM" OFF)
+option(UCXX_ENABLE_RMM "Enable RMM-backed test and benchmark code paths" OFF)
 # TODO: Flip UCXX_ENABLE_CCCL default to OFF once devcontainer builds pass -DUCXX_ENABLE_CCCL=ON
 option(UCXX_ENABLE_CCCL "Enable support for CUDA buffer with CCCL" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable warnings generated from deprecated declarations." OFF)
@@ -51,10 +51,7 @@ message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
 message(VERBOSE "UCXX: Configure CMake to build benchmarks: ${BUILD_BENCHMARKS}")
 message(VERBOSE "UCXX: Configure CMake to build examples: ${BUILD_EXAMPLES}")
 message(VERBOSE "UCXX: Build UCXX shared libraries: ${BUILD_SHARED_LIBS}")
-message(
-  VERBOSE
-  "UCXX: Enable support for CUDA multi-buffer transfer with RMM (DEPRECATED): ${UCXX_ENABLE_RMM}"
-)
+message(VERBOSE "UCXX: Enable RMM-backed test and benchmark code paths: ${UCXX_ENABLE_RMM}")
 message(VERBOSE "UCXX: Enable support for CUDA buffer with CCCL: ${UCXX_ENABLE_CCCL}")
 message(
   VERBOSE
@@ -97,11 +94,8 @@ rapids_find_package(
 
 # add third party dependencies using CPM
 rapids_cpm_init()
-# find rmm
+# find rmm for tests and benchmarks
 if(UCXX_ENABLE_RMM)
-  message(DEPRECATION "UCXX_ENABLE_RMM is deprecated and will be removed in a future release. "
-                      "Use UCXX_ENABLE_CCCL instead."
-  )
   include(cmake/thirdparty/get_rmm.cmake)
 endif()
 # find cccl
@@ -180,13 +174,6 @@ target_include_directories(
 )
 
 target_compile_definitions(ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>")
-
-# Enable RMM if necessary
-if(UCXX_ENABLE_RMM)
-  target_link_libraries(ucxx PUBLIC rmm::rmm)
-
-  target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
-endif()
 
 # Enable CCCL if necessary
 if(UCXX_ENABLE_CCCL)
