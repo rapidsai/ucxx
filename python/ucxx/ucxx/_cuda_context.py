@@ -21,7 +21,7 @@ def _get_device_class():
             return Device
         except ImportError as e:
             raise ImportError(
-                "CUDA context management requires cuda-core (cuda-core>=0.3.2)."
+                "CUDA context management requires cuda-core (cuda-core>=1.0.0)."
             ) from e
 
 
