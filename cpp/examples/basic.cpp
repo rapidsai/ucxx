@@ -18,8 +18,8 @@
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
-#if UCXX_ENABLE_RMM
-#include <rmm/device_buffer.hpp>
+#if UCXX_ENABLE_CCCL
+#include <cuda_runtime_api.h>
 #endif
 
 class ListenerContext {
@@ -91,14 +91,12 @@ static void printUsage()
   std::cerr << "              'thread-polling', 'thread-blocking' and 'wait' (default: 'blocking')"
             << std::endl;
   std::cerr << "  -p <port>   Port number to listen at" << std::endl;
-  std::cerr
-    << "  -s <send_buffer_type>   Send buffer type, valid values are: 'host', 'rmm', 'cccl' "
-       "(default: 'host')"
-    << std::endl;
-  std::cerr
-    << "  -r <recv_buffer_type>   Recv buffer type, valid values are: 'host', 'rmm', 'cccl' "
-       "(default: 'host')"
-    << std::endl;
+  std::cerr << "  -s <send_buffer_type>   Send buffer type, valid values are: 'host', 'cccl' "
+               "(default: 'host')"
+            << std::endl;
+  std::cerr << "  -r <recv_buffer_type>   Recv buffer type, valid values are: 'host', 'cccl' "
+               "(default: 'host')"
+            << std::endl;
   std::cerr << "  -h          Print this help" << std::endl;
   std::cerr << std::endl;
 }
@@ -124,14 +122,6 @@ struct args {
     auto parseBufferType = [](const std::string& bufferTypeString) {
       if (bufferTypeString == "host") {
         return ucxx::BufferType::Host;
-      } else if (bufferTypeString == "rmm") {
-#if UCXX_ENABLE_RMM
-        return ucxx::BufferType::RMM;
-#else
-        std::cerr << "RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1"
-                  << std::endl;
-        return ucxx::BufferType::Invalid;
-#endif
       } else if (bufferTypeString == "cccl") {
 #if UCXX_ENABLE_CCCL
         return ucxx::BufferType::CCCL;
@@ -228,15 +218,6 @@ std::shared_ptr<ucxx::Buffer> makeBuffer(ucxx::BufferType bufferType, T* values,
   switch (bufferType) {
     case ucxx::BufferType::Host:
       return std::make_shared<ucxx::HostBuffer>(values, size * sizeof(T));
-    case ucxx::BufferType::RMM:
-#if UCXX_ENABLE_RMM
-    {
-      auto buf =
-        std::make_unique<rmm::device_buffer>(values, size * sizeof(T), rmm::cuda_stream_default);
-      rmm::cuda_stream_default.synchronize();
-      return std::make_shared<ucxx::RMMBuffer>(std::move(buf));
-    }
-#endif
     case ucxx::BufferType::CCCL:
 #if UCXX_ENABLE_CCCL
     {
@@ -255,7 +236,7 @@ auto verify_buffers(ucxx::Buffer* expected, ucxx::Buffer* actual)
   std::vector<uint8_t> host_expected, host_actual;
   void *host_expected_ptr, *host_actual_ptr;
 
-#if UCXX_ENABLE_CCCL || UCXX_ENABLE_RMM
+#if UCXX_ENABLE_CCCL
   auto copy_to_host = [](auto& buffer, auto& host_buffer) {
     // copy device buffer to host
     host_buffer.resize(buffer->getSize());
@@ -272,14 +253,13 @@ auto verify_buffers(ucxx::Buffer* expected, ucxx::Buffer* actual)
   };
 #endif
 
-  if (expected->getType() == ucxx::BufferType::RMM ||
-      expected->getType() == ucxx::BufferType::CCCL) {
+  if (expected->getType() == ucxx::BufferType::CCCL) {
     host_expected_ptr = copy_to_host(expected, host_expected);
   } else {
     host_expected_ptr = expected->data();
   }
 
-  if (actual->getType() == ucxx::BufferType::RMM || actual->getType() == ucxx::BufferType::CCCL) {
+  if (actual->getType() == ucxx::BufferType::CCCL) {
     host_actual_ptr = copy_to_host(actual, host_actual);
   } else {
     host_actual_ptr = actual->data();

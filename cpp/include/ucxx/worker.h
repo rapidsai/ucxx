@@ -150,10 +150,10 @@ class Worker : public Component {
    * Configure which buffer type to use when allocating CUDA buffers for incoming
    * multi-buffer tag receives.
    *
-   * @param[in] bufferType  the preferred buffer type (must be `BufferType::RMM` or
-   *                        `BufferType::CCCL`).
+   * @param[in] bufferType  the preferred buffer type (currently only `BufferType::CCCL`
+   *                        is supported).
    *
-   * @throws std::invalid_argument if bufferType is not RMM or CCCL.
+   * @throws std::invalid_argument if bufferType is not CCCL.
    */
   void setCudaBufferType(BufferType bufferType);
 
@@ -527,7 +527,7 @@ class Worker : public Component {
    *
    * Returns the buffer type used when allocating CUDA buffers for incoming
    * multi-buffer tag receives. Defaults to CCCL if compiled with CCCL support,
-   * otherwise RMM if compiled with RMM support, otherwise Invalid.
+   * otherwise Invalid.
    *
    * @returns The preferred `BufferType` for CUDA allocations.
    */
@@ -938,7 +938,9 @@ class Worker : public Component {
    * // context is `std::shared_ptr<ucxx::Context>`
    * auto worker = context->createWorker(false);
    *
-   * worker->registerAmAllocator(`UCS_MEMORY_TYPE_CUDA`, ucxx::RMMBuffer);
+   * worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+   *   return std::make_shared<ucxx::CCCLBuffer>(length);
+   * });
    * @endcode
    *
    * @param[in] memoryType  the memory type the allocator will be used for.

@@ -1,12 +1,8 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
-
-#ifndef UCXX_ENABLE_RMM
-#define UCXX_ENABLE_RMM 0
-#endif
 
 #include <ucxx/address.h>
 #include <ucxx/buffer.h>

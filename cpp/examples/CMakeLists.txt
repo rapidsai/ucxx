@@ -1,6 +1,6 @@
 # =================================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 # cmake-format: on
 # =================================================================================
@@ -31,6 +31,10 @@ function(ConfigureBench CMAKE_BENCH_NAME)
                CXX_STANDARD_REQUIRED ON
   )
   target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE ucxx $<TARGET_NAME_IF_EXISTS:conda_env>)
+  if(UCXX_ENABLE_CCCL)
+    find_package(CUDAToolkit REQUIRED)
+    target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE CUDA::cudart_static)
+  endif()
   add_custom_command(
     OUTPUT UCXX_EXAMPLES
     COMMAND ${CMAKE_BENCH_NAME}

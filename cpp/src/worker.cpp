@@ -41,8 +41,6 @@ Worker::Worker(std::shared_ptr<Context> context,
     throw std::runtime_error("Context not initialized");
 #if UCXX_ENABLE_CCCL
   _cudaBufferType = BufferType::CCCL;
-#elif UCXX_ENABLE_RMM
-  _cudaBufferType = BufferType::RMM;
 #endif
 
   ucp_worker_params_t params = {.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE,
@@ -230,8 +228,8 @@ BufferType Worker::getCudaBufferType() const { return _cudaBufferType; }
 
 void Worker::setCudaBufferType(BufferType bufferType)
 {
-  if (bufferType != BufferType::RMM && bufferType != BufferType::CCCL)
-    throw std::invalid_argument("cudaBufferType must be BufferType::RMM or BufferType::CCCL");
+  if (bufferType != BufferType::CCCL)
+    throw std::invalid_argument("cudaBufferType must be BufferType::CCCL");
   _cudaBufferType = bufferType;
 }
 

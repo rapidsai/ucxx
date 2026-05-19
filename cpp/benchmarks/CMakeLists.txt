@@ -45,7 +45,7 @@ function(ConfigureBench CMAKE_BENCH_NAME)
     target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE CUDA::cudart_static)
   endif()
 
-  # RMM memory resources for CUDA benchmarks (requires UCXX_ENABLE_RMM and get_rmm.cmake)
+  # RMM memory resources for CUDA benchmarks.
   if(UCXX_BENCHMARKS_ENABLE_CUDA AND UCXX_ENABLE_RMM)
     target_compile_definitions(${CMAKE_BENCH_NAME} PRIVATE UCXX_BENCHMARKS_ENABLE_RMM)
     target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE rmm::rmm)
