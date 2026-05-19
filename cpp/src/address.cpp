@@ -2,9 +2,9 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstring>
 #include <memory>
 #include <stdexcept>
-#include <string>
 #include <string_view>
 
 #include <ucxx/address.h>
@@ -58,7 +58,5 @@ std::string_view Address::getStringView() const
 {
   return std::string_view{reinterpret_cast<const char*>(_handle), _length};
 }
-
-std::string Address::getString() const { return std::string{getStringView()}; }
 
 }  // namespace ucxx
