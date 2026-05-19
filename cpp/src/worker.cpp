@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
+#include <cstring>
 #include <functional>
 #include <ios>
 #include <memory>
@@ -200,12 +201,30 @@ std::string Worker::getInfo()
   return utils::decodeTextFileDescriptor(TextFileDescriptor);
 }
 
+Worker::Attributes Worker::queryAttributes() const
+{
+  ucp_worker_attr_t attr = {
+    .field_mask = UCP_WORKER_ATTR_FIELD_THREAD_MODE | UCP_WORKER_ATTR_FIELD_MAX_AM_HEADER |
+                  UCP_WORKER_ATTR_FIELD_NAME | UCP_WORKER_ATTR_FIELD_MAX_INFO_STRING};
+
+  utils::ucsErrorThrow(ucp_worker_query(_handle, &attr));
+
+  return Attributes{
+    .threadMode     = attr.thread_mode,
+    .maxAmHeader    = attr.max_am_header,
+    .name           = std::string(attr.name, ::strnlen(attr.name, sizeof(attr.name))),
+    .maxDebugString = attr.max_debug_string,
+  };
+}
+
 bool Worker::isDelayedRequestSubmissionEnabled() const
 {
   return _delayedSubmissionCollection->isDelayedRequestSubmissionEnabled();
 }
 
 bool Worker::isFutureEnabled() const { return _enableFuture; }
+
+bool Worker::isRequestAttributesEnabled() const noexcept { return _enableRequestAttributes; }
 
 BufferType Worker::getCudaBufferType() const { return _cudaBufferType; }
 

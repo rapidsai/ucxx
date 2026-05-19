@@ -62,6 +62,40 @@ class RequestTest : public ::testing::TestWithParam<
   std::vector<const void*> _sendPtr{nullptr};
   std::vector<void*> _recvPtr{nullptr};
 
+  void buildWorker(bool enableRequestAttributes)
+  {
+    auto builder = ucxx::experimental::createWorker(_context)
+                     .delayedSubmission(_enableDelayedSubmission)
+                     .requestAttributes(enableRequestAttributes);
+
+    if (_bufferType == ucxx::BufferType::RMM || _bufferType == ucxx::BufferType::CCCL)
+      builder.cudaBufferType(_bufferType);
+
+    _worker = builder.build();
+
+    if (_progressMode == ProgressMode::Blocking) {
+      _worker->initBlockingProgressMode();
+    } else if (_progressMode == ProgressMode::ThreadPolling ||
+               _progressMode == ProgressMode::ThreadBlocking) {
+      _worker->setProgressThreadStartCallback(::createCudaContextCallback, nullptr);
+
+      if (_progressMode == ProgressMode::ThreadPolling) _worker->startProgressThread(true);
+      if (_progressMode == ProgressMode::ThreadBlocking) _worker->startProgressThread(false);
+    }
+
+    _progressWorker = getProgressFunction(_worker, _progressMode);
+
+    _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  }
+
+  void rebuildWorker(bool enableRequestAttributes)
+  {
+    if (_worker && _worker->isProgressThreadRunning()) _worker->stopProgressThread();
+    _ep.reset();
+    _worker.reset();
+    buildWorker(enableRequestAttributes);
+  }
+
   void SetUp()
   {
     std::tie(_bufferType,
@@ -88,25 +122,7 @@ class RequestTest : public ::testing::TestWithParam<
 
     _context = ucxx::createContext({{"RNDV_THRESH", std::to_string(_rndvThresh)}},
                                    ucxx::Context::defaultFeatureFlags);
-    auto builder =
-      ucxx::experimental::createWorker(_context).delayedSubmission(_enableDelayedSubmission);
-    if (_bufferType == ucxx::BufferType::RMM || _bufferType == ucxx::BufferType::CCCL)
-      builder.cudaBufferType(_bufferType);
-    _worker = builder.build();
-
-    if (_progressMode == ProgressMode::Blocking) {
-      _worker->initBlockingProgressMode();
-    } else if (_progressMode == ProgressMode::ThreadPolling ||
-               _progressMode == ProgressMode::ThreadBlocking) {
-      _worker->setProgressThreadStartCallback(::createCudaContextCallback, nullptr);
-
-      if (_progressMode == ProgressMode::ThreadPolling) _worker->startProgressThread(true);
-      if (_progressMode == ProgressMode::ThreadBlocking) _worker->startProgressThread(false);
-    }
-
-    _progressWorker = getProgressFunction(_worker, _progressMode);
-
-    _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    buildWorker(false);
   }
 
   void TearDown()
@@ -222,8 +238,8 @@ TEST_P(RequestTest, ProgressAm)
   auto recvReq = requests[1];
   _recvPtr[0]  = recvReq->getRecvBuffer()->data();
 
-  // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
-  // smaller messages are eager and will always be host-allocated.
+  // Messages of size `_rndvThresh` or larger are rendezvous and will use the custom
+  // allocator, smaller messages are eager and will always be host-allocated.
   ASSERT_THAT(recvReq->getRecvBuffer()->getType(),
               (_registerCustomAmAllocator && _messageSize >= _rndvThresh) ? _bufferType
                                                                           : ucxx::BufferType::Host);
@@ -530,6 +546,261 @@ TEST_P(RequestTest, ProgressTag)
   copyResults();
 
   // Assert data correctness
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, ProgressTagRequestAttributes)
+{
+  if (_messageSize < _rndvThresh)
+    GTEST_SKIP() << "Eager messages do not create a ucp_request and thus no debug info";
+
+  rebuildWorker(true);
+
+  allocate();
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
+  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  waitRequests(_worker, requests, _progressWorker);
+
+  for (const auto& request : requests) {
+    auto debugString = request->queryAttributes().debugString;
+    ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+    ASSERT_THAT(debugString,
+                ::testing::HasSubstr(_memoryType == UCS_MEMORY_TYPE_HOST ? "host" : "cuda"));
+  }
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+class RequestAttributesDisabledTest : public ::testing::Test {
+ protected:
+  static constexpr size_t kMessageLength = 1024;
+  static constexpr size_t kMessageSize   = kMessageLength * sizeof(int);
+
+  std::shared_ptr<ucxx::Context> _context;
+  std::shared_ptr<ucxx::Worker> _worker;
+  std::shared_ptr<ucxx::Endpoint> _ep;
+  std::function<void()> _progressWorker;
+  std::vector<int> _sendBuf;
+  std::vector<int> _recvBuf;
+
+  void SetUp() override
+  {
+    _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+    _worker  = ucxx::experimental::createWorker(_context).build();
+    ASSERT_FALSE(_worker->isRequestAttributesEnabled());
+
+    _ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    _progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+
+    _sendBuf.resize(kMessageLength);
+    _recvBuf.resize(kMessageLength);
+    std::iota(_sendBuf.begin(), _sendBuf.end(), 0);
+  }
+
+  void expectAllThrow(const std::vector<std::shared_ptr<ucxx::Request>>& requests) const
+  {
+    for (const auto& request : requests) {
+      EXPECT_THROW(std::ignore = request->queryAttributes(), ucxx::UnsupportedError);
+    }
+  }
+};
+
+TEST_F(RequestAttributesDisabledTest, Tag)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->tagSend(_sendBuf.data(), kMessageSize, ucxx::Tag{0}));
+  requests.push_back(_ep->tagRecv(_recvBuf.data(), kMessageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow(requests);
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, Stream)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->streamSend(_sendBuf.data(), kMessageSize, 0));
+  requests.push_back(_ep->streamRecv(_recvBuf.data(), kMessageSize, 0));
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow(requests);
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, Am)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendBuf.data(), kMessageSize, UCS_MEMORY_TYPE_HOST));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow(requests);
+
+  auto recvBuffer = requests[1]->getRecvBuffer();
+  ASSERT_EQ(recvBuffer->getSize(), kMessageSize);
+  std::vector<int> received(reinterpret_cast<int*>(recvBuffer->data()),
+                            reinterpret_cast<int*>(recvBuffer->data()) + kMessageLength);
+  ASSERT_THAT(received, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, MemoryGet)
+{
+  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+  std::memcpy(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendBuf.data(), kMessageSize);
+
+  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memGet(_recvBuf.data(), kMessageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow({request});
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, MemoryPut)
+{
+  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+
+  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memPut(_sendBuf.data(), kMessageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow({request});
+
+  std::memcpy(
+    _recvBuf.data(), reinterpret_cast<void*>(memoryHandle->getBaseAddress()), kMessageSize);
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_P(RequestTest, ProgressStreamRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Stream rejects zero-length transfers";
+
+  rebuildWorker(true);
+
+  allocate();
+
+  auto sendRequest = _ep->streamSend(_sendPtr[0], _messageSize, 0);
+  auto recvRequest = _ep->streamRecv(_recvPtr[0], _messageSize, 0);
+  std::vector<std::shared_ptr<ucxx::Request>> requests{sendRequest, recvRequest};
+  waitRequests(_worker, requests, _progressWorker);
+
+  try {
+    auto sendDebug = sendRequest->queryAttributes().debugString;
+    EXPECT_FALSE(sendDebug.empty());
+    EXPECT_THAT(sendDebug, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+  } catch (const ucxx::NoElemError&) {
+    // Send completed inline; no UCP request handle to query.
+  }
+
+  try {
+    auto recvDebug = recvRequest->queryAttributes().debugString;
+    EXPECT_THAT(recvDebug, ::testing::HasSubstr("no debug info"));
+  } catch (const ucxx::NoElemError&) {
+    // Recv completed inline; no UCP request handle to query.
+  }
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, ProgressAmRequestAttributes)
+{
+  if (_messageSize < _rndvThresh)
+    GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
+  if (_progressMode == ProgressMode::Wait)
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+
+  rebuildWorker(true);
+
+  allocate(1, false);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  for (const auto& request : requests) {
+    auto debugString = request->queryAttributes().debugString;
+    ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+  }
+
+  auto recvReq = requests[1];
+  _recvPtr[0]  = recvReq->getRecvBuffer()->data();
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryGetRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Zero-length memGet completes without a UCP request";
+
+  rebuildWorker(true);
+
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  copyMemoryTypeAware(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memGet(_recvPtr[0], _messageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(request);
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto debugString = request->queryAttributes().debugString;
+  ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryPutRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Zero-length memPut completes without a UCP request";
+
+  rebuildWorker(true);
+
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memPut(_sendPtr[0], _messageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(request);
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  try {
+    auto debugString = request->queryAttributes().debugString;
+    EXPECT_FALSE(debugString.empty());
+    EXPECT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+  } catch (const ucxx::NoElemError&) {
+    // Request completed inline; no UCP request handle to query.
+  }
+
+  copyMemoryTypeAware(
+    _recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
+
+  copyResults();
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 

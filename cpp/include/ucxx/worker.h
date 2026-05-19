@@ -79,6 +79,8 @@ class Worker : public Component {
  protected:
   bool _enableFuture{
     false};  ///< Boolean identifying whether the worker was created with future capability
+  bool _enableRequestAttributes{
+    false};  ///< Whether request attributes (e.g. UCP debug info) are queried for each request
   std::mutex _futuresPoolMutex{};  ///< Mutex to access the futures pool
   std::queue<std::shared_ptr<Future>>
     _futuresPool{};  ///< Futures pool to prevent running out of fresh futures
@@ -506,6 +508,19 @@ class Worker : public Component {
    * @returns `true` if future support is enabled, `false` otherwise.
    */
   [[nodiscard]] bool isFutureEnabled() const;
+
+  /**
+   * @brief Inquire if worker has been created with request attributes querying enabled.
+   *
+   * Check whether the worker has been created with request attributes querying enabled.
+   * When enabled, each `ucxx::Request` will have its UCP attributes (such as the debug
+   * string) queried immediately after submission, making them available via
+   * `ucxx::Request::queryAttributes()`. Querying request attributes has a
+   * non-negligible runtime cost and is therefore disabled by default.
+   *
+   * @returns `true` if request attributes querying is enabled, `false` otherwise.
+   */
+  [[nodiscard]] bool isRequestAttributesEnabled() const noexcept;
 
   /**
    * @brief Get the preferred buffer type for CUDA allocations.
@@ -1000,7 +1015,7 @@ class Worker : public Component {
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
+   * ensure the transfer has completed.
    *
    * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
    * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
@@ -1020,6 +1035,32 @@ class Worker : public Component {
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Worker attributes reported by `ucp_worker_query`.
+   */
+  struct Attributes {
+    /// Thread safety level the worker was created with.
+    ucs_thread_mode_t threadMode{UCS_THREAD_MODE_MULTI};
+    /// Maximum allowed header size for `ucp_am_send_nbx`.
+    size_t maxAmHeader{0};
+    /// Worker name used by tracing and analysis tools.
+    std::string name{};
+    /// Maximum debug-string buffer size accepted by `ucp_request_query`.
+    size_t maxDebugString{0};
+  };
+
+  /**
+   * @brief Get the worker's attributes.
+   *
+   * Returns the worker attributes as a struct, querying UCP via `ucp_worker_query` under
+   * the hood. All non-address fields exposed by UCP are queried, use `getAddress()` to
+   * obtain the address.
+   *
+   * @returns An `Attributes` filled with all queried fields.
+   * @throws ucxx::Error if an error occurred while querying worker attributes.
+   */
+  [[nodiscard]] Attributes queryAttributes() const;
 };
 
 /**

@@ -108,6 +108,21 @@ class WorkerGenericCallbackSingleTest : public WorkerProgressTest {};
 
 TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr); }
 
+TEST_F(WorkerTest, QueryAttributes)
+{
+  auto attrs = _worker->queryAttributes();
+
+  // The worker was created with UCS_THREAD_MODE_MULTI in the constructor.
+  EXPECT_EQ(attrs.threadMode, UCS_THREAD_MODE_MULTI);
+
+  // The remaining fields are determined by UCX configuration, so the strongest
+  // portable assertion is that they were populated with non-zero / non-empty
+  // values.
+  EXPECT_GT(attrs.maxAmHeader, 0u);
+  EXPECT_FALSE(attrs.name.empty());
+  EXPECT_GT(attrs.maxDebugString, 0u);
+}
+
 TEST_P(WorkerCapabilityTest, CheckCapability)
 {
   ASSERT_EQ(_worker->isDelayedRequestSubmissionEnabled(), _enableDelayedSubmission);
@@ -874,6 +889,35 @@ TEST(WorkerBuilderTest, BuilderBackwardCompatibility)
   ASSERT_TRUE(worker2->getHandle() != nullptr);
   ASSERT_TRUE(worker2->isDelayedRequestSubmissionEnabled());
   ASSERT_TRUE(worker2->isFutureEnabled());
+}
+
+TEST(WorkerBuilderTest, RequestAttributesDefaultDisabled)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker  = ucxx::experimental::createWorker(context).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_FALSE(worker->isRequestAttributesEnabled());
+}
+
+TEST(WorkerBuilderTest, RequestAttributesEnabled)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker  = ucxx::experimental::createWorker(context).requestAttributes(true).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_TRUE(worker->isRequestAttributesEnabled());
+  ASSERT_FALSE(worker->isDelayedRequestSubmissionEnabled());
+  ASSERT_FALSE(worker->isFutureEnabled());
+}
+
+TEST(WorkerBuilderTest, RequestAttributesExplicitDisable)
+{
+  auto context = ucxx::experimental::createContext(ucxx::Context::defaultFeatureFlags).build();
+  auto worker  = ucxx::experimental::createWorker(context).requestAttributes(false).build();
+
+  ASSERT_TRUE(worker != nullptr);
+  ASSERT_FALSE(worker->isRequestAttributesEnabled());
 }
 
 TEST(AmReceiverCallbackOwnerTypeTest, DefaultConstructsEmpty)

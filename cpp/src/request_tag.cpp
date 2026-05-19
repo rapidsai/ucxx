@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -161,8 +161,7 @@ void RequestTag::request()
              },
              _requestData);
 
-  std::lock_guard<std::recursive_mutex> lock(_mutex);
-  _request = request;
+  publishRequest(request);
 }
 
 void RequestTag::populateDelayedSubmission()

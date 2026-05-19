@@ -40,8 +40,6 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
   }
 }
 
-void RecvAmMessage::setUcpRequest(void* request) { _request->_request = request; }
-
 void RecvAmMessage::callback(void* request, ucs_status_t status)
 {
   std::visit(data::dispatch{
