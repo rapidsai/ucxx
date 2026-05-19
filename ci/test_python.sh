@@ -8,8 +8,8 @@ set -euo pipefail
 source "$(dirname "$0")/test_common.sh"
 
 rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
-PYTHON_CHANNEL=$(rapids-download-from-github "$(rapids-package-name "conda_python" ucxx --stable --cuda "$RAPIDS_CUDA_VERSION")")
+CPP_CHANNEL=$(rapids-download-from-github "$(rapids-artifact-name conda_cpp libucxx ucxx --cuda "$RAPIDS_CUDA_VERSION")")
+PYTHON_CHANNEL=$(rapids-download-from-github "$(rapids-artifact-name conda_python ucxx ucxx --stable --cuda "$RAPIDS_CUDA_VERSION")")
 
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh

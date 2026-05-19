@@ -126,6 +126,7 @@ class Address : public Component {
    *
    * @returns The underlying `ucp_address_t` handle.
    */
+  // rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
   [[deprecated("Removing in UCXX 0.51. Switch to `getStringView`.")]] [[nodiscard]] std::string
   getString() const;
 };

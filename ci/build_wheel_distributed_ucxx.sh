@@ -12,5 +12,5 @@ package_dir="python/distributed-ucxx"
 cp "${package_dir}/dist"/* "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}/"
 ./ci/validate_wheel.sh "${package_dir}" "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
 
-RAPIDS_PACKAGE_NAME="$(rapids-package-name wheel_python distributed-ucxx --pure --cuda "${RAPIDS_CUDA_VERSION}")"
+RAPIDS_PACKAGE_NAME="$(rapids-artifact-name wheel_python distributed-ucxx ucxx --pure --cuda "${RAPIDS_CUDA_VERSION}" --arch any)"
 export RAPIDS_PACKAGE_NAME
