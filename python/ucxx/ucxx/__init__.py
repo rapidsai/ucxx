@@ -33,7 +33,7 @@ from ._lib import libucxx  # noqa: E402
 from .core import *  # noqa: E402, F403
 from .utils import get_address, get_ucxpy_logger  # noqa: E402
 
-from cuda.core import system
+from cuda.core import system  # noqa: E402
 
 _ucx_version = get_ucx_version()  # noqa: F405
 __ucx_min_version__ = "1.18.0"
@@ -58,10 +58,7 @@ if "UCX_RNDV_FRAG_MEM_TYPE" not in os.environ:
     logger.info("Setting UCX_RNDV_FRAG_MEM_TYPE=cuda")
     os.environ["UCX_RNDV_FRAG_MEM_TYPE"] = "cuda"
 
-if (
-    and "UCX_CUDA_COPY_MAX_REG_RATIO" not in os.environ
-    and _ucx_version >= (1, 12, 0)
-):
+if "UCX_CUDA_COPY_MAX_REG_RATIO" not in os.environ and _ucx_version >= (1, 12, 0):
     try:
         device_count = system.Device.get_device_count()
         large_bar1 = [False] * device_count
