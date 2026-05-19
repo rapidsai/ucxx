@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
@@ -8,7 +8,11 @@ from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 np = pytest.importorskip("numpy")
 
-msg_sizes = [2**i for i in range(0, 25, 4)]
+# Some CI nodes can be _very_ slow for large sized messages, generally only on
+# 4 or 8 messages, thus substantially increase the timeouts for 16MiB messages.
+msg_sizes = [2**i for i in range(0, 24, 4)] + [
+    pytest.param(2**24, marks=pytest.mark.asyncio_timeout(240))
+]
 # multi_sizes = [0, 1, 2, 3, 4, 8]
 multi_sizes = [1, 2, 3, 4, 8]
 dtypes = ["|u1", "<i8", "f8"]
@@ -65,6 +69,7 @@ async def test_send_recv_numpy(size, multi_size, dtype):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         np.testing.assert_array_equal(r.view(dtype), s)
+    await client.close()
     await wait_listener_client_handlers(listener)
 
 
@@ -84,6 +89,7 @@ async def test_send_recv_cupy(size, multi_size, dtype):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         cupy.testing.assert_array_equal(cupy.asarray(r).view(dtype), cupy.asarray(s))
+    await client.close()
     await wait_listener_client_handlers(listener)
 
 
@@ -105,4 +111,5 @@ async def test_send_recv_numba(size, multi_size, dtype):
         np.testing.assert_array_equal(
             r.copy_to_host().view(dtype), s.copy_to_host().view(dtype)
         )
+    await client.close()
     await wait_listener_client_handlers(listener)

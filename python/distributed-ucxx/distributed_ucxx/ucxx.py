@@ -498,9 +498,9 @@ class UCXX(Comm):
                 for each_frame in send_frames:
                     await self.ep.send(each_frame)
             return sum(sizes)
-        except ucxx.exceptions.UCXError:
+        except BaseException as e:
             self.abort()
-            raise CommClosedError("While writing, the connection was closed")
+            raise CommClosedError("While writing, the connection was closed") from e
 
     @log_errors
     async def read(self, deserializers=("cuda", "dask", "pickle", "error")):
@@ -729,6 +729,8 @@ class UCXXListener(Listener):
         self.ucxx_server = ucxx.create_listener(serve_forever, port=self._input_port)
 
     def stop(self):
+        if self.ucxx_server is not None:
+            self.ucxx_server.close()
         self.ucxx_server = None
         _deregister_dask_resource(self._resource_id)
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import functools
@@ -94,6 +94,7 @@ async def test_send_recv_cupy(size, dtype):
     resp = cupy.empty_like(msg)
     await client.recv(resp)
     np.testing.assert_array_equal(cupy.asnumpy(resp), cupy.asnumpy(msg))
+    await client.close()
     await wait_listener_client_handlers(listener)
 
 
@@ -116,6 +117,7 @@ async def test_send_recv_numba(size, dtype):
     resp = cuda.device_array_like(msg)
     await client.recv(resp)
     np.testing.assert_array_equal(np.array(resp), np.array(msg))
+    await client.close()
     await wait_listener_client_handlers(listener)
 
 

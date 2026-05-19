@@ -1,9 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
 
 import asyncio
+import gc
 import logging
 import sys
 
@@ -84,6 +85,10 @@ def ucxx_loop(request):
 
     with check_thread_leak():
         yield loop
+
+        # Collect garbage to break any remaining reference cycles before reset.
+        gc.collect()
+
         if ignore_alive_references:
             try:
                 ucxx.reset()
