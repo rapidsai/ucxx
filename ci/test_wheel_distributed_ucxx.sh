@@ -14,7 +14,7 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 LIBUCXX_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_cpp libucxx ucxx --cuda "$RAPIDS_CUDA_VERSION")")
 UCXX_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_python ucxx ucxx --stable --cuda "$RAPIDS_CUDA_VERSION")")
-DISTRIBUTED_UCXX_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_python distributed-ucxx ucxx --pure --cuda "$RAPIDS_CUDA_VERSION")")
+DISTRIBUTED_UCXX_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_python distributed-ucxx ucxx --pure --cuda "$RAPIDS_CUDA_VERSION" --arch any)")
 
 # generate constraints (possibly pinning to oldest support versions of dependencies)
 rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
