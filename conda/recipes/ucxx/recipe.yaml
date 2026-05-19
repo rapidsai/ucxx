@@ -93,7 +93,6 @@ outputs:
         - python =${{ py_abi_min }}
         - python-abi3 ${{ py_abi_min }}.*
         - rapids-build-backend >=0.4.0,<0.5.0
-        - rmm ${{ rapids_version }}
         - scikit-build-core>=0.11.0
         - ucx
         - libucxx =${{ version }}
@@ -106,7 +105,6 @@ outputs:
         - python
         - ucx >=1.18.0,<1.21.0
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - ${{ pin_compatible("rmm", upper_bound="x.x") }}
         - libucxx =${{ version }}
       run_constraints:
         - cupy >=13.6.0
@@ -114,7 +112,6 @@ outputs:
         by_name:
           - cuda-cudart
           - cuda-version
-          - librmm
           - libucxx
           - python_abi
           - ucx
