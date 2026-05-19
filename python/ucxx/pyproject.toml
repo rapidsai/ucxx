@@ -20,7 +20,7 @@ license = "BSD-3-Clause"
 requires-python = ">=3.11"
 dependencies = [
     "cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*",
-    "cuda-core @ git+https://github.com/nvidia/cuda-python@main#subdirectory=cuda_core",
+    "cuda-core>=1.0.0",
     "libucxx==0.50.*,>=0.0.0a0",
     "numpy>=1.23,<3.0",
     "rmm==26.6.*,>=0.0.0a0",

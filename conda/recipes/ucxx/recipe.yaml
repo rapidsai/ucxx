@@ -97,8 +97,7 @@ outputs:
         - libucxx =${{ version }}
         - cuda-cudart-dev
         - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
-        # TODO: Change to cuda-core >= 1.0.0 once that's released
-        - cuda-core @ git+https://github.com/nvidia/cuda-python@main#subdirectory=cuda_core
+        - cuda-core>=1.0.0
       run:
         - numpy >=1.23,<3.0
         - python
@@ -107,8 +106,7 @@ outputs:
         - ${{ pin_compatible("rmm", upper_bound="x.x") }}
         - libucxx =${{ version }}
         - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
-        # TODO: Change to cuda-core >= 1.0.0 once that's released
-        - cuda-core @ git+https://github.com/nvidia/cuda-python@main#subdirectory=cuda_core
+        - cuda-core>=1.0.0
       run_constraints:
         - cupy >=13.6.0
       ignore_run_exports:
@@ -242,7 +240,7 @@ outputs:
         - setuptools>=77.0.0
         - wheel
       run:
-        - cuda-core >=0.3.2
+        - cuda-core>=1.0.0
         - python
         - pyyaml >=6
         - rapids-dask-dependency ${{ rapids_version }}
