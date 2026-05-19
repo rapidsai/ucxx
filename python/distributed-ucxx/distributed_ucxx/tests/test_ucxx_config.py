@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
@@ -182,6 +182,11 @@ def start_dask_scheduler(
     reason="Workers running without a `Nanny` can't be closed properly",
 )
 def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
+    def current_device_resource_class():
+        import rmm
+
+        return type(rmm.mr.get_current_device_resource())
+
     env = os.environ.copy()
     env["DASK_DISTRIBUTED__RMM__POOL_SIZE"] = "1000.00 MB"
 
@@ -209,12 +214,10 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
                     sleep(0.1)
 
                 # Check for RMM pool resource type
-                rmm_resource = c.run_on_scheduler(
-                    rmm.mr.get_current_device_resource_type
-                )
+                rmm_resource = c.run_on_scheduler(current_device_resource_class)
                 assert rmm_resource == rmm.mr.PoolMemoryResource
 
-                rmm_resource_workers = c.run(rmm.mr.get_current_device_resource_type)
+                rmm_resource_workers = c.run(current_device_resource_class)
                 for v in rmm_resource_workers.values():
                     assert v == rmm.mr.PoolMemoryResource
 
