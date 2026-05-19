@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -16,7 +16,7 @@ from ucxx._lib_async.utils_test import (
     compute_timeouts,
     wait_listener_client_handlers,
 )
-from ucxx.testing import terminate_process
+from ucxx.testing import run_in_subprocess, terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -130,14 +130,30 @@ def test_shutdown_unexpected_closed_peer(pytestconfig, caplog, endpoint_error_ha
 
     client_queue = mp.Queue()
     server_queue = mp.Queue()
+    p1_error_q = mp.Queue()
+    p2_error_q = mp.Queue()
     p1 = mp.Process(
-        target=_test_shutdown_unexpected_closed_peer_server,
-        args=(client_queue, server_queue, endpoint_error_handling, async_timeout),
+        target=run_in_subprocess,
+        args=(
+            _test_shutdown_unexpected_closed_peer_server,
+            p1_error_q,
+            client_queue,
+            server_queue,
+            endpoint_error_handling,
+            async_timeout,
+        ),
     )
     p1.start()
     p2 = mp.Process(
-        target=_test_shutdown_unexpected_closed_peer_client,
-        args=(client_queue, server_queue, endpoint_error_handling, async_timeout),
+        target=run_in_subprocess,
+        args=(
+            _test_shutdown_unexpected_closed_peer_client,
+            p2_error_q,
+            client_queue,
+            server_queue,
+            endpoint_error_handling,
+            async_timeout,
+        ),
     )
     p2.start()
 
@@ -147,5 +163,5 @@ def test_shutdown_unexpected_closed_peer(pytestconfig, caplog, endpoint_error_ha
     server_queue.put("client is down")
     p1.join(timeout=join_timeout)
 
-    terminate_process(p2)
-    terminate_process(p1)
+    terminate_process(p2, error_queue=p2_error_q)
+    terminate_process(p1, error_queue=p1_error_q)

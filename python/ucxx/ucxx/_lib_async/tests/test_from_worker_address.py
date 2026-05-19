@@ -12,7 +12,7 @@ import pytest
 import ucxx
 from ucxx._lib_async.utils import get_event_loop, hash64bits
 from ucxx._lib_async.utils_test import compute_timeouts
-from ucxx.testing import join_processes, terminate_process
+from ucxx.testing import join_processes, run_in_subprocess, terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -90,22 +90,24 @@ def test_from_worker_address(pytestconfig):
     async_timeout, join_timeout = compute_timeouts(pytestconfig)
 
     queue = mp.Queue()
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
 
     server = mp.Process(
-        target=_test_from_worker_address_server,
-        args=(queue, async_timeout),
+        target=run_in_subprocess,
+        args=(_test_from_worker_address_server, server_error_q, queue, async_timeout),
     )
     server.start()
 
     client = mp.Process(
-        target=_test_from_worker_address_client,
-        args=(queue, async_timeout),
+        target=run_in_subprocess,
+        args=(_test_from_worker_address_client, client_error_q, queue, async_timeout),
     )
     client.start()
 
     join_processes([client, server], timeout=join_timeout)
-    terminate_process(client)
-    terminate_process(server)
+    terminate_process(client, error_queue=client_error_q)
+    terminate_process(server, error_queue=server_error_q)
 
 
 def _pack_address_and_tag(address, recv_tag, send_tag):
@@ -235,23 +237,38 @@ def test_from_worker_address_multinode(pytestconfig, num_nodes):
     async_timeout, join_timeout = compute_timeouts(pytestconfig)
 
     queue = mp.Queue()
+    server_error_q = mp.Queue()
 
     server = mp.Process(
-        target=_test_from_worker_address_server_fixedsize,
-        args=(num_nodes, queue, async_timeout),
+        target=run_in_subprocess,
+        args=(
+            _test_from_worker_address_server_fixedsize,
+            server_error_q,
+            num_nodes,
+            queue,
+            async_timeout,
+        ),
     )
     server.start()
 
     clients = []
+    client_error_qs = []
     for i in range(num_nodes):
+        client_error_q = mp.Queue()
         client = mp.Process(
-            target=_test_from_worker_address_client_fixedsize,
-            args=(queue, async_timeout),
+            target=run_in_subprocess,
+            args=(
+                _test_from_worker_address_client_fixedsize,
+                client_error_q,
+                queue,
+                async_timeout,
+            ),
         )
         client.start()
         clients.append(client)
+        client_error_qs.append(client_error_q)
 
     join_processes(clients + [server], timeout=join_timeout)
-    for client in clients:
-        terminate_process(client)
-    terminate_process(server)
+    for client, client_error_q in zip(clients, client_error_qs):
+        terminate_process(client, error_queue=client_error_q)
+    terminate_process(server, error_queue=server_error_q)

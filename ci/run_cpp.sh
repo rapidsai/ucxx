@@ -45,7 +45,7 @@ else
 fi
 
 run_cpp_tests() {
-  CMD_LINE="python ${TIMEOUT_TOOL_PATH} $((10*60)) ${GTESTS_PATH}/UCXX_TEST"
+  CMD_LINE="python ${TIMEOUT_TOOL_PATH} $((20*60)) ${GTESTS_PATH}/UCXX_TEST"
 
   log_command "${CMD_LINE}"
   UCX_TCP_CM_REUSEADDR=y ${CMD_LINE}

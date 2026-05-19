@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import multiprocessing as mp
@@ -7,7 +7,12 @@ import pytest
 
 from ucxx._lib import libucxx as ucx_api
 from ucxx._lib.arr import Array
-from ucxx.testing import join_processes, terminate_process, wait_requests
+from ucxx.testing import (
+    join_processes,
+    run_in_subprocess,
+    terminate_process,
+    wait_requests,
+)
 
 mp = mp.get_context("spawn")
 
@@ -189,10 +194,18 @@ def _client_probe(queue, probe_type):
 @pytest.mark.parametrize("api_type", ["worker", "endpoint"])
 def test_message_probe(probe_type, api_type):
     queue = mp.Queue()
-    server = mp.Process(target=_server_probe, args=(queue, probe_type, api_type))
+    server_error_q = mp.Queue()
+    client_error_q = mp.Queue()
+    server = mp.Process(
+        target=run_in_subprocess,
+        args=(_server_probe, server_error_q, queue, probe_type, api_type),
+    )
     server.start()
-    client = mp.Process(target=_client_probe, args=(queue, probe_type))
+    client = mp.Process(
+        target=run_in_subprocess,
+        args=(_client_probe, client_error_q, queue, probe_type),
+    )
     client.start()
     join_processes([client, server], timeout=60)
-    terminate_process(client)
-    terminate_process(server)
+    terminate_process(client, error_queue=client_error_q)
+    terminate_process(server, error_queue=server_error_q)

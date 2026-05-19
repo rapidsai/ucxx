@@ -25,6 +25,10 @@
 #include <rmm/device_buffer.hpp>
 #endif
 
+#if UCXX_ENABLE_CCCL
+#include <cuda_runtime.h>
+#endif
+
 namespace {
 
 using ::testing::Combine;
@@ -58,27 +62,16 @@ class RequestTest : public ::testing::TestWithParam<
   std::vector<const void*> _sendPtr{nullptr};
   std::vector<void*> _recvPtr{nullptr};
 
-  void SetUp()
+  void buildWorker(bool enableRequestAttributes)
   {
-    std::tie(_bufferType,
-             _registerCustomAmAllocator,
-             _enableDelayedSubmission,
-             _progressMode,
-             _messageLength) = GetParam();
+    auto builder = ucxx::experimental::createWorker(_context)
+                     .delayedSubmission(_enableDelayedSubmission)
+                     .requestAttributes(enableRequestAttributes);
 
-    if (_bufferType == ucxx::BufferType::RMM) {
-#if !UCXX_ENABLE_RMM
-      GTEST_SKIP() << "UCXX was not built with RMM support";
-#endif
-    }
+    if (_bufferType == ucxx::BufferType::RMM || _bufferType == ucxx::BufferType::CCCL)
+      builder.cudaBufferType(_bufferType);
 
-    _memoryType =
-      (_bufferType == ucxx::BufferType::RMM) ? UCS_MEMORY_TYPE_CUDA : UCS_MEMORY_TYPE_HOST;
-    _messageSize = _messageLength * sizeof(int);
-
-    _context = ucxx::createContext({{"RNDV_THRESH", std::to_string(_rndvThresh)}},
-                                   ucxx::Context::defaultFeatureFlags);
-    _worker  = _context->createWorker(_enableDelayedSubmission);
+    _worker = builder.build();
 
     if (_progressMode == ProgressMode::Blocking) {
       _worker->initBlockingProgressMode();
@@ -93,6 +86,43 @@ class RequestTest : public ::testing::TestWithParam<
     _progressWorker = getProgressFunction(_worker, _progressMode);
 
     _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  }
+
+  void rebuildWorker(bool enableRequestAttributes)
+  {
+    if (_worker && _worker->isProgressThreadRunning()) _worker->stopProgressThread();
+    _ep.reset();
+    _worker.reset();
+    buildWorker(enableRequestAttributes);
+  }
+
+  void SetUp()
+  {
+    std::tie(_bufferType,
+             _registerCustomAmAllocator,
+             _enableDelayedSubmission,
+             _progressMode,
+             _messageLength) = GetParam();
+
+    if (_bufferType == ucxx::BufferType::RMM) {
+#if !UCXX_ENABLE_RMM
+      GTEST_SKIP() << "UCXX was not built with RMM support";
+#endif
+    }
+
+    if (_bufferType == ucxx::BufferType::CCCL) {
+#if !UCXX_ENABLE_CCCL
+      GTEST_SKIP() << "UCXX was not built with CCCL support";
+#endif
+    }
+
+    _memoryType =
+      (_bufferType != ucxx::BufferType::Host) ? UCS_MEMORY_TYPE_CUDA : UCS_MEMORY_TYPE_HOST;
+    _messageSize = _messageLength * sizeof(int);
+
+    _context = ucxx::createContext({{"RNDV_THRESH", std::to_string(_rndvThresh)}},
+                                   ucxx::Context::defaultFeatureFlags);
+    buildWorker(false);
   }
 
   void TearDown()
@@ -129,6 +159,11 @@ class RequestTest : public ::testing::TestWithParam<
         _sendBuffer[i] = std::make_unique<ucxx::RMMBuffer>(_messageSize);
         if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<ucxx::RMMBuffer>(_messageSize);
 #endif
+#if UCXX_ENABLE_CCCL
+      } else if (_bufferType == ucxx::BufferType::CCCL) {
+        _sendBuffer[i] = std::make_unique<ucxx::CCCLBuffer>(_messageSize);
+        if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<ucxx::CCCLBuffer>(_messageSize);
+#endif
       }
 
       copyMemoryTypeAware(_sendBuffer[i]->data(), _send[i].data(), _messageSize, false);
@@ -139,6 +174,7 @@ class RequestTest : public ::testing::TestWithParam<
 #if UCXX_ENABLE_RMM
     if (_bufferType == ucxx::BufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
 #endif
+    if (_bufferType == ucxx::BufferType::CCCL) { cudaStreamSynchronize(nullptr); }
   }
 
   void copyResults()
@@ -148,6 +184,7 @@ class RequestTest : public ::testing::TestWithParam<
 #if UCXX_ENABLE_RMM
     if (_bufferType == ucxx::BufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
 #endif
+    if (_bufferType == ucxx::BufferType::CCCL) { cudaStreamSynchronize(nullptr); }
   }
 
   void copyMemoryTypeAware(void* dst, const void* src, size_t size, bool synchronize = true)
@@ -155,11 +192,14 @@ class RequestTest : public ::testing::TestWithParam<
     if (_memoryType == UCS_MEMORY_TYPE_HOST) {
       memcpy(dst, src, size);
 #if UCXX_ENABLE_RMM
-    } else if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
+    } else if (_memoryType == UCS_MEMORY_TYPE_CUDA && _bufferType == ucxx::BufferType::RMM) {
       RMM_CUDA_TRY(
         cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, rmm::cuda_stream_default.value()));
       if (synchronize) rmm::cuda_stream_default.synchronize();
 #endif
+    } else if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
+      cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, nullptr);
+      if (synchronize) cudaStreamSynchronize(nullptr);
     }
   }
 };
@@ -171,12 +211,19 @@ TEST_P(RequestTest, ProgressAm)
   }
 
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
-#if !UCXX_ENABLE_RMM
-    GTEST_SKIP() << "UCXX was not built with RMM support";
-#else
-    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
-      return std::make_shared<ucxx::RMMBuffer>(length);
-    });
+#if UCXX_ENABLE_RMM
+    if (_bufferType == ucxx::BufferType::RMM) {
+      _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+        return std::make_shared<ucxx::RMMBuffer>(length);
+      });
+    }
+#endif
+#if UCXX_ENABLE_CCCL
+    if (_bufferType == ucxx::BufferType::CCCL) {
+      _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+        return std::make_shared<ucxx::CCCLBuffer>(length);
+      });
+    }
 #endif
   }
 
@@ -191,8 +238,8 @@ TEST_P(RequestTest, ProgressAm)
   auto recvReq = requests[1];
   _recvPtr[0]  = recvReq->getRecvBuffer()->data();
 
-  // Messages larger than `_rndvThresh` are rendezvous and will use custom allocator,
-  // smaller messages are eager and will always be host-allocated.
+  // Messages of size `_rndvThresh` or larger are rendezvous and will use the custom
+  // allocator, smaller messages are eager and will always be host-allocated.
   ASSERT_THAT(recvReq->getRecvBuffer()->getType(),
               (_registerCustomAmAllocator && _messageSize >= _rndvThresh) ? _bufferType
                                                                           : ucxx::BufferType::Host);
@@ -302,12 +349,19 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
   }
 
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
-#if !UCXX_ENABLE_RMM
-    GTEST_SKIP() << "UCXX was not built with RMM support";
-#else
-    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
-      return std::make_shared<ucxx::RMMBuffer>(length);
-    });
+#if UCXX_ENABLE_RMM
+    if (_bufferType == ucxx::BufferType::RMM) {
+      _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+        return std::make_shared<ucxx::RMMBuffer>(length);
+      });
+    }
+#endif
+#if UCXX_ENABLE_CCCL
+    if (_bufferType == ucxx::BufferType::CCCL) {
+      _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+        return std::make_shared<ucxx::CCCLBuffer>(length);
+      });
+    }
 #endif
   }
 
@@ -495,6 +549,261 @@ TEST_P(RequestTest, ProgressTag)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
+TEST_P(RequestTest, ProgressTagRequestAttributes)
+{
+  if (_messageSize < _rndvThresh)
+    GTEST_SKIP() << "Eager messages do not create a ucp_request and thus no debug info";
+
+  rebuildWorker(true);
+
+  allocate();
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
+  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  waitRequests(_worker, requests, _progressWorker);
+
+  for (const auto& request : requests) {
+    auto debugString = request->queryAttributes().debugString;
+    ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+    ASSERT_THAT(debugString,
+                ::testing::HasSubstr(_memoryType == UCS_MEMORY_TYPE_HOST ? "host" : "cuda"));
+  }
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+class RequestAttributesDisabledTest : public ::testing::Test {
+ protected:
+  static constexpr size_t kMessageLength = 1024;
+  static constexpr size_t kMessageSize   = kMessageLength * sizeof(int);
+
+  std::shared_ptr<ucxx::Context> _context;
+  std::shared_ptr<ucxx::Worker> _worker;
+  std::shared_ptr<ucxx::Endpoint> _ep;
+  std::function<void()> _progressWorker;
+  std::vector<int> _sendBuf;
+  std::vector<int> _recvBuf;
+
+  void SetUp() override
+  {
+    _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+    _worker  = ucxx::experimental::createWorker(_context).build();
+    ASSERT_FALSE(_worker->isRequestAttributesEnabled());
+
+    _ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    _progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+
+    _sendBuf.resize(kMessageLength);
+    _recvBuf.resize(kMessageLength);
+    std::iota(_sendBuf.begin(), _sendBuf.end(), 0);
+  }
+
+  void expectAllThrow(const std::vector<std::shared_ptr<ucxx::Request>>& requests) const
+  {
+    for (const auto& request : requests) {
+      EXPECT_THROW(std::ignore = request->queryAttributes(), ucxx::UnsupportedError);
+    }
+  }
+};
+
+TEST_F(RequestAttributesDisabledTest, Tag)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->tagSend(_sendBuf.data(), kMessageSize, ucxx::Tag{0}));
+  requests.push_back(_ep->tagRecv(_recvBuf.data(), kMessageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow(requests);
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, Stream)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->streamSend(_sendBuf.data(), kMessageSize, 0));
+  requests.push_back(_ep->streamRecv(_recvBuf.data(), kMessageSize, 0));
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow(requests);
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, Am)
+{
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendBuf.data(), kMessageSize, UCS_MEMORY_TYPE_HOST));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow(requests);
+
+  auto recvBuffer = requests[1]->getRecvBuffer();
+  ASSERT_EQ(recvBuffer->getSize(), kMessageSize);
+  std::vector<int> received(reinterpret_cast<int*>(recvBuffer->data()),
+                            reinterpret_cast<int*>(recvBuffer->data()) + kMessageLength);
+  ASSERT_THAT(received, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, MemoryGet)
+{
+  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+  std::memcpy(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendBuf.data(), kMessageSize);
+
+  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memGet(_recvBuf.data(), kMessageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow({request});
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_F(RequestAttributesDisabledTest, MemoryPut)
+{
+  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+
+  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memPut(_sendBuf.data(), kMessageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
+  waitRequests(_worker, requests, _progressWorker);
+
+  expectAllThrow({request});
+
+  std::memcpy(
+    _recvBuf.data(), reinterpret_cast<void*>(memoryHandle->getBaseAddress()), kMessageSize);
+  ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
+}
+
+TEST_P(RequestTest, ProgressStreamRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Stream rejects zero-length transfers";
+
+  rebuildWorker(true);
+
+  allocate();
+
+  auto sendRequest = _ep->streamSend(_sendPtr[0], _messageSize, 0);
+  auto recvRequest = _ep->streamRecv(_recvPtr[0], _messageSize, 0);
+  std::vector<std::shared_ptr<ucxx::Request>> requests{sendRequest, recvRequest};
+  waitRequests(_worker, requests, _progressWorker);
+
+  try {
+    auto sendDebug = sendRequest->queryAttributes().debugString;
+    EXPECT_FALSE(sendDebug.empty());
+    EXPECT_THAT(sendDebug, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+  } catch (const ucxx::NoElemError&) {
+    // Send completed inline; no UCP request handle to query.
+  }
+
+  try {
+    auto recvDebug = recvRequest->queryAttributes().debugString;
+    EXPECT_THAT(recvDebug, ::testing::HasSubstr("no debug info"));
+  } catch (const ucxx::NoElemError&) {
+    // Recv completed inline; no UCP request handle to query.
+  }
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, ProgressAmRequestAttributes)
+{
+  if (_messageSize < _rndvThresh)
+    GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
+  if (_progressMode == ProgressMode::Wait)
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+
+  rebuildWorker(true);
+
+  allocate(1, false);
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
+  requests.push_back(_ep->amRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  for (const auto& request : requests) {
+    auto debugString = request->queryAttributes().debugString;
+    ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+  }
+
+  auto recvReq = requests[1];
+  _recvPtr[0]  = recvReq->getRecvBuffer()->data();
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryGetRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Zero-length memGet completes without a UCP request";
+
+  rebuildWorker(true);
+
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  copyMemoryTypeAware(
+    reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memGet(_recvPtr[0], _messageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(request);
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  auto debugString = request->queryAttributes().debugString;
+  ASSERT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, MemoryPutRequestAttributes)
+{
+  if (_messageSize == 0) GTEST_SKIP() << "Zero-length memPut completes without a UCP request";
+
+  rebuildWorker(true);
+
+  allocate();
+
+  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+
+  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto serializedRemoteKey = localRemoteKey->serialize();
+  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+
+  auto request = _ep->memPut(_sendPtr[0], _messageSize, remoteKey);
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(request);
+  requests.push_back(_ep->flush());
+  waitRequests(_worker, requests, _progressWorker);
+
+  try {
+    auto debugString = request->queryAttributes().debugString;
+    EXPECT_FALSE(debugString.empty());
+    EXPECT_THAT(debugString, ::testing::HasSubstr("length " + std::to_string(_messageSize)));
+  } catch (const ucxx::NoElemError&) {
+    // Request completed inline; no UCP request handle to query.
+  }
+
+  copyMemoryTypeAware(
+    _recvPtr[0], reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _messageSize);
+
+  copyResults();
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
 TEST_P(RequestTest, ProgressTagMulti)
 {
   if (_progressMode == ProgressMode::Wait) {
@@ -508,7 +817,7 @@ TEST_P(RequestTest, ProgressTagMulti)
 
   // Allocate buffers for request sizes/types
   std::vector<size_t> multiSize(numMulti, _messageSize);
-  std::vector<int> multiIsCUDA(numMulti, _bufferType == ucxx::BufferType::RMM);
+  std::vector<int> multiIsCUDA(numMulti, _bufferType != ucxx::BufferType::Host);
 
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -827,6 +1136,28 @@ INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
 INSTANTIATE_TEST_SUITE_P(RMMDelayedSubmission,
                          RequestTest,
                          Combine(Values(ucxx::BufferType::RMM),
+                                 Values(false, true),
+                                 Values(true),
+                                 Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)));
+#endif
+
+#if UCXX_ENABLE_CCCL
+INSTANTIATE_TEST_SUITE_P(CCCLProgressModes,
+                         RequestTest,
+                         Combine(Values(ucxx::BufferType::CCCL),
+                                 Values(false, true),
+                                 Values(false),
+                                 Values(ProgressMode::Polling,
+                                        ProgressMode::Blocking,
+                                        // ProgressMode::Wait,  // Hangs on Stream
+                                        ProgressMode::ThreadPolling,
+                                        ProgressMode::ThreadBlocking),
+                                 Values(0, 1, 1024, 2048, 1048576)));
+
+INSTANTIATE_TEST_SUITE_P(CCCLDelayedSubmission,
+                         RequestTest,
+                         Combine(Values(ucxx::BufferType::CCCL),
                                  Values(false, true),
                                  Values(true),
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),

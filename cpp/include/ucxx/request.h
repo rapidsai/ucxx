@@ -8,6 +8,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <ucp/api/ucp.h>
 
@@ -37,6 +38,14 @@ namespace ucxx {
  */
 class Request : public Component {
  protected:
+  /**
+   * @brief Request attributes reported by `ucp_request_query`.
+   */
+  struct Attributes {
+    ucs_memory_type memoryType{UCS_MEMORY_TYPE_UNKNOWN};  ///< Memory type of the request
+    std::string debugString{};                            ///< Stored debug string
+  };
+
   ucs_status_t _status{UCS_INPROGRESS};      ///< Requests status
   std::string _status_msg{};                 ///< Human-readable status message
   void* _request{nullptr};                   ///< Pointer to UCP request
@@ -54,6 +63,9 @@ class Request : public Component {
   bool _enablePythonFuture{true};  ///< Whether Python future is enabled for this request
   RequestCallbackUserFunction _callback{nullptr};  ///< Completion callback
   RequestCallbackUserData _callbackData{nullptr};  ///< Completion callback data
+  Attributes _requestAttr{};  ///< Request attributes queried when request is posted; the
+                              ///< default `memoryType == UCS_MEMORY_TYPE_UNKNOWN` doubles
+                              ///< as the "not populated yet" sentinel
 
   /**
    * @brief Protected constructor of an abstract `ucxx::Request`.
@@ -235,6 +247,48 @@ class Request : public Component {
    * @return The received user header (if applicable) or an empty string.
    */
   [[nodiscard]] virtual std::string getRecvHeader();
+
+  /**
+   * @brief Get the requests's attributes.
+   *
+   * Returns the request attributes as a struct. The owning `ucxx::Worker` must have been
+   * created with request attributes querying enabled (see
+   * `ucxx::experimental::WorkerBuilder::requestAttributes()`); otherwise the attributes
+   * are never populated and this method throws. Querying the underlying UCP request is
+   * an implementation detail performed eagerly when the request is submitted. All
+   * non-status fields exposed by UCP are queried, use `getStatus()` to obtain the status.
+   *
+   * @throw ucxx::UnsupportedError if the owning worker was not built with request
+   *                               attributes querying enabled. Requires `Worker`
+   *                               created with
+   *                               `ucxx::experimental::WorkerBuilder::requestAttributes(true)`.
+   * @throw ucxx::NoElemError      if attributes are unavailable for this specific
+   *                               request: either because UCX took an inline-completion
+   *                               path that produced no UCP request to query, or because
+   *                               the request has not completed yet. Callers can
+   *                               distinguish the latter from the former by checking
+   *                               `isCompleted()`.
+   *
+   * @return An `Attributes` containing the request attributes.
+   */
+  [[nodiscard]] Attributes queryAttributes();
+
+ protected:
+  /**
+   * @brief Publish the UCP request handle and capture its attributes.
+   *
+   * Single critical section that stores the UCP request pointer in `_request` and, when
+   * the owning worker has request attributes querying enabled, immediately queries those
+   * attributes. The completion path frees the UCP request inside `setStatus` under the
+   * same `_mutex`, so this helper guarantees the query and the free are mutually
+   * exclusive and that there are no use-after-free in threaded progress modes.
+   *
+   * Every submit site calls this after obtaining the request handle from the corresponding
+   * `ucp_*_nbx` function.
+   *
+   * @param[in] request the UCP request pointer returned by a non-blocking submit.
+   */
+  void publishRequest(void* request);
 };
 
 }  // namespace ucxx

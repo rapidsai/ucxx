@@ -58,6 +58,12 @@ enum class MemoryType {
   RmmCudaAsyncMemoryResource,
   RmmCudaAsyncManagedMemoryResource,
 #endif
+#ifdef UCXX_BENCHMARKS_ENABLE_CCCL
+  CcclDeviceMemoryPool,
+  CcclSharedResource,
+  CcclCudaAsyncResource,
+  CcclCudaAsyncManagedResource,
+#endif
 };
 
 /**
@@ -90,6 +96,16 @@ std::string getMemoryTypeString(MemoryType memoryType) {
     return "rmm-cuda-async";
   else if (memoryType == MemoryType::RmmCudaAsyncManagedMemoryResource)
     return "rmm-cuda-async-managed";
+#endif
+#ifdef UCXX_BENCHMARKS_ENABLE_CCCL
+  else if (memoryType == MemoryType::CcclDeviceMemoryPool)
+    return "cccl-device";
+  else if (memoryType == MemoryType::CcclSharedResource)
+    return "cccl-shared";
+  else if (memoryType == MemoryType::CcclCudaAsyncResource)
+    return "cccl-cuda-async";
+  else if (memoryType == MemoryType::CcclCudaAsyncManagedResource)
+    return "cccl-cuda-async-managed";
 #endif
   else {
     throw std::runtime_error("Unknown memory type");
@@ -128,6 +144,16 @@ MemoryType getMemoryTypeFromString(std::string memoryTypeString) {
   else if (memoryTypeString == "rmm-cuda-async-managed")
     return MemoryType::RmmCudaAsyncManagedMemoryResource;
 #endif
+#ifdef UCXX_BENCHMARKS_ENABLE_CCCL
+  else if (memoryTypeString == "cccl-device")
+    return MemoryType::CcclDeviceMemoryPool;
+  else if (memoryTypeString == "cccl-shared")
+    return MemoryType::CcclSharedResource;
+  else if (memoryTypeString == "cccl-cuda-async")
+    return MemoryType::CcclCudaAsyncResource;
+  else if (memoryTypeString == "cccl-cuda-async-managed")
+    return MemoryType::CcclCudaAsyncManagedResource;
+#endif
   else {
     throw std::runtime_error("Unknown memory type");
   }
@@ -141,6 +167,17 @@ inline bool isRmmMemoryType(MemoryType t)
 {
   return t == MemoryType::RmmDeviceMemoryResource || t == MemoryType::RmmPoolMemoryResource ||
          t == MemoryType::RmmCudaAsyncMemoryResource || t == MemoryType::RmmCudaAsyncManagedMemoryResource;
+}
+#endif
+
+#ifdef UCXX_BENCHMARKS_ENABLE_CCCL
+/**
+ * @brief Returns true if \p t selects a CCCL buffer allocation path.
+ */
+inline bool isCcclMemoryType(MemoryType t)
+{
+  return t == MemoryType::CcclDeviceMemoryPool || t == MemoryType::CcclSharedResource ||
+         t == MemoryType::CcclCudaAsyncResource || t == MemoryType::CcclCudaAsyncManagedResource;
 }
 #endif
 
@@ -743,26 +780,23 @@ struct RmmDeviceMrBuffers {
   static std::shared_ptr<RmmDeviceMrBuffers> allocate(std::size_t messageSize)
   {
     auto p    = std::make_shared<RmmDeviceMrBuffers>();
-    auto ref  = rmm::to_device_async_resource_ref_checked(&p->mr);
-    p->send   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
-    p->recv   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    p->send   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
+    p->recv   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
     initialize_send_pattern(*p->send, messageSize);
     return p;
   }
 };
 
 struct RmmPoolBuffers {
-  rmm::mr::cuda_memory_resource upstream{};
-  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool;
+  rmm::mr::pool_memory_resource pool;
   std::unique_ptr<rmm::device_buffer> send;
   std::unique_ptr<rmm::device_buffer> recv;
 
   explicit RmmPoolBuffers(std::size_t messageSize)
-    : pool(&upstream, rmm_benchmark_detail::initial_pool_size(messageSize))
+    : pool(rmm::mr::cuda_memory_resource{}, rmm_benchmark_detail::initial_pool_size(messageSize))
   {
-    auto ref = rmm::to_device_async_resource_ref_checked(&pool);
-    send     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
-    recv     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    send     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, pool);
+    recv     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, pool);
     rmm_benchmark_detail::initialize_send_pattern(*send, messageSize);
   }
 
@@ -780,9 +814,8 @@ struct RmmCudaAsyncMrBuffers {
   static std::shared_ptr<RmmCudaAsyncMrBuffers> allocate(std::size_t messageSize)
   {
     auto p   = std::make_shared<RmmCudaAsyncMrBuffers>();
-    auto ref = rmm::to_device_async_resource_ref_checked(&p->mr);
-    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
-    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
+    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
     initialize_send_pattern(*p->send, messageSize);
     return p;
   }
@@ -796,9 +829,8 @@ struct RmmCudaAsyncManagedMrBuffers {
   static std::shared_ptr<RmmCudaAsyncManagedMrBuffers> allocate(std::size_t messageSize)
   {
     auto p   = std::make_shared<RmmCudaAsyncManagedMrBuffers>();
-    auto ref = rmm::to_device_async_resource_ref_checked(&p->mr);
-    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
-    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, ref);
+    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
+    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
     initialize_send_pattern(*p->send, messageSize);
     return p;
   }
@@ -875,3 +907,175 @@ inline std::unique_ptr<RmmBufferInterfaceBase> RmmBufferInterfaceBase::createBuf
 }
 
 #endif  // UCXX_BENCHMARKS_ENABLE_RMM
+
+#ifdef UCXX_BENCHMARKS_ENABLE_CCCL
+
+namespace cccl_benchmark_detail {
+
+// CCCL benchmarks use nullptr (the default CUDA stream) for async operations because
+// UCX is not yet stream-aware (see https://github.com/rapidsai/ucxx/issues/112).
+inline void initialize_send_pattern(ucxx::CCCLBuffer& send, std::size_t messageSize)
+{
+  std::vector<char> pattern(messageSize, 0xaa);
+  CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(send.data(),
+                                     pattern.data(),
+                                     messageSize,
+                                     cudaMemcpyHostToDevice,
+                                     nullptr),
+                     "CCCL send buffer initialization");
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(nullptr), "CCCL stream synchronization");
+}
+
+inline void verify_device_buffers(ucxx::CCCLBuffer& send,
+                                  ucxx::CCCLBuffer& recv,
+                                  std::size_t messageSize)
+{
+  std::vector<char> sendData(messageSize);
+  std::vector<char> recvData(messageSize);
+  CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(sendData.data(),
+                                     send.data(),
+                                     messageSize,
+                                     cudaMemcpyDeviceToHost,
+                                     nullptr),
+                     "CCCL send data copy for verification");
+  CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recvData.data(),
+                                     recv.data(),
+                                     messageSize,
+                                     cudaMemcpyDeviceToHost,
+                                     nullptr),
+                     "CCCL recv data copy for verification");
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(nullptr),
+                     "CCCL stream synchronization for verification");
+  for (std::size_t j = 0; j < messageSize; ++j)
+    if (recvData[j] != sendData[j])
+      throw std::runtime_error("CCCL data verification failed at byte " + std::to_string(j));
+}
+
+struct CcclDevicePoolBuffers {
+  std::shared_ptr<ucxx::CCCLBuffer> send;
+  std::shared_ptr<ucxx::CCCLBuffer> recv;
+
+  static std::shared_ptr<CcclDevicePoolBuffers> allocate(std::size_t messageSize)
+  {
+    auto p   = std::make_shared<CcclDevicePoolBuffers>();
+    p->send  = std::make_shared<ucxx::CCCLBuffer>(messageSize);
+    p->recv  = std::make_shared<ucxx::CCCLBuffer>(messageSize);
+    initialize_send_pattern(*p->send, messageSize);
+    return p;
+  }
+};
+
+struct CcclSharedResourceBuffers {
+  std::shared_ptr<ucxx::CCCLBuffer> send;
+  std::shared_ptr<ucxx::CCCLBuffer> recv;
+
+  static std::shared_ptr<CcclSharedResourceBuffers> allocate(std::size_t messageSize)
+  {
+    auto p   = std::make_shared<CcclSharedResourceBuffers>();
+    p->send  = std::make_shared<ucxx::CCCLBuffer>(messageSize);
+    p->recv  = std::make_shared<ucxx::CCCLBuffer>(messageSize);
+    initialize_send_pattern(*p->send, messageSize);
+    return p;
+  }
+};
+
+struct CcclCudaAsyncBuffers {
+  std::shared_ptr<ucxx::CCCLBuffer> send;
+  std::shared_ptr<ucxx::CCCLBuffer> recv;
+
+  static std::shared_ptr<CcclCudaAsyncBuffers> allocate(std::size_t messageSize)
+  {
+    auto p   = std::make_shared<CcclCudaAsyncBuffers>();
+    p->send  = std::make_shared<ucxx::CCCLBuffer>(messageSize);
+    p->recv  = std::make_shared<ucxx::CCCLBuffer>(messageSize);
+    initialize_send_pattern(*p->send, messageSize);
+    return p;
+  }
+};
+
+struct CcclCudaAsyncManagedBuffers {
+  std::shared_ptr<ucxx::CCCLBuffer> send;
+  std::shared_ptr<ucxx::CCCLBuffer> recv;
+
+  static std::shared_ptr<CcclCudaAsyncManagedBuffers> allocate(std::size_t messageSize)
+  {
+    auto p   = std::make_shared<CcclCudaAsyncManagedBuffers>();
+    p->send  = std::make_shared<ucxx::CCCLBuffer>(messageSize);
+    p->recv  = std::make_shared<ucxx::CCCLBuffer>(messageSize);
+    initialize_send_pattern(*p->send, messageSize);
+    return p;
+  }
+};
+
+}  // namespace cccl_benchmark_detail
+
+struct CcclBufferInterfaceBase : public BufferInterface {
+  virtual ~CcclBufferInterfaceBase() = default;
+
+  virtual std::unique_ptr<CcclBufferInterfaceBase> clone() const = 0;
+
+  static std::unique_ptr<CcclBufferInterfaceBase> createBufferInterface(MemoryType memoryType,
+                                                                        std::size_t messageSize,
+                                                                        bool reuseAlloc);
+
+  static std::unique_ptr<CcclBufferInterfaceBase> allocateBuffers(MemoryType memoryType,
+                                                                  std::size_t messageSize);
+};
+
+template <typename BufferPack>
+struct CcclBufferInterface : public CcclBufferInterfaceBase {
+  std::shared_ptr<BufferPack> pack;
+
+  explicit CcclBufferInterface(std::shared_ptr<BufferPack> p) : pack(std::move(p)) {}
+
+  void* getSendPtr() override { return pack->send->data(); }
+
+  void* getRecvPtr() override { return pack->recv->data(); }
+
+  void verifyResults(std::size_t messageSize) override
+  {
+    cccl_benchmark_detail::verify_device_buffers(*pack->send, *pack->recv, messageSize);
+  }
+
+  std::unique_ptr<CcclBufferInterfaceBase> clone() const override
+  {
+    return std::make_unique<CcclBufferInterface<BufferPack>>(pack);
+  }
+};
+
+inline std::unique_ptr<CcclBufferInterfaceBase> CcclBufferInterfaceBase::allocateBuffers(
+  MemoryType memoryType, std::size_t messageSize)
+{
+  using namespace cccl_benchmark_detail;
+  switch (memoryType) {
+    case MemoryType::CcclDeviceMemoryPool:
+      return std::make_unique<CcclBufferInterface<CcclDevicePoolBuffers>>(
+        CcclDevicePoolBuffers::allocate(messageSize));
+    case MemoryType::CcclSharedResource:
+      return std::make_unique<CcclBufferInterface<CcclSharedResourceBuffers>>(
+        CcclSharedResourceBuffers::allocate(messageSize));
+    case MemoryType::CcclCudaAsyncResource:
+      return std::make_unique<CcclBufferInterface<CcclCudaAsyncBuffers>>(
+        CcclCudaAsyncBuffers::allocate(messageSize));
+    case MemoryType::CcclCudaAsyncManagedResource:
+      return std::make_unique<CcclBufferInterface<CcclCudaAsyncManagedBuffers>>(
+        CcclCudaAsyncManagedBuffers::allocate(messageSize));
+    default: throw std::runtime_error("Unsupported CCCL memory type");
+  }
+}
+
+inline std::unique_ptr<CcclBufferInterfaceBase> CcclBufferInterfaceBase::createBufferInterface(
+  MemoryType memoryType, std::size_t messageSize, bool reuseAlloc)
+{
+  if (reuseAlloc) {
+    static std::unordered_map<MemoryType, std::unique_ptr<CcclBufferInterfaceBase>> reuseBuffers;
+
+    auto it = reuseBuffers.find(memoryType);
+    if (it == reuseBuffers.end()) { reuseBuffers[memoryType] = allocateBuffers(memoryType, messageSize); }
+
+    return reuseBuffers[memoryType]->clone();
+  }
+  return allocateBuffers(memoryType, messageSize);
+}
+
+#endif  // UCXX_BENCHMARKS_ENABLE_CCCL

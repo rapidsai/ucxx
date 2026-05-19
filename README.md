@@ -9,7 +9,7 @@ UCXX is an object-oriented C++ interface for UCX, with native support for Python
 Before starting it is necessary to have the necessary dependencies installed. The simplest way to get started is to install [Miniforge](https://github.com/conda-forge/miniforge) and then to create and activate an environment with the provided development file, for CUDA 13.x:
 
 ```
-$ conda env create -n ucxx -f conda/environments/all_cuda-131_arch-$(uname -m).yaml
+$ conda env create -n ucxx -f conda/environments/all_cuda-132_arch-$(uname -m).yaml
 ```
 
 And then activate the newly created environment:
@@ -29,7 +29,7 @@ $ conda install -c conda-forge mamba
 After that, one can proceed as before, but simply replacing `conda` with `mamba` in the environment creation command:
 
 ```
-$ mamba env create -n ucxx -f conda/environments/all_cuda-131_arch-$(uname -m).yaml
+$ mamba env create -n ucxx -f conda/environments/all_cuda-132_arch-$(uname -m).yaml
 $ conda activate ucxx
 ```
 
@@ -119,6 +119,34 @@ $ ./benchmarks/ucxx_perftest -m cuda-async -s 1048576 -n 10 127.0.0.1
 - Compatible CUDA devices on both endpoints
 
 It is recommended to use `UCX_TCP_CM_REUSEADDR=y` when binding to interfaces with TCP support to prevent waiting for the process' `TIME_WAIT` state to complete, which often takes 60 seconds after the server has terminated.
+
+#### CCCL Memory Support
+
+When built with `UCXX_ENABLE_CCCL=ON`, additional CCCL-based memory types are available:
+
+```
+# Server with CCCL device memory pool
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cccl-device -s 1048576 -n 10 &
+
+# Client with CCCL device memory pool
+$ ./benchmarks/ucxx_perftest -m cccl-device -s 1048576 -n 10 127.0.0.1
+
+# Server with CCCL shared memory resource
+$ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cccl-shared -s 1048576 -n 10 &
+
+# Client with CCCL shared memory resource
+$ ./benchmarks/ucxx_perftest -m cccl-shared -s 1048576 -n 10 127.0.0.1
+```
+
+**Additional CCCL Memory Types (with `-DUCXX_ENABLE_CCCL=ON`):**
+- `cccl-device` - CCCL device memory pool
+- `cccl-shared` - CCCL shared memory resource
+- `cccl-cuda-async` - CCCL CUDA async memory resource
+- `cccl-cuda-async-managed` - CCCL CUDA async managed memory resource
+
+**Requirements for CCCL Support:**
+- UCXX compiled with `UCXX_ENABLE_CCCL=ON`
+- CCCL library available (fetched automatically via CMake)
 
 ### Python
 
