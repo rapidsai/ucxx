@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <chrono>
+#include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -140,7 +141,7 @@ void Request::callback(void* request, ucs_status_t status)
   if (_status != UCS_INPROGRESS)
     ucxx_trace_req_f(_ownerString.c_str(),
                      this,
-                     _request,
+                     request,
                      _operationName.c_str(),
                      "has status already set to %d (%s), callback setting %d (%s)",
                      _status,
@@ -148,12 +149,10 @@ void Request::callback(void* request, ucs_status_t status)
                      status,
                      ucs_status_string(status));
 
-  if (UCS_PTR_IS_PTR(_request)) ucp_request_free(request);
-
-  ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "completed");
+  ucxx_trace_req_f(_ownerString.c_str(), this, request, _operationName.c_str(), "completed");
   setStatus(status);
   ucxx_trace_req_f(
-    _ownerString.c_str(), this, _request, _operationName.c_str(), "isCompleted: %d", isCompleted());
+    _ownerString.c_str(), this, request, _operationName.c_str(), "isCompleted: %d", isCompleted());
 }
 
 void Request::process()
@@ -235,10 +234,68 @@ void Request::setStatus(ucs_status_t status)
         _ownerString.c_str(), this, _request, _operationName.c_str(), "invoking user callback");
       _callback(status, _callbackData);
     }
+
+    // Free the UCP request inside the lock so it is mutually exclusive with
+    // `publishRequest()`/`queryRequestAttributes()` on the submit thread.
+    if (UCS_PTR_IS_PTR(_request)) {
+      ucp_request_free(_request);
+      _request = nullptr;
+    }
   }
 }
 
 const std::string& Request::getOwnerString() const { return _ownerString; }
+
+void Request::publishRequest(void* request)
+{
+  if (!_worker->isRequestAttributesEnabled()) {
+    std::lock_guard<std::recursive_mutex> lock(_mutex);
+    _request = request;
+    return;
+  }
+
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  _request = request;
+
+  if (_requestAttr.memoryType != UCS_MEMORY_TYPE_UNKNOWN) return;
+
+  ucp_request_attr_t result;
+
+  auto worker_attr = _worker->queryAttributes();
+
+  std::string debugString(worker_attr.maxDebugString, '\0');
+
+  result.field_mask = UCP_REQUEST_ATTR_FIELD_MEM_TYPE | UCP_REQUEST_ATTR_FIELD_INFO_STRING |
+                      UCP_REQUEST_ATTR_FIELD_INFO_STRING_SIZE;
+
+  result.debug_string      = debugString.data();
+  result.debug_string_size = debugString.size();
+
+  if (UCS_PTR_IS_PTR(_request)) {
+    auto queryStatus = ucp_request_query(_request, &result);
+    if (queryStatus == UCS_OK && result.debug_string != nullptr) {
+      debugString.resize(std::strlen(debugString.c_str()));
+      _requestAttr.debugString = std::move(debugString);
+      _requestAttr.memoryType  = result.mem_type;
+    }
+  }
+}
+
+Request::Attributes Request::queryAttributes()
+{
+  if (!_worker->isRequestAttributesEnabled())
+    throw ucxx::UnsupportedError(
+      "Request attributes querying is disabled on the owning worker; build the worker "
+      "with `ucxx::experimental::WorkerBuilder::requestAttributes(true)` to enable it");
+
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  if (_requestAttr.memoryType != UCS_MEMORY_TYPE_UNKNOWN) return _requestAttr;
+
+  throw ucxx::NoElemError(
+    "Request attributes are not available for this request: UCX took an inline-completion "
+    "path with no queryable UCP request, or the request has not completed yet");
+}
 
 std::shared_ptr<Buffer> Request::getRecvBuffer() { return nullptr; }
 

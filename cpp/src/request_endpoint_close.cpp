@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ucxx/request_data.h"
@@ -78,8 +78,7 @@ void RequestEndpointClose::request()
   else
     throw ucxx::Error("A valid endpoint or worker is required for a close operation.");
 
-  std::lock_guard<std::recursive_mutex> lock(_mutex);
-  _request = request;
+  publishRequest(request);
 }
 
 void RequestEndpointClose::populateDelayedSubmission()
