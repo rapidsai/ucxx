@@ -444,15 +444,6 @@ cdef class UCXConfig():
             for item in config_map
         }
 
-    def get(self) -> dict:
-        warnings.warn(
-            "UCXConfig.get() is deprecated and will soon be removed, "
-            "use the UCXConfig.config property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.config
-
 
 cdef class UCXContext():
     """Python representation of `ucp_context_h`
@@ -555,15 +546,6 @@ cdef class UCXContext():
 
         return info.decode("utf-8")
 
-    cpdef dict get_config(self):
-        warnings.warn(
-            "UCXContext.get_config() is deprecated and will soon be removed, "
-            "use the UCXContext.config property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.config
-
 
 cdef class UCXAddress():
     def __init__(self) -> None:
@@ -600,18 +582,6 @@ cdef class UCXAddress():
             address._string = address._address.get().getStringView()
 
         return address
-
-    # For old UCX-Py API compatibility
-    @classmethod
-    def from_worker(cls, UCXWorker worker) -> UCXAddress:
-        warnings.warn(
-            "UCXAddress.from_worker() is deprecated and will soon be removed, "
-            "use UCXAddress.create_from_worker() instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-
-        return cls.create_from_worker(worker)
 
     @property
     def address(self) -> int:
@@ -778,15 +748,6 @@ cdef class UCXWorker():
             return "cccl"
         else:
             return "none"
-
-    def get_address(self) -> UCXAddress:
-        warnings.warn(
-            "UCXWorker.get_address() is deprecated and will soon be removed, "
-            "use the UCXWorker.address property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.address
 
     def create_endpoint_from_hostname(
             self,
@@ -956,24 +917,6 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().clearFuturesPool()
 
-    def is_delayed_submission_enabled(self) -> bool:
-        warnings.warn(
-            "UCXWorker.is_delayed_submission_enabled() is deprecated and will soon "
-            "be removed, use the UCXWorker.enable_delayed_submission property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.enable_delayed_submission
-
-    def is_python_future_enabled(self) -> bool:
-        warnings.warn(
-            "UCXWorker.is_python_future_enabled() is deprecated and will soon be "
-            "removed, use the UCXWorker.enable_python_future property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.enable_python_future
-
     def tag_recv(
         self,
         Array arr,
@@ -1101,24 +1044,6 @@ cdef class UCXRequest():
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
-    def is_completed(self) -> bool:
-        warnings.warn(
-            "UCXRequest.is_completed() is deprecated and will soon be removed, "
-            "use the UCXRequest.completed property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.completed
-
-    def get_status(self) -> ucs_status_t:
-        warnings.warn(
-            "UCXRequest.get_status() is deprecated and will soon be removed, "
-            "use the UCXRequest.status property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.status
-
     def check_error(self) -> None:
         with nogil:
             self._request.get().checkError()
@@ -1129,29 +1054,11 @@ cdef class UCXRequest():
                 return self.check_error()
             await asyncio.sleep(0)
 
-    def get_future(self) -> object:
-        warnings.warn(
-            "UCXRequest.get_future() is deprecated and will soon be removed, "
-            "use the UCXRequest.future property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.future
-
     async def wait(self) -> None:
         if self._enable_python_future:
             await self.future
         else:
             await self.wait_yield()
-
-    def get_recv_buffer(self) -> None|np.ndarray|DeviceBuffer:
-        warnings.warn(
-            "UCXRequest.get_recv_buffer() is deprecated and will soon be removed, "
-            "use the UCXRequest.recv_buffer property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.recv_buffer
 
 
 cdef class UCXBufferRequest:
@@ -1192,24 +1099,6 @@ cdef class UCXBufferRequest:
             return _get_cccl_buffer(buf)
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
-
-    def get_request(self) -> UCXRequest:
-        warnings.warn(
-            "UCXBufferRequest.get_request() is deprecated and will soon be removed, "
-            "use the UCXBufferRequest.request property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.request
-
-    def get_py_buffer(self) -> None|np.ndarray|DeviceBuffer:
-        warnings.warn(
-            "UCXBufferRequest.get_py_buffer() is deprecated and will soon be removed, "
-            "use the UCXBufferRequest.py_buffer property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.py_buffer
 
 
 cdef class UCXBufferRequests:
@@ -1304,36 +1193,9 @@ cdef class UCXBufferRequests:
         self._populate_requests()
         return self._requests
 
-    def is_completed(self) -> bool:
-        warnings.warn(
-            "UCXBufferRequests.is_completed() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.completed property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.completed
-
-    def is_completed_all(self) -> bool:
-        warnings.warn(
-            "UCXBufferRequests.is_completed_all() is deprecated and will soon be "
-            "removed, use the UCXBufferRequests.all_completed property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.all_completed
-
     def check_error(self) -> None:
         with nogil:
             self._ucxx_request_tag_multi.get().checkError()
-
-    def get_status(self) -> ucs_status_t:
-        warnings.warn(
-            "UCXBufferRequests.get_status() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.status property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.status
 
     async def wait_yield(self) -> None:
         while True:
@@ -1343,38 +1205,11 @@ cdef class UCXBufferRequests:
                 return
             await asyncio.sleep(0)
 
-    def get_future(self) -> object:
-        warnings.warn(
-            "UCXBufferRequests.get_future() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.future property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.future
-
     async def wait(self) -> None:
         if self._enable_python_future:
             await self.future
         else:
             await self.wait_yield()
-
-    def get_requests(self) -> tuple[UCXRequest, ...]:
-        warnings.warn(
-            "UCXBufferRequests.get_requests() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.requests property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.requests
-
-    def get_py_buffers(self) -> tuple[None|np.ndarray|DeviceBuffer, ...]:
-        warnings.warn(
-            "UCXBufferRequests.get_py_buffers() is deprecated and will soon be "
-            "removed, use the UCXBufferRequests.py_buffers property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.py_buffers
 
 
 cdef void _endpoint_close_callback(ucs_status_t status, shared_ptr[void] args) with gil:
@@ -1784,15 +1619,6 @@ cdef class UCXEndpoint():
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
         )
 
-    def is_alive(self) -> bool:
-        warnings.warn(
-            "UCXEndpoint.is_alive() is deprecated and will soon be removed, "
-            "use the UCXEndpoint.alive property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.alive
-
     def raise_on_error(self) -> None:
         with nogil:
             self._endpoint.get().raiseOnError()
@@ -1948,15 +1774,6 @@ cdef class UCXListener():
         return UCXEndpoint.create_from_conn_request(
             self, conn_request, endpoint_error_handling,
         )
-
-    def is_python_future_enabled(self) -> bool:
-        warnings.warn(
-            "UCXListener.is_python_future_enabled() is deprecated and will soon be "
-            "removed, use the UCXListener.enable_python_future property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.enable_python_future
 
 
 def get_current_options() -> dict:
