@@ -5,7 +5,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <string_view>
 
 #include <ucp/api/ucp.h>
@@ -117,17 +116,6 @@ class Address : public Component {
    * @returns The underlying `ucp_address_t` handle.
    */
   [[nodiscard]] std::string_view getStringView() const;
-
-  /**
-   * @brief Get the address as a string.
-   *
-   * Convenience method to copy the underlying address to a `std::string` and return it as
-   * a single object.
-   *
-   * @returns The underlying `ucp_address_t` handle.
-   */
-  [[deprecated("Removing in UCXX 0.51. Switch to `getStringView`.")]] [[nodiscard]] std::string
-  getString() const;
 };
 
 }  // namespace ucxx
