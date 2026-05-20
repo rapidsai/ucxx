@@ -29,6 +29,10 @@ function(ConfigureTest CMAKE_TEST_NAME)
     ${CMAKE_TEST_NAME} PRIVATE ucxx GTest::gmock_main GTest::gtest_main
                                $<TARGET_NAME_IF_EXISTS:conda_env>
   )
+  if(UCXX_ENABLE_CCCL)
+    target_link_libraries(${CMAKE_TEST_NAME} PRIVATE CUDA::cudart_static)
+  endif()
+
   add_test(NAME ${CMAKE_TEST_NAME} COMMAND ${CMAKE_TEST_NAME})
   install(
     TARGETS ${CMAKE_TEST_NAME}
