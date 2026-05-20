@@ -8,7 +8,7 @@
       "BASE": "rapidsai/devcontainers:26.08-cpp-mambaforge"
     },
     "cacheFrom": [
-      "ghcr.io/rapidsai/ucxx/devcontainer:26.08-cuda13.2-conda"
+      "ghcr.io/rapidsai/ucxx/devcontainer:0.51-cuda13.2-conda"
     ]
   },
   "runArgs": [
