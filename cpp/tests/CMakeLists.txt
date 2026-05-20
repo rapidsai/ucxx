@@ -29,6 +29,10 @@ function(ConfigureTest CMAKE_TEST_NAME)
     ${CMAKE_TEST_NAME} PRIVATE ucxx GTest::gmock_main GTest::gtest_main
                                $<TARGET_NAME_IF_EXISTS:conda_env>
   )
+  if(UCXX_ENABLE_CCCL)
+    find_package(CUDAToolkit REQUIRED)
+    target_link_libraries(${CMAKE_TEST_NAME} PRIVATE CUDA::cudart_static)
+  endif()
   if(UCXX_ENABLE_RMM)
     target_compile_definitions(${CMAKE_TEST_NAME} PRIVATE UCXX_ENABLE_RMM)
     target_link_libraries(${CMAKE_TEST_NAME} PRIVATE rmm::rmm)
