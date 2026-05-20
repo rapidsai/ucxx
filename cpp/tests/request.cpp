@@ -22,11 +22,11 @@
 #include "ucxx/constructors.h"
 #include "ucxx/utils/ucx.h"
 
-#ifndef UCXX_ENABLE_RMM
-#define UCXX_ENABLE_RMM 0
+#ifndef UCXX_TESTS_ENABLE_RMM
+#define UCXX_TESTS_ENABLE_RMM 0
 #endif
 
-#if UCXX_ENABLE_RMM
+#if UCXX_TESTS_ENABLE_RMM
 #include <rmm/device_buffer.hpp>
 #endif
 
@@ -50,7 +50,7 @@ enum class TestBufferType {
 
 bool isCudaBufferType(TestBufferType bufferType) { return bufferType != TestBufferType::Host; }
 
-#if UCXX_ENABLE_RMM
+#if UCXX_TESTS_ENABLE_RMM
 class RMMTestBuffer : public ucxx::Buffer {
  private:
   std::unique_ptr<rmm::device_buffer> _buffer;
@@ -139,8 +139,8 @@ class RequestTest
              _messageLength) = GetParam();
 
     if (_bufferType == TestBufferType::RMM) {
-#if !UCXX_ENABLE_RMM
-      GTEST_SKIP() << "UCXX was not built with RMM support";
+#if !UCXX_TESTS_ENABLE_RMM
+      GTEST_SKIP() << "UCXX tests were not built with RMM support";
 #endif
     }
 
@@ -187,7 +187,7 @@ class RequestTest
       if (_bufferType == TestBufferType::Host) {
         _sendBuffer[i] = std::make_unique<ucxx::HostBuffer>(_messageSize);
         if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<ucxx::HostBuffer>(_messageSize);
-#if UCXX_ENABLE_RMM
+#if UCXX_TESTS_ENABLE_RMM
       } else if (_bufferType == TestBufferType::RMM) {
         _sendBuffer[i] = std::make_unique<RMMTestBuffer>(_messageSize);
         if (allocateRecvBuffer) _recvBuffer[i] = std::make_unique<RMMTestBuffer>(_messageSize);
@@ -204,7 +204,7 @@ class RequestTest
       _sendPtr[i] = _sendBuffer[i]->data();
       if (allocateRecvBuffer) _recvPtr[i] = _recvBuffer[i]->data();
     }
-#if UCXX_ENABLE_RMM
+#if UCXX_TESTS_ENABLE_RMM
     if (_bufferType == TestBufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
 #endif
     if (_bufferType == TestBufferType::CCCL) { cudaStreamSynchronize(nullptr); }
@@ -214,7 +214,7 @@ class RequestTest
   {
     for (size_t i = 0; i < _numBuffers; ++i)
       copyMemoryTypeAware(_recv[i].data(), _recvPtr[i], _messageSize, false);
-#if UCXX_ENABLE_RMM
+#if UCXX_TESTS_ENABLE_RMM
     if (_bufferType == TestBufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
 #endif
     if (_bufferType == TestBufferType::CCCL) { cudaStreamSynchronize(nullptr); }
@@ -224,7 +224,7 @@ class RequestTest
   {
     if (_memoryType == UCS_MEMORY_TYPE_HOST) {
       memcpy(dst, src, size);
-#if UCXX_ENABLE_RMM
+#if UCXX_TESTS_ENABLE_RMM
     } else if (_memoryType == UCS_MEMORY_TYPE_CUDA && _bufferType == TestBufferType::RMM) {
       RMM_CUDA_TRY(
         cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, rmm::cuda_stream_default.value()));
@@ -1146,7 +1146,7 @@ INSTANTIATE_TEST_SUITE_P(DelayedSubmission,
                                  Values(ProgressMode::ThreadPolling, ProgressMode::ThreadBlocking),
                                  Values(0, 1, 1024, 2048, 1048576)));
 
-#if UCXX_ENABLE_RMM
+#if UCXX_TESTS_ENABLE_RMM
 INSTANTIATE_TEST_SUITE_P(RMMProgressModes,
                          RequestTest,
                          Combine(Values(TestBufferType::RMM),

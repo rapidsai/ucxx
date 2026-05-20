@@ -42,7 +42,8 @@ option(BUILD_TESTS "Configure CMake to build tests" ON)
 option(BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
 option(BUILD_EXAMPLES "Configure CMake to build examples" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
-option(UCXX_ENABLE_RMM "Enable RMM-backed test and benchmark code paths" OFF)
+option(UCXX_TESTS_ENABLE_RMM "Enable RMM-backed test code paths" OFF)
+option(UCXX_BENCHMARKS_ENABLE_RMM "Enable RMM-backed benchmark code paths" OFF)
 # TODO: Flip UCXX_ENABLE_CCCL default to OFF once devcontainer builds pass -DUCXX_ENABLE_CCCL=ON
 option(UCXX_ENABLE_CCCL "Enable support for CUDA buffer with CCCL" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable warnings generated from deprecated declarations." OFF)
@@ -51,7 +52,8 @@ message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
 message(VERBOSE "UCXX: Configure CMake to build benchmarks: ${BUILD_BENCHMARKS}")
 message(VERBOSE "UCXX: Configure CMake to build examples: ${BUILD_EXAMPLES}")
 message(VERBOSE "UCXX: Build UCXX shared libraries: ${BUILD_SHARED_LIBS}")
-message(VERBOSE "UCXX: Enable RMM-backed test and benchmark code paths: ${UCXX_ENABLE_RMM}")
+message(VERBOSE "UCXX: Enable RMM-backed test code paths: ${UCXX_TESTS_ENABLE_RMM}")
+message(VERBOSE "UCXX: Enable RMM-backed benchmark code paths: ${UCXX_BENCHMARKS_ENABLE_RMM}")
 message(VERBOSE "UCXX: Enable support for CUDA buffer with CCCL: ${UCXX_ENABLE_CCCL}")
 message(
   VERBOSE
@@ -94,8 +96,13 @@ rapids_find_package(
 
 # add third party dependencies using CPM
 rapids_cpm_init()
-# find rmm for tests and benchmarks
-if(UCXX_ENABLE_RMM)
+# find rmm for enabled test and benchmark code paths
+if((BUILD_TESTS AND UCXX_TESTS_ENABLE_RMM)
+   OR (BUILD_BENCHMARKS
+       AND UCXX_BENCHMARKS_ENABLE_CUDA
+       AND UCXX_BENCHMARKS_ENABLE_RMM
+      )
+)
   include(cmake/thirdparty/get_rmm.cmake)
 endif()
 # find cccl
