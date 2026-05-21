@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -144,10 +144,9 @@ class RequestTagMulti : public Request {
    * This is a non-blocking operation, and the status of a send transfer must be verified
    * from the resulting request object before the data can be released. If this is a receive
    * transfer and because the receiver has no a priori knowledge of the data being received,
-   * memory allocations are automatically handled internally.  The receiver must have the
-   * same capabilities of the sender, so that if the sender is compiled with RMM support to
-   * allow for CUDA transfers, the receiver must have the ability to understand and allocate
-   * CUDA memory.
+   * memory allocations are automatically handled internally. Receiving CUDA frames requires UCXX
+   * to be compiled with CCCL support (`UCXX_ENABLE_CCCL`) and the receiving worker to be
+   * configured to allocate CCCL buffers for CUDA frames.
    *
    * The primary use of multi-buffer transfers is in Python where we want to reduce the
    * amount of futures needed to watch for, thus reducing Python overhead. However, this

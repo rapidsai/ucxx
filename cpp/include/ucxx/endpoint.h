@@ -789,9 +789,8 @@ class Endpoint : public Component {
    * `std::shared<ucxx::RequestTagMulti>` that can be later awaited and checked for errors.
    * This is a non-blocking operation, and because the receiver has no a priori knowledge
    * of the data being received, memory allocations are automatically handled internally.
-   * The receiver must have the same capabilities of the sender, so that if the sender is
-   * compiled with RMM support to allow for CUDA transfers, the receiver must have the
-   * ability to understand and allocate CUDA memory.
+   * Receiving CUDA frames requires UCXX to be compiled with CCCL support (`UCXX_ENABLE_CCCL`)
+   * and the receiving worker to be configured to allocate CCCL buffers for CUDA frames.
    *
    * Using a Python future may be requested by specifying `enablePythonFuture`. If a
    * Python future is requested, the Python application must then await on this future to

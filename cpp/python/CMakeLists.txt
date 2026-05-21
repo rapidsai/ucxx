@@ -37,9 +37,6 @@ option(FIND_UCXX_CPP "Search for existing UCXX C++ installations before defaulti
 
 # add third party dependencies using CPM
 rapids_cpm_init()
-# find rmm
-include(../cmake/thirdparty/get_rmm.cmake)
-
 if(FIND_UCXX_CPP)
   rapids_find_package(
     ucxx REQUIRED
@@ -47,7 +44,6 @@ if(FIND_UCXX_CPP)
     INSTALL_EXPORT_SET ucxx-python-exports
   )
 else()
-  set(UCXX_ENABLE_RMM ON)
   set(UCXX_ENABLE_CCCL ON)
   add_subdirectory(.. ucxx-cpp)
 endif()
@@ -99,10 +95,7 @@ target_include_directories(
 
 target_compile_definitions(ucxx_python PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>")
 
-target_compile_definitions(
-  ucxx_python PUBLIC UCXX_ENABLE_PYTHON
-                     "RMM_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LEVEL_${RMM_LOGGING_LEVEL}"
-)
+target_compile_definitions(ucxx_python PUBLIC UCXX_ENABLE_PYTHON)
 
 if(UCXX_ENABLE_CCCL)
   target_compile_definitions(ucxx_python PUBLIC UCXX_ENABLE_CCCL)
@@ -112,9 +105,7 @@ endif()
 # not need to be linked since its symbols will always be available at runtime since we are running
 # inide the Python interpreter, and setting it up this way ensures that we will work if the
 # interpreter links to Python statically instead of dynamically.
-target_link_libraries(
-  ucxx_python PUBLIC rmm::rmm ucx::ucp ucxx::ucxx "$<COMPILE_ONLY:Python3::Python>"
-)
+target_link_libraries(ucxx_python PUBLIC ucx::ucp ucxx::ucxx "$<COMPILE_ONLY:Python3::Python>")
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)

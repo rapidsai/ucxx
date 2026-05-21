@@ -24,8 +24,7 @@ struct CCCLBufferImpl {
   cccl_buffer_type buffer;
 
   // CCCL's cuda::device_default_memory_pool() requires an active CUDA primary context.
-  // Unlike RMM (which initializes context internally via its device resource setup),
-  // CCCL needs explicit initialization. cudaFree(0) is the standard zero-cost idiom.
+  // cudaFree(0) is the standard zero-cost idiom to initialize it.
   static auto get_device_pool()
   {
     cudaFree(0);  // Ensure CUDA primary context is initialized
@@ -52,7 +51,6 @@ void* CCCLBuffer::data()
   if (!_impl) throw std::runtime_error("Invalid object or already released");
 
   // Explicit cast required: cuda::buffer::data() returns cuda::std::byte*, not void*.
-  // RMMBuffer::data() needs no cast since rmm::device_buffer::data() returns void* directly.
   return static_cast<void*>(_impl->buffer.data());
 }
 

@@ -43,7 +43,7 @@ Additionally, there is a `./build_and_run.sh` script that will call `./build.sh`
 
 ### C++
 
-To build and install C++ library to `${CONDA_PREFIX}`, with both Python and RMM support, as well as building all tests and benchmarks (with CUDA support) run:
+To build and install the C++ library to `${CONDA_PREFIX}`, with Python support and CCCL CUDA buffer support, as well as building all tests and benchmarks with CUDA/CCCL support, run:
 
 ```
 mkdir cpp/build
@@ -53,8 +53,9 @@ cmake .. -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} \
       -DBUILD_BENCHMARKS=ON \
       -DCMAKE_BUILD_TYPE=Release \
       -DUCXX_ENABLE_PYTHON=ON \
-      -DUCXX_ENABLE_RMM=ON \
-      -DUCXX_BENCHMARKS_ENABLE_CUDA=ON
+      -DUCXX_ENABLE_CCCL=ON \
+      -DUCXX_BENCHMARKS_ENABLE_CUDA=ON \
+      -DUCXX_BENCHMARKS_ENABLE_CCCL=ON
 make -j install
 ```
 
@@ -122,7 +123,8 @@ It is recommended to use `UCX_TCP_CM_REUSEADDR=y` when binding to interfaces wit
 
 #### CCCL Memory Support
 
-When built with `UCXX_ENABLE_CCCL=ON`, additional CCCL-based memory types are available:
+When built with `UCXX_ENABLE_CCCL=ON`, `UCXX_BENCHMARKS_ENABLE_CUDA=ON`, and
+`UCXX_BENCHMARKS_ENABLE_CCCL=ON`, additional CCCL-based memory types are available:
 
 ```
 # Server with CCCL device memory pool
@@ -138,7 +140,7 @@ $ UCX_TCP_CM_REUSEADDR=y ./benchmarks/ucxx_perftest -m cccl-shared -s 1048576 -n
 $ ./benchmarks/ucxx_perftest -m cccl-shared -s 1048576 -n 10 127.0.0.1
 ```
 
-**Additional CCCL Memory Types (with `-DUCXX_ENABLE_CCCL=ON`):**
+**Additional CCCL Memory Types:**
 - `cccl-device` - CCCL device memory pool
 - `cccl-shared` - CCCL shared memory resource
 - `cccl-cuda-async` - CCCL CUDA async memory resource
@@ -146,6 +148,8 @@ $ ./benchmarks/ucxx_perftest -m cccl-shared -s 1048576 -n 10 127.0.0.1
 
 **Requirements for CCCL Support:**
 - UCXX compiled with `UCXX_ENABLE_CCCL=ON`
+- Benchmarks compiled with `UCXX_BENCHMARKS_ENABLE_CUDA=ON`
+- Benchmarks compiled with `UCXX_BENCHMARKS_ENABLE_CCCL=ON`
 - CCCL library available (fetched automatically via CMake)
 
 ### Python

@@ -39,8 +39,6 @@ cdef extern from "cuda_runtime.h" nogil:
 
 import numpy as np
 
-from rmm.pylibrmm.device_buffer cimport DeviceBuffer
-
 from .arr cimport Array
 from .ucxx_api cimport *
 
@@ -187,21 +185,11 @@ cdef class HostBufferAdapter:
         free(self._ptr)
 
 
-def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
-    cdef RMMBuffer* rmm_buffer = <RMMBuffer*>recv_buffer_ptr
-    return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.release()))
-
-
 def _get_host_buffer(uintptr_t recv_buffer_ptr):
     cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
     return np.asarray(HostBufferAdapter._from_host_buffer(host_buffer))
 
 
-cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length) noexcept nogil:
-    cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
-    return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
-
-# Unlike RMM which has a Python DeviceBuffer class (from the rmm package),
 # CCCL has no Python buffer equivalent. This wrapper provides __cuda_array_interface__
 # for interoperability with CuPy/cuDF without requiring an external CCCL Python package.
 cdef class CCCLBufferWrapper:
@@ -680,7 +668,6 @@ cdef class UCXWorker():
     ) -> None:
         cdef bint ucxx_enable_delayed_submission = enable_delayed_submission
         cdef bint ucxx_enable_python_future = enable_python_future
-        cdef AmAllocatorType rmm_am_allocator
         cdef AmAllocatorType cccl_am_allocator
 
         self._context_feature_flags = <uint64_t>(context.feature_flags)
@@ -697,22 +684,7 @@ cdef class UCXWorker():
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
             if self._context_feature_flags & UCP_FEATURE_AM:
-                if self._worker.get().getCudaBufferType() == BufferType.RMM:
-                    with gil:
-                        warnings.warn(
-                            "RMM CUDA buffer support is deprecated and "
-                            "will be removed in a future release. Use "
-                            "CCCL buffers instead (set "
-                            "UCXX_ENABLE_CCCL=ON and "
-                            "UCXX_ENABLE_RMM=OFF).",
-                            FutureWarning,
-                            stacklevel=2,
-                        )
-                    rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
-                    self._worker.get().registerAmAllocator(
-                        UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
-                    )
-                elif self._worker.get().getCudaBufferType() == BufferType.CCCL:
+                if self._worker.get().getCudaBufferType() == BufferType.CCCL:
                     cccl_am_allocator = <AmAllocatorType>(&_cccl_am_allocator)
                     self._worker.get().registerAmAllocator(
                         UCS_MEMORY_TYPE_CUDA, cccl_am_allocator
@@ -768,13 +740,11 @@ cdef class UCXWorker():
 
     @property
     def cuda_buffer_type(self) -> str:
-        """Return the preferred CUDA buffer type ('rmm', 'cccl', or 'none')."""
+        """Return the preferred CUDA buffer type ('cccl', or 'none')."""
         cdef BufferType bt
         with nogil:
             bt = self._worker.get().getCudaBufferType()
-        if bt == BufferType.RMM:
-            return "rmm"
-        elif bt == BufferType.CCCL:
+        if bt == BufferType.CCCL:
             return "cccl"
         else:
             return "none"
@@ -1083,7 +1053,7 @@ cdef class UCXRequest():
         return <object>future_ptr
 
     @property
-    def recv_buffer(self) -> None|np.ndarray|DeviceBuffer:
+    def recv_buffer(self) -> object:
         cdef shared_ptr[Buffer] buf
         cdef BufferType bufType
 
@@ -1094,8 +1064,6 @@ cdef class UCXRequest():
         # If buf == NULL, it's not allocated by the request but rather the user
         if buf == NULL:
             return None
-        elif bufType == BufferType.RMM:
-            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
         elif bufType == BufferType.CCCL:
             return _get_cccl_buffer(buf)
         elif bufType == BufferType.Host:
@@ -1144,7 +1112,7 @@ cdef class UCXRequest():
         else:
             await self.wait_yield()
 
-    def get_recv_buffer(self) -> None|np.ndarray|DeviceBuffer:
+    def get_recv_buffer(self) -> object:
         warnings.warn(
             "UCXRequest.get_recv_buffer() is deprecated and will soon be removed, "
             "use the UCXRequest.recv_buffer property instead",
@@ -1175,7 +1143,7 @@ cdef class UCXBufferRequest:
         )
 
     @property
-    def py_buffer(self) -> None|np.ndarray|DeviceBuffer:
+    def py_buffer(self) -> object:
         cdef shared_ptr[Buffer] buf
         cdef BufferType bufType
 
@@ -1186,8 +1154,6 @@ cdef class UCXBufferRequest:
         # If buf == NULL, it holds a header
         if buf == NULL:
             return None
-        elif bufType == BufferType.RMM:
-            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
         elif bufType == BufferType.CCCL:
             return _get_cccl_buffer(buf)
         elif bufType == BufferType.Host:
@@ -1202,7 +1168,7 @@ cdef class UCXBufferRequest:
         )
         return self.request
 
-    def get_py_buffer(self) -> None|np.ndarray|DeviceBuffer:
+    def get_py_buffer(self) -> object:
         warnings.warn(
             "UCXBufferRequest.get_py_buffer() is deprecated and will soon be removed, "
             "use the UCXBufferRequest.py_buffer property instead",
@@ -1289,7 +1255,7 @@ cdef class UCXBufferRequests:
         return <object>future_ptr
 
     @property
-    def py_buffers(self) -> tuple[None|np.ndarray|DeviceBuffer, ...]:
+    def py_buffers(self) -> tuple[object, ...]:
         if not self.completed:
             raise RuntimeError("Some requests are not completed yet")
 
@@ -1367,7 +1333,7 @@ cdef class UCXBufferRequests:
         )
         return self.requests
 
-    def get_py_buffers(self) -> tuple[None|np.ndarray|DeviceBuffer, ...]:
+    def get_py_buffers(self) -> tuple[object, ...]:
         warnings.warn(
             "UCXBufferRequests.get_py_buffers() is deprecated and will soon be "
             "removed, use the UCXBufferRequests.py_buffers property instead",
