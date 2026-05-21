@@ -30,9 +30,13 @@ function(ConfigureTest CMAKE_TEST_NAME)
                                $<TARGET_NAME_IF_EXISTS:conda_env>
   )
   if(UCXX_ENABLE_CCCL)
+    find_package(CUDAToolkit REQUIRED)
     target_link_libraries(${CMAKE_TEST_NAME} PRIVATE CUDA::cudart_static)
   endif()
-
+  if(UCXX_TESTS_ENABLE_RMM)
+    target_compile_definitions(${CMAKE_TEST_NAME} PRIVATE UCXX_TESTS_ENABLE_RMM)
+    target_link_libraries(${CMAKE_TEST_NAME} PRIVATE rmm::rmm)
+  endif()
   add_test(NAME ${CMAKE_TEST_NAME} COMMAND ${CMAKE_TEST_NAME})
   install(
     TARGETS ${CMAKE_TEST_NAME}

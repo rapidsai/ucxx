@@ -100,11 +100,9 @@ outputs:
         - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
-        - librmm ${{ rapids_version }}
         - ucx
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - ${{ pin_compatible("librmm", upper_bound="x.x") }}
         - ucx >=1.18.0,<1.21.0
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
@@ -112,7 +110,6 @@ outputs:
         by_name:
           - cuda-cudart
           - cuda-version
-          - librmm
           - ucx
     tests:
       - script:
@@ -173,7 +170,6 @@ outputs:
         by_name:
           - cuda-cudart
           - cuda-version
-          - librmm
           - libucxx
           - ucx
     about:
