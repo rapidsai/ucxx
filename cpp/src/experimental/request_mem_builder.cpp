@@ -9,6 +9,7 @@
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_mem_builder.h>
+#include <ucxx/request.h>
 #include <ucxx/request_mem.h>
 
 namespace ucxx {
@@ -30,6 +31,8 @@ std::shared_ptr<RequestMem> RequestMemBuilder::build() const
 }
 
 RequestMemBuilder::operator std::shared_ptr<RequestMem>() const { return build(); }
+
+RequestMemBuilder::operator std::shared_ptr<Request>() const { return build(); }
 
 }  // namespace experimental
 

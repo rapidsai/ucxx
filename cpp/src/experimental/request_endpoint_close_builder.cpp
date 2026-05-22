@@ -8,6 +8,7 @@
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_endpoint_close_builder.h>
+#include <ucxx/request.h>
 #include <ucxx/request_endpoint_close.h>
 
 namespace ucxx {
@@ -32,6 +33,8 @@ RequestEndpointCloseBuilder::operator std::shared_ptr<RequestEndpointClose>() co
 {
   return build();
 }
+
+RequestEndpointCloseBuilder::operator std::shared_ptr<Request>() const { return build(); }
 
 }  // namespace experimental
 

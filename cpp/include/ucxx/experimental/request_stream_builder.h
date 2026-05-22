@@ -15,6 +15,7 @@ namespace ucxx {
 
 // Forward declarations
 class Endpoint;
+class Request;
 class RequestStream;
 
 namespace experimental {
@@ -73,6 +74,13 @@ class RequestStreamBuilder : public RequestBuilderBase<RequestStreamBuilder> {
    * @return The constructed `shared_ptr<ucxx::RequestStream>` object.
    */
   operator std::shared_ptr<RequestStream>() const;
+
+  /**
+   * @brief Implicit conversion operator to `shared_ptr<Request>`.
+   *
+   * @return The constructed request as `shared_ptr<ucxx::Request>`.
+   */
+  operator std::shared_ptr<Request>() const;
 };
 
 /**

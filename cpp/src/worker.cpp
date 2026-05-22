@@ -19,6 +19,8 @@
 #include <unistd.h>
 
 #include <ucxx/buffer.h>
+#include <ucxx/experimental/request_flush_builder.h>
+#include <ucxx/experimental/request_tag_builder.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_flush.h>
@@ -621,27 +623,28 @@ std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
   }
 }
 
-std::shared_ptr<Request> Worker::tagRecv(void* buffer,
-                                         size_t length,
-                                         Tag tag,
-                                         TagMask tagMask,
-                                         const bool enableFuture,
-                                         RequestCallbackUserFunction callbackFunction,
-                                         RequestCallbackUserData callbackData)
+experimental::RequestTagBuilder Worker::tagRecv(void* buffer,
+                                                size_t length,
+                                                Tag tag,
+                                                TagMask tagMask,
+                                                const bool enableFuture,
+                                                RequestCallbackUserFunction callbackFunction,
+                                                RequestCallbackUserData callbackData)
 {
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(createRequestTag(worker,
-                                                  data::TagReceive(buffer, length, tag, tagMask),
-                                                  enableFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+  return experimental::RequestTagBuilder(std::move(worker),
+                                         data::TagReceive(buffer, length, tag, tagMask))
+    .pythonFuture(enableFuture)
+    .callbackFunction(std::move(callbackFunction))
+    .callbackData(std::move(callbackData));
 }
 
-std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
-                                                   std::shared_ptr<TagProbeInfo> probeInfo,
-                                                   const bool enableFuture,
-                                                   RequestCallbackUserFunction callbackFunction,
-                                                   RequestCallbackUserData callbackData)
+experimental::RequestTagBuilder Worker::tagRecvWithHandle(
+  void* buffer,
+  std::shared_ptr<TagProbeInfo> probeInfo,
+  const bool enableFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData)
 {
   if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
 
@@ -653,14 +656,11 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
   }
 
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto request =
-    registerInflightRequest(createRequestTag(worker,
-                                             data::TagReceiveWithHandle(buffer, probeInfo),
-                                             enableFuture,
-                                             callbackFunction,
-                                             callbackData));
-
-  return request;
+  return experimental::RequestTagBuilder(std::move(worker),
+                                         data::TagReceiveWithHandle(buffer, probeInfo))
+    .pythonFuture(enableFuture)
+    .callbackFunction(std::move(callbackFunction))
+    .callbackData(std::move(callbackData));
 }
 
 std::shared_ptr<Address> Worker::getAddress()
@@ -721,47 +721,15 @@ bool Worker::amProbe(const ucp_ep_h endpointHandle) const
   return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
 }
 
-std::shared_ptr<Request> Worker::flush(const bool enableFuture,
-                                       RequestCallbackUserFunction callbackFunction,
-                                       RequestCallbackUserData callbackData)
+experimental::RequestFlushBuilder Worker::flush(const bool enableFuture,
+                                                RequestCallbackUserFunction callbackFunction,
+                                                RequestCallbackUserData callbackData)
 {
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(
-    createRequestFlush(worker, data::Flush(), enableFuture, callbackFunction, callbackData));
-}
-
-// ---- Builder-returning overloads ----
-
-experimental::RequestTagBuilder Worker::tagRecv(
-  void* buffer, size_t length, Tag tag, TagMask tagMask, builder_t)
-{
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return experimental::RequestTagBuilder(std::move(worker),
-                                         data::TagReceive(buffer, length, tag, tagMask));
-}
-
-experimental::RequestTagBuilder Worker::tagRecvWithHandle(void* buffer,
-                                                          std::shared_ptr<TagProbeInfo> probeInfo,
-                                                          builder_t)
-{
-  if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
-
-  // getHandle() will throw runtime_error if handle is nullptr or consumed
-  try {
-    probeInfo->getHandle();
-  } catch (const std::runtime_error& e) {
-    throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
-  }
-
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return experimental::RequestTagBuilder(std::move(worker),
-                                         data::TagReceiveWithHandle(buffer, probeInfo));
-}
-
-experimental::RequestFlushBuilder Worker::flush(builder_t)
-{
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return experimental::RequestFlushBuilder(std::move(worker), data::Flush());
+  return experimental::RequestFlushBuilder(std::move(worker), data::Flush())
+    .pythonFuture(enableFuture)
+    .callbackFunction(std::move(callbackFunction))
+    .callbackData(std::move(callbackData));
 }
 
 }  // namespace ucxx

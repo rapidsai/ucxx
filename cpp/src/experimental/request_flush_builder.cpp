@@ -8,6 +8,7 @@
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_flush_builder.h>
+#include <ucxx/request.h>
 #include <ucxx/request_flush.h>
 #include <ucxx/worker.h>
 
@@ -33,6 +34,8 @@ std::shared_ptr<RequestFlush> RequestFlushBuilder::build() const
 }
 
 RequestFlushBuilder::operator std::shared_ptr<RequestFlush>() const { return build(); }
+
+RequestFlushBuilder::operator std::shared_ptr<Request>() const { return build(); }
 
 }  // namespace experimental
 

@@ -791,9 +791,9 @@ class Worker : public Component {
    * @param[in] callbackFunction  user-defined callback function to call upon completion.
    * @param[in] callbackData      user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to set optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> tagRecv(
+  [[nodiscard]] experimental::RequestTagBuilder tagRecv(
     void* buffer,
     size_t length,
     Tag tag,
@@ -823,9 +823,9 @@ class Worker : public Component {
    * @param[in] callbackFunction  user-defined callback function to call upon completion.
    * @param[in] callbackData      user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to set optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> tagRecvWithHandle(
+  [[nodiscard]] experimental::RequestTagBuilder tagRecvWithHandle(
     void* buffer,
     std::shared_ptr<TagProbeInfo> probeInfo,
     const bool enableFuture                      = false,
@@ -1037,22 +1037,12 @@ class Worker : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to set optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> flush(
+  [[nodiscard]] experimental::RequestFlushBuilder flush(
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
-
-  // ---- Builder-returning overloads (pass ucxx::builder as the last argument) ----
-
-  [[nodiscard]] experimental::RequestTagBuilder tagRecv(
-    void* buffer, size_t length, Tag tag, TagMask tagMask, builder_t);
-
-  [[nodiscard]] experimental::RequestTagBuilder tagRecvWithHandle(
-    void* buffer, std::shared_ptr<TagProbeInfo> probeInfo, builder_t);
-
-  [[nodiscard]] experimental::RequestFlushBuilder flush(builder_t);
 
   /**
    * @brief Worker attributes reported by `ucp_worker_query`.

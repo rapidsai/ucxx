@@ -936,10 +936,11 @@ TEST_P(RequestTest, TagUserCallbackDiscardReturn)
   auto sendIndex = std::make_shared<size_t>(0u);
   auto recvIndex = std::make_shared<size_t>(1u);
 
-  // Submit and wait for transfers to complete
-  std::ignore =
+  // Submit and wait for transfers to complete via callbacks; the shared_ptr is discarded
+  // but the request is kept alive by the endpoint's inflight-request registry.
+  std::shared_ptr<ucxx::Request> sendReq =
     _ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}, false, checkStatus, sendIndex);
-  std::ignore = _ep->tagRecv(
+  std::shared_ptr<ucxx::Request> recvReq = _ep->tagRecv(
     _recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull, false, checkStatus, recvIndex);
   checkCompletion();
 

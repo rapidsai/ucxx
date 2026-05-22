@@ -9,6 +9,7 @@
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_tag_multi_builder.h>
+#include <ucxx/request.h>
 #include <ucxx/request_tag_multi.h>
 
 namespace ucxx {
@@ -30,6 +31,8 @@ std::shared_ptr<RequestTagMulti> RequestTagMultiBuilder::build() const
 }
 
 RequestTagMultiBuilder::operator std::shared_ptr<RequestTagMulti>() const { return build(); }
+
+RequestTagMultiBuilder::operator std::shared_ptr<Request>() const { return build(); }
 
 }  // namespace experimental
 

@@ -9,6 +9,7 @@
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_tag_builder.h>
+#include <ucxx/request.h>
 #include <ucxx/request_tag.h>
 #include <ucxx/worker.h>
 
@@ -35,6 +36,8 @@ std::shared_ptr<RequestTag> RequestTagBuilder::build() const
 }
 
 RequestTagBuilder::operator std::shared_ptr<RequestTag>() const { return build(); }
+
+RequestTagBuilder::operator std::shared_ptr<Request>() const { return build(); }
 
 }  // namespace experimental
 

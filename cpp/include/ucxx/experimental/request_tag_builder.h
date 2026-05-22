@@ -15,6 +15,7 @@ namespace ucxx {
 
 // Forward declarations
 class Component;
+class Request;
 class RequestTag;
 
 namespace experimental {
@@ -77,6 +78,13 @@ class RequestTagBuilder : public RequestCallbackBuilderBase<RequestTagBuilder> {
    * @return The constructed `shared_ptr<ucxx::RequestTag>` object.
    */
   operator std::shared_ptr<RequestTag>() const;
+
+  /**
+   * @brief Implicit conversion operator to `shared_ptr<Request>`.
+   *
+   * @return The constructed request as `shared_ptr<ucxx::Request>`.
+   */
+  operator std::shared_ptr<Request>() const;
 };
 
 /**

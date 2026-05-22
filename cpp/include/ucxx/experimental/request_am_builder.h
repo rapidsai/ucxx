@@ -15,6 +15,7 @@ namespace ucxx {
 
 // Forward declarations
 class Endpoint;
+class Request;
 class RequestAm;
 
 namespace experimental {
@@ -74,6 +75,13 @@ class RequestAmBuilder : public RequestCallbackBuilderBase<RequestAmBuilder> {
    * @return The constructed `shared_ptr<ucxx::RequestAm>` object.
    */
   operator std::shared_ptr<RequestAm>() const;
+
+  /**
+   * @brief Implicit conversion operator to `shared_ptr<Request>`.
+   *
+   * @return The constructed request as `shared_ptr<ucxx::Request>`.
+   */
+  operator std::shared_ptr<Request>() const;
 };
 
 /**

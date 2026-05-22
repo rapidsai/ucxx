@@ -319,42 +319,41 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
 // Endpoint/Worker builder-tag overload tests
 // ============================================================================
 
-TEST_F(RequestBuilderTest, EndpointFlushBuilderTag)
+TEST_F(RequestBuilderTest, EndpointFlushBuilder)
 {
-  auto builder = _ep->flush(ucxx::builder);
+  auto builder = _ep->flush();
   static_assert(std::is_same<decltype(builder), ucxx::experimental::RequestFlushBuilder>::value,
-                "ep->flush(ucxx::builder) returns RequestFlushBuilder");
+                "ep->flush() returns RequestFlushBuilder");
   std::shared_ptr<ucxx::Request> req = builder.build();
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
 }
 
-TEST_F(RequestBuilderTest, WorkerFlushBuilderTag)
+TEST_F(RequestBuilderTest, WorkerFlushBuilder)
 {
-  auto builder = _worker->flush(ucxx::builder);
+  auto builder = _worker->flush();
   static_assert(std::is_same<decltype(builder), ucxx::experimental::RequestFlushBuilder>::value,
-                "worker->flush(ucxx::builder) returns RequestFlushBuilder");
+                "worker->flush() returns RequestFlushBuilder");
   std::shared_ptr<ucxx::Request> req = builder.build();
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
 }
 
-TEST_F(RequestBuilderTest, EndpointTagSendRecvBuilderTag)
+TEST_F(RequestBuilderTest, EndpointTagSendRecvBuilder)
 {
   std::vector<int> sendBuf{10, 20, 30};
   std::vector<int> recvBuf(3);
   auto tag     = ucxx::Tag{42};
   auto tagMask = ucxx::TagMaskFull;
 
-  // ep->tagSend returns builder; ep->tagRecv returns builder
-  auto sendBuilder = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag, ucxx::builder);
-  auto recvBuilder =
-    _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask, ucxx::builder);
+  // ep->tagSend returns builder; worker->tagRecv returns builder
+  auto sendBuilder = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag);
+  auto recvBuilder = _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
 
   static_assert(std::is_same<decltype(sendBuilder), ucxx::experimental::RequestTagBuilder>::value,
-                "ep->tagSend(ucxx::builder) returns RequestTagBuilder");
+                "ep->tagSend() returns RequestTagBuilder");
   static_assert(std::is_same<decltype(recvBuilder), ucxx::experimental::RequestTagBuilder>::value,
-                "worker->tagRecv(ucxx::builder) returns RequestTagBuilder");
+                "worker->tagRecv() returns RequestTagBuilder");
 
   std::shared_ptr<ucxx::Request> sendReq = sendBuilder.build();
   std::shared_ptr<ucxx::Request> recvReq = recvBuilder.build();
@@ -370,7 +369,7 @@ TEST_F(RequestBuilderTest, EndpointTagSendRecvBuilderTag)
   EXPECT_EQ(sendBuf, recvBuf);
 }
 
-TEST_F(RequestBuilderTest, EndpointTagSendBuilderTagWithCallbackChain)
+TEST_F(RequestBuilderTest, EndpointTagSendBuilderWithCallbackChain)
 {
   std::vector<int> sendBuf{1, 2};
   std::vector<int> recvBuf(2);
@@ -384,13 +383,10 @@ TEST_F(RequestBuilderTest, EndpointTagSendBuilderTagWithCallbackChain)
 
   // Chain callbackFunction on builder returned by endpoint method
   std::shared_ptr<ucxx::Request> sendReq =
-    _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag, ucxx::builder)
-      .callbackFunction(cb)
-      .build();
+    _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag).callbackFunction(cb).build();
 
   std::shared_ptr<ucxx::Request> recvReq =
-    _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask, ucxx::builder)
-      .build();
+    _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask).build();
 
   while (!sendReq->isCompleted() || !recvReq->isCompleted())
     _worker->progress();
@@ -401,7 +397,7 @@ TEST_F(RequestBuilderTest, EndpointTagSendBuilderTagWithCallbackChain)
   EXPECT_TRUE(callbackCalled);
 }
 
-TEST_F(RequestBuilderTest, EndpointTagSendBuilderTagBuildAssignableToRequest)
+TEST_F(RequestBuilderTest, EndpointTagSendBuilderBuildAssignableToRequest)
 {
   // Verify that .build() result is assignable to shared_ptr<Request>
   std::vector<int> sendBuf{5};
@@ -410,10 +406,9 @@ TEST_F(RequestBuilderTest, EndpointTagSendBuilderTagBuildAssignableToRequest)
   auto tagMask = ucxx::TagMaskFull;
 
   std::shared_ptr<ucxx::Request> sendReq =
-    _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag, ucxx::builder).build();
+    _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag).build();
   std::shared_ptr<ucxx::Request> recvReq =
-    _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask, ucxx::builder)
-      .build();
+    _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask).build();
 
   while (!sendReq->isCompleted() || !recvReq->isCompleted())
     _worker->progress();

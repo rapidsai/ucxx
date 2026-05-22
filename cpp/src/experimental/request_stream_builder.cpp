@@ -9,6 +9,7 @@
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_stream_builder.h>
+#include <ucxx/request.h>
 #include <ucxx/request_stream.h>
 
 namespace ucxx {
@@ -30,6 +31,8 @@ std::shared_ptr<RequestStream> RequestStreamBuilder::build() const
 }
 
 RequestStreamBuilder::operator std::shared_ptr<RequestStream>() const { return build(); }
+
+RequestStreamBuilder::operator std::shared_ptr<Request>() const { return build(); }
 
 }  // namespace experimental
 
