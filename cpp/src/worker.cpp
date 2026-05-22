@@ -730,4 +730,38 @@ std::shared_ptr<Request> Worker::flush(const bool enableFuture,
     createRequestFlush(worker, data::Flush(), enableFuture, callbackFunction, callbackData));
 }
 
+// ---- Builder-returning overloads ----
+
+experimental::RequestTagBuilder Worker::tagRecv(
+  void* buffer, size_t length, Tag tag, TagMask tagMask, builder_t)
+{
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  return experimental::RequestTagBuilder(std::move(worker),
+                                         data::TagReceive(buffer, length, tag, tagMask));
+}
+
+experimental::RequestTagBuilder Worker::tagRecvWithHandle(void* buffer,
+                                                          std::shared_ptr<TagProbeInfo> probeInfo,
+                                                          builder_t)
+{
+  if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
+
+  // getHandle() will throw runtime_error if handle is nullptr or consumed
+  try {
+    probeInfo->getHandle();
+  } catch (const std::runtime_error& e) {
+    throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
+  }
+
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  return experimental::RequestTagBuilder(std::move(worker),
+                                         data::TagReceiveWithHandle(buffer, probeInfo));
+}
+
+experimental::RequestFlushBuilder Worker::flush(builder_t)
+{
+  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  return experimental::RequestFlushBuilder(std::move(worker), data::Flush());
+}
+
 }  // namespace ucxx

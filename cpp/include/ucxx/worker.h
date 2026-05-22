@@ -20,6 +20,8 @@
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/delayed_submission.h>
+#include <ucxx/experimental/request_flush_builder.h>
+#include <ucxx/experimental/request_tag_builder.h>
 #include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/notifier.h>
@@ -122,18 +124,6 @@ class Worker : public Component {
    * raising warnings.
    */
   void stopProgressThreadNoWarn();
-
-  /**
-   * @brief Register an inflight request.
-   *
-   * Called each time a new transfer request is made by the `Worker`, such that it may
-   * be canceled when necessary.
-   *
-   * @param[in] request the request to register.
-   *
-   * @return the request that was registered (i.e., the `request` argument itself).
-   */
-  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Progress the worker until all communication events are completed.
@@ -711,6 +701,22 @@ class Worker : public Component {
   void removeInflightRequest(std::shared_ptr<Request> request);
 
   /**
+   * @brief Register an inflight request.
+   *
+   * Called each time a new transfer request is made by the `Worker`, such that it may
+   * be canceled when necessary.
+   *
+   * This method is called automatically by builder `build()` implementations and by the
+   * legacy convenience methods. It is public so that builder objects can invoke it after
+   * constructing the request via the factory.
+   *
+   * @param[in] request the request to register.
+   *
+   * @return the request that was registered (i.e., the `request` argument itself).
+   */
+  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
+
+  /**
    * @brief Check for uncaught tag messages.
    *
    * Checks the worker for any uncaught tag messages. An uncaught tag message is any
@@ -1037,6 +1043,16 @@ class Worker : public Component {
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
+
+  // ---- Builder-returning overloads (pass ucxx::builder as the last argument) ----
+
+  [[nodiscard]] experimental::RequestTagBuilder tagRecv(
+    void* buffer, size_t length, Tag tag, TagMask tagMask, builder_t);
+
+  [[nodiscard]] experimental::RequestTagBuilder tagRecvWithHandle(
+    void* buffer, std::shared_ptr<TagProbeInfo> probeInfo, builder_t);
+
+  [[nodiscard]] experimental::RequestFlushBuilder flush(builder_t);
 
   /**
    * @brief Worker attributes reported by `ucp_worker_query`.

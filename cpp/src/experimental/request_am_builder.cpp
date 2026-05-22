@@ -7,7 +7,9 @@
 #include <variant>
 
 #include <ucxx/constructors.h>
+#include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_am_builder.h>
+#include <ucxx/request_am.h>
 
 namespace ucxx {
 
@@ -21,15 +23,13 @@ RequestAmBuilder::RequestAmBuilder(std::shared_ptr<Endpoint> endpoint,
 
 std::shared_ptr<RequestAm> RequestAmBuilder::build() const
 {
-  return ucxx::createRequestAm(
+  auto req = ucxx::createRequestAm(
     _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
+  (void)_endpoint->registerInflightRequest(req);
+  return req;
 }
 
-RequestAmBuilder::operator std::shared_ptr<RequestAm>() const
-{
-  return ucxx::createRequestAm(
-    _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
-}
+RequestAmBuilder::operator std::shared_ptr<RequestAm>() const { return build(); }
 
 }  // namespace experimental
 

@@ -15,6 +15,12 @@
 #include <ucxx/address.h>
 #include <ucxx/component.h>
 #include <ucxx/exception.h>
+#include <ucxx/experimental/request_am_builder.h>
+#include <ucxx/experimental/request_flush_builder.h>
+#include <ucxx/experimental/request_mem_builder.h>
+#include <ucxx/experimental/request_stream_builder.h>
+#include <ucxx/experimental/request_tag_builder.h>
+#include <ucxx/experimental/request_tag_multi_builder.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/listener.h>
 #include <ucxx/request.h>
@@ -100,19 +106,6 @@ class Endpoint : public Component {
    * @param[in] params                parameters specifying UCP endpoint capabilities.
    */
   void create(ucp_ep_params_t* params);
-
-  /**
-   * @brief Register an inflight request.
-   *
-   * Called each time a new transfer request is made by the `Endpoint`, such that it may
-   * be canceled when necessary. Also schedule requests to be canceled immediately after
-   * registration if the endpoint error handler has been called with an error.
-   *
-   * @param[in] request the request to register.
-   *
-   * @return the request that was registered (i.e., the `request` argument itself).
-   */
-  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief The error callback registered at endpoint creation time.
@@ -262,6 +255,23 @@ class Endpoint : public Component {
    * @param[in] request shared pointer to the request
    */
   void removeInflightRequest(std::shared_ptr<Request> request);
+
+  /**
+   * @brief Register an inflight request.
+   *
+   * Called each time a new transfer request is made by the `Endpoint`, such that it may
+   * be canceled when necessary. Also schedules requests to be canceled immediately after
+   * registration if the endpoint error handler has been called with an error.
+   *
+   * This method is called automatically by builder `build()` implementations and by the
+   * legacy convenience methods. It is public so that builder objects can invoke it after
+   * constructing the request via the factory.
+   *
+   * @param[in] request the request to register.
+   *
+   * @return the request that was registered (i.e., the `request` argument itself).
+   */
+  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Cancel inflight requests.
@@ -927,6 +937,75 @@ class Endpoint : public Component {
    *                        if worker is running a progress thread and `period > 0`.
    */
   void closeBlocking(uint64_t period = 0, uint64_t maxAttempts = 1);
+
+  // ---- Builder-returning overloads (pass ucxx::builder as the last argument) ----
+  // The original overloads above remain unchanged for backward compatibility.
+  // Use these to chain optional parameters in any order before submitting the request.
+
+  [[nodiscard]] experimental::RequestTagBuilder tagSend(const void* buffer,
+                                                        size_t length,
+                                                        Tag tag,
+                                                        builder_t);
+
+  [[nodiscard]] experimental::RequestTagBuilder tagRecv(
+    void* buffer, size_t length, Tag tag, TagMask tagMask, builder_t);
+
+  [[nodiscard]] experimental::RequestAmBuilder amSend(
+    const void* const buffer,
+    size_t length,
+    ucs_memory_type_t memoryType,
+    builder_t,
+    std::optional<AmReceiverCallbackInfo> receiverCallbackInfo = std::nullopt);
+
+  [[nodiscard]] experimental::RequestAmBuilder amSend(const void* const buffer,
+                                                      size_t length,
+                                                      const AmSendParams& params,
+                                                      builder_t);
+
+  [[nodiscard]] experimental::RequestAmBuilder amSend(std::vector<ucp_dt_iov_t> iov,
+                                                      const AmSendParams& params,
+                                                      builder_t);
+
+  [[nodiscard]] experimental::RequestAmBuilder amRecv(builder_t);
+
+  [[nodiscard]] experimental::RequestMemBuilder memPut(
+    const void* const buffer, size_t length, uint64_t remoteAddr, ucp_rkey_h rkey, builder_t);
+
+  [[nodiscard]] experimental::RequestMemBuilder memPut(const void* const buffer,
+                                                       size_t length,
+                                                       std::shared_ptr<ucxx::RemoteKey> remoteKey,
+                                                       builder_t,
+                                                       uint64_t remoteAddrOffset = 0);
+
+  [[nodiscard]] experimental::RequestMemBuilder memGet(
+    void* buffer, size_t length, uint64_t remoteAddr, ucp_rkey_h rkey, builder_t);
+
+  [[nodiscard]] experimental::RequestMemBuilder memGet(void* buffer,
+                                                       size_t length,
+                                                       std::shared_ptr<ucxx::RemoteKey> remoteKey,
+                                                       builder_t,
+                                                       uint64_t remoteAddrOffset = 0);
+
+  [[nodiscard]] experimental::RequestStreamBuilder streamSend(const void* const buffer,
+                                                              size_t length,
+                                                              builder_t);
+
+  [[nodiscard]] experimental::RequestStreamBuilder streamRecv(void* buffer,
+                                                              size_t length,
+                                                              builder_t);
+
+  [[nodiscard]] experimental::RequestTagMultiBuilder tagMultiSend(
+    const std::vector<const void*>& buffer,
+    const std::vector<size_t>& size,
+    const std::vector<int>& isCUDA,
+    const Tag tag,
+    builder_t);
+
+  [[nodiscard]] experimental::RequestTagMultiBuilder tagMultiRecv(const Tag tag,
+                                                                  const TagMask tagMask,
+                                                                  builder_t);
+
+  [[nodiscard]] experimental::RequestFlushBuilder flush(builder_t);
 };
 
 }  // namespace ucxx

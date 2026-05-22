@@ -7,7 +7,9 @@
 #include <variant>
 
 #include <ucxx/constructors.h>
+#include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_tag_multi_builder.h>
+#include <ucxx/request_tag_multi.h>
 
 namespace ucxx {
 
@@ -22,13 +24,12 @@ RequestTagMultiBuilder::RequestTagMultiBuilder(
 
 std::shared_ptr<RequestTagMulti> RequestTagMultiBuilder::build() const
 {
-  return ucxx::createRequestTagMulti(_endpoint, _requestData, _enablePythonFuture);
+  auto req = ucxx::createRequestTagMulti(_endpoint, _requestData, _enablePythonFuture);
+  (void)_endpoint->registerInflightRequest(req);
+  return req;
 }
 
-RequestTagMultiBuilder::operator std::shared_ptr<RequestTagMulti>() const
-{
-  return ucxx::createRequestTagMulti(_endpoint, _requestData, _enablePythonFuture);
-}
+RequestTagMultiBuilder::operator std::shared_ptr<RequestTagMulti>() const { return build(); }
 
 }  // namespace experimental
 

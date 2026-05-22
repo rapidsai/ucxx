@@ -7,7 +7,10 @@
 #include <variant>
 
 #include <ucxx/constructors.h>
+#include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_tag_builder.h>
+#include <ucxx/request_tag.h>
+#include <ucxx/worker.h>
 
 namespace ucxx {
 
@@ -22,15 +25,16 @@ RequestTagBuilder::RequestTagBuilder(
 
 std::shared_ptr<RequestTag> RequestTagBuilder::build() const
 {
-  return ucxx::createRequestTag(
+  auto req = ucxx::createRequestTag(
     _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
+  if (auto ep = std::dynamic_pointer_cast<Endpoint>(_endpointOrWorker))
+    (void)ep->registerInflightRequest(req);
+  else if (auto wk = std::dynamic_pointer_cast<Worker>(_endpointOrWorker))
+    (void)wk->registerInflightRequest(req);
+  return req;
 }
 
-RequestTagBuilder::operator std::shared_ptr<RequestTag>() const
-{
-  return ucxx::createRequestTag(
-    _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
-}
+RequestTagBuilder::operator std::shared_ptr<RequestTag>() const { return build(); }
 
 }  // namespace experimental
 

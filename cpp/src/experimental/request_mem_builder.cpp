@@ -7,7 +7,9 @@
 #include <variant>
 
 #include <ucxx/constructors.h>
+#include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_mem_builder.h>
+#include <ucxx/request_mem.h>
 
 namespace ucxx {
 
@@ -21,15 +23,13 @@ RequestMemBuilder::RequestMemBuilder(std::shared_ptr<Endpoint> endpoint,
 
 std::shared_ptr<RequestMem> RequestMemBuilder::build() const
 {
-  return ucxx::createRequestMem(
+  auto req = ucxx::createRequestMem(
     _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
+  (void)_endpoint->registerInflightRequest(req);
+  return req;
 }
 
-RequestMemBuilder::operator std::shared_ptr<RequestMem>() const
-{
-  return ucxx::createRequestMem(
-    _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
-}
+RequestMemBuilder::operator std::shared_ptr<RequestMem>() const { return build(); }
 
 }  // namespace experimental
 

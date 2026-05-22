@@ -6,7 +6,9 @@
 #include <utility>
 
 #include <ucxx/constructors.h>
+#include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_endpoint_close_builder.h>
+#include <ucxx/request_endpoint_close.h>
 
 namespace ucxx {
 
@@ -20,14 +22,15 @@ RequestEndpointCloseBuilder::RequestEndpointCloseBuilder(std::shared_ptr<Endpoin
 
 std::shared_ptr<RequestEndpointClose> RequestEndpointCloseBuilder::build() const
 {
-  return ucxx::createRequestEndpointClose(
+  auto req = ucxx::createRequestEndpointClose(
     _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
+  (void)_endpoint->registerInflightRequest(req);
+  return req;
 }
 
 RequestEndpointCloseBuilder::operator std::shared_ptr<RequestEndpointClose>() const
 {
-  return ucxx::createRequestEndpointClose(
-    _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
+  return build();
 }
 
 }  // namespace experimental

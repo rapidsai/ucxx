@@ -660,4 +660,143 @@ std::shared_ptr<Request> Endpoint::flush(const bool enablePythonFuture,
 
 std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }
 
+// ---- Builder-returning overloads ----
+
+experimental::RequestTagBuilder Endpoint::tagSend(const void* buffer,
+                                                  size_t length,
+                                                  Tag tag,
+                                                  builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestTagBuilder(std::move(endpoint), data::TagSend(buffer, length, tag));
+}
+
+experimental::RequestTagBuilder Endpoint::tagRecv(
+  void* buffer, size_t length, Tag tag, TagMask tagMask, builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestTagBuilder(std::move(endpoint),
+                                         data::TagReceive(buffer, length, tag, tagMask));
+}
+
+experimental::RequestAmBuilder Endpoint::amSend(
+  const void* const buffer,
+  size_t length,
+  ucs_memory_type_t memoryType,
+  builder_t,
+  std::optional<AmReceiverCallbackInfo> receiverCallbackInfo)
+{
+  AmSendParams params;
+  params.memoryType           = memoryType;
+  params.receiverCallbackInfo = receiverCallbackInfo;
+  auto endpoint               = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestAmBuilder(std::move(endpoint), data::AmSend(buffer, length, params));
+}
+
+experimental::RequestAmBuilder Endpoint::amSend(const void* const buffer,
+                                                size_t length,
+                                                const AmSendParams& params,
+                                                builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestAmBuilder(std::move(endpoint), data::AmSend(buffer, length, params));
+}
+
+experimental::RequestAmBuilder Endpoint::amSend(std::vector<ucp_dt_iov_t> iov,
+                                                const AmSendParams& params,
+                                                builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestAmBuilder(std::move(endpoint), data::AmSend(std::move(iov), params));
+}
+
+experimental::RequestAmBuilder Endpoint::amRecv(builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestAmBuilder(std::move(endpoint), data::AmReceive());
+}
+
+experimental::RequestMemBuilder Endpoint::memPut(
+  const void* const buffer, size_t length, uint64_t remoteAddr, ucp_rkey_h rkey, builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestMemBuilder(std::move(endpoint),
+                                         data::MemPut(buffer, length, remoteAddr, rkey));
+}
+
+experimental::RequestMemBuilder Endpoint::memPut(const void* const buffer,
+                                                 size_t length,
+                                                 std::shared_ptr<RemoteKey> remoteKey,
+                                                 builder_t,
+                                                 uint64_t remoteAddrOffset)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestMemBuilder(
+    std::move(endpoint),
+    data::MemPut(
+      buffer, length, remoteKey->getBaseAddress() + remoteAddrOffset, remoteKey->getHandle()));
+}
+
+experimental::RequestMemBuilder Endpoint::memGet(
+  void* buffer, size_t length, uint64_t remoteAddr, ucp_rkey_h rkey, builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestMemBuilder(std::move(endpoint),
+                                         data::MemGet(buffer, length, remoteAddr, rkey));
+}
+
+experimental::RequestMemBuilder Endpoint::memGet(void* buffer,
+                                                 size_t length,
+                                                 std::shared_ptr<RemoteKey> remoteKey,
+                                                 builder_t,
+                                                 uint64_t remoteAddrOffset)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestMemBuilder(
+    std::move(endpoint),
+    data::MemGet(
+      buffer, length, remoteKey->getBaseAddress() + remoteAddrOffset, remoteKey->getHandle()));
+}
+
+experimental::RequestStreamBuilder Endpoint::streamSend(const void* const buffer,
+                                                        size_t length,
+                                                        builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestStreamBuilder(std::move(endpoint), data::StreamSend(buffer, length));
+}
+
+experimental::RequestStreamBuilder Endpoint::streamRecv(void* buffer, size_t length, builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestStreamBuilder(std::move(endpoint),
+                                            data::StreamReceive(buffer, length));
+}
+
+experimental::RequestTagMultiBuilder Endpoint::tagMultiSend(const std::vector<const void*>& buffer,
+                                                            const std::vector<size_t>& size,
+                                                            const std::vector<int>& isCUDA,
+                                                            const Tag tag,
+                                                            builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestTagMultiBuilder(std::move(endpoint),
+                                              data::TagMultiSend(buffer, size, isCUDA, tag));
+}
+
+experimental::RequestTagMultiBuilder Endpoint::tagMultiRecv(const Tag tag,
+                                                            const TagMask tagMask,
+                                                            builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestTagMultiBuilder(std::move(endpoint),
+                                              data::TagMultiReceive(tag, tagMask));
+}
+
+experimental::RequestFlushBuilder Endpoint::flush(builder_t)
+{
+  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
+  return experimental::RequestFlushBuilder(std::move(endpoint), data::Flush());
+}
+
 }  // namespace ucxx

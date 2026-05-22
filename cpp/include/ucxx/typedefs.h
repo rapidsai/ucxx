@@ -304,6 +304,20 @@ struct AmSendParams {
 typedef const std::string SerializedRemoteKey;
 
 /**
+ * @brief Tag type used to select the builder-returning overloads of `Endpoint` and `Worker`
+ * request methods.
+ *
+ * Pass the companion constant `ucxx::builder` as the last argument to any request method
+ * (e.g. `ep->tagSend(buf, len, tag, ucxx::builder)`) to obtain a builder object instead of
+ * a `std::shared_ptr<Request>`. The builder lets you set optional parameters in any order
+ * via method chaining before submitting the request with `.build()` or implicit conversion.
+ */
+struct builder_t {};
+
+/// Companion constant for `builder_t`. Pass to request methods to get a builder.
+inline constexpr builder_t builder{};
+
+/**
  * @brief Hash functor for @c AmReceiverCallbackOwnerType.
  *
  * Hashes the full fixed-size storage so that zero-padded names compare deterministically.

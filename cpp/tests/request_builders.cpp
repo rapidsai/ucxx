@@ -315,4 +315,112 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
   progressUntilCompleted(flushReq);
 }
 
+// ============================================================================
+// Endpoint/Worker builder-tag overload tests
+// ============================================================================
+
+TEST_F(RequestBuilderTest, EndpointFlushBuilderTag)
+{
+  auto builder = _ep->flush(ucxx::builder);
+  static_assert(std::is_same<decltype(builder), ucxx::experimental::RequestFlushBuilder>::value,
+                "ep->flush(ucxx::builder) returns RequestFlushBuilder");
+  std::shared_ptr<ucxx::Request> req = builder.build();
+  ASSERT_TRUE(req != nullptr);
+  progressUntilCompleted(req);
+}
+
+TEST_F(RequestBuilderTest, WorkerFlushBuilderTag)
+{
+  auto builder = _worker->flush(ucxx::builder);
+  static_assert(std::is_same<decltype(builder), ucxx::experimental::RequestFlushBuilder>::value,
+                "worker->flush(ucxx::builder) returns RequestFlushBuilder");
+  std::shared_ptr<ucxx::Request> req = builder.build();
+  ASSERT_TRUE(req != nullptr);
+  progressUntilCompleted(req);
+}
+
+TEST_F(RequestBuilderTest, EndpointTagSendRecvBuilderTag)
+{
+  std::vector<int> sendBuf{10, 20, 30};
+  std::vector<int> recvBuf(3);
+  auto tag     = ucxx::Tag{42};
+  auto tagMask = ucxx::TagMaskFull;
+
+  // ep->tagSend returns builder; ep->tagRecv returns builder
+  auto sendBuilder = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag, ucxx::builder);
+  auto recvBuilder =
+    _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask, ucxx::builder);
+
+  static_assert(std::is_same<decltype(sendBuilder), ucxx::experimental::RequestTagBuilder>::value,
+                "ep->tagSend(ucxx::builder) returns RequestTagBuilder");
+  static_assert(std::is_same<decltype(recvBuilder), ucxx::experimental::RequestTagBuilder>::value,
+                "worker->tagRecv(ucxx::builder) returns RequestTagBuilder");
+
+  std::shared_ptr<ucxx::Request> sendReq = sendBuilder.build();
+  std::shared_ptr<ucxx::Request> recvReq = recvBuilder.build();
+
+  ASSERT_TRUE(sendReq != nullptr);
+  ASSERT_TRUE(recvReq != nullptr);
+
+  while (!sendReq->isCompleted() || !recvReq->isCompleted())
+    _worker->progress();
+  sendReq->checkError();
+  recvReq->checkError();
+
+  EXPECT_EQ(sendBuf, recvBuf);
+}
+
+TEST_F(RequestBuilderTest, EndpointTagSendBuilderTagWithCallbackChain)
+{
+  std::vector<int> sendBuf{1, 2};
+  std::vector<int> recvBuf(2);
+  auto tag     = ucxx::Tag{99};
+  auto tagMask = ucxx::TagMaskFull;
+
+  bool callbackCalled                  = false;
+  ucxx::RequestCallbackUserFunction cb = [&callbackCalled](ucs_status_t, std::shared_ptr<void>) {
+    callbackCalled = true;
+  };
+
+  // Chain callbackFunction on builder returned by endpoint method
+  std::shared_ptr<ucxx::Request> sendReq =
+    _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag, ucxx::builder)
+      .callbackFunction(cb)
+      .build();
+
+  std::shared_ptr<ucxx::Request> recvReq =
+    _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask, ucxx::builder)
+      .build();
+
+  while (!sendReq->isCompleted() || !recvReq->isCompleted())
+    _worker->progress();
+  sendReq->checkError();
+  recvReq->checkError();
+
+  EXPECT_EQ(sendBuf, recvBuf);
+  EXPECT_TRUE(callbackCalled);
+}
+
+TEST_F(RequestBuilderTest, EndpointTagSendBuilderTagBuildAssignableToRequest)
+{
+  // Verify that .build() result is assignable to shared_ptr<Request>
+  std::vector<int> sendBuf{5};
+  std::vector<int> recvBuf(1);
+  auto tag     = ucxx::Tag{77};
+  auto tagMask = ucxx::TagMaskFull;
+
+  std::shared_ptr<ucxx::Request> sendReq =
+    _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag, ucxx::builder).build();
+  std::shared_ptr<ucxx::Request> recvReq =
+    _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask, ucxx::builder)
+      .build();
+
+  while (!sendReq->isCompleted() || !recvReq->isCompleted())
+    _worker->progress();
+  sendReq->checkError();
+  recvReq->checkError();
+
+  EXPECT_EQ(sendBuf, recvBuf);
+}
+
 }  // namespace

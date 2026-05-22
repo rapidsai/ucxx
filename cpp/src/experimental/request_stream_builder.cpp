@@ -7,7 +7,9 @@
 #include <variant>
 
 #include <ucxx/constructors.h>
+#include <ucxx/endpoint.h>
 #include <ucxx/experimental/request_stream_builder.h>
+#include <ucxx/request_stream.h>
 
 namespace ucxx {
 
@@ -22,13 +24,12 @@ RequestStreamBuilder::RequestStreamBuilder(
 
 std::shared_ptr<RequestStream> RequestStreamBuilder::build() const
 {
-  return ucxx::createRequestStream(_endpoint, _requestData, _enablePythonFuture);
+  auto req = ucxx::createRequestStream(_endpoint, _requestData, _enablePythonFuture);
+  (void)_endpoint->registerInflightRequest(req);
+  return req;
 }
 
-RequestStreamBuilder::operator std::shared_ptr<RequestStream>() const
-{
-  return ucxx::createRequestStream(_endpoint, _requestData, _enablePythonFuture);
-}
+RequestStreamBuilder::operator std::shared_ptr<RequestStream>() const { return build(); }
 
 }  // namespace experimental
 
