@@ -675,7 +675,7 @@ TEST_F(RequestAttributesDisabledTest, MemoryGet)
   auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
   auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
 
-  auto request = _ep->memGet(_recvBuf.data(), kMessageSize, remoteKey);
+  std::shared_ptr<ucxx::Request> request = _ep->memGet(_recvBuf.data(), kMessageSize, remoteKey);
   std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
   waitRequests(_worker, requests, _progressWorker);
 
@@ -690,7 +690,7 @@ TEST_F(RequestAttributesDisabledTest, MemoryPut)
   auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
   auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
 
-  auto request = _ep->memPut(_sendBuf.data(), kMessageSize, remoteKey);
+  std::shared_ptr<ucxx::Request> request = _ep->memPut(_sendBuf.data(), kMessageSize, remoteKey);
   std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
   waitRequests(_worker, requests, _progressWorker);
 
@@ -709,8 +709,8 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
 
   allocate();
 
-  auto sendRequest = _ep->streamSend(_sendPtr[0], _messageSize, 0);
-  auto recvRequest = _ep->streamRecv(_recvPtr[0], _messageSize, 0);
+  std::shared_ptr<ucxx::Request> sendRequest = _ep->streamSend(_sendPtr[0], _messageSize, 0);
+  std::shared_ptr<ucxx::Request> recvRequest = _ep->streamRecv(_recvPtr[0], _messageSize, 0);
   std::vector<std::shared_ptr<ucxx::Request>> requests{sendRequest, recvRequest};
   waitRequests(_worker, requests, _progressWorker);
 
@@ -776,7 +776,7 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
   auto serializedRemoteKey = localRemoteKey->serialize();
   auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
 
-  auto request = _ep->memGet(_recvPtr[0], _messageSize, remoteKey);
+  std::shared_ptr<ucxx::Request> request = _ep->memGet(_recvPtr[0], _messageSize, remoteKey);
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(request);
   requests.push_back(_ep->flush());
@@ -803,7 +803,7 @@ TEST_P(RequestTest, MemoryPutRequestAttributes)
   auto serializedRemoteKey = localRemoteKey->serialize();
   auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
 
-  auto request = _ep->memPut(_sendPtr[0], _messageSize, remoteKey);
+  std::shared_ptr<ucxx::Request> request = _ep->memPut(_sendPtr[0], _messageSize, remoteKey);
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(request);
   requests.push_back(_ep->flush());
