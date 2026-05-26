@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
@@ -51,7 +51,7 @@ def _init_and_get_objects(progress_mode):
 
 
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
-def test_get_ucp_handles(progress_mode):
+def test_ucp_handles(progress_mode):
     """Test UCP handles.
 
     Test that UCP worker and endpoint handles are valid.
@@ -64,7 +64,7 @@ def test_get_ucp_handles(progress_mode):
 
 
 @pytest.mark.parametrize("progress_mode", ["blocking", "thread"])
-def test_get_ucxx_handles(progress_mode):
+def test_ucxx_handles(progress_mode):
     """Test UCXX handles.
 
     Test that UCXX worker and endpoint handles are valid.
