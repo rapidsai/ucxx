@@ -12,7 +12,6 @@
 #include <thread>
 #include <utility>
 #include <variant>
-#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -61,10 +60,8 @@ class Worker : public Component {
     _inflightRequestsToCancelMutex{};  ///< Mutex to access the inflight requests to cancel pool
   std::unique_ptr<InflightRequests> _inflightRequestsToCancel{
     std::make_unique<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
-  std::mutex _pendingCloseRequestsMutex{};  ///< Mutex to access pending endpoint close requests
-  std::vector<ucs_status_ptr_t> _pendingCloseRequests{};  ///< Endpoint close requests to free
-  WorkerProgressThread _progressThread{};                 ///< The progress thread object
-  std::thread::id _progressThreadId{};                    ///< The progress thread ID
+  WorkerProgressThread _progressThread{};   ///< The progress thread object
+  std::thread::id _progressThreadId{};      ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
     nullptr};  ///< The callback function to execute at progress thread start
   void* _progressThreadStartCallbackArg{
@@ -100,26 +97,6 @@ class Worker : public Component {
    * not to generate UCX warnings.
    */
   void drainWorkerTagRecv();
-
-  /**
-   * @brief Free completed pending endpoint close requests.
-   *
-   * Checks each endpoint close request that timed out in `Endpoint::closeBlocking()`
-   * and frees requests that are no longer in progress.
-   *
-   * @returns Number of close requests freed.
-   */
-  size_t freeCompletedPendingCloseRequests();
-
-  /**
-   * @brief Release all pending endpoint close requests.
-   *
-   * Frees all pending endpoint close request handles regardless of their current
-   * state, as a last cleanup step before worker destruction.
-   *
-   * @returns Number of close requests released.
-   */
-  size_t releasePendingCloseRequests();
 
   /**
    * @brief Get active message receive request.
@@ -721,17 +698,6 @@ class Worker : public Component {
    *                            scheduled for cancelation.
    */
   void scheduleRequestCancel(TrackedRequests trackedRequests);
-
-  /**
-   * @brief Schedule an endpoint close request handle for later release.
-   *
-   * Track a request returned by `ucp_ep_close_nbx()` that did not complete before
-   * `Endpoint::closeBlocking()` timed out. The request will be checked and freed by
-   * worker progress once it completes, or released during worker destruction.
-   *
-   * @param[in] request pending endpoint close request handle.
-   */
-  void scheduleCloseRequestRelease(ucs_status_ptr_t request);
 
   /**
    * @brief Remove reference to request from internal container.

@@ -342,12 +342,7 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
   }
   ucxx_trace("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _handle);
 
-  if (UCS_PTR_IS_PTR(status)) {
-    if (closeComplete)
-      ucp_request_free(status);
-    else
-      worker->scheduleCloseRequestRelease(status);
-  }
+  if (UCS_PTR_IS_PTR(status)) ucp_request_free(status);
 
   {
     std::lock_guard<std::mutex> lock(_mutex);

@@ -182,15 +182,6 @@ Worker::~Worker()
     _notifier->stopRequestNotifierThread();
   }
 
-  std::ignore               = freeCompletedPendingCloseRequests();
-  auto pendingCloseRequests = releasePendingCloseRequests();
-  if (pendingCloseRequests > 0)
-    ucxx_debug("ucxx::Worker::%s, Worker: %p, UCP handle: %p, released %lu pending close requests",
-               __func__,
-               this,
-               _handle,
-               pendingCloseRequests);
-
   drainWorkerTagRecv();
 
   ucp_worker_destroy(_handle);
@@ -339,8 +330,6 @@ bool Worker::progress()
 
   // Requests that were not completed now must be canceled.
   if (cancelInflightRequests(3000000000 /* 3s */, 3) > 0) ret |= progressPending();
-
-  ret |= freeCompletedPendingCloseRequests() > 0;
 
   return ret;
 }
@@ -598,50 +587,6 @@ void Worker::scheduleRequestCancel(TrackedRequests trackedRequests)
       trackedRequests.inflight.size() + trackedRequests.canceling.size());
     _inflightRequestsToCancel->merge(std::move(trackedRequests));
   }
-}
-
-void Worker::scheduleCloseRequestRelease(ucs_status_ptr_t request)
-{
-  if (!UCS_PTR_IS_PTR(request)) return;
-
-  std::lock_guard<std::mutex> lock(_pendingCloseRequestsMutex);
-  _pendingCloseRequests.push_back(request);
-}
-
-size_t Worker::freeCompletedPendingCloseRequests()
-{
-  std::vector<ucs_status_ptr_t> completedCloseRequests;
-  {
-    std::lock_guard<std::mutex> lock(_pendingCloseRequestsMutex);
-    auto it = _pendingCloseRequests.begin();
-    while (it != _pendingCloseRequests.end()) {
-      if (ucp_request_check_status(*it) == UCS_INPROGRESS) {
-        ++it;
-      } else {
-        completedCloseRequests.push_back(*it);
-        it = _pendingCloseRequests.erase(it);
-      }
-    }
-  }
-
-  for (auto request : completedCloseRequests)
-    ucp_request_free(request);
-
-  return completedCloseRequests.size();
-}
-
-size_t Worker::releasePendingCloseRequests()
-{
-  std::vector<ucs_status_ptr_t> pendingCloseRequests;
-  {
-    std::lock_guard<std::mutex> lock(_pendingCloseRequestsMutex);
-    std::swap(pendingCloseRequests, _pendingCloseRequests);
-  }
-
-  for (auto request : pendingCloseRequests)
-    ucp_request_free(request);
-
-  return pendingCloseRequests.size();
 }
 
 std::shared_ptr<Request> Worker::registerInflightRequest(std::shared_ptr<Request> request)
