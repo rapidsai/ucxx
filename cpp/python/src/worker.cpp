@@ -22,6 +22,23 @@ namespace ucxx {
 
 namespace python {
 
+namespace {
+
+class GilState {
+ public:
+  GilState() : _state(PyGILState_Ensure()) {}
+
+  GilState(const GilState&)            = delete;
+  GilState& operator=(const GilState&) = delete;
+
+  ~GilState() { PyGILState_Release(_state); }
+
+ private:
+  PyGILState_STATE _state;
+};
+
+}  // namespace
+
 Worker::Worker(std::shared_ptr<Context> context,
                const bool enableDelayedSubmission,
                const bool enableFuture)
@@ -73,10 +90,11 @@ void Worker::populateFuturesPool()
   }
 
   decltype(_futuresPool) newFuturesPool;
-  PyGILState_STATE state = PyGILState_Ensure();
-  for (size_t i = 0; i < futuresNeeded; ++i)
-    newFuturesPool.emplace(createFuture(_notifier));
-  PyGILState_Release(state);
+  {
+    GilState gil;
+    for (size_t i = 0; i < futuresNeeded; ++i)
+      newFuturesPool.emplace(createFuture(_notifier));
+  }
 
   std::lock_guard<std::mutex> lock(_futuresPoolMutex);
   while (_futuresPool.size() < maxPoolSize && !newFuturesPool.empty()) {
@@ -127,9 +145,8 @@ std::shared_ptr<::ucxx::Future> Worker::getFuture()
     ret = popFuture();
   }
   if (ret == nullptr) {
-    PyGILState_STATE state = PyGILState_Ensure();
-    ret                    = createFuture(_notifier);
-    PyGILState_Release(state);
+    GilState gil;
+    ret = createFuture(_notifier);
   }
 
   ucxx_trace_req("getFuture: %p %p", ret.get(), ret->getHandle());
