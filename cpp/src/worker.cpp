@@ -169,7 +169,7 @@ Worker::~Worker()
              _handle,
              canceled);
 
-  if (_progressThread.isRunning()) {
+  if (isProgressThreadRunning()) {
     ucxx_warn(
       "The progress thread should be explicitly stopped with `stopProgressThread()` to prevent "
       "unintended effects, such as destructors being called from that thread.");
@@ -374,7 +374,7 @@ bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t
      * it will ensure the request is dispatched.
      */
     std::function<void()> signalWorkerFunction = []() {};
-    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+    if (isProgressThreadRunning() && !_progressThreadPollingMode.load(std::memory_order_acquire)) {
       signalWorkerFunction = [this]() { return this->signal(); };
     }
     signalWorkerFunction();
@@ -421,7 +421,7 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
      * it will ensure the request is dispatched.
      */
     std::function<void()> signalWorkerFunction = []() {};
-    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+    if (isProgressThreadRunning() && !_progressThreadPollingMode.load(std::memory_order_acquire)) {
       signalWorkerFunction = [this]() { return this->signal(); };
     }
     signalWorkerFunction();
@@ -472,7 +472,7 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
 
 void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
-  if (_progressThread.isRunning()) {
+  if (isProgressThreadRunning()) {
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread "
       "already running",
@@ -493,7 +493,16 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
     signalWorkerFunction = [this]() { return this->signal(); };
   }
 
-  auto setThreadId = [this]() { _progressThreadId = std::this_thread::get_id(); };
+  {
+    std::lock_guard<std::mutex> lock(_progressThreadIdMutex);
+    _progressThreadId = std::thread::id();
+  }
+  _progressThreadPollingMode.store(pollingMode, std::memory_order_release);
+
+  auto setThreadId = [this]() {
+    std::lock_guard<std::mutex> lock(_progressThreadIdMutex);
+    _progressThreadId = std::this_thread::get_id();
+  };
 
   _progressThread = WorkerProgressThread(pollingMode,
                                          progressFunction,
@@ -502,13 +511,23 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
                                          _progressThreadStartCallback,
                                          _progressThreadStartCallbackArg,
                                          _delayedSubmissionCollection);
+
+  _progressThreadRunning.store(true, std::memory_order_release);
 }
 
-void Worker::stopProgressThreadNoWarn() { _progressThread.stop(); }
+void Worker::stopProgressThreadNoWarn()
+{
+  _progressThread.stop();
+  _progressThreadRunning.store(false, std::memory_order_release);
+  {
+    std::lock_guard<std::mutex> lock(_progressThreadIdMutex);
+    _progressThreadId = std::thread::id();
+  }
+}
 
 void Worker::stopProgressThread()
 {
-  if (!_progressThread.isRunning())
+  if (!isProgressThreadRunning())
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread not "
       "running or already stopped",
@@ -519,9 +538,16 @@ void Worker::stopProgressThread()
     stopProgressThreadNoWarn();
 }
 
-bool Worker::isProgressThreadRunning() { return _progressThread.isRunning(); }
+bool Worker::isProgressThreadRunning()
+{
+  return _progressThreadRunning.load(std::memory_order_acquire);
+}
 
-std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
+std::thread::id Worker::getProgressThreadId()
+{
+  std::lock_guard<std::mutex> lock(_progressThreadIdMutex);
+  return _progressThreadId;
+}
 
 size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 {

@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -61,7 +62,10 @@ class Worker : public Component {
   std::unique_ptr<InflightRequests> _inflightRequestsToCancel{
     std::make_unique<InflightRequests>()};  ///< The inflight requests scheduled to be canceled
   WorkerProgressThread _progressThread{};   ///< The progress thread object
-  std::thread::id _progressThreadId{};      ///< The progress thread ID
+  std::atomic<bool> _progressThreadRunning{false};      ///< Whether the progress thread is running
+  std::atomic<bool> _progressThreadPollingMode{false};  ///< Whether the progress thread polls
+  std::mutex _progressThreadIdMutex{};                  ///< Mutex to access progress thread ID
+  std::thread::id _progressThreadId{};                  ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
     nullptr};  ///< The callback function to execute at progress thread start
   void* _progressThreadStartCallbackArg{
