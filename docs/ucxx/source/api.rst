@@ -24,8 +24,8 @@ API
    _lib_async.Endpoint.close
    _lib_async.Endpoint.closed
    _lib_async.Endpoint.close_after_n_recv
-   _lib_async.Endpoint.get_ucp_endpoint
-   _lib_async.Endpoint.get_ucp_worker
+   _lib_async.Endpoint.ucp_endpoint
+   _lib_async.Endpoint.ucp_worker
    _lib_async.Endpoint.recv
    _lib_async.Endpoint.send
    _lib_async.Endpoint.uid

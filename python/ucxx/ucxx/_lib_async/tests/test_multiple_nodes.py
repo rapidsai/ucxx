@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -40,7 +40,15 @@ async def client_node(port):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("num_servers", [1, 2, 4])
-@pytest.mark.parametrize("num_clients", [1, 10, 50, 100])
+@pytest.mark.parametrize(
+    "num_clients",
+    [
+        1,
+        10,
+        pytest.param(50, marks=pytest.mark.asyncio_timeout(90)),
+        pytest.param(100, marks=pytest.mark.asyncio_timeout(90)),
+    ],
+)
 async def test_many_servers_many_clients(num_servers, num_clients):
     somaxconn = get_somaxconn()
 

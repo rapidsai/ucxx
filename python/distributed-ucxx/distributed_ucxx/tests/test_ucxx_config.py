@@ -182,10 +182,12 @@ def start_dask_scheduler(
     reason="Workers running without a `Nanny` can't be closed properly",
 )
 def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
-    def current_device_resource_class():
+    def current_device_resource_is_pool():
         import rmm
 
-        return type(rmm.mr.get_current_device_resource())
+        return isinstance(
+            rmm.mr.get_current_device_resource(), rmm.mr.PoolMemoryResource
+        )
 
     env = os.environ.copy()
     env["DASK_DISTRIBUTED__RMM__POOL_SIZE"] = "1000.00 MB"
@@ -214,12 +216,11 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
                     sleep(0.1)
 
                 # Check for RMM pool resource type
-                rmm_resource = c.run_on_scheduler(current_device_resource_class)
-                assert rmm_resource == rmm.mr.PoolMemoryResource
+                rmm_resource = c.run_on_scheduler(current_device_resource_is_pool)
+                assert rmm_resource
 
-                rmm_resource_workers = c.run(current_device_resource_class)
-                for v in rmm_resource_workers.values():
-                    assert v == rmm.mr.PoolMemoryResource
+                rmm_resource_workers = c.run(current_device_resource_is_pool)
+                assert all(rmm_resource_workers.values())
 
 
 def test_schema():

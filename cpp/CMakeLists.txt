@@ -44,8 +44,7 @@ option(BUILD_EXAMPLES "Configure CMake to build examples" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
 option(UCXX_TESTS_ENABLE_RMM "Enable RMM-backed test code paths" OFF)
 option(UCXX_BENCHMARKS_ENABLE_RMM "Enable RMM-backed benchmark code paths" OFF)
-# TODO: Flip UCXX_ENABLE_CCCL default to OFF once devcontainer builds pass -DUCXX_ENABLE_CCCL=ON
-option(UCXX_ENABLE_CCCL "Enable support for CUDA buffer with CCCL" ON)
+option(UCXX_ENABLE_CCCL "Enable support for CUDA buffer with CCCL" OFF)
 option(DISABLE_DEPRECATION_WARNINGS "Disable warnings generated from deprecated declarations." OFF)
 
 message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
