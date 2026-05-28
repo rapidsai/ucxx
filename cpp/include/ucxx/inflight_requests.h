@@ -96,14 +96,22 @@ class InflightRequests {
   void remove(const std::shared_ptr<Request>& request);
 
   /**
-   * @brief Issue cancelation of all inflight requests and clear the internal container.
+   * @brief Issue cancelation of inflight requests and clear the internal container.
    *
-   * Issue cancelation of all inflight requests known to this object and clear the
-   * internal container. The total number of canceled requests is returned.
+   * Issue cancelation of inflight requests known to this object.  The total number of
+   * canceled requests is returned.
    *
+   * When `workerOnly` is `true`, only worker-scoped operations
+   * (`Request::isWorkerOperation() == true`, i.e. receive variants) are cancelled and
+   * removed; endpoint-scoped operations are left in the container untouched, on the
+   * assumption that the caller will follow up with `ucp_ep_close_nbx(FORCE)` which
+   * handles their UCT-level cleanup atomically.  When `workerOnly` is `false` (the
+   * default), all inflight requests are cancelled.
+   *
+   * @param[in] workerOnly  if `true`, cancel only worker-scoped requests.
    * @returns The total number of canceled requests.
    */
-  size_t cancelAll();
+  size_t cancelAll(bool workerOnly = false);
 
   /**
    * @brief Releases the internally-tracked containers.

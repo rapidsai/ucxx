@@ -310,7 +310,7 @@ class ApplicationContext:
                 cb_args=(
                     loop,
                     callback_func,
-                    self,
+                    weakref.ref(self),
                     endpoint_error_handling,
                     connect_timeout,
                     listener_id,
@@ -320,6 +320,7 @@ class ApplicationContext:
             ),
             listener_id,
             self._listener_active_clients,
+            ctx=self,
         )
         return ret
 

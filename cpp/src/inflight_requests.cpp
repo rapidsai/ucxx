@@ -41,18 +41,34 @@ void InflightRequests::merge(TrackedRequests&& trackedRequests)
     if (r) _canceling.insert(std::move(r));
 }
 
-size_t InflightRequests::cancelAll()
+size_t InflightRequests::cancelAll(bool workerOnly)
 {
   decltype(_inflight) toCancel;
+  decltype(_inflight) toKeep;
   {
     std::lock_guard<std::mutex> lock(_mutex);
-    toCancel = std::exchange(_inflight, {});
+    if (workerOnly) {
+      // Partition: receive (worker-scoped) requests get explicit ucp_request_cancel,
+      // endpoint-scoped requests stay in `_inflight` to be cleaned up by FORCE close.
+      for (auto& r : _inflight) {
+        if (r && r->isWorkerOperation())
+          toCancel.insert(r);
+        else
+          toKeep.insert(r);
+      }
+      _inflight = std::move(toKeep);
+    } else {
+      toCancel = std::exchange(_inflight, {});
+    }
   }
 
   size_t total = toCancel.size();
   if (total == 0) return 0;
 
-  ucxx_debug("ucxx::InflightRequests::%s, canceling %lu requests", __func__, total);
+  ucxx_debug("ucxx::InflightRequests::%s, canceling %lu requests (workerOnly=%d)",
+             __func__,
+             total,
+             workerOnly);
 
   for (auto& r : toCancel) {
     if (r) r->cancel();
