@@ -493,15 +493,11 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
     signalWorkerFunction = [this]() { return this->signal(); };
   }
 
-  {
-    std::lock_guard<std::mutex> lock(_progressThreadIdMutex);
-    _progressThreadId = std::thread::id();
-  }
+  _progressThreadId.store(std::thread::id(), std::memory_order_release);
   _progressThreadPollingMode.store(pollingMode, std::memory_order_release);
 
   auto setThreadId = [this]() {
-    std::lock_guard<std::mutex> lock(_progressThreadIdMutex);
-    _progressThreadId = std::this_thread::get_id();
+    _progressThreadId.store(std::this_thread::get_id(), std::memory_order_release);
   };
 
   _progressThread = WorkerProgressThread(pollingMode,
@@ -519,10 +515,7 @@ void Worker::stopProgressThreadNoWarn()
 {
   _progressThread.stop();
   _progressThreadRunning.store(false, std::memory_order_release);
-  {
-    std::lock_guard<std::mutex> lock(_progressThreadIdMutex);
-    _progressThreadId = std::thread::id();
-  }
+  _progressThreadId.store(std::thread::id(), std::memory_order_release);
 }
 
 void Worker::stopProgressThread()
@@ -545,8 +538,7 @@ bool Worker::isProgressThreadRunning()
 
 std::thread::id Worker::getProgressThreadId()
 {
-  std::lock_guard<std::mutex> lock(_progressThreadIdMutex);
-  return _progressThreadId;
+  return _progressThreadId.load(std::memory_order_acquire);
 }
 
 size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)

@@ -64,8 +64,7 @@ class Worker : public Component {
   WorkerProgressThread _progressThread{};   ///< The progress thread object
   std::atomic<bool> _progressThreadRunning{false};      ///< Whether the progress thread is running
   std::atomic<bool> _progressThreadPollingMode{false};  ///< Whether the progress thread polls
-  std::mutex _progressThreadIdMutex{};                  ///< Mutex to access progress thread ID
-  std::thread::id _progressThreadId{};                  ///< The progress thread ID
+  std::atomic<std::thread::id> _progressThreadId{std::thread::id()};  ///< The progress thread ID
   std::function<void(void*)> _progressThreadStartCallback{
     nullptr};  ///< The callback function to execute at progress thread start
   void* _progressThreadStartCallbackArg{
