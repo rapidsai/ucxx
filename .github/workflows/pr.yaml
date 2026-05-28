@@ -92,6 +92,7 @@ jobs:
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
           - '!CPPLINT.cfg'
+          - '!SECURITY.md'
           - '!ci/build_wheel*.sh'
           - '!ci/check_style.sh'
           - '!ci/release/update-version.sh'
