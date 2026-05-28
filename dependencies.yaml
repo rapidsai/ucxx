@@ -436,18 +436,18 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cupy>=13.6.0
+          - cupy>=13.6.0,!=14.0.0,!=14.1.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - cupy-cuda12x>=13.6.0
+              - cupy-cuda12x>=13.6.0,!=14.0.0,!=14.1.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - &cupy_cuda13 cupy-cuda13x>=13.6.0
+              - &cupy_cuda13 cupy-cuda13x>=13.6.0,!=14.0.0,!=14.1.0
   depends_on_librmm:
     common:
       - output_types: conda
