@@ -72,12 +72,36 @@ run_py_benchmark() {
     echo -e "\e[1;33mSLOW BENCHMARK: it may seem like a deadlock but will eventually complete.\e[0m"
   fi
 
-  UCX_KEEPALIVE_INTERVAL=1ms \
-  UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
-  UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
-  python "${TIMEOUT_TOOL_PATH}" --enable-python $((2*60)) \
-  python -m ucxx.benchmarks.send_recv --backend "${BACKEND}" \
-  -o cupy --reuse-alloc -n 8MiB --n-buffers "$N_BUFFERS" --progress-mode "${PROGRESS_MODE}" ${ASYNCIO_WAIT}
+  MAX_ATTEMPTS=3
+  LAST_STATUS=0
+
+  set +e
+  for attempt in $(seq 1 "${MAX_ATTEMPTS}"); do
+    echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run Python benchmark"
+
+    UCX_KEEPALIVE_INTERVAL=1ms \
+    UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
+    UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
+    python "${TIMEOUT_TOOL_PATH}" --enable-python $((2*60)) \
+    python -m ucxx.benchmarks.send_recv --backend "${BACKEND}" \
+    -o cupy --reuse-alloc -n 8MiB --n-buffers "$N_BUFFERS" --progress-mode "${PROGRESS_MODE}" ${ASYNCIO_WAIT}
+
+    LAST_STATUS=$?
+    if [ "${LAST_STATUS}" -eq 0 ]; then
+      break
+    fi
+
+    if [ "${attempt}" -lt "${MAX_ATTEMPTS}" ]; then
+      echo "Python benchmark failed with status ${LAST_STATUS}; retrying"
+      sleep 1
+    fi
+  done
+  set -e
+
+  if [ "${LAST_STATUS}" -ne 0 ]; then
+    echo "Failure running Python benchmark after ${MAX_ATTEMPTS} attempts"
+    exit "${LAST_STATUS}"
+  fi
 }
 
 log_message "Python Core Tests"

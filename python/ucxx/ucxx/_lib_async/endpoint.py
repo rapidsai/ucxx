@@ -1,11 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
 import array
 import asyncio
 import logging
-import warnings
 import weakref
 
 import ucxx._lib.libucxx as ucx_api
@@ -616,54 +615,6 @@ class Endpoint:
         await self.recv(ret, tag=tag)
         return ret
 
-    def get_ucp_worker(self):
-        """Returns the underlying UCP worker handle (ucp_worker_h)
-        as a Python integer.
-        """
-        warnings.warn(
-            "Endpoint.get_ucp_worker() is deprecated and will soon be removed, "
-            "use the Endpoint.ucp_worker property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucp_worker
-
-    def get_ucxx_worker(self):
-        """Returns the underlying UCXX worker pointer (ucxx::Worker*)
-        as a Python integer.
-        """
-        warnings.warn(
-            "Endpoint.get_ucxx_worker() is deprecated and will soon be removed, "
-            "use the Endpoint.ucxx_worker property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucxx_worker
-
-    def get_ucp_endpoint(self):
-        """Returns the underlying UCP endpoint handle (ucp_ep_h)
-        as a Python integer.
-        """
-        warnings.warn(
-            "Endpoint.get_ucp_endpoint() is deprecated and will soon be removed, "
-            "use the Endpoint.ucp_endpoint property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucp_endpoint
-
-    def get_ucxx_endpoint(self):
-        """Returns the underlying UCXX endpoint pointer (ucxx::Endpoint*)
-        as a Python integer.
-        """
-        warnings.warn(
-            "Endpoint.get_ucxx_endpoint() is deprecated and will soon be removed, "
-            "use the Endpoint.ucxx_endpoint property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucxx_endpoint
-
     def close_after_n_recv(self, n, count_from_ep_creation=False):
         """Close the endpoint after `n` received messages.
 
@@ -719,12 +670,3 @@ class Endpoint:
         >>> ep.set_close_callback(lambda: print("Executing close callback"))
         """
         self._ep.set_close_callback(callback_func, cb_args, cb_kwargs)
-
-    def is_alive(self):
-        warnings.warn(
-            "Endpoint.is_alive() is deprecated and will soon be removed, "
-            "use the Endpoint.alive property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.alive

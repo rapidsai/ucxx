@@ -299,42 +299,47 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 
   auto worker             = ::ucxx::getWorker(_parent);
   ucs_status_ptr_t status = nullptr;
+  bool closeComplete      = false;
+
+  auto updateCloseStatus = [this, &closeComplete, &status]() {
+    if (UCS_PTR_IS_PTR(status)) {
+      ucs_status_t s;
+      if ((s = ucp_request_check_status(status)) != UCS_INPROGRESS) {
+        _status       = s;
+        closeComplete = true;
+      }
+    } else {
+      _status       = UCS_PTR_STATUS(status);
+      closeComplete = true;
+      if (_status != UCS_OK) {
+        ucxx_error(
+          "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
+          __func__,
+          this,
+          _handle,
+          ucs_status_string(_status));
+      }
+    }
+  };
 
   if (worker->isProgressThreadRunning()) {
-    bool closeSuccess = false;
-    bool submitted    = false;
-    for (uint64_t i = 0; i < maxAttempts && !closeSuccess; ++i) {
+    bool submitted = false;
+    for (uint64_t i = 0; i < maxAttempts && !closeComplete; ++i) {
       if (!submitted) {
         if (!worker->registerGenericPre(
-              [this, &status, &param]() { status = ucp_ep_close_nbx(_handle, &param); }, period))
+              [this, &status, &param, &updateCloseStatus]() {
+                status = ucp_ep_close_nbx(_handle, &param);
+                updateCloseStatus();
+              },
+              period))
           continue;
         submitted = true;
       }
 
-      if (_status == UCS_INPROGRESS) {
-        if (!worker->registerGenericPost(
-              [this, &status]() {
-                if (UCS_PTR_IS_PTR(status)) {
-                  ucs_status_t s;
-                  if ((s = ucp_request_check_status(status)) != UCS_INPROGRESS) { _status = s; }
-                } else if (UCS_PTR_STATUS(status) != UCS_OK) {
-                  ucxx_error(
-                    "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing "
-                    "endpoint: %s",
-                    __func__,
-                    this,
-                    _handle,
-                    ucs_status_string(UCS_PTR_STATUS(status)));
-                }
-              },
-              period))
-          continue;
-      }
-
-      closeSuccess = true;
+      if (!closeComplete && !worker->registerGenericPost(updateCloseStatus, period)) continue;
     }
 
-    if (!closeSuccess) {
+    if (!closeComplete) {
       _status = UCS_ERR_ENDPOINT_TIMEOUT;
       ucxx_debug(
         "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, all attempts to close timed out",
@@ -344,18 +349,12 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
     }
   } else {
     status = ucp_ep_close_nbx(_handle, &param);
+    updateCloseStatus();
     if (UCS_PTR_IS_PTR(status)) {
-      ucs_status_t s;
-      while ((s = ucp_request_check_status(status)) == UCS_INPROGRESS)
+      while (!closeComplete) {
         worker->progress();
-      _status = s;
-    } else if (UCS_PTR_STATUS(status) != UCS_OK) {
-      ucxx_error(
-        "ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, Error while closing endpoint: %s",
-        __func__,
-        this,
-        _handle,
-        ucs_status_string(UCS_PTR_STATUS(status)));
+        updateCloseStatus();
+      }
     }
   }
   ucxx_trace("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _handle);
