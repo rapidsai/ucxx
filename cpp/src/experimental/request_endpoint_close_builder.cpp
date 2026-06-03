@@ -5,9 +5,8 @@
 #include <memory>
 #include <utility>
 
-#include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
-#include <ucxx/experimental/detail/register_inflight_request.h>
+#include <ucxx/exception.h>
 #include <ucxx/experimental/request_endpoint_close_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/request_endpoint_close.h>
@@ -24,10 +23,11 @@ RequestEndpointCloseBuilder::RequestEndpointCloseBuilder(std::shared_ptr<Endpoin
 
 std::shared_ptr<RequestEndpointClose> RequestEndpointCloseBuilder::build() const
 {
-  auto req = ucxx::createRequestEndpointClose(
-    _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
-  detail::registerInflightRequest(_endpoint, req);
-  return req;
+  if (_endpoint == nullptr)
+    throw ucxx::Error("A valid endpoint is required for a close operation.");
+
+  return _endpoint->closeRequest(
+    _requestData._force, _enablePythonFuture, _callbackFunction, _callbackData);
 }
 
 RequestEndpointCloseBuilder::operator std::shared_ptr<RequestEndpointClose>() const

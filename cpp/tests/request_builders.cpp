@@ -224,10 +224,6 @@ TEST_F(RequestBuilderTest, StreamBuilderImplicitConversion)
 // RequestEndpointCloseBuilder tests
 // ============================================================================
 
-// Note: createRequestEndpointClose bypasses the Endpoint::_closing flag, so calling
-// it directly (outside of Endpoint::close()) risks a double-close when the Endpoint
-// destructs. Builder type correctness is verified via static_assert in AllBuilderAutoTypes.
-
 TEST_F(RequestBuilderTest, EndpointCloseBuilderAutoType)
 {
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
@@ -253,6 +249,17 @@ TEST_F(RequestBuilderTest, EndpointCloseBuilderMethodChaining)
   static_assert(
     std::is_same<decltype(builder), ucxx::experimental::RequestEndpointCloseBuilder>::value,
     "chained builder without .build() is still RequestEndpointCloseBuilder");
+}
+
+TEST_F(RequestBuilderTest, EndpointCloseBuilderBuild)
+{
+  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto req =
+    ucxx::experimental::createRequestEndpointClose(ep, ucxx::data::EndpointClose{true}).build();
+
+  ASSERT_TRUE(req != nullptr);
+  progressUntilCompleted(req);
+  EXPECT_EQ(nullptr, ep->close());
 }
 
 // ============================================================================
@@ -292,7 +299,7 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
     std::is_same<decltype(flushBuilder), ucxx::experimental::RequestFlushBuilder>::value,
     "auto without .build() is RequestFlushBuilder");
 
-  // RequestEndpointCloseBuilder (using a temporary endpoint to avoid double-close on _ep)
+  // RequestEndpointCloseBuilder
   {
     auto closeEp = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
     auto closeBuilder =

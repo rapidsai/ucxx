@@ -26,6 +26,8 @@ namespace experimental {
  *
  * The `endpoint` and `requestData` are required and must be provided to
  * `createRequestEndpointClose()`.
+ * Building the request preserves `ucxx::Endpoint::close()` lifecycle semantics:
+ * only one close request may be submitted for an endpoint.
  *
  * @code{.cpp}
  *   auto req = ucxx::experimental::createRequestEndpointClose(endpoint, closeData)
@@ -56,21 +58,24 @@ class RequestEndpointCloseBuilder : public RequestCallbackBuilderBase<RequestEnd
   /**
    * @brief Build and return the `RequestEndpointClose`.
    *
-   * @return The constructed `shared_ptr<ucxx::RequestEndpointClose>` object.
+   * @return The constructed `shared_ptr<ucxx::RequestEndpointClose>` object, or `nullptr`
+   *         if the endpoint has already closed or is already in process of closing.
    */
   std::shared_ptr<RequestEndpointClose> build() const;
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestEndpointClose>`.
    *
-   * @return The constructed `shared_ptr<ucxx::RequestEndpointClose>` object.
+   * @return The constructed `shared_ptr<ucxx::RequestEndpointClose>` object, or `nullptr`
+   *         if the endpoint has already closed or is already in process of closing.
    */
   operator std::shared_ptr<RequestEndpointClose>() const;
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Request>`.
    *
-   * @return The constructed request as `shared_ptr<ucxx::Request>`.
+   * @return The constructed request as `shared_ptr<ucxx::Request>`, or `nullptr`
+   *         if the endpoint has already closed or is already in process of closing.
    */
   operator std::shared_ptr<Request>() const;
 };

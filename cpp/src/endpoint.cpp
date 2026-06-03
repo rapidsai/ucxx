@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <ucp/api/ucp_compat.h>
 #include <ucs/type/status.h>
 #include <utility>
@@ -247,10 +248,18 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
                                          EndpointCloseCallbackUserFunction callbackFunction,
                                          EndpointCloseCallbackUserData callbackData)
 {
+  return closeRequest(_endpointErrorHandling, enablePythonFuture, callbackFunction, callbackData);
+}
+
+std::shared_ptr<RequestEndpointClose> Endpoint::closeRequest(
+  const bool force,
+  const bool enablePythonFuture,
+  EndpointCloseCallbackUserFunction callbackFunction,
+  EndpointCloseCallbackUserData callbackData)
+{
   if (_closing.exchange(true) || _handle == nullptr) return nullptr;
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  bool force    = _endpointErrorHandling;
 
   auto combineCallbacksFunction = [this, callbackFunction, callbackData](
                                     ucs_status_t status,
@@ -267,8 +276,10 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
     }
   };
 
-  return registerInflightRequest(createRequestEndpointClose(
-    endpoint, data::EndpointClose(force), enablePythonFuture, combineCallbacksFunction, nullptr));
+  auto req = createRequestEndpointClose(
+    endpoint, data::EndpointClose(force), enablePythonFuture, combineCallbacksFunction, nullptr);
+  std::ignore = registerInflightRequest(req);
+  return req;
 }
 
 void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)

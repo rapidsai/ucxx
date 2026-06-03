@@ -32,8 +32,11 @@ namespace ucxx {
 
 class Component;
 class Request;
+class RequestEndpointClose;
 
 namespace experimental {
+class RequestEndpointCloseBuilder;
+
 namespace detail {
 void registerInflightRequest(std::shared_ptr<Component> const& component,
                              std::shared_ptr<Request> const& req);
@@ -131,6 +134,27 @@ class Endpoint : public Component {
   [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
+   * @brief Create an endpoint close request while preserving endpoint close state.
+   *
+   * Marks the endpoint as closing before creating the close request, combines the per-request
+   * callback with the endpoint close callback, and registers the request as inflight.
+   *
+   * @param[in] force               force endpoint close if `true`, flush otherwise.
+   * @param[in] enablePythonFuture  whether a python future should be created and subsequently
+   *                                notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @return Request to be subsequently checked for the completion and its state, or `nullptr`
+   *         if the endpoint has already closed or is already in process of closing.
+   */
+  [[nodiscard]] std::shared_ptr<RequestEndpointClose> closeRequest(
+    const bool force,
+    const bool enablePythonFuture,
+    EndpointCloseCallbackUserFunction callbackFunction,
+    EndpointCloseCallbackUserData callbackData);
+
+  /**
    * @brief The error callback registered at endpoint creation time.
    *
    * When the endpoint is created with error handling support this method is registered as
@@ -141,6 +165,11 @@ class Endpoint : public Component {
    * The signature for this method must match `ucp_err_handler_cb_t`.
    */
   friend void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
+
+  /**
+   * @brief Allow the endpoint close builder to preserve endpoint close state.
+   */
+  friend class experimental::RequestEndpointCloseBuilder;
 
   /**
    * @brief Allow request builders to register newly-created requests.
