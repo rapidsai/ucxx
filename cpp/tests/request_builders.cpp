@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -41,10 +41,6 @@ class RequestBuilderTest : public ::testing::Test {
     req->checkError();
   }
 };
-
-// ============================================================================
-// RequestFlushBuilder tests
-// ============================================================================
 
 TEST_F(RequestBuilderTest, FlushBuilderBasicWorker)
 {
@@ -96,10 +92,6 @@ TEST_F(RequestBuilderTest, FlushBuilderImplicitConversion)
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
 }
-
-// ============================================================================
-// RequestTagBuilder tests
-// ============================================================================
 
 TEST_F(RequestBuilderTest, TagBuilderSendReceivePair)
 {
@@ -173,10 +165,6 @@ TEST_F(RequestBuilderTest, TagBuilderImplicitConversion)
   recvReq->checkError();
 }
 
-// ============================================================================
-// RequestStreamBuilder tests
-// ============================================================================
-
 TEST_F(RequestBuilderTest, StreamBuilderSendReceivePair)
 {
   std::vector<int> sendBuf{10, 20};
@@ -220,10 +208,6 @@ TEST_F(RequestBuilderTest, StreamBuilderImplicitConversion)
   recvReq->checkError();
 }
 
-// ============================================================================
-// RequestEndpointCloseBuilder tests
-// ============================================================================
-
 TEST_F(RequestBuilderTest, EndpointCloseBuilderAutoType)
 {
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
@@ -262,22 +246,16 @@ TEST_F(RequestBuilderTest, EndpointCloseBuilderBuild)
   EXPECT_EQ(nullptr, ep->close());
 }
 
-// ============================================================================
-// Static type assertion tests for all builders
-// ============================================================================
-
 TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
 {
   std::vector<int> buf{0};
   auto tag = ucxx::Tag{0};
 
-  // RequestTagBuilder
   auto tagBuilder =
     ucxx::experimental::createRequestTag(_ep, ucxx::data::TagSend(buf.data(), sizeof(int), tag));
   static_assert(std::is_same<decltype(tagBuilder), ucxx::experimental::RequestTagBuilder>::value,
                 "auto without .build() is RequestTagBuilder");
 
-  // RequestAmBuilder
   auto amBuilder =
     ucxx::experimental::createRequestAm(_ep, ucxx::data::AmSend(buf.data(), sizeof(int)));
   static_assert(std::is_same<decltype(amBuilder), ucxx::experimental::RequestAmBuilder>::value,
@@ -286,20 +264,17 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
   // RequestMemBuilder - just test the builder type, don't build (needs real rkey)
   // (ucp_rkey_h cannot be constructed in tests without remote memory registration)
 
-  // RequestStreamBuilder
   auto streamBuilder =
     ucxx::experimental::createRequestStream(_ep, ucxx::data::StreamSend(buf.data(), sizeof(int)));
   static_assert(
     std::is_same<decltype(streamBuilder), ucxx::experimental::RequestStreamBuilder>::value,
     "auto without .build() is RequestStreamBuilder");
 
-  // RequestFlushBuilder
   auto flushBuilder = ucxx::experimental::createRequestFlush(_worker, ucxx::data::Flush{});
   static_assert(
     std::is_same<decltype(flushBuilder), ucxx::experimental::RequestFlushBuilder>::value,
     "auto without .build() is RequestFlushBuilder");
 
-  // RequestEndpointCloseBuilder
   {
     auto closeEp = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
     auto closeBuilder =
@@ -309,7 +284,6 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
       "auto without .build() is RequestEndpointCloseBuilder");
   }
 
-  // RequestTagMultiBuilder
   std::vector<const void*> multiSendBuf{buf.data()};
   std::vector<size_t> multiSendLen{sizeof(int)};
   std::vector<int> isCUDA{0};
@@ -319,7 +293,6 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
     std::is_same<decltype(tagMultiBuilder), ucxx::experimental::RequestTagMultiBuilder>::value,
     "auto without .build() is RequestTagMultiBuilder");
 
-  // Verify .build() types
   auto flushReq = flushBuilder.build();
   static_assert(std::is_same<decltype(flushReq), std::shared_ptr<ucxx::RequestFlush>>::value,
                 "calling .build() on RequestFlushBuilder returns shared_ptr<RequestFlush>");
@@ -327,10 +300,6 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
   ASSERT_TRUE(flushReq != nullptr);
   progressUntilCompleted(flushReq);
 }
-
-// ============================================================================
-// Endpoint/Worker builder-tag overload tests
-// ============================================================================
 
 TEST_F(RequestBuilderTest, EndpointFlushBuilder)
 {
@@ -361,7 +330,6 @@ TEST_F(RequestBuilderTest, EndpointTagSendRecvBuilder)
   auto tag     = ucxx::Tag{42};
   auto tagMask = ucxx::TagMaskFull;
 
-  // ep->tagSend returns builder; worker->tagRecv returns builder
   auto sendBuilder = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag);
   auto recvBuilder = _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
 
@@ -398,7 +366,6 @@ TEST_F(RequestBuilderTest, EndpointTagSendBuilderWithCallbackChain)
     callbackCalled = true;
   };
 
-  // Chain callbackFunction on builder returned by endpoint method
   auto sendReq =
     _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag).callbackFunction(cb).build();
   auto recvReq =
