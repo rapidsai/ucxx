@@ -477,11 +477,12 @@ experimental::RequestAmBuilder Endpoint::amSend(
   params.memoryType           = memoryType;
   params.receiverCallbackInfo = receiverCallbackInfo;
 
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return experimental::RequestAmBuilder(std::move(endpoint), data::AmSend(buffer, length, params))
-    .pythonFuture(enablePythonFuture)
-    .callbackFunction(std::move(callbackFunction))
-    .callbackData(std::move(callbackData));
+  return amSend(buffer,
+                length,
+                params,
+                enablePythonFuture,
+                std::move(callbackFunction),
+                std::move(callbackData));
 }
 
 experimental::RequestAmBuilder Endpoint::amSend(const void* const buffer,
@@ -546,16 +547,13 @@ experimental::RequestMemBuilder Endpoint::memGet(void* buffer,
                                                  RequestCallbackUserFunction callbackFunction,
                                                  RequestCallbackUserData callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return experimental::RequestMemBuilder(
-           std::move(endpoint),
-           data::MemGet(buffer,
-                        length,
-                        remoteKey->getBaseAddress() + remoteAddressOffset,
-                        remoteKey->getHandle()))
-    .pythonFuture(enablePythonFuture)
-    .callbackFunction(std::move(callbackFunction))
-    .callbackData(std::move(callbackData));
+  return memGet(buffer,
+                length,
+                remoteKey->getBaseAddress() + remoteAddressOffset,
+                remoteKey->getHandle(),
+                enablePythonFuture,
+                std::move(callbackFunction),
+                std::move(callbackData));
 }
 
 experimental::RequestMemBuilder Endpoint::memPut(const void* const buffer,
@@ -582,16 +580,13 @@ experimental::RequestMemBuilder Endpoint::memPut(const void* const buffer,
                                                  RequestCallbackUserFunction callbackFunction,
                                                  RequestCallbackUserData callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return experimental::RequestMemBuilder(
-           std::move(endpoint),
-           data::MemPut(buffer,
-                        length,
-                        remoteKey->getBaseAddress() + remoteAddressOffset,
-                        remoteKey->getHandle()))
-    .pythonFuture(enablePythonFuture)
-    .callbackFunction(std::move(callbackFunction))
-    .callbackData(std::move(callbackData));
+  return memPut(buffer,
+                length,
+                remoteKey->getBaseAddress() + remoteAddressOffset,
+                remoteKey->getHandle(),
+                enablePythonFuture,
+                std::move(callbackFunction),
+                std::move(callbackData));
 }
 
 experimental::RequestStreamBuilder Endpoint::streamSend(const void* const buffer,

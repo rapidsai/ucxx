@@ -23,28 +23,10 @@ namespace experimental {
 /**
  * @brief Builder class for constructing `std::shared_ptr<ucxx::RequestTag>` objects.
  *
- * This class implements the builder pattern for `std::shared_ptr<ucxx::RequestTag>`, allowing
- * optional parameters to be specified via method chaining. Construction happens when the
- * builder expression completes (via implicit conversion) or when `build()` is called.
+ * @copydoc ucxx_request_builder_pattern
  *
  * The `endpointOrWorker` and `requestData` are required and must be provided to
- * `createRequestTag()`. The remaining methods are optional.
- *
- * @code{.cpp}
- *   // Minimal usage (only required args)
- *   auto req = ucxx::experimental::createRequestTag(endpointOrWorker, tagSendData).build();
- *
- *   // With optional parameters
- *   auto req = ucxx::experimental::createRequestTag(endpointOrWorker, tagSendData)
- *                .pythonFuture(true)
- *                .callbackFunction(myCallback)
- *                .callbackData(myData)
- *                .build();
- *
- *   // Using implicit conversion
- *   std::shared_ptr<ucxx::RequestTag> req =
- *     ucxx::experimental::createRequestTag(endpointOrWorker, tagRecvData);
- * @endcode
+ * `createRequestTag()`.
  */
 class RequestTagBuilder : public RequestCallbackBuilderBase<RequestTagBuilder> {
  private:
@@ -89,12 +71,6 @@ class RequestTagBuilder : public RequestCallbackBuilderBase<RequestTagBuilder> {
 
 /**
  * @brief Create a RequestTagBuilder for constructing a `shared_ptr<ucxx::RequestTag>`.
- *
- * @code{.cpp}
- *   auto req = ucxx::experimental::createRequestTag(endpointOrWorker, tagSendData)
- *                .pythonFuture(true)
- *                .build();
- * @endcode
  *
  * @param[in] endpointOrWorker  the parent component (required).
  * @param[in] requestData       container of the specified message type (required).

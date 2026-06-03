@@ -23,28 +23,10 @@ namespace experimental {
 /**
  * @brief Builder class for constructing `std::shared_ptr<ucxx::RequestMem>` objects.
  *
- * This class implements the builder pattern for `std::shared_ptr<ucxx::RequestMem>`, allowing
- * optional parameters to be specified via method chaining. Construction happens when the
- * builder expression completes (via implicit conversion) or when `build()` is called.
+ * @copydoc ucxx_request_builder_pattern
  *
  * The `endpoint` and `requestData` are required and must be provided to
- * `createRequestMem()`. The remaining methods are optional.
- *
- * @code{.cpp}
- *   // Minimal usage (only required args)
- *   auto req = ucxx::experimental::createRequestMem(endpoint, memPutData).build();
- *
- *   // With optional parameters
- *   auto req = ucxx::experimental::createRequestMem(endpoint, memPutData)
- *                .pythonFuture(true)
- *                .callbackFunction(myCallback)
- *                .callbackData(myData)
- *                .build();
- *
- *   // Using implicit conversion
- *   std::shared_ptr<ucxx::RequestMem> req =
- *     ucxx::experimental::createRequestMem(endpoint, memGetData);
- * @endcode
+ * `createRequestMem()`.
  */
 class RequestMemBuilder : public RequestCallbackBuilderBase<RequestMemBuilder> {
  private:
@@ -86,12 +68,6 @@ class RequestMemBuilder : public RequestCallbackBuilderBase<RequestMemBuilder> {
 
 /**
  * @brief Create a RequestMemBuilder for constructing a `shared_ptr<ucxx::RequestMem>`.
- *
- * @code{.cpp}
- *   auto req = ucxx::experimental::createRequestMem(endpoint, memPutData)
- *                .pythonFuture(true)
- *                .build();
- * @endcode
  *
  * @param[in] endpoint     the parent endpoint (required).
  * @param[in] requestData  container of the specified message type (required).

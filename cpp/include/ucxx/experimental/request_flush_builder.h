@@ -22,28 +22,10 @@ namespace experimental {
 /**
  * @brief Builder class for constructing `std::shared_ptr<ucxx::RequestFlush>` objects.
  *
- * This class implements the builder pattern for `std::shared_ptr<ucxx::RequestFlush>`, allowing
- * optional parameters to be specified via method chaining. Construction happens when the
- * builder expression completes (via implicit conversion) or when `build()` is called.
+ * @copydoc ucxx_request_builder_pattern
  *
  * The `endpointOrWorker` and `requestData` are required and must be provided to
- * `createRequestFlush()`. The remaining methods are optional.
- *
- * @code{.cpp}
- *   // Minimal usage (only required args)
- *   auto req = ucxx::experimental::createRequestFlush(endpointOrWorker, flushData).build();
- *
- *   // With optional parameters
- *   auto req = ucxx::experimental::createRequestFlush(endpointOrWorker, flushData)
- *                .pythonFuture(true)
- *                .callbackFunction(myCallback)
- *                .callbackData(myData)
- *                .build();
- *
- *   // Using implicit conversion
- *   std::shared_ptr<ucxx::RequestFlush> req =
- *     ucxx::experimental::createRequestFlush(endpointOrWorker, flushData);
- * @endcode
+ * `createRequestFlush()`.
  */
 class RequestFlushBuilder : public RequestCallbackBuilderBase<RequestFlushBuilder> {
  private:
@@ -85,12 +67,6 @@ class RequestFlushBuilder : public RequestCallbackBuilderBase<RequestFlushBuilde
 
 /**
  * @brief Create a RequestFlushBuilder for constructing a `shared_ptr<ucxx::RequestFlush>`.
- *
- * @code{.cpp}
- *   auto req = ucxx::experimental::createRequestFlush(endpointOrWorker, flushData)
- *                .pythonFuture(true)
- *                .build();
- * @endcode
  *
  * @param[in] endpointOrWorker  the parent component (required).
  * @param[in] requestData       container of the flush request data (required).

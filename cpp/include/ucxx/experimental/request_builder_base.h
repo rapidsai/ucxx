@@ -13,6 +13,30 @@ namespace ucxx {
 namespace experimental {
 
 /**
+ * @page ucxx_request_builder_pattern Request builder pattern
+ *
+ * Request builders capture the arguments required to create a request and expose optional
+ * settings through fluent setters. Construction happens when `build()` is called or when the
+ * builder is implicitly converted to a compatible `std::shared_ptr`.
+ *
+ * Each request-specific factory function returns the corresponding builder. Required arguments
+ * are passed to the factory function, while optional settings such as Python future notification
+ * and completion callbacks are configured through method chaining when supported by that request
+ * type.
+ *
+ * @code{.cpp}
+ *   auto req = ucxx::experimental::createRequestTag(endpointOrWorker, requestData)
+ *                .pythonFuture(true)
+ *                .callbackFunction(callback)
+ *                .callbackData(callbackData)
+ *                .build();
+ *
+ *   std::shared_ptr<ucxx::Request> baseReq =
+ *     ucxx::experimental::createRequestFlush(endpointOrWorker, ucxx::data::Flush{});
+ * @endcode
+ */
+
+/**
  * @brief CRTP base for all request builders providing Python future support.
  *
  * Holds `_enablePythonFuture` and provides the `pythonFuture()` fluent setter.
