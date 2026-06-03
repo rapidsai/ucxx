@@ -43,7 +43,7 @@ ucxx = "ucxx"
 test = [
     "cloudpickle",
     "cudf==26.8.*,>=0.0.0a0",
-    "cupy-cuda13x>=13.6.0",
+    "cupy-cuda13x>=13.6.0,!=14.0.0,!=14.1.0",
     "numba-cuda>=0.22.1",
     "pytest",
     "pytest-asyncio>=1.0.0",
