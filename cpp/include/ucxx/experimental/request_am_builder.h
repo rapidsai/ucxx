@@ -27,6 +27,17 @@ namespace experimental {
  *
  * The `endpoint` and `requestData` are required and must be provided to
  * `createRequestAm()`.
+ *
+ * @code{.cpp}
+ *   auto req = ucxx::experimental::createRequestAm(endpoint, amSendData)
+ *                .pythonFuture(true)
+ *                .callbackFunction(callback)
+ *                .callbackData(callbackData)
+ *                .build();
+ *
+ *   std::shared_ptr<ucxx::RequestAm> amReq =
+ *     ucxx::experimental::createRequestAm(endpoint, amReceiveData);
+ * @endcode
  */
 class RequestAmBuilder : public RequestCallbackBuilderBase<RequestAmBuilder> {
  private:

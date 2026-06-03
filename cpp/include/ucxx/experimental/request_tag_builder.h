@@ -27,6 +27,17 @@ namespace experimental {
  *
  * The `endpointOrWorker` and `requestData` are required and must be provided to
  * `createRequestTag()`.
+ *
+ * @code{.cpp}
+ *   auto req = ucxx::experimental::createRequestTag(endpointOrWorker, tagSendData)
+ *                .pythonFuture(true)
+ *                .callbackFunction(callback)
+ *                .callbackData(callbackData)
+ *                .build();
+ *
+ *   std::shared_ptr<ucxx::RequestTag> tagReq =
+ *     ucxx::experimental::createRequestTag(endpointOrWorker, tagReceiveData);
+ * @endcode
  */
 class RequestTagBuilder : public RequestCallbackBuilderBase<RequestTagBuilder> {
  private:

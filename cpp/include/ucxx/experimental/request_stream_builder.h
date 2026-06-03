@@ -27,6 +27,15 @@ namespace experimental {
  *
  * The `endpoint` and `requestData` are required and must be provided to
  * `createRequestStream()`. The `pythonFuture()` method is optional.
+ *
+ * @code{.cpp}
+ *   auto req = ucxx::experimental::createRequestStream(endpoint, streamSendData)
+ *                .pythonFuture(true)
+ *                .build();
+ *
+ *   std::shared_ptr<ucxx::RequestStream> streamReq =
+ *     ucxx::experimental::createRequestStream(endpoint, streamReceiveData);
+ * @endcode
  */
 class RequestStreamBuilder : public RequestBuilderBase<RequestStreamBuilder> {
  private:

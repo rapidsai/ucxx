@@ -23,17 +23,6 @@ namespace experimental {
  * are passed to the factory function, while optional settings such as Python future notification
  * and completion callbacks are configured through method chaining when supported by that request
  * type.
- *
- * @code{.cpp}
- *   auto req = ucxx::experimental::createRequestTag(endpointOrWorker, requestData)
- *                .pythonFuture(true)
- *                .callbackFunction(callback)
- *                .callbackData(callbackData)
- *                .build();
- *
- *   std::shared_ptr<ucxx::Request> baseReq =
- *     ucxx::experimental::createRequestFlush(endpointOrWorker, ucxx::data::Flush{});
- * @endcode
  */
 
 /**

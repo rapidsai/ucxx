@@ -26,6 +26,17 @@ namespace experimental {
  *
  * The `endpointOrWorker` and `requestData` are required and must be provided to
  * `createRequestFlush()`.
+ *
+ * @code{.cpp}
+ *   auto req = ucxx::experimental::createRequestFlush(endpointOrWorker, flushData)
+ *                .pythonFuture(true)
+ *                .callbackFunction(callback)
+ *                .callbackData(callbackData)
+ *                .build();
+ *
+ *   std::shared_ptr<ucxx::RequestFlush> flushReq =
+ *     ucxx::experimental::createRequestFlush(endpointOrWorker, flushData);
+ * @endcode
  */
 class RequestFlushBuilder : public RequestCallbackBuilderBase<RequestFlushBuilder> {
  private:

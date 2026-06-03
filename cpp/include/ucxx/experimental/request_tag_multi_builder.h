@@ -27,6 +27,15 @@ namespace experimental {
  *
  * The `endpoint` and `requestData` are required and must be provided to
  * `createRequestTagMulti()`. The `pythonFuture()` method is optional.
+ *
+ * @code{.cpp}
+ *   auto req = ucxx::experimental::createRequestTagMulti(endpoint, tagMultiSendData)
+ *                .pythonFuture(true)
+ *                .build();
+ *
+ *   std::shared_ptr<ucxx::RequestTagMulti> tagMultiReq =
+ *     ucxx::experimental::createRequestTagMulti(endpoint, tagMultiReceiveData);
+ * @endcode
  */
 class RequestTagMultiBuilder : public RequestBuilderBase<RequestTagMultiBuilder> {
  private:

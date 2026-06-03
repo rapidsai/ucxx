@@ -26,6 +26,17 @@ namespace experimental {
  *
  * The `endpoint` and `requestData` are required and must be provided to
  * `createRequestEndpointClose()`.
+ *
+ * @code{.cpp}
+ *   auto req = ucxx::experimental::createRequestEndpointClose(endpoint, closeData)
+ *                .pythonFuture(true)
+ *                .callbackFunction(callback)
+ *                .callbackData(callbackData)
+ *                .build();
+ *
+ *   std::shared_ptr<ucxx::RequestEndpointClose> closeReq =
+ *     ucxx::experimental::createRequestEndpointClose(endpoint, closeData);
+ * @endcode
  */
 class RequestEndpointCloseBuilder : public RequestCallbackBuilderBase<RequestEndpointCloseBuilder> {
  private:

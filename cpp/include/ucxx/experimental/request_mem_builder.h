@@ -27,6 +27,17 @@ namespace experimental {
  *
  * The `endpoint` and `requestData` are required and must be provided to
  * `createRequestMem()`.
+ *
+ * @code{.cpp}
+ *   auto req = ucxx::experimental::createRequestMem(endpoint, memPutData)
+ *                .pythonFuture(true)
+ *                .callbackFunction(callback)
+ *                .callbackData(callbackData)
+ *                .build();
+ *
+ *   std::shared_ptr<ucxx::RequestMem> memReq =
+ *     ucxx::experimental::createRequestMem(endpoint, memGetData);
+ * @endcode
  */
 class RequestMemBuilder : public RequestCallbackBuilderBase<RequestMemBuilder> {
  private:
