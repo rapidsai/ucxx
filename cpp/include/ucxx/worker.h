@@ -30,8 +30,16 @@
 
 namespace ucxx {
 
+class Component;
+class Request;
+
 namespace experimental {
 class WorkerBuilder;
+
+namespace detail {
+void registerInflightRequest(std::shared_ptr<Component> const& component,
+                             std::shared_ptr<Request> const& req);
+}  // namespace detail
 }  // namespace experimental
 
 class Address;
@@ -126,6 +134,18 @@ class Worker : public Component {
   void stopProgressThreadNoWarn();
 
   /**
+   * @brief Register an inflight request.
+   *
+   * Called each time a new transfer request is made by the `Worker`, such that it may
+   * be canceled when necessary.
+   *
+   * @param[in] request the request to register.
+   *
+   * @return the request that was registered (i.e., the `request` argument itself).
+   */
+  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
+
+  /**
    * @brief Progress the worker until all communication events are completed.
    *
    * Iteratively calls `progressOnce()` until all communication events are completed.
@@ -190,6 +210,12 @@ class Worker : public Component {
    * @brief Allow experimental::WorkerBuilder to access protected/private constructor.
    */
   friend class experimental::WorkerBuilder;
+
+  /**
+   * @brief Allow request builders to register newly-created requests.
+   */
+  friend void experimental::detail::registerInflightRequest(
+    std::shared_ptr<Component> const& component, std::shared_ptr<Request> const& req);
 
   /**
    * @brief `ucxx::Worker` destructor.
@@ -699,22 +725,6 @@ class Worker : public Component {
    * @param[in] request shared pointer to the request
    */
   void removeInflightRequest(std::shared_ptr<Request> request);
-
-  /**
-   * @brief Register an inflight request.
-   *
-   * Called each time a new transfer request is made by the `Worker`, such that it may
-   * be canceled when necessary.
-   *
-   * This method is called automatically by builder `build()` implementations and by the
-   * legacy convenience methods. It is public so that builder objects can invoke it after
-   * constructing the request via the factory.
-   *
-   * @param[in] request the request to register.
-   *
-   * @return the request that was registered (i.e., the `request` argument itself).
-   */
-  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Check for uncaught tag messages.

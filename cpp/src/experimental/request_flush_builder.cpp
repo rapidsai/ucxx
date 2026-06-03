@@ -7,6 +7,7 @@
 
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
+#include <ucxx/experimental/detail/register_inflight_request.h>
 #include <ucxx/experimental/request_flush_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/request_flush.h>
@@ -26,10 +27,7 @@ std::shared_ptr<RequestFlush> RequestFlushBuilder::build() const
 {
   auto req = ucxx::createRequestFlush(
     _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
-  if (auto ep = std::dynamic_pointer_cast<Endpoint>(_endpointOrWorker))
-    (void)ep->registerInflightRequest(req);
-  else if (auto wk = std::dynamic_pointer_cast<Worker>(_endpointOrWorker))
-    (void)wk->registerInflightRequest(req);
+  detail::registerInflightRequest(_endpointOrWorker, req);
   return req;
 }
 

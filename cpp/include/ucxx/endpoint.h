@@ -30,6 +30,16 @@
 
 namespace ucxx {
 
+class Component;
+class Request;
+
+namespace experimental {
+namespace detail {
+void registerInflightRequest(std::shared_ptr<Component> const& component,
+                             std::shared_ptr<Request> const& req);
+}  // namespace detail
+}  // namespace experimental
+
 /**
  * @brief Deleter for a endpoint parameters object.
  *
@@ -108,6 +118,19 @@ class Endpoint : public Component {
   void create(ucp_ep_params_t* params);
 
   /**
+   * @brief Register an inflight request.
+   *
+   * Called each time a new transfer request is made by the `Endpoint`, such that it may
+   * be canceled when necessary. Also schedules requests to be canceled immediately after
+   * registration if the endpoint error handler has been called with an error.
+   *
+   * @param[in] request the request to register.
+   *
+   * @return the request that was registered (i.e., the `request` argument itself).
+   */
+  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
+
+  /**
    * @brief The error callback registered at endpoint creation time.
    *
    * When the endpoint is created with error handling support this method is registered as
@@ -118,6 +141,12 @@ class Endpoint : public Component {
    * The signature for this method must match `ucp_err_handler_cb_t`.
    */
   friend void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
+
+  /**
+   * @brief Allow request builders to register newly-created requests.
+   */
+  friend void experimental::detail::registerInflightRequest(
+    std::shared_ptr<Component> const& component, std::shared_ptr<Request> const& req);
 
  public:
   Endpoint()                           = delete;
@@ -255,23 +284,6 @@ class Endpoint : public Component {
    * @param[in] request shared pointer to the request
    */
   void removeInflightRequest(std::shared_ptr<Request> request);
-
-  /**
-   * @brief Register an inflight request.
-   *
-   * Called each time a new transfer request is made by the `Endpoint`, such that it may
-   * be canceled when necessary. Also schedules requests to be canceled immediately after
-   * registration if the endpoint error handler has been called with an error.
-   *
-   * This method is called automatically by builder `build()` implementations and by the
-   * legacy convenience methods. It is public so that builder objects can invoke it after
-   * constructing the request via the factory.
-   *
-   * @param[in] request the request to register.
-   *
-   * @return the request that was registered (i.e., the `request` argument itself).
-   */
-  [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
 
   /**
    * @brief Cancel inflight requests.

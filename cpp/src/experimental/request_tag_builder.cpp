@@ -8,6 +8,7 @@
 
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
+#include <ucxx/experimental/detail/register_inflight_request.h>
 #include <ucxx/experimental/request_tag_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/request_tag.h>
@@ -28,10 +29,7 @@ std::shared_ptr<RequestTag> RequestTagBuilder::build() const
 {
   auto req = ucxx::createRequestTag(
     _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
-  if (auto ep = std::dynamic_pointer_cast<Endpoint>(_endpointOrWorker))
-    (void)ep->registerInflightRequest(req);
-  else if (auto wk = std::dynamic_pointer_cast<Worker>(_endpointOrWorker))
-    (void)wk->registerInflightRequest(req);
+  detail::registerInflightRequest(_endpointOrWorker, req);
   return req;
 }
 

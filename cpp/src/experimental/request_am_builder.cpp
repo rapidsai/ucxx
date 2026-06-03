@@ -8,6 +8,7 @@
 
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
+#include <ucxx/experimental/detail/register_inflight_request.h>
 #include <ucxx/experimental/request_am_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/request_am.h>
@@ -26,7 +27,7 @@ std::shared_ptr<RequestAm> RequestAmBuilder::build() const
 {
   auto req = ucxx::createRequestAm(
     _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
-  (void)_endpoint->registerInflightRequest(req);
+  detail::registerInflightRequest(_endpoint, req);
   return req;
 }
 

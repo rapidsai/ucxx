@@ -8,6 +8,7 @@
 
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
+#include <ucxx/experimental/detail/register_inflight_request.h>
 #include <ucxx/experimental/request_stream_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/request_stream.h>
@@ -26,7 +27,7 @@ RequestStreamBuilder::RequestStreamBuilder(
 std::shared_ptr<RequestStream> RequestStreamBuilder::build() const
 {
   auto req = ucxx::createRequestStream(_endpoint, _requestData, _enablePythonFuture);
-  (void)_endpoint->registerInflightRequest(req);
+  detail::registerInflightRequest(_endpoint, req);
   return req;
 }
 

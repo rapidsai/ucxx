@@ -8,6 +8,7 @@
 
 #include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
+#include <ucxx/experimental/detail/register_inflight_request.h>
 #include <ucxx/experimental/request_tag_multi_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/request_tag_multi.h>
@@ -26,7 +27,7 @@ RequestTagMultiBuilder::RequestTagMultiBuilder(
 std::shared_ptr<RequestTagMulti> RequestTagMultiBuilder::build() const
 {
   auto req = ucxx::createRequestTagMulti(_endpoint, _requestData, _enablePythonFuture);
-  (void)_endpoint->registerInflightRequest(req);
+  detail::registerInflightRequest(_endpoint, req);
   return req;
 }
 
