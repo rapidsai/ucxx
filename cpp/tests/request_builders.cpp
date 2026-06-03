@@ -261,8 +261,14 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
   static_assert(std::is_same<decltype(amBuilder), ucxx::experimental::RequestAmBuilder>::value,
                 "auto without .build() is RequestAmBuilder");
 
-  // RequestMemBuilder - just test the builder type, don't build (needs real rkey)
-  // (ucp_rkey_h cannot be constructed in tests without remote memory registration)
+  // RequestMemBuilder - don't submit a request here; that needs a real remote key.
+  auto memBuilder = ucxx::experimental::createRequestMem(
+    _ep, ucxx::data::MemPut(buf.data(), sizeof(int), 0, nullptr));
+  static_assert(std::is_same<decltype(memBuilder), ucxx::experimental::RequestMemBuilder>::value,
+                "auto without .build() is RequestMemBuilder");
+  static_assert(
+    std::is_same<decltype(memBuilder.build()), std::shared_ptr<ucxx::RequestMem>>::value,
+    "calling .build() on RequestMemBuilder returns shared_ptr<RequestMem>");
 
   auto streamBuilder =
     ucxx::experimental::createRequestStream(_ep, ucxx::data::StreamSend(buf.data(), sizeof(int)));
