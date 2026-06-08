@@ -906,20 +906,19 @@ class Endpoint : public Component {
   /**
    * @brief Close the endpoint while keeping the object alive.
    *
-   * Close the endpoint without requiring to destroy the object, blocking until the
-   * operation completes. This may be useful when `std::shared_ptr<ucxx::Request>` objects
-   * are still alive.
+   * Close the endpoint without requiring to destroy the object, first canceling inflight
+   * requests and then waiting for the close operation to complete when possible. This may
+   * be useful when `std::shared_ptr<ucxx::Request>` objects are still alive.
    *
    * If the endpoint was created with error handling support, the error callback will be
    * executed, implying the user-defined callback will also be executed if one was
    * registered with `setCloseCallback()`.
    *
-   * If the parent worker is running a progress thread, a maximum timeout may be specified
-   * for which the close operation will wait. This can be particularly important for cases
-   * where the progress thread might be attempting to acquire a resource (e.g., the Python
-   * GIL) while the current thread owns that resource. In particular for Python, the
-   * `~Endpoint()` will call this method for which we can't release the GIL when the garbage
-   * collector runs and destroys the object.
+   * If the parent worker is running a progress thread, `period` and `maxAttempts` bound how
+   * long this method waits for progress-thread submission and completion checks. If close
+   * completion cannot be observed before all attempts expire, the endpoint status is set to
+   * `UCS_ERR_ENDPOINT_TIMEOUT` before returning. Any UCP endpoint close request handle
+   * returned by `ucp_ep_close_nbx()` is released before this method returns.
    *
    * @param[in] period      maximum period to wait for a generic pre/post progress thread
    *                        operation will wait for.
