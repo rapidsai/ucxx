@@ -234,6 +234,6 @@ The UCXX Python interface uses the `logging` library included in Python. The onl
 # Enable Python info log level
 UCXPY_LOG_LEVEL=INFO
 
-# Enable Python debug log level, UCXX request trace log level and UCX data log level
+# Enable Python debug log level, UCXX request trace log level and UCX data log level 
 UCXPY_LOG_LEVEL=DEBUG UCXX_LOG_LEVEL=TRACE_REQ UCX_LOG_LEVEL=DATA
 ```
