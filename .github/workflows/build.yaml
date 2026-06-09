@@ -141,6 +141,7 @@ jobs:
       date: ${{ inputs.date }}
       package-name: libucxx
       package-type: cpp
+      publish-wheel-search-key: ucxx_wheel_cpp_libucxx
   wheel-build-ucxx:
     needs: wheel-build-libucxx
     permissions:
@@ -179,7 +180,7 @@ jobs:
       date: ${{ inputs.date }}
       package-name: ucxx
       package-type: python
-      publish-wheel-search-key: ucxx_wheel_python_abi3
+      publish-wheel-search-key: ucxx_wheel_python_ucxx
   wheel-build-distributed-ucxx:
     permissions:
       actions: read
@@ -216,7 +217,7 @@ jobs:
       date: ${{ inputs.date }}
       package-name: distributed_ucxx
       package-type: python
-      publish-wheel-search-key: "distributed-ucxx_wheel"
+      publish-wheel-search-key: "ucxx_wheel_python_distributed-ucxx"
   devcontainers:
     name: Build devcontainers
     secrets: inherit  # zizmor: ignore[secrets-inherit]
