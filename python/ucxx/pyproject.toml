@@ -60,7 +60,7 @@ build-backend = "scikit_build_core.build"
 dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true"
 requires = [
-    "cmake>=4.0",
+    "cmake>=3.26.4,!=3.30.0",
     "cython>=3.2.2",
     "librmm==26.6.*",
     "libucxx==0.50.*",
