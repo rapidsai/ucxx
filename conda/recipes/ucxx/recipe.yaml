@@ -87,8 +87,6 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - cython >=3.2.2
-        # 'nvidia-ml-py' provides the 'pynvml' module
-        - nvidia-ml-py>=12
         - pip
         - python =${{ py_abi_min }}
         - python-abi3 ${{ py_abi_min }}.*
@@ -97,15 +95,16 @@ outputs:
         - ucx
         - libucxx =${{ version }}
         - cuda-cudart-dev
+        - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
+        - cuda-core>=1.0.0
       run:
-        - cuda-core >=0.3.2
         - numpy >=1.23,<3.0
-        # 'nvidia-ml-py' provides the 'pynvml' module
-        - nvidia-ml-py>=12
         - python
         - ucx >=1.18.0,<1.21.0
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libucxx =${{ version }}
+        - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
+        - cuda-core>=1.0.0
       run_constraints:
         - cupy >=13.6.0,!=14.0.0,!=14.1.0
       ignore_run_exports:
@@ -238,7 +237,7 @@ outputs:
         - setuptools>=77.0.0
         - wheel
       run:
-        - cuda-core >=0.3.2
+        - cuda-core>=1.0.0
         - python
         - pyyaml >=6
         - rapids-dask-dependency ${{ rapids_version }}
