@@ -25,6 +25,7 @@ RequestMemBuilder::RequestMemBuilder(std::shared_ptr<Endpoint> endpoint,
 
 std::shared_ptr<RequestMem> RequestMemBuilder::build() const
 {
+  markBuilt();
   auto req = ucxx::createRequestMem(
     _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpoint, req);

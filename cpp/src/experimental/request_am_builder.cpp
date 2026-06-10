@@ -25,6 +25,7 @@ RequestAmBuilder::RequestAmBuilder(std::shared_ptr<Endpoint> endpoint,
 
 std::shared_ptr<RequestAm> RequestAmBuilder::build() const
 {
+  markBuilt();
   auto req = ucxx::createRequestAm(
     _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpoint, req);

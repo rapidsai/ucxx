@@ -25,6 +25,7 @@ RequestFlushBuilder::RequestFlushBuilder(std::shared_ptr<Component> endpointOrWo
 
 std::shared_ptr<RequestFlush> RequestFlushBuilder::build() const
 {
+  markBuilt();
   auto req = ucxx::createRequestFlush(
     _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpointOrWorker, req);

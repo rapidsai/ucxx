@@ -26,6 +26,7 @@ RequestTagMultiBuilder::RequestTagMultiBuilder(
 
 std::shared_ptr<RequestTagMulti> RequestTagMultiBuilder::build() const
 {
+  markBuilt();
   auto req = ucxx::createRequestTagMulti(_endpoint, _requestData, _enablePythonFuture);
   detail::registerInflightRequest(_endpoint, req);
   return req;

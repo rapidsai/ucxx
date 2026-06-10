@@ -27,6 +27,7 @@ RequestTagBuilder::RequestTagBuilder(
 
 std::shared_ptr<RequestTag> RequestTagBuilder::build() const
 {
+  markBuilt();
   auto req = ucxx::createRequestTag(
     _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpointOrWorker, req);

@@ -23,6 +23,7 @@ RequestEndpointCloseBuilder::RequestEndpointCloseBuilder(std::shared_ptr<Endpoin
 
 std::shared_ptr<RequestEndpointClose> RequestEndpointCloseBuilder::build() const
 {
+  markBuilt();
   if (_endpoint == nullptr)
     throw ucxx::Error("A valid endpoint is required for a close operation.");
 
