@@ -248,7 +248,10 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
                                          EndpointCloseCallbackUserFunction callbackFunction,
                                          EndpointCloseCallbackUserData callbackData)
 {
-  return closeRequest(_endpointErrorHandling, enablePythonFuture, callbackFunction, callbackData);
+  return closeRequest(_endpointErrorHandling,
+                      enablePythonFuture,
+                      std::move(callbackFunction),
+                      std::move(callbackData));
 }
 
 std::shared_ptr<RequestEndpointClose> Endpoint::closeRequest(
