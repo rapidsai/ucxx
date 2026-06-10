@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <tuple>
 #include <utility>
 
 #include <ucxx/endpoint.h>
