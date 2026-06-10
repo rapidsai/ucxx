@@ -415,9 +415,9 @@ class Endpoint : public Component {
                                         completion.
    * @param[in] callbackData            user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestAmBuilder amSend(
+  [[nodiscard]] std::shared_ptr<Request> amSend(
     const void* const buffer,
     const size_t length,
     const ucs_memory_type_t memoryType,
@@ -440,9 +440,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestAmBuilder amSend(
+  [[nodiscard]] std::shared_ptr<Request> amSend(
     const void* const buffer,
     const size_t length,
     const AmSendParams& params,
@@ -463,9 +463,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestAmBuilder amSend(
+  [[nodiscard]] std::shared_ptr<Request> amSend(
     std::vector<ucp_dt_iov_t> iov,
     const AmSendParams& params,
     const bool enablePythonFuture                = false,
@@ -498,9 +498,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestAmBuilder amRecv(
+  [[nodiscard]] std::shared_ptr<Request> amRecv(
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
@@ -534,9 +534,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestMemBuilder memPut(
+  [[nodiscard]] std::shared_ptr<Request> memPut(
     const void* const buffer,
     size_t length,
     uint64_t remoteAddr,
@@ -576,9 +576,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestMemBuilder memPut(
+  [[nodiscard]] std::shared_ptr<Request> memPut(
     const void* const buffer,
     size_t length,
     std::shared_ptr<ucxx::RemoteKey> remoteKey,
@@ -616,9 +616,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestMemBuilder memGet(
+  [[nodiscard]] std::shared_ptr<Request> memGet(
     void* buffer,
     size_t length,
     uint64_t remoteAddr,
@@ -658,9 +658,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestMemBuilder memGet(
+  [[nodiscard]] std::shared_ptr<Request> memGet(
     void* buffer,
     size_t length,
     std::shared_ptr<ucxx::RemoteKey> remoteKey,
@@ -686,11 +686,11 @@ class Endpoint : public Component {
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestStreamBuilder streamSend(const void* const buffer,
-                                                              size_t length,
-                                                              const bool enablePythonFuture);
+  [[nodiscard]] std::shared_ptr<Request> streamSend(const void* const buffer,
+                                                    size_t length,
+                                                    const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a stream receive operation.
@@ -710,11 +710,11 @@ class Endpoint : public Component {
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestStreamBuilder streamRecv(void* buffer,
-                                                              size_t length,
-                                                              const bool enablePythonFuture);
+  [[nodiscard]] std::shared_ptr<Request> streamRecv(void* buffer,
+                                                    size_t length,
+                                                    const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a tag send operation.
@@ -743,9 +743,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestTagBuilder tagSend(
+  [[nodiscard]] std::shared_ptr<Request> tagSend(
     const void* const buffer,
     size_t length,
     Tag tag,
@@ -782,9 +782,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestTagBuilder tagRecv(
+  [[nodiscard]] std::shared_ptr<Request> tagRecv(
     void* buffer,
     size_t length,
     Tag tag,
@@ -824,14 +824,13 @@ class Endpoint : public Component {
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestTagMultiBuilder tagMultiSend(
-    const std::vector<const void*>& buffer,
-    const std::vector<size_t>& size,
-    const std::vector<int>& isCUDA,
-    const Tag tag,
-    const bool enablePythonFuture);
+  [[nodiscard]] std::shared_ptr<Request> tagMultiSend(const std::vector<const void*>& buffer,
+                                                      const std::vector<size_t>& size,
+                                                      const std::vector<int>& isCUDA,
+                                                      const Tag tag,
+                                                      const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a multi-buffer tag receive operation.
@@ -852,11 +851,11 @@ class Endpoint : public Component {
    * @param[in] enablePythonFuture  whether a python future should be created and
    *                                subsequently notified.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestTagMultiBuilder tagMultiRecv(const Tag tag,
-                                                                  const TagMask tagMask,
-                                                                  const bool enablePythonFuture);
+  [[nodiscard]] std::shared_ptr<Request> tagMultiRecv(const Tag tag,
+                                                      const TagMask tagMask,
+                                                      const bool enablePythonFuture);
 
   /**
    * @brief Enqueue a flush operation.
@@ -883,9 +882,9 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestFlushBuilder flush(
+  [[nodiscard]] std::shared_ptr<Request> flush(
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);

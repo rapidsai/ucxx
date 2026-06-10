@@ -804,9 +804,9 @@ class Worker : public Component {
    * @param[in] callbackFunction  user-defined callback function to call upon completion.
    * @param[in] callbackData      user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestTagBuilder tagRecv(
+  [[nodiscard]] std::shared_ptr<Request> tagRecv(
     void* buffer,
     size_t length,
     Tag tag,
@@ -836,9 +836,9 @@ class Worker : public Component {
    * @param[in] callbackFunction  user-defined callback function to call upon completion.
    * @param[in] callbackData      user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestTagBuilder tagRecvWithHandle(
+  [[nodiscard]] std::shared_ptr<Request> tagRecvWithHandle(
     void* buffer,
     std::shared_ptr<TagProbeInfo> probeInfo,
     const bool enableFuture                      = false,
@@ -1050,9 +1050,9 @@ class Worker : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Builder to set optional parameters and submit the request.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
-  [[nodiscard]] experimental::RequestFlushBuilder flush(
+  [[nodiscard]] std::shared_ptr<Request> flush(
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
