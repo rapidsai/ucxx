@@ -816,6 +816,25 @@ class Worker : public Component {
     RequestCallbackUserData callbackData         = nullptr);
 
   /**
+   * @brief Create a builder for a tag receive operation.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same request-creation path as `tagRecv()`.
+   *
+   * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
+   *                              data will be stored.
+   * @param[in] length            the size in bytes of the message to be received.
+   * @param[in] tag               the tag to match.
+   * @param[in] tagMask           the tag mask to use.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] experimental::RequestTagBuilder tagRecvBuilder(void* buffer,
+                                                               size_t length,
+                                                               Tag tag,
+                                                               TagMask tagMask);
+
+  /**
    * @brief Enqueue a tag receive operation using a message handle.
    *
    * Enqueue a tag receive operation using a message handle obtained from `tagProbe` with
@@ -844,6 +863,21 @@ class Worker : public Component {
     const bool enableFuture                      = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Create a builder for a tag receive operation using a message handle.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same request-creation path as `tagRecvWithHandle()`.
+   *
+   * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
+   *                              data will be stored.
+   * @param[in] probeInfo         the TagProbeInfo object containing message length and handle.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] experimental::RequestTagBuilder tagRecvWithHandleBuilder(
+    void* buffer, std::shared_ptr<TagProbeInfo> probeInfo);
 
   /**
    * @brief Get the address of the UCX worker object.
@@ -1056,6 +1090,16 @@ class Worker : public Component {
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Create a builder for a flush operation.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same request-creation path as `flush()`.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] experimental::RequestFlushBuilder flushBuilder();
 
   /**
    * @brief Worker attributes reported by `ucp_worker_query`.
