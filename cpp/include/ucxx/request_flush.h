@@ -10,6 +10,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
+#include <ucxx/experimental/request_flush_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/typedefs.h>
 
@@ -131,6 +132,3 @@ class RequestFlush : public Request {
 };
 
 }  // namespace ucxx
-
-// Include experimental features
-#include <ucxx/experimental/request_flush_builder.h>

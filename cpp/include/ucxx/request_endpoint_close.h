@@ -10,6 +10,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
+#include <ucxx/experimental/request_endpoint_close_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/typedefs.h>
 
@@ -120,6 +121,3 @@ class RequestEndpointClose : public Request {
 };
 
 }  // namespace ucxx
-
-// Include experimental features
-#include <ucxx/experimental/request_endpoint_close_builder.h>

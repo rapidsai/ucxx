@@ -9,6 +9,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
+#include <ucxx/experimental/request_stream_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/request_data.h>
 #include <ucxx/typedefs.h>
@@ -138,6 +139,3 @@ class RequestStream : public Request {
 };
 
 }  // namespace ucxx
-
-// Include experimental features
-#include <ucxx/experimental/request_stream_builder.h>

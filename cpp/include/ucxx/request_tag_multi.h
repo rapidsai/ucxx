@@ -13,6 +13,7 @@
 
 #include <ucxx/buffer.h>
 #include <ucxx/endpoint.h>
+#include <ucxx/experimental/request_tag_multi_builder.h>
 #include <ucxx/future.h>
 #include <ucxx/request.h>
 
@@ -231,6 +232,3 @@ class RequestTagMulti : public Request {
 typedef std::shared_ptr<RequestTagMulti> RequestTagMultiPtr;
 
 }  // namespace ucxx
-
-// Include experimental features
-#include <ucxx/experimental/request_tag_multi_builder.h>

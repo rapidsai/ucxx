@@ -23,6 +23,7 @@
 #include <ucxx/delayed_submission.h>
 #include <ucxx/experimental/request_flush_builder.h>
 #include <ucxx/experimental/request_tag_builder.h>
+#include <ucxx/experimental/worker_builder.h>
 #include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/notifier.h>
@@ -1109,6 +1110,3 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableFuture);
 
 }  // namespace ucxx
-
-// Include experimental features
-#include <ucxx/experimental/worker_builder.h>
