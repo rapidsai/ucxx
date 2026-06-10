@@ -307,6 +307,77 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
   progressUntilCompleted(flushReq);
 }
 
+TEST(RequestBuilderTraitsTest, AllBuildersAreMoveOnly)
+{
+  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestAmBuilder>::value,
+                "RequestAmBuilder must not be copy constructible");
+  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestAmBuilder>::value,
+                "RequestAmBuilder must not be copy assignable");
+  static_assert(std::is_move_constructible<ucxx::experimental::RequestAmBuilder>::value,
+                "RequestAmBuilder must remain move constructible");
+
+  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestEndpointCloseBuilder>::value,
+                "RequestEndpointCloseBuilder must not be copy constructible");
+  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestEndpointCloseBuilder>::value,
+                "RequestEndpointCloseBuilder must not be copy assignable");
+  static_assert(std::is_move_constructible<ucxx::experimental::RequestEndpointCloseBuilder>::value,
+                "RequestEndpointCloseBuilder must remain move constructible");
+
+  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestFlushBuilder>::value,
+                "RequestFlushBuilder must not be copy constructible");
+  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestFlushBuilder>::value,
+                "RequestFlushBuilder must not be copy assignable");
+  static_assert(std::is_move_constructible<ucxx::experimental::RequestFlushBuilder>::value,
+                "RequestFlushBuilder must remain move constructible");
+
+  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestMemBuilder>::value,
+                "RequestMemBuilder must not be copy constructible");
+  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestMemBuilder>::value,
+                "RequestMemBuilder must not be copy assignable");
+  static_assert(std::is_move_constructible<ucxx::experimental::RequestMemBuilder>::value,
+                "RequestMemBuilder must remain move constructible");
+
+  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestStreamBuilder>::value,
+                "RequestStreamBuilder must not be copy constructible");
+  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestStreamBuilder>::value,
+                "RequestStreamBuilder must not be copy assignable");
+  static_assert(std::is_move_constructible<ucxx::experimental::RequestStreamBuilder>::value,
+                "RequestStreamBuilder must remain move constructible");
+
+  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestTagBuilder>::value,
+                "RequestTagBuilder must not be copy constructible");
+  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestTagBuilder>::value,
+                "RequestTagBuilder must not be copy assignable");
+  static_assert(std::is_move_constructible<ucxx::experimental::RequestTagBuilder>::value,
+                "RequestTagBuilder must remain move constructible");
+
+  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestTagMultiBuilder>::value,
+                "RequestTagMultiBuilder must not be copy constructible");
+  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestTagMultiBuilder>::value,
+                "RequestTagMultiBuilder must not be copy assignable");
+  static_assert(std::is_move_constructible<ucxx::experimental::RequestTagMultiBuilder>::value,
+                "RequestTagMultiBuilder must remain move constructible");
+}
+
+TEST(RequestBuilderSingleUseTest, BuildAttemptMarksBuilderBuilt)
+{
+  auto builder = ucxx::experimental::createRequestFlush(std::shared_ptr<ucxx::Component>{nullptr},
+                                                        ucxx::data::Flush{});
+
+  EXPECT_THROW(std::ignore = builder.build(), ucxx::Error);
+  EXPECT_THROW(std::ignore = builder.build(), std::logic_error);
+}
+
+TEST(RequestBuilderSingleUseTest, ImplicitConversionAttemptMarksBuilderBuilt)
+{
+  auto builder = ucxx::experimental::createRequestFlush(std::shared_ptr<ucxx::Component>{nullptr},
+                                                        ucxx::data::Flush{});
+
+  EXPECT_THROW(std::ignore = static_cast<std::shared_ptr<ucxx::Request>>(builder), ucxx::Error);
+  EXPECT_THROW(std::ignore = static_cast<std::shared_ptr<ucxx::Request>>(builder),
+               std::logic_error);
+}
+
 TEST_F(RequestBuilderTest, EndpointFlushBuilder)
 {
   auto builder = _ep->flush();

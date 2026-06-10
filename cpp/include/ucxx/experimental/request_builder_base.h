@@ -20,6 +20,9 @@ namespace experimental {
  * settings through fluent setters. Construction happens when `build()` is called or when the
  * builder is implicitly converted to a compatible `std::shared_ptr`.
  *
+ * Request builders are move-only and single-use. Calling `build()` or implicitly converting
+ * the same builder object more than once throws `std::logic_error`.
+ *
  * Each request-specific factory function returns the corresponding builder. Required arguments
  * are passed to the factory function, while optional settings such as Python future notification
  * and completion callbacks are configured through method chaining when supported by that request
@@ -53,16 +56,43 @@ class RequestBuilderBase {
   }
 
  public:
+  /** @brief Default constructor. */
+  RequestBuilderBase() = default;
+
+  /** @brief Copy constructor disabled to prevent duplicate request submissions. */
+  RequestBuilderBase(const RequestBuilderBase&) = delete;
+
+  /** @brief Copy assignment disabled to prevent duplicate request submissions. */
+  RequestBuilderBase& operator=(const RequestBuilderBase&) = delete;
+
+  /** @brief Move constructor. */
+  RequestBuilderBase(RequestBuilderBase&&) noexcept = default;
+
+  /** @brief Move assignment operator. */
+  RequestBuilderBase& operator=(RequestBuilderBase&&) = default;
+
   /**
    * @brief Configure Python future support.
    *
    * @param[in] enable whether a Python future should be created and notified (default: true).
    * @return Reference to this builder for method chaining.
    */
-  Derived& pythonFuture(bool enable = true)
+  Derived& pythonFuture(bool enable = true) &
   {
     _enablePythonFuture = enable;
     return static_cast<Derived&>(*this);
+  }
+
+  /**
+   * @brief Configure Python future support on a temporary builder.
+   *
+   * @param[in] enable whether a Python future should be created and notified (default: true).
+   * @return Rvalue reference to this builder for method chaining.
+   */
+  Derived&& pythonFuture(bool enable = true) &&
+  {
+    _enablePythonFuture = enable;
+    return static_cast<Derived&&>(*this);
   }
 };
 
@@ -88,10 +118,22 @@ class RequestCallbackBuilderBase : public RequestBuilderBase<Derived> {
    * @param[in] fn user-defined callback function.
    * @return Reference to this builder for method chaining.
    */
-  Derived& callbackFunction(RequestCallbackUserFunction fn)
+  Derived& callbackFunction(RequestCallbackUserFunction fn) &
   {
     _callbackFunction = std::move(fn);
     return static_cast<Derived&>(*this);
+  }
+
+  /**
+   * @brief Set the user-defined callback function on a temporary builder.
+   *
+   * @param[in] fn user-defined callback function.
+   * @return Rvalue reference to this builder for method chaining.
+   */
+  Derived&& callbackFunction(RequestCallbackUserFunction fn) &&
+  {
+    _callbackFunction = std::move(fn);
+    return static_cast<Derived&&>(*this);
   }
 
   /**
@@ -100,10 +142,22 @@ class RequestCallbackBuilderBase : public RequestBuilderBase<Derived> {
    * @param[in] data user-defined data passed to `callbackFunction`.
    * @return Reference to this builder for method chaining.
    */
-  Derived& callbackData(RequestCallbackUserData data)
+  Derived& callbackData(RequestCallbackUserData data) &
   {
     _callbackData = std::move(data);
     return static_cast<Derived&>(*this);
+  }
+
+  /**
+   * @brief Set the user-defined data to pass to the callback function on a temporary builder.
+   *
+   * @param[in] data user-defined data passed to `callbackFunction`.
+   * @return Rvalue reference to this builder for method chaining.
+   */
+  Derived&& callbackData(RequestCallbackUserData data) &&
+  {
+    _callbackData = std::move(data);
+    return static_cast<Derived&&>(*this);
   }
 };
 
