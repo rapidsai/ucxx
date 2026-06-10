@@ -38,8 +38,7 @@ namespace experimental {
 class RequestEndpointCloseBuilder;
 
 namespace detail {
-void registerInflightRequest(std::shared_ptr<Component> const& component,
-                             std::shared_ptr<Request> const& req);
+void registerInflightRequest(std::shared_ptr<Component> component, std::shared_ptr<Request> req);
 }  // namespace detail
 }  // namespace experimental
 
@@ -174,8 +173,8 @@ class Endpoint : public Component {
   /**
    * @brief Allow request builders to register newly-created requests.
    */
-  friend void experimental::detail::registerInflightRequest(
-    std::shared_ptr<Component> const& component, std::shared_ptr<Request> const& req);
+  friend void experimental::detail::registerInflightRequest(std::shared_ptr<Component> component,
+                                                            std::shared_ptr<Request> req);
 
  public:
   Endpoint()                           = delete;

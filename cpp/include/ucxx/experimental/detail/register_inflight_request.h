@@ -5,7 +5,7 @@
 #pragma once
 
 #include <memory>
-#include <tuple>
+#include <utility>
 
 #include <ucxx/endpoint.h>
 #include <ucxx/request.h>
@@ -19,13 +19,13 @@ namespace experimental {
 
 namespace detail {
 
-inline void registerInflightRequest(std::shared_ptr<Component> const& component,
-                                    std::shared_ptr<Request> const& req)
+inline void registerInflightRequest(std::shared_ptr<Component> component,
+                                    std::shared_ptr<Request> req)
 {
   if (auto ep = std::dynamic_pointer_cast<Endpoint>(component))
-    std::ignore = ep->registerInflightRequest(req);
+    std::ignore = ep->registerInflightRequest(std::move(req));
   else if (auto wk = std::dynamic_pointer_cast<Worker>(component))
-    std::ignore = wk->registerInflightRequest(req);
+    std::ignore = wk->registerInflightRequest(std::move(req));
 }
 
 }  // namespace detail
