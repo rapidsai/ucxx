@@ -33,6 +33,7 @@ from ._lib import libucxx  # noqa: E402
 from .core import *  # noqa: E402, F403
 from .utils import get_address, get_ucxpy_logger  # noqa: E402
 
+from cuda import pathfinder  # noqa: E402
 from cuda.core import system  # noqa: E402
 
 _ucx_version = get_ucx_version()  # noqa: F405
@@ -91,6 +92,7 @@ if "UCX_CUDA_COPY_MAX_REG_RATIO" not in os.environ and _ucx_version >= (1, 12, 0
             logger.info("Setting UCX_CUDA_COPY_MAX_REG_RATIO=1.0")
             os.environ["UCX_CUDA_COPY_MAX_REG_RATIO"] = "1.0"
     except (
+        pathfinder.DynamicLibNotFoundError,
         system.NotFoundError,
         system.DriverNotLoadedError,
         system.UnknownError,
