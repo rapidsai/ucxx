@@ -15,6 +15,12 @@
 #include <ucxx/address.h>
 #include <ucxx/component.h>
 #include <ucxx/exception.h>
+#include <ucxx/experimental/request_am_builder.h>
+#include <ucxx/experimental/request_flush_builder.h>
+#include <ucxx/experimental/request_mem_builder.h>
+#include <ucxx/experimental/request_stream_builder.h>
+#include <ucxx/experimental/request_tag_builder.h>
+#include <ucxx/experimental/request_tag_multi_builder.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/listener.h>
 #include <ucxx/request.h>
@@ -23,6 +29,18 @@
 #include <ucxx/worker.h>
 
 namespace ucxx {
+
+class Component;
+class Request;
+class RequestEndpointClose;
+
+namespace experimental {
+class RequestEndpointCloseBuilder;
+
+namespace detail {
+void registerInflightRequest(std::shared_ptr<Component> component, std::shared_ptr<Request> req);
+}  // namespace detail
+}  // namespace experimental
 
 /**
  * @brief Deleter for a endpoint parameters object.
@@ -105,7 +123,7 @@ class Endpoint : public Component {
    * @brief Register an inflight request.
    *
    * Called each time a new transfer request is made by the `Endpoint`, such that it may
-   * be canceled when necessary. Also schedule requests to be canceled immediately after
+   * be canceled when necessary. Also schedules requests to be canceled immediately after
    * registration if the endpoint error handler has been called with an error.
    *
    * @param[in] request the request to register.
@@ -113,6 +131,27 @@ class Endpoint : public Component {
    * @return the request that was registered (i.e., the `request` argument itself).
    */
   [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
+
+  /**
+   * @brief Create an endpoint close request while preserving endpoint close state.
+   *
+   * Marks the endpoint as closing before creating the close request, combines the per-request
+   * callback with the endpoint close callback, and registers the request as inflight.
+   *
+   * @param[in] force               force endpoint close if `true`, flush otherwise.
+   * @param[in] enablePythonFuture  whether a python future should be created and subsequently
+   *                                notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @return Request to be subsequently checked for the completion and its state, or `nullptr`
+   *         if the endpoint has already closed or is already in process of closing.
+   */
+  [[nodiscard]] std::shared_ptr<RequestEndpointClose> closeRequest(
+    const bool force,
+    const bool enablePythonFuture,
+    EndpointCloseCallbackUserFunction callbackFunction,
+    EndpointCloseCallbackUserData callbackData);
 
   /**
    * @brief The error callback registered at endpoint creation time.
@@ -125,6 +164,17 @@ class Endpoint : public Component {
    * The signature for this method must match `ucp_err_handler_cb_t`.
    */
   friend void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
+
+  /**
+   * @brief Allow the endpoint close builder to preserve endpoint close state.
+   */
+  friend class experimental::RequestEndpointCloseBuilder;
+
+  /**
+   * @brief Allow request builders to register newly-created requests.
+   */
+  friend void experimental::detail::registerInflightRequest(std::shared_ptr<Component> component,
+                                                            std::shared_ptr<Request> req);
 
  public:
   Endpoint()                           = delete;
@@ -448,7 +498,7 @@ class Endpoint : public Component {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion state and data.
+   * @returns Request to be subsequently checked for the completion and its state.
    */
   [[nodiscard]] std::shared_ptr<Request> amRecv(
     const bool enablePythonFuture                = false,

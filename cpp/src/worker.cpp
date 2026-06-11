@@ -19,6 +19,8 @@
 #include <unistd.h>
 
 #include <ucxx/buffer.h>
+#include <ucxx/experimental/request_flush_builder.h>
+#include <ucxx/experimental/request_tag_builder.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_flush.h>
@@ -651,8 +653,8 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
   return registerInflightRequest(createRequestTag(worker,
                                                   data::TagReceive(buffer, length, tag, tagMask),
                                                   enableFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+                                                  std::move(callbackFunction),
+                                                  std::move(callbackData)));
 }
 
 std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
@@ -671,14 +673,11 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
   }
 
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto request =
-    registerInflightRequest(createRequestTag(worker,
-                                             data::TagReceiveWithHandle(buffer, probeInfo),
-                                             enableFuture,
-                                             callbackFunction,
-                                             callbackData));
-
-  return request;
+  return registerInflightRequest(createRequestTag(worker,
+                                                  data::TagReceiveWithHandle(buffer, probeInfo),
+                                                  enableFuture,
+                                                  std::move(callbackFunction),
+                                                  std::move(callbackData)));
 }
 
 std::shared_ptr<Address> Worker::getAddress()
@@ -744,8 +743,8 @@ std::shared_ptr<Request> Worker::flush(const bool enableFuture,
                                        RequestCallbackUserData callbackData)
 {
   auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(
-    createRequestFlush(worker, data::Flush(), enableFuture, callbackFunction, callbackData));
+  return registerInflightRequest(createRequestFlush(
+    worker, data::Flush(), enableFuture, std::move(callbackFunction), std::move(callbackData)));
 }
 
 }  // namespace ucxx
