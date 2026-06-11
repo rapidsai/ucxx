@@ -21,6 +21,9 @@
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/delayed_submission.h>
+#include <ucxx/experimental/request_flush_builder.h>
+#include <ucxx/experimental/request_tag_builder.h>
+#include <ucxx/experimental/worker_builder.h>
 #include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/notifier.h>
@@ -29,8 +32,15 @@
 
 namespace ucxx {
 
+class Component;
+class Request;
+
 namespace experimental {
 class WorkerBuilder;
+
+namespace detail {
+void registerInflightRequest(std::shared_ptr<Component> component, std::shared_ptr<Request> req);
+}  // namespace detail
 }  // namespace experimental
 
 class Address;
@@ -203,6 +213,12 @@ class Worker : public Component {
    * @brief Allow experimental::WorkerBuilder to access protected/private constructor.
    */
   friend class experimental::WorkerBuilder;
+
+  /**
+   * @brief Allow request builders to register newly-created requests.
+   */
+  friend void experimental::detail::registerInflightRequest(std::shared_ptr<Component> component,
+                                                            std::shared_ptr<Request> req);
 
   /**
    * @brief `ucxx::Worker` destructor.
@@ -800,6 +816,25 @@ class Worker : public Component {
     RequestCallbackUserData callbackData         = nullptr);
 
   /**
+   * @brief Create a builder for a tag receive operation.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same request-creation path as `tagRecv()`.
+   *
+   * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
+   *                              data will be stored.
+   * @param[in] length            the size in bytes of the message to be received.
+   * @param[in] tag               the tag to match.
+   * @param[in] tagMask           the tag mask to use.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] experimental::RequestTagBuilder tagRecvBuilder(void* buffer,
+                                                               size_t length,
+                                                               Tag tag,
+                                                               TagMask tagMask);
+
+  /**
    * @brief Enqueue a tag receive operation using a message handle.
    *
    * Enqueue a tag receive operation using a message handle obtained from `tagProbe` with
@@ -828,6 +863,21 @@ class Worker : public Component {
     const bool enableFuture                      = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Create a builder for a tag receive operation using a message handle.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same request-creation path as `tagRecvWithHandle()`.
+   *
+   * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
+   *                              data will be stored.
+   * @param[in] probeInfo         the TagProbeInfo object containing message length and handle.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] experimental::RequestTagBuilder tagRecvWithHandleBuilder(
+    void* buffer, std::shared_ptr<TagProbeInfo> probeInfo);
 
   /**
    * @brief Get the address of the UCX worker object.
@@ -1042,6 +1092,16 @@ class Worker : public Component {
     RequestCallbackUserData callbackData         = nullptr);
 
   /**
+   * @brief Create a builder for a flush operation.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same request-creation path as `flush()`.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] experimental::RequestFlushBuilder flushBuilder();
+
+  /**
    * @brief Worker attributes reported by `ucp_worker_query`.
    */
   struct Attributes {
@@ -1094,6 +1154,3 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                      const bool enableFuture);
 
 }  // namespace ucxx
-
-// Include experimental features
-#include <ucxx/experimental/worker_builder.h>

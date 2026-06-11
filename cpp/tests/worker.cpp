@@ -182,7 +182,8 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
 
   // Send a message
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+  std::shared_ptr<ucxx::Request> send_req =
+    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -211,7 +212,7 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
 
   // Test receiving with the message handle
   std::vector<int> recv_buf(1);
-  auto recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe2);
+  std::shared_ptr<ucxx::Request> recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe2);
 
   // Progress until message is received
   while (!recv_req->isCompleted()) {
@@ -228,7 +229,8 @@ TEST_F(WorkerTest, TagProbeUnconsumedWarning)
 
   // Send a message
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+  std::shared_ptr<ucxx::Request> send_req =
+    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -278,7 +280,8 @@ TEST_F(WorkerTest, TagProbeReleaseHandle)
 
   // Send a message
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+  std::shared_ptr<ucxx::Request> send_req =
+    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -317,7 +320,8 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
 
   // Send a message
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+  std::shared_ptr<ucxx::Request> send_req =
+    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -340,7 +344,7 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
 
     // Actually use the handle via tagRecvWithHandle to consume it properly
     std::vector<int> recv_buf(1);
-    auto recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe);
+    std::shared_ptr<ucxx::Request> recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe);
 
     // Progress until message is received
     while (!recv_req->isCompleted()) {

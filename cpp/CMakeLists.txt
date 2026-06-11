@@ -130,6 +130,13 @@ add_library(
   src/delayed_submission.cpp
   src/endpoint.cpp
   src/experimental/context_builder.cpp
+  src/experimental/request_am_builder.cpp
+  src/experimental/request_endpoint_close_builder.cpp
+  src/experimental/request_flush_builder.cpp
+  src/experimental/request_mem_builder.cpp
+  src/experimental/request_stream_builder.cpp
+  src/experimental/request_tag_builder.cpp
+  src/experimental/request_tag_multi_builder.cpp
   src/experimental/worker_builder.cpp
   src/header.cpp
   src/inflight_requests.cpp
