@@ -80,14 +80,6 @@ Worker::Worker(std::shared_ptr<Context> context,
   setParent(std::dynamic_pointer_cast<Component>(context));
 }
 
-static void _drainCallback(void* request,
-                           ucs_status_t status,
-                           const ucp_tag_recv_info_t* /* info */,
-                           void* /* arg */)
-{
-  *reinterpret_cast<ucs_status_t*>(request) = status;
-}
-
 void Worker::drainWorkerTagRecv()
 {
   auto context = std::dynamic_pointer_cast<Context>(_parent);
@@ -108,17 +100,21 @@ void Worker::drainWorkerTagRecv()
 
     std::vector<char> buf(info.length);
 
-    ucp_request_param_t param = {
-      .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_DATATYPE,
-      .cb           = {.recv = _drainCallback},
-      .datatype     = ucp_dt_make_contig(1)};
+    ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_DATATYPE,
+                                 .datatype     = ucp_dt_make_contig(1)};
 
     ucs_status_ptr_t status =
       ucp_tag_msg_recv_nbx(_handle, buf.data(), info.length, message, &param);
 
-    if (status != nullptr) {
-      while (UCS_PTR_STATUS(status) == UCS_INPROGRESS)
+    if (UCS_PTR_IS_PTR(status)) {
+      while (ucp_request_check_status(status) == UCS_INPROGRESS)
         progress();
+
+      ucp_request_free(status);
+    } else if (UCS_PTR_IS_ERR(status)) {
+      ucxx_debug("ucxx::Worker::%s failed to drain tag receive: %s",
+                 __func__,
+                 ucs_status_string(UCS_PTR_STATUS(status)));
     }
   }
 }
