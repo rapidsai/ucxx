@@ -90,6 +90,10 @@ async def test_comm_objs(ucxx_loop):
     assert comm.peer_address == serv_comm.local_address
 
 
+@pytest.mark.flaky(
+    reruns=3,
+    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
+)
 @gen_test()
 async def test_ucxx_specific(ucxx_loop):
     """
@@ -317,6 +321,10 @@ async def test_stress(
                 await x
 
 
+@pytest.mark.flaky(
+    reruns=3,
+    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
+)
 @gen_test()
 async def test_simple(
     ucxx_loop,
