@@ -59,7 +59,7 @@ class RequestStreamBuilder : public RequestBuilderBase<RequestStreamBuilder> {
    *
    * @return The constructed `shared_ptr<ucxx::RequestStream>` object.
    */
-  std::shared_ptr<RequestStream> build() const;
+  [[nodiscard]] std::shared_ptr<RequestStream> build() const;
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestStream>`.
@@ -83,7 +83,7 @@ class RequestStreamBuilder : public RequestBuilderBase<RequestStreamBuilder> {
  * @param[in] requestData  container of the specified message type (required).
  * @return A RequestStreamBuilder object that can be used to set optional parameters.
  */
-inline RequestStreamBuilder createRequestStream(
+[[nodiscard]] inline RequestStreamBuilder createRequestStream(
   std::shared_ptr<Endpoint> endpoint,
   std::variant<data::StreamSend, data::StreamReceive> requestData)
 {

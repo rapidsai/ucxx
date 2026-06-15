@@ -238,6 +238,7 @@ class Context : public Component {
  * @param[in] featureFlags feature flags to be used at UCP context construction time.
  * @return The `shared_ptr<ucxx::Context>` object.
  */
-std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
+[[nodiscard]] std::shared_ptr<Context> createContext(ConfigMap ucxConfig,
+                                                     const uint64_t featureFlags);
 
 }  // namespace ucxx

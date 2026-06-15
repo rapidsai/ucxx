@@ -63,7 +63,7 @@ class RequestTagBuilder : public RequestCallbackBuilderBase<RequestTagBuilder> {
    *
    * @return The constructed `shared_ptr<ucxx::RequestTag>` object.
    */
-  std::shared_ptr<RequestTag> build() const;
+  [[nodiscard]] std::shared_ptr<RequestTag> build() const;
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestTag>`.
@@ -87,7 +87,7 @@ class RequestTagBuilder : public RequestCallbackBuilderBase<RequestTagBuilder> {
  * @param[in] requestData       container of the specified message type (required).
  * @return A RequestTagBuilder object that can be used to set optional parameters.
  */
-inline RequestTagBuilder createRequestTag(
+[[nodiscard]] inline RequestTagBuilder createRequestTag(
   std::shared_ptr<Component> endpointOrWorker,
   std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData)
 {

@@ -154,7 +154,7 @@ class WorkerBuilder final {
  * @param[in] context context from which the worker will be created (required).
  * @return A WorkerBuilder object that can be used to set optional parameters.
  */
-inline WorkerBuilder createWorker(std::shared_ptr<Context> context)
+[[nodiscard]] inline WorkerBuilder createWorker(std::shared_ptr<Context> context)
 {
   return WorkerBuilder(std::move(context));
 }

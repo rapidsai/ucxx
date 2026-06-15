@@ -119,7 +119,10 @@ class ContextBuilder final {
  * @param[in] featureFlags feature flags to be used at UCP context construction time (required).
  * @return A ContextBuilder object that can be used to set optional parameters.
  */
-inline ContextBuilder createContext(uint64_t featureFlags) { return ContextBuilder(featureFlags); }
+[[nodiscard]] inline ContextBuilder createContext(uint64_t featureFlags)
+{
+  return ContextBuilder(featureFlags);
+}
 
 }  // namespace experimental
 
