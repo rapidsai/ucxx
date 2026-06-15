@@ -24,7 +24,7 @@ RequestTagMultiBuilder::RequestTagMultiBuilder(
 {
 }
 
-std::shared_ptr<RequestTagMulti> RequestTagMultiBuilder::build() const
+std::shared_ptr<RequestTagMulti> RequestTagMultiBuilder::build()
 {
   markBuilt();
   auto req = ucxx::createRequestTagMulti(_endpoint, _requestData, _enablePythonFuture);
@@ -32,9 +32,9 @@ std::shared_ptr<RequestTagMulti> RequestTagMultiBuilder::build() const
   return req;
 }
 
-RequestTagMultiBuilder::operator std::shared_ptr<RequestTagMulti>() const { return build(); }
+RequestTagMultiBuilder::operator std::shared_ptr<RequestTagMulti>() { return build(); }
 
-RequestTagMultiBuilder::operator std::shared_ptr<Request>() const { return build(); }
+RequestTagMultiBuilder::operator std::shared_ptr<Request>() { return build(); }
 
 }  // namespace experimental
 

@@ -1149,8 +1149,8 @@ class Worker : public Component {
  *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
  * @returns The `shared_ptr<ucxx::Worker>` object
  */
-std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedSubmission,
-                                     const bool enableFuture);
+[[nodiscard]] std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
+                                                   const bool enableDelayedSubmission,
+                                                   const bool enableFuture);
 
 }  // namespace ucxx

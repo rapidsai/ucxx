@@ -26,6 +26,9 @@ namespace experimental {
  * The feature flags are required and must be provided to `createContext()`.
  * The `configMap()` method is optional.
  *
+ * `ContextBuilder` objects are not thread-safe. Accessing the same builder object from multiple
+ * threads requires external synchronization. Distinct builder objects are independent.
+ *
  * @code{.cpp}
  *   // Minimal usage (only featureFlags required)
  *   auto ctx = ucxx::experimental::createContext(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP).build();
@@ -70,7 +73,7 @@ class ContextBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Context>` object.
    */
-  operator std::shared_ptr<Context>() const;
+  operator std::shared_ptr<Context>();
 
   /**
    * @brief Set the configuration map for the context.
@@ -88,7 +91,7 @@ class ContextBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Context>` object.
    */
-  [[nodiscard]] std::shared_ptr<Context> build() const;
+  [[nodiscard]] std::shared_ptr<Context> build();
 
  private:
   struct Impl;
@@ -119,7 +122,10 @@ class ContextBuilder final {
  * @param[in] featureFlags feature flags to be used at UCP context construction time (required).
  * @return A ContextBuilder object that can be used to set optional parameters.
  */
-inline ContextBuilder createContext(uint64_t featureFlags) { return ContextBuilder(featureFlags); }
+[[nodiscard]] inline ContextBuilder createContext(uint64_t featureFlags)
+{
+  return ContextBuilder(featureFlags);
+}
 
 }  // namespace experimental
 

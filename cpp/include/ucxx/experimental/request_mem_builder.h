@@ -60,21 +60,21 @@ class RequestMemBuilder : public RequestCallbackBuilderBase<RequestMemBuilder> {
    *
    * @return The constructed `shared_ptr<ucxx::RequestMem>` object.
    */
-  std::shared_ptr<RequestMem> build() const;
+  [[nodiscard]] std::shared_ptr<RequestMem> build();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestMem>`.
    *
    * @return The constructed `shared_ptr<ucxx::RequestMem>` object.
    */
-  operator std::shared_ptr<RequestMem>() const;
+  operator std::shared_ptr<RequestMem>();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Request>`.
    *
    * @return The constructed request as `shared_ptr<ucxx::Request>`.
    */
-  operator std::shared_ptr<Request>() const;
+  operator std::shared_ptr<Request>();
 };
 
 /**
@@ -84,8 +84,8 @@ class RequestMemBuilder : public RequestCallbackBuilderBase<RequestMemBuilder> {
  * @param[in] requestData  container of the specified message type (required).
  * @return A RequestMemBuilder object that can be used to set optional parameters.
  */
-inline RequestMemBuilder createRequestMem(std::shared_ptr<Endpoint> endpoint,
-                                          std::variant<data::MemPut, data::MemGet> requestData)
+[[nodiscard]] inline RequestMemBuilder createRequestMem(
+  std::shared_ptr<Endpoint> endpoint, std::variant<data::MemPut, data::MemGet> requestData)
 {
   return RequestMemBuilder(std::move(endpoint), std::move(requestData));
 }

@@ -25,7 +25,7 @@ RequestTagBuilder::RequestTagBuilder(
 {
 }
 
-std::shared_ptr<RequestTag> RequestTagBuilder::build() const
+std::shared_ptr<RequestTag> RequestTagBuilder::build()
 {
   markBuilt();
   auto req = ucxx::createRequestTag(
@@ -34,9 +34,9 @@ std::shared_ptr<RequestTag> RequestTagBuilder::build() const
   return req;
 }
 
-RequestTagBuilder::operator std::shared_ptr<RequestTag>() const { return build(); }
+RequestTagBuilder::operator std::shared_ptr<RequestTag>() { return build(); }
 
-RequestTagBuilder::operator std::shared_ptr<Request>() const { return build(); }
+RequestTagBuilder::operator std::shared_ptr<Request>() { return build(); }
 
 }  // namespace experimental
 

@@ -60,21 +60,21 @@ class RequestTagMultiBuilder : public RequestBuilderBase<RequestTagMultiBuilder>
    *
    * @return The constructed `shared_ptr<ucxx::RequestTagMulti>` object.
    */
-  std::shared_ptr<RequestTagMulti> build() const;
+  [[nodiscard]] std::shared_ptr<RequestTagMulti> build();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestTagMulti>`.
    *
    * @return The constructed `shared_ptr<ucxx::RequestTagMulti>` object.
    */
-  operator std::shared_ptr<RequestTagMulti>() const;
+  operator std::shared_ptr<RequestTagMulti>();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Request>`.
    *
    * @return The constructed request as `shared_ptr<ucxx::Request>`.
    */
-  operator std::shared_ptr<Request>() const;
+  operator std::shared_ptr<Request>();
 };
 
 /**
@@ -85,7 +85,7 @@ class RequestTagMultiBuilder : public RequestBuilderBase<RequestTagMultiBuilder>
  * @param[in] requestData  container of the specified message type (required).
  * @return A RequestTagMultiBuilder object that can be used to set optional parameters.
  */
-inline RequestTagMultiBuilder createRequestTagMulti(
+[[nodiscard]] inline RequestTagMultiBuilder createRequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
   std::variant<data::TagMultiSend, data::TagMultiReceive> requestData)
 {

@@ -817,6 +817,20 @@ TEST(WorkerBuilderTest, BuilderAutoTypes)
     ucxx::experimental::createWorker(context).delayedSubmission(true).pythonFuture(true);
   static_assert(std::is_same<decltype(builder2), ucxx::experimental::WorkerBuilder>::value,
                 "auto with config methods but without .build() is WorkerBuilder");
+  static_assert(std::is_invocable_r<std::shared_ptr<ucxx::Worker>,
+                                    decltype(&ucxx::experimental::WorkerBuilder::build),
+                                    ucxx::experimental::WorkerBuilder&>::value,
+                "Non-const WorkerBuilder can call build() to produce shared_ptr<Worker>");
+  static_assert(!std::is_invocable_r<std::shared_ptr<ucxx::Worker>,
+                                     decltype(&ucxx::experimental::WorkerBuilder::build),
+                                     const ucxx::experimental::WorkerBuilder&>::value,
+                "Const WorkerBuilder cannot call build() to produce shared_ptr<Worker>");
+  static_assert(
+    std::is_convertible<ucxx::experimental::WorkerBuilder&, std::shared_ptr<ucxx::Worker>>::value,
+    "Non-const WorkerBuilder can implicitly convert to shared_ptr<Worker>");
+  static_assert(!std::is_convertible<const ucxx::experimental::WorkerBuilder&,
+                                     std::shared_ptr<ucxx::Worker>>::value,
+                "Const WorkerBuilder cannot implicitly convert to shared_ptr<Worker>");
 
   auto worker1 = builder1.build();
   static_assert(std::is_same<decltype(worker1), std::shared_ptr<ucxx::Worker>>::value,

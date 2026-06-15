@@ -28,7 +28,7 @@ RequestAmBuilder::RequestAmBuilder(std::shared_ptr<Endpoint> endpoint,
 RequestAmBuilder& RequestAmBuilder::receiverCallbackInfo(
   std::optional<AmReceiverCallbackInfo> info) &
 {
-  const auto* amSend = std::get_if<data::AmSend>(&_requestData);
+  auto* amSend = std::get_if<data::AmSend>(&_requestData);
   if (amSend == nullptr)
     throw std::logic_error("receiverCallbackInfo() is only valid for active message sends");
 
@@ -57,7 +57,7 @@ RequestAmBuilder&& RequestAmBuilder::receiverCallbackInfo(
   return std::move(*this);
 }
 
-std::shared_ptr<RequestAm> RequestAmBuilder::build() const
+std::shared_ptr<RequestAm> RequestAmBuilder::build()
 {
   markBuilt();
   auto req = ucxx::createRequestAm(
@@ -66,9 +66,9 @@ std::shared_ptr<RequestAm> RequestAmBuilder::build() const
   return req;
 }
 
-RequestAmBuilder::operator std::shared_ptr<RequestAm>() const { return build(); }
+RequestAmBuilder::operator std::shared_ptr<RequestAm>() { return build(); }
 
-RequestAmBuilder::operator std::shared_ptr<Request>() const { return build(); }
+RequestAmBuilder::operator std::shared_ptr<Request>() { return build(); }
 
 }  // namespace experimental
 

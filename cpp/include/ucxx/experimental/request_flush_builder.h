@@ -59,21 +59,21 @@ class RequestFlushBuilder : public RequestCallbackBuilderBase<RequestFlushBuilde
    *
    * @return The constructed `shared_ptr<ucxx::RequestFlush>` object.
    */
-  std::shared_ptr<RequestFlush> build() const;
+  [[nodiscard]] std::shared_ptr<RequestFlush> build();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestFlush>`.
    *
    * @return The constructed `shared_ptr<ucxx::RequestFlush>` object.
    */
-  operator std::shared_ptr<RequestFlush>() const;
+  operator std::shared_ptr<RequestFlush>();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Request>`.
    *
    * @return The constructed request as `shared_ptr<ucxx::Request>`.
    */
-  operator std::shared_ptr<Request>() const;
+  operator std::shared_ptr<Request>();
 };
 
 /**
@@ -83,8 +83,8 @@ class RequestFlushBuilder : public RequestCallbackBuilderBase<RequestFlushBuilde
  * @param[in] requestData       container of the flush request data (required).
  * @return A RequestFlushBuilder object that can be used to set optional parameters.
  */
-inline RequestFlushBuilder createRequestFlush(std::shared_ptr<Component> endpointOrWorker,
-                                              data::Flush requestData)
+[[nodiscard]] inline RequestFlushBuilder createRequestFlush(
+  std::shared_ptr<Component> endpointOrWorker, data::Flush requestData)
 {
   return RequestFlushBuilder(std::move(endpointOrWorker), std::move(requestData));
 }
