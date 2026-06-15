@@ -27,6 +27,9 @@ namespace experimental {
  * The `context` is required and must be provided to `createWorker()`.
  * The `enableDelayedSubmission()` and `enableFuture()` methods are optional.
  *
+ * `WorkerBuilder` objects are not thread-safe. Accessing the same builder object from multiple
+ * threads requires external synchronization. Distinct builder objects are independent.
+ *
  * @code{.cpp}
  *   // Minimal usage (no options enabled)
  *   auto worker = ucxx::experimental::createWorker(context).build();

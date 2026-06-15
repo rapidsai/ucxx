@@ -25,6 +25,9 @@ namespace experimental {
  * before request validation or construction completes; if that first attempt throws, retrying
  * the same builder still throws `std::logic_error`.
  *
+ * Request builder objects are not thread-safe. Accessing the same builder object from multiple
+ * threads requires external synchronization. Distinct builder objects are independent.
+ *
  * Each request-specific factory function returns the corresponding builder. Required arguments
  * are passed to the factory function, while optional settings such as Python future notification
  * and completion callbacks are configured through method chaining when supported by that request

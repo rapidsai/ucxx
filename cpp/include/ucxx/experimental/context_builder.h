@@ -26,6 +26,9 @@ namespace experimental {
  * The feature flags are required and must be provided to `createContext()`.
  * The `configMap()` method is optional.
  *
+ * `ContextBuilder` objects are not thread-safe. Accessing the same builder object from multiple
+ * threads requires external synchronization. Distinct builder objects are independent.
+ *
  * @code{.cpp}
  *   // Minimal usage (only featureFlags required)
  *   auto ctx = ucxx::experimental::createContext(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP).build();
