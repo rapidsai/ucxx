@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -47,8 +48,11 @@ typedef void* ProgressThreadStartCallbackArg;
  */
 class WorkerProgressThread {
  private:
-  std::thread _thread{};                                       ///< Thread object
-  std::shared_ptr<bool> _stop{std::make_shared<bool>(false)};  ///< Signal to stop on next iteration
+  std::thread _thread{};  ///< Thread object
+  std::shared_ptr<std::atomic_bool> _stop{
+    std::make_shared<std::atomic_bool>(false)};  ///< Signal to stop on next iteration
+  std::shared_ptr<std::atomic_bool> _finished{
+    std::make_shared<std::atomic_bool>(false)};  ///< Whether the thread function has returned
   bool _pollingMode{false};  ///< Whether thread will use polling mode to progress
   SignalWorkerFunction _signalWorkerFunction{
     nullptr};  ///< Function signaling worker to wake the progress event (when _pollingMode is
@@ -71,6 +75,8 @@ class WorkerProgressThread {
    * @param[in] progressFunction            user-defined progress function implementation.
    * @param[in] stop                        reference to the stop signal causing the
    *                                        progress loop to terminate.
+   * @param[in] finished                    reference to the signal set when the thread function
+   *                                        returns.
    * @param[in] setThreadId                 callback function executed before the
    *                                        `startCallback` with a purpose of setting the
    *                                        thread ID with the parent so it is known before
@@ -83,7 +89,8 @@ class WorkerProgressThread {
    */
   static void progressUntilSync(
     std::function<bool(void)> progressFunction,
-    std::shared_ptr<bool> stop,
+    std::shared_ptr<std::atomic_bool> stop,
+    std::shared_ptr<std::atomic_bool> finished,
     std::function<void(void)> setThreadId,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,
