@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -155,6 +156,20 @@ TEST(ContextBuilderTest, BuilderAutoTypes)
   auto builder2 = ucxx::experimental::createContext(UCP_FEATURE_TAG).configMap({{"TLS", "tcp"}});
   static_assert(std::is_same<decltype(builder2), ucxx::experimental::ContextBuilder>::value,
                 "auto with .configMap() but without .build() is ContextBuilder");
+  static_assert(std::is_invocable_r<std::shared_ptr<ucxx::Context>,
+                                    decltype(&ucxx::experimental::ContextBuilder::build),
+                                    ucxx::experimental::ContextBuilder&>::value,
+                "Non-const ContextBuilder can call build() to produce shared_ptr<Context>");
+  static_assert(!std::is_invocable_r<std::shared_ptr<ucxx::Context>,
+                                     decltype(&ucxx::experimental::ContextBuilder::build),
+                                     const ucxx::experimental::ContextBuilder&>::value,
+                "Const ContextBuilder cannot call build() to produce shared_ptr<Context>");
+  static_assert(
+    std::is_convertible<ucxx::experimental::ContextBuilder&, std::shared_ptr<ucxx::Context>>::value,
+    "Non-const ContextBuilder can implicitly convert to shared_ptr<Context>");
+  static_assert(!std::is_convertible<const ucxx::experimental::ContextBuilder&,
+                                     std::shared_ptr<ucxx::Context>>::value,
+                "Const ContextBuilder cannot implicitly convert to shared_ptr<Context>");
 
   auto context1 = builder1.build();
   static_assert(std::is_same<decltype(context1), std::shared_ptr<ucxx::Context>>::value,

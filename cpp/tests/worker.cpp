@@ -182,7 +182,8 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
 
   // Send a message
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+  std::shared_ptr<ucxx::Request> send_req =
+    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -211,7 +212,7 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
 
   // Test receiving with the message handle
   std::vector<int> recv_buf(1);
-  auto recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe2);
+  std::shared_ptr<ucxx::Request> recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe2);
 
   // Progress until message is received
   while (!recv_req->isCompleted()) {
@@ -228,7 +229,8 @@ TEST_F(WorkerTest, TagProbeUnconsumedWarning)
 
   // Send a message
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+  std::shared_ptr<ucxx::Request> send_req =
+    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -278,7 +280,8 @@ TEST_F(WorkerTest, TagProbeReleaseHandle)
 
   // Send a message
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+  std::shared_ptr<ucxx::Request> send_req =
+    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -317,7 +320,8 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
 
   // Send a message
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+  std::shared_ptr<ucxx::Request> send_req =
+    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -340,7 +344,7 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
 
     // Actually use the handle via tagRecvWithHandle to consume it properly
     std::vector<int> recv_buf(1);
-    auto recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe);
+    std::shared_ptr<ucxx::Request> recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe);
 
     // Progress until message is received
     while (!recv_req->isCompleted()) {
@@ -813,6 +817,20 @@ TEST(WorkerBuilderTest, BuilderAutoTypes)
     ucxx::experimental::createWorker(context).delayedSubmission(true).pythonFuture(true);
   static_assert(std::is_same<decltype(builder2), ucxx::experimental::WorkerBuilder>::value,
                 "auto with config methods but without .build() is WorkerBuilder");
+  static_assert(std::is_invocable_r<std::shared_ptr<ucxx::Worker>,
+                                    decltype(&ucxx::experimental::WorkerBuilder::build),
+                                    ucxx::experimental::WorkerBuilder&>::value,
+                "Non-const WorkerBuilder can call build() to produce shared_ptr<Worker>");
+  static_assert(!std::is_invocable_r<std::shared_ptr<ucxx::Worker>,
+                                     decltype(&ucxx::experimental::WorkerBuilder::build),
+                                     const ucxx::experimental::WorkerBuilder&>::value,
+                "Const WorkerBuilder cannot call build() to produce shared_ptr<Worker>");
+  static_assert(
+    std::is_convertible<ucxx::experimental::WorkerBuilder&, std::shared_ptr<ucxx::Worker>>::value,
+    "Non-const WorkerBuilder can implicitly convert to shared_ptr<Worker>");
+  static_assert(!std::is_convertible<const ucxx::experimental::WorkerBuilder&,
+                                     std::shared_ptr<ucxx::Worker>>::value,
+                "Const WorkerBuilder cannot implicitly convert to shared_ptr<Worker>");
 
   auto worker1 = builder1.build();
   static_assert(std::is_same<decltype(worker1), std::shared_ptr<ucxx::Worker>>::value,

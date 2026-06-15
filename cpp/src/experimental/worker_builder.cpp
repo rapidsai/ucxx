@@ -54,7 +54,7 @@ WorkerBuilder& WorkerBuilder::cudaBufferType(BufferType bufferType)
   return *this;
 }
 
-std::shared_ptr<Worker> WorkerBuilder::build() const
+std::shared_ptr<Worker> WorkerBuilder::build()
 {
   auto worker =
     ucxx::createWorker(_impl->context, _impl->enableDelayedSubmission, _impl->enableFuture);

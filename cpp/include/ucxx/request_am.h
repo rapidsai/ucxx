@@ -12,6 +12,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
+#include <ucxx/experimental/request_am_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/typedefs.h>
 

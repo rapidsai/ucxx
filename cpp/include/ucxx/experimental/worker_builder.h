@@ -27,6 +27,9 @@ namespace experimental {
  * The `context` is required and must be provided to `createWorker()`.
  * The `enableDelayedSubmission()` and `enableFuture()` methods are optional.
  *
+ * `WorkerBuilder` objects are not thread-safe. Accessing the same builder object from multiple
+ * threads requires external synchronization. Distinct builder objects are independent.
+ *
  * @code{.cpp}
  *   // Minimal usage (no options enabled)
  *   auto worker = ucxx::experimental::createWorker(context).build();
@@ -72,7 +75,7 @@ class WorkerBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Worker>` object.
    */
-  operator std::shared_ptr<Worker>() const;
+  operator std::shared_ptr<Worker>();
 
   /**
    * @brief Configure delayed submission to the progress thread.
@@ -119,7 +122,7 @@ class WorkerBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Worker>` object.
    */
-  [[nodiscard]] std::shared_ptr<Worker> build() const;
+  [[nodiscard]] std::shared_ptr<Worker> build();
 
  private:
   struct Impl;
@@ -154,7 +157,7 @@ class WorkerBuilder final {
  * @param[in] context context from which the worker will be created (required).
  * @return A WorkerBuilder object that can be used to set optional parameters.
  */
-inline WorkerBuilder createWorker(std::shared_ptr<Context> context)
+[[nodiscard]] inline WorkerBuilder createWorker(std::shared_ptr<Context> context)
 {
   return WorkerBuilder(std::move(context));
 }

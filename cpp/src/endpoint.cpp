@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <ucp/api/ucp_compat.h>
 #include <ucs/type/status.h>
 #include <utility>
@@ -16,6 +17,12 @@
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/exception.h>
+#include <ucxx/experimental/request_am_builder.h>
+#include <ucxx/experimental/request_flush_builder.h>
+#include <ucxx/experimental/request_mem_builder.h>
+#include <ucxx/experimental/request_stream_builder.h>
+#include <ucxx/experimental/request_tag_builder.h>
+#include <ucxx/experimental/request_tag_multi_builder.h>
 #include <ucxx/listener.h>
 #include <ucxx/remote_key.h>
 #include <ucxx/request_am.h>
@@ -241,10 +248,21 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
                                          EndpointCloseCallbackUserFunction callbackFunction,
                                          EndpointCloseCallbackUserData callbackData)
 {
+  return closeRequest(_endpointErrorHandling,
+                      enablePythonFuture,
+                      std::move(callbackFunction),
+                      std::move(callbackData));
+}
+
+std::shared_ptr<RequestEndpointClose> Endpoint::closeRequest(
+  const bool force,
+  const bool enablePythonFuture,
+  EndpointCloseCallbackUserFunction callbackFunction,
+  EndpointCloseCallbackUserData callbackData)
+{
   if (_closing.exchange(true) || _handle == nullptr) return nullptr;
 
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  bool force    = _endpointErrorHandling;
 
   auto combineCallbacksFunction = [this, callbackFunction, callbackData](
                                     ucs_status_t status,
@@ -261,8 +279,10 @@ std::shared_ptr<Request> Endpoint::close(const bool enablePythonFuture,
     }
   };
 
-  return registerInflightRequest(createRequestEndpointClose(
-    endpoint, data::EndpointClose(force), enablePythonFuture, combineCallbacksFunction, nullptr));
+  auto req = createRequestEndpointClose(
+    endpoint, data::EndpointClose(force), enablePythonFuture, combineCallbacksFunction, nullptr);
+  std::ignore = registerInflightRequest(req);
+  return req;
 }
 
 void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
@@ -470,7 +490,12 @@ std::shared_ptr<Request> Endpoint::amSend(
   params.memoryType           = memoryType;
   params.receiverCallbackInfo = receiverCallbackInfo;
 
-  return amSend(buffer, length, params, enablePythonFuture, callbackFunction, callbackData);
+  return amSend(buffer,
+                length,
+                params,
+                enablePythonFuture,
+                std::move(callbackFunction),
+                std::move(callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::amSend(const void* const buffer,
@@ -484,8 +509,8 @@ std::shared_ptr<Request> Endpoint::amSend(const void* const buffer,
   return registerInflightRequest(createRequestAm(endpoint,
                                                  data::AmSend(buffer, length, params),
                                                  enablePythonFuture,
-                                                 callbackFunction,
-                                                 callbackData));
+                                                 std::move(callbackFunction),
+                                                 std::move(callbackData)));
 }
 
 std::shared_ptr<Request> Endpoint::amSend(std::vector<ucp_dt_iov_t> iov,
@@ -498,8 +523,8 @@ std::shared_ptr<Request> Endpoint::amSend(std::vector<ucp_dt_iov_t> iov,
   return registerInflightRequest(createRequestAm(endpoint,
                                                  data::AmSend(std::move(iov), params),
                                                  enablePythonFuture,
-                                                 callbackFunction,
-                                                 callbackData));
+                                                 std::move(callbackFunction),
+                                                 std::move(callbackData)));
 }
 
 std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,
@@ -507,8 +532,11 @@ std::shared_ptr<Request> Endpoint::amRecv(const bool enablePythonFuture,
                                           RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestAm(
-    endpoint, data::AmReceive(), enablePythonFuture, callbackFunction, callbackData));
+  return registerInflightRequest(createRequestAm(endpoint,
+                                                 data::AmReceive(),
+                                                 enablePythonFuture,
+                                                 std::move(callbackFunction),
+                                                 std::move(callbackData)));
 }
 
 std::shared_ptr<Request> Endpoint::memGet(void* buffer,
@@ -523,8 +551,8 @@ std::shared_ptr<Request> Endpoint::memGet(void* buffer,
   return registerInflightRequest(createRequestMem(endpoint,
                                                   data::MemGet(buffer, length, remoteAddr, rkey),
                                                   enablePythonFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+                                                  std::move(callbackFunction),
+                                                  std::move(callbackData)));
 }
 
 std::shared_ptr<Request> Endpoint::memGet(void* buffer,
@@ -535,14 +563,13 @@ std::shared_ptr<Request> Endpoint::memGet(void* buffer,
                                           RequestCallbackUserFunction callbackFunction,
                                           RequestCallbackUserData callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestMem(
-    endpoint,
-    data::MemGet(
-      buffer, length, remoteKey->getBaseAddress() + remoteAddressOffset, remoteKey->getHandle()),
-    enablePythonFuture,
-    callbackFunction,
-    callbackData));
+  return memGet(buffer,
+                length,
+                remoteKey->getBaseAddress() + remoteAddressOffset,
+                remoteKey->getHandle(),
+                enablePythonFuture,
+                std::move(callbackFunction),
+                std::move(callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::memPut(const void* const buffer,
@@ -557,8 +584,8 @@ std::shared_ptr<Request> Endpoint::memPut(const void* const buffer,
   return registerInflightRequest(createRequestMem(endpoint,
                                                   data::MemPut(buffer, length, remoteAddr, rkey),
                                                   enablePythonFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+                                                  std::move(callbackFunction),
+                                                  std::move(callbackData)));
 }
 
 std::shared_ptr<Request> Endpoint::memPut(const void* const buffer,
@@ -569,14 +596,13 @@ std::shared_ptr<Request> Endpoint::memPut(const void* const buffer,
                                           RequestCallbackUserFunction callbackFunction,
                                           RequestCallbackUserData callbackData)
 {
-  auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestMem(
-    endpoint,
-    data::MemPut(
-      buffer, length, remoteKey->getBaseAddress() + remoteAddressOffset, remoteKey->getHandle()),
-    enablePythonFuture,
-    callbackFunction,
-    callbackData));
+  return memPut(buffer,
+                length,
+                remoteKey->getBaseAddress() + remoteAddressOffset,
+                remoteKey->getHandle(),
+                enablePythonFuture,
+                std::move(callbackFunction),
+                std::move(callbackData));
 }
 
 std::shared_ptr<Request> Endpoint::streamSend(const void* const buffer,
@@ -608,8 +634,8 @@ std::shared_ptr<Request> Endpoint::tagSend(const void* const buffer,
   return registerInflightRequest(createRequestTag(endpoint,
                                                   data::TagSend(buffer, length, tag),
                                                   enablePythonFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+                                                  std::move(callbackFunction),
+                                                  std::move(callbackData)));
 }
 
 std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
@@ -624,8 +650,8 @@ std::shared_ptr<Request> Endpoint::tagRecv(void* buffer,
   return registerInflightRequest(createRequestTag(endpoint,
                                                   data::TagReceive(buffer, length, tag, tagMask),
                                                   enablePythonFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+                                                  std::move(callbackFunction),
+                                                  std::move(callbackData)));
 }
 
 std::shared_ptr<Request> Endpoint::tagMultiSend(const std::vector<const void*>& buffer,
@@ -653,8 +679,11 @@ std::shared_ptr<Request> Endpoint::flush(const bool enablePythonFuture,
                                          RequestCallbackUserData callbackData)
 {
   auto endpoint = std::dynamic_pointer_cast<Endpoint>(shared_from_this());
-  return registerInflightRequest(createRequestFlush(
-    endpoint, data::Flush(), enablePythonFuture, callbackFunction, callbackData));
+  return registerInflightRequest(createRequestFlush(endpoint,
+                                                    data::Flush(),
+                                                    enablePythonFuture,
+                                                    std::move(callbackFunction),
+                                                    std::move(callbackData)));
 }
 
 std::shared_ptr<Worker> Endpoint::getWorker() { return ::ucxx::getWorker(_parent); }

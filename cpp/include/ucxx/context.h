@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -14,6 +14,7 @@
 #include <ucxx/component.h>
 #include <ucxx/config.h>
 #include <ucxx/constructors.h>
+#include <ucxx/experimental/context_builder.h>
 
 namespace ucxx {
 
@@ -237,9 +238,7 @@ class Context : public Component {
  * @param[in] featureFlags feature flags to be used at UCP context construction time.
  * @return The `shared_ptr<ucxx::Context>` object.
  */
-std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
+[[nodiscard]] std::shared_ptr<Context> createContext(ConfigMap ucxConfig,
+                                                     const uint64_t featureFlags);
 
 }  // namespace ucxx
-
-// Include experimental features
-#include <ucxx/experimental/context_builder.h>

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -148,7 +148,8 @@ TEST_P(ListenerTest, IsAlive)
   ASSERT_TRUE(ep->isAlive());
 
   std::vector<int> buf{123};
-  auto send_req = ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+  std::shared_ptr<ucxx::Request> send_req =
+    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
   while (!send_req->isCompleted())
     _worker->progress();
 
