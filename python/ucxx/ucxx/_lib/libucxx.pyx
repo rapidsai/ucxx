@@ -947,17 +947,29 @@ cdef class UCXRequest():
         self._enable_python_future = enable_python_future
         self._completed = False
 
-    def __dealloc__(self) -> None:
-        with nogil:
-            self._request.get().cancel()
-            self._request.reset()
-
-    @property
-    def ucxx_ptr(self) -> int:
+    cdef Request* _request_ptr(self) except NULL:
         cdef Request* request
 
         with nogil:
             request = self._request.get()
+
+        if request == nullptr:
+            raise RuntimeError("UCXRequest does not hold a valid request")
+
+        return request
+
+    def __dealloc__(self) -> None:
+        cdef Request* request
+
+        with nogil:
+            request = self._request.get()
+            if request != nullptr:
+                request.cancel()
+            self._request.reset()
+
+    @property
+    def ucxx_ptr(self) -> int:
+        cdef Request* request = self._request_ptr()
 
         return int(<uintptr_t>request)
 
@@ -967,30 +979,34 @@ cdef class UCXRequest():
     @property
     def completed(self) -> bool:
         cdef bint completed
+        cdef Request* request
 
         if self._completed is True:
             return True
 
+        request = self._request_ptr()
         with nogil:
-            completed = self._request.get().isCompleted()
+            completed = request.isCompleted()
 
         return completed
 
     @property
     def status(self) -> ucs_status_t:
         cdef ucs_status_t status
+        cdef Request* request = self._request_ptr()
 
         with nogil:
-            status = self._request.get().getStatus()
+            status = request.getStatus()
 
         return status
 
     @property
     def future(self) -> object:
         cdef PyObject* future_ptr
+        cdef Request* request = self._request_ptr()
 
         with nogil:
-            future_ptr = <PyObject*>self._request.get().getFuture()
+            future_ptr = <PyObject*>request.getFuture()
 
         return <object>future_ptr
 
@@ -998,9 +1014,10 @@ cdef class UCXRequest():
     def recv_buffer(self) -> object:
         cdef shared_ptr[Buffer] buf
         cdef BufferType bufType
+        cdef Request* request = self._request_ptr()
 
         with nogil:
-            buf = self._request.get().getRecvBuffer()
+            buf = request.getRecvBuffer()
             bufType = buf.get().getType() if buf != nullptr else BufferType.Invalid
 
         # If buf == NULL, it's not allocated by the request but rather the user
@@ -1012,8 +1029,10 @@ cdef class UCXRequest():
             return _get_host_buffer(<uintptr_t><void*>buf.get())
 
     def check_error(self) -> None:
+        cdef Request* request = self._request_ptr()
+
         with nogil:
-            self._request.get().checkError()
+            request.checkError()
 
     async def wait_yield(self) -> None:
         while True:
@@ -1331,13 +1350,16 @@ cdef class UCXEndpoint():
 
         return alive
 
-    def close(self) -> None:
+    def close(self) -> Optional[UCXRequest]:
         cdef shared_ptr[Request] req
 
         with nogil:
             req = self._endpoint.get().close(
                 self._enable_python_future
             )
+
+        if req.get() == nullptr:
+            return None
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
