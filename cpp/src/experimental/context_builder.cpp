@@ -32,7 +32,7 @@ ContextBuilder& ContextBuilder::configMap(ConfigMap configMap)
   return *this;
 }
 
-std::shared_ptr<Context> ContextBuilder::build() const
+std::shared_ptr<Context> ContextBuilder::build()
 {
   return ucxx::createContext(_impl->configMap, _impl->featureFlags);
 }

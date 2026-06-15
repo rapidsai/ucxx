@@ -24,7 +24,7 @@ RequestStreamBuilder::RequestStreamBuilder(
 {
 }
 
-std::shared_ptr<RequestStream> RequestStreamBuilder::build() const
+std::shared_ptr<RequestStream> RequestStreamBuilder::build()
 {
   markBuilt();
   auto req = ucxx::createRequestStream(_endpoint, _requestData, _enablePythonFuture);
@@ -32,9 +32,9 @@ std::shared_ptr<RequestStream> RequestStreamBuilder::build() const
   return req;
 }
 
-RequestStreamBuilder::operator std::shared_ptr<RequestStream>() const { return build(); }
+RequestStreamBuilder::operator std::shared_ptr<RequestStream>() { return build(); }
 
-RequestStreamBuilder::operator std::shared_ptr<Request>() const { return build(); }
+RequestStreamBuilder::operator std::shared_ptr<Request>() { return build(); }
 
 }  // namespace experimental
 

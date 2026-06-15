@@ -23,7 +23,7 @@ RequestFlushBuilder::RequestFlushBuilder(std::shared_ptr<Component> endpointOrWo
 {
 }
 
-std::shared_ptr<RequestFlush> RequestFlushBuilder::build() const
+std::shared_ptr<RequestFlush> RequestFlushBuilder::build()
 {
   markBuilt();
   auto req = ucxx::createRequestFlush(
@@ -32,9 +32,9 @@ std::shared_ptr<RequestFlush> RequestFlushBuilder::build() const
   return req;
 }
 
-RequestFlushBuilder::operator std::shared_ptr<RequestFlush>() const { return build(); }
+RequestFlushBuilder::operator std::shared_ptr<RequestFlush>() { return build(); }
 
-RequestFlushBuilder::operator std::shared_ptr<Request>() const { return build(); }
+RequestFlushBuilder::operator std::shared_ptr<Request>() { return build(); }
 
 }  // namespace experimental
 

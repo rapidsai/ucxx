@@ -60,21 +60,21 @@ class RequestTagMultiBuilder : public RequestBuilderBase<RequestTagMultiBuilder>
    *
    * @return The constructed `shared_ptr<ucxx::RequestTagMulti>` object.
    */
-  [[nodiscard]] std::shared_ptr<RequestTagMulti> build() const;
+  [[nodiscard]] std::shared_ptr<RequestTagMulti> build();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestTagMulti>`.
    *
    * @return The constructed `shared_ptr<ucxx::RequestTagMulti>` object.
    */
-  operator std::shared_ptr<RequestTagMulti>() const;
+  operator std::shared_ptr<RequestTagMulti>();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Request>`.
    *
    * @return The constructed request as `shared_ptr<ucxx::Request>`.
    */
-  operator std::shared_ptr<Request>() const;
+  operator std::shared_ptr<Request>();
 };
 
 /**

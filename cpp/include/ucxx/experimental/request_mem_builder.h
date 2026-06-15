@@ -60,21 +60,21 @@ class RequestMemBuilder : public RequestCallbackBuilderBase<RequestMemBuilder> {
    *
    * @return The constructed `shared_ptr<ucxx::RequestMem>` object.
    */
-  [[nodiscard]] std::shared_ptr<RequestMem> build() const;
+  [[nodiscard]] std::shared_ptr<RequestMem> build();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestMem>`.
    *
    * @return The constructed `shared_ptr<ucxx::RequestMem>` object.
    */
-  operator std::shared_ptr<RequestMem>() const;
+  operator std::shared_ptr<RequestMem>();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Request>`.
    *
    * @return The constructed request as `shared_ptr<ucxx::Request>`.
    */
-  operator std::shared_ptr<Request>() const;
+  operator std::shared_ptr<Request>();
 };
 
 /**

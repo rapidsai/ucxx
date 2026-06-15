@@ -42,14 +42,14 @@ template <typename Derived>
 class RequestBuilderBase {
  protected:
   bool _enablePythonFuture{false};  ///< Enable Python future support
-  mutable bool _built{false};       ///< Whether build() has already been called
+  bool _built{false};               ///< Whether build() has already been called
 
   /**
    * @brief Assert that build() has not been called yet, then mark as built.
    *
    * @throws std::logic_error if build() has already been called on this builder.
    */
-  void markBuilt() const
+  void markBuilt()
   {
     if (_built) throw std::logic_error("Builder::build() called more than once");
     _built = true;

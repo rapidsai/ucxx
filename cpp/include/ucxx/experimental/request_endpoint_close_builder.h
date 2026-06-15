@@ -61,7 +61,7 @@ class RequestEndpointCloseBuilder : public RequestCallbackBuilderBase<RequestEnd
    * @return The constructed `shared_ptr<ucxx::RequestEndpointClose>` object, or `nullptr`
    *         if the endpoint has already closed or is already in process of closing.
    */
-  [[nodiscard]] std::shared_ptr<RequestEndpointClose> build() const;
+  [[nodiscard]] std::shared_ptr<RequestEndpointClose> build();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestEndpointClose>`.
@@ -69,7 +69,7 @@ class RequestEndpointCloseBuilder : public RequestCallbackBuilderBase<RequestEnd
    * @return The constructed `shared_ptr<ucxx::RequestEndpointClose>` object, or `nullptr`
    *         if the endpoint has already closed or is already in process of closing.
    */
-  operator std::shared_ptr<RequestEndpointClose>() const;
+  operator std::shared_ptr<RequestEndpointClose>();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Request>`.
@@ -77,7 +77,7 @@ class RequestEndpointCloseBuilder : public RequestCallbackBuilderBase<RequestEnd
    * @return The constructed request as `shared_ptr<ucxx::Request>`, or `nullptr`
    *         if the endpoint has already closed or is already in process of closing.
    */
-  operator std::shared_ptr<Request>() const;
+  operator std::shared_ptr<Request>();
 };
 
 /**

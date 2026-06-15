@@ -60,21 +60,21 @@ class RequestAmBuilder : public RequestCallbackBuilderBase<RequestAmBuilder> {
    *
    * @return The constructed `shared_ptr<ucxx::RequestAm>` object.
    */
-  [[nodiscard]] std::shared_ptr<RequestAm> build() const;
+  [[nodiscard]] std::shared_ptr<RequestAm> build();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestAm>`.
    *
    * @return The constructed `shared_ptr<ucxx::RequestAm>` object.
    */
-  operator std::shared_ptr<RequestAm>() const;
+  operator std::shared_ptr<RequestAm>();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Request>`.
    *
    * @return The constructed request as `shared_ptr<ucxx::Request>`.
    */
-  operator std::shared_ptr<Request>() const;
+  operator std::shared_ptr<Request>();
 };
 
 /**

@@ -23,7 +23,7 @@ RequestAmBuilder::RequestAmBuilder(std::shared_ptr<Endpoint> endpoint,
 {
 }
 
-std::shared_ptr<RequestAm> RequestAmBuilder::build() const
+std::shared_ptr<RequestAm> RequestAmBuilder::build()
 {
   markBuilt();
   auto req = ucxx::createRequestAm(
@@ -32,9 +32,9 @@ std::shared_ptr<RequestAm> RequestAmBuilder::build() const
   return req;
 }
 
-RequestAmBuilder::operator std::shared_ptr<RequestAm>() const { return build(); }
+RequestAmBuilder::operator std::shared_ptr<RequestAm>() { return build(); }
 
-RequestAmBuilder::operator std::shared_ptr<Request>() const { return build(); }
+RequestAmBuilder::operator std::shared_ptr<Request>() { return build(); }
 
 }  // namespace experimental
 

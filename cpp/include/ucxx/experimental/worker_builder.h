@@ -72,7 +72,7 @@ class WorkerBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Worker>` object.
    */
-  operator std::shared_ptr<Worker>() const;
+  operator std::shared_ptr<Worker>();
 
   /**
    * @brief Configure delayed submission to the progress thread.
@@ -119,7 +119,7 @@ class WorkerBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Worker>` object.
    */
-  [[nodiscard]] std::shared_ptr<Worker> build() const;
+  [[nodiscard]] std::shared_ptr<Worker> build();
 
  private:
   struct Impl;

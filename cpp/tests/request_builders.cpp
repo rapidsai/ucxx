@@ -43,6 +43,28 @@ class RequestBuilderTest : public ::testing::Test {
   }
 };
 
+template <typename BuilderType, typename TargetType>
+void assertBuildRequiresNonConstBuilder()
+{
+  static_assert(std::is_invocable_r<std::shared_ptr<TargetType>,
+                                    decltype(&BuilderType::build),
+                                    BuilderType&>::value,
+                "Non-const builder can call build() to produce target shared_ptr");
+  static_assert(!std::is_invocable_r<std::shared_ptr<TargetType>,
+                                     decltype(&BuilderType::build),
+                                     const BuilderType&>::value,
+                "Const builder cannot call build() to produce target shared_ptr");
+}
+
+template <typename BuilderType, typename TargetType>
+void assertConversionRequiresNonConstBuilder()
+{
+  static_assert(std::is_convertible<BuilderType&, std::shared_ptr<TargetType>>::value,
+                "Non-const builder can implicitly convert to target shared_ptr");
+  static_assert(!std::is_convertible<const BuilderType&, std::shared_ptr<TargetType>>::value,
+                "Const builder cannot implicitly convert to target shared_ptr");
+}
+
 TEST_F(RequestBuilderTest, FlushBuilderBasicWorker)
 {
   auto req = ucxx::experimental::createRequestFlush(_worker, ucxx::data::Flush{}).build();
@@ -358,6 +380,49 @@ TEST(RequestBuilderTraitsTest, AllBuildersAreMoveOnly)
                 "RequestTagMultiBuilder must not be copy assignable");
   static_assert(std::is_move_constructible<ucxx::experimental::RequestTagMultiBuilder>::value,
                 "RequestTagMultiBuilder must remain move constructible");
+}
+
+TEST(RequestBuilderTraitsTest, BuildAndConversionRequireNonConstBuilders)
+{
+  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestAmBuilder, ucxx::RequestAm>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestAmBuilder, ucxx::RequestAm>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestAmBuilder, ucxx::Request>();
+
+  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestEndpointCloseBuilder,
+                                     ucxx::RequestEndpointClose>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestEndpointCloseBuilder,
+                                          ucxx::RequestEndpointClose>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestEndpointCloseBuilder,
+                                          ucxx::Request>();
+
+  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestFlushBuilder, ucxx::RequestFlush>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestFlushBuilder,
+                                          ucxx::RequestFlush>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestFlushBuilder, ucxx::Request>();
+
+  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestMemBuilder, ucxx::RequestMem>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestMemBuilder,
+                                          ucxx::RequestMem>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestMemBuilder, ucxx::Request>();
+
+  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestStreamBuilder,
+                                     ucxx::RequestStream>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestStreamBuilder,
+                                          ucxx::RequestStream>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestStreamBuilder,
+                                          ucxx::Request>();
+
+  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestTagBuilder, ucxx::RequestTag>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestTagBuilder,
+                                          ucxx::RequestTag>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestTagBuilder, ucxx::Request>();
+
+  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestTagMultiBuilder,
+                                     ucxx::RequestTagMulti>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestTagMultiBuilder,
+                                          ucxx::RequestTagMulti>();
+  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestTagMultiBuilder,
+                                          ucxx::Request>();
 }
 
 TEST(RequestBuilderSingleUseTest, BuildAttemptMarksBuilderBuilt)

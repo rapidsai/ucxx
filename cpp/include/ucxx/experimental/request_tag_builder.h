@@ -63,21 +63,21 @@ class RequestTagBuilder : public RequestCallbackBuilderBase<RequestTagBuilder> {
    *
    * @return The constructed `shared_ptr<ucxx::RequestTag>` object.
    */
-  [[nodiscard]] std::shared_ptr<RequestTag> build() const;
+  [[nodiscard]] std::shared_ptr<RequestTag> build();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<RequestTag>`.
    *
    * @return The constructed `shared_ptr<ucxx::RequestTag>` object.
    */
-  operator std::shared_ptr<RequestTag>() const;
+  operator std::shared_ptr<RequestTag>();
 
   /**
    * @brief Implicit conversion operator to `shared_ptr<Request>`.
    *
    * @return The constructed request as `shared_ptr<ucxx::Request>`.
    */
-  operator std::shared_ptr<Request>() const;
+  operator std::shared_ptr<Request>();
 };
 
 /**

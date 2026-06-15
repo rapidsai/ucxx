@@ -21,7 +21,7 @@ RequestEndpointCloseBuilder::RequestEndpointCloseBuilder(std::shared_ptr<Endpoin
 {
 }
 
-std::shared_ptr<RequestEndpointClose> RequestEndpointCloseBuilder::build() const
+std::shared_ptr<RequestEndpointClose> RequestEndpointCloseBuilder::build()
 {
   markBuilt();
   if (_endpoint == nullptr)
@@ -31,12 +31,9 @@ std::shared_ptr<RequestEndpointClose> RequestEndpointCloseBuilder::build() const
     _requestData._force, _enablePythonFuture, _callbackFunction, _callbackData);
 }
 
-RequestEndpointCloseBuilder::operator std::shared_ptr<RequestEndpointClose>() const
-{
-  return build();
-}
+RequestEndpointCloseBuilder::operator std::shared_ptr<RequestEndpointClose>() { return build(); }
 
-RequestEndpointCloseBuilder::operator std::shared_ptr<Request>() const { return build(); }
+RequestEndpointCloseBuilder::operator std::shared_ptr<Request>() { return build(); }
 
 }  // namespace experimental
 

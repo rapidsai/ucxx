@@ -28,4 +28,4 @@
     if (this != &other) _impl = std::make_unique<Impl>(*other._impl);       \
     return *this;                                                           \
   }                                                                         \
-  BuilderClass::operator std::shared_ptr<TargetClass>() const { return build(); }
+  BuilderClass::operator std::shared_ptr<TargetClass>() { return build(); }

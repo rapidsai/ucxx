@@ -70,7 +70,7 @@ class ContextBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Context>` object.
    */
-  operator std::shared_ptr<Context>() const;
+  operator std::shared_ptr<Context>();
 
   /**
    * @brief Set the configuration map for the context.
@@ -88,7 +88,7 @@ class ContextBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Context>` object.
    */
-  [[nodiscard]] std::shared_ptr<Context> build() const;
+  [[nodiscard]] std::shared_ptr<Context> build();
 
  private:
   struct Impl;
