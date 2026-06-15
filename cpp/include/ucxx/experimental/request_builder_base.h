@@ -21,7 +21,9 @@ namespace experimental {
  * builder is implicitly converted to a compatible `std::shared_ptr`.
  *
  * Request builders are move-only and single-use. Calling `build()` or implicitly converting
- * the same builder object more than once throws `std::logic_error`.
+ * the same builder object more than once throws `std::logic_error`. The builder is consumed
+ * before request validation or construction completes; if that first attempt throws, retrying
+ * the same builder still throws `std::logic_error`.
  *
  * Each request-specific factory function returns the corresponding builder. Required arguments
  * are passed to the factory function, while optional settings such as Python future notification
@@ -46,6 +48,9 @@ class RequestBuilderBase {
 
   /**
    * @brief Assert that build() has not been called yet, then mark as built.
+   *
+   * Builders are marked before request validation or construction completes, so a failed
+   * first build attempt still consumes the builder.
    *
    * @throws std::logic_error if build() has already been called on this builder.
    */
