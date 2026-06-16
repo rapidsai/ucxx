@@ -662,7 +662,7 @@ experimental::RequestTagBuilder Worker::tagRecvBuilder(void* buffer,
                                                        Tag tag,
                                                        TagMask tagMask)
 {
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return experimental::RequestTagBuilder(std::move(worker),
                                          data::TagReceive(buffer, length, tag, tagMask));
 }
@@ -702,7 +702,7 @@ experimental::RequestTagBuilder Worker::tagRecvWithHandleBuilder(
     throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
   }
 
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return experimental::RequestTagBuilder(std::move(worker),
                                          data::TagReceiveWithHandle(buffer, probeInfo));
 }
@@ -776,7 +776,7 @@ std::shared_ptr<Request> Worker::flush(const bool enableFuture,
 
 experimental::RequestFlushBuilder Worker::flushBuilder()
 {
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return experimental::RequestFlushBuilder(std::move(worker), data::Flush());
 }
 
