@@ -90,10 +90,6 @@ async def test_comm_objs(ucxx_loop):
     assert comm.peer_address == serv_comm.local_address
 
 
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_ucxx_specific(ucxx_loop):
     """
@@ -269,10 +265,6 @@ async def test_ping_pong_numba(ucxx_loop):
 
 @pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.parametrize("processes", [True, False])
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes):
     async with LocalCluster(
@@ -321,10 +313,6 @@ async def test_stress(
                 await x
 
 
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_simple(
     ucxx_loop,
@@ -373,10 +361,6 @@ async def test_cuda_context(
                     )
 
 
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_transpose(
     ucxx_loop,
@@ -431,10 +415,6 @@ async def test_comm_closed_on_read_error():
     assert writer.closed()
 
 
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_embedded_cupy_array(
     ucxx_loop,

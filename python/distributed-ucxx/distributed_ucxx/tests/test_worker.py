@@ -12,10 +12,6 @@ from distributed_ucxx.utils_test import gen_test
 
 @pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.parametrize("Worker", [Worker, Nanny])
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_protocol_from_scheduler_address(ucxx_loop, protocol, Worker):
     async with Scheduler(protocol=protocol, dashboard_address=":0") as s:
