@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import gc
+import inspect
 import logging
 import weakref
 
@@ -11,15 +12,23 @@ from ucxx._lib_async import listener as listener_mod
 
 
 class _ActiveClients:
+    def __init__(self, on_dec=None):
+        self._on_dec = on_dec
+
     def inc(self, ident):
         pass
 
     def dec(self, ident):
+        if self._on_dec is not None:
+            self._on_dec()
         pass
 
 
 class _ConnectionRequest:
     handle = 1
+
+    def raise_on_error(self):
+        raise RuntimeError("connection reset by remote peer")
 
 
 class _Context:
@@ -39,6 +48,10 @@ class _LogCaptureHandler(logging.Handler):
 
     def emit(self, record):
         self.records.append(record)
+
+
+class _MessageTruncatedError(Exception):
+    pass
 
 
 @pytest.mark.asyncio
@@ -119,3 +132,42 @@ async def test_listener_handler_exception_log_does_not_retain_context(
         assert ctx_ref() is None
     finally:
         listener_mod.logger.removeHandler(log_handler)
+
+
+@pytest.mark.asyncio
+async def test_listener_handler_clears_context_before_final_decrement(monkeypatch):
+    async def fail_peer_info_exchange(*args, **kwargs):
+        raise _MessageTruncatedError("message truncated")
+
+    def check_listener_frame():
+        frame = inspect.currentframe()
+        assert frame is not None
+        listener_frame = frame.f_back.f_back
+        assert listener_frame.f_code.co_name == "_listener_handler_coroutine"
+
+        listener_locals = listener_frame.f_locals
+        assert listener_locals["ctx"] is None
+        assert listener_locals["endpoint"] is None
+        assert listener_locals["conn_request"] is None
+        assert listener_locals["ep"] is None
+
+    monkeypatch.setattr(
+        listener_mod,
+        "UCXMessageTruncatedError",
+        _MessageTruncatedError,
+    )
+    monkeypatch.setattr(
+        listener_mod,
+        "exchange_peer_info",
+        fail_peer_info_exchange,
+    )
+
+    await listener_mod._listener_handler_coroutine(
+        conn_request=_ConnectionRequest(),
+        ctx=_Context(),
+        func=lambda ep: None,
+        endpoint_error_handling=True,
+        connect_timeout=1,
+        ident=1,
+        active_clients=_ActiveClients(on_dec=check_listener_frame),
+    )

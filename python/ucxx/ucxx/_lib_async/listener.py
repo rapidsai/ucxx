@@ -160,6 +160,7 @@ async def _listener_handler_coroutine(
     #  4) Setup control receive callback
     #  5) Execute the listener's callback function
     active_clients.inc(ident)
+    endpoint = None
     ep = None
     try:
         endpoint = conn_request
@@ -197,9 +198,6 @@ async def _listener_handler_coroutine(
             )
         )
 
-        # Removing references here to avoid delayed clean up
-        del ctx
-
         # Finally, we call `func`
         if inspect.iscoroutinefunction(func):
             try:
@@ -211,8 +209,11 @@ async def _listener_handler_coroutine(
     except Exception:
         _log_exception("Unexpected error in listener handler coroutine")
     finally:
+        ctx = None
+        endpoint = None
+        conn_request = None
+        ep = None
         active_clients.dec(ident)
-        del ep
 
 
 def _listener_handler(
