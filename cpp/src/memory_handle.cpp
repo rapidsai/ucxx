@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -59,7 +59,7 @@ MemoryHandle::MemoryHandle(std::shared_ptr<Context> context,
 
 MemoryHandle::~MemoryHandle()
 {
-  ucp_mem_unmap(std::dynamic_pointer_cast<Context>(getParent())->getHandle(), _handle);
+  ucp_mem_unmap(std::static_pointer_cast<Context>(getParent())->getHandle(), _handle);
   ucxx_trace(
     "ucxx::MemoryHandle destroyed: %p, UCP handle: %p, base address: 0x%lx, size: %lu, type: %d",
     this,
@@ -88,7 +88,7 @@ ucs_memory_type_t MemoryHandle::getMemoryType() { return _memoryType; }
 std::shared_ptr<RemoteKey> MemoryHandle::createRemoteKey()
 {
   return createRemoteKeyFromMemoryHandle(
-    std::dynamic_pointer_cast<MemoryHandle>(shared_from_this()));
+    std::static_pointer_cast<MemoryHandle>(shared_from_this()));
 }
 
 }  // namespace ucxx

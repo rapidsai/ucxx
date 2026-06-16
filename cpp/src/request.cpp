@@ -201,7 +201,7 @@ void Request::setStatus(ucs_status_t status)
   {
     std::lock_guard<std::recursive_mutex> lock(_mutex);
 
-    auto requestPtr = std::dynamic_pointer_cast<Request>(shared_from_this());
+    auto requestPtr = std::static_pointer_cast<Request>(shared_from_this());
     if (_endpoint != nullptr) _endpoint->removeInflightRequest(requestPtr);
     _worker->removeInflightRequest(requestPtr);
 

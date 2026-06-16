@@ -77,7 +77,7 @@ Worker::Worker(std::shared_ptr<Context> context,
     enableDelayedSubmission,
     _enableFuture);
 
-  setParent(std::dynamic_pointer_cast<Component>(context));
+  setParent(context);
 }
 
 static void _drainCallback(void* request,
@@ -90,7 +90,7 @@ static void _drainCallback(void* request,
 
 void Worker::drainWorkerTagRecv()
 {
-  auto context = std::dynamic_pointer_cast<Context>(_parent);
+  auto context = std::static_pointer_cast<Context>(_parent);
   if (!(context->getFeatureFlags() & UCP_FEATURE_TAG)) return;
 
   ucp_tag_message_h message;
@@ -649,7 +649,7 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                          RequestCallbackUserFunction callbackFunction,
                                          RequestCallbackUserData callbackData)
 {
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return registerInflightRequest(createRequestTag(worker,
                                                   data::TagReceive(buffer, length, tag, tagMask),
                                                   enableFuture,
@@ -682,7 +682,7 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
     throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
   }
 
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return registerInflightRequest(createRequestTag(worker,
                                                   data::TagReceiveWithHandle(buffer, probeInfo),
                                                   enableFuture,
@@ -709,7 +709,7 @@ experimental::RequestTagBuilder Worker::tagRecvWithHandleBuilder(
 
 std::shared_ptr<Address> Worker::getAddress()
 {
-  auto worker  = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker  = std::static_pointer_cast<Worker>(shared_from_this());
   auto address = ucxx::createAddressFromWorker(worker);
   return address;
 }
@@ -718,7 +718,7 @@ std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ipAddre
                                                              uint16_t port,
                                                              bool endpointErrorHandling)
 {
-  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker   = std::static_pointer_cast<Worker>(shared_from_this());
   auto endpoint = ucxx::createEndpointFromHostname(worker, ipAddress, port, endpointErrorHandling);
   return endpoint;
 }
@@ -726,7 +726,7 @@ std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ipAddre
 std::shared_ptr<Endpoint> Worker::createEndpointFromWorkerAddress(std::shared_ptr<Address> address,
                                                                   bool endpointErrorHandling)
 {
-  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker   = std::static_pointer_cast<Worker>(shared_from_this());
   auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, endpointErrorHandling);
   return endpoint;
 }
@@ -735,7 +735,7 @@ std::shared_ptr<Listener> Worker::createListener(uint16_t port,
                                                  ucp_listener_conn_callback_t callback,
                                                  void* callbackArgs)
 {
-  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker   = std::static_pointer_cast<Worker>(shared_from_this());
   auto listener = ucxx::createListener(worker, port, callback, callbackArgs);
   return listener;
 }
@@ -769,7 +769,7 @@ std::shared_ptr<Request> Worker::flush(const bool enableFuture,
                                        RequestCallbackUserFunction callbackFunction,
                                        RequestCallbackUserData callbackData)
 {
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return registerInflightRequest(createRequestFlush(
     worker, data::Flush(), enableFuture, std::move(callbackFunction), std::move(callbackData)));
 }

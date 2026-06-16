@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -97,7 +97,7 @@ bool Context::hasCudaSupport() const { return _cudaSupport; }
 std::shared_ptr<Worker> Context::createWorker(const bool enableDelayedSubmission,
                                               const bool enableFuture)
 {
-  auto context = std::dynamic_pointer_cast<Context>(shared_from_this());
+  auto context = std::static_pointer_cast<Context>(shared_from_this());
   auto worker  = ucxx::createWorker(context, enableDelayedSubmission, enableFuture);
   return worker;
 }
@@ -106,7 +106,7 @@ std::shared_ptr<MemoryHandle> Context::createMemoryHandle(const size_t size,
                                                           void* buffer,
                                                           const ucs_memory_type_t memoryType)
 {
-  auto context = std::dynamic_pointer_cast<Context>(shared_from_this());
+  auto context = std::static_pointer_cast<Context>(shared_from_this());
   return ucxx::createMemoryHandle(context, size, buffer, memoryType);
 }
 
