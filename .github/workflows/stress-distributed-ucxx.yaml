@@ -1,0 +1,133 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: stress-distributed-ucxx
+
+on:
+  push:
+    branches:
+      - "distributed-ucxx-remove-flaky-marks"
+      - "pull-request/[0-9]+"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  conda-cpp-build:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@cuda-13.3.0
+    with:
+      build_type: ${{ startsWith(github.ref_name, 'pull-request/') && 'pull-request' || 'branch' }}
+      node_type: cpu8
+      script: ci/build_cpp.sh
+
+  conda-python-build:
+    needs: conda-cpp-build
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@cuda-13.3.0
+    with:
+      build_type: ${{ startsWith(github.ref_name, 'pull-request/') && 'pull-request' || 'branch' }}
+      script: ci/build_python.sh
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
+
+  conda-python-distributed-tests:
+    needs: [conda-cpp-build, conda-python-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        stress_run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-13.3.0
+    with:
+      build_type: ${{ startsWith(github.ref_name, 'pull-request/') && 'pull-request' || 'branch' }}
+      script: ci/test_python_distributed.sh
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+
+  wheel-build-libucxx:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@cuda-13.3.0
+    with:
+      build_type: ${{ startsWith(github.ref_name, 'pull-request/') && 'pull-request' || 'branch' }}
+      node_type: cpu8
+      script: ci/build_wheel_libucxx.sh
+      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      package-name: libucxx
+      package-type: cpp
+
+  wheel-build-ucxx:
+    needs: wheel-build-libucxx
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@cuda-13.3.0
+    with:
+      build_type: ${{ startsWith(github.ref_name, 'pull-request/') && 'pull-request' || 'branch' }}
+      node_type: cpu8
+      script: ci/build_wheel_ucxx.sh
+      package-name: ucxx
+      package-type: python
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
+
+  wheel-build-distributed-ucxx:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@cuda-13.3.0
+    with:
+      build_type: ${{ startsWith(github.ref_name, 'pull-request/') && 'pull-request' || 'branch' }}
+      node_type: cpu8
+      script: ci/build_wheel_distributed_ucxx.sh
+      package-name: distributed_ucxx
+      package-type: python
+      pure-wheel: true
+
+  wheel-tests-distributed-ucxx:
+    needs: [wheel-build-ucxx, wheel-build-distributed-ucxx]
+    strategy:
+      fail-fast: false
+      matrix:
+        stress_run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@cuda-13.3.0
+    with:
+      build_type: ${{ startsWith(github.ref_name, 'pull-request/') && 'pull-request' || 'branch' }}
+      script: ci/test_wheel_distributed_ucxx.sh
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
