@@ -1,9 +1,10 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -47,8 +48,9 @@ typedef void* ProgressThreadStartCallbackArg;
  */
 class WorkerProgressThread {
  private:
-  std::thread _thread{};                                       ///< Thread object
-  std::shared_ptr<bool> _stop{std::make_shared<bool>(false)};  ///< Signal to stop on next iteration
+  std::thread _thread{};  ///< Thread object
+  std::shared_ptr<std::atomic<bool>> _stop{
+    std::make_shared<std::atomic<bool>>(false)};  ///< Signal to stop on next iteration
   bool _pollingMode{false};  ///< Whether thread will use polling mode to progress
   SignalWorkerFunction _signalWorkerFunction{
     nullptr};  ///< Function signaling worker to wake the progress event (when _pollingMode is
@@ -83,7 +85,7 @@ class WorkerProgressThread {
    */
   static void progressUntilSync(
     std::function<bool(void)> progressFunction,
-    std::shared_ptr<bool> stop,
+    std::shared_ptr<std::atomic<bool>> stop,
     std::function<void(void)> setThreadId,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,

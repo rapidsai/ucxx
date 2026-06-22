@@ -2,8 +2,12 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -107,6 +111,47 @@ class WorkerGenericCallbackTest : public WorkerProgressTest {};
 class WorkerGenericCallbackSingleTest : public WorkerProgressTest {};
 
 TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr); }
+
+TEST_F(WorkerTest, StopProgressThreadDuringStartCallback)
+{
+  std::mutex m;
+  std::condition_variable cv;
+  bool startCallbackEntered{false};
+  bool releaseStartCallback{false};
+
+  _worker->setProgressThreadStartCallback(
+    [&](void*) {
+      std::unique_lock<std::mutex> lock(m);
+      startCallbackEntered = true;
+      cv.notify_all();
+      cv.wait(lock, [&]() { return releaseStartCallback; });
+    },
+    nullptr);
+
+  _worker->startProgressThread(false);
+
+  {
+    std::unique_lock<std::mutex> lock(m);
+    ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(1), [&]() { return startCallbackEntered; }));
+  }
+
+  std::thread stopThread([&]() { _worker->stopProgressThread(); });
+
+  // The current implementation waits three seconds for the pre callback and
+  // another three seconds for the post callback. Releasing after both timed out
+  // reproduces the path where the stop flag was never set by the progress
+  // thread itself.
+  std::this_thread::sleep_for(std::chrono::milliseconds(6500));
+
+  {
+    std::lock_guard<std::mutex> lock(m);
+    releaseStartCallback = true;
+  }
+  cv.notify_all();
+
+  stopThread.join();
+  EXPECT_FALSE(_worker->isProgressThreadRunning());
+}
 
 TEST_F(WorkerTest, QueryAttributes)
 {
