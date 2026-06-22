@@ -1,9 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
+#include <atomic>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -46,9 +48,33 @@ typedef void* ProgressThreadStartCallbackArg;
  * the program to block until that stage is reached.
  */
 class WorkerProgressThread {
+ public:
+  /**
+   * @brief Progress thread stop synchronization configuration.
+   */
+  struct StopConfig {
+    uint64_t callbackTimeoutNs;  ///< Maximum time to wait for each stop callback.
+    uint64_t signalIntervalNs;   ///< Interval for waking the worker while waiting.
+
+    /**
+     * @brief Create stop synchronization configuration.
+     *
+     * @param[in] callbackTimeoutNs maximum time in nanoseconds to wait for each stop callback.
+     * @param[in] signalIntervalNs interval in nanoseconds for waking the worker while waiting.
+     *                             A value of 0 disables periodic wakeups: the worker is signaled
+     *                             once before each wait and not again until the wait returns.
+     */
+    explicit StopConfig(uint64_t callbackTimeoutNs = 3000000000,
+                        uint64_t signalIntervalNs  = 100000000)
+      : callbackTimeoutNs(callbackTimeoutNs), signalIntervalNs(signalIntervalNs)
+    {
+    }
+  };
+
  private:
-  std::thread _thread{};                                       ///< Thread object
-  std::shared_ptr<bool> _stop{std::make_shared<bool>(false)};  ///< Signal to stop on next iteration
+  std::thread _thread{};  ///< Thread object
+  std::shared_ptr<std::atomic<bool>> _stop{
+    std::make_shared<std::atomic<bool>>(false)};  ///< Signal to stop on next iteration
   bool _pollingMode{false};  ///< Whether thread will use polling mode to progress
   SignalWorkerFunction _signalWorkerFunction{
     nullptr};  ///< Function signaling worker to wake the progress event (when _pollingMode is
@@ -83,7 +109,7 @@ class WorkerProgressThread {
    */
   static void progressUntilSync(
     std::function<bool(void)> progressFunction,
-    std::shared_ptr<bool> stop,
+    std::shared_ptr<std::atomic<bool>> stop,
     std::function<void(void)> setThreadId,
     ProgressThreadStartCallback startCallback,
     ProgressThreadStartCallbackArg startCallbackArg,
@@ -192,8 +218,10 @@ class WorkerProgressThread {
    * @brief Stop the progress thread.
    *
    * Raises the stop signal and joins the thread.
+   *
+   * @param[in] stopConfig  progress thread stop synchronization configuration.
    */
-  void stop();
+  void stop(StopConfig stopConfig = StopConfig{});
 };
 
 }  // namespace ucxx

@@ -2,8 +2,12 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -11,6 +15,8 @@
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
+#include <ucxx/delayed_submission.h>
+#include <ucxx/worker_progress_thread.h>
 
 #include <type_traits>
 
@@ -107,6 +113,56 @@ class WorkerGenericCallbackTest : public WorkerProgressTest {};
 class WorkerGenericCallbackSingleTest : public WorkerProgressTest {};
 
 TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr); }
+
+TEST(WorkerProgressThreadTest, StopDuringStartCallbackAfterPostCallbackTimeout)
+{
+  constexpr uint64_t stopCallbackTimeoutNs{1};
+  constexpr uint64_t stopSignalIntervalNs{0};
+  constexpr int directStopSignalCount{3};
+
+  std::mutex m;
+  std::condition_variable cv;
+  bool startCallbackEntered{false};
+  bool releaseStartCallback{false};
+  int signalCount{0};
+
+  auto delayedSubmissions = std::make_shared<ucxx::DelayedSubmissionCollection>(false);
+  ucxx::WorkerProgressThread progressThread(
+    false,
+    []() { return false; },
+    [&]() {
+      std::lock_guard<std::mutex> lock(m);
+      // With periodic stop signals disabled, the third signal is the direct-stop
+      // fallback after pre and post callback waits have timed out.
+      if (++signalCount == directStopSignalCount) {
+        releaseStartCallback = true;
+        cv.notify_all();
+      }
+    },
+    []() {},
+    [&](void*) {
+      std::unique_lock<std::mutex> lock(m);
+      startCallbackEntered = true;
+      cv.notify_all();
+      cv.wait(lock, [&]() { return releaseStartCallback; });
+    },
+    nullptr,
+    delayedSubmissions);
+
+  {
+    std::unique_lock<std::mutex> lock(m);
+    ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(1), [&]() { return startCallbackEntered; }));
+  }
+
+  progressThread.stop(
+    ucxx::WorkerProgressThread::StopConfig{stopCallbackTimeoutNs, stopSignalIntervalNs});
+
+  {
+    std::lock_guard<std::mutex> lock(m);
+    EXPECT_GE(signalCount, directStopSignalCount);
+  }
+  EXPECT_FALSE(progressThread.isRunning());
+}
 
 TEST_F(WorkerTest, QueryAttributes)
 {
