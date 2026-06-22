@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -76,7 +76,7 @@ std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
 std::shared_ptr<Endpoint> Listener::createEndpointFromConnRequest(ucp_conn_request_h connRequest,
                                                                   bool endpointErrorHandling)
 {
-  auto listener = std::dynamic_pointer_cast<Listener>(shared_from_this());
+  auto listener = std::static_pointer_cast<Listener>(shared_from_this());
   auto endpoint = ucxx::createEndpointFromConnRequest(listener, connRequest, endpointErrorHandling);
   return endpoint;
 }

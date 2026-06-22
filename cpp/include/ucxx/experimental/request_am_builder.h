@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include <variant>
 
@@ -54,6 +55,26 @@ class RequestAmBuilder : public RequestCallbackBuilderBase<RequestAmBuilder> {
    */
   explicit RequestAmBuilder(std::shared_ptr<Endpoint> endpoint,
                             std::variant<data::AmSend, data::AmReceive> requestData);
+
+  /**
+   * @brief Configure receiver callback metadata for active message sends.
+   *
+   * @param[in] info owner name and unique identifier of the receiver callback.
+   * @return Reference to this builder for method chaining.
+   *
+   * @throws std::logic_error if called for an active message receive builder.
+   */
+  RequestAmBuilder& receiverCallbackInfo(std::optional<AmReceiverCallbackInfo> info) &;
+
+  /**
+   * @brief Configure receiver callback metadata for active message sends on a temporary builder.
+   *
+   * @param[in] info owner name and unique identifier of the receiver callback.
+   * @return Rvalue reference to this builder for method chaining.
+   *
+   * @throws std::logic_error if called for an active message receive builder.
+   */
+  RequestAmBuilder&& receiverCallbackInfo(std::optional<AmReceiverCallbackInfo> info) &&;
 
   /**
    * @brief Build and return the `RequestAm`.

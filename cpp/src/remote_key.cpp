@@ -22,7 +22,7 @@ RemoteKey::RemoteKey(std::shared_ptr<MemoryHandle> memoryHandle)
   setParent(memoryHandle);
 
   utils::ucsErrorThrow(
-    ucp_rkey_pack(std::dynamic_pointer_cast<Context>(memoryHandle->getParent())->getHandle(),
+    ucp_rkey_pack(std::static_pointer_cast<Context>(memoryHandle->getParent())->getHandle(),
                   memoryHandle->getHandle(),
                   &_packedRemoteKey,
                   &_packedRemoteKeySize));

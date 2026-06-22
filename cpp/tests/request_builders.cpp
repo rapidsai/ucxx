@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -64,6 +66,159 @@ void assertConversionRequiresNonConstBuilder()
   static_assert(!std::is_convertible<const BuilderType&, std::shared_ptr<TargetType>>::value,
                 "Const builder cannot implicitly convert to target shared_ptr");
 }
+
+template <typename T, typename = void>
+struct HasEndpointAmSendBuilderReceiverCallbackArg : std::false_type {};
+
+template <typename T>
+struct HasEndpointAmSendBuilderReceiverCallbackArg<
+  T,
+  std::void_t<decltype(std::declval<T&>().amSendBuilder(
+    static_cast<const void*>(nullptr),
+    size_t{},
+    UCS_MEMORY_TYPE_HOST,
+    std::optional<ucxx::AmReceiverCallbackInfo>{}))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointAmRecvBuilderFutureArg : std::false_type {};
+
+template <typename T>
+struct HasEndpointAmRecvBuilderFutureArg<
+  T,
+  std::void_t<decltype(std::declval<T&>().amRecvBuilder(false))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointMemPutBuilderRemoteKeyOffsetArg : std::false_type {};
+
+template <typename T>
+struct HasEndpointMemPutBuilderRemoteKeyOffsetArg<
+  T,
+  std::void_t<decltype(std::declval<T&>().memPutBuilder(
+    static_cast<const void*>(nullptr), size_t{}, std::shared_ptr<ucxx::RemoteKey>{}, uint64_t{}))>>
+  : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointMemGetBuilderRemoteKeyOffsetArg : std::false_type {};
+
+template <typename T>
+struct HasEndpointMemGetBuilderRemoteKeyOffsetArg<
+  T,
+  std::void_t<decltype(std::declval<T&>().memGetBuilder(
+    static_cast<void*>(nullptr), size_t{}, std::shared_ptr<ucxx::RemoteKey>{}, uint64_t{}))>>
+  : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointStreamSendBuilderFutureArg : std::false_type {};
+
+template <typename T>
+struct HasEndpointStreamSendBuilderFutureArg<
+  T,
+  std::void_t<decltype(std::declval<T&>().streamSendBuilder(
+    static_cast<const void*>(nullptr), size_t{}, false))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointStreamRecvBuilderFutureArg : std::false_type {};
+
+template <typename T>
+struct HasEndpointStreamRecvBuilderFutureArg<
+  T,
+  std::void_t<decltype(std::declval<T&>().streamRecvBuilder(
+    static_cast<void*>(nullptr), size_t{}, false))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointTagSendBuilderCallbackArgs : std::false_type {};
+
+template <typename T>
+struct HasEndpointTagSendBuilderCallbackArgs<
+  T,
+  std::void_t<decltype(std::declval<T&>().tagSendBuilder(static_cast<const void*>(nullptr),
+                                                         size_t{},
+                                                         ucxx::Tag{},
+                                                         false,
+                                                         ucxx::RequestCallbackUserFunction{},
+                                                         ucxx::RequestCallbackUserData{}))>>
+  : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointTagRecvBuilderCallbackArgs : std::false_type {};
+
+template <typename T>
+struct HasEndpointTagRecvBuilderCallbackArgs<
+  T,
+  std::void_t<decltype(std::declval<T&>().tagRecvBuilder(static_cast<void*>(nullptr),
+                                                         size_t{},
+                                                         ucxx::Tag{},
+                                                         ucxx::TagMask{},
+                                                         false,
+                                                         ucxx::RequestCallbackUserFunction{},
+                                                         ucxx::RequestCallbackUserData{}))>>
+  : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointTagMultiSendBuilderFutureArg : std::false_type {};
+
+template <typename T>
+struct HasEndpointTagMultiSendBuilderFutureArg<
+  T,
+  std::void_t<decltype(std::declval<T&>().tagMultiSendBuilder(
+    std::declval<const std::vector<const void*>&>(),
+    std::declval<const std::vector<size_t>&>(),
+    std::declval<const std::vector<int>&>(),
+    ucxx::Tag{},
+    false))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointTagMultiRecvBuilderFutureArg : std::false_type {};
+
+template <typename T>
+struct HasEndpointTagMultiRecvBuilderFutureArg<
+  T,
+  std::void_t<decltype(std::declval<T&>().tagMultiRecvBuilder(
+    ucxx::Tag{}, ucxx::TagMask{}, false))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasEndpointFlushBuilderFutureArg : std::false_type {};
+
+template <typename T>
+struct HasEndpointFlushBuilderFutureArg<
+  T,
+  std::void_t<decltype(std::declval<T&>().flushBuilder(false))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasWorkerTagRecvBuilderCallbackArgs : std::false_type {};
+
+template <typename T>
+struct HasWorkerTagRecvBuilderCallbackArgs<
+  T,
+  std::void_t<decltype(std::declval<T&>().tagRecvBuilder(static_cast<void*>(nullptr),
+                                                         size_t{},
+                                                         ucxx::Tag{},
+                                                         ucxx::TagMask{},
+                                                         false,
+                                                         ucxx::RequestCallbackUserFunction{},
+                                                         ucxx::RequestCallbackUserData{}))>>
+  : std::true_type {};
+
+template <typename T, typename = void>
+struct HasWorkerTagRecvWithHandleBuilderCallbackArgs : std::false_type {};
+
+template <typename T>
+struct HasWorkerTagRecvWithHandleBuilderCallbackArgs<
+  T,
+  std::void_t<decltype(std::declval<T&>().tagRecvWithHandleBuilder(
+    static_cast<void*>(nullptr),
+    std::shared_ptr<ucxx::TagProbeInfo>{},
+    false,
+    ucxx::RequestCallbackUserFunction{},
+    ucxx::RequestCallbackUserData{}))>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasWorkerFlushBuilderFutureArg : std::false_type {};
+
+template <typename T>
+struct HasWorkerFlushBuilderFutureArg<T,
+                                      std::void_t<decltype(std::declval<T&>().flushBuilder(false))>>
+  : std::true_type {};
 
 TEST_F(RequestBuilderTest, FlushBuilderBasicWorker)
 {
@@ -425,6 +580,108 @@ TEST(RequestBuilderTraitsTest, BuildAndConversionRequireNonConstBuilders)
                                           ucxx::Request>();
 }
 
+TEST(RequestBuilderTraitsTest, EndpointWorkerBuilderMethodsReturnBuilders)
+{
+  using Endpoint = ucxx::Endpoint;
+  using Worker   = ucxx::Worker;
+
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().amSendBuilder(
+                               static_cast<const void*>(nullptr), size_t{}, UCS_MEMORY_TYPE_HOST)),
+                             ucxx::experimental::RequestAmBuilder>::value,
+                "Endpoint::amSendBuilder returns RequestAmBuilder");
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().amRecvBuilder()),
+                             ucxx::experimental::RequestAmBuilder>::value,
+                "Endpoint::amRecvBuilder returns RequestAmBuilder");
+  static_assert(
+    std::is_same<decltype(std::declval<ucxx::experimental::RequestAmBuilder&>()
+                            .receiverCallbackInfo(std::optional<ucxx::AmReceiverCallbackInfo>{})),
+                 ucxx::experimental::RequestAmBuilder&>::value,
+    "RequestAmBuilder::receiverCallbackInfo returns RequestAmBuilder&");
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().memPutBuilder(
+                               static_cast<const void*>(nullptr), size_t{}, uint64_t{}, nullptr)),
+                             ucxx::experimental::RequestMemBuilder>::value,
+                "Endpoint::memPutBuilder returns RequestMemBuilder");
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().memGetBuilder(
+                               static_cast<void*>(nullptr), size_t{}, uint64_t{}, nullptr)),
+                             ucxx::experimental::RequestMemBuilder>::value,
+                "Endpoint::memGetBuilder returns RequestMemBuilder");
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().streamSendBuilder(
+                               static_cast<const void*>(nullptr), size_t{})),
+                             ucxx::experimental::RequestStreamBuilder>::value,
+                "Endpoint::streamSendBuilder returns RequestStreamBuilder");
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().streamRecvBuilder(
+                               static_cast<void*>(nullptr), size_t{})),
+                             ucxx::experimental::RequestStreamBuilder>::value,
+                "Endpoint::streamRecvBuilder returns RequestStreamBuilder");
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().tagSendBuilder(
+                               static_cast<const void*>(nullptr), size_t{}, ucxx::Tag{})),
+                             ucxx::experimental::RequestTagBuilder>::value,
+                "Endpoint::tagSendBuilder returns RequestTagBuilder");
+  static_assert(
+    std::is_same<decltype(std::declval<Endpoint&>().tagRecvBuilder(
+                   static_cast<void*>(nullptr), size_t{}, ucxx::Tag{}, ucxx::TagMask{})),
+                 ucxx::experimental::RequestTagBuilder>::value,
+    "Endpoint::tagRecvBuilder returns RequestTagBuilder");
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().tagMultiSendBuilder(
+                               std::declval<const std::vector<const void*>&>(),
+                               std::declval<const std::vector<size_t>&>(),
+                               std::declval<const std::vector<int>&>(),
+                               ucxx::Tag{})),
+                             ucxx::experimental::RequestTagMultiBuilder>::value,
+                "Endpoint::tagMultiSendBuilder returns RequestTagMultiBuilder");
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().tagMultiRecvBuilder(
+                               ucxx::Tag{}, ucxx::TagMask{})),
+                             ucxx::experimental::RequestTagMultiBuilder>::value,
+                "Endpoint::tagMultiRecvBuilder returns RequestTagMultiBuilder");
+  static_assert(std::is_same<decltype(std::declval<Endpoint&>().flushBuilder()),
+                             ucxx::experimental::RequestFlushBuilder>::value,
+                "Endpoint::flushBuilder returns RequestFlushBuilder");
+  static_assert(
+    std::is_same<decltype(std::declval<Worker&>().tagRecvBuilder(
+                   static_cast<void*>(nullptr), size_t{}, ucxx::Tag{}, ucxx::TagMask{})),
+                 ucxx::experimental::RequestTagBuilder>::value,
+    "Worker::tagRecvBuilder returns RequestTagBuilder");
+  static_assert(std::is_same<decltype(std::declval<Worker&>().tagRecvWithHandleBuilder(
+                               static_cast<void*>(nullptr), std::shared_ptr<ucxx::TagProbeInfo>{})),
+                             ucxx::experimental::RequestTagBuilder>::value,
+                "Worker::tagRecvWithHandleBuilder returns RequestTagBuilder");
+  static_assert(std::is_same<decltype(std::declval<Worker&>().flushBuilder()),
+                             ucxx::experimental::RequestFlushBuilder>::value,
+                "Worker::flushBuilder returns RequestFlushBuilder");
+}
+
+TEST(RequestBuilderTraitsTest, EndpointWorkerBuilderMethodsRejectOptionalArguments)
+{
+  static_assert(!HasEndpointAmSendBuilderReceiverCallbackArg<ucxx::Endpoint>::value,
+                "Endpoint::amSendBuilder should configure receiver callbacks via builders");
+  static_assert(!HasEndpointAmRecvBuilderFutureArg<ucxx::Endpoint>::value,
+                "Endpoint::amRecvBuilder should configure Python futures via builders");
+  static_assert(!HasEndpointMemPutBuilderRemoteKeyOffsetArg<ucxx::Endpoint>::value,
+                "Endpoint::memPutBuilder should keep optional offsets out of the builder API");
+  static_assert(!HasEndpointMemGetBuilderRemoteKeyOffsetArg<ucxx::Endpoint>::value,
+                "Endpoint::memGetBuilder should keep optional offsets out of the builder API");
+  static_assert(!HasEndpointStreamSendBuilderFutureArg<ucxx::Endpoint>::value,
+                "Endpoint::streamSendBuilder should configure Python futures via builders");
+  static_assert(!HasEndpointStreamRecvBuilderFutureArg<ucxx::Endpoint>::value,
+                "Endpoint::streamRecvBuilder should configure Python futures via builders");
+  static_assert(!HasEndpointTagSendBuilderCallbackArgs<ucxx::Endpoint>::value,
+                "Endpoint::tagSendBuilder should configure callbacks via builders");
+  static_assert(!HasEndpointTagRecvBuilderCallbackArgs<ucxx::Endpoint>::value,
+                "Endpoint::tagRecvBuilder should configure callbacks via builders");
+  static_assert(!HasEndpointTagMultiSendBuilderFutureArg<ucxx::Endpoint>::value,
+                "Endpoint::tagMultiSendBuilder should configure Python futures via builders");
+  static_assert(!HasEndpointTagMultiRecvBuilderFutureArg<ucxx::Endpoint>::value,
+                "Endpoint::tagMultiRecvBuilder should configure Python futures via builders");
+  static_assert(!HasEndpointFlushBuilderFutureArg<ucxx::Endpoint>::value,
+                "Endpoint::flushBuilder should configure Python futures via builders");
+  static_assert(!HasWorkerTagRecvBuilderCallbackArgs<ucxx::Worker>::value,
+                "Worker::tagRecvBuilder should configure callbacks via builders");
+  static_assert(!HasWorkerTagRecvWithHandleBuilderCallbackArgs<ucxx::Worker>::value,
+                "Worker::tagRecvWithHandleBuilder should configure callbacks via builders");
+  static_assert(!HasWorkerFlushBuilderFutureArg<ucxx::Worker>::value,
+                "Worker::flushBuilder should configure Python futures via builders");
+}
+
 TEST(RequestBuilderSingleUseTest, BuildAttemptMarksBuilderBuilt)
 {
   auto builder = ucxx::experimental::createRequestFlush(std::shared_ptr<ucxx::Component>{nullptr},
@@ -531,6 +788,120 @@ TEST_F(RequestBuilderTest, EndpointTagSendAutoDeducesRequest)
   recvReq->checkError();
 
   EXPECT_EQ(sendBuf, recvBuf);
+}
+
+TEST_F(RequestBuilderTest, EndpointFlushBuilderMethod)
+{
+  auto builder = _ep->flushBuilder();
+  static_assert(std::is_same<decltype(builder), ucxx::experimental::RequestFlushBuilder>::value,
+                "ep->flushBuilder() returns RequestFlushBuilder");
+
+  auto req = builder.build();
+  static_assert(std::is_same<decltype(req), std::shared_ptr<ucxx::RequestFlush>>::value,
+                "ep->flushBuilder().build() returns shared_ptr<RequestFlush>");
+  ASSERT_TRUE(req != nullptr);
+  progressUntilCompleted(req);
+}
+
+TEST_F(RequestBuilderTest, WorkerFlushBuilderMethod)
+{
+  auto builder = _worker->flushBuilder();
+  static_assert(std::is_same<decltype(builder), ucxx::experimental::RequestFlushBuilder>::value,
+                "worker->flushBuilder() returns RequestFlushBuilder");
+
+  auto req = builder.build();
+  ASSERT_TRUE(req != nullptr);
+  progressUntilCompleted(req);
+}
+
+TEST_F(RequestBuilderTest, EndpointWorkerTagBuilderMethods)
+{
+  std::vector<int> sendBuf{10, 20, 30};
+  std::vector<int> recvBuf(3);
+  auto tag     = ucxx::Tag{142};
+  auto tagMask = ucxx::TagMaskFull;
+
+  auto sendBuilder = _ep->tagSendBuilder(sendBuf.data(), sendBuf.size() * sizeof(int), tag);
+  auto recvBuilder =
+    _worker->tagRecvBuilder(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
+
+  static_assert(std::is_same<decltype(sendBuilder), ucxx::experimental::RequestTagBuilder>::value,
+                "ep->tagSendBuilder() returns RequestTagBuilder");
+  static_assert(std::is_same<decltype(recvBuilder), ucxx::experimental::RequestTagBuilder>::value,
+                "worker->tagRecvBuilder() returns RequestTagBuilder");
+
+  auto sendReq = sendBuilder.build();
+  auto recvReq = recvBuilder.build();
+  static_assert(std::is_same<decltype(sendReq), std::shared_ptr<ucxx::RequestTag>>::value,
+                "ep->tagSendBuilder().build() returns shared_ptr<RequestTag>");
+
+  ASSERT_TRUE(sendReq != nullptr);
+  ASSERT_TRUE(recvReq != nullptr);
+
+  while (!sendReq->isCompleted() || !recvReq->isCompleted())
+    _worker->progress();
+  sendReq->checkError();
+  recvReq->checkError();
+
+  EXPECT_EQ(sendBuf, recvBuf);
+}
+
+TEST_F(RequestBuilderTest, EndpointTagSendBuilderMethodWithCallbackChain)
+{
+  std::vector<int> sendBuf{1, 2};
+  std::vector<int> recvBuf(2);
+  auto tag     = ucxx::Tag{199};
+  auto tagMask = ucxx::TagMaskFull;
+
+  bool callbackCalled                  = false;
+  ucxx::RequestCallbackUserFunction cb = [&callbackCalled](ucs_status_t, std::shared_ptr<void>) {
+    callbackCalled = true;
+  };
+
+  auto sendReq = _ep->tagSendBuilder(sendBuf.data(), sendBuf.size() * sizeof(int), tag)
+                   .callbackFunction(cb)
+                   .build();
+  auto recvReq =
+    _worker->tagRecvBuilder(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask).build();
+
+  while (!sendReq->isCompleted() || !recvReq->isCompleted())
+    _worker->progress();
+  sendReq->checkError();
+  recvReq->checkError();
+
+  EXPECT_EQ(sendBuf, recvBuf);
+  EXPECT_TRUE(callbackCalled);
+}
+
+TEST_F(RequestBuilderTest, EndpointBuilderMethodAutoTypes)
+{
+  std::vector<int> buf{0};
+  auto tag = ucxx::Tag{0};
+
+  auto tagBuilder = _ep->tagSendBuilder(buf.data(), sizeof(int), tag);
+  static_assert(std::is_same<decltype(tagBuilder), ucxx::experimental::RequestTagBuilder>::value,
+                "ep->tagSendBuilder() returns RequestTagBuilder");
+
+  auto amBuilder = _ep->amSendBuilder(buf.data(), sizeof(int), UCS_MEMORY_TYPE_HOST);
+  static_assert(std::is_same<decltype(amBuilder), ucxx::experimental::RequestAmBuilder>::value,
+                "ep->amSendBuilder() returns RequestAmBuilder");
+
+  auto memBuilder = _ep->memPutBuilder(buf.data(), sizeof(int), 0, nullptr);
+  static_assert(std::is_same<decltype(memBuilder), ucxx::experimental::RequestMemBuilder>::value,
+                "ep->memPutBuilder() returns RequestMemBuilder");
+
+  auto streamBuilder = _ep->streamSendBuilder(buf.data(), sizeof(int));
+  static_assert(
+    std::is_same<decltype(streamBuilder), ucxx::experimental::RequestStreamBuilder>::value,
+    "ep->streamSendBuilder() returns RequestStreamBuilder");
+
+  std::vector<const void*> multiSendBuf{buf.data()};
+  std::vector<size_t> multiSendLen{sizeof(int)};
+  std::vector<int> isCUDA{0};
+  auto tagMultiBuilder = _ep->tagMultiSendBuilder(multiSendBuf, multiSendLen, isCUDA, tag);
+  static_assert(
+    std::is_same<decltype(tagMultiBuilder), ucxx::experimental::RequestTagMultiBuilder>::value,
+    "ep->tagMultiSendBuilder() returns RequestTagMultiBuilder");
 }
 
 }  // namespace

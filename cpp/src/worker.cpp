@@ -77,12 +77,12 @@ Worker::Worker(std::shared_ptr<Context> context,
     enableDelayedSubmission,
     _enableFuture);
 
-  setParent(std::dynamic_pointer_cast<Component>(context));
+  setParent(context);
 }
 
 void Worker::drainWorkerTagRecv()
 {
-  auto context = std::dynamic_pointer_cast<Context>(_parent);
+  auto context = std::static_pointer_cast<Context>(_parent);
   if (!(context->getFeatureFlags() & UCP_FEATURE_TAG)) return;
 
   ucp_tag_message_h message;
@@ -645,12 +645,22 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                          RequestCallbackUserFunction callbackFunction,
                                          RequestCallbackUserData callbackData)
 {
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return registerInflightRequest(createRequestTag(worker,
                                                   data::TagReceive(buffer, length, tag, tagMask),
                                                   enableFuture,
                                                   std::move(callbackFunction),
                                                   std::move(callbackData)));
+}
+
+experimental::RequestTagBuilder Worker::tagRecvBuilder(void* buffer,
+                                                       size_t length,
+                                                       Tag tag,
+                                                       TagMask tagMask)
+{
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
+  return experimental::RequestTagBuilder(std::move(worker),
+                                         data::TagReceive(buffer, length, tag, tagMask));
 }
 
 std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
@@ -668,7 +678,7 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
     throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
   }
 
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return registerInflightRequest(createRequestTag(worker,
                                                   data::TagReceiveWithHandle(buffer, probeInfo),
                                                   enableFuture,
@@ -676,9 +686,26 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
                                                   std::move(callbackData)));
 }
 
+experimental::RequestTagBuilder Worker::tagRecvWithHandleBuilder(
+  void* buffer, std::shared_ptr<TagProbeInfo> probeInfo)
+{
+  if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
+
+  // getHandle() will throw runtime_error if handle is nullptr or consumed
+  try {
+    probeInfo->getHandle();
+  } catch (const std::runtime_error& e) {
+    throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
+  }
+
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
+  return experimental::RequestTagBuilder(std::move(worker),
+                                         data::TagReceiveWithHandle(buffer, probeInfo));
+}
+
 std::shared_ptr<Address> Worker::getAddress()
 {
-  auto worker  = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker  = std::static_pointer_cast<Worker>(shared_from_this());
   auto address = ucxx::createAddressFromWorker(worker);
   return address;
 }
@@ -687,7 +714,7 @@ std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ipAddre
                                                              uint16_t port,
                                                              bool endpointErrorHandling)
 {
-  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker   = std::static_pointer_cast<Worker>(shared_from_this());
   auto endpoint = ucxx::createEndpointFromHostname(worker, ipAddress, port, endpointErrorHandling);
   return endpoint;
 }
@@ -695,7 +722,7 @@ std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ipAddre
 std::shared_ptr<Endpoint> Worker::createEndpointFromWorkerAddress(std::shared_ptr<Address> address,
                                                                   bool endpointErrorHandling)
 {
-  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker   = std::static_pointer_cast<Worker>(shared_from_this());
   auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, endpointErrorHandling);
   return endpoint;
 }
@@ -704,7 +731,7 @@ std::shared_ptr<Listener> Worker::createListener(uint16_t port,
                                                  ucp_listener_conn_callback_t callback,
                                                  void* callbackArgs)
 {
-  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker   = std::static_pointer_cast<Worker>(shared_from_this());
   auto listener = ucxx::createListener(worker, port, callback, callbackArgs);
   return listener;
 }
@@ -738,9 +765,15 @@ std::shared_ptr<Request> Worker::flush(const bool enableFuture,
                                        RequestCallbackUserFunction callbackFunction,
                                        RequestCallbackUserData callbackData)
 {
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return registerInflightRequest(createRequestFlush(
     worker, data::Flush(), enableFuture, std::move(callbackFunction), std::move(callbackData)));
+}
+
+experimental::RequestFlushBuilder Worker::flushBuilder()
+{
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
+  return experimental::RequestFlushBuilder(std::move(worker), data::Flush());
 }
 
 }  // namespace ucxx
