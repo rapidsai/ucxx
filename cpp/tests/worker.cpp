@@ -15,6 +15,8 @@
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
+#include <ucxx/delayed_submission.h>
+#include <ucxx/worker_progress_thread.h>
 
 #include <type_traits>
 
@@ -112,45 +114,54 @@ class WorkerGenericCallbackSingleTest : public WorkerProgressTest {};
 
 TEST_F(WorkerTest, HandleIsValid) { ASSERT_TRUE(_worker->getHandle() != nullptr); }
 
-TEST_F(WorkerTest, StopProgressThreadDuringStartCallback)
+TEST(WorkerProgressThreadTest, StopDuringStartCallbackAfterPostCallbackTimeout)
 {
+  constexpr uint64_t stopCallbackTimeoutNs{1};
+  constexpr uint64_t stopSignalIntervalNs{0};
+  constexpr int directStopSignalCount{3};
+
   std::mutex m;
   std::condition_variable cv;
   bool startCallbackEntered{false};
   bool releaseStartCallback{false};
+  int signalCount{0};
 
-  _worker->setProgressThreadStartCallback(
+  auto delayedSubmissions = std::make_shared<ucxx::DelayedSubmissionCollection>(false);
+  ucxx::WorkerProgressThread progressThread(
+    false,
+    []() { return false; },
+    [&]() {
+      std::lock_guard<std::mutex> lock(m);
+      // With periodic stop signals disabled, the third signal is the direct-stop
+      // fallback after pre and post callback waits have timed out.
+      if (++signalCount == directStopSignalCount) {
+        releaseStartCallback = true;
+        cv.notify_all();
+      }
+    },
+    []() {},
     [&](void*) {
       std::unique_lock<std::mutex> lock(m);
       startCallbackEntered = true;
       cv.notify_all();
       cv.wait(lock, [&]() { return releaseStartCallback; });
     },
-    nullptr);
-
-  _worker->startProgressThread(false);
+    nullptr,
+    delayedSubmissions);
 
   {
     std::unique_lock<std::mutex> lock(m);
     ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(1), [&]() { return startCallbackEntered; }));
   }
 
-  std::thread stopThread([&]() { _worker->stopProgressThread(); });
-
-  // The current implementation waits three seconds for the pre callback and
-  // another three seconds for the post callback. Releasing after both timed out
-  // reproduces the path where the stop flag was never set by the progress
-  // thread itself.
-  std::this_thread::sleep_for(std::chrono::milliseconds(6500));
+  progressThread.stop(
+    ucxx::WorkerProgressThread::StopConfig{stopCallbackTimeoutNs, stopSignalIntervalNs});
 
   {
     std::lock_guard<std::mutex> lock(m);
-    releaseStartCallback = true;
+    EXPECT_GE(signalCount, directStopSignalCount);
   }
-  cv.notify_all();
-
-  stopThread.join();
-  EXPECT_FALSE(_worker->isProgressThreadRunning());
+  EXPECT_FALSE(progressThread.isRunning());
 }
 
 TEST_F(WorkerTest, QueryAttributes)
