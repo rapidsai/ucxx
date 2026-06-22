@@ -61,6 +61,8 @@ class WorkerProgressThread {
      *
      * @param[in] callbackTimeoutNs maximum time in nanoseconds to wait for each stop callback.
      * @param[in] signalIntervalNs interval in nanoseconds for waking the worker while waiting.
+     *                             A value of 0 disables periodic wakeups: the worker is signaled
+     *                             once before each wait and not again until the wait returns.
      */
     explicit StopConfig(uint64_t callbackTimeoutNs = 3000000000,
                         uint64_t signalIntervalNs  = 100000000)
