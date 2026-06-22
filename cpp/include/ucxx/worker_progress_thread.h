@@ -216,18 +216,10 @@ class WorkerProgressThread {
    * @brief Stop the progress thread.
    *
    * Raises the stop signal and joins the thread.
-   */
-  void stop();
-
-  /**
-   * @brief Stop the progress thread with custom stop synchronization parameters.
-   *
-   * Raises the stop signal and joins the thread. This overload is intended for tests that need
-   * deterministic stop callback timeout behavior.
    *
    * @param[in] stopConfig  progress thread stop synchronization configuration.
    */
-  void stop(StopConfig stopConfig);
+  void stop(StopConfig stopConfig = StopConfig{});
 };
 
 }  // namespace ucxx

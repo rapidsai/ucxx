@@ -62,8 +62,6 @@ WorkerProgressThread::WorkerProgressThread(
 
 WorkerProgressThread::~WorkerProgressThread() { stop(); }
 
-void WorkerProgressThread::stop() { stop(StopConfig{}); }
-
 void WorkerProgressThread::stop(StopConfig stopConfig)
 {
   if (!_thread.joinable()) {
