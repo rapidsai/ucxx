@@ -5,6 +5,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -47,6 +48,27 @@ typedef void* ProgressThreadStartCallbackArg;
  * the program to block until that stage is reached.
  */
 class WorkerProgressThread {
+ public:
+  /**
+   * @brief Progress thread stop synchronization configuration.
+   */
+  struct StopConfig {
+    uint64_t callbackTimeoutNs;  ///< Maximum time to wait for each stop callback.
+    uint64_t signalIntervalNs;   ///< Interval for waking the worker while waiting.
+
+    /**
+     * @brief Create stop synchronization configuration.
+     *
+     * @param[in] callbackTimeoutNs maximum time in nanoseconds to wait for each stop callback.
+     * @param[in] signalIntervalNs interval in nanoseconds for waking the worker while waiting.
+     */
+    explicit StopConfig(uint64_t callbackTimeoutNs = 3000000000,
+                        uint64_t signalIntervalNs  = 100000000)
+      : callbackTimeoutNs(callbackTimeoutNs), signalIntervalNs(signalIntervalNs)
+    {
+    }
+  };
+
  private:
   std::thread _thread{};  ///< Thread object
   std::shared_ptr<std::atomic<bool>> _stop{
@@ -196,6 +218,16 @@ class WorkerProgressThread {
    * Raises the stop signal and joins the thread.
    */
   void stop();
+
+  /**
+   * @brief Stop the progress thread with custom stop synchronization parameters.
+   *
+   * Raises the stop signal and joins the thread. This overload is intended for tests that need
+   * deterministic stop callback timeout behavior.
+   *
+   * @param[in] stopConfig  progress thread stop synchronization configuration.
+   */
+  void stop(StopConfig stopConfig);
 };
 
 }  // namespace ucxx

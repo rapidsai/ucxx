@@ -2,7 +2,6 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <cstdint>
 #include <memory>
 #include <stdexcept>
 
@@ -11,12 +10,6 @@
 #include <ucxx/worker_progress_thread.h>
 
 namespace ucxx {
-namespace {
-
-constexpr uint64_t stopCallbackTimeoutNs{3000000000};
-constexpr uint64_t stopSignalIntervalNs{100000000};
-
-}  // namespace
 
 void WorkerProgressThread::progressUntilSync(
   std::function<bool(void)> progressFunction,
@@ -69,7 +62,9 @@ WorkerProgressThread::WorkerProgressThread(
 
 WorkerProgressThread::~WorkerProgressThread() { stop(); }
 
-void WorkerProgressThread::stop()
+void WorkerProgressThread::stop() { stop(StopConfig{}); }
+
+void WorkerProgressThread::stop(StopConfig stopConfig)
 {
   if (!_thread.joinable()) {
     ucxx_debug("Worker progress thread not running or already stopped");
@@ -81,7 +76,7 @@ void WorkerProgressThread::stop()
     [&callbackNotifierPre]() { callbackNotifierPre.set(); });
   _signalWorkerFunction();
   if (!callbackNotifierPre.wait(
-        stopCallbackTimeoutNs, _signalWorkerFunction, stopSignalIntervalNs)) {
+        stopConfig.callbackTimeoutNs, _signalWorkerFunction, stopConfig.signalIntervalNs)) {
     try {
       _delayedSubmissionCollection->cancelGenericPre(idPre);
     } catch (const std::runtime_error&) {
@@ -96,7 +91,7 @@ void WorkerProgressThread::stop()
   });
   _signalWorkerFunction();
   if (!callbackNotifierPost.wait(
-        stopCallbackTimeoutNs, _signalWorkerFunction, stopSignalIntervalNs)) {
+        stopConfig.callbackTimeoutNs, _signalWorkerFunction, stopConfig.signalIntervalNs)) {
     _stop->store(true, std::memory_order_release);
     _signalWorkerFunction();
     try {
