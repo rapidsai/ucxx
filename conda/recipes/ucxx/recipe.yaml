@@ -98,7 +98,7 @@ outputs:
         - libucxx =${{ version }}
         - cuda-cudart-dev
       run:
-        - cuda-core >=0.3.2
+        - cuda-core >=0.5.1
         - numpy >=1.23,<3.0
         # 'nvidia-ml-py' provides the 'pynvml' module
         - nvidia-ml-py>=12
@@ -238,7 +238,7 @@ outputs:
         - setuptools>=77.0.0
         - wheel
       run:
-        - cuda-core >=0.3.2
+        - cuda-core >=0.5.1
         - python
         - pyyaml >=6
         - rapids-dask-dependency ${{ rapids_version }}

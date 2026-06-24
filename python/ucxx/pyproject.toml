@@ -19,7 +19,7 @@ authors = [
 license = "BSD-3-Clause"
 requires-python = ">=3.11"
 dependencies = [
-    "cuda-core>=0.3.2",
+    "cuda-core>=0.5.1",
     "libucxx==0.51.*,>=0.0.0a0",
     "numpy>=1.23,<3.0",
     "nvidia-ml-py>=12",
