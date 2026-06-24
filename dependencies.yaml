@@ -366,14 +366,14 @@ dependencies:
           - &numpy numpy>=1.23,<3.0
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
-          - cuda-core>=0.3.2
+          - cuda-core>=0.5.1
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - rapids-dask-dependency==26.8.*,>=0.0.0a0
           - pyyaml>=6
-          - cuda-core>=0.3.2
+          - cuda-core>=0.5.1
   test_cpp:
     common:
       - output_types: conda
