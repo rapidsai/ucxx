@@ -10,6 +10,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/component.h>
+#include <ucxx/experimental/address_builder.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
