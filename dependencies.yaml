@@ -363,7 +363,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numpy numpy>=1.23,<3.0
+          - &numpy numpy>=2.0,<3.0
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
           - cuda-core>=0.3.2
@@ -445,18 +445,18 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cupy>=13.6.0,!=14.0.0,!=14.1.0
+          - cupy>=14.0.1,!=14.1.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - cupy-cuda12x>=13.6.0,!=14.0.0,!=14.1.0
+              - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - &cupy_cuda13 cupy-cuda13x>=13.6.0,!=14.0.0,!=14.1.0
+              - &cupy_cuda13 cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
   depends_on_librmm:
     common:
       - output_types: conda
