@@ -15,6 +15,7 @@
 #include <ucxx/address.h>
 #include <ucxx/component.h>
 #include <ucxx/exception.h>
+#include <ucxx/experimental/endpoint_builder.h>
 #include <ucxx/experimental/request_am_builder.h>
 #include <ucxx/experimental/request_flush_builder.h>
 #include <ucxx/experimental/request_mem_builder.h>

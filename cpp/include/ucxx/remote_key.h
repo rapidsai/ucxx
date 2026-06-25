@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -12,6 +12,7 @@
 
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
+#include <ucxx/experimental/remote_key_builder.h>
 #include <ucxx/memory_handle.h>
 
 namespace ucxx {

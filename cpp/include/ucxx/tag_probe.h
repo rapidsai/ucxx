@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -9,6 +9,7 @@
 #include <optional>
 
 #include <ucp/api/ucp.h>
+#include <ucxx/experimental/tag_probe_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
