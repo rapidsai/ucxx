@@ -397,7 +397,17 @@ dependencies:
           - &numba_cuda_test numba-cuda>=0.22.1
           - psutil  # Used for timeout_with_stack.py
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: requirements
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - cupy-cuda12x>=14.0.1,!=14.1.0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+            packages:
+              - cupy-cuda13x>=14.0.1,!=14.1.0
+      - output_types: pyproject
         matrices:
           - matrix:
               cuda: "12.*"
