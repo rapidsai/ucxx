@@ -99,7 +99,7 @@ outputs:
         - cuda-cudart-dev
       run:
         - cuda-core >=0.5.1
-        - numpy >=1.23,<3.0
+        - numpy >=2.0,<3.0
         # 'nvidia-ml-py' provides the 'pynvml' module
         - nvidia-ml-py>=12
         - python
@@ -107,7 +107,7 @@ outputs:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libucxx =${{ version }}
       run_constraints:
-        - cupy >=13.6.0,!=14.0.0,!=14.1.0
+        - cupy >=14.0.1,!=14.1.0
       ignore_run_exports:
         by_name:
           - cuda-cudart
