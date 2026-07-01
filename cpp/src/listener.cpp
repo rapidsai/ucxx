@@ -85,7 +85,7 @@ std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
   return detail::createListener(std::move(worker), port, callback, callbackArgs);
 }
 
-EndpointBuilder Listener::endpointFromConnRequestBuilder(ucp_conn_request_h connRequest)
+EndpointBuilder Listener::endpointBuilder(ucp_conn_request_h connRequest)
 {
   return EndpointBuilder(std::static_pointer_cast<Listener>(shared_from_this()), connRequest);
 }
