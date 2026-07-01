@@ -97,7 +97,7 @@ class RequestTest
 
   void buildWorker(bool enableRequestAttributes)
   {
-    auto builder = ucxx::experimental::createWorker(_context)
+    auto builder = ucxx::workerBuilder(_context)
                      .delayedSubmission(_enableDelayedSubmission)
                      .requestAttributes(enableRequestAttributes);
 
@@ -609,7 +609,7 @@ class RequestAttributesDisabledTest : public ::testing::Test {
   void SetUp() override
   {
     _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
-    _worker  = ucxx::experimental::createWorker(_context).build();
+    _worker  = ucxx::workerBuilder(_context).build();
     ASSERT_FALSE(_worker->isRequestAttributesEnabled());
 
     _ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());

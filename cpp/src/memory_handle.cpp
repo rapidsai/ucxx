@@ -85,9 +85,14 @@ uint64_t MemoryHandle::getBaseAddress() { return _baseAddress; }
 
 ucs_memory_type_t MemoryHandle::getMemoryType() { return _memoryType; }
 
+RemoteKeyBuilder MemoryHandle::remoteKeyBuilder()
+{
+  return RemoteKeyBuilder(std::static_pointer_cast<MemoryHandle>(shared_from_this()));
+}
+
 std::shared_ptr<RemoteKey> MemoryHandle::createRemoteKey()
 {
-  return createRemoteKeyFromMemoryHandle(
+  return detail::createRemoteKeyFromMemoryHandle(
     std::static_pointer_cast<MemoryHandle>(shared_from_this()));
 }
 

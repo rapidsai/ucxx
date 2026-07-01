@@ -7,6 +7,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
@@ -72,6 +73,8 @@ RemoteKey::~RemoteKey()
   }
 }
 
+namespace detail {
+
 std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
   std::shared_ptr<MemoryHandle> memoryHandle)
 {
@@ -82,6 +85,20 @@ std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(std::shared_ptr<Endpoin
                                                          SerializedRemoteKey serializedRemoteKey)
 {
   return std::shared_ptr<RemoteKey>(new RemoteKey(endpoint, serializedRemoteKey));
+}
+
+}  // namespace detail
+
+std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
+  std::shared_ptr<MemoryHandle> memoryHandle)
+{
+  return detail::createRemoteKeyFromMemoryHandle(std::move(memoryHandle));
+}
+
+std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(std::shared_ptr<Endpoint> endpoint,
+                                                         SerializedRemoteKey serializedRemoteKey)
+{
+  return detail::createRemoteKeyFromSerialized(std::move(endpoint), std::move(serializedRemoteKey));
 }
 
 size_t RemoteKey::getSize() const { return _memorySize; }

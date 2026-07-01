@@ -9,11 +9,18 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/address_builder.h>
 #include <ucxx/component.h>
-#include <ucxx/experimental/address_builder.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
+
+class Address;
+
+namespace detail {
+[[nodiscard]] std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
+[[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
+}  // namespace detail
 
 /**
  * @brief Component encapsulating the address of a UCP worker.
@@ -35,9 +42,8 @@ class Address : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::createAddressFromWorker()`
-   * - `ucxx::createAddressFromString()`
-   * - `ucxx::Worker::getAddress()`
+   * - `ucxx::AddressBuilder`
+   * - `ucxx::Worker::addressBuilder()`
    *
    * @param[in] worker  the parent `set::shared_ptr<Worker>` component.
    * @param[in] address UCP address handle.
@@ -64,7 +70,7 @@ class Address : public Component {
    *
    * @returns The `shared_ptr<ucxx::Address>` object.
    */
-  friend std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
+  friend std::shared_ptr<Address> detail::createAddressFromWorker(std::shared_ptr<Worker> worker);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Address>` from string.
@@ -76,7 +82,7 @@ class Address : public Component {
    *
    * @returns The `shared_ptr<ucxx::Address>` object.
    */
-  friend std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
+  friend std::shared_ptr<Address> detail::createAddressFromString(std::string_view addressString);
 
   /**
    * @brief Get the underlying `ucp_address_t*` handle.
