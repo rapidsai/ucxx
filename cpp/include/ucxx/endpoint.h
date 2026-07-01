@@ -212,6 +212,7 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointFromHostnameBuilder() instead.")
   friend std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
                                                               std::string ipAddress,
                                                               uint16_t port,
@@ -243,6 +244,7 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointFromConnRequestBuilder() instead.")
   friend std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener> listener,
                                                                  ucp_conn_request_h connRequest,
                                                                  bool endpointErrorHandling);
@@ -270,6 +272,7 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointFromWorkerAddressBuilder() instead.")
   friend std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker> worker,
                                                                    std::shared_ptr<Address> address,
                                                                    bool endpointErrorHandling);
@@ -430,6 +433,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::amSendBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> amSend(
     const void* const buffer,
     const size_t length,
@@ -471,6 +475,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::amSendBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> amSend(
     const void* const buffer,
     const size_t length,
@@ -510,6 +515,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::amSendBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> amSend(
     std::vector<ucp_dt_iov_t> iov,
     const AmSendParams& params,
@@ -560,6 +566,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::amRecvBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> amRecv(
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
@@ -606,6 +613,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::memPutBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> memPut(
     const void* const buffer,
     size_t length,
@@ -667,6 +675,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::memPutBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> memPut(
     const void* const buffer,
     size_t length,
@@ -724,6 +733,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::memGetBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> memGet(
     void* buffer,
     size_t length,
@@ -785,6 +795,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::memGetBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> memGet(
     void* buffer,
     size_t length,
@@ -830,6 +841,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::streamSendBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> streamSend(const void* const buffer,
                                                     size_t length,
                                                     const bool enablePythonFuture);
@@ -867,6 +879,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::streamRecvBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> streamRecv(void* buffer,
                                                     size_t length,
                                                     const bool enablePythonFuture);
@@ -914,6 +927,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::tagSendBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> tagSend(
     const void* const buffer,
     size_t length,
@@ -967,6 +981,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::tagRecvBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> tagRecv(
     void* buffer,
     size_t length,
@@ -1028,6 +1043,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::tagMultiSendBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> tagMultiSend(const std::vector<const void*>& buffer,
                                                       const std::vector<size_t>& size,
                                                       const std::vector<int>& isCUDA,
@@ -1073,6 +1089,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::tagMultiRecvBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> tagMultiRecv(const Tag tag,
                                                       const TagMask tagMask,
                                                       const bool enablePythonFuture);
@@ -1117,6 +1134,7 @@ class Endpoint : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::flushBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> flush(
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
@@ -1202,6 +1220,7 @@ class Endpoint : public Component {
    *          `nullptr` if the endpoint has already closed or is already in process of
    *          closing.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Endpoint::closeBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> close(
     const bool enablePythonFuture                      = false,
     EndpointCloseCallbackUserFunction callbackFunction = nullptr,

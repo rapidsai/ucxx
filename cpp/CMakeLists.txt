@@ -183,6 +183,9 @@ set_target_properties(
 )
 
 target_compile_options(ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>")
+target_compile_definitions(
+  ucxx PRIVATE UCXX_DISABLE_DEPRECATED_NON_BUILDER_CONSTRUCTOR_WARNINGS
+)
 
 # Specify include paths for the current target and dependents
 target_include_directories(

@@ -100,6 +100,7 @@ class RequestMem : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestMem>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestMemBuilder() instead.")
   friend std::shared_ptr<RequestMem> createRequestMem(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::MemPut, data::MemGet> requestData,
