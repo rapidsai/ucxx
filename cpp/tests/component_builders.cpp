@@ -443,16 +443,23 @@ TEST_F(ComponentBuilderTest, WorkerChildBuilders)
   ASSERT_TRUE(address != nullptr);
   ASSERT_TRUE(address->getHandle() != nullptr);
 
-  auto endpointBuilder =
-    _worker->endpointFromWorkerAddressBuilder(address).endpointErrorHandling(false);
+  auto endpointBuilder = _worker->endpointBuilder(address).endpointErrorHandling(false);
   static_assert(std::is_same<decltype(endpointBuilder), ucxx::EndpointBuilder>::value,
-                "worker->endpointFromWorkerAddressBuilder() returns EndpointBuilder");
+                "worker->endpointBuilder(address) returns EndpointBuilder");
   auto endpoint = endpointBuilder.build();
   ASSERT_TRUE(endpoint != nullptr);
 
-  auto hostnameEndpointBuilder = _worker->endpointFromHostnameBuilder("127.0.0.1", 12345);
+  auto hostnameEndpointBuilder = _worker->endpointBuilder("127.0.0.1", 12345);
   static_assert(std::is_same<decltype(hostnameEndpointBuilder), ucxx::EndpointBuilder>::value,
-                "worker->endpointFromHostnameBuilder() returns EndpointBuilder");
+                "worker->endpointBuilder(hostname, port) returns EndpointBuilder");
+
+  auto globalAddressEndpointBuilder = ucxx::endpointBuilder(_worker, address);
+  static_assert(std::is_same<decltype(globalAddressEndpointBuilder), ucxx::EndpointBuilder>::value,
+                "endpointBuilder(worker, address) returns EndpointBuilder");
+
+  auto globalHostnameEndpointBuilder = ucxx::endpointBuilder(_worker, "127.0.0.1", 12345);
+  static_assert(std::is_same<decltype(globalHostnameEndpointBuilder), ucxx::EndpointBuilder>::value,
+                "endpointBuilder(worker, hostname, port) returns EndpointBuilder");
 
   auto listenerBuilder = _worker->listenerBuilder(0, listenerCallback, nullptr);
   static_assert(std::is_same<decltype(listenerBuilder), ucxx::ListenerBuilder>::value,
@@ -460,9 +467,14 @@ TEST_F(ComponentBuilderTest, WorkerChildBuilders)
   auto listener = listenerBuilder.build();
   ASSERT_TRUE(listener != nullptr);
 
-  auto connRequestEndpointBuilder = listener->endpointFromConnRequestBuilder(nullptr);
+  auto connRequestEndpointBuilder = listener->endpointBuilder(nullptr);
   static_assert(std::is_same<decltype(connRequestEndpointBuilder), ucxx::EndpointBuilder>::value,
-                "listener->endpointFromConnRequestBuilder() returns EndpointBuilder");
+                "listener->endpointBuilder(connRequest) returns EndpointBuilder");
+
+  auto globalConnRequestEndpointBuilder = ucxx::endpointBuilder(listener, nullptr);
+  static_assert(
+    std::is_same<decltype(globalConnRequestEndpointBuilder), ucxx::EndpointBuilder>::value,
+    "endpointBuilder(listener, connRequest) returns EndpointBuilder");
 }
 
 TEST_F(ComponentBuilderTest, AddressBuilderFromWorkerAndString)
@@ -489,10 +501,9 @@ TEST_F(ComponentBuilderTest, AddressBuilderFromWorkerAndString)
 
 TEST_F(ComponentBuilderTest, EndpointBuilderFromWorkerAddress)
 {
-  auto builder = ucxx::endpointFromWorkerAddressBuilder(_worker, _worker->getAddress())
-                   .endpointErrorHandling(false);
+  auto builder = ucxx::endpointBuilder(_worker, _worker->getAddress()).endpointErrorHandling(false);
   static_assert(std::is_same<decltype(builder), ucxx::EndpointBuilder>::value,
-                "endpointFromWorkerAddressBuilder returns EndpointBuilder");
+                "endpointBuilder returns EndpointBuilder");
   assertBuildRequiresNonConstBuilder<ucxx::EndpointBuilder, ucxx::Endpoint>();
   assertConversionRequiresNonConstBuilder<ucxx::EndpointBuilder, ucxx::Endpoint>();
 
@@ -557,7 +568,7 @@ TEST_F(ComponentBuilderTest, RemoteKeyBuilderFromMemoryHandleAndSerialized)
   ASSERT_TRUE(localRemoteKey != nullptr);
   ASSERT_EQ(localRemoteKey->getSize(), memoryHandle->getSize());
 
-  auto endpoint = ucxx::endpointFromWorkerAddressBuilder(_worker, _worker->getAddress()).build();
+  auto endpoint = ucxx::endpointBuilder(_worker, _worker->getAddress()).build();
   std::shared_ptr<ucxx::RemoteKey> unpackedRemoteKey =
     ucxx::RemoteKeyBuilder(endpoint, localRemoteKey->serialize());
   ASSERT_TRUE(unpackedRemoteKey != nullptr);
@@ -575,7 +586,7 @@ TEST_F(ComponentBuilderTest, RemoteKeyChildBuilders)
   auto localRemoteKey = builder.build();
   ASSERT_TRUE(localRemoteKey != nullptr);
 
-  auto endpoint      = _worker->endpointFromWorkerAddressBuilder(_worker->getAddress()).build();
+  auto endpoint      = _worker->endpointBuilder(_worker->getAddress()).build();
   auto unpackBuilder = endpoint->remoteKeyBuilder(localRemoteKey->serialize());
   static_assert(std::is_same<decltype(unpackBuilder), ucxx::RemoteKeyBuilder>::value,
                 "endpoint->remoteKeyBuilder() returns RemoteKeyBuilder");

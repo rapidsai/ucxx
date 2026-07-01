@@ -86,7 +86,7 @@ class Listener : public Component {
    * void myCallback(ucp_conn_request_h connRequest, void* arg) {
    *   ClientContextType clientContext = (ClientContextType*);
    *   clientContext->endpoint =
-   *     clientContext->listener->endpointFromConnRequestBuilder(connRequest).build();
+   *     clientContext->listener->endpointBuilder(connRequest).build();
    * }
    *
    * ClientContext clientContext;
@@ -121,7 +121,7 @@ class Listener : public Component {
    * @param[in] connRequest handle to connection request delivered by a listener callback.
    * @returns Builder to configure optional endpoint parameters.
    */
-  [[nodiscard]] EndpointBuilder endpointFromConnRequestBuilder(ucp_conn_request_h connRequest);
+  [[nodiscard]] EndpointBuilder endpointBuilder(ucp_conn_request_h connRequest);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -132,12 +132,12 @@ class Listener : public Component {
    * @code{.cpp}
    * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
    * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = listener->endpointFromConnRequestBuilder(connRequest)
+   * auto endpoint = listener->endpointBuilder(connRequest)
    *                   .endpointErrorHandling(true)
    *                   .build();
    *
    * // Equivalent to line above
-   * // auto endpoint = ucxx::endpointFromConnRequestBuilder(listener, connRequest)
+   * // auto endpoint = ucxx::endpointBuilder(listener, connRequest)
    * //                   .endpointErrorHandling(true)
    * //                   .build();
    * @endcode
