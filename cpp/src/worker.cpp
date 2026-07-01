@@ -19,12 +19,12 @@
 #include <unistd.h>
 
 #include <ucxx/buffer.h>
-#include <ucxx/experimental/request_flush_builder.h>
-#include <ucxx/experimental/request_tag_builder.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_flush.h>
+#include <ucxx/request_flush_builder.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/request_tag_builder.h>
 #include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/callback_notifier.h>
@@ -631,9 +631,9 @@ std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
 
   if (tag_message != NULL) {
-    return createTagProbeInfo(info, remove ? tag_message : nullptr);
+    return detail::createTagProbeInfo(info, remove ? tag_message : nullptr);
   } else {
-    return createTagProbeInfo();
+    return detail::createTagProbeInfo();
   }
 }
 
@@ -653,14 +653,10 @@ std::shared_ptr<Request> Worker::tagRecv(void* buffer,
                                                   std::move(callbackData)));
 }
 
-experimental::RequestTagBuilder Worker::tagRecvBuilder(void* buffer,
-                                                       size_t length,
-                                                       Tag tag,
-                                                       TagMask tagMask)
+RequestTagBuilder Worker::tagRecvBuilder(void* buffer, size_t length, Tag tag, TagMask tagMask)
 {
   auto worker = std::static_pointer_cast<Worker>(shared_from_this());
-  return experimental::RequestTagBuilder(std::move(worker),
-                                         data::TagReceive(buffer, length, tag, tagMask));
+  return RequestTagBuilder(std::move(worker), data::TagReceive(buffer, length, tag, tagMask));
 }
 
 std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
@@ -686,8 +682,8 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
                                                   std::move(callbackData)));
 }
 
-experimental::RequestTagBuilder Worker::tagRecvWithHandleBuilder(
-  void* buffer, std::shared_ptr<TagProbeInfo> probeInfo)
+RequestTagBuilder Worker::tagRecvWithHandleBuilder(void* buffer,
+                                                   std::shared_ptr<TagProbeInfo> probeInfo)
 {
   if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
 
@@ -699,15 +695,25 @@ experimental::RequestTagBuilder Worker::tagRecvWithHandleBuilder(
   }
 
   auto worker = std::static_pointer_cast<Worker>(shared_from_this());
-  return experimental::RequestTagBuilder(std::move(worker),
-                                         data::TagReceiveWithHandle(buffer, probeInfo));
+  return RequestTagBuilder(std::move(worker), data::TagReceiveWithHandle(buffer, probeInfo));
 }
 
 std::shared_ptr<Address> Worker::getAddress()
 {
   auto worker  = std::static_pointer_cast<Worker>(shared_from_this());
-  auto address = ucxx::createAddressFromWorker(worker);
+  auto address = detail::createAddressFromWorker(worker);
   return address;
+}
+
+AddressBuilder Worker::addressBuilder()
+{
+  return AddressBuilder(std::static_pointer_cast<Worker>(shared_from_this()));
+}
+
+EndpointBuilder Worker::endpointBuilder(std::string ipAddress, uint16_t port)
+{
+  return EndpointBuilder(
+    std::static_pointer_cast<Worker>(shared_from_this()), std::move(ipAddress), port);
 }
 
 std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ipAddress,
@@ -719,6 +725,11 @@ std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ipAddre
   return endpoint;
 }
 
+EndpointBuilder Worker::endpointBuilder(std::shared_ptr<Address> address)
+{
+  return EndpointBuilder(std::static_pointer_cast<Worker>(shared_from_this()), std::move(address));
+}
+
 std::shared_ptr<Endpoint> Worker::createEndpointFromWorkerAddress(std::shared_ptr<Address> address,
                                                                   bool endpointErrorHandling)
 {
@@ -727,12 +738,20 @@ std::shared_ptr<Endpoint> Worker::createEndpointFromWorkerAddress(std::shared_pt
   return endpoint;
 }
 
+ListenerBuilder Worker::listenerBuilder(uint16_t port,
+                                        ucp_listener_conn_callback_t callback,
+                                        void* callbackArgs)
+{
+  return ListenerBuilder(
+    std::static_pointer_cast<Worker>(shared_from_this()), port, callback, callbackArgs);
+}
+
 std::shared_ptr<Listener> Worker::createListener(uint16_t port,
                                                  ucp_listener_conn_callback_t callback,
                                                  void* callbackArgs)
 {
   auto worker   = std::static_pointer_cast<Worker>(shared_from_this());
-  auto listener = ucxx::createListener(worker, port, callback, callbackArgs);
+  auto listener = detail::createListener(worker, port, callback, callbackArgs);
   return listener;
 }
 
@@ -770,10 +789,10 @@ std::shared_ptr<Request> Worker::flush(const bool enableFuture,
     worker, data::Flush(), enableFuture, std::move(callbackFunction), std::move(callbackData)));
 }
 
-experimental::RequestFlushBuilder Worker::flushBuilder()
+RequestFlushBuilder Worker::flushBuilder()
 {
   auto worker = std::static_pointer_cast<Worker>(shared_from_this());
-  return experimental::RequestFlushBuilder(std::move(worker), data::Flush());
+  return RequestFlushBuilder(std::move(worker), data::Flush());
 }
 
 }  // namespace ucxx

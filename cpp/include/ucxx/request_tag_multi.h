@@ -13,9 +13,9 @@
 
 #include <ucxx/buffer.h>
 #include <ucxx/endpoint.h>
-#include <ucxx/experimental/request_tag_multi_builder.h>
 #include <ucxx/future.h>
 #include <ucxx/request.h>
+#include <ucxx/request_tag_multi_builder.h>
 
 namespace ucxx {
 
@@ -88,6 +88,12 @@ class RequestTagMulti : public Request {
    * the underlying `ucxx::RequestTag` object, which will be invisible to the user. Once
    * the initial setup is complete, `callback()` is called to initiate receiving by posting
    * the first request to receive a header.
+   *
+   * Instead the user should use one of the following:
+   *
+   * - `ucxx::Endpoint::tagMultiRecvBuilder()`
+   * - `ucxx::Endpoint::tagMultiSendBuilder()`
+   * - `ucxx::requestTagMultiBuilder()`
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
    * @param[in] requestData         container of the specified message type, including all

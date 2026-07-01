@@ -222,7 +222,7 @@ struct HasWorkerFlushBuilderFutureArg<T,
 
 TEST_F(RequestBuilderTest, FlushBuilderBasicWorker)
 {
-  auto req = ucxx::experimental::createRequestFlush(_worker, ucxx::data::Flush{}).build();
+  auto req = ucxx::requestFlushBuilder(_worker, ucxx::data::Flush{}).build();
   static_assert(std::is_same<decltype(req), std::shared_ptr<ucxx::RequestFlush>>::value,
                 ".build() returns shared_ptr<RequestFlush>");
 
@@ -232,7 +232,7 @@ TEST_F(RequestBuilderTest, FlushBuilderBasicWorker)
 
 TEST_F(RequestBuilderTest, FlushBuilderBasicEndpoint)
 {
-  auto req = ucxx::experimental::createRequestFlush(_ep, ucxx::data::Flush{}).build();
+  auto req = ucxx::requestFlushBuilder(_ep, ucxx::data::Flush{}).build();
 
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
@@ -240,9 +240,7 @@ TEST_F(RequestBuilderTest, FlushBuilderBasicEndpoint)
 
 TEST_F(RequestBuilderTest, FlushBuilderWithPythonFuture)
 {
-  auto req = ucxx::experimental::createRequestFlush(_worker, ucxx::data::Flush{})
-               .pythonFuture(false)
-               .build();
+  auto req = ucxx::requestFlushBuilder(_worker, ucxx::data::Flush{}).pythonFuture(false).build();
 
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
@@ -252,7 +250,7 @@ TEST_F(RequestBuilderTest, FlushBuilderMethodChaining)
 {
   ucxx::RequestCallbackUserFunction callbackFn{nullptr};
   ucxx::RequestCallbackUserData callbackData{nullptr};
-  auto req = ucxx::experimental::createRequestFlush(_worker, ucxx::data::Flush{})
+  auto req = ucxx::requestFlushBuilder(_worker, ucxx::data::Flush{})
                .pythonFuture(false)
                .callbackFunction(callbackFn)
                .callbackData(callbackData)
@@ -264,8 +262,7 @@ TEST_F(RequestBuilderTest, FlushBuilderMethodChaining)
 
 TEST_F(RequestBuilderTest, FlushBuilderImplicitConversion)
 {
-  std::shared_ptr<ucxx::RequestFlush> req =
-    ucxx::experimental::createRequestFlush(_worker, ucxx::data::Flush{});
+  std::shared_ptr<ucxx::RequestFlush> req = ucxx::requestFlushBuilder(_worker, ucxx::data::Flush{});
 
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
@@ -281,8 +278,8 @@ TEST_F(RequestBuilderTest, TagBuilderSendReceivePair)
   auto recvData =
     ucxx::data::TagReceive(recvBuf.data(), recvBuf.size() * sizeof(int), tag, ucxx::TagMaskFull);
 
-  auto sendReq = ucxx::experimental::createRequestTag(_ep, sendData).build();
-  auto recvReq = ucxx::experimental::createRequestTag(_worker, recvData).build();
+  auto sendReq = ucxx::requestTagBuilder(_ep, sendData).build();
+  auto recvReq = ucxx::requestTagBuilder(_worker, recvData).build();
   static_assert(std::is_same<decltype(sendReq), std::shared_ptr<ucxx::RequestTag>>::value,
                 ".build() returns shared_ptr<RequestTag>");
 
@@ -307,9 +304,8 @@ TEST_F(RequestBuilderTest, TagBuilderWithPythonFuture)
   auto recvData =
     ucxx::data::TagReceive(recvBuf.data(), recvBuf.size() * sizeof(int), tag, ucxx::TagMaskFull);
 
-  auto sendReq = ucxx::experimental::createRequestTag(_ep, sendData).pythonFuture(false).build();
-  auto recvReq =
-    ucxx::experimental::createRequestTag(_worker, recvData).pythonFuture(false).build();
+  auto sendReq = ucxx::requestTagBuilder(_ep, sendData).pythonFuture(false).build();
+  auto recvReq = ucxx::requestTagBuilder(_worker, recvData).pythonFuture(false).build();
 
   ASSERT_TRUE(sendReq != nullptr);
   ASSERT_TRUE(recvReq != nullptr);
@@ -330,9 +326,8 @@ TEST_F(RequestBuilderTest, TagBuilderImplicitConversion)
   auto recvData =
     ucxx::data::TagReceive(recvBuf.data(), recvBuf.size() * sizeof(int), tag, ucxx::TagMaskFull);
 
-  std::shared_ptr<ucxx::RequestTag> sendReq = ucxx::experimental::createRequestTag(_ep, sendData);
-  std::shared_ptr<ucxx::RequestTag> recvReq =
-    ucxx::experimental::createRequestTag(_worker, recvData);
+  std::shared_ptr<ucxx::RequestTag> sendReq = ucxx::requestTagBuilder(_ep, sendData);
+  std::shared_ptr<ucxx::RequestTag> recvReq = ucxx::requestTagBuilder(_worker, recvData);
 
   ASSERT_TRUE(sendReq != nullptr);
   ASSERT_TRUE(recvReq != nullptr);
@@ -350,8 +345,8 @@ TEST_F(RequestBuilderTest, StreamBuilderSendReceivePair)
 
   auto sendData = ucxx::data::StreamSend(sendBuf.data(), sendBuf.size() * sizeof(int));
   auto recvData = ucxx::data::StreamReceive(recvBuf.data(), recvBuf.size() * sizeof(int));
-  auto sendReq  = ucxx::experimental::createRequestStream(_ep, sendData).build();
-  auto recvReq  = ucxx::experimental::createRequestStream(_ep, recvData).build();
+  auto sendReq  = ucxx::requestStreamBuilder(_ep, sendData).build();
+  auto recvReq  = ucxx::requestStreamBuilder(_ep, recvData).build();
   static_assert(std::is_same<decltype(sendReq), std::shared_ptr<ucxx::RequestStream>>::value,
                 ".build() returns shared_ptr<RequestStream>");
 
@@ -372,10 +367,8 @@ TEST_F(RequestBuilderTest, StreamBuilderImplicitConversion)
   auto sendData = ucxx::data::StreamSend(sendBuf.data(), sendBuf.size() * sizeof(int));
   auto recvData = ucxx::data::StreamReceive(recvBuf.data(), recvBuf.size() * sizeof(int));
 
-  std::shared_ptr<ucxx::RequestStream> sendReq =
-    ucxx::experimental::createRequestStream(_ep, sendData);
-  std::shared_ptr<ucxx::RequestStream> recvReq =
-    ucxx::experimental::createRequestStream(_ep, recvData);
+  std::shared_ptr<ucxx::RequestStream> sendReq = ucxx::requestStreamBuilder(_ep, sendData);
+  std::shared_ptr<ucxx::RequestStream> recvReq = ucxx::requestStreamBuilder(_ep, recvData);
 
   ASSERT_TRUE(sendReq != nullptr);
   ASSERT_TRUE(recvReq != nullptr);
@@ -388,12 +381,10 @@ TEST_F(RequestBuilderTest, StreamBuilderImplicitConversion)
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderAutoType)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
-  auto builder =
-    ucxx::experimental::createRequestEndpointClose(ep, ucxx::data::EndpointClose{false});
-  static_assert(
-    std::is_same<decltype(builder), ucxx::experimental::RequestEndpointCloseBuilder>::value,
-    "auto without .build() is RequestEndpointCloseBuilder");
+  auto ep      = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto builder = ucxx::requestEndpointCloseBuilder(ep, ucxx::data::EndpointClose{false});
+  static_assert(std::is_same<decltype(builder), ucxx::RequestEndpointCloseBuilder>::value,
+                "auto without .build() is RequestEndpointCloseBuilder");
 }
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderMethodChaining)
@@ -402,22 +393,19 @@ TEST_F(RequestBuilderTest, EndpointCloseBuilderMethodChaining)
 
   ucxx::RequestCallbackUserFunction callbackFn{nullptr};
   ucxx::RequestCallbackUserData callbackData{nullptr};
-  auto builder =
-    ucxx::experimental::createRequestEndpointClose(ep, ucxx::data::EndpointClose{false})
-      .pythonFuture(false)
-      .callbackFunction(callbackFn)
-      .callbackData(callbackData);
+  auto builder = ucxx::requestEndpointCloseBuilder(ep, ucxx::data::EndpointClose{false})
+                   .pythonFuture(false)
+                   .callbackFunction(callbackFn)
+                   .callbackData(callbackData);
 
-  static_assert(
-    std::is_same<decltype(builder), ucxx::experimental::RequestEndpointCloseBuilder>::value,
-    "chained builder without .build() is still RequestEndpointCloseBuilder");
+  static_assert(std::is_same<decltype(builder), ucxx::RequestEndpointCloseBuilder>::value,
+                "chained builder without .build() is still RequestEndpointCloseBuilder");
 }
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderBuild)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
-  auto req =
-    ucxx::experimental::createRequestEndpointClose(ep, ucxx::data::EndpointClose{true}).build();
+  auto ep  = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto req = ucxx::requestEndpointCloseBuilder(ep, ucxx::data::EndpointClose{true}).build();
 
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
@@ -429,53 +417,47 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
   std::vector<int> buf{0};
   auto tag = ucxx::Tag{0};
 
-  auto tagBuilder =
-    ucxx::experimental::createRequestTag(_ep, ucxx::data::TagSend(buf.data(), sizeof(int), tag));
-  static_assert(std::is_same<decltype(tagBuilder), ucxx::experimental::RequestTagBuilder>::value,
+  auto tagBuilder = ucxx::requestTagBuilder(_ep, ucxx::data::TagSend(buf.data(), sizeof(int), tag));
+  static_assert(std::is_same<decltype(tagBuilder), ucxx::RequestTagBuilder>::value,
                 "auto without .build() is RequestTagBuilder");
 
-  auto amBuilder =
-    ucxx::experimental::createRequestAm(_ep, ucxx::data::AmSend(buf.data(), sizeof(int)));
-  static_assert(std::is_same<decltype(amBuilder), ucxx::experimental::RequestAmBuilder>::value,
+  auto amBuilder = ucxx::requestAmBuilder(_ep, ucxx::data::AmSend(buf.data(), sizeof(int)));
+  static_assert(std::is_same<decltype(amBuilder), ucxx::RequestAmBuilder>::value,
                 "auto without .build() is RequestAmBuilder");
 
   // RequestMemBuilder - don't submit a request here; that needs a real remote key.
-  auto memBuilder = ucxx::experimental::createRequestMem(
-    _ep, ucxx::data::MemPut(buf.data(), sizeof(int), 0, nullptr));
-  static_assert(std::is_same<decltype(memBuilder), ucxx::experimental::RequestMemBuilder>::value,
+  auto memBuilder =
+    ucxx::requestMemBuilder(_ep, ucxx::data::MemPut(buf.data(), sizeof(int), 0, nullptr));
+  static_assert(std::is_same<decltype(memBuilder), ucxx::RequestMemBuilder>::value,
                 "auto without .build() is RequestMemBuilder");
   static_assert(
     std::is_same<decltype(memBuilder.build()), std::shared_ptr<ucxx::RequestMem>>::value,
     "calling .build() on RequestMemBuilder returns shared_ptr<RequestMem>");
 
   auto streamBuilder =
-    ucxx::experimental::createRequestStream(_ep, ucxx::data::StreamSend(buf.data(), sizeof(int)));
-  static_assert(
-    std::is_same<decltype(streamBuilder), ucxx::experimental::RequestStreamBuilder>::value,
-    "auto without .build() is RequestStreamBuilder");
+    ucxx::requestStreamBuilder(_ep, ucxx::data::StreamSend(buf.data(), sizeof(int)));
+  static_assert(std::is_same<decltype(streamBuilder), ucxx::RequestStreamBuilder>::value,
+                "auto without .build() is RequestStreamBuilder");
 
-  auto flushBuilder = ucxx::experimental::createRequestFlush(_worker, ucxx::data::Flush{});
-  static_assert(
-    std::is_same<decltype(flushBuilder), ucxx::experimental::RequestFlushBuilder>::value,
-    "auto without .build() is RequestFlushBuilder");
+  auto flushBuilder = ucxx::requestFlushBuilder(_worker, ucxx::data::Flush{});
+  static_assert(std::is_same<decltype(flushBuilder), ucxx::RequestFlushBuilder>::value,
+                "auto without .build() is RequestFlushBuilder");
 
   {
     auto closeEp = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
     auto closeBuilder =
-      ucxx::experimental::createRequestEndpointClose(closeEp, ucxx::data::EndpointClose{false});
-    static_assert(
-      std::is_same<decltype(closeBuilder), ucxx::experimental::RequestEndpointCloseBuilder>::value,
-      "auto without .build() is RequestEndpointCloseBuilder");
+      ucxx::requestEndpointCloseBuilder(closeEp, ucxx::data::EndpointClose{false});
+    static_assert(std::is_same<decltype(closeBuilder), ucxx::RequestEndpointCloseBuilder>::value,
+                  "auto without .build() is RequestEndpointCloseBuilder");
   }
 
   std::vector<const void*> multiSendBuf{buf.data()};
   std::vector<size_t> multiSendLen{sizeof(int)};
   std::vector<int> isCUDA{0};
-  auto tagMultiBuilder = ucxx::experimental::createRequestTagMulti(
+  auto tagMultiBuilder = ucxx::requestTagMultiBuilder(
     _ep, ucxx::data::TagMultiSend(multiSendBuf, multiSendLen, isCUDA, tag));
-  static_assert(
-    std::is_same<decltype(tagMultiBuilder), ucxx::experimental::RequestTagMultiBuilder>::value,
-    "auto without .build() is RequestTagMultiBuilder");
+  static_assert(std::is_same<decltype(tagMultiBuilder), ucxx::RequestTagMultiBuilder>::value,
+                "auto without .build() is RequestTagMultiBuilder");
 
   auto flushReq = flushBuilder.build();
   static_assert(std::is_same<decltype(flushReq), std::shared_ptr<ucxx::RequestFlush>>::value,
@@ -487,97 +469,87 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
 
 TEST(RequestBuilderTraitsTest, AllBuildersAreMoveOnly)
 {
-  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestAmBuilder>::value,
+  static_assert(!std::is_copy_constructible<ucxx::RequestAmBuilder>::value,
                 "RequestAmBuilder must not be copy constructible");
-  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestAmBuilder>::value,
+  static_assert(!std::is_copy_assignable<ucxx::RequestAmBuilder>::value,
                 "RequestAmBuilder must not be copy assignable");
-  static_assert(std::is_move_constructible<ucxx::experimental::RequestAmBuilder>::value,
+  static_assert(std::is_move_constructible<ucxx::RequestAmBuilder>::value,
                 "RequestAmBuilder must remain move constructible");
 
-  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestEndpointCloseBuilder>::value,
+  static_assert(!std::is_copy_constructible<ucxx::RequestEndpointCloseBuilder>::value,
                 "RequestEndpointCloseBuilder must not be copy constructible");
-  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestEndpointCloseBuilder>::value,
+  static_assert(!std::is_copy_assignable<ucxx::RequestEndpointCloseBuilder>::value,
                 "RequestEndpointCloseBuilder must not be copy assignable");
-  static_assert(std::is_move_constructible<ucxx::experimental::RequestEndpointCloseBuilder>::value,
+  static_assert(std::is_move_constructible<ucxx::RequestEndpointCloseBuilder>::value,
                 "RequestEndpointCloseBuilder must remain move constructible");
 
-  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestFlushBuilder>::value,
+  static_assert(!std::is_copy_constructible<ucxx::RequestFlushBuilder>::value,
                 "RequestFlushBuilder must not be copy constructible");
-  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestFlushBuilder>::value,
+  static_assert(!std::is_copy_assignable<ucxx::RequestFlushBuilder>::value,
                 "RequestFlushBuilder must not be copy assignable");
-  static_assert(std::is_move_constructible<ucxx::experimental::RequestFlushBuilder>::value,
+  static_assert(std::is_move_constructible<ucxx::RequestFlushBuilder>::value,
                 "RequestFlushBuilder must remain move constructible");
 
-  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestMemBuilder>::value,
+  static_assert(!std::is_copy_constructible<ucxx::RequestMemBuilder>::value,
                 "RequestMemBuilder must not be copy constructible");
-  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestMemBuilder>::value,
+  static_assert(!std::is_copy_assignable<ucxx::RequestMemBuilder>::value,
                 "RequestMemBuilder must not be copy assignable");
-  static_assert(std::is_move_constructible<ucxx::experimental::RequestMemBuilder>::value,
+  static_assert(std::is_move_constructible<ucxx::RequestMemBuilder>::value,
                 "RequestMemBuilder must remain move constructible");
 
-  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestStreamBuilder>::value,
+  static_assert(!std::is_copy_constructible<ucxx::RequestStreamBuilder>::value,
                 "RequestStreamBuilder must not be copy constructible");
-  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestStreamBuilder>::value,
+  static_assert(!std::is_copy_assignable<ucxx::RequestStreamBuilder>::value,
                 "RequestStreamBuilder must not be copy assignable");
-  static_assert(std::is_move_constructible<ucxx::experimental::RequestStreamBuilder>::value,
+  static_assert(std::is_move_constructible<ucxx::RequestStreamBuilder>::value,
                 "RequestStreamBuilder must remain move constructible");
 
-  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestTagBuilder>::value,
+  static_assert(!std::is_copy_constructible<ucxx::RequestTagBuilder>::value,
                 "RequestTagBuilder must not be copy constructible");
-  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestTagBuilder>::value,
+  static_assert(!std::is_copy_assignable<ucxx::RequestTagBuilder>::value,
                 "RequestTagBuilder must not be copy assignable");
-  static_assert(std::is_move_constructible<ucxx::experimental::RequestTagBuilder>::value,
+  static_assert(std::is_move_constructible<ucxx::RequestTagBuilder>::value,
                 "RequestTagBuilder must remain move constructible");
 
-  static_assert(!std::is_copy_constructible<ucxx::experimental::RequestTagMultiBuilder>::value,
+  static_assert(!std::is_copy_constructible<ucxx::RequestTagMultiBuilder>::value,
                 "RequestTagMultiBuilder must not be copy constructible");
-  static_assert(!std::is_copy_assignable<ucxx::experimental::RequestTagMultiBuilder>::value,
+  static_assert(!std::is_copy_assignable<ucxx::RequestTagMultiBuilder>::value,
                 "RequestTagMultiBuilder must not be copy assignable");
-  static_assert(std::is_move_constructible<ucxx::experimental::RequestTagMultiBuilder>::value,
+  static_assert(std::is_move_constructible<ucxx::RequestTagMultiBuilder>::value,
                 "RequestTagMultiBuilder must remain move constructible");
 }
 
 TEST(RequestBuilderTraitsTest, BuildAndConversionRequireNonConstBuilders)
 {
-  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestAmBuilder, ucxx::RequestAm>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestAmBuilder, ucxx::RequestAm>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestAmBuilder, ucxx::Request>();
+  assertBuildRequiresNonConstBuilder<ucxx::RequestAmBuilder, ucxx::RequestAm>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestAmBuilder, ucxx::RequestAm>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestAmBuilder, ucxx::Request>();
 
-  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestEndpointCloseBuilder,
+  assertBuildRequiresNonConstBuilder<ucxx::RequestEndpointCloseBuilder,
                                      ucxx::RequestEndpointClose>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestEndpointCloseBuilder,
+  assertConversionRequiresNonConstBuilder<ucxx::RequestEndpointCloseBuilder,
                                           ucxx::RequestEndpointClose>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestEndpointCloseBuilder,
-                                          ucxx::Request>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestEndpointCloseBuilder, ucxx::Request>();
 
-  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestFlushBuilder, ucxx::RequestFlush>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestFlushBuilder,
-                                          ucxx::RequestFlush>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestFlushBuilder, ucxx::Request>();
+  assertBuildRequiresNonConstBuilder<ucxx::RequestFlushBuilder, ucxx::RequestFlush>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestFlushBuilder, ucxx::RequestFlush>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestFlushBuilder, ucxx::Request>();
 
-  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestMemBuilder, ucxx::RequestMem>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestMemBuilder,
-                                          ucxx::RequestMem>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestMemBuilder, ucxx::Request>();
+  assertBuildRequiresNonConstBuilder<ucxx::RequestMemBuilder, ucxx::RequestMem>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestMemBuilder, ucxx::RequestMem>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestMemBuilder, ucxx::Request>();
 
-  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestStreamBuilder,
-                                     ucxx::RequestStream>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestStreamBuilder,
-                                          ucxx::RequestStream>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestStreamBuilder,
-                                          ucxx::Request>();
+  assertBuildRequiresNonConstBuilder<ucxx::RequestStreamBuilder, ucxx::RequestStream>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestStreamBuilder, ucxx::RequestStream>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestStreamBuilder, ucxx::Request>();
 
-  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestTagBuilder, ucxx::RequestTag>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestTagBuilder,
-                                          ucxx::RequestTag>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestTagBuilder, ucxx::Request>();
+  assertBuildRequiresNonConstBuilder<ucxx::RequestTagBuilder, ucxx::RequestTag>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestTagBuilder, ucxx::RequestTag>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestTagBuilder, ucxx::Request>();
 
-  assertBuildRequiresNonConstBuilder<ucxx::experimental::RequestTagMultiBuilder,
-                                     ucxx::RequestTagMulti>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestTagMultiBuilder,
-                                          ucxx::RequestTagMulti>();
-  assertConversionRequiresNonConstBuilder<ucxx::experimental::RequestTagMultiBuilder,
-                                          ucxx::Request>();
+  assertBuildRequiresNonConstBuilder<ucxx::RequestTagMultiBuilder, ucxx::RequestTagMulti>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestTagMultiBuilder, ucxx::RequestTagMulti>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestTagMultiBuilder, ucxx::Request>();
 }
 
 TEST(RequestBuilderTraitsTest, EndpointWorkerBuilderMethodsReturnBuilders)
@@ -587,66 +559,65 @@ TEST(RequestBuilderTraitsTest, EndpointWorkerBuilderMethodsReturnBuilders)
 
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().amSendBuilder(
                                static_cast<const void*>(nullptr), size_t{}, UCS_MEMORY_TYPE_HOST)),
-                             ucxx::experimental::RequestAmBuilder>::value,
+                             ucxx::RequestAmBuilder>::value,
                 "Endpoint::amSendBuilder returns RequestAmBuilder");
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().amRecvBuilder()),
-                             ucxx::experimental::RequestAmBuilder>::value,
+                             ucxx::RequestAmBuilder>::value,
                 "Endpoint::amRecvBuilder returns RequestAmBuilder");
-  static_assert(
-    std::is_same<decltype(std::declval<ucxx::experimental::RequestAmBuilder&>()
-                            .receiverCallbackInfo(std::optional<ucxx::AmReceiverCallbackInfo>{})),
-                 ucxx::experimental::RequestAmBuilder&>::value,
-    "RequestAmBuilder::receiverCallbackInfo returns RequestAmBuilder&");
+  static_assert(std::is_same<decltype(std::declval<ucxx::RequestAmBuilder&>().receiverCallbackInfo(
+                               std::optional<ucxx::AmReceiverCallbackInfo>{})),
+                             ucxx::RequestAmBuilder&>::value,
+                "RequestAmBuilder::receiverCallbackInfo returns RequestAmBuilder&");
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().memPutBuilder(
                                static_cast<const void*>(nullptr), size_t{}, uint64_t{}, nullptr)),
-                             ucxx::experimental::RequestMemBuilder>::value,
+                             ucxx::RequestMemBuilder>::value,
                 "Endpoint::memPutBuilder returns RequestMemBuilder");
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().memGetBuilder(
                                static_cast<void*>(nullptr), size_t{}, uint64_t{}, nullptr)),
-                             ucxx::experimental::RequestMemBuilder>::value,
+                             ucxx::RequestMemBuilder>::value,
                 "Endpoint::memGetBuilder returns RequestMemBuilder");
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().streamSendBuilder(
                                static_cast<const void*>(nullptr), size_t{})),
-                             ucxx::experimental::RequestStreamBuilder>::value,
+                             ucxx::RequestStreamBuilder>::value,
                 "Endpoint::streamSendBuilder returns RequestStreamBuilder");
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().streamRecvBuilder(
                                static_cast<void*>(nullptr), size_t{})),
-                             ucxx::experimental::RequestStreamBuilder>::value,
+                             ucxx::RequestStreamBuilder>::value,
                 "Endpoint::streamRecvBuilder returns RequestStreamBuilder");
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().tagSendBuilder(
                                static_cast<const void*>(nullptr), size_t{}, ucxx::Tag{})),
-                             ucxx::experimental::RequestTagBuilder>::value,
+                             ucxx::RequestTagBuilder>::value,
                 "Endpoint::tagSendBuilder returns RequestTagBuilder");
   static_assert(
     std::is_same<decltype(std::declval<Endpoint&>().tagRecvBuilder(
                    static_cast<void*>(nullptr), size_t{}, ucxx::Tag{}, ucxx::TagMask{})),
-                 ucxx::experimental::RequestTagBuilder>::value,
+                 ucxx::RequestTagBuilder>::value,
     "Endpoint::tagRecvBuilder returns RequestTagBuilder");
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().tagMultiSendBuilder(
                                std::declval<const std::vector<const void*>&>(),
                                std::declval<const std::vector<size_t>&>(),
                                std::declval<const std::vector<int>&>(),
                                ucxx::Tag{})),
-                             ucxx::experimental::RequestTagMultiBuilder>::value,
+                             ucxx::RequestTagMultiBuilder>::value,
                 "Endpoint::tagMultiSendBuilder returns RequestTagMultiBuilder");
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().tagMultiRecvBuilder(
                                ucxx::Tag{}, ucxx::TagMask{})),
-                             ucxx::experimental::RequestTagMultiBuilder>::value,
+                             ucxx::RequestTagMultiBuilder>::value,
                 "Endpoint::tagMultiRecvBuilder returns RequestTagMultiBuilder");
   static_assert(std::is_same<decltype(std::declval<Endpoint&>().flushBuilder()),
-                             ucxx::experimental::RequestFlushBuilder>::value,
+                             ucxx::RequestFlushBuilder>::value,
                 "Endpoint::flushBuilder returns RequestFlushBuilder");
   static_assert(
     std::is_same<decltype(std::declval<Worker&>().tagRecvBuilder(
                    static_cast<void*>(nullptr), size_t{}, ucxx::Tag{}, ucxx::TagMask{})),
-                 ucxx::experimental::RequestTagBuilder>::value,
+                 ucxx::RequestTagBuilder>::value,
     "Worker::tagRecvBuilder returns RequestTagBuilder");
   static_assert(std::is_same<decltype(std::declval<Worker&>().tagRecvWithHandleBuilder(
                                static_cast<void*>(nullptr), std::shared_ptr<ucxx::TagProbeInfo>{})),
-                             ucxx::experimental::RequestTagBuilder>::value,
+                             ucxx::RequestTagBuilder>::value,
                 "Worker::tagRecvWithHandleBuilder returns RequestTagBuilder");
   static_assert(std::is_same<decltype(std::declval<Worker&>().flushBuilder()),
-                             ucxx::experimental::RequestFlushBuilder>::value,
+                             ucxx::RequestFlushBuilder>::value,
                 "Worker::flushBuilder returns RequestFlushBuilder");
 }
 
@@ -684,8 +655,8 @@ TEST(RequestBuilderTraitsTest, EndpointWorkerBuilderMethodsRejectOptionalArgumen
 
 TEST(RequestBuilderSingleUseTest, BuildAttemptMarksBuilderBuilt)
 {
-  auto builder = ucxx::experimental::createRequestFlush(std::shared_ptr<ucxx::Component>{nullptr},
-                                                        ucxx::data::Flush{});
+  auto builder =
+    ucxx::requestFlushBuilder(std::shared_ptr<ucxx::Component>{nullptr}, ucxx::data::Flush{});
 
   EXPECT_THROW(std::ignore = builder.build(), ucxx::Error);
   EXPECT_THROW(std::ignore = builder.build(), std::logic_error);
@@ -693,8 +664,8 @@ TEST(RequestBuilderSingleUseTest, BuildAttemptMarksBuilderBuilt)
 
 TEST(RequestBuilderSingleUseTest, ImplicitConversionAttemptMarksBuilderBuilt)
 {
-  auto builder = ucxx::experimental::createRequestFlush(std::shared_ptr<ucxx::Component>{nullptr},
-                                                        ucxx::data::Flush{});
+  auto builder =
+    ucxx::requestFlushBuilder(std::shared_ptr<ucxx::Component>{nullptr}, ucxx::data::Flush{});
 
   EXPECT_THROW(std::ignore = static_cast<std::shared_ptr<ucxx::Request>>(builder), ucxx::Error);
   EXPECT_THROW(std::ignore = static_cast<std::shared_ptr<ucxx::Request>>(builder),
@@ -793,7 +764,7 @@ TEST_F(RequestBuilderTest, EndpointTagSendAutoDeducesRequest)
 TEST_F(RequestBuilderTest, EndpointFlushBuilderMethod)
 {
   auto builder = _ep->flushBuilder();
-  static_assert(std::is_same<decltype(builder), ucxx::experimental::RequestFlushBuilder>::value,
+  static_assert(std::is_same<decltype(builder), ucxx::RequestFlushBuilder>::value,
                 "ep->flushBuilder() returns RequestFlushBuilder");
 
   auto req = builder.build();
@@ -806,7 +777,7 @@ TEST_F(RequestBuilderTest, EndpointFlushBuilderMethod)
 TEST_F(RequestBuilderTest, WorkerFlushBuilderMethod)
 {
   auto builder = _worker->flushBuilder();
-  static_assert(std::is_same<decltype(builder), ucxx::experimental::RequestFlushBuilder>::value,
+  static_assert(std::is_same<decltype(builder), ucxx::RequestFlushBuilder>::value,
                 "worker->flushBuilder() returns RequestFlushBuilder");
 
   auto req = builder.build();
@@ -825,9 +796,9 @@ TEST_F(RequestBuilderTest, EndpointWorkerTagBuilderMethods)
   auto recvBuilder =
     _worker->tagRecvBuilder(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
 
-  static_assert(std::is_same<decltype(sendBuilder), ucxx::experimental::RequestTagBuilder>::value,
+  static_assert(std::is_same<decltype(sendBuilder), ucxx::RequestTagBuilder>::value,
                 "ep->tagSendBuilder() returns RequestTagBuilder");
-  static_assert(std::is_same<decltype(recvBuilder), ucxx::experimental::RequestTagBuilder>::value,
+  static_assert(std::is_same<decltype(recvBuilder), ucxx::RequestTagBuilder>::value,
                 "worker->tagRecvBuilder() returns RequestTagBuilder");
 
   auto sendReq = sendBuilder.build();
@@ -879,29 +850,27 @@ TEST_F(RequestBuilderTest, EndpointBuilderMethodAutoTypes)
   auto tag = ucxx::Tag{0};
 
   auto tagBuilder = _ep->tagSendBuilder(buf.data(), sizeof(int), tag);
-  static_assert(std::is_same<decltype(tagBuilder), ucxx::experimental::RequestTagBuilder>::value,
+  static_assert(std::is_same<decltype(tagBuilder), ucxx::RequestTagBuilder>::value,
                 "ep->tagSendBuilder() returns RequestTagBuilder");
 
   auto amBuilder = _ep->amSendBuilder(buf.data(), sizeof(int), UCS_MEMORY_TYPE_HOST);
-  static_assert(std::is_same<decltype(amBuilder), ucxx::experimental::RequestAmBuilder>::value,
+  static_assert(std::is_same<decltype(amBuilder), ucxx::RequestAmBuilder>::value,
                 "ep->amSendBuilder() returns RequestAmBuilder");
 
   auto memBuilder = _ep->memPutBuilder(buf.data(), sizeof(int), 0, nullptr);
-  static_assert(std::is_same<decltype(memBuilder), ucxx::experimental::RequestMemBuilder>::value,
+  static_assert(std::is_same<decltype(memBuilder), ucxx::RequestMemBuilder>::value,
                 "ep->memPutBuilder() returns RequestMemBuilder");
 
   auto streamBuilder = _ep->streamSendBuilder(buf.data(), sizeof(int));
-  static_assert(
-    std::is_same<decltype(streamBuilder), ucxx::experimental::RequestStreamBuilder>::value,
-    "ep->streamSendBuilder() returns RequestStreamBuilder");
+  static_assert(std::is_same<decltype(streamBuilder), ucxx::RequestStreamBuilder>::value,
+                "ep->streamSendBuilder() returns RequestStreamBuilder");
 
   std::vector<const void*> multiSendBuf{buf.data()};
   std::vector<size_t> multiSendLen{sizeof(int)};
   std::vector<int> isCUDA{0};
   auto tagMultiBuilder = _ep->tagMultiSendBuilder(multiSendBuf, multiSendLen, isCUDA, tag);
-  static_assert(
-    std::is_same<decltype(tagMultiBuilder), ucxx::experimental::RequestTagMultiBuilder>::value,
-    "ep->tagMultiSendBuilder() returns RequestTagMultiBuilder");
+  static_assert(std::is_same<decltype(tagMultiBuilder), ucxx::RequestTagMultiBuilder>::value,
+                "ep->tagMultiSendBuilder() returns RequestTagMultiBuilder");
 }
 
 }  // namespace

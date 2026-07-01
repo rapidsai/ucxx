@@ -286,7 +286,7 @@ Request::Attributes Request::queryAttributes()
   if (!_worker->isRequestAttributesEnabled())
     throw ucxx::UnsupportedError(
       "Request attributes querying is disabled on the owning worker; build the worker "
-      "with `ucxx::experimental::WorkerBuilder::requestAttributes(true)` to enable it");
+      "with `ucxx::WorkerBuilder::requestAttributes(true)` to enable it");
 
   std::lock_guard<std::recursive_mutex> lock(_mutex);
 
