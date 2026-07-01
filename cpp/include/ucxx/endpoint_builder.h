@@ -101,9 +101,9 @@ class EndpointBuilder final {
  * @param[in] port port the listener is bound to.
  * @return An EndpointBuilder object.
  */
-[[nodiscard]] inline EndpointBuilder endpointFromHostnameBuilder(std::shared_ptr<Worker> worker,
-                                                                 std::string ipAddress,
-                                                                 uint16_t port)
+[[nodiscard]] inline EndpointBuilder endpointBuilder(std::shared_ptr<Worker> worker,
+                                                     std::string ipAddress,
+                                                     uint16_t port)
 {
   return EndpointBuilder(std::move(worker), std::move(ipAddress), port);
 }
@@ -115,8 +115,8 @@ class EndpointBuilder final {
  * @param[in] connRequest connection request delivered by a listener callback.
  * @return An EndpointBuilder object.
  */
-[[nodiscard]] inline EndpointBuilder endpointFromConnRequestBuilder(
-  std::shared_ptr<Listener> listener, ucp_conn_request_h connRequest)
+[[nodiscard]] inline EndpointBuilder endpointBuilder(std::shared_ptr<Listener> listener,
+                                                     ucp_conn_request_h connRequest)
 {
   return EndpointBuilder(std::move(listener), connRequest);
 }
@@ -128,8 +128,8 @@ class EndpointBuilder final {
  * @param[in] address address of the remote UCX worker.
  * @return An EndpointBuilder object.
  */
-[[nodiscard]] inline EndpointBuilder endpointFromWorkerAddressBuilder(
-  std::shared_ptr<Worker> worker, std::shared_ptr<Address> address)
+[[nodiscard]] inline EndpointBuilder endpointBuilder(std::shared_ptr<Worker> worker,
+                                                     std::shared_ptr<Address> address)
 {
   return EndpointBuilder(std::move(worker), std::move(address));
 }

@@ -892,7 +892,7 @@ class Worker : public Component {
    *
    * Gets the address of the underlying UCX worker object, which can then be passed
    * to a remote worker, allowing creating a new endpoint to the local worker via
-   * `ucxx::Worker::endpointFromWorkerAddressBuilder()`.
+   * `ucxx::Worker::endpointBuilder()`.
    *
    * @throws ucxx::Error if an error occurred while attempting to get the worker address.
    *
@@ -921,7 +921,7 @@ class Worker : public Component {
    * @param[in] port port number where the remote worker is listening at.
    * @returns Builder to configure optional endpoint parameters.
    */
-  [[nodiscard]] EndpointBuilder endpointFromHostnameBuilder(std::string ipAddress, uint16_t port);
+  [[nodiscard]] EndpointBuilder endpointBuilder(std::string ipAddress, uint16_t port);
 
   /**
    * @brief Create endpoint to worker listening on specific IP and port.
@@ -933,7 +933,7 @@ class Worker : public Component {
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`
    * // Create endpoint to worker listening on `10.10.10.10:12345`.
-   * auto ep = worker->endpointFromHostnameBuilder("10.10.10.10", 12345).build();
+   * auto ep = worker->endpointBuilder("10.10.10.10", 12345).build();
    * @endcode
    *
    * @throws std::invalid_argument if the IP address or hostname is invalid.
@@ -960,7 +960,7 @@ class Worker : public Component {
    * @param[in] address address of the remote UCX worker.
    * @returns Builder to configure optional endpoint parameters.
    */
-  [[nodiscard]] EndpointBuilder endpointFromWorkerAddressBuilder(std::shared_ptr<Address> address);
+  [[nodiscard]] EndpointBuilder endpointBuilder(std::shared_ptr<Address> address);
 
   /**
    * @brief Create endpoint to worker located at UCX address.
@@ -979,7 +979,7 @@ class Worker : public Component {
    * // ...
    *
    * // `remoteAddress` is `std::shared_ptr<ucxx::Address>`
-   * auto ep = worker->endpointFromWorkerAddressBuilder(remoteAddress).build();
+   * auto ep = worker->endpointBuilder(remoteAddress).build();
    * @endcode
    *
    * @throws ucxx::Error if an error occurred while attempting to create the endpoint.

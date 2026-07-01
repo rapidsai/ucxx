@@ -95,12 +95,9 @@ class Endpoint : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Listener::endpointFromConnRequestBuilder()`
-   * - `ucxx::Worker::endpointFromHostnameBuilder()`
-   * - `ucxx::Worker::endpointFromWorkerAddressBuilder()`
-   * - `ucxx::endpointFromConnRequestBuilder()`
-   * - `ucxx::endpointFromHostnameBuilder()`
-   * - `ucxx::endpointFromWorkerAddressBuilder()`
+   * - `ucxx::Listener::endpointBuilder()`
+   * - `ucxx::Worker::endpointBuilder()`
+   * - `ucxx::endpointBuilder()`
    *
    * @param[in] workerOrListener      the parent component, which may either be a
    *                                  `std::shared_ptr<Listener>` or
@@ -195,12 +192,12 @@ class Endpoint : public Component {
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`, with a presumed listener on
    * // "localhost:12345"
-   * auto endpoint = worker->endpointFromHostnameBuilder("localhost", 12345)
+   * auto endpoint = worker->endpointBuilder("localhost", 12345)
    *                   .endpointErrorHandling(true)
    *                   .build();
    *
    * // Equivalent to line above
-   * // auto endpoint = ucxx::endpointFromHostnameBuilder(worker, "localhost", 12345)
+   * // auto endpoint = ucxx::endpointBuilder(worker, "localhost", 12345)
    * //                   .endpointErrorHandling(true)
    * //                   .build();
    * @endcode
@@ -227,12 +224,12 @@ class Endpoint : public Component {
    * @code{.cpp}
    * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
    * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = listener->endpointFromConnRequestBuilder(connRequest)
+   * auto endpoint = listener->endpointBuilder(connRequest)
    *                   .endpointErrorHandling(true)
    *                   .build();
    *
    * // Equivalent to line above
-   * // auto endpoint = ucxx::endpointFromConnRequestBuilder(listener, connRequest)
+   * // auto endpoint = ucxx::endpointBuilder(listener, connRequest)
    * //                   .endpointErrorHandling(true)
    * //                   .build();
    * @endcode
@@ -256,12 +253,12 @@ class Endpoint : public Component {
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`, address is `std::shared_ptr<ucxx::Address>`
-   * auto endpoint = worker->endpointFromWorkerAddressBuilder(address)
+   * auto endpoint = worker->endpointBuilder(address)
    *                   .endpointErrorHandling(true)
    *                   .build();
    *
    * // Equivalent to line above
-   * // auto endpoint = ucxx::endpointFromWorkerAddressBuilder(worker, address)
+   * // auto endpoint = ucxx::endpointBuilder(worker, address)
    * //                   .endpointErrorHandling(true)
    * //                   .build();
    * @endcode

@@ -1223,7 +1223,7 @@ cdef class UCXEndpoint():
 
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
-            endpoint._endpoint = worker._worker.get().endpointFromHostnameBuilder(
+            endpoint._endpoint = worker._worker.get().endpointBuilder(
                 addr, port
             ).endpointErrorHandling(
                 endpoint_error_handling
@@ -1255,7 +1255,7 @@ cdef class UCXEndpoint():
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
             endpoint._endpoint = (
-                listener._listener.get().endpointFromConnRequestBuilder(
+                listener._listener.get().endpointBuilder(
                     <ucp_conn_request_h>conn_request
                 )
             ).endpointErrorHandling(
@@ -1285,7 +1285,7 @@ cdef class UCXEndpoint():
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
             endpoint._endpoint = (
-                worker._worker.get().endpointFromWorkerAddressBuilder(ucxx_address)
+                worker._worker.get().endpointBuilder(ucxx_address)
             ).endpointErrorHandling(
                 endpoint_error_handling
             ).build()

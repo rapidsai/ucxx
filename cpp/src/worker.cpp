@@ -710,7 +710,7 @@ AddressBuilder Worker::addressBuilder()
   return AddressBuilder(std::static_pointer_cast<Worker>(shared_from_this()));
 }
 
-EndpointBuilder Worker::endpointFromHostnameBuilder(std::string ipAddress, uint16_t port)
+EndpointBuilder Worker::endpointBuilder(std::string ipAddress, uint16_t port)
 {
   return EndpointBuilder(
     std::static_pointer_cast<Worker>(shared_from_this()), std::move(ipAddress), port);
@@ -725,7 +725,7 @@ std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ipAddre
   return endpoint;
 }
 
-EndpointBuilder Worker::endpointFromWorkerAddressBuilder(std::shared_ptr<Address> address)
+EndpointBuilder Worker::endpointBuilder(std::shared_ptr<Address> address)
 {
   return EndpointBuilder(std::static_pointer_cast<Worker>(shared_from_this()), std::move(address));
 }
