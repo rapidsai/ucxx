@@ -10,8 +10,8 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/experimental/request_flush_builder.h>
 #include <ucxx/request.h>
+#include <ucxx/request_flush_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -33,9 +33,9 @@ class RequestFlush : public Request {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Endpoint::flush()`
-   * - `ucxx::Worker::flush()`
-   * - `ucxx::createRequestFlush()`
+   * - `ucxx::Endpoint::flushBuilder()`
+   * - `ucxx::Worker::flushBuilder()`
+   * - `ucxx::requestFlushBuilder()`
    *
    * @throws ucxx::Error  if `endpointOrWorker` is not a valid
    *                      `std::shared_ptr<ucxx::Endpoint>` or
@@ -94,6 +94,7 @@ class RequestFlush : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestFlush>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestFlushBuilder() instead.")
   friend std::shared_ptr<RequestFlush> createRequestFlush(
     std::shared_ptr<Component> endpointOrWorker,
     const data::Flush requestData,

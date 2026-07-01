@@ -129,21 +129,21 @@ add_library(
   src/context.cpp
   src/delayed_submission.cpp
   src/endpoint.cpp
-  src/experimental/address_builder.cpp
-  src/experimental/context_builder.cpp
-  src/experimental/endpoint_builder.cpp
-  src/experimental/listener_builder.cpp
-  src/experimental/memory_handle_builder.cpp
-  src/experimental/remote_key_builder.cpp
-  src/experimental/request_am_builder.cpp
-  src/experimental/request_endpoint_close_builder.cpp
-  src/experimental/request_flush_builder.cpp
-  src/experimental/request_mem_builder.cpp
-  src/experimental/request_stream_builder.cpp
-  src/experimental/request_tag_builder.cpp
-  src/experimental/request_tag_multi_builder.cpp
-  src/experimental/tag_probe_builder.cpp
-  src/experimental/worker_builder.cpp
+  src/address_builder.cpp
+  src/context_builder.cpp
+  src/endpoint_builder.cpp
+  src/listener_builder.cpp
+  src/memory_handle_builder.cpp
+  src/remote_key_builder.cpp
+  src/request_am_builder.cpp
+  src/request_endpoint_close_builder.cpp
+  src/request_flush_builder.cpp
+  src/request_mem_builder.cpp
+  src/request_stream_builder.cpp
+  src/request_tag_builder.cpp
+  src/request_tag_multi_builder.cpp
+  src/tag_probe_builder.cpp
+  src/worker_builder.cpp
   src/header.cpp
   src/inflight_requests.cpp
   src/internal/request_am.cpp
@@ -183,6 +183,9 @@ set_target_properties(
 )
 
 target_compile_options(ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>")
+target_compile_definitions(
+  ucxx PRIVATE UCXX_DISABLE_DEPRECATED_NON_BUILDER_CONSTRUCTOR_WARNINGS
+)
 
 # Specify include paths for the current target and dependents
 target_include_directories(

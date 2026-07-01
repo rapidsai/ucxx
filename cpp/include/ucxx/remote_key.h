@@ -12,10 +12,19 @@
 
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
-#include <ucxx/experimental/remote_key_builder.h>
 #include <ucxx/memory_handle.h>
+#include <ucxx/remote_key_builder.h>
 
 namespace ucxx {
+
+class RemoteKey;
+
+namespace detail {
+[[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
+  std::shared_ptr<MemoryHandle> memoryHandle);
+[[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
+  std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
+}  // namespace detail
 
 /**
  * @brief Type for hashing serialized remote keys.
@@ -54,8 +63,8 @@ class RemoteKey : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::MemoryHandle::createRemoteKey()`
-   * - `ucxx::createRemoteKeyFromMemoryHandle()`
+   * - `ucxx::MemoryHandle::remoteKeyBuilder()`
+   * - `ucxx::RemoteKeyBuilder`
    *
    * @param[in] memoryHandle the memory handle mapped on the local process.
    */
@@ -71,7 +80,8 @@ class RemoteKey : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::createRemoteKeyFromSerialized()`
+   * - `ucxx::Endpoint::remoteKeyBuilder()`
+   * - `ucxx::RemoteKeyBuilder`
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component.
    * @param[in] serializedRemoteKey the remote key that was serialized by the owner of
@@ -107,10 +117,10 @@ class RemoteKey : public Component {
    *
    * @code{.cpp}
    * // `memoryHandle` is `std::shared_ptr<ucxx::MemoryHandle>`
-   * auto remoteKey = memoryHandle->createRemoteKey();
+   * auto remoteKey = memoryHandle->remoteKeyBuilder().build();
    *
    * // Equivalent to line above
-   * // auto remoteKey = ucxx::createRemoteKeyFromMemoryHandle(memoryHandle);
+   * // auto remoteKey = ucxx::RemoteKeyBuilder(memoryHandle).build();
    * @endcode
    *
    * @throws ucxx::Error if `ucp_rkey_pack` fails.
@@ -119,7 +129,7 @@ class RemoteKey : public Component {
    *
    * @returns The `shared_ptr<ucxx::RemoteKey>` object
    */
-  friend std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
+  friend std::shared_ptr<RemoteKey> detail::createRemoteKeyFromMemoryHandle(
     std::shared_ptr<MemoryHandle> memoryHandle);
 
   /**
@@ -132,10 +142,10 @@ class RemoteKey : public Component {
    * @code{.cpp}
    * // `serializedRemoteKey` is `ucxx::SerializedRemoteKey>`, created on a remote worker
    * // after a call to `ucxx::RemoteKey::serialize()` and transferred over-the-wire.
-   * auto remoteKey = ucxx::createRemoteKeyFromSerialized(serializedRemoteKey);
+   * auto remoteKey = endpoint->remoteKeyBuilder(serializedRemoteKey).build();
    *
    * // Equivalent to line above
-   * // auto remoteKey = ucxx::createRemoteKeyFromMemoryHandle(memoryHandle);
+   * // auto remoteKey = ucxx::RemoteKeyBuilder(endpoint, serializedRemoteKey).build();
    * @endcode
    *
    * @throws ucxx::Error if `ucp_ep_rkey_unpack` fails.
@@ -147,7 +157,7 @@ class RemoteKey : public Component {
    *
    * @returns The `shared_ptr<ucxx::RemoteKey>` object
    */
-  friend std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
+  friend std::shared_ptr<RemoteKey> detail::createRemoteKeyFromSerialized(
     std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
 
   ~RemoteKey();
@@ -173,7 +183,7 @@ class RemoteKey : public Component {
    * @brief Get the size of the memory allocation.
    *
    * Get the size of the memory allocation the remote key packs, which is at least the
-   * number of bytes specified with the `size` argument passed to `createMemoryHandle()`.
+   * number of bytes specified with the `size` argument passed to `memoryHandleBuilder()`.
    *
    * @code{.cpp}
    * // remoteKey is `std::shared_ptr<ucxx::RemoteKey>`

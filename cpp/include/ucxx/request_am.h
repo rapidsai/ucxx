@@ -12,8 +12,8 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/experimental/request_am_builder.h>
 #include <ucxx/request.h>
+#include <ucxx/request_am_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -47,10 +47,9 @@ class RequestAm : public Request {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Endpoint::amSend()`
-   * - `ucxx::createRequestAmSend()`
-   * - `ucxx::Endpoint::amReceive()`
-   * - `ucxx::createRequestAmReceive()`
+   * - `ucxx::Endpoint::amSendBuilder()`
+   * - `ucxx::Endpoint::amRecvBuilder()`
+   * - `ucxx::requestAmBuilder()`
    *
    * @throws ucxx::Error  if `endpoint` is not a valid `std::shared_ptr<ucxx::Endpoint>`.
    *
@@ -103,6 +102,7 @@ class RequestAm : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestAmBuilder() instead.")
   friend std::shared_ptr<RequestAm> createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,

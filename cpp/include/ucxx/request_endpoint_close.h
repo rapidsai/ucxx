@@ -10,8 +10,8 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/experimental/request_endpoint_close_builder.h>
 #include <ucxx/request.h>
+#include <ucxx/request_endpoint_close_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -32,8 +32,8 @@ class RequestEndpointClose : public Request {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Endpoint::close()`
-   * - `ucxx::createRequestEndpointClose()`
+   * - `ucxx::Endpoint::closeBuilder()`
+   * - `ucxx::requestEndpointCloseBuilder()`
    *
    * @throws ucxx::Error  if `endpoint` is not a valid `std::shared_ptr<ucxx::Endpoint>`.
    *
@@ -83,6 +83,7 @@ class RequestEndpointClose : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestEndpointClose>` object.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestEndpointCloseBuilder() instead.")
   friend std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
     std::shared_ptr<Endpoint> endpoint,
     const data::EndpointClose requestData,

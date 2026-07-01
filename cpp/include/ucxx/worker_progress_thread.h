@@ -157,10 +157,10 @@ class WorkerProgressThread {
    *
    * @code{.cpp}
    * // context is `std::shared_ptr<ucxx::Context>`
-   * auto worker = context->createWorker(false);
+   * auto worker = context->workerBuilder().build();
    *
    * // Equivalent to line above
-   * // auto worker = ucxx::createWorker(context, false);
+   * // auto worker = ucxx::workerBuilder(context).build();
    * @endcode
    *
    * @param[in] pollingMode                 whether the thread should use polling mode to

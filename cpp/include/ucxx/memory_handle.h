@@ -11,7 +11,8 @@
 
 #include <ucxx/component.h>
 #include <ucxx/context.h>
-#include <ucxx/experimental/memory_handle_builder.h>
+#include <ucxx/memory_handle_builder.h>
+#include <ucxx/remote_key_builder.h>
 
 namespace ucxx {
 
@@ -41,8 +42,8 @@ class MemoryHandle : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Context::createMemoryHandle`
-   * - `ucxx::createMemoryHandle()`
+   * - `ucxx::Context::memoryHandleBuilder()`
+   * - `ucxx::MemoryHandleBuilder`
    *
    * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
    *
@@ -82,22 +83,23 @@ class MemoryHandle : public Component {
    * @code{.cpp}
    * // `context` is `std::shared_ptr<ucxx::Context>`
    * // Allocate a 128-byte buffer with UCP.
-   * auto memoryHandle = context->createMemoryHandle(128, nullptr);
+   * auto memoryHandle = context->memoryHandleBuilder(128).build();
    *
    * // Equivalent to line above
-   * // auto memoryHandle = ucxx::createMemoryHandle(context, 128, nullptr);
+   * // auto memoryHandle = ucxx::MemoryHandleBuilder(context, 128).build();
    *
    * // Map an existing 128-byte buffer with UCP.
    * size_t allocationSize = 128;
    * auto buffer = new uint8_t[allocationSize];
-   * auto memoryHandleFromBuffer = context->createMemoryHandle(
-   *    allocationSize * sizeof(*buffer), reinterpret_cast<void*>(buffer)
-   * );
+   * auto memoryHandleFromBuffer = context->memoryHandleBuilder(allocationSize * sizeof(*buffer))
+   *                                  .buffer(buffer)
+   *                                  .build();
    *
    * // Equivalent to line above
-   * // auto memoryHandleFromBuffer = ucxx::createMemoryHandle(
-   * //    context, allocationSize * sizeof(*buffer), reinterpret_cast<void*>(buffer)
-   * // );
+   * // auto memoryHandleFromBuffer = ucxx::MemoryHandleBuilder(
+   * //   context, allocationSize * sizeof(*buffer))
+   * //   .buffer(buffer)
+   * //   .build();
    * @endcode
    *
    * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
@@ -110,6 +112,7 @@ class MemoryHandle : public Component {
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::MemoryHandleBuilder instead.")
   friend std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
                                                           const size_t size,
                                                           void* buffer,
@@ -138,7 +141,7 @@ class MemoryHandle : public Component {
    * @brief Get the size of the memory allocation.
    *
    * Get the size of the memory allocation, which is at least the number of bytes specified
-   * with the `size` argument passed to `createMemoryHandle()`.
+   * with the `size` argument passed to `memoryHandleBuilder()`.
    *
    * @code{.cpp}
    * // memoryHandle is `std::shared_ptr<ucxx::MemoryHandle>`
@@ -176,6 +179,16 @@ class MemoryHandle : public Component {
   [[nodiscard]] ucs_memory_type_t getMemoryType();
 
   /**
+   * @brief Create a builder for a remote key from this memory allocation.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion creates a remote key that can be used by a remote endpoint.
+   *
+   * @returns Builder to create the remote key.
+   */
+  [[nodiscard]] RemoteKeyBuilder remoteKeyBuilder();
+
+  /**
    * @brief Create a remote key for the memory allocation.
    *
    * Create a remote key that can be used by a remote endpoint to access this memory
@@ -183,6 +196,7 @@ class MemoryHandle : public Component {
    *
    * @returns A shared pointer to the created remote key.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::MemoryHandle::remoteKeyBuilder() instead.")
   [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKey();
 };
 

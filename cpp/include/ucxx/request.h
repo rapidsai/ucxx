@@ -253,7 +253,7 @@ class Request : public Component {
    *
    * Returns the request attributes as a struct. The owning `ucxx::Worker` must have been
    * created with request attributes querying enabled (see
-   * `ucxx::experimental::WorkerBuilder::requestAttributes()`); otherwise the attributes
+   * `ucxx::WorkerBuilder::requestAttributes()`); otherwise the attributes
    * are never populated and this method throws. Querying the underlying UCP request is
    * an implementation detail performed eagerly when the request is submitted. All
    * non-status fields exposed by UCP are queried, use `getStatus()` to obtain the status.
@@ -261,7 +261,7 @@ class Request : public Component {
    * @throw ucxx::UnsupportedError if the owning worker was not built with request
    *                               attributes querying enabled. Requires `Worker`
    *                               created with
-   *                               `ucxx::experimental::WorkerBuilder::requestAttributes(true)`.
+   *                               `ucxx::WorkerBuilder::requestAttributes(true)`.
    * @throw ucxx::NoElemError      if attributes are unavailable for this specific
    *                               request: either because UCX took an inline-completion
    *                               path that produced no UCP request to query, or because

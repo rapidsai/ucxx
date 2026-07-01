@@ -16,18 +16,21 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/address_builder.h>
 #include <ucxx/buffer.h>
 #include <ucxx/component.h>
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/delayed_submission.h>
-#include <ucxx/experimental/request_flush_builder.h>
-#include <ucxx/experimental/request_tag_builder.h>
-#include <ucxx/experimental/worker_builder.h>
+#include <ucxx/endpoint_builder.h>
 #include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>
+#include <ucxx/listener_builder.h>
 #include <ucxx/notifier.h>
+#include <ucxx/request_flush_builder.h>
+#include <ucxx/request_tag_builder.h>
 #include <ucxx/typedefs.h>
+#include <ucxx/worker_builder.h>
 #include <ucxx/worker_progress_thread.h>
 
 namespace ucxx {
@@ -35,13 +38,11 @@ namespace ucxx {
 class Component;
 class Request;
 
-namespace experimental {
 class WorkerBuilder;
 
 namespace detail {
 void registerInflightRequest(std::shared_ptr<Component> component, std::shared_ptr<Request> req);
 }  // namespace detail
-}  // namespace experimental
 
 class Address;
 class Buffer;
@@ -82,6 +83,7 @@ class Worker : public Component {
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
 
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestAmBuilder() instead.")
   friend std::shared_ptr<RequestAm> createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,
@@ -175,9 +177,12 @@ class Worker : public Component {
    * @brief Protected constructor of `ucxx::Worker`.
    *
    * This is the internal implementation of `ucxx::Worker` constructor, made protected not
-   * to be called directly. Instead the user should call `context::createWorker()` or
-   * `ucxx::createWorker()` (or `ucxx::createPythonWorker` for the Python-enabled
-   * implementation).
+   * to be called directly.
+   *
+   * Instead the user should use one of the following:
+   *
+   * - `ucxx::Context::workerBuilder()`
+   * - `ucxx::workerBuilder()`
    *
    *
    * @param[in] context the context from which to create the worker.
@@ -205,20 +210,21 @@ class Worker : public Component {
    * This friend declaration allows the standalone `ucxx::createWorker` function to access
    * the protected constructor. See the public declaration for full documentation.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::workerBuilder() instead.")
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                               const bool enableDelayedSubmission,
                                               const bool enableFuture);
 
   /**
-   * @brief Allow experimental::WorkerBuilder to access protected/private constructor.
+   * @brief Allow WorkerBuilder to access protected/private constructor.
    */
-  friend class experimental::WorkerBuilder;
+  friend class WorkerBuilder;
 
   /**
    * @brief Allow request builders to register newly-created requests.
    */
-  friend void experimental::detail::registerInflightRequest(std::shared_ptr<Component> component,
-                                                            std::shared_ptr<Request> req);
+  friend void detail::registerInflightRequest(std::shared_ptr<Component> component,
+                                              std::shared_ptr<Request> req);
 
   /**
    * @brief `ucxx::Worker` destructor.
@@ -806,6 +812,7 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::tagRecvBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> tagRecv(
     void* buffer,
     size_t length,
@@ -829,10 +836,10 @@ class Worker : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestTagBuilder tagRecvBuilder(void* buffer,
-                                                               size_t length,
-                                                               Tag tag,
-                                                               TagMask tagMask);
+  [[nodiscard]] RequestTagBuilder tagRecvBuilder(void* buffer,
+                                                 size_t length,
+                                                 Tag tag,
+                                                 TagMask tagMask);
 
   /**
    * @brief Enqueue a tag receive operation using a message handle.
@@ -857,6 +864,7 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::tagRecvWithHandleBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> tagRecvWithHandle(
     void* buffer,
     std::shared_ptr<TagProbeInfo> probeInfo,
@@ -876,33 +884,56 @@ class Worker : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestTagBuilder tagRecvWithHandleBuilder(
-    void* buffer, std::shared_ptr<TagProbeInfo> probeInfo);
+  [[nodiscard]] RequestTagBuilder tagRecvWithHandleBuilder(void* buffer,
+                                                           std::shared_ptr<TagProbeInfo> probeInfo);
 
   /**
    * @brief Get the address of the UCX worker object.
    *
    * Gets the address of the underlying UCX worker object, which can then be passed
    * to a remote worker, allowing creating a new endpoint to the local worker via
-   * `ucxx::Worker::createEndpointFromWorkerAddress()`.
+   * `ucxx::Worker::endpointBuilder()`.
    *
    * @throws ucxx::Error if an error occurred while attempting to get the worker address.
    *
    * @returns The address of the local worker.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::addressBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Address> getAddress();
+
+  /**
+   * @brief Create a builder for this worker's address.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion gets the address of the underlying UCX worker object.
+   *
+   * @returns Builder to create the worker address.
+   */
+  [[nodiscard]] AddressBuilder addressBuilder();
+
+  /**
+   * @brief Create a builder for an endpoint to a worker listening on an IP and port.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion creates the endpoint from this worker.
+   *
+   * @param[in] ipAddress string containing the IP address of the remote worker.
+   * @param[in] port port number where the remote worker is listening at.
+   * @returns Builder to configure optional endpoint parameters.
+   */
+  [[nodiscard]] EndpointBuilder endpointBuilder(std::string ipAddress, uint16_t port);
 
   /**
    * @brief Create endpoint to worker listening on specific IP and port.
    *
    * Creates an endpoint to a remote worker listening on a specific IP address and port.
    * The remote worker must have an active listener created with
-   * `ucxx::Worker::createListener()`.
+   * `ucxx::Worker::listenerBuilder()`.
    *
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`
    * // Create endpoint to worker listening on `10.10.10.10:12345`.
-   * auto ep = worker->createEndpointFromHostname("10.10.10.10", 12345);
+   * auto ep = worker->endpointBuilder("10.10.10.10", 12345).build();
    * @endcode
    *
    * @throws std::invalid_argument if the IP address or hostname is invalid.
@@ -916,8 +947,20 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromHostname(
     std::string ipAddress, uint16_t port, bool endpointErrorHandling = true);
+
+  /**
+   * @brief Create a builder for an endpoint to a worker located at a UCX address.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion creates the endpoint from this worker.
+   *
+   * @param[in] address address of the remote UCX worker.
+   * @returns Builder to configure optional endpoint parameters.
+   */
+  [[nodiscard]] EndpointBuilder endpointBuilder(std::shared_ptr<Address> address);
 
   /**
    * @brief Create endpoint to worker located at UCX address.
@@ -927,7 +970,7 @@ class Worker : public Component {
    *
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`
-   * auto localAddress = worker->getAddress();
+   * auto localAddress = worker->addressBuilder().build();
    *
    * // pass address to remote process
    * // ...
@@ -936,7 +979,7 @@ class Worker : public Component {
    * // ...
    *
    * // `remoteAddress` is `std::shared_ptr<ucxx::Address>`
-   * auto ep = worker->createEndpointFromAddress(remoteAddress);
+   * auto ep = worker->endpointBuilder(remoteAddress).build();
    * @endcode
    *
    * @throws ucxx::Error if an error occurred while attempting to create the endpoint.
@@ -947,8 +990,24 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
     std::shared_ptr<Address> address, bool endpointErrorHandling = true);
+
+  /**
+   * @brief Create a builder for a listener on this worker.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion starts a listener on this worker.
+   *
+   * @param[in] port port number where to listen at.
+   * @param[in] callback callback to handle each incoming connection.
+   * @param[in] callbackArgs pointer to argument to pass to the callback.
+   * @returns Builder to create the listener.
+   */
+  [[nodiscard]] ListenerBuilder listenerBuilder(uint16_t port,
+                                                ucp_listener_conn_callback_t callback,
+                                                void* callbackArgs);
 
   /**
    * @brief Listen for remote connections on given port.
@@ -967,6 +1026,7 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Listener>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::listenerBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Listener> createListener(uint16_t port,
                                                          ucp_listener_conn_callback_t callback,
                                                          void* callbackArgs);
@@ -989,7 +1049,7 @@ class Worker : public Component {
    *
    * @code{.cpp}
    * // context is `std::shared_ptr<ucxx::Context>`
-   * auto worker = context->createWorker(false);
+   * auto worker = context->workerBuilder().build();
    *
    * worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
    *   return std::make_shared<ucxx::CCCLBuffer>(length);
@@ -1086,6 +1146,7 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::flushBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> flush(
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
@@ -1099,7 +1160,7 @@ class Worker : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestFlushBuilder flushBuilder();
+  [[nodiscard]] RequestFlushBuilder flushBuilder();
 
   /**
    * @brief Worker attributes reported by `ucp_worker_query`.
@@ -1137,7 +1198,7 @@ class Worker : public Component {
  *
  * @code{.cpp}
  *   // context is `std::shared_ptr<ucxx::Context>`
- *   auto worker = ucxx::createWorker(context, false, false);
+ *   auto worker = ucxx::workerBuilder(context).build();
  * @endcode
  *
  * @param[in] context the context from which to create the worker.
@@ -1149,6 +1210,7 @@ class Worker : public Component {
  *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
  * @returns The `shared_ptr<ucxx::Worker>` object
  */
+UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::workerBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                                    const bool enableDelayedSubmission,
                                                    const bool enableFuture);

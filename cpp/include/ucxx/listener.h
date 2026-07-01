@@ -10,10 +10,20 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/component.h>
-#include <ucxx/experimental/listener_builder.h>
+#include <ucxx/endpoint_builder.h>
+#include <ucxx/listener_builder.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
+
+class Listener;
+
+namespace detail {
+[[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
+                                                       uint16_t port,
+                                                       ucp_listener_conn_callback_t callback,
+                                                       void* callbackArgs);
+}  // namespace detail
 
 /**
  * @brief Component encapsulating a UCP listener.
@@ -31,8 +41,12 @@ class Listener : public Component {
    * @brief Private constructor of `ucxx::Listener`.
    *
    * This is the internal implementation of `ucxx::Listener` constructor, made private not
-   * to be called directly. Instead the user should call `worker::createListener()` or
-   * `ucxx::createListener()`.
+   * to be called directly.
+   *
+   * Instead the user should use one of the following:
+   *
+   * - `ucxx::Worker::listenerBuilder()`
+   * - `ucxx::ListenerBuilder`
    *
    *
    * @param[in] worker        the worker from which to create the listener.
@@ -72,17 +86,17 @@ class Listener : public Component {
    * void myCallback(ucp_conn_request_h connRequest, void* arg) {
    *   ClientContextType clientContext = (ClientContextType*);
    *   clientContext->endpoint =
-   *     clientContext->listener->createEndpointFromConnRequest(connRequest);
+   *     clientContext->listener->endpointBuilder(connRequest).build();
    * }
    *
    * ClientContext clientContext;
    *
    * // worker is `std::shared_ptr<ucxx::Worker>`
-   * auto listener = worker->createListener(12345, myCallback, clientContext);
+   * auto listener = worker->listenerBuilder(12345, myCallback, clientContext).build();
    * clientContext->listener = listener;
    *
    * // Equivalent to line above
-   * // auto listener = ucxx::createListener(worker, 12345, myCallback, clientContext);
+   * // auto listener = ucxx::ListenerBuilder(worker, 12345, myCallback, clientContext).build();
    * @endcode
    *
    * @param[in] worker        the worker from which to create the listener.
@@ -93,10 +107,21 @@ class Listener : public Component {
    *
    * @returns The `shared_ptr<ucxx::Listener>` object.
    */
-  friend std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                                  uint16_t port,
-                                                  ucp_listener_conn_callback_t callback,
-                                                  void* callbackArgs);
+  friend std::shared_ptr<Listener> detail::createListener(std::shared_ptr<Worker> worker,
+                                                          uint16_t port,
+                                                          ucp_listener_conn_callback_t callback,
+                                                          void* callbackArgs);
+
+  /**
+   * @brief Create a builder for an endpoint from a connection request.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion creates the endpoint from this listener.
+   *
+   * @param[in] connRequest handle to connection request delivered by a listener callback.
+   * @returns Builder to configure optional endpoint parameters.
+   */
+  [[nodiscard]] EndpointBuilder endpointBuilder(ucp_conn_request_h connRequest);
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -107,10 +132,14 @@ class Listener : public Component {
    * @code{.cpp}
    * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
    * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = listener->createEndpointFromConnRequest(connRequest, true);
+   * auto endpoint = listener->endpointBuilder(connRequest)
+   *                   .endpointErrorHandling(true)
+   *                   .build();
    *
    * // Equivalent to line above
-   * // auto endpoint = ucxx::createEndpointFromConnRequest(listener, connRequest, true);
+   * // auto endpoint = ucxx::endpointBuilder(listener, connRequest)
+   * //                   .endpointErrorHandling(true)
+   * //                   .build();
    * @endcode
    *
    * @param[in] connRequest           handle to connection request delivered by a
@@ -119,6 +148,7 @@ class Listener : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Listener::endpointBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromConnRequest(
     ucp_conn_request_h connRequest, bool endpointErrorHandling = true);
 
