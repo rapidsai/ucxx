@@ -75,17 +75,17 @@ UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::contextBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Context> createContext(const ConfigMap ucxConfig,
                                                      const uint64_t featureFlags);
 
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointFromHostnameBuilder() instead.")
+UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
                                                                    std::string ipAddress,
                                                                    uint16_t port,
                                                                    bool endpointErrorHandling);
 
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointFromConnRequestBuilder() instead.")
+UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromConnRequest(
   std::shared_ptr<Listener> listener, ucp_conn_request_h connRequest, bool endpointErrorHandling);
 
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointFromWorkerAddressBuilder() instead.")
+UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
   std::shared_ptr<Worker> worker, std::shared_ptr<Address> address, bool endpointErrorHandling);
 

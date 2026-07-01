@@ -947,7 +947,7 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointFromHostnameBuilder() instead.")
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromHostname(
     std::string ipAddress, uint16_t port, bool endpointErrorHandling = true);
 
@@ -990,7 +990,7 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointFromWorkerAddressBuilder() instead.")
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
     std::shared_ptr<Address> address, bool endpointErrorHandling = true);
 

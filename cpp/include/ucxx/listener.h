@@ -148,7 +148,7 @@ class Listener : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object.
    */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Listener::endpointFromConnRequestBuilder() instead.")
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Listener::endpointBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromConnRequest(
     ucp_conn_request_h connRequest, bool endpointErrorHandling = true);
 
