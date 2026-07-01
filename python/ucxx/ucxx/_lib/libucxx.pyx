@@ -24,7 +24,6 @@ from libcpp.memory cimport (
     shared_ptr,
     static_pointer_cast,
 )
-from libcpp.optional cimport nullopt
 from libcpp.string cimport string
 from libcpp.string_view cimport string_view
 from libcpp.utility cimport move
@@ -549,7 +548,7 @@ cdef class UCXAddress():
 
         address._bytes = None
         with nogil:
-            address._address = worker._worker.get().getAddress()
+            address._address = AddressBuilder(worker._worker).build()
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
             address._string = address._address.get().getStringView()
@@ -563,7 +562,7 @@ cdef class UCXAddress():
 
         address._bytes = None
         with nogil:
-            address._address = createAddressFromString(address_strv)
+            address._address = AddressBuilder(address_strv).build()
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
             address._string = address._address.get().getStringView()
@@ -902,13 +901,14 @@ cdef class UCXWorker():
             raise ValueError("UCXContext must be created with `Feature.TAG`")
 
         with nogil:
-            req = self._worker.get().tagRecv(
+            req = self._worker.get().tagRecvBuilder(
                 buf,
                 nbytes,
                 cpp_tag,
-                cpp_tag_mask,
+                cpp_tag_mask
+            ).pythonFuture(
                 self._enable_python_future
-            )
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -932,11 +932,12 @@ cdef class UCXWorker():
             raise ValueError("TagProbeResult must be matched")
 
         with nogil:
-            req = self._worker.get().tagRecvWithHandle(
+            req = self._worker.get().tagRecvWithHandleBuilder(
                 buf,
-                probe_result._probe_info_ptr,
+                probe_result._probe_info_ptr
+            ).pythonFuture(
                 self._enable_python_future
-            )
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1222,9 +1223,11 @@ cdef class UCXEndpoint():
 
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
-            endpoint._endpoint = worker._worker.get().createEndpointFromHostname(
-                addr, port, endpoint_error_handling
-            )
+            endpoint._endpoint = worker._worker.get().endpointFromHostnameBuilder(
+                addr, port
+            ).endpointErrorHandling(
+                endpoint_error_handling
+            ).build()
 
         return endpoint
 
@@ -1251,9 +1254,13 @@ cdef class UCXEndpoint():
 
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
-            endpoint._endpoint = listener._listener.get().createEndpointFromConnRequest(
-                <ucp_conn_request_h>conn_request, endpoint_error_handling
-            )
+            endpoint._endpoint = (
+                listener._listener.get().endpointFromConnRequestBuilder(
+                    <ucp_conn_request_h>conn_request
+                )
+            ).endpointErrorHandling(
+                endpoint_error_handling
+            ).build()
 
         return endpoint
 
@@ -1277,9 +1284,11 @@ cdef class UCXEndpoint():
 
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
-            endpoint._endpoint = worker._worker.get().createEndpointFromWorkerAddress(
-                ucxx_address, endpoint_error_handling
-            )
+            endpoint._endpoint = (
+                worker._worker.get().endpointFromWorkerAddressBuilder(ucxx_address)
+            ).endpointErrorHandling(
+                endpoint_error_handling
+            ).build()
 
         return endpoint
 
@@ -1335,9 +1344,9 @@ cdef class UCXEndpoint():
         cdef shared_ptr[Request] req
 
         with nogil:
-            req = self._endpoint.get().close(
+            req = self._endpoint.get().closeBuilder().pythonFuture(
                 self._enable_python_future
-            )
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1370,13 +1379,13 @@ cdef class UCXEndpoint():
             raise ValueError("UCXContext must be created with `Feature.AM`")
 
         with nogil:
-            req = self._endpoint.get().amSend(
+            req = self._endpoint.get().amSendBuilder(
                 buf,
                 nbytes,
-                UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST,
-                nullopt,
+                UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST
+            ).pythonFuture(
                 self._enable_python_future
-            )
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1387,7 +1396,9 @@ cdef class UCXEndpoint():
             raise ValueError("UCXContext must be created with `Feature.AM`")
 
         with nogil:
-            req = self._endpoint.get().amRecv(self._enable_python_future)
+            req = self._endpoint.get().amRecvBuilder().pythonFuture(
+                self._enable_python_future
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1407,11 +1418,12 @@ cdef class UCXEndpoint():
             )
 
         with nogil:
-            req = self._endpoint.get().streamSend(
+            req = self._endpoint.get().streamSendBuilder(
                 buf,
-                nbytes,
+                nbytes
+            ).pythonFuture(
                 self._enable_python_future
-            )
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1431,11 +1443,12 @@ cdef class UCXEndpoint():
             )
 
         with nogil:
-            req = self._endpoint.get().streamRecv(
+            req = self._endpoint.get().streamRecvBuilder(
                 buf,
-                nbytes,
+                nbytes
+            ).pythonFuture(
                 self._enable_python_future
-            )
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1456,12 +1469,13 @@ cdef class UCXEndpoint():
             )
 
         with nogil:
-            req = self._endpoint.get().tagSend(
+            req = self._endpoint.get().tagSendBuilder(
                 buf,
                 nbytes,
-                cpp_tag,
+                cpp_tag
+            ).pythonFuture(
                 self._enable_python_future
-            )
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1488,13 +1502,14 @@ cdef class UCXEndpoint():
             )
 
         with nogil:
-            req = self._endpoint.get().tagRecv(
+            req = self._endpoint.get().tagRecvBuilder(
                 buf,
                 nbytes,
                 cpp_tag,
-                cpp_tag_mask,
+                cpp_tag_mask
+            ).pythonFuture(
                 self._enable_python_future
-            )
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1520,11 +1535,12 @@ cdef class UCXEndpoint():
 
         with nogil:
             worker = self._endpoint.get().getWorker()
-            req = worker.get().tagRecvWithHandle(
+            req = worker.get().tagRecvWithHandleBuilder(
                 buf,
-                probe_result._probe_info_ptr,
+                probe_result._probe_info_ptr
+            ).pythonFuture(
                 self._enable_python_future
-            )
+            ).build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1554,13 +1570,14 @@ cdef class UCXEndpoint():
             v_is_cuda.push_back(arr.cuda)
 
         with nogil:
-            ucxx_buffer_requests = self._endpoint.get().tagMultiSend(
+            ucxx_buffer_requests = self._endpoint.get().tagMultiSendBuilder(
                 v_buffer,
                 v_size,
                 v_is_cuda,
-                cpp_tag,
-                self._enable_python_future,
-            )
+                cpp_tag
+            ).pythonFuture(
+                self._enable_python_future
+            ).build()
 
         return UCXBufferRequests(
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
@@ -1576,9 +1593,11 @@ cdef class UCXEndpoint():
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
 
         with nogil:
-            ucxx_buffer_requests = self._endpoint.get().tagMultiRecv(
-                cpp_tag, cpp_tag_mask, self._enable_python_future
-            )
+            ucxx_buffer_requests = self._endpoint.get().tagMultiRecvBuilder(
+                cpp_tag, cpp_tag_mask
+            ).pythonFuture(
+                self._enable_python_future
+            ).build()
 
         return UCXBufferRequests(
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
@@ -1691,9 +1710,9 @@ cdef class UCXListener():
         listener._enable_python_future = worker.enable_python_future
 
         with nogil:
-            listener._listener = worker._worker.get().createListener(
-                port, listener_cb, <void*>listener._cb_data
-            )
+            listener._listener = ListenerBuilder(
+                worker._worker, port, listener_cb, <void*>listener._cb_data
+            ).build()
 
         return listener
 
