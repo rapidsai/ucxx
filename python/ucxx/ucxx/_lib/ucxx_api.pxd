@@ -185,13 +185,13 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ) except +raise_py_error
         shared_ptr[Endpoint] build() except +raise_py_error
 
-    EndpointBuilder endpointFromHostnameBuilder(
+    EndpointBuilder endpointBuilder(
         shared_ptr[Worker] worker, string ip_address, uint16_t port
     ) except +raise_py_error
-    EndpointBuilder endpointFromConnRequestBuilder(
+    EndpointBuilder endpointBuilder(
         shared_ptr[Listener] listener, ucp_conn_request_h conn_request
     ) except +raise_py_error
-    EndpointBuilder endpointFromWorkerAddressBuilder(
+    EndpointBuilder endpointBuilder(
         shared_ptr[Worker] worker, shared_ptr[Address] address
     ) except +raise_py_error
 
@@ -285,10 +285,10 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         ucp_worker_h getHandle()
         string getInfo() except +raise_py_error
         shared_ptr[Address] getAddress() except +raise_py_error
-        EndpointBuilder endpointFromHostnameBuilder(
+        EndpointBuilder endpointBuilder(
             string ip_address, uint16_t port
         ) except +raise_py_error
-        EndpointBuilder endpointFromWorkerAddressBuilder(
+        EndpointBuilder endpointBuilder(
             shared_ptr[Address] address
         ) except +raise_py_error
         void initBlockingProgressMode() except +raise_py_error
@@ -376,7 +376,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass Listener(Component):
         uint16_t getPort()
         string getIp()
-        EndpointBuilder endpointFromConnRequestBuilder(
+        EndpointBuilder endpointBuilder(
             ucp_conn_request_h conn_request
         ) except +raise_py_error
 
