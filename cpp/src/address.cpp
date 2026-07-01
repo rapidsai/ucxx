@@ -6,6 +6,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 
 #include <ucxx/address.h>
 #include <ucxx/utils/ucx.h>
@@ -30,6 +31,8 @@ Address::~Address()
   }
 }
 
+namespace detail {
+
 std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
 {
   ucp_worker_h ucp_worker = worker->getHandle();
@@ -48,6 +51,18 @@ std::shared_ptr<Address> createAddressFromString(std::string_view addressString)
   ucp_address_t* address = reinterpret_cast<ucp_address_t*>(new char[length]);
   memcpy(address, addressString.data(), length);
   return std::shared_ptr<Address>(new Address(nullptr, address, length));
+}
+
+}  // namespace detail
+
+std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
+{
+  return detail::createAddressFromWorker(std::move(worker));
+}
+
+std::shared_ptr<Address> createAddressFromString(std::string_view addressString)
+{
+  return detail::createAddressFromString(addressString);
 }
 
 ucp_address_t* Address::getHandle() const { return _handle; }

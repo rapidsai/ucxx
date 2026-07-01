@@ -14,17 +14,19 @@
 
 #include <ucxx/address.h>
 #include <ucxx/component.h>
+#include <ucxx/endpoint_builder.h>
 #include <ucxx/exception.h>
-#include <ucxx/experimental/endpoint_builder.h>
-#include <ucxx/experimental/request_am_builder.h>
-#include <ucxx/experimental/request_flush_builder.h>
-#include <ucxx/experimental/request_mem_builder.h>
-#include <ucxx/experimental/request_stream_builder.h>
-#include <ucxx/experimental/request_tag_builder.h>
-#include <ucxx/experimental/request_tag_multi_builder.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/listener.h>
+#include <ucxx/remote_key_builder.h>
 #include <ucxx/request.h>
+#include <ucxx/request_am_builder.h>
+#include <ucxx/request_endpoint_close_builder.h>
+#include <ucxx/request_flush_builder.h>
+#include <ucxx/request_mem_builder.h>
+#include <ucxx/request_stream_builder.h>
+#include <ucxx/request_tag_builder.h>
+#include <ucxx/request_tag_multi_builder.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/worker.h>
@@ -35,13 +37,11 @@ class Component;
 class Request;
 class RequestEndpointClose;
 
-namespace experimental {
 class RequestEndpointCloseBuilder;
 
 namespace detail {
 void registerInflightRequest(std::shared_ptr<Component> component, std::shared_ptr<Request> req);
 }  // namespace detail
-}  // namespace experimental
 
 /**
  * @brief Deleter for a endpoint parameters object.
@@ -95,12 +95,12 @@ class Endpoint : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Listener::createEndpointFromConnRequest`
-   * - `ucxx::Worker::createEndpointFromHostname()`
-   * - `ucxx::Worker::createEndpointFromWorkerAddress()`
-   * - `ucxx::createEndpointFromConnRequest()`
-   * - `ucxx::createEndpointFromHostname()`
-   * - `ucxx::createEndpointFromWorkerAddress()`
+   * - `ucxx::Listener::endpointFromConnRequestBuilder()`
+   * - `ucxx::Worker::endpointFromHostnameBuilder()`
+   * - `ucxx::Worker::endpointFromWorkerAddressBuilder()`
+   * - `ucxx::endpointFromConnRequestBuilder()`
+   * - `ucxx::endpointFromHostnameBuilder()`
+   * - `ucxx::endpointFromWorkerAddressBuilder()`
    *
    * @param[in] workerOrListener      the parent component, which may either be a
    *                                  `std::shared_ptr<Listener>` or
@@ -169,13 +169,13 @@ class Endpoint : public Component {
   /**
    * @brief Allow the endpoint close builder to preserve endpoint close state.
    */
-  friend class experimental::RequestEndpointCloseBuilder;
+  friend class RequestEndpointCloseBuilder;
 
   /**
    * @brief Allow request builders to register newly-created requests.
    */
-  friend void experimental::detail::registerInflightRequest(std::shared_ptr<Component> component,
-                                                            std::shared_ptr<Request> req);
+  friend void detail::registerInflightRequest(std::shared_ptr<Component> component,
+                                              std::shared_ptr<Request> req);
 
  public:
   Endpoint()                           = delete;
@@ -195,10 +195,14 @@ class Endpoint : public Component {
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`, with a presumed listener on
    * // "localhost:12345"
-   * auto endpoint = worker->createEndpointFromHostname("localhost", 12345, true);
+   * auto endpoint = worker->endpointFromHostnameBuilder("localhost", 12345)
+   *                   .endpointErrorHandling(true)
+   *                   .build();
    *
    * // Equivalent to line above
-   * // auto endpoint = ucxx::createEndpointFromHostname(worker, "localhost", 12345, true);
+   * // auto endpoint = ucxx::endpointFromHostnameBuilder(worker, "localhost", 12345)
+   * //                   .endpointErrorHandling(true)
+   * //                   .build();
    * @endcode
    *
    * @param[in] worker                parent worker from which to create the endpoint.
@@ -222,10 +226,14 @@ class Endpoint : public Component {
    * @code{.cpp}
    * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
    * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = listener->createEndpointFromConnRequest(connRequest, true);
+   * auto endpoint = listener->endpointFromConnRequestBuilder(connRequest)
+   *                   .endpointErrorHandling(true)
+   *                   .build();
    *
    * // Equivalent to line above
-   * // auto endpoint = ucxx::createEndpointFromConnRequest(listener, connRequest, true);
+   * // auto endpoint = ucxx::endpointFromConnRequestBuilder(listener, connRequest)
+   * //                   .endpointErrorHandling(true)
+   * //                   .build();
    * @endcode
    *
    * @param[in] listener              listener from which to create the endpoint.
@@ -246,10 +254,14 @@ class Endpoint : public Component {
    *
    * @code{.cpp}
    * // worker is `std::shared_ptr<ucxx::Worker>`, address is `std::shared_ptr<ucxx::Address>`
-   * auto endpoint = worker->createEndpointFromWorkerAddress(address, true);
+   * auto endpoint = worker->endpointFromWorkerAddressBuilder(address)
+   *                   .endpointErrorHandling(true)
+   *                   .build();
    *
    * // Equivalent to line above
-   * // auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, true);
+   * // auto endpoint = ucxx::endpointFromWorkerAddressBuilder(worker, address)
+   * //                   .endpointErrorHandling(true)
+   * //                   .build();
    * @endcode
    *
    * @param[in] worker                parent worker from which to create the endpoint.
@@ -439,9 +451,9 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestAmBuilder amSendBuilder(const void* const buffer,
-                                                             const size_t length,
-                                                             const ucs_memory_type_t memoryType);
+  [[nodiscard]] RequestAmBuilder amSendBuilder(const void* const buffer,
+                                               const size_t length,
+                                               const ucs_memory_type_t memoryType);
 
   /**
    * @brief Enqueue an active message send operation with explicit policy parameters.
@@ -479,9 +491,9 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestAmBuilder amSendBuilder(const void* const buffer,
-                                                             const size_t length,
-                                                             const AmSendParams& params);
+  [[nodiscard]] RequestAmBuilder amSendBuilder(const void* const buffer,
+                                               const size_t length,
+                                               const AmSendParams& params);
 
   /**
    * @brief Enqueue an active message send operation with IOV datatype.
@@ -517,8 +529,8 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestAmBuilder amSendBuilder(std::vector<ucp_dt_iov_t> iov,
-                                                             const AmSendParams& params);
+  [[nodiscard]] RequestAmBuilder amSendBuilder(std::vector<ucp_dt_iov_t> iov,
+                                               const AmSendParams& params);
 
   /**
    * @brief Enqueue an active message receive operation.
@@ -561,7 +573,7 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestAmBuilder amRecvBuilder();
+  [[nodiscard]] RequestAmBuilder amRecvBuilder();
 
   /**
    * @brief Enqueue a memory put operation.
@@ -617,10 +629,10 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestMemBuilder memPutBuilder(const void* const buffer,
-                                                              size_t length,
-                                                              uint64_t remoteAddr,
-                                                              ucp_rkey_h rkey);
+  [[nodiscard]] RequestMemBuilder memPutBuilder(const void* const buffer,
+                                                size_t length,
+                                                uint64_t remoteAddr,
+                                                ucp_rkey_h rkey);
 
   /**
    * @brief Enqueue a memory put operation.
@@ -677,8 +689,9 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestMemBuilder memPutBuilder(
-    const void* const buffer, size_t length, std::shared_ptr<ucxx::RemoteKey> remoteKey);
+  [[nodiscard]] RequestMemBuilder memPutBuilder(const void* const buffer,
+                                                size_t length,
+                                                std::shared_ptr<ucxx::RemoteKey> remoteKey);
 
   /**
    * @brief Enqueue a memory get operation.
@@ -734,10 +747,10 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestMemBuilder memGetBuilder(void* buffer,
-                                                              size_t length,
-                                                              uint64_t remoteAddr,
-                                                              ucp_rkey_h rkey);
+  [[nodiscard]] RequestMemBuilder memGetBuilder(void* buffer,
+                                                size_t length,
+                                                uint64_t remoteAddr,
+                                                ucp_rkey_h rkey);
 
   /**
    * @brief Enqueue a memory get operation.
@@ -794,8 +807,9 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestMemBuilder memGetBuilder(
-    void* buffer, size_t length, std::shared_ptr<ucxx::RemoteKey> remoteKey);
+  [[nodiscard]] RequestMemBuilder memGetBuilder(void* buffer,
+                                                size_t length,
+                                                std::shared_ptr<ucxx::RemoteKey> remoteKey);
 
   /**
    * @brief Enqueue a stream send operation.
@@ -831,8 +845,7 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestStreamBuilder streamSendBuilder(const void* const buffer,
-                                                                     size_t length);
+  [[nodiscard]] RequestStreamBuilder streamSendBuilder(const void* const buffer, size_t length);
 
   /**
    * @brief Enqueue a stream receive operation.
@@ -870,7 +883,7 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestStreamBuilder streamRecvBuilder(void* buffer, size_t length);
+  [[nodiscard]] RequestStreamBuilder streamRecvBuilder(void* buffer, size_t length);
 
   /**
    * @brief Enqueue a tag send operation.
@@ -921,9 +934,7 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestTagBuilder tagSendBuilder(const void* const buffer,
-                                                               size_t length,
-                                                               Tag tag);
+  [[nodiscard]] RequestTagBuilder tagSendBuilder(const void* const buffer, size_t length, Tag tag);
 
   /**
    * @brief Enqueue a tag receive operation.
@@ -979,10 +990,10 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestTagBuilder tagRecvBuilder(void* buffer,
-                                                               size_t length,
-                                                               Tag tag,
-                                                               TagMask tagMask);
+  [[nodiscard]] RequestTagBuilder tagRecvBuilder(void* buffer,
+                                                 size_t length,
+                                                 Tag tag,
+                                                 TagMask tagMask);
 
   /**
    * @brief Enqueue a multi-buffer tag send operation.
@@ -1036,11 +1047,10 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestTagMultiBuilder tagMultiSendBuilder(
-    const std::vector<const void*>& buffer,
-    const std::vector<size_t>& size,
-    const std::vector<int>& isCUDA,
-    const Tag tag);
+  [[nodiscard]] RequestTagMultiBuilder tagMultiSendBuilder(const std::vector<const void*>& buffer,
+                                                           const std::vector<size_t>& size,
+                                                           const std::vector<int>& isCUDA,
+                                                           const Tag tag);
 
   /**
    * @brief Enqueue a multi-buffer tag receive operation.
@@ -1078,8 +1088,7 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestTagMultiBuilder tagMultiRecvBuilder(const Tag tag,
-                                                                         const TagMask tagMask);
+  [[nodiscard]] RequestTagMultiBuilder tagMultiRecvBuilder(const Tag tag, const TagMask tagMask);
 
   /**
    * @brief Enqueue a flush operation.
@@ -1121,7 +1130,7 @@ class Endpoint : public Component {
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] experimental::RequestFlushBuilder flushBuilder();
+  [[nodiscard]] RequestFlushBuilder flushBuilder();
 
   /**
    * @brief Get `ucxx::Worker` component from a worker or listener object.
@@ -1134,6 +1143,17 @@ class Endpoint : public Component {
    * @returns The `std::shared_ptr<ucxx::Worker>` which the endpoint is associated with.
    */
   [[nodiscard]] std::shared_ptr<Worker> getWorker();
+
+  /**
+   * @brief Create a builder for a remote key from serialized data.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion unpacks the remote key using this endpoint.
+   *
+   * @param[in] serializedRemoteKey serialized remote key data.
+   * @returns Builder to create the remote key.
+   */
+  [[nodiscard]] RemoteKeyBuilder remoteKeyBuilder(SerializedRemoteKey serializedRemoteKey);
 
   /**
    * @brief Enqueue a non-blocking endpoint close operation.
@@ -1186,6 +1206,16 @@ class Endpoint : public Component {
     const bool enablePythonFuture                      = false,
     EndpointCloseCallbackUserFunction callbackFunction = nullptr,
     EndpointCloseCallbackUserData callbackData         = nullptr);
+
+  /**
+   * @brief Create a builder for a non-blocking endpoint close operation.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same request-creation path as `close()`.
+   *
+   * @returns Builder to configure optional parameters and submit the close request.
+   */
+  [[nodiscard]] RequestEndpointCloseBuilder closeBuilder();
 
   /**
    * @brief Close the endpoint while keeping the object alive.

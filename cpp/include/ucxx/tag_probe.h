@@ -9,13 +9,20 @@
 #include <optional>
 
 #include <ucp/api/ucp.h>
-#include <ucxx/experimental/tag_probe_builder.h>
+#include <ucxx/tag_probe_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
 
 // Forward declaration for friend access
 class RequestTag;
+class TagProbeInfo;
+
+namespace detail {
+[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo();
+[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
+                                                               ucp_tag_message_h handle);
+}  // namespace detail
 
 /**
  * @brief Information about probed tag message.
@@ -129,7 +136,7 @@ class TagProbeInfo {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::createTagProbeInfo()`
+   * - `ucxx::TagProbeInfoBuilder`
    */
   TagProbeInfo() = default;
 
@@ -144,7 +151,7 @@ class TagProbeInfo {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::createTagProbeInfo()`
+   * - `ucxx::TagProbeInfoBuilder`
    *
    * @param[in] info    The UCP tag receive info structure.
    * @param[in] handle  The UCP tag message handle (can be nullptr if `tagProbe()` is called
@@ -159,12 +166,12 @@ class TagProbeInfo {
    * the object as unmatched (`isMatched()` returns `false`).
    *
    * @code{.cpp}
-   * auto tagProbeInfo = ucxx::createTagProbeInfo();
+   * auto tagProbeInfo = ucxx::TagProbeInfoBuilder().build();
    * @endcode
    *
    * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
    */
-  friend std::shared_ptr<TagProbeInfo> createTagProbeInfo();
+  friend std::shared_ptr<TagProbeInfo> detail::createTagProbeInfo();
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
@@ -173,7 +180,7 @@ class TagProbeInfo {
    * the object as matched (`isMatched()` returns `true`) with the provided info and handle.
    *
    * @code{.cpp}
-   * auto tagProbeInfo = ucxx::createTagProbeInfo(info, handle);
+   * auto tagProbeInfo = ucxx::TagProbeInfoBuilder(info, handle).build();
    * @endcode
    *
    * @param[in] info    The UCP tag receive info structure.
@@ -182,8 +189,8 @@ class TagProbeInfo {
    *
    * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
    */
-  friend std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
-                                                          ucp_tag_message_h handle);
+  friend std::shared_ptr<TagProbeInfo> detail::createTagProbeInfo(const ucp_tag_recv_info_t& info,
+                                                                  ucp_tag_message_h handle);
 
   // Allow RequestTag to consume the handle
   friend class RequestTag;

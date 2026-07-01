@@ -10,8 +10,8 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/experimental/request_tag_builder.h>
 #include <ucxx/request.h>
+#include <ucxx/request_tag_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -33,10 +33,10 @@ class RequestTag : public Request {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Endpoint::tagRecv()`
-   * - `ucxx::Endpoint::tagSend()`
-   * - `ucxx::Worker::tagRecv()`
-   * - `ucxx::createRequestTag()`
+   * - `ucxx::Endpoint::tagRecvBuilder()`
+   * - `ucxx::Endpoint::tagSendBuilder()`
+   * - `ucxx::Worker::tagRecvBuilder()`
+   * - `ucxx::requestTagBuilder()`
    *
    * @throws ucxx::Error  if send is `true` and `endpointOrWorker` is not a
    *                      `std::shared_ptr<ucxx::Endpoint>`.
