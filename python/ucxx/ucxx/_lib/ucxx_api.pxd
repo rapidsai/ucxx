@@ -8,7 +8,6 @@ from libc.stdint cimport int64_t, uint16_t, uint64_t
 from libcpp cimport bool as cpp_bool
 from libcpp.functional cimport function
 from libcpp.memory cimport shared_ptr, unique_ptr
-from libcpp.optional cimport nullopt_t, optional
 from libcpp.pair cimport pair
 from libcpp.string cimport string
 from libcpp.string_view cimport string_view
@@ -175,6 +174,58 @@ cdef extern from "<ucxx/notifier.h>" namespace "ucxx" nogil:
 
 
 cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
+    cdef cppclass AddressBuilder:
+        AddressBuilder(shared_ptr[Worker] worker) except +raise_py_error
+        AddressBuilder(string_view address_string) except +raise_py_error
+        shared_ptr[Address] build() except +raise_py_error
+
+    cdef cppclass EndpointBuilder:
+        EndpointBuilder& endpointErrorHandling(
+            bint endpoint_error_handling
+        ) except +raise_py_error
+        shared_ptr[Endpoint] build() except +raise_py_error
+
+    EndpointBuilder endpointBuilder(
+        shared_ptr[Worker] worker, string ip_address, uint16_t port
+    ) except +raise_py_error
+    EndpointBuilder endpointBuilder(
+        shared_ptr[Listener] listener, ucp_conn_request_h conn_request
+    ) except +raise_py_error
+    EndpointBuilder endpointBuilder(
+        shared_ptr[Worker] worker, shared_ptr[Address] address
+    ) except +raise_py_error
+
+    cdef cppclass ListenerBuilder:
+        ListenerBuilder(
+            shared_ptr[Worker] worker,
+            uint16_t port,
+            ucp_listener_conn_callback_t callback,
+            void *callback_args
+        ) except +raise_py_error
+        shared_ptr[Listener] build() except +raise_py_error
+
+    cdef cppclass RequestAmBuilder:
+        RequestAmBuilder& pythonFuture(bint enable) except +raise_py_error
+        shared_ptr[Request] build() except +raise_py_error
+
+    cdef cppclass RequestEndpointCloseBuilder:
+        RequestEndpointCloseBuilder& pythonFuture(bint enable) except +raise_py_error
+        shared_ptr[Request] build() except +raise_py_error
+
+    cdef cppclass RequestStreamBuilder:
+        RequestStreamBuilder& pythonFuture(bint enable) except +raise_py_error
+        shared_ptr[Request] build() except +raise_py_error
+
+    cdef cppclass RequestTagBuilder:
+        RequestTagBuilder& pythonFuture(bint enable) except +raise_py_error
+        shared_ptr[Request] build() except +raise_py_error
+
+    cdef cppclass RequestTagMultiBuilder:
+        RequestTagMultiBuilder& pythonFuture(bint enable) except +raise_py_error
+        shared_ptr[Request] build() except +raise_py_error
+
+
+cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef enum Tag:
         pass
     cdef enum TagMask:
@@ -201,17 +252,14 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     ctypedef cpp_unordered_map[string, string] ConfigMap
 
-    cdef cppclass ContextBuilder "ucxx::ContextBuilder":
+    cdef cppclass ContextBuilder:
         ContextBuilder(uint64_t featureFlags) except +raise_py_error
         ContextBuilder& configMap(ConfigMap configMap) except +raise_py_error
         shared_ptr[Context] build() except +raise_py_error
 
-    ContextBuilder contextBuilder "ucxx::contextBuilder"(
+    ContextBuilder contextBuilder(
         uint64_t featureFlags
     ) except +raise_py_error
-
-    shared_ptr[Address] createAddressFromWorker(shared_ptr[Worker] worker)
-    shared_ptr[Address] createAddressFromString(string_view address_string)
 
     cdef cppclass Config:
         Config()
@@ -233,19 +281,19 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         uint64_t getFeatureFlags()
         bint hasCudaSupport()
 
+    # Builder-returning methods omit `except +` so Cython passes their results directly
+    # to `make_unique`; its exception handler covers both operations without requiring
+    # a default-constructed builder temporary.
     cdef cppclass Worker(Component):
         ucp_worker_h getHandle()
         string getInfo() except +raise_py_error
         shared_ptr[Address] getAddress() except +raise_py_error
-        shared_ptr[Endpoint] createEndpointFromHostname(
-            string ip_address, uint16_t port, bint endpoint_error_handling
-        ) except +raise_py_error
-        shared_ptr[Endpoint] createEndpointFromWorkerAddress(
-            shared_ptr[Address] address, bint endpoint_error_handling
-        ) except +raise_py_error
-        shared_ptr[Listener] createListener(
-            uint16_t port, ucp_listener_conn_callback_t callback, void *callback_args
-        ) except +raise_py_error
+        EndpointBuilder endpointBuilder(
+            string ip_address, uint16_t port
+        )
+        EndpointBuilder endpointBuilder(
+            shared_ptr[Address] address
+        )
         void initBlockingProgressMode() except +raise_py_error
         int getEpollFileDescriptor()
         bint arm() except +raise_py_error
@@ -270,18 +318,16 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         void runRequestNotifier() except +raise_py_error
         void populateFuturesPool() except +raise_py_error
         void clearFuturesPool()
-        shared_ptr[Request] tagRecv(
+        RequestTagBuilder tagRecvBuilder(
             void* buffer,
             size_t length,
             Tag tag,
-            TagMask tag_mask,
-            bint enable_python_future
-        ) except +raise_py_error
-        shared_ptr[Request] tagRecvWithHandle(
+            TagMask tag_mask
+        )
+        RequestTagBuilder tagRecvWithHandleBuilder(
             void* buffer,
-            shared_ptr[TagProbeInfo] probe_info,
-            bint enable_python_future
-        ) except +raise_py_error
+            shared_ptr[TagProbeInfo] probe_info
+        )
         bint isDelayedRequestSubmissionEnabled() const
         bint isFutureEnabled() const
         bint amProbe(ucp_ep_h) const
@@ -292,49 +338,36 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
-        shared_ptr[Request] close(
-            bint enable_python_future
-        ) except +raise_py_error
+        RequestEndpointCloseBuilder closeBuilder()
         void closeBlocking(uint64_t period, uint64_t maxAttempts)
-        shared_ptr[Request] amSend(
-            const void* const buffer,
-            size_t length,
-            ucs_memory_type_t memory_type,
-            # Using `nullopt_t` is a workaround for Cython error
-            # "Cannot assign type 'nullopt_t' to 'optional[AmReceiverCallbackInfo]'"
-            # Must change when AM receiver callbacks are implemented in Python.
-            nullopt_t receiver_callback_info,
-            bint enable_python_future
-        ) except +raise_py_error
-        shared_ptr[Request] amRecv(
-            bint enable_python_future
-        ) except +raise_py_error
-        shared_ptr[Request] streamSend(
-            const void* const buffer, size_t length, bint enable_python_future
-        ) except +raise_py_error
-        shared_ptr[Request] streamRecv(
-            void* buffer, size_t length, bint enable_python_future
-        ) except +raise_py_error
-        shared_ptr[Request] tagSend(
-            const void* const buffer, size_t length, Tag tag, bint enable_python_future
-        ) except +raise_py_error
-        shared_ptr[Request] tagRecv(
+        RequestAmBuilder amSendBuilder(
+            const void* const buffer, size_t length, ucs_memory_type_t memory_type
+        )
+        RequestAmBuilder amRecvBuilder()
+        RequestStreamBuilder streamSendBuilder(
+            const void* const buffer, size_t length
+        )
+        RequestStreamBuilder streamRecvBuilder(
+            void* buffer, size_t length
+        )
+        RequestTagBuilder tagSendBuilder(
+            const void* const buffer, size_t length, Tag tag
+        )
+        RequestTagBuilder tagRecvBuilder(
             void* buffer,
             size_t length,
             Tag tag,
-            TagMask tag_mask,
-            bint enable_python_future
-        ) except +raise_py_error
-        shared_ptr[Request] tagMultiSend(
+            TagMask tag_mask
+        )
+        RequestTagMultiBuilder tagMultiSendBuilder(
             const vector[const void*]& buffer,
             const vector[size_t]& length,
             const vector[int]& isCUDA,
-            Tag tag,
-            bint enable_python_future
-        ) except +raise_py_error
-        shared_ptr[Request] tagMultiRecv(
-            Tag tag, TagMask tagMask, bint enable_python_future
-        ) except +raise_py_error
+            Tag tag
+        )
+        RequestTagMultiBuilder tagMultiRecvBuilder(
+            Tag tag, TagMask tagMask
+        )
         bint isAlive()
         void raiseOnError() except +raise_py_error
         void setCloseCallback(
@@ -344,11 +377,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Worker] getWorker()
 
     cdef cppclass Listener(Component):
-        shared_ptr[Endpoint] createEndpointFromConnRequest(
-            ucp_conn_request_h conn_request, bint endpoint_error_handling
-        ) except +raise_py_error
         uint16_t getPort()
         string getIp()
+        EndpointBuilder endpointBuilder(
+            ucp_conn_request_h conn_request
+        )
 
     cdef cppclass Address(Component):
         ucp_address_t* getHandle()
