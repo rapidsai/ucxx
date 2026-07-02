@@ -38,6 +38,8 @@ class ManagedRecvAmMessage;
  * and either matches the message with an `amManagedRecv()` request or invokes a registered
  * receiver callback.
  *
+ * For application-defined AM IDs, application-defined wire headers, or direct UCX AM receive
+ * callback handling, use `Endpoint::amSend()` with `Worker::setAmHandler()`.
  */
 class RequestAmManaged : public Request {
  private:

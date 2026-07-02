@@ -25,6 +25,8 @@ class Notifier;
 class RemoteKey;
 class Request;
 class RequestAmManaged;
+class RequestAmSend;
+class RequestAmRecvData;
 class RequestEndpointClose;
 class RequestFlush;
 class RequestMem;
@@ -123,6 +125,19 @@ createRequestAm(std::shared_ptr<Endpoint> endpoint,
                 RequestCallbackUserFunction callbackFunction,
                 RequestCallbackUserData callbackData);
 
+[[nodiscard]] std::shared_ptr<RequestAmSend> createRequestAmSend(
+  std::shared_ptr<Endpoint> endpoint,
+  const data::AmSend& requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
+
+[[nodiscard]] std::shared_ptr<RequestAmRecvData> createRequestAmRecvData(
+  std::shared_ptr<Worker> worker,
+  const data::AmRecvData& requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
 [[nodiscard]] std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
   std::shared_ptr<Endpoint> endpoint,
   const data::EndpointClose requestData,

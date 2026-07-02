@@ -22,6 +22,91 @@ class Buffer;
 namespace data {
 
 /**
+ * @brief Data for an Active Message send.
+ *
+ * Carries the AM handler ID, raw header bytes, and payload passed to `ucp_am_send_nbx`.
+ */
+class AmSend {
+ public:
+  const uint16_t _id{0};                                  ///< AM handler ID.
+  const void* const _header{nullptr};                     ///< Raw user header bytes (may be null).
+  const size_t _headerLength{0};                          ///< Length of header in bytes.
+  const void* const _buffer{nullptr};                     ///< Data buffer (null when using IOV).
+  const std::vector<ucp_dt_iov_t> _iov{};                 ///< Segments for IOV datatype.
+  const size_t _count{0};                                 ///< Byte count (contig) or IOV count.
+  const uint32_t _flags{UCP_AM_SEND_FLAG_REPLY};          ///< UCP AM send flags.
+  const ucp_datatype_t _datatype{ucp_dt_make_contig(1)};  ///< UCP datatype.
+
+  /**
+   * @brief Constructor for contiguous AM send.
+   *
+   * @param[in] id            AM handler ID registered on the remote worker.
+   * @param[in] header        raw header bytes (may be null if headerLength == 0).
+   * @param[in] headerLength  length of the header in bytes.
+   * @param[in] buffer        data buffer to send.
+   * @param[in] count         number of bytes to send.
+   * @param[in] flags         UCP AM send flags.
+   * @param[in] datatype      UCP datatype (must be `ucp_dt_make_contig(1)`).
+   */
+  explicit AmSend(uint16_t id,
+                  const void* header,
+                  size_t headerLength,
+                  const void* buffer,
+                  size_t count,
+                  uint32_t flags          = UCP_AM_SEND_FLAG_REPLY,
+                  ucp_datatype_t datatype = ucp_dt_make_contig(1));
+
+  /**
+   * @brief Constructor for IOV AM send.
+   *
+   * @param[in] id            AM handler ID registered on the remote worker.
+   * @param[in] header        raw header bytes (may be null if headerLength == 0).
+   * @param[in] headerLength  length of the header in bytes.
+   * @param[in] iov           vector of IOV segments to send.
+   * @param[in] flags         UCP AM send flags.
+   */
+  explicit AmSend(uint16_t id,
+                  const void* header,
+                  size_t headerLength,
+                  std::vector<ucp_dt_iov_t> iov,
+                  uint32_t flags = UCP_AM_SEND_FLAG_REPLY);
+
+  AmSend() = delete;
+};
+
+/**
+ * @brief Data for a rendezvous Active Message data receive.
+ *
+ * Type identifying an Active Message rendezvous data receive, wrapping a call to
+ * `ucp_am_recv_data_nbx`. Must be submitted synchronously from inside the AM
+ * handler callback (before returning `UCS_INPROGRESS`), as the data descriptor is
+ * only valid until that call is made.
+ */
+class AmRecvData {
+ public:
+  void* _dataDesc{nullptr};                               ///< UCX data descriptor from handler.
+  void* _buffer{nullptr};                                 ///< Pre-allocated receive buffer.
+  const size_t _count{0};                                 ///< Byte count or IOV segment count.
+  const ucp_datatype_t _datatype{ucp_dt_make_contig(1)};  ///< UCP datatype.
+
+  /**
+   * @brief Constructor for rendezvous data receive.
+   *
+   * @param[in] dataDesc  data descriptor from the AM handler callback. Only valid
+   *                      until `ucp_am_recv_data_nbx` is called or handler returns.
+   * @param[in] buffer    pre-allocated buffer to receive data into.
+   * @param[in] count     number of bytes (contig) or IOV segments.
+   * @param[in] datatype  UCP datatype.
+   */
+  explicit AmRecvData(void* dataDesc,
+                      void* buffer,
+                      size_t count,
+                      ucp_datatype_t datatype = ucp_dt_make_contig(1));
+
+  AmRecvData() = delete;
+};
+
+/**
  * @brief Data for a managed Active Message send.
  *
  * Stores the payload description and managed AM send parameters used by
@@ -345,8 +430,10 @@ class TagMultiReceive {
 };
 
 using RequestData = std::variant<std::monostate,
+                                 AmSend,
                                  AmSendManaged,
                                  AmReceiveManaged,
+                                 AmRecvData,
                                  EndpointClose,
                                  Flush,
                                  MemPut,

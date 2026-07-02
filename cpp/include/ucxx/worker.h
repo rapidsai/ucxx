@@ -18,6 +18,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/address_builder.h>
+#include <ucxx/am_message.h>
 #include <ucxx/buffer.h>
 #include <ucxx/component.h>
 #include <ucxx/constructors.h>
@@ -50,6 +51,8 @@ class Buffer;
 class Endpoint;
 class Listener;
 class RequestAmManaged;
+class RequestAmSend;
+class RequestAmRecvData;
 
 namespace internal {
 class ManagedAmData;
@@ -97,6 +100,20 @@ class Worker : public Component {
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
 
+  friend std::shared_ptr<RequestAmSend> createRequestAmSend(
+    std::shared_ptr<Endpoint> endpoint,
+    const data::AmSend& requestData,
+    const bool enablePythonFuture,
+    RequestCallbackUserFunction callbackFunction,
+    RequestCallbackUserData callbackData);
+
+  friend std::shared_ptr<RequestAmRecvData> createRequestAmRecvData(
+    std::shared_ptr<Worker> worker,
+    const data::AmRecvData& requestData,
+    const bool enablePythonFuture,
+    RequestCallbackUserFunction callbackFunction,
+    RequestCallbackUserData callbackData);
+
  protected:
   bool _enableFuture{
     false};  ///< Boolean identifying whether the worker was created with future capability
@@ -134,6 +151,21 @@ class Worker : public Component {
    */
   [[nodiscard]] std::shared_ptr<RequestAmManaged> getManagedAmRecv(
     ucp_ep_h ep, std::function<std::shared_ptr<RequestAmManaged>()> createAmRecvRequestFunction);
+
+  struct AmHandlerContext {
+    Worker* worker{nullptr};
+    AmHandlerType callback;
+  };
+
+  std::vector<std::unique_ptr<AmHandlerContext>>
+    _amHandlerContexts;  ///< Contexts for registered AM handlers (owns their lifetime)
+
+  static ucs_status_t amRecvCallback(void* arg,
+                                     const void* header,
+                                     size_t headerLength,
+                                     void* data,
+                                     size_t length,
+                                     const ucp_am_recv_param_t* param);
 
   /**
    * @brief Stop the progress thread if running without raising warnings.
@@ -1028,6 +1060,66 @@ class Worker : public Component {
   [[nodiscard]] std::shared_ptr<Listener> createListener(uint16_t port,
                                                          ucp_listener_conn_callback_t callback,
                                                          void* callbackArgs);
+
+  /**
+   * @brief Register an Active Message handler for a specific AM ID.
+   *
+   * Registers `handler` to be called whenever an AM message with the given `id`
+   * arrives. No UCXX metadata is injected into the message.
+   *
+   * The callback signature is:
+   * @code{.cpp}
+   *   void handler(ucxx::AmMessage& msg);
+   * @endcode
+   *
+   * For rendezvous messages, call `AmMessage::receive()` before the handler returns
+   * to receive data asynchronously. To reject a message, call `AmMessage::reject()`.
+   *
+   * @warning AM ID 0 is reserved for `amManagedSend` / `amManagedRecv`. Registering a
+   *          handler on ID 0 will disable those methods on this worker.
+   *
+   * @param[in] id       the AM handler ID to register for.
+   * @param[in] handler  callback to invoke on message arrival.
+   * @param[in] flags    `ucp_am_handler_param_field` flags (default: 0).
+   */
+  void setAmHandler(AmHandlerId id, AmHandlerType handler, uint32_t flags = 0);
+
+  /**
+   * @brief Receive rendezvous Active Message data asynchronously.
+   *
+   * Wraps `ucp_am_recv_data_nbx`. Must be called from inside an AM handler callback
+   * (before returning `UCS_INPROGRESS`) because the `dataDesc` pointer is only valid
+   * until that call is made.
+   *
+   * @code{.cpp}
+   * worker->setAmHandler(1, [&](ucxx::AmMessage& msg) {
+   *   if (msg.isRendezvous()) {
+   *     auto recvBuf = std::make_shared<HostBuffer>(msg.length());
+   *     msg.receive(recvBuf->data(), msg.length());
+   *     // recvBuf is kept alive via the completion callback
+   *   }
+   *   // eager: msg.data() / msg.length() contain the payload
+   * });
+   * @endcode
+   *
+   * @param[in] dataDesc           data descriptor from the AM handler callback.
+   * @param[in] buffer             pre-allocated buffer to receive data into.
+   * @param[in] count              byte count (contig) or IOV segment count.
+   * @param[in] datatype           UCP datatype (default: `ucp_dt_make_contig(1)`).
+   * @param[in] enablePythonFuture whether a Python future should be created.
+   * @param[in] callbackFunction   user-defined callback to call upon completion.
+   * @param[in] callbackData       data to pass to `callbackFunction`.
+   *
+   * @returns Request to be checked for completion and status.
+   */
+  [[nodiscard]] std::shared_ptr<Request> amRecvData(
+    void* dataDesc,
+    void* buffer,
+    size_t count,
+    ucp_datatype_t datatype                      = ucp_dt_make_contig(1),
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Register allocator for managed active messages.

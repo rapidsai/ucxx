@@ -390,6 +390,35 @@ class Endpoint : public Component {
                         EndpointCloseCallbackUserData closeCallbackArg);
 
   /**
+   * @brief Enqueue an Active Message send.
+   *
+   * Calls `ucp_am_send_nbx` with the given handler ID, header, and payload. Pass
+   * `AmSendContig{buf, count}` for a contiguous buffer or `AmSendIov{iov}` for
+   * scatter-gather I/O. The remote worker must have registered a handler for `id`
+   * via `setAmHandler()`.
+   *
+   * @param[in] id                  AM handler ID registered on the remote worker.
+   * @param[in] header              raw header bytes (may be null if headerLength == 0).
+   * @param[in] headerLength        length of the header in bytes.
+   * @param[in] buffer              payload: `AmSendContig` or `AmSendIov`.
+   * @param[in] flags               UCP AM send flags (default: `UCP_AM_SEND_FLAG_REPLY`).
+   * @param[in] enablePythonFuture  whether a Python future should be created.
+   * @param[in] callbackFunction    user-defined callback to call upon completion.
+   * @param[in] callbackData        data to pass to `callbackFunction`.
+   *
+   * @returns Request to be subsequently checked for completion and state.
+   */
+  [[nodiscard]] std::shared_ptr<Request> amSend(
+    uint16_t id,
+    const void* header,
+    size_t headerLength,
+    AmSendBuffer buffer,
+    uint32_t flags                               = UCP_AM_SEND_FLAG_REPLY,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
+
+  /**
    * @brief Enqueue a managed Active Message send.
    *
    * Managed Active Messages use UCXX's worker-managed AM receive handler on the remote
@@ -402,6 +431,9 @@ class Endpoint : public Component {
    * is posted before or after the message arrives. If `receiverCallbackInfo` is set, the
    * remote worker delivers the completed receive request to the matching callback registered
    * with `Worker::registerManagedAmReceiverCallback()`.
+   *
+   * Use `amSend(id, ...)` and `Worker::setAmHandler()` when the application needs to choose
+   * AM IDs, define its own wire header, or handle UCX AM receive callbacks directly.
    *
    * @param[in] buffer                  a raw pointer to the data to be sent.
    * @param[in] length                  the size in bytes of the message to be sent.

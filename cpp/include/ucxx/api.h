@@ -5,6 +5,7 @@
 #pragma once
 
 #include <ucxx/address.h>
+#include <ucxx/am_message.h>
 #include <ucxx/buffer.h>
 #include <ucxx/constructors.h>
 #include <ucxx/context.h>
@@ -16,6 +17,8 @@
 #include <ucxx/remote_key.h>
 #include <ucxx/request.h>
 #include <ucxx/request_am.h>
+#include <ucxx/request_am_recv_data.h>
+#include <ucxx/request_am_send.h>
 #include <ucxx/request_endpoint_close.h>
 #include <ucxx/request_flush.h>
 #include <ucxx/request_mem.h>

@@ -21,6 +21,7 @@
 #include <ucxx/remote_key.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_am_builder.h>
+#include <ucxx/request_am_send.h>
 #include <ucxx/request_data.h>
 #include <ucxx/request_endpoint_close.h>
 #include <ucxx/request_endpoint_close_builder.h>
@@ -483,6 +484,29 @@ size_t Endpoint::cancelInflightRequestsBlocking(uint64_t period, uint64_t maxAtt
 }
 
 size_t Endpoint::getCancelingSize() const { return _inflightRequests->getCancelingSize(); }
+
+std::shared_ptr<Request> Endpoint::amSend(uint16_t id,
+                                          const void* header,
+                                          size_t headerLength,
+                                          AmSendBuffer buffer,
+                                          uint32_t flags,
+                                          const bool enablePythonFuture,
+                                          RequestCallbackUserFunction callbackFunction,
+                                          RequestCallbackUserData callbackData)
+{
+  auto endpoint    = std::static_pointer_cast<Endpoint>(shared_from_this());
+  auto requestData = std::visit(
+    [&](auto&& arg) -> data::AmSend {
+      using T = std::decay_t<decltype(arg)>;
+      if constexpr (std::is_same_v<T, AmSendContig>)
+        return data::AmSend(id, header, headerLength, arg.buffer, arg.count, flags, arg.datatype);
+      else
+        return data::AmSend(id, header, headerLength, std::move(arg.iov), flags);
+    },
+    std::move(buffer));
+  return registerInflightRequest(
+    createRequestAmSend(endpoint, requestData, enablePythonFuture, callbackFunction, callbackData));
+}
 
 std::shared_ptr<Request> Endpoint::amManagedSend(
   const void* const buffer,

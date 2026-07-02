@@ -18,9 +18,11 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
+#include <ucxx/am_message.h>
 #include <ucxx/buffer.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
+#include <ucxx/request_am_recv_data.h>
 #include <ucxx/request_flush.h>
 #include <ucxx/request_flush_builder.h>
 #include <ucxx/request_tag.h>
@@ -753,6 +755,66 @@ std::shared_ptr<Listener> Worker::createListener(uint16_t port,
   auto worker   = std::static_pointer_cast<Worker>(shared_from_this());
   auto listener = detail::createListener(worker, port, callback, callbackArgs);
   return listener;
+}
+
+ucs_status_t Worker::amRecvCallback(void* arg,
+                                    const void* header,
+                                    size_t headerLength,
+                                    void* data,
+                                    size_t length,
+                                    const ucp_am_recv_param_t* param)
+{
+  auto* ctx   = static_cast<AmHandlerContext*>(arg);
+  ucp_ep_h ep = (param->recv_attr & UCP_AM_RECV_ATTR_FIELD_REPLY_EP) ? param->reply_ep : nullptr;
+  AmMessage msg(ctx->worker, ep, header, headerLength, data, length, param);
+  try {
+    ctx->callback(msg);
+  } catch (...) {
+    ucxx_warn("Exception thrown in AM handler callback; returning UCS_ERR_IO_ERROR");
+    return UCS_ERR_IO_ERROR;
+  }
+  if (msg._rejected) return msg._rejectStatus;
+  if (msg._receiveCalled) return UCS_INPROGRESS;
+  return UCS_OK;
+}
+
+void Worker::setAmHandler(AmHandlerId id, AmHandlerType handler, uint32_t flags)
+{
+  if (id == 0 && _managedAmData != nullptr)
+    ucxx_warn("setAmHandler: registering on AM ID 0 overwrites the managed AM handler");
+
+  auto ctx      = std::make_unique<AmHandlerContext>();
+  ctx->worker   = this;
+  ctx->callback = std::move(handler);
+
+  ucp_am_handler_param_t param = {
+    .field_mask =
+      UCP_AM_HANDLER_PARAM_FIELD_ID | UCP_AM_HANDLER_PARAM_FIELD_CB |
+      UCP_AM_HANDLER_PARAM_FIELD_ARG |
+      (flags ? static_cast<uint64_t>(UCP_AM_HANDLER_PARAM_FIELD_FLAGS) : static_cast<uint64_t>(0)),
+    .id    = id,
+    .flags = flags,
+    .cb    = amRecvCallback,
+    .arg   = ctx.get(),
+  };
+  utils::ucsErrorThrow(ucp_worker_set_am_recv_handler(_handle, &param));
+  _amHandlerContexts.push_back(std::move(ctx));
+}
+
+std::shared_ptr<Request> Worker::amRecvData(void* dataDesc,
+                                            void* buffer,
+                                            size_t count,
+                                            ucp_datatype_t datatype,
+                                            const bool enablePythonFuture,
+                                            RequestCallbackUserFunction callbackFunction,
+                                            RequestCallbackUserData callbackData)
+{
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
+  return createRequestAmRecvData(worker,
+                                 data::AmRecvData(dataDesc, buffer, count, datatype),
+                                 enablePythonFuture,
+                                 callbackFunction,
+                                 callbackData);
 }
 
 void Worker::registerManagedAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)

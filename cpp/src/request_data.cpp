@@ -19,6 +19,61 @@ namespace ucxx {
 
 namespace data {
 
+AmSend::AmSend(uint16_t id,
+               const void* header,
+               size_t headerLength,
+               const void* buffer,
+               size_t count,
+               uint32_t flags,
+               ucp_datatype_t datatype)
+  : _id(id),
+    _header(header),
+    _headerLength(headerLength),
+    _buffer(buffer),
+    _iov(),
+    _count(count),
+    _flags(flags),
+    _datatype(datatype)
+{
+  if (_datatype != ucp_dt_make_contig(1))
+    throw std::runtime_error("Contiguous AM send requires datatype `ucp_dt_make_contig(1)`.");
+  if (headerLength > 0 && header == nullptr)
+    throw std::runtime_error("Header cannot be nullptr when headerLength is > 0.");
+  if (_buffer == nullptr && _count > 0)
+    throw std::runtime_error("Buffer cannot be nullptr when count is > 0.");
+}
+
+AmSend::AmSend(uint16_t id,
+               const void* header,
+               size_t headerLength,
+               std::vector<ucp_dt_iov_t> iov,
+               uint32_t flags)
+  : _id(id),
+    _header(header),
+    _headerLength(headerLength),
+    _buffer(nullptr),
+    _iov(std::move(iov)),
+    _count(_iov.size()),
+    _flags(flags),
+    _datatype(UCP_DATATYPE_IOV)
+{
+  if (headerLength > 0 && header == nullptr)
+    throw std::runtime_error("Header cannot be nullptr when headerLength is > 0.");
+  if (_iov.empty()) throw std::runtime_error("IOV cannot be empty.");
+  for (const auto& segment : _iov) {
+    if (segment.buffer == nullptr && segment.length > 0)
+      throw std::runtime_error("IOV segment buffer cannot be nullptr when segment length is > 0.");
+  }
+}
+
+AmRecvData::AmRecvData(void* dataDesc, void* buffer, size_t count, ucp_datatype_t datatype)
+  : _dataDesc(dataDesc), _buffer(buffer), _count(count), _datatype(datatype)
+{
+  if (_dataDesc == nullptr) throw std::runtime_error("dataDesc cannot be nullptr.");
+  if (_buffer == nullptr && _count > 0)
+    throw std::runtime_error("Buffer cannot be nullptr when count is > 0.");
+}
+
 AmSendManaged::AmSendManaged(const void* const buffer,
                              const size_t length,
                              const AmSendParams& params)

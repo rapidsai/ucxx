@@ -152,7 +152,10 @@ add_library(
   src/memory_handle.cpp
   src/remote_key.cpp
   src/request.cpp
+  src/am_message.cpp
   src/request_am.cpp
+  src/request_am_recv_data.cpp
+  src/request_am_send.cpp
   src/request_data.cpp
   src/request_endpoint_close.cpp
   src/request_flush.cpp
