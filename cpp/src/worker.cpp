@@ -53,20 +53,20 @@ Worker::Worker(std::shared_ptr<Context> context,
     std::make_shared<DelayedSubmissionCollection>(enableDelayedSubmission);
 
   if (context->getFeatureFlags() & UCP_FEATURE_AM) {
-    unsigned int AM_MSG_ID            = 0;
-    _amData                           = std::make_shared<internal::AmData>();
-    _amData->_registerInflightRequest = [this](std::shared_ptr<Request> req) {
+    unsigned int AM_MSG_ID                   = 0;
+    _managedAmData                           = std::make_shared<internal::ManagedAmData>();
+    _managedAmData->_registerInflightRequest = [this](std::shared_ptr<Request> req) {
       return registerInflightRequest(req);
     };
-    registerAmAllocator(UCS_MEMORY_TYPE_HOST,
-                        [](size_t length) { return std::make_shared<HostBuffer>(length); });
+    registerManagedAmAllocator(UCS_MEMORY_TYPE_HOST,
+                               [](size_t length) { return std::make_shared<HostBuffer>(length); });
 
     ucp_am_handler_param_t am_handler_param = {.field_mask = UCP_AM_HANDLER_PARAM_FIELD_ID |
                                                              UCP_AM_HANDLER_PARAM_FIELD_CB |
                                                              UCP_AM_HANDLER_PARAM_FIELD_ARG,
                                                .id  = AM_MSG_ID,
-                                               .cb  = RequestAm::recvCallback,
-                                               .arg = _amData.get()};
+                                               .cb  = RequestAmManaged::recvCallback,
+                                               .arg = _managedAmData.get()};
     utils::ucsErrorThrow(ucp_worker_set_am_recv_handler(_handle, &am_handler_param));
   }
 
@@ -119,13 +119,13 @@ void Worker::drainWorkerTagRecv()
   }
 }
 
-std::shared_ptr<RequestAm> Worker::getAmRecv(
-  ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction)
+std::shared_ptr<RequestAmManaged> Worker::getManagedAmRecv(
+  ucp_ep_h ep, std::function<std::shared_ptr<RequestAmManaged>()> createAmRecvRequestFunction)
 {
-  std::lock_guard<std::mutex> lock(_amData->_mutex);
+  std::lock_guard<std::mutex> lock(_managedAmData->_mutex);
 
-  auto& recvPool = _amData->_recvPool;
-  auto& recvWait = _amData->_recvWait;
+  auto& recvPool = _managedAmData->_recvPool;
+  auto& recvWait = _managedAmData->_recvWait;
 
   auto reqs = recvPool.find(ep);
   if (reqs != recvPool.end() && !reqs->second.empty()) {
@@ -134,7 +134,7 @@ std::shared_ptr<RequestAm> Worker::getAmRecv(
     return req;
   } else {
     auto req        = createAmRecvRequestFunction();
-    auto [queue, _] = recvWait.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
+    auto [queue, _] = recvWait.try_emplace(ep, std::queue<std::shared_ptr<RequestAmManaged>>());
     queue->second.push(req);
     return req;
   }
@@ -147,12 +147,12 @@ std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
   auto worker = std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
   // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
   // been created, thus this cannot be in the constructor.
-  if (worker->_amData != nullptr) {
-    worker->_amData->_worker = worker;
+  if (worker->_managedAmData != nullptr) {
+    worker->_managedAmData->_worker = worker;
 
     std::stringstream ownerStream;
     ownerStream << "worker " << worker->getHandle();
-    worker->_amData->_ownerString = ownerStream.str();
+    worker->_managedAmData->_ownerString = ownerStream.str();
   }
 
   return worker;
@@ -755,30 +755,44 @@ std::shared_ptr<Listener> Worker::createListener(uint16_t port,
   return listener;
 }
 
+void Worker::registerManagedAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)
+{
+  if (_managedAmData == nullptr)
+    throw std::runtime_error("Active Messages was not enabled during context creation");
+  _managedAmData->_allocators.insert_or_assign(memoryType, allocator);
+}
+
+void Worker::registerManagedAmReceiverCallback(AmReceiverCallbackInfo info,
+                                               AmReceiverCallbackType callback)
+{
+  if (info.owner == "ucxx") throw std::runtime_error("The owner name 'ucxx' is reserved.");
+  if (_managedAmData->_receiverCallbacks.find(info.owner) ==
+      _managedAmData->_receiverCallbacks.end())
+    _managedAmData->_receiverCallbacks[info.owner] = {};
+  if (_managedAmData->_receiverCallbacks[info.owner].find(info.id) !=
+      _managedAmData->_receiverCallbacks[info.owner].end())
+    throw std::runtime_error("Callback with given owner and identifier is already registered");
+
+  _managedAmData->_receiverCallbacks[info.owner][info.id] = callback;
+}
+
+bool Worker::amManagedProbe(const ucp_ep_h endpointHandle) const
+{
+  return _managedAmData->_recvPool.find(endpointHandle) != _managedAmData->_recvPool.end();
+}
+
 void Worker::registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)
 {
-  if (_amData == nullptr)
-    throw std::runtime_error("Active Messages was not enabled during context creation");
-  _amData->_allocators.insert_or_assign(memoryType, allocator);
+  registerManagedAmAllocator(memoryType, allocator);
 }
 
 void Worker::registerAmReceiverCallback(AmReceiverCallbackInfo info,
                                         AmReceiverCallbackType callback)
 {
-  if (info.owner == "ucxx") throw std::runtime_error("The owner name 'ucxx' is reserved.");
-  if (_amData->_receiverCallbacks.find(info.owner) == _amData->_receiverCallbacks.end())
-    _amData->_receiverCallbacks[info.owner] = {};
-  if (_amData->_receiverCallbacks[info.owner].find(info.id) !=
-      _amData->_receiverCallbacks[info.owner].end())
-    throw std::runtime_error("Callback with given owner and identifier is already registered");
-
-  _amData->_receiverCallbacks[info.owner][info.id] = callback;
+  registerManagedAmReceiverCallback(info, callback);
 }
 
-bool Worker::amProbe(const ucp_ep_h endpointHandle) const
-{
-  return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
-}
+bool Worker::amProbe(const ucp_ep_h endpointHandle) const { return amManagedProbe(endpointHandle); }
 
 std::shared_ptr<Request> Worker::flush(const bool enableFuture,
                                        RequestCallbackUserFunction callbackFunction,

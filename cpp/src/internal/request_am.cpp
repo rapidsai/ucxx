@@ -16,18 +16,18 @@ namespace ucxx {
 
 namespace internal {
 
-RecvAmMessage::RecvAmMessage(internal::AmData* amData,
-                             ucp_ep_h ep,
-                             std::shared_ptr<RequestAm> request,
-                             std::shared_ptr<Buffer> buffer,
-                             AmReceiverCallbackType receiverCallback,
-                             std::vector<std::byte> userHeader)
+ManagedRecvAmMessage::ManagedRecvAmMessage(internal::ManagedAmData* amData,
+                                           ucp_ep_h ep,
+                                           std::shared_ptr<RequestAmManaged> request,
+                                           std::shared_ptr<Buffer> buffer,
+                                           AmReceiverCallbackType receiverCallback,
+                                           std::vector<std::byte> userHeader)
   : _amData(amData), _ep(ep), _request(request)
 {
   std::visit(data::dispatch{
-               [this, buffer, &userHeader](data::AmReceive& amReceive) {
-                 amReceive._buffer     = buffer;
-                 amReceive._userHeader = std::move(userHeader);
+               [this, buffer, &userHeader](data::AmReceiveManaged& amReceiveManaged) {
+                 amReceiveManaged._buffer     = buffer;
+                 amReceiveManaged._userHeader = std::move(userHeader);
                },
                [](auto) { throw std::runtime_error("Unreachable"); },
              },
@@ -40,10 +40,12 @@ RecvAmMessage::RecvAmMessage(internal::AmData* amData,
   }
 }
 
-void RecvAmMessage::callback(void* request, ucs_status_t status)
+void ManagedRecvAmMessage::setUcpRequest(void* request) { _request->_request = request; }
+
+void ManagedRecvAmMessage::callback(void* request, ucs_status_t status)
 {
   std::visit(data::dispatch{
-               [this, request, status](data::AmReceive) {
+               [this, request, status](data::AmReceiveManaged) {
                  _request->callback(request, status);
                  {
                    std::lock_guard<std::mutex> lock(_amData->_mutex);

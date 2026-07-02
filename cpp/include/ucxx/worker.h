@@ -13,6 +13,7 @@
 #include <thread>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include <ucp/api/ucp.h>
 
@@ -48,10 +49,10 @@ class Address;
 class Buffer;
 class Endpoint;
 class Listener;
-class RequestAm;
+class RequestAmManaged;
 
 namespace internal {
-class AmData;
+class ManagedAmData;
 }  // namespace internal
 
 /**
@@ -82,9 +83,16 @@ class Worker : public Component {
     nullptr};  ///< The argument to be passed to the progress thread start callback
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
-  friend std::shared_ptr<RequestAm> createRequestAm(
+  friend std::shared_ptr<RequestAmManaged> createRequestAmManaged(
     std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::AmSend, data::AmReceive> requestData,
+    const std::variant<data::AmSendManaged, data::AmReceiveManaged> requestData,
+    const bool enablePythonFuture,
+    RequestCallbackUserFunction callbackFunction,
+    RequestCallbackUserData callbackData);
+
+  friend std::shared_ptr<RequestAmManaged> createRequestAm(
+    std::shared_ptr<Endpoint> endpoint,
+    const std::variant<data::AmSendManaged, data::AmReceiveManaged> requestData,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
@@ -98,8 +106,8 @@ class Worker : public Component {
   std::queue<std::shared_ptr<Future>>
     _futuresPool{};  ///< Futures pool to prevent running out of fresh futures
   std::shared_ptr<Notifier> _notifier{nullptr};  ///< Notifier object
-  std::shared_ptr<internal::AmData>
-    _amData;  ///< Worker data made available to Active Messages callback
+  std::shared_ptr<internal::ManagedAmData>
+    _managedAmData;  ///< Worker data made available to managed Active Messages callback
   BufferType _cudaBufferType{BufferType::Invalid};  ///< Preferred buffer type for CUDA allocations
 
  private:
@@ -112,21 +120,20 @@ class Worker : public Component {
   void drainWorkerTagRecv();
 
   /**
-   * @brief Get active message receive request.
+   * @brief Get managed active message receive request.
    *
-   * Returns an active message request from the pool if the worker has already begun
-   * handling a request with the active messages callback, otherwise creates a new request
-   * that is later populated with status and buffer by the active messages callback.
+   * Returns a managed active message request from the pool if the worker has already begun
+   * handling a request with the managed AM callback, otherwise creates a new request
+   * that is later populated with status and buffer by the managed AM callback.
    *
-   * @param[in] ep  the endpoint handle where receiving the message, the same handle that
-   *                will later be used to reply to the message.
+   * @param[in] ep  the endpoint handle where receiving the message.
    * @param[in] createAmRecvRequestFunction function to create a new request if one is not
    *                                        already available in the pool.
    *
    * @returns Request to be subsequently checked for the completion state and data.
    */
-  [[nodiscard]] std::shared_ptr<RequestAm> getAmRecv(
-    ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction);
+  [[nodiscard]] std::shared_ptr<RequestAmManaged> getManagedAmRecv(
+    ucp_ep_h ep, std::function<std::shared_ptr<RequestAmManaged>()> createAmRecvRequestFunction);
 
   /**
    * @brief Stop the progress thread if running without raising warnings.
@@ -1023,92 +1030,59 @@ class Worker : public Component {
                                                          void* callbackArgs);
 
   /**
-   * @brief Register allocator for active messages.
+   * @brief Register allocator for managed active messages.
    *
-   * Register a new allocator for active messages. By default, only one allocator is defined
-   * for host memory (`UCS_MEMORY_TYPE_HOST`), and is used as a fallback when an allocator
-   * for the source's memory type is unavailable. In many circumstances relying exclusively
-   * on the host allocator is undesirable, for example when transferring CUDA buffers the
-   * destination is always going to be a host buffer and prevent the use of transports such
-   * as NVLink or InfiniBand+GPUDirectRDMA. For that reason it's important that the user
-   * defines those allocators that are important for the application.
+   * Register a buffer allocator for managed Active Messages. By default, only one
+   * allocator is defined for host memory (`UCS_MEMORY_TYPE_HOST`). When transferring
+   * device buffers, register an appropriate allocator (e.g., CCCLBuffer for CUDA) so
+   * the receiver can allocate correctly-typed buffers.
    *
-   * If the `memoryType` has already been registered, the previous allocator will be
-   * replaced by the new one. Be careful when doing this after transfers have started, there
-   * are no guarantees that inflight messages have not already been allocated with the old
-   * allocator for that type.
-   *
-   * @code{.cpp}
-   * // context is `std::shared_ptr<ucxx::Context>`
-   * auto worker = context->workerBuilder().build();
-   *
-   * worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
-   *   return std::make_shared<ucxx::CCCLBuffer>(length);
-   * });
-   * @endcode
+   * If `memoryType` has already been registered, the previous allocator is replaced.
    *
    * @param[in] memoryType  the memory type the allocator will be used for.
-   * @param[in] allocator   the allocator callable that will be used to allocate new
-   *                        active message buffers.
+   * @param[in] allocator   callable that allocates a buffer of the given size.
    */
-  void registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator);
+  void registerManagedAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator);
 
   /**
-   * @brief Register receiver callback for active messages.
+   * @brief Register receiver callback for managed active messages.
    *
-   * Register a new receiver callback for active messages. By default, active messages do
-   * not execute any callbacks on the receiving end unless one is specified when sending
-   * the message. If the message sender specifies a callback receiver identifier then the
-   * remote receiver needs to have a callback registered with the same identifier to
-   * execute when the request completes. To ensure multiple applications that do not know
-   * about each other can have coexisting callbacks where receiver identifiers may have
-   * the same value, an owner must be specified as well, which has the form of a string and
-   * should be reasonably unique to prevent accidentally calling callbacks from a separate
-   * application, thus names like "A" or "UCX" are discouraged in favor of more descriptive
-   * names such as "MyFastCommsProject", and the name "ucxx" is reserved.
+   * Register a receiver callback for managed Active Messages. The sender specifies a
+   * callback by owner name and ID; the receiver must register a matching callback before
+   * the message arrives. The owner string must be unique enough to avoid collisions;
+   * "ucxx" is reserved.
    *
-   * Because it is impossible to predict which callback would be called in such an event,
-   * the registered callback cannot be changed, thus calling this method with the same
-   * given owner and identifier will throw `std::runtime_error`.
+   * @throws std::runtime_error if a callback with the same owner+id is already registered,
+   *                            or if the reserved owner name "ucxx" is used.
    *
-   * @code{.cpp}
-   * // `worker` is `std::shared_ptr<ucxx::Worker>`
-   * auto callback = [](std::shared_ptr<ucxx::Request> req) {
-   *   std::cout << "The UCXX request address is " << (void*)req.get() << std::endl;
-   * };
-   *
-   * worker->registerAmReceiverCallback({"MyFastApp", 0}, callback};
-   * @endcode
-   *
-   * @throws std::runtime_error if a callback with same given owner and identifier is
-   *                            already registered, or if the reserved owner name "ucxx"
-   *                            is specified.
-   *
-   * @param[in] info      the owner name and unique identifier of the receiver callback.
-   * @param[in] callback  the callback to execute when the active message is received.
+   * @param[in] info      owner name and unique identifier of the receiver callback.
+   * @param[in] callback  the callback to execute when a managed Active Message is received.
    */
-  void registerAmReceiverCallback(AmReceiverCallbackInfo info, AmReceiverCallbackType callback);
+  void registerManagedAmReceiverCallback(AmReceiverCallbackInfo info,
+                                         AmReceiverCallbackType callback);
 
   /**
-   * @brief Check for uncaught active messages.
+   * @brief Check for uncaught managed active messages.
    *
-   * Checks the worker for any uncaught active messages. An uncaught active message is any
-   * active message that has been fully or partially received by the worker, but not matched
-   * by a corresponding `createRequestAmRecv()` call.
+   * Returns `true` if any managed Active Messages have been received but not yet matched
+   * by an `amManagedRecv()` call for the given endpoint.
    *
-   * @code{.cpp}
-   * // `worker` is `std::shared_ptr<ucxx::Worker>`
-   * // `ep` is a remote `std::shared_ptr<ucxx::Endpoint` to the local `worker`
-   * assert(!worker->amProbe(ep->getHandle()));
-   *
-   * ep->amSend(buffer, length);
-   *
-   * assert(worker->amProbe(0));
-   * @endcode
-   *
-   * @returns `true` if any uncaught messages were received, `false` otherwise.
+   * @param[in] endpointHandle  the endpoint handle to probe.
+   * @returns `true` if any unmatched messages exist.
    */
-  [[nodiscard]] bool amProbe(const ucp_ep_h endpointHandle) const;
+  [[nodiscard]] bool amManagedProbe(const ucp_ep_h endpointHandle) const;
+
+  /// @deprecated Use `registerManagedAmAllocator()` instead.
+  [[deprecated("Use registerManagedAmAllocator instead.")]] void registerAmAllocator(
+    ucs_memory_type_t memoryType, AmAllocatorType allocator);
+
+  /// @deprecated Use `registerManagedAmReceiverCallback()` instead.
+  [[deprecated("Use registerManagedAmReceiverCallback instead.")]] void registerAmReceiverCallback(
+    AmReceiverCallbackInfo info, AmReceiverCallbackType callback);
+
+  /// @deprecated Use `amManagedProbe()` instead.
+  [[deprecated("Use amManagedProbe instead.")]] [[nodiscard]] bool amProbe(
+    const ucp_ep_h endpointHandle) const;
 
   /**
    * @brief Enqueue a flush operation.

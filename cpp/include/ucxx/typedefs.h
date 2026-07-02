@@ -24,7 +24,7 @@ namespace ucxx {
 
 class Buffer;
 class Request;
-class RequestAm;
+class RequestAmManaged;
 
 /**
  * @brief Available logging levels.

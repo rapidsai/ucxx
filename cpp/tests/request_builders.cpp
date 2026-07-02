@@ -421,7 +421,7 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
   static_assert(std::is_same<decltype(tagBuilder), ucxx::RequestTagBuilder>::value,
                 "auto without .build() is RequestTagBuilder");
 
-  auto amBuilder = ucxx::requestAmBuilder(_ep, ucxx::data::AmSend(buf.data(), sizeof(int)));
+  auto amBuilder = ucxx::requestAmBuilder(_ep, ucxx::data::AmSendManaged(buf.data(), sizeof(int)));
   static_assert(std::is_same<decltype(amBuilder), ucxx::RequestAmBuilder>::value,
                 "auto without .build() is RequestAmBuilder");
 
@@ -521,8 +521,8 @@ TEST(RequestBuilderTraitsTest, AllBuildersAreMoveOnly)
 
 TEST(RequestBuilderTraitsTest, BuildAndConversionRequireNonConstBuilders)
 {
-  assertBuildRequiresNonConstBuilder<ucxx::RequestAmBuilder, ucxx::RequestAm>();
-  assertConversionRequiresNonConstBuilder<ucxx::RequestAmBuilder, ucxx::RequestAm>();
+  assertBuildRequiresNonConstBuilder<ucxx::RequestAmBuilder, ucxx::RequestAmManaged>();
+  assertConversionRequiresNonConstBuilder<ucxx::RequestAmBuilder, ucxx::RequestAmManaged>();
   assertConversionRequiresNonConstBuilder<ucxx::RequestAmBuilder, ucxx::Request>();
 
   assertBuildRequiresNonConstBuilder<ucxx::RequestEndpointCloseBuilder,

@@ -18,6 +18,8 @@
 #include <ucxx/delayed_submission.h>
 #include <ucxx/worker_progress_thread.h>
 
+#include <type_traits>
+
 #include "include/utils.h"
 
 namespace {
@@ -408,27 +410,27 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
   }
 }
 
-TEST_F(WorkerTest, AmProbe)
+TEST_F(WorkerTest, ManagedAmProbe)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
   auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
 
-  ASSERT_FALSE(_worker->amProbe(ep->getHandle()));
+  ASSERT_FALSE(_worker->amManagedProbe(ep->getHandle()));
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->amSend(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
+  requests.push_back(ep->amManagedSend(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
   waitRequests(_worker, requests, progressWorker);
 
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker, ep]() {
     progressWorker();
-    return _worker->amProbe(ep->getHandle());
+    return _worker->amManagedProbe(ep->getHandle());
   });
 
-  ASSERT_TRUE(_worker->amProbe(ep->getHandle()));
+  ASSERT_TRUE(_worker->amManagedProbe(ep->getHandle()));
 }
 
-TEST_P(WorkerProgressTest, ProgressAm)
+TEST_P(WorkerProgressTest, ProgressManagedAm)
 {
   if (_progressMode == ProgressMode::Wait) {
     // TODO: Is this the same reason as TagMulti?
@@ -440,8 +442,9 @@ TEST_P(WorkerProgressTest, ProgressAm)
   std::vector<int> send{123};
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
-  requests.push_back(ep->amRecv());
+  requests.push_back(
+    ep->amManagedSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
+  requests.push_back(ep->amManagedRecv());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq    = requests[1];
@@ -455,7 +458,7 @@ TEST_P(WorkerProgressTest, ProgressAm)
   ASSERT_EQ(recvAbstract[0], send[0]);
 }
 
-TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
+TEST_P(WorkerProgressTest, ProgressManagedAmReceiverCallback)
 {
   if (_progressMode == ProgressMode::Wait) {
     // TODO: Is this the same reason as TagMulti?
@@ -478,15 +481,15 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
         receivedRequests.push_back(req);
       }
     });
-  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+  _worker->registerManagedAmReceiverCallback(receiverCallbackInfo, callback);
 
   auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
 
   std::vector<int> send{123};
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(
-    ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST, receiverCallbackInfo));
+  requests.push_back(ep->amManagedSend(
+    send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST, receiverCallbackInfo));
   waitRequests(_worker, requests, _progressWorker);
 
   while (receivedRequests.size() < 1)

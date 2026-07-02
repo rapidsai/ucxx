@@ -19,7 +19,9 @@ namespace ucxx {
 
 namespace data {
 
-AmSend::AmSend(const void* const buffer, const size_t length, const AmSendParams& params)
+AmSendManaged::AmSendManaged(const void* const buffer,
+                             const size_t length,
+                             const AmSendParams& params)
   : _buffer(buffer),
     _length(length),
     _iov(),
@@ -38,7 +40,7 @@ AmSend::AmSend(const void* const buffer, const size_t length, const AmSendParams
     throw std::runtime_error("Buffer cannot be a nullptr when length is > 0.");
 }
 
-AmSend::AmSend(std::vector<ucp_dt_iov_t> iov, const AmSendParams& params)
+AmSendManaged::AmSendManaged(std::vector<ucp_dt_iov_t> iov, const AmSendParams& params)
   : _buffer(nullptr),
     _length(0),
     _iov(std::move(iov)),
@@ -61,7 +63,7 @@ AmSend::AmSend(std::vector<ucp_dt_iov_t> iov, const AmSendParams& params)
   }
 }
 
-AmReceive::AmReceive() {}
+AmReceiveManaged::AmReceiveManaged() {}
 
 EndpointClose::EndpointClose(const bool force) : _force(force) {}
 

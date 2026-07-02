@@ -56,12 +56,12 @@ std::shared_ptr<::ucxx::Worker> createWorker(std::shared_ptr<Context> context,
 
   // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
   // been created, thus this cannot be in the constructor.
-  if (worker->_amData != nullptr) {
-    worker->_amData->_worker = worker;
+  if (worker->_managedAmData != nullptr) {
+    worker->_managedAmData->_worker = worker;
 
     std::stringstream ownerStream;
     ownerStream << "worker " << worker->getHandle();
-    worker->_amData->_ownerString = ownerStream.str();
+    worker->_managedAmData->_ownerString = ownerStream.str();
   }
 
   return worker;
