@@ -21,32 +21,46 @@ namespace ucxx {
 class Buffer;
 
 namespace internal {
-class RecvAmMessage;
+class ManagedRecvAmMessage;
 }  // namespace internal
 
 /**
- * @brief Send or receive a message with the UCX Active Message API.
+ * @brief Request type for UCXX managed Active Message operations.
  *
- * Send or receive a message with the UCX Active Message API, using non-blocking UCP calls
- * `ucp_am_send_nbx` or `ucp_am_recv_data_nbx`.
+ * Managed Active Messages are UCXX-managed transfers built on UCX Active Messages. Sends use
+ * UCXX's managed AM handler on the remote worker and carry a UCXX header containing the
+ * sender memory type, receiver allocation policy, optional receiver callback information, and
+ * optional user header bytes.
+ *
+ * A `RequestAmManaged` may represent either a send request or a receive request. Receive
+ * requests are completed by the worker's managed AM receive callback, which deserializes the
+ * UCXX header, allocates the receive buffer, handles eager or rendezvous payload delivery,
+ * and either matches the message with an `amManagedRecv()` request or invokes a registered
+ * receiver callback.
+ *
+ * For application-defined AM IDs, application-defined wire headers, or direct UCX AM receive
+ * callback handling, use `Endpoint::amSend()` with `Worker::setAmHandler()`.
  */
-class RequestAm : public Request {
+class RequestAmManaged : public Request {
  private:
-  friend class internal::RecvAmMessage;
+  friend class internal::ManagedRecvAmMessage;
 
   std::vector<std::byte> _header{};  ///< Retain copy of header bytes for send requests as
                                      ///< workaround for
                                      ///< https://github.com/openucx/ucx/issues/10424
 
   /**
-   * @brief Private constructor of `ucxx::RequestAm`.
+   * @brief Private constructor of `ucxx::RequestAmManaged`.
    *
-   * This is the internal implementation of `ucxx::RequestAm` constructor, made private
-   * not to be called directly. This constructor is made private to ensure all UCXX objects
-   * are shared pointers and the correct lifetime management of each one.
+   * This constructor creates the internal request object for either a managed AM send or a
+   * managed AM receive, depending on `requestData`. It is private to ensure requests are
+   * owned through `std::shared_ptr` and participate in UCXX request lifetime management.
    *
    * Instead the user should use one of the following:
    *
+   * - `ucxx::Endpoint::amManagedSend()`
+   * - `ucxx::createRequestAmManaged()`
+   * - `ucxx::Endpoint::amManagedRecv()`
    * - `ucxx::Endpoint::amSendBuilder()`
    * - `ucxx::Endpoint::amRecvBuilder()`
    * - `ucxx::requestAmBuilder()`
@@ -63,24 +77,26 @@ class RequestAm : public Request {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    */
-  RequestAm(std::shared_ptr<Component> endpointOrWorker,
-            const std::variant<data::AmSend, data::AmReceive> requestData,
-            std::string operationName,
-            const bool enablePythonFuture                = false,
-            RequestCallbackUserFunction callbackFunction = nullptr,
-            RequestCallbackUserData callbackData         = nullptr);
+  RequestAmManaged(std::shared_ptr<Component> endpointOrWorker,
+                   const std::variant<data::AmSendManaged, data::AmReceiveManaged> requestData,
+                   std::string operationName,
+                   const bool enablePythonFuture                = false,
+                   RequestCallbackUserFunction callbackFunction = nullptr,
+                   RequestCallbackUserData callbackData         = nullptr);
 
  public:
   /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestAm>`.
+   * @brief Factory for a managed Active Message request.
    *
-   * The constructor for a `std::shared_ptr<ucxx::RequestAm>` object, creating an active
-   * message request, returning a pointer to a request object that can be later awaited and
-   * checked for errors. This is a non-blocking operation, and the status of the transfer
-   * must be verified from the resulting request object before the data can be released if
-   * this is a send operation, or consumed if this is a receive operation. Received data is
-   * available via the `getRecvBuffer()` method if the receive transfer request completed
-   * successfully.
+   * Creates a managed AM send request when `requestData` contains `data::AmSendManaged`, or
+   * a managed AM receive request when it contains `data::AmReceiveManaged`. Send requests are
+   * later submitted with `RequestAmManaged::request()`. Receive requests are completed by the
+   * worker's managed AM receive callback and may match a message that arrived before or after
+   * the receive request was created.
+   *
+   * Received payload data is available via `getRecvBuffer()` after a receive request
+   * completes successfully. Sender-provided user header bytes are available via
+   * `getRecvHeader()`.
    *
    * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
    * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
@@ -100,11 +116,22 @@ class RequestAm : public Request {
    * @param[in] callbackFunction    user-defined callback function to call upon completion.
    * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns The `shared_ptr<ucxx::RequestAm>` object
+   * @returns The `shared_ptr<ucxx::RequestAmManaged>` object
    */
-  friend std::shared_ptr<RequestAm> createRequestAm(
+  friend std::shared_ptr<RequestAmManaged> createRequestAmManaged(
     std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::AmSend, data::AmReceive> requestData,
+    const std::variant<data::AmSendManaged, data::AmReceiveManaged> requestData,
+    const bool enablePythonFuture,
+    RequestCallbackUserFunction callbackFunction,
+    RequestCallbackUserData callbackData);
+
+  /**
+   * @brief Deprecated factory for `RequestAmManaged`.
+   * @deprecated Use `createRequestAmManaged()` instead.
+   */
+  friend std::shared_ptr<RequestAmManaged> createRequestAm(
+    std::shared_ptr<Endpoint> endpoint,
+    const std::variant<data::AmSendManaged, data::AmReceiveManaged> requestData,
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
@@ -120,41 +147,34 @@ class RequestAm : public Request {
   void populateDelayedSubmission() override;
 
   /**
-   * @brief Create and submit an active message send request.
+   * @brief Create and submit a managed active message send request.
    *
-   * This is the method that should be called to actually submit an active message send
-   * request. It is meant to be called from `populateDelayedSubmission()`, which is decided
-   * at the discretion of `std::shared_ptr<ucxx::Worker>`. See `populateDelayedSubmission()`
-   * for more details.
+   * Serializes the managed AM header, calls `ucp_am_send_nbx` on the reserved managed AM
+   * handler ID, and publishes the resulting UCX request. This method is valid only for
+   * send-side `RequestAmManaged` objects and is normally called by
+   * `populateDelayedSubmission()`.
    */
   void request();
 
   /**
-   * @brief Receive callback registered by `ucxx::Worker`.
+   * @brief Receive callback registered by `ucxx::Worker` for the managed AM API.
    *
-   * This is the receive callback registered by the `ucxx::Worker` to handle incoming active
-   * messages. For each incoming active message, a proper buffer will be allocated based on
-   * the header sent by the remote endpoint using the default allocator or one registered by
-   * the user via `ucxx::Worker::registerAmAllocator()`. Following that, the message is
-   * immediately received onto the buffer and a `UCS_OK` or the proper error status is set
-   * onto the `RequestAm` that is returned to the user, or will be later handled by another
-   * callback when the message is ready. If the callback is executed when a user has already
-   * requested received of the active message, the buffer and status will be set on the
-   * earliest request, otherwise a new request is created and saved in a pool that will be
-   * already populated and ready for consumption or waiting for the internal callback when
-   * requested.
+   * Handles incoming managed Active Messages for the worker-managed AM handler. The callback
+   * deserializes the UCXX header, identifies the remote endpoint, allocates a receive buffer
+   * according to the sender memory type and memory policy, and completes payload transfer for
+   * either eager or rendezvous messages.
    *
-   * This is always called by `ucp_worker_progress()`, and thus will happen in the same
-   * thread that is called from, when using the worker progress thread, this is called from
-   * the progress thread.
+   * Messages without receiver callback information are matched through the worker's
+   * managed-receive pools, allowing either request-before-message or message-before-request
+   * ordering. Messages with receiver callback information are delivered to the registered
+   * callback after the receive request completes.
    *
-   * param[in,out] arg  pointer to the `AmData` object held by the `ucxx::Worker` who
-   *                    registered this callback.
-   * param[in] header pointer to the header containing the sender buffer's memory type.
-   * param[in] header_length  length in bytes of the receive header.
-   * param[in] data pointer to the buffer containing the remote endpoint's send data.
-   * param[in] length the length in bytes of the message to be received.
-   * param[in] param  UCP parameters of the active message being received.
+   * @param[in,out] arg            pointer to the `ManagedAmData` object held by the worker.
+   * @param[in]     header         header containing serialized UCXX metadata.
+   * @param[in]     header_length  length in bytes of the receive header.
+   * @param[in]     data           eager payload pointer or rendezvous data descriptor.
+   * @param[in]     length         length in bytes of the message payload.
+   * @param[in]     param          UCP parameters of the active message being received.
    */
   [[nodiscard]] static ucs_status_t recvCallback(void* arg,
                                                  const void* header,
@@ -167,5 +187,11 @@ class RequestAm : public Request {
 
   [[nodiscard]] std::string getRecvHeader() override;
 };
+
+/**
+ * @brief Deprecated alias for `RequestAmManaged`.
+ * @deprecated Use `RequestAmManaged` directly.
+ */
+[[deprecated("Use RequestAmManaged instead.")]] typedef RequestAmManaged RequestAm;
 
 }  // namespace ucxx

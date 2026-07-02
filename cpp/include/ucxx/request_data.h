@@ -24,10 +24,98 @@ namespace data {
 /**
  * @brief Data for an Active Message send.
  *
- * Type identifying an Active Message send operation and containing data specific to this
- * request type.
+ * Carries the AM handler ID, raw header bytes, and payload passed to `ucp_am_send_nbx`.
  */
 class AmSend {
+ public:
+  const uint16_t _id{0};                                  ///< AM handler ID.
+  const void* const _header{nullptr};                     ///< Raw user header bytes (may be null).
+  const size_t _headerLength{0};                          ///< Length of header in bytes.
+  const void* const _buffer{nullptr};                     ///< Data buffer (null when using IOV).
+  const std::vector<ucp_dt_iov_t> _iov{};                 ///< Segments for IOV datatype.
+  const size_t _count{0};                                 ///< Byte count (contig) or IOV count.
+  const uint32_t _flags{UCP_AM_SEND_FLAG_REPLY};          ///< UCP AM send flags.
+  const ucp_datatype_t _datatype{ucp_dt_make_contig(1)};  ///< UCP datatype.
+
+  /**
+   * @brief Constructor for contiguous AM send.
+   *
+   * @param[in] id            AM handler ID registered on the remote worker.
+   * @param[in] header        raw header bytes (may be null if headerLength == 0).
+   * @param[in] headerLength  length of the header in bytes.
+   * @param[in] buffer        data buffer to send.
+   * @param[in] count         number of bytes to send.
+   * @param[in] flags         UCP AM send flags.
+   * @param[in] datatype      UCP datatype (must be `ucp_dt_make_contig(1)`).
+   */
+  explicit AmSend(uint16_t id,
+                  const void* header,
+                  size_t headerLength,
+                  const void* buffer,
+                  size_t count,
+                  uint32_t flags          = UCP_AM_SEND_FLAG_REPLY,
+                  ucp_datatype_t datatype = ucp_dt_make_contig(1));
+
+  /**
+   * @brief Constructor for IOV AM send.
+   *
+   * @param[in] id            AM handler ID registered on the remote worker.
+   * @param[in] header        raw header bytes (may be null if headerLength == 0).
+   * @param[in] headerLength  length of the header in bytes.
+   * @param[in] iov           vector of IOV segments to send.
+   * @param[in] flags         UCP AM send flags.
+   */
+  explicit AmSend(uint16_t id,
+                  const void* header,
+                  size_t headerLength,
+                  std::vector<ucp_dt_iov_t> iov,
+                  uint32_t flags = UCP_AM_SEND_FLAG_REPLY);
+
+  AmSend() = delete;
+};
+
+/**
+ * @brief Data for a rendezvous Active Message data receive.
+ *
+ * Type identifying an Active Message rendezvous data receive, wrapping a call to
+ * `ucp_am_recv_data_nbx`. Must be submitted synchronously from inside the AM
+ * handler callback (before returning `UCS_INPROGRESS`), as the data descriptor is
+ * only valid until that call is made.
+ */
+class AmRecvData {
+ public:
+  void* _dataDesc{nullptr};                               ///< UCX data descriptor from handler.
+  void* _buffer{nullptr};                                 ///< Pre-allocated receive buffer.
+  const size_t _count{0};                                 ///< Byte count or IOV segment count.
+  const ucp_datatype_t _datatype{ucp_dt_make_contig(1)};  ///< UCP datatype.
+
+  /**
+   * @brief Constructor for rendezvous data receive.
+   *
+   * @param[in] dataDesc  data descriptor from the AM handler callback. Only valid
+   *                      until `ucp_am_recv_data_nbx` is called or handler returns.
+   * @param[in] buffer    pre-allocated buffer to receive data into.
+   * @param[in] count     number of bytes (contig) or IOV segments.
+   * @param[in] datatype  UCP datatype.
+   */
+  explicit AmRecvData(void* dataDesc,
+                      void* buffer,
+                      size_t count,
+                      ucp_datatype_t datatype = ucp_dt_make_contig(1));
+
+  AmRecvData() = delete;
+};
+
+/**
+ * @brief Data for a managed Active Message send.
+ *
+ * Stores the payload description and managed AM send parameters used by
+ * `RequestAmManaged`. The parameters are serialized into UCXX's managed AM header before
+ * the send is submitted, allowing the receiver to choose an allocator, preserve the user
+ * header, and either match the message with `amManagedRecv()` or route it to a registered
+ * receiver callback.
+ */
+class AmSendManaged {
  public:
   const void* const _buffer{nullptr};      ///< The raw pointer where data to be sent is stored.
   const size_t _length{0};                 ///< Message length in bytes (contiguous datatype only).
@@ -44,65 +132,56 @@ class AmSend {
   const std::vector<std::byte> _userHeader{};  ///< Opaque user-defined header bytes.
 
   /**
-   * @brief Constructor for Active Message-specific send data.
+   * @brief Constructor for managed Active Message send data (contiguous).
    *
-   * Construct an object containing Active Message-specific send data.
-   *
-   * @param[in] buffer                  a raw pointer to the data to be sent.
-   * @param[in] length                  the size in bytes of the message to be sent.
-   * @param[in] params                  send parameters controlling datatype/flags/policies.
+   * @param[in] buffer  a raw pointer to the data to be sent.
+   * @param[in] length  the size in bytes of the message to be sent.
+   * @param[in] params  send parameters controlling datatype/flags/policies.
    */
-  explicit AmSend(const decltype(_buffer) buffer,
-                  const decltype(_length) length,
-                  const AmSendParams& params = AmSendParams{});
+  explicit AmSendManaged(const decltype(_buffer) buffer,
+                         const decltype(_length) length,
+                         const AmSendParams& params = AmSendParams{});
 
   /**
-   * @brief Constructor for Active Message-specific send data using IOV datatype.
-   *
-   * Construct an object containing Active Message-specific send data for `UCP_DATATYPE_IOV`.
+   * @brief Constructor for managed Active Message send data (IOV).
    *
    * @param[in] iov     vector of IOV segments to send.
    * @param[in] params  send parameters controlling datatype/flags/policies.
    */
-  explicit AmSend(decltype(_iov) iov, const AmSendParams& params = AmSendParams{});
+  explicit AmSendManaged(decltype(_iov) iov, const AmSendParams& params = AmSendParams{});
 
-  AmSend() = delete;
+  AmSendManaged() = delete;
 };
 
 /**
- * @brief Data for an Active Message receive.
+ * @brief Data for a managed Active Message receive.
  *
- * Type identifying an Active Message receive operation and containing data specific to this
- * request type.
+ * Stores the receive-side state populated by the worker's managed AM receive callback. When
+ * a managed receive completes, `_buffer` holds the received payload and `_userHeader` holds
+ * the sender-provided user header bytes.
  */
-class AmReceive {
+class AmReceiveManaged {
  public:
   std::shared_ptr<::ucxx::Buffer> _buffer{nullptr};  ///< The AM received message buffer
   std::vector<std::byte> _userHeader{};              ///< User-defined header bytes from the sender.
 
   /**
-   * @brief Constructor for Active Message-specific receive data.
-   *
-   * Construct an object containing Active Message-specific receive data. Currently no
-   * specific data to receive Active Message is supported, but this class exists to act as
-   * an operation identifier, providing interface compatibility.
+   * @brief Constructor for managed Active Message receive data.
    */
-  AmReceive();
+  AmReceiveManaged();
 };
 
 /**
  * @brief Data for an endpoint close operation.
  *
- * Type identifying an endpoint close operation and containing data specific to this request
- * type.
+ * Type identifying an endpoint close operation and containing data specific to this
+ * request type.
  */
 class EndpointClose {
  public:
   const bool _force{false};  ///< Whether to force endpoint closing.
   /**
    * @brief Constructor for endpoint close-specific data.
-   *
-   * Construct an object containing endpoint close-specific data.
    *
    * @param[in] force   force endpoint close if `true`, flush otherwise.
    */
@@ -120,8 +199,6 @@ class Flush {
  public:
   /**
    * @brief Constructor for flush-specific data.
-   *
-   * Construct an object containing flush-specific data.
    */
   Flush();
 };
@@ -141,10 +218,8 @@ class MemPut {
   /**
    * @brief Constructor for memory-specific data.
    *
-   * Construct an object containing memory-specific data.
-   *
    * @param[in] buffer      a raw pointer to the data to be sent.
-   * @param[in] length      the size in bytes of the tag message to be sent.
+   * @param[in] length      the size in bytes of the message to be sent.
    * @param[in] remoteAddr  the destination remote memory address to write to.
    * @param[in] rkey        the remote memory key associated with the remote memory address.
    */
@@ -159,8 +234,7 @@ class MemPut {
 /**
  * @brief Data for a memory receive.
  *
- * Type identifying a memory receive operation and containing data specific to this request
- * type.
+ * Type identifying a memory receive operation and containing data specific to this request type.
  */
 class MemGet {
  public:
@@ -172,10 +246,8 @@ class MemGet {
   /**
    * @brief Constructor for memory-specific data.
    *
-   * Construct an object containing memory-specific data.
-   *
    * @param[out] buffer     a raw pointer to the received data.
-   * @param[in]  length     the size in bytes of the tag message to be received.
+   * @param[in]  length     the size in bytes of the message to be received.
    * @param[in]  remoteAddr the source remote memory address to read from.
    * @param[in]  rkey       the remote memory key associated with the remote memory address.
    */
@@ -190,8 +262,7 @@ class MemGet {
 /**
  * @brief Data for a Stream send.
  *
- * Type identifying a Stream send operation and containing data specific to this request
- * type.
+ * Type identifying a Stream send operation and containing data specific to this request type.
  */
 class StreamSend {
  public:
@@ -201,10 +272,8 @@ class StreamSend {
   /**
    * @brief Constructor for stream-specific data.
    *
-   * Construct an object containing stream-specific data.
-   *
    * @param[in] buffer  a raw pointer to the data to be sent.
-   * @param[in] length  the size in bytes of the tag message to be sent.
+   * @param[in] length  the size in bytes of the message to be sent.
    */
   explicit StreamSend(const decltype(_buffer) buffer, const decltype(_length) length);
 
@@ -212,24 +281,21 @@ class StreamSend {
 };
 
 /**
- * @brief Data for an Stream receive.
+ * @brief Data for a Stream receive.
  *
- * Type identifying an Stream receive operation and containing data specific to this
- * request type.
+ * Type identifying a Stream receive operation and containing data specific to this request type.
  */
 class StreamReceive {
  public:
   void* _buffer{nullptr};     ///< The raw pointer where received data should be stored.
-  const size_t _length{0};    ///< The expected messaged length.
+  const size_t _length{0};    ///< The expected message length.
   size_t _lengthReceived{0};  ///< The actual received message length.
 
   /**
    * @brief Constructor for stream-specific data.
    *
-   * Construct an object containing stream-specific data.
-   *
    * @param[out] buffer   a raw pointer to the received data.
-   * @param[in]  length   the size in bytes of the tag message to be received.
+   * @param[in]  length   the size in bytes of the message to be received.
    */
   explicit StreamReceive(decltype(_buffer) buffer, const decltype(_length) length);
 
@@ -250,10 +316,8 @@ class TagSend {
   /**
    * @brief Constructor for tag-specific data.
    *
-   * Construct an object containing tag-specific data.
-   *
    * @param[in] buffer  a raw pointer to the data to be sent.
-   * @param[in] length  the size in bytes of the tag message to be sent.
+   * @param[in] length  the size in bytes of the message to be sent.
    * @param[in] tag     the tag to match.
    */
   explicit TagSend(const decltype(_buffer) buffer,
@@ -266,8 +330,7 @@ class TagSend {
 /**
  * @brief Data for a Tag receive.
  *
- * Type identifying a Tag receive operation and containing data specific to this request
- * type.
+ * Type identifying a Tag receive operation and containing data specific to this request type.
  */
 class TagReceive {
  public:
@@ -279,10 +342,8 @@ class TagReceive {
   /**
    * @brief Constructor for tag-specific data.
    *
-   * Construct an object containing send tag-specific data.
-   *
    * @param[out] buffer   a raw pointer to the received data.
-   * @param[in]  length   the size in bytes of the tag message to be received.
+   * @param[in]  length   the size in bytes of the message to be received.
    * @param[in]  tag      the tag to match.
    * @param[in]  tagMask  the tag mask to use (only used for receive operations).
    */
@@ -309,11 +370,7 @@ class TagReceiveWithHandle {
   /**
    * @brief Constructor for tag receive with handle-specific data.
    *
-   * Construct an object containing tag receive with handle-specific data.
-   *
-   * @param[out] buffer      a raw pointer to the received data. The buffer must be large
-   *                         enough to hold the message data, otherwise the behavior is
-   *                         undefined. The buffer must be pre-allocated.
+   * @param[out] buffer      a raw pointer to the received data.
    * @param[in]  probeInfo   the TagProbeInfo object containing message length and handle.
    */
   explicit TagReceiveWithHandle(decltype(_buffer) buffer, std::shared_ptr<TagProbeInfo> probeInfo);
@@ -337,12 +394,10 @@ class TagMultiSend {
   /**
    * @brief Constructor for send multi-buffer tag-specific data.
    *
-   * Construct an object containing tag/multi-buffer tag-specific data.
-   *
-   * @param[in] buffer  a raw pointers to the data to be sent.
-   * @param[in] length  the size in bytes of the tag messages to be sent.
+   * @param[in] buffer  raw pointers to the data to be sent.
+   * @param[in] length  sizes in bytes of the messages to be sent.
    * @param[in] isCUDA  flags indicating whether buffers being sent are CUDA.
-   * @param[in] tag     the tags to match.
+   * @param[in] tag     the tag to match.
    */
   explicit TagMultiSend(const decltype(_buffer)& buffer,
                         const decltype(_length)& length,
@@ -366,8 +421,6 @@ class TagMultiReceive {
   /**
    * @brief Constructor for receive multi-buffer tag-specific data.
    *
-   * Construct an object containing receive multi-buffer tag-specific data.
-   *
    * @param[in]  tag      the tag to match.
    * @param[in]  tagMask  the tag mask to use (only used for receive operations).
    */
@@ -378,7 +431,9 @@ class TagMultiReceive {
 
 using RequestData = std::variant<std::monostate,
                                  AmSend,
-                                 AmReceive,
+                                 AmSendManaged,
+                                 AmReceiveManaged,
+                                 AmRecvData,
                                  EndpointClose,
                                  Flush,
                                  MemPut,

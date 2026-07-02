@@ -106,8 +106,8 @@ class RequestBuilderBase {
  * @brief CRTP base for request builders that support completion callbacks.
  *
  * Extends `RequestBuilderBase` with `_callbackFunction` / `_callbackData` members and
- * their fluent setters. Used by builders for `RequestTag`, `RequestAm`, `RequestMem`,
- * `RequestFlush`, and `RequestEndpointClose`.
+ * their fluent setters. Used by builders for `RequestTag`, `RequestAmManaged`,
+ * `RequestMem`, `RequestFlush`, and `RequestEndpointClose`.
  *
  * @tparam Derived  The concrete builder type (CRTP).
  */

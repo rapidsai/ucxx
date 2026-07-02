@@ -3,13 +3,20 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <cstring>
 #include <memory>
+#include <mutex>
 #include <numeric>
 #include <stdexcept>
 #include <string>
 #include <tuple>
 #include <ucp/api/ucp.h>
+#include <ucs/debug/log_def.h>
 #include <ucs/type/status.h>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -38,7 +45,29 @@ namespace {
 
 using ::testing::Combine;
 using ::testing::ContainerEq;
+using ::testing::HasSubstr;
 using ::testing::Values;
+
+// Module-level storage for the UCX log capture handler below.
+// ucs_log_push_handler takes a plain C function pointer (no captures), so
+// the captured message must be accessible without a closure.
+char gCapturedLogMessage[1024];
+std::atomic<bool> gCapturedLogMessageSet{false};
+
+static ucs_log_func_rc_t captureLogHandler(const char* /* file */,
+                                           unsigned /* line */,
+                                           const char* /* function */,
+                                           ucs_log_level_t level,
+                                           const ucs_log_component_config_t* /* comp_conf */,
+                                           const char* message,
+                                           va_list /* ap */)
+{
+  if (level == UCS_LOG_LEVEL_WARN && message != nullptr) {
+    snprintf(gCapturedLogMessage, sizeof(gCapturedLogMessage), "%s", message);
+    gCapturedLogMessageSet.store(true, std::memory_order_release);
+  }
+  return UCS_LOG_FUNC_RC_CONTINUE;
+}
 
 typedef std::vector<int> DataContainerType;
 
@@ -237,7 +266,7 @@ class RequestTest
   }
 };
 
-TEST_P(RequestTest, ProgressAm)
+TEST_P(RequestTest, ProgressManagedAm)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -245,7 +274,7 @@ TEST_P(RequestTest, ProgressAm)
 
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
 #if UCXX_ENABLE_CCCL
-    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+    _worker->registerManagedAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
       return std::make_shared<ucxx::CCCLBuffer>(length);
     });
 #else
@@ -257,8 +286,8 @@ TEST_P(RequestTest, ProgressAm)
 
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amManagedSend(_sendPtr[0], _messageSize, _memoryType));
+  requests.push_back(_ep->amManagedRecv());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq = requests[1];
@@ -277,7 +306,7 @@ TEST_P(RequestTest, ProgressAm)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressAmIovHost)
+TEST_P(RequestTest, ProgressManagedAmIovHost)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -304,8 +333,8 @@ TEST_P(RequestTest, ProgressAmIovHost)
   amSendParams.memoryType = UCS_MEMORY_TYPE_HOST;
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(iov, amSendParams));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amManagedSend(iov, amSendParams));
+  requests.push_back(_ep->amManagedRecv());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq    = requests[1];
@@ -318,19 +347,20 @@ TEST_P(RequestTest, ProgressAmIovHost)
   ASSERT_THAT(recv, ContainerEq(send));
 }
 
-TEST_P(RequestTest, ProgressAmIovValidation)
+TEST_P(RequestTest, ProgressManagedAmIovValidation)
 {
   auto amSendParams       = ucxx::AmSendParams{};
   amSendParams.datatype   = UCP_DATATYPE_IOV;
   amSendParams.memoryType = UCS_MEMORY_TYPE_HOST;
 
-  EXPECT_THROW(std::ignore = _ep->amSend(std::vector<ucp_dt_iov_t>{}, amSendParams),
+  EXPECT_THROW(std::ignore = _ep->amManagedSend(std::vector<ucp_dt_iov_t>{}, amSendParams),
                std::runtime_error);
 
   std::vector<ucp_dt_iov_t> iovWithNullBuffer(1);
   iovWithNullBuffer[0].buffer = nullptr;
   iovWithNullBuffer[0].length = 16;
-  EXPECT_THROW(std::ignore = _ep->amSend(iovWithNullBuffer, amSendParams), std::runtime_error);
+  EXPECT_THROW(std::ignore = _ep->amManagedSend(iovWithNullBuffer, amSendParams),
+               std::runtime_error);
 
   std::vector<int> send{1, 2, 3, 4};
   std::vector<ucp_dt_iov_t> validIov(1);
@@ -339,10 +369,10 @@ TEST_P(RequestTest, ProgressAmIovValidation)
 
   auto wrongDatatypeParams     = amSendParams;
   wrongDatatypeParams.datatype = ucp_dt_make_contig(1);
-  EXPECT_THROW(std::ignore = _ep->amSend(validIov, wrongDatatypeParams), std::runtime_error);
+  EXPECT_THROW(std::ignore = _ep->amManagedSend(validIov, wrongDatatypeParams), std::runtime_error);
 }
 
-TEST_P(RequestTest, ProgressAmMemoryTypePolicyStrict)
+TEST_P(RequestTest, ProgressManagedAmMemoryTypePolicyStrict)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -356,8 +386,8 @@ TEST_P(RequestTest, ProgressAmMemoryTypePolicyStrict)
   amSendParams.memoryTypePolicy = ucxx::AmSendMemoryTypePolicy::ErrorOnUnsupported;
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(send.data(), send.size(), amSendParams));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amManagedSend(send.data(), send.size(), amSendParams));
+  requests.push_back(_ep->amManagedRecv());
 
   // Wait for completion without calling checkError(), since the receive request
   // is expected to complete with UCS_ERR_UNSUPPORTED.
@@ -369,7 +399,7 @@ TEST_P(RequestTest, ProgressAmMemoryTypePolicyStrict)
   ASSERT_EQ(requests[1]->getStatus(), UCS_ERR_UNSUPPORTED);
 }
 
-TEST_P(RequestTest, ProgressAmReceiverCallback)
+TEST_P(RequestTest, ProgressManagedAmReceiverCallback)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -377,7 +407,7 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
 
   if (_registerCustomAmAllocator && _memoryType == UCS_MEMORY_TYPE_CUDA) {
 #if UCXX_ENABLE_CCCL
-    _worker->registerAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+    _worker->registerManagedAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
       return std::make_shared<ucxx::CCCLBuffer>(length);
     });
 #else
@@ -401,13 +431,14 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
         receivedRequests.push_back(req);
       }
     });
-  _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
+  _worker->registerManagedAmReceiverCallback(receiverCallbackInfo, callback);
 
   allocate(1, false);
 
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
+  requests.push_back(
+    _ep->amManagedSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
   waitRequests(_worker, requests, _progressWorker);
 
   while (receivedRequests.size() < 1)
@@ -431,7 +462,7 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressAmUserHeader)
+TEST_P(RequestTest, ProgressManagedAmUserHeader)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -449,8 +480,8 @@ TEST_P(RequestTest, ProgressAmUserHeader)
   amSendParams.setUserHeader(sentHeader);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, amSendParams));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amManagedSend(_sendPtr[0], _messageSize, amSendParams));
+  requests.push_back(_ep->amManagedRecv());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq = requests[1];
@@ -461,7 +492,7 @@ TEST_P(RequestTest, ProgressAmUserHeader)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressAmIovUserHeader)
+TEST_P(RequestTest, ProgressManagedAmIovUserHeader)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -491,8 +522,8 @@ TEST_P(RequestTest, ProgressAmIovUserHeader)
   amSendParams.setUserHeader(sentHeader);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(iov, amSendParams));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amManagedSend(iov, amSendParams));
+  requests.push_back(_ep->amManagedRecv());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq    = requests[1];
@@ -506,7 +537,7 @@ TEST_P(RequestTest, ProgressAmIovUserHeader)
   ASSERT_THAT(recv, ContainerEq(send));
 }
 
-TEST_P(RequestTest, ProgressAmEmptyUserHeader)
+TEST_P(RequestTest, ProgressManagedAmEmptyUserHeader)
 {
   if (_progressMode == ProgressMode::Wait) {
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
@@ -520,8 +551,8 @@ TEST_P(RequestTest, ProgressAmEmptyUserHeader)
 
   // Send without user header (default empty)
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amManagedSend(_sendPtr[0], _messageSize, _memoryType));
+  requests.push_back(_ep->amManagedRecv());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq = requests[1];
@@ -650,11 +681,11 @@ TEST_F(RequestAttributesDisabledTest, Stream)
   ASSERT_THAT(_recvBuf, ::testing::ContainerEq(_sendBuf));
 }
 
-TEST_F(RequestAttributesDisabledTest, Am)
+TEST_F(RequestAttributesDisabledTest, ManagedAm)
 {
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendBuf.data(), kMessageSize, UCS_MEMORY_TYPE_HOST));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amManagedSend(_sendBuf.data(), kMessageSize, UCS_MEMORY_TYPE_HOST));
+  requests.push_back(_ep->amManagedRecv());
   waitRequests(_worker, requests, _progressWorker);
 
   expectAllThrow(requests);
@@ -733,7 +764,7 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
   ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
 }
 
-TEST_P(RequestTest, ProgressAmRequestAttributes)
+TEST_P(RequestTest, ProgressManagedAmRequestAttributes)
 {
   if (_messageSize < _rndvThresh)
     GTEST_SKIP() << "Eager messages complete inline without a UCP request to query";
@@ -745,8 +776,8 @@ TEST_P(RequestTest, ProgressAmRequestAttributes)
   allocate(1, false);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amManagedSend(_sendPtr[0], _messageSize, _memoryType));
+  requests.push_back(_ep->amManagedRecv());
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& request : requests) {
@@ -1125,6 +1156,324 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   auto recvOffset = DataContainerType(_recv[0].begin() + offset, _recv[0].end());
   auto sendOffset = DataContainerType(_send[0].begin() + offset, _send[0].end());
   ASSERT_THAT(recvOffset, sendOffset);
+}
+
+// ---------------------------------------------------------------------------
+// Active Message tests
+// ---------------------------------------------------------------------------
+
+// Helper: send a small eager message to AM handler ID, drive progress until the handler
+// fires, then drain the send request. Does NOT call checkError() since UCX may propagate
+// UCS_ERR_IO_ERROR from the handler back to the sender.
+static void sendAndDrainAmEager(std::shared_ptr<ucxx::Endpoint> ep,
+                                std::shared_ptr<ucxx::Worker> worker,
+                                std::function<void()> progressWorker,
+                                ucxx::AmHandlerId id,
+                                std::atomic<bool>* handlerFired)
+{
+  std::vector<int> send{1, 2, 3};
+  const size_t sendBytes = send.size() * sizeof(int);
+  auto sendReq           = ep->amSend(id, nullptr, 0, ucxx::AmSendContig{send.data(), sendBytes});
+
+  while (!handlerFired->load())
+    progressWorker();
+  while (!sendReq->isCompleted())
+    progressWorker();
+}
+
+// Verify: the handler is invoked and the exception does not escape the AM receive callback.
+// If the exception escaped into UCX's C stack the process would crash (std::terminate),
+// so surviving to the end of the test is the proof the catch block ran.
+TEST_P(RequestTest, ProgressAmHandlerExceptionIsCaught)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  std::atomic<bool> handlerFired{false};
+
+  _worker->setAmHandler(8, [&handlerFired](ucxx::AmMessage&) {
+    handlerFired.store(true);
+    throw std::runtime_error("test exception from AM handler");
+  });
+
+  sendAndDrainAmEager(_ep, _worker, _progressWorker, 8, &handlerFired);
+}
+
+// Verify: when no onException callback is set, the AM receive callback logs a warning via
+// ucxx_warn (which routes through UCX's log system).
+TEST_P(RequestTest, ProgressAmHandlerExceptionLogsWarning)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  std::atomic<bool> handlerFired{false};
+  gCapturedLogMessage[0] = '\0';
+  gCapturedLogMessageSet.store(false, std::memory_order_release);
+  ucs_log_push_handler(captureLogHandler);
+
+  _worker->setAmHandler(9, [&handlerFired](ucxx::AmMessage&) {
+    handlerFired.store(true);
+    throw std::runtime_error("test exception for log check");
+  });
+
+  sendAndDrainAmEager(_ep, _worker, _progressWorker, 9, &handlerFired);
+
+  const bool captured = loopWithTimeout(std::chrono::seconds(1), []() {
+    return gCapturedLogMessageSet.load(std::memory_order_acquire);
+  });
+  ucs_log_pop_handler();
+
+  EXPECT_TRUE(captured);
+  EXPECT_THAT(std::string{gCapturedLogMessage},
+              HasSubstr("Exception thrown in AM handler callback"));
+}
+
+TEST_P(RequestTest, ProgressAmEager)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  const size_t payloadLength = 16;
+  std::vector<int> send(payloadLength);
+  std::iota(send.begin(), send.end(), 42);
+  const size_t payloadBytes = payloadLength * sizeof(int);
+
+  std::vector<int> received(payloadLength, 0);
+  std::atomic<bool> handlerFired{false};
+  std::atomic<size_t> receivedLength{0};
+
+  _worker->setAmHandler(1, [&received, &handlerFired, &receivedLength](ucxx::AmMessage& msg) {
+    receivedLength.store(msg.length());
+    if (msg.data()) std::memcpy(received.data(), msg.data(), msg.length());
+    handlerFired.store(true);
+  });
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(
+    static_cast<uint16_t>(1), nullptr, 0, ucxx::AmSendContig{send.data(), payloadBytes}));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (!handlerFired.load())
+    _progressWorker();
+
+  EXPECT_EQ(receivedLength.load(), payloadBytes);
+  ASSERT_THAT(received, ContainerEq(send));
+}
+
+TEST_P(RequestTest, ProgressAmRendezvous)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  // Force rendezvous by using a buffer larger than the threshold.
+  const size_t payloadLength = _rndvThresh / sizeof(int) + 64;
+  std::vector<int> send(payloadLength);
+  std::iota(send.begin(), send.end(), 0);
+  const size_t payloadBytes = payloadLength * sizeof(int);
+
+  std::vector<int> received(payloadLength, 0);
+  std::shared_ptr<ucxx::Request> recvReq;
+  std::atomic<bool> handlerFired{false};
+
+  _worker->setAmHandler(2,
+                        [&received, &recvReq, &handlerFired, payloadBytes](ucxx::AmMessage& msg) {
+                          if (!msg.isRendezvous()) return;
+                          recvReq = msg.receive(received.data(), payloadBytes);
+                          handlerFired.store(true);
+                        });
+
+  std::vector<std::shared_ptr<ucxx::Request>> sendRequests;
+  sendRequests.push_back(_ep->amSend(
+    static_cast<uint16_t>(2), nullptr, 0, ucxx::AmSendContig{send.data(), payloadBytes}));
+  waitRequests(_worker, sendRequests, _progressWorker);
+
+  while (!handlerFired.load())
+    _progressWorker();
+
+  std::vector<std::shared_ptr<ucxx::Request>> recvRequests{recvReq};
+  waitRequests(_worker, recvRequests, _progressWorker);
+
+  ASSERT_THAT(received, ContainerEq(send));
+}
+
+TEST_P(RequestTest, ProgressAmIov)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  const size_t payloadLength = 8;
+  std::vector<int> send(payloadLength);
+  std::iota(send.begin(), send.end(), 100);
+
+  const size_t half = payloadLength / 2;
+  std::vector<ucp_dt_iov_t> iov(2);
+  iov[0].buffer = send.data();
+  iov[0].length = half * sizeof(int);
+  iov[1].buffer = send.data() + half;
+  iov[1].length = (payloadLength - half) * sizeof(int);
+
+  const size_t payloadBytes = payloadLength * sizeof(int);
+  std::vector<int> received(payloadLength, 0);
+  std::atomic<bool> handlerFired{false};
+  std::atomic<size_t> receivedLength{0};
+
+  _worker->setAmHandler(3, [&received, &handlerFired, &receivedLength](ucxx::AmMessage& msg) {
+    receivedLength.store(msg.length());
+    if (msg.data()) std::memcpy(received.data(), msg.data(), msg.length());
+    handlerFired.store(true);
+  });
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(
+    _ep->amSend(static_cast<uint16_t>(3), nullptr, 0, ucxx::AmSendIov{std::move(iov)}));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (!handlerFired.load())
+    _progressWorker();
+
+  EXPECT_EQ(receivedLength.load(), payloadBytes);
+  ASSERT_THAT(received, ContainerEq(send));
+}
+
+TEST_P(RequestTest, ProgressAmMultipleIds)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  std::vector<int> sendA{1, 2, 3, 4};
+  std::vector<int> sendB{10, 20, 30, 40};
+  const size_t sizeA = sendA.size() * sizeof(int);
+  const size_t sizeB = sendB.size() * sizeof(int);
+
+  std::vector<int> recvA(sendA.size(), 0);
+  std::vector<int> recvB(sendB.size(), 0);
+  std::atomic<int> fired{0};
+  std::atomic<size_t> receivedLengthA{0};
+  std::atomic<size_t> receivedLengthB{0};
+
+  auto makeHandler = [&fired](std::vector<int>& dst, std::atomic<size_t>& receivedLen) {
+    return [&dst, &fired, &receivedLen](ucxx::AmMessage& msg) {
+      receivedLen.store(msg.length());
+      if (msg.data()) std::memcpy(dst.data(), msg.data(), msg.length());
+      fired.fetch_add(1);
+    };
+  };
+
+  _worker->setAmHandler(4, makeHandler(recvA, receivedLengthA));
+  _worker->setAmHandler(5, makeHandler(recvB, receivedLengthB));
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(
+    _ep->amSend(static_cast<uint16_t>(4), nullptr, 0, ucxx::AmSendContig{sendA.data(), sizeA}));
+  requests.push_back(
+    _ep->amSend(static_cast<uint16_t>(5), nullptr, 0, ucxx::AmSendContig{sendB.data(), sizeB}));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (fired.load() < 2)
+    _progressWorker();
+
+  EXPECT_EQ(receivedLengthA.load(), sizeA);
+  EXPECT_EQ(receivedLengthB.load(), sizeB);
+  ASSERT_THAT(recvA, ContainerEq(sendA));
+  ASSERT_THAT(recvB, ContainerEq(sendB));
+}
+
+TEST_P(RequestTest, ProgressAmAndManagedCoexist)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
+#if UCXX_ENABLE_CCCL
+    _worker->registerManagedAmAllocator(UCS_MEMORY_TYPE_CUDA, [](size_t length) {
+      return std::make_shared<ucxx::CCCLBuffer>(length);
+    });
+#else
+    GTEST_SKIP() << "CCCL support is required for CUDA receive allocations";
+#endif
+  }
+
+  allocate(1, false);
+
+  // Register a handler on ID 1 for the thin API.
+  const size_t thinPayloadLength = 4;
+  std::vector<int> thinSend(thinPayloadLength);
+  std::iota(thinSend.begin(), thinSend.end(), 200);
+  const size_t thinBytes = thinPayloadLength * sizeof(int);
+
+  std::vector<int> thinRecv(thinPayloadLength, 0);
+  std::atomic<bool> thinHandlerFired{false};
+
+  _worker->setAmHandler(6, [&thinRecv, &thinHandlerFired, thinBytes](ucxx::AmMessage& msg) {
+    if (msg.data() && msg.length() == thinBytes)
+      std::memcpy(thinRecv.data(), msg.data(), thinBytes);
+    thinHandlerFired.store(true);
+  });
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  // Thin API send on ID 6.
+  requests.push_back(_ep->amSend(
+    static_cast<uint16_t>(6), nullptr, 0, ucxx::AmSendContig{thinSend.data(), thinBytes}));
+  // Managed API send/recv on ID 0.
+  requests.push_back(_ep->amManagedSend(_sendPtr[0], _messageSize, _memoryType));
+  requests.push_back(_ep->amManagedRecv());
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (!thinHandlerFired.load())
+    _progressWorker();
+
+  auto managedRecvReq = requests[2];
+  _recvPtr[0]         = managedRecvReq->getRecvBuffer()->data();
+  copyResults();
+
+  ASSERT_THAT(thinRecv, ContainerEq(thinSend));
+  ASSERT_THAT(_recv[0], ContainerEq(_send[0]));
+}
+
+TEST_P(RequestTest, ProgressAmRawHeader)
+{
+  if (_progressMode == ProgressMode::Wait) {
+    GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
+  }
+
+  // Binary header including null bytes and high bytes.
+  const std::vector<uint8_t> sentHeader{0x00, 0x01, 0x42, 0xfe, 0xff};
+  std::vector<int> sendData{7, 8, 9};
+  const size_t dataBytes = sendData.size() * sizeof(int);
+
+  std::vector<uint8_t> receivedHeader;
+  std::vector<int> receivedData(sendData.size(), 0);
+  std::atomic<bool> handlerFired{false};
+
+  _worker->setAmHandler(
+    7, [&receivedHeader, &receivedData, &handlerFired, dataBytes](ucxx::AmMessage& msg) {
+      if (msg.header() && msg.headerLength() > 0)
+        receivedHeader.assign(static_cast<const uint8_t*>(msg.header()),
+                              static_cast<const uint8_t*>(msg.header()) + msg.headerLength());
+      if (msg.data() && msg.length() == dataBytes)
+        std::memcpy(receivedData.data(), msg.data(), dataBytes);
+      handlerFired.store(true);
+    });
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(_ep->amSend(static_cast<uint16_t>(7),
+                                 sentHeader.data(),
+                                 sentHeader.size(),
+                                 ucxx::AmSendContig{sendData.data(), dataBytes}));
+  waitRequests(_worker, requests, _progressWorker);
+
+  while (!handlerFired.load())
+    _progressWorker();
+
+  ASSERT_EQ(receivedHeader, sentHeader);
+  ASSERT_THAT(receivedData, ContainerEq(sendData));
 }
 
 INSTANTIATE_TEST_SUITE_P(ProgressModes,

@@ -24,7 +24,9 @@ class MemoryHandle;
 class Notifier;
 class RemoteKey;
 class Request;
-class RequestAm;
+class RequestAmManaged;
+class RequestAmSend;
+class RequestAmRecvData;
 class RequestEndpointClose;
 class RequestFlush;
 class RequestMem;
@@ -108,9 +110,31 @@ namespace detail {
   std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
 
 // Transfers
-[[nodiscard]] std::shared_ptr<RequestAm> createRequestAm(
+[[nodiscard]] std::shared_ptr<RequestAmManaged> createRequestAmManaged(
   std::shared_ptr<Endpoint> endpoint,
-  const std::variant<data::AmSend, data::AmReceive> requestData,
+  const std::variant<data::AmSendManaged, data::AmReceiveManaged> requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
+
+[[deprecated(
+  "Use createRequestAmManaged() instead.")]] [[nodiscard]] std::shared_ptr<RequestAmManaged>
+createRequestAm(std::shared_ptr<Endpoint> endpoint,
+                const std::variant<data::AmSendManaged, data::AmReceiveManaged> requestData,
+                const bool enablePythonFuture,
+                RequestCallbackUserFunction callbackFunction,
+                RequestCallbackUserData callbackData);
+
+[[nodiscard]] std::shared_ptr<RequestAmSend> createRequestAmSend(
+  std::shared_ptr<Endpoint> endpoint,
+  const data::AmSend& requestData,
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData);
+
+[[nodiscard]] std::shared_ptr<RequestAmRecvData> createRequestAmRecvData(
+  std::shared_ptr<Worker> worker,
+  const data::AmRecvData& requestData,
   const bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);

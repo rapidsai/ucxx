@@ -26,7 +26,7 @@ function(ConfigureTest CMAKE_TEST_NAME)
   )
 
   target_link_libraries(
-    ${CMAKE_TEST_NAME} PRIVATE ucxx GTest::gmock_main GTest::gtest_main
+    ${CMAKE_TEST_NAME} PRIVATE ucxx GTest::gmock_main GTest::gtest_main ucs
                                $<TARGET_NAME_IF_EXISTS:conda_env>
   )
   if(UCXX_ENABLE_CCCL)

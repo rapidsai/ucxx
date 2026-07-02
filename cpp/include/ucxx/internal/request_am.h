@@ -19,60 +19,60 @@ namespace ucxx {
 
 class Buffer;
 class InflightRequests;
-class RequestAm;
+class RequestAmManaged;
 class Request;
 class Worker;
 
 namespace internal {
 
-class AmData;
+class ManagedAmData;
 
 /**
- * @brief Handle receiving of a `ucxx::RequestAm`.
+ * @brief Handle receiving of a `ucxx::RequestAmManaged`.
  *
- * Handle receiving of a `ucxx::RequestAm`, delivering the message to the user and
- * notifying of completion.
+ * Handle receiving of a `ucxx::RequestAmManaged`, delivering the message to the user
+ * and notifying of completion.
  */
-class RecvAmMessage {
+class ManagedRecvAmMessage {
  public:
-  internal::AmData* _amData{nullptr};  ///< Active messages data
-  ucp_ep_h _ep{nullptr};               ///< Handle containing address of the reply endpoint
-  std::shared_ptr<RequestAm> _request{
+  internal::ManagedAmData* _amData{nullptr};  ///< Managed active messages data
+  ucp_ep_h _ep{nullptr};                      ///< Handle containing address of the reply endpoint
+  std::shared_ptr<RequestAmManaged> _request{
     nullptr};  ///< Request which will later be notified/delivered to user
   std::shared_ptr<Buffer> _buffer{nullptr};  ///< Buffer containing the received data
 
-  RecvAmMessage()                                = delete;
-  RecvAmMessage(const RecvAmMessage&)            = delete;
-  RecvAmMessage& operator=(RecvAmMessage const&) = delete;
-  RecvAmMessage(RecvAmMessage&& o)               = delete;
-  RecvAmMessage& operator=(RecvAmMessage&& o)    = delete;
+  ManagedRecvAmMessage()                                       = delete;
+  ManagedRecvAmMessage(const ManagedRecvAmMessage&)            = delete;
+  ManagedRecvAmMessage& operator=(ManagedRecvAmMessage const&) = delete;
+  ManagedRecvAmMessage(ManagedRecvAmMessage&& o)               = delete;
+  ManagedRecvAmMessage& operator=(ManagedRecvAmMessage&& o)    = delete;
 
   /**
-   * @brief Constructor of `ucxx::RecvAmMessage`.
+   * @brief Constructor of `ucxx::ManagedRecvAmMessage`.
    *
-   * Construct the object, setting attributes that are later needed by the callback.
-   *
-   * @param[in] amData              active messages worker data.
-   * @param[in] ep                  handle containing address of the reply endpoint (i.e.,
-                                    endpoint where user is requesting to receive).
+   * @param[in] amData              managed active messages worker data.
+   * @param[in] ep                  handle containing address of the reply endpoint.
    * @param[in] request             request to be later notified/delivered to user.
    * @param[in] buffer              buffer containing the received data
    * @param[in] receiverCallback    receiver callback to execute when request completes.
    * @param[in] userHeader          user-defined header associated with the received message.
    */
-  RecvAmMessage(internal::AmData* amData,
-                ucp_ep_h ep,
-                std::shared_ptr<RequestAm> request,
-                std::shared_ptr<Buffer> buffer,
-                AmReceiverCallbackType receiverCallback = AmReceiverCallbackType(),
-                std::vector<std::byte> userHeader       = {});
+  ManagedRecvAmMessage(internal::ManagedAmData* amData,
+                       ucp_ep_h ep,
+                       std::shared_ptr<RequestAmManaged> request,
+                       std::shared_ptr<Buffer> buffer,
+                       AmReceiverCallbackType receiverCallback = AmReceiverCallbackType(),
+                       std::vector<std::byte> userHeader       = {});
+
+  /**
+   * @brief Set the UCP request on the underlying `RequestAmManaged`.
+   *
+   * @param[in] request the UCP request associated to the active message receive operation.
+   */
+  void setUcpRequest(void* request);
 
   /**
    * @brief Execute the `ucxx::Request::callback()`.
-   *
-   * Execute the `ucxx::Request::callback()` method to set the status of the request, the
-   * buffer containing the data received and release the reference to this object from
-   * `AmData`.
    *
    * @param[in] request the UCP request associated to the active message receive operation.
    * @param[in] status  the completion status of the UCP request.
@@ -80,10 +80,10 @@ class RecvAmMessage {
   void callback(void* request, ucs_status_t status);
 };
 
-typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAm>>> AmPoolType;
-typedef std::map<std::shared_ptr<RequestAm>,
-                 std::shared_ptr<RecvAmMessage>,
-                 std::owner_less<std::shared_ptr<RequestAm>>>
+typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAmManaged>>> AmPoolType;
+typedef std::map<std::shared_ptr<RequestAmManaged>,
+                 std::shared_ptr<ManagedRecvAmMessage>,
+                 std::owner_less<std::shared_ptr<RequestAmManaged>>>
   RecvAmMessageMapType;
 
 typedef std::unordered_map<AmReceiverCallbackIdType, AmReceiverCallbackType>
@@ -93,13 +93,13 @@ typedef std::
     AmReceiverCallbackOwnerMapType;
 
 /**
- * @brief Active Message data owned by a `ucxx::Worker`.
+ * @brief Active Message data owned by a `ucxx::Worker` for the managed AM API.
  *
- * Receiving Active Messages are handled directly by a `ucxx::Worker` without the user
- * necessarily creating a `ucxx::RequestAm` for it. When there is an incoming message, the
- * worker will populate the internal pool of received messages in an orderly-fashion.
+ * Receiving managed Active Messages are handled directly by a `ucxx::Worker` without the
+ * user necessarily creating a `ucxx::RequestAmManaged` for it. When there is an incoming
+ * message, the worker populates the internal pool of received messages in an orderly fashion.
  */
-class AmData {
+class ManagedAmData {
  public:
   std::weak_ptr<Worker> _worker{};  ///< The worker to which the Active Message callback belongs
   std::string _ownerString{};       ///< The owner string used for logging
@@ -116,6 +116,9 @@ class AmData {
   std::unordered_map<ucs_memory_type_t, AmAllocatorType>
     _allocators{};  ///< Default and user-defined active message allocators
 };
+
+using AmData        = ManagedAmData;
+using RecvAmMessage = ManagedRecvAmMessage;
 
 }  // namespace internal
 

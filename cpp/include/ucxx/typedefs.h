@@ -16,15 +16,17 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include <ucp/api/ucp.h>
 
 namespace ucxx {
 
+class AmMessage;
 class Buffer;
 class Request;
-class RequestAm;
+class RequestAmManaged;
 
 /**
  * @brief Available logging levels.
@@ -121,10 +123,70 @@ typedef RequestCallbackUserFunction EndpointCloseCallbackUserFunction;
 typedef RequestCallbackUserData EndpointCloseCallbackUserData;
 
 /**
+ * @brief Active Message handler ID type.
+ *
+ * Strong type alias for the AM handler ID passed to `ucp_worker_set_am_recv_handler`
+ * and `ucp_am_send_nbx`.
+ */
+typedef uint16_t AmHandlerId;
+
+/**
+ * @brief Active Message handler callback type.
+ *
+ * Type for a callback registered via `ucxx::Worker::setAmHandler`. The handler receives
+ * an `AmMessage` reference that exposes the header, payload, and message kind
+ * (eager vs. rendezvous). For rendezvous messages, the handler must call
+ * `AmMessage::receive()` before returning. The handler returns `void`; UCXX infers the
+ * UCX status from the handler's actions:
+ *
+ * `receive()` called: `UCS_INPROGRESS`.
+ * `reject(reason)` called: `reason`.
+ * Neither action on the eager path: `UCS_OK`.
+ *
+ * The handler must not allow exceptions to escape: the callback is invoked from a C
+ * function pointer registered with UCX, and exceptions propagating through C frames
+ * produce undefined behaviour. Any escaping exception is caught by the AM receive callback,
+ * logged as a warning, and mapped to `UCS_ERR_IO_ERROR`.
+ */
+typedef std::function<void(AmMessage&)> AmHandlerType;
+
+/**
+ * @brief Contiguous buffer payload for `Endpoint::amSend`.
+ *
+ * Aggregate type: construct with brace-initialization, e.g.
+ * `AmSendContig{buf, size}` or `AmSendContig{buf, size, myDatatype}`.
+ */
+struct AmSendContig {
+  const void* buffer{nullptr};                     ///< Data buffer to send.
+  size_t count{0};                                 ///< Number of bytes to send.
+  ucp_datatype_t datatype{ucp_dt_make_contig(1)};  ///< UCP datatype.
+};
+
+/**
+ * @brief Scatter-gather IOV payload for `Endpoint::amSend`.
+ *
+ * Aggregate type: construct with brace-initialization, e.g.
+ * `AmSendIov{std::move(iovVector)}`.
+ */
+struct AmSendIov {
+  std::vector<ucp_dt_iov_t> iov;  ///< Scatter-gather segment list.
+};
+
+/**
+ * @brief Payload variant for `Endpoint::amSend`.
+ *
+ * Holds either a contiguous buffer (`AmSendContig`) or a scatter-gather
+ * IOV list (`AmSendIov`). The endpoint method dispatches on the active
+ * alternative to build the underlying `ucp_am_send_nbx` call.
+ */
+using AmSendBuffer = std::variant<AmSendContig, AmSendIov>;
+
+/**
  * @brief Custom Active Message allocator type.
  *
  * Type for a custom Active Message allocator that can be registered by a user so that the
  * Active Message receiver can allocate a buffer of such type upon receiving message.
+ * Used by the managed AM API.
  */
 typedef std::function<std::shared_ptr<Buffer>(size_t)> AmAllocatorType;
 
