@@ -73,10 +73,14 @@ pygments_style = "sphinx"
 
 html_theme_options = {
     "external_links": [],
-    # https://github.com/pydata/pydata-sphinx-theme/issues/1220
-    "icon_links": [],
-    "github_url": "https://github.com/rapidsai/ucxx",
-    "twitter_url": "https://twitter.com/rapidsai",
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/rapidsai/ucxx",
+            "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+    ],
     "show_toc_level": 1,
     "navbar_align": "right",
     "navigation_with_keys": True,
