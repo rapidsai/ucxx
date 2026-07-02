@@ -281,16 +281,19 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         uint64_t getFeatureFlags()
         bint hasCudaSupport()
 
+    # Builder-returning methods omit `except +` so Cython passes their results directly
+    # to `make_unique`; its exception handler covers both operations without requiring
+    # a default-constructed builder temporary.
     cdef cppclass Worker(Component):
         ucp_worker_h getHandle()
         string getInfo() except +raise_py_error
         shared_ptr[Address] getAddress() except +raise_py_error
         EndpointBuilder endpointBuilder(
             string ip_address, uint16_t port
-        ) except +raise_py_error
+        )
         EndpointBuilder endpointBuilder(
             shared_ptr[Address] address
-        ) except +raise_py_error
+        )
         void initBlockingProgressMode() except +raise_py_error
         int getEpollFileDescriptor()
         bint arm() except +raise_py_error
@@ -320,11 +323,11 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
             size_t length,
             Tag tag,
             TagMask tag_mask
-        ) except +raise_py_error
+        )
         RequestTagBuilder tagRecvWithHandleBuilder(
             void* buffer,
             shared_ptr[TagProbeInfo] probe_info
-        ) except +raise_py_error
+        )
         bint isDelayedRequestSubmissionEnabled() const
         bint isFutureEnabled() const
         bint amProbe(ucp_ep_h) const
@@ -335,36 +338,36 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
-        RequestEndpointCloseBuilder closeBuilder() except +raise_py_error
+        RequestEndpointCloseBuilder closeBuilder()
         void closeBlocking(uint64_t period, uint64_t maxAttempts)
         RequestAmBuilder amSendBuilder(
             const void* const buffer, size_t length, ucs_memory_type_t memory_type
-        ) except +raise_py_error
-        RequestAmBuilder amRecvBuilder() except +raise_py_error
+        )
+        RequestAmBuilder amRecvBuilder()
         RequestStreamBuilder streamSendBuilder(
             const void* const buffer, size_t length
-        ) except +raise_py_error
+        )
         RequestStreamBuilder streamRecvBuilder(
             void* buffer, size_t length
-        ) except +raise_py_error
+        )
         RequestTagBuilder tagSendBuilder(
             const void* const buffer, size_t length, Tag tag
-        ) except +raise_py_error
+        )
         RequestTagBuilder tagRecvBuilder(
             void* buffer,
             size_t length,
             Tag tag,
             TagMask tag_mask
-        ) except +raise_py_error
+        )
         RequestTagMultiBuilder tagMultiSendBuilder(
             const vector[const void*]& buffer,
             const vector[size_t]& length,
             const vector[int]& isCUDA,
             Tag tag
-        ) except +raise_py_error
+        )
         RequestTagMultiBuilder tagMultiRecvBuilder(
             Tag tag, TagMask tagMask
-        ) except +raise_py_error
+        )
         bint isAlive()
         void raiseOnError() except +raise_py_error
         void setCloseCallback(
@@ -378,7 +381,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         string getIp()
         EndpointBuilder endpointBuilder(
             ucp_conn_request_h conn_request
-        ) except +raise_py_error
+        )
 
     cdef cppclass Address(Component):
         ucp_address_t* getHandle()
