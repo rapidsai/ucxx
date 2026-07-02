@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Configuration file for the Sphinx documentation builder.
@@ -87,8 +87,7 @@ html_theme_options = {
 # a list of builtin themes.
 #
 
-html_theme = "pydata_sphinx_theme"
-html_logo = "_static/RAPIDS-logo-purple.png"
+html_theme = "nvidia_sphinx_theme"
 
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -197,8 +196,4 @@ autoclass_content = "class"
 
 
 def setup(app):
-    app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
-    app.add_js_file(
-        "https://docs.rapids.ai/assets/js/custom.js", loading_method="defer"
-    )
     app.setup_extension("sphinx.ext.autodoc")
