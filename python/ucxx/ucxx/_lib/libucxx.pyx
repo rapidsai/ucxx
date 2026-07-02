@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: BSD-3-Clause
+# cython: cpp_locals=True
 
 
 import asyncio
@@ -28,6 +29,8 @@ from libcpp.string cimport string
 from libcpp.string_view cimport string_view
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
+
+ctypedef const void* const_void_ptr
 
 cdef extern from "cuda_runtime.h" nogil:
     enum cudaMemcpyKind:
@@ -453,7 +456,8 @@ cdef class UCXContext():
         )
     ) -> None:
         cdef unique_ptr[ContextBuilder] builder
-        cdef ConfigMap cpp_config_in, cpp_config_out
+        cdef ConfigMap cpp_config_in = ConfigMap()
+        cdef ConfigMap cpp_config_out
         cdef dict context_config
 
         if config_dict is None:
@@ -1545,9 +1549,9 @@ cdef class UCXEndpoint():
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
     def tag_send_multi(self, tuple arrays, UCXXTag tag) -> UCXBufferRequests:
-        cdef vector[const void*] v_buffer
-        cdef vector[size_t] v_size
-        cdef vector[int] v_is_cuda
+        cdef vector[const_void_ptr] v_buffer = vector[const_void_ptr]()
+        cdef vector[size_t] v_size = vector[size_t]()
+        cdef vector[int] v_is_cuda = vector[int]()
         cdef shared_ptr[Request] ucxx_buffer_requests
         cdef Tag cpp_tag = <Tag><size_t>tag.value
 
