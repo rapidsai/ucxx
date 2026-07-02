@@ -59,15 +59,9 @@ namespace detail {
 }  // namespace detail
 
 // Components
-/**
- * @brief Deprecated constructor for `std::shared_ptr<ucxx::Address>` from a worker.
- */
 UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::AddressBuilder instead.")
 [[nodiscard]] std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
 
-/**
- * @brief Deprecated constructor for `std::shared_ptr<ucxx::Address>` from a string.
- */
 UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::AddressBuilder instead.")
 [[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
 
@@ -89,9 +83,6 @@ UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
   std::shared_ptr<Worker> worker, std::shared_ptr<Address> address, bool endpointErrorHandling);
 
-/**
- * @brief Deprecated constructor for `std::shared_ptr<ucxx::Listener>`.
- */
 UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::ListenerBuilder instead.")
 [[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                                        uint16_t port,
@@ -110,16 +101,10 @@ UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::MemoryHandleBuilder instead."
   void* buffer                       = nullptr,
   const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
 
-/**
- * @brief Deprecated constructor for `std::shared_ptr<ucxx::RemoteKey>` from a memory handle.
- */
 UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::RemoteKeyBuilder instead.")
 [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
   std::shared_ptr<MemoryHandle> memoryHandle);
 
-/**
- * @brief Deprecated constructor for `std::shared_ptr<ucxx::RemoteKey>` from serialized data.
- */
 UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::RemoteKeyBuilder instead.")
 [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
   std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
@@ -177,15 +162,9 @@ UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestTagMultiBuilder() inst
   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
   const bool enablePythonFuture);
 
-/**
- * @brief Deprecated constructor for an unmatched `std::shared_ptr<ucxx::TagProbeInfo>`.
- */
 UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::TagProbeInfoBuilder instead.")
 [[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo();
 
-/**
- * @brief Deprecated constructor for a matched `std::shared_ptr<ucxx::TagProbeInfo>`.
- */
 UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::TagProbeInfoBuilder instead.")
 [[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
                                                                ucp_tag_message_h handle);

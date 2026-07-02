@@ -188,4 +188,13 @@ class Listener : public Component {
   [[nodiscard]] std::string getIp();
 };
 
+/**
+ * @brief Deprecated constructor for `std::shared_ptr<ucxx::Listener>`.
+ */
+UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::ListenerBuilder instead.")
+[[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
+                                                       uint16_t port,
+                                                       ucp_listener_conn_callback_t callback,
+                                                       void* callbackArgs);
+
 }  // namespace ucxx
