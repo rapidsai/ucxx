@@ -390,44 +390,30 @@ class Endpoint : public Component {
                         EndpointCloseCallbackUserData closeCallbackArg);
 
   /**
-   * @brief Enqueue an active message send operation.
+   * @brief Enqueue a managed Active Message send.
    *
-   * Enqueue an active message send operation, returning a `std::shared_ptr<ucxx::Request>`
-   * that can be later awaited and checked for errors. This is a non-blocking operation, and
-   * the status of the transfer must be verified from the resulting request object before
-   * the data can be released.
+   * Managed Active Messages use UCXX's worker-managed AM receive handler on the remote
+   * worker. The send payload is transferred with `ucp_am_send_nbx`, and UCXX stores its own
+   * metadata in the UCX AM header so the receiver can allocate the destination buffer,
+   * preserve the user header, and complete a `RequestAmManaged`.
    *
-   * An optional `receiverCallbackInfo` may be specified, in which case the remote worker
-   * obligatorily needs to have registered a callback with the same `receiverCallbackInfo`
-   * in order to execute the callback when the active message is received. When this is
-   * specified, `amRecv()` will _NOT_ match this message, which is instead handled by the
-   * remote worker's callback.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
+   * If `receiverCallbackInfo` is not set, the message is matched with an
+   * `amManagedRecv()` request for this endpoint. Matching works whether the receive request
+   * is posted before or after the message arrives. If `receiverCallbackInfo` is set, the
+   * remote worker delivers the completed receive request to the matching callback registered
+   * with `Worker::registerManagedAmReceiverCallback()`.
    *
    * @param[in] buffer                  a raw pointer to the data to be sent.
-   * @param[in] length                  the size in bytes of the tag message to be sent.
+   * @param[in] length                  the size in bytes of the message to be sent.
    * @param[in] memoryType              the memory type of the buffer.
-   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
-                                        callback.
-   * @param[in] enablePythonFuture      whether a python future should be created and
-   *                                    subsequently notified.
-   * @param[in] callbackFunction        user-defined callback function to call upon
-                                        completion.
-   * @param[in] callbackData            user-defined data to pass to the `callbackFunction`.
+   * @param[in] receiverCallbackInfo    optional receiver callback identifier.
+   * @param[in] enablePythonFuture      whether a Python future should be created.
+   * @param[in] callbackFunction        user-defined callback to call upon completion.
+   * @param[in] callbackData            data to pass to `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Request to be subsequently checked for completion and state.
    */
-  [[nodiscard]] std::shared_ptr<Request> amSend(
+  [[nodiscard]] std::shared_ptr<Request> amManagedSend(
     const void* const buffer,
     const size_t length,
     const ucs_memory_type_t memoryType,
@@ -437,38 +423,27 @@ class Endpoint : public Component {
     RequestCallbackUserData callbackData                             = nullptr);
 
   /**
-   * @brief Create a builder for an active message send operation.
+   * @brief Enqueue a managed Active Message send with explicit send parameters.
    *
-   * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `amSend()`.
+   * Equivalent to `amManagedSend(buffer, length, memoryType, ...)`, but the full
+   * `AmSendParams` object is supplied by the caller. `params` controls the UCX AM send flags
+   * and datatype, the sender memory type reported to the receiver, the receiver allocation
+   * policy, optional receiver callback routing, and optional user header bytes.
    *
-   * @param[in] buffer                  a raw pointer to the data to be sent.
-   * @param[in] length                  the size in bytes of the message to be sent.
-   * @param[in] memoryType              the memory type of the buffer.
-   *
-   * @returns Builder to configure optional parameters and submit the request.
-   */
-  [[nodiscard]] RequestAmBuilder amSendBuilder(const void* const buffer,
-                                               const size_t length,
-                                               const ucs_memory_type_t memoryType);
-
-  /**
-   * @brief Enqueue an active message send operation with explicit policy parameters.
-   *
-   * This overload extends `amSend()` with explicit UCX datatype/flags controls and receive
-   * allocation policy metadata while keeping callback behavior identical to the legacy API.
+   * If `params.receiverCallbackInfo` is not set, the remote message is matched with
+   * `amManagedRecv()`. If it is set, the remote worker delivers the completed receive request
+   * to the matching managed receiver callback.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the message to be sent.
-   * @param[in] params              active message send parameters.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   * @param[in] params              managed Active Message send parameters.
+   * @param[in] enablePythonFuture  whether a Python future should be created.
+   * @param[in] callbackFunction    user-defined callback to call upon completion.
+   * @param[in] callbackData        data to pass to `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Request to be subsequently checked for completion and state.
    */
-  [[nodiscard]] std::shared_ptr<Request> amSend(
+  [[nodiscard]] std::shared_ptr<Request> amManagedSend(
     const void* const buffer,
     const size_t length,
     const AmSendParams& params,
@@ -477,37 +452,21 @@ class Endpoint : public Component {
     RequestCallbackUserData callbackData         = nullptr);
 
   /**
-   * @brief Create a builder for an active message send operation with explicit policy parameters.
+   * @brief Enqueue a managed Active Message send with IOV datatype.
    *
-   * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `amSend()`.
+   * Sends a scatter-gather payload through the same managed AM protocol as the contiguous
+   * overloads. `params.datatype` must be `UCP_DATATYPE_IOV`; the receiver still observes one
+   * managed message and retrieves the completed payload from the resulting receive request.
    *
-   * @param[in] buffer              a raw pointer to the data to be sent.
-   * @param[in] length              the size in bytes of the message to be sent.
-   * @param[in] params              active message send parameters.
+   * @param[in] iov                 vector of IOV segments to send.
+   * @param[in] params              send parameters (datatype must be `UCP_DATATYPE_IOV`).
+   * @param[in] enablePythonFuture  whether a Python future should be created.
+   * @param[in] callbackFunction    user-defined callback to call upon completion.
+   * @param[in] callbackData        data to pass to `callbackFunction`.
    *
-   * @returns Builder to configure optional parameters and submit the request.
+   * @returns Request to be subsequently checked for completion and state.
    */
-  [[nodiscard]] RequestAmBuilder amSendBuilder(const void* const buffer,
-                                               const size_t length,
-                                               const AmSendParams& params);
-
-  /**
-   * @brief Enqueue an active message send operation with IOV datatype.
-   *
-   * This overload submits `UCP_DATATYPE_IOV` active message sends.
-   *
-   * @param[in] iov                 vector of IOV segments to be sent.
-   * @param[in] params              active message send parameters. Datatype must be
-   *                                `UCP_DATATYPE_IOV`.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns Request to be subsequently checked for the completion and its state.
-   */
-  [[nodiscard]] std::shared_ptr<Request> amSend(
+  [[nodiscard]] std::shared_ptr<Request> amManagedSend(
     std::vector<ucp_dt_iov_t> iov,
     const AmSendParams& params,
     const bool enablePythonFuture                = false,
@@ -515,33 +474,23 @@ class Endpoint : public Component {
     RequestCallbackUserData callbackData         = nullptr);
 
   /**
-   * @brief Create a builder for an active message send operation with IOV datatype.
+   * @brief Enqueue a managed Active Message receive.
    *
-   * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `amSend()`.
+   * Receives the next managed Active Message sent from this endpoint's peer without a
+   * `receiverCallbackInfo`. The worker keeps separate pools for posted receives and arrived
+   * messages, so this call may either wait for a future message or consume a message that has
+   * already arrived.
    *
-   * @param[in] iov                 vector of IOV segments to be sent.
-   * @param[in] params              active message send parameters. Datatype must be
-   *                                `UCP_DATATYPE_IOV`.
+   * The received payload is allocated by the receiving worker according to the sender's
+   * memory type and allocation policy. Host allocation is available by default; applications
+   * receiving other memory types must register allocators with
+   * `Worker::registerManagedAmAllocator()`. Once the request completes, use
+   * `Request::getRecvBuffer()` to access the payload and `Request::getRecvHeader()` to access
+   * the sender-provided user header.
    *
-   * @returns Builder to configure optional parameters and submit the request.
-   */
-  [[nodiscard]] RequestAmBuilder amSendBuilder(std::vector<ucp_dt_iov_t> iov,
-                                               const AmSendParams& params);
-
-  /**
-   * @brief Enqueue an active message receive operation.
-   *
-   * Enqueue an active message receive operation, returning a
-   * `std::shared_ptr<ucxx::Request>` that can be later awaited and checked for errors,
-   * making data available via the return value's `getRecvBuffer()` method once the
-   * operation completes successfully. This is a non-blocking operation, and the status of
-   * the transfer must be verified from the resulting request object before the data can be
-   * consumed.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
+   * @param[in] enablePythonFuture  whether a Python future should be created.
+   * @param[in] callbackFunction    user-defined callback to call upon completion.
+   * @param[in] callbackData        data to pass to `callbackFunction`.
    *
    * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
    * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
@@ -550,27 +499,105 @@ class Endpoint : public Component {
    * in which case the callback will also execute immediately within the calling thread and
    * before the method returns.
    *
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Request to be subsequently checked for completion state and data.
    */
-  [[nodiscard]] std::shared_ptr<Request> amRecv(
+  [[nodiscard]] std::shared_ptr<Request> amManagedRecv(
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
 
   /**
-   * @brief Create a builder for an active message receive operation.
+   * @brief Create a builder for a managed Active Message send.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `amRecv()`.
+   * implicit conversion invokes the same managed AM request-creation path as
+   * `amManagedSend()`.
+   *
+   * @param[in] buffer      a raw pointer to the data to be sent.
+   * @param[in] length      the size in bytes of the message to be sent.
+   * @param[in] memoryType  the memory type of the buffer.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] RequestAmBuilder amSendBuilder(const void* const buffer,
+                                               const size_t length,
+                                               const ucs_memory_type_t memoryType);
+
+  /**
+   * @brief Create a builder for a managed Active Message send.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same managed AM request-creation path as
+   * `amManagedSend()`.
+   *
+   * @param[in] buffer  a raw pointer to the data to be sent.
+   * @param[in] length  the size in bytes of the message to be sent.
+   * @param[in] params  managed Active Message send parameters.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] RequestAmBuilder amSendBuilder(const void* const buffer,
+                                               const size_t length,
+                                               const AmSendParams& params);
+
+  /**
+   * @brief Create a builder for a managed Active Message send with IOV datatype.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same managed AM request-creation path as
+   * `amManagedSend()`.
+   *
+   * @param[in] iov     vector of IOV segments to send.
+   * @param[in] params  managed Active Message send parameters.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] RequestAmBuilder amSendBuilder(std::vector<ucp_dt_iov_t> iov,
+                                               const AmSendParams& params);
+
+  /**
+   * @brief Create a builder for a managed Active Message receive.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion invokes the same managed AM request-creation path as
+   * `amManagedRecv()`.
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
   [[nodiscard]] RequestAmBuilder amRecvBuilder();
+
+  /// @deprecated Use `amManagedSend()` instead.
+  [[deprecated("Use amManagedSend() instead.")]] [[nodiscard]] std::shared_ptr<Request> amSend(
+    const void* const buffer,
+    const size_t length,
+    const ucs_memory_type_t memoryType,
+    const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo = std::nullopt,
+    const bool enablePythonFuture                                    = false,
+    RequestCallbackUserFunction callbackFunction                     = nullptr,
+    RequestCallbackUserData callbackData                             = nullptr);
+
+  /// @deprecated Use `amManagedSend()` instead.
+  [[deprecated("Use amManagedSend() instead.")]] [[nodiscard]] std::shared_ptr<Request> amSend(
+    const void* const buffer,
+    const size_t length,
+    const AmSendParams& params,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
+
+  /// @deprecated Use `amManagedSend()` instead.
+  [[deprecated("Use amManagedSend() instead.")]] [[nodiscard]] std::shared_ptr<Request> amSend(
+    std::vector<ucp_dt_iov_t> iov,
+    const AmSendParams& params,
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
+
+  /// @deprecated Use `amManagedRecv()` instead.
+  [[deprecated("Use amManagedRecv() instead.")]] [[nodiscard]] std::shared_ptr<Request> amRecv(
+    const bool enablePythonFuture                = false,
+    RequestCallbackUserFunction callbackFunction = nullptr,
+    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Enqueue a memory put operation.
