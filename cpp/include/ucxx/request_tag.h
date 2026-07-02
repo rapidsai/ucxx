@@ -93,6 +93,7 @@ class RequestTag : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestTag>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestTagBuilder() instead.")
   friend std::shared_ptr<RequestTag> createRequestTag(
     std::shared_ptr<Component> endpointOrWorker,
     const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,

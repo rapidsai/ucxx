@@ -71,6 +71,7 @@ class Context : public Component {
    * This friend declaration allows the standalone `ucxx::createContext` function to access
    * the private constructor. See the public declaration for full documentation.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::contextBuilder() instead.")
   friend std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
 
   /**
@@ -191,6 +192,7 @@ class Context : public Component {
    *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
    * @return Shared pointer to the `ucxx::Worker` object.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Context::workerBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
                                                      const bool enableFuture            = false);
 
@@ -242,6 +244,7 @@ class Context : public Component {
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Context::memoryHandleBuilder() instead.")
   [[nodiscard]] std::shared_ptr<MemoryHandle> createMemoryHandle(
     const size_t size, void* buffer, const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
 };
@@ -261,6 +264,7 @@ class Context : public Component {
  * @param[in] featureFlags feature flags to be used at UCP context construction time.
  * @return The `shared_ptr<ucxx::Context>` object.
  */
+UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::contextBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Context> createContext(ConfigMap ucxConfig,
                                                      const uint64_t featureFlags);
 

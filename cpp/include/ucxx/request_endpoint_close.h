@@ -83,6 +83,7 @@ class RequestEndpointClose : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestEndpointClose>` object.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestEndpointCloseBuilder() instead.")
   friend std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
     std::shared_ptr<Endpoint> endpoint,
     const data::EndpointClose requestData,

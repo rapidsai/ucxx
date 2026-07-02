@@ -37,6 +37,9 @@ function(ConfigureBench CMAKE_BENCH_NAME)
                CXX_STANDARD_REQUIRED ON
   )
   target_link_libraries(${CMAKE_BENCH_NAME} PRIVATE ucxx $<TARGET_NAME_IF_EXISTS:conda_env>)
+  target_compile_definitions(
+    ${CMAKE_BENCH_NAME} PRIVATE UCXX_DISABLE_DEPRECATED_NON_BUILDER_CONSTRUCTOR_WARNINGS
+  )
 
   # Add CUDA support if enabled
   if(UCXX_BENCHMARKS_ENABLE_CUDA)

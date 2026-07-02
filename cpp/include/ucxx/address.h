@@ -125,4 +125,16 @@ class Address : public Component {
   [[nodiscard]] std::string_view getStringView() const;
 };
 
+/**
+ * @brief Deprecated constructor for `std::shared_ptr<ucxx::Address>` from a worker.
+ */
+UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::AddressBuilder instead.")
+[[nodiscard]] std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
+
+/**
+ * @brief Deprecated constructor for `std::shared_ptr<ucxx::Address>` from a string.
+ */
+UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::AddressBuilder instead.")
+[[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
+
 }  // namespace ucxx

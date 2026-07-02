@@ -112,6 +112,7 @@ class MemoryHandle : public Component {
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::MemoryHandleBuilder instead.")
   friend std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
                                                           const size_t size,
                                                           void* buffer,
@@ -195,6 +196,7 @@ class MemoryHandle : public Component {
    *
    * @returns A shared pointer to the created remote key.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::MemoryHandle::remoteKeyBuilder() instead.")
   [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKey();
 };
 

@@ -177,6 +177,7 @@ class RequestTagMulti : public Request {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestTagMultiBuilder() instead.")
   friend std::shared_ptr<RequestTagMulti> createRequestTagMulti(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,

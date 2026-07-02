@@ -82,6 +82,8 @@ class Worker : public Component {
     nullptr};  ///< The argument to be passed to the progress thread start callback
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
+
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestAmBuilder() instead.")
   friend std::shared_ptr<RequestAm> createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,
@@ -208,6 +210,7 @@ class Worker : public Component {
    * This friend declaration allows the standalone `ucxx::createWorker` function to access
    * the protected constructor. See the public declaration for full documentation.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::workerBuilder() instead.")
   friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                               const bool enableDelayedSubmission,
                                               const bool enableFuture);
@@ -809,6 +812,7 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::tagRecvBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> tagRecv(
     void* buffer,
     size_t length,
@@ -860,6 +864,7 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::tagRecvWithHandleBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> tagRecvWithHandle(
     void* buffer,
     std::shared_ptr<TagProbeInfo> probeInfo,
@@ -893,6 +898,7 @@ class Worker : public Component {
    *
    * @returns The address of the local worker.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::addressBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Address> getAddress();
 
   /**
@@ -941,6 +947,7 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromHostname(
     std::string ipAddress, uint16_t port, bool endpointErrorHandling = true);
 
@@ -983,6 +990,7 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
     std::shared_ptr<Address> address, bool endpointErrorHandling = true);
 
@@ -1018,6 +1026,7 @@ class Worker : public Component {
    *
    * @returns The `shared_ptr<ucxx::Listener>` object
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::listenerBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Listener> createListener(uint16_t port,
                                                          ucp_listener_conn_callback_t callback,
                                                          void* callbackArgs);
@@ -1137,6 +1146,7 @@ class Worker : public Component {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
+  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::flushBuilder() instead.")
   [[nodiscard]] std::shared_ptr<Request> flush(
     const bool enablePythonFuture                = false,
     RequestCallbackUserFunction callbackFunction = nullptr,
@@ -1200,6 +1210,7 @@ class Worker : public Component {
  *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
  * @returns The `shared_ptr<ucxx::Worker>` object
  */
+UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::workerBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
                                                    const bool enableDelayedSubmission,
                                                    const bool enableFuture);
