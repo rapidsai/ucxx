@@ -15,7 +15,7 @@ from packaging.version import Version
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 # General information about the project.
-project = "ucxx"
+project = "NVIDIA UCXX"
 copyright = f"2018-{datetime.datetime.today().year}, NVIDIA Corporation"
 author = "NVIDIA Corporation"
 
