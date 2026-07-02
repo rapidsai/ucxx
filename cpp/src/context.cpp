@@ -94,12 +94,22 @@ uint64_t Context::getFeatureFlags() const { return _featureFlags; }
 
 bool Context::hasCudaSupport() const { return _cudaSupport; }
 
+WorkerBuilder Context::workerBuilder()
+{
+  return WorkerBuilder(std::static_pointer_cast<Context>(shared_from_this()));
+}
+
 std::shared_ptr<Worker> Context::createWorker(const bool enableDelayedSubmission,
                                               const bool enableFuture)
 {
   auto context = std::static_pointer_cast<Context>(shared_from_this());
   auto worker  = ucxx::createWorker(context, enableDelayedSubmission, enableFuture);
   return worker;
+}
+
+MemoryHandleBuilder Context::memoryHandleBuilder(size_t size)
+{
+  return MemoryHandleBuilder(std::static_pointer_cast<Context>(shared_from_this()), size);
 }
 
 std::shared_ptr<MemoryHandle> Context::createMemoryHandle(const size_t size,

@@ -65,12 +65,29 @@ Listener::~Listener()
   ucxx_trace("ucxx::Listener destroyed: %p, UCP handle: %p", this, _handle);
 }
 
+namespace detail {
+
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                          uint16_t port,
                                          ucp_listener_conn_callback_t callback,
                                          void* callbackArgs)
 {
   return std::shared_ptr<Listener>(new Listener(worker, port, callback, callbackArgs));
+}
+
+}  // namespace detail
+
+std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
+                                         uint16_t port,
+                                         ucp_listener_conn_callback_t callback,
+                                         void* callbackArgs)
+{
+  return detail::createListener(std::move(worker), port, callback, callbackArgs);
+}
+
+EndpointBuilder Listener::endpointBuilder(ucp_conn_request_h connRequest)
+{
+  return EndpointBuilder(std::static_pointer_cast<Listener>(shared_from_this()), connRequest);
 }
 
 std::shared_ptr<Endpoint> Listener::createEndpointFromConnRequest(ucp_conn_request_h connRequest,

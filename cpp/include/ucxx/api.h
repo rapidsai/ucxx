@@ -15,6 +15,12 @@
 #include <ucxx/memory_handle.h>
 #include <ucxx/remote_key.h>
 #include <ucxx/request.h>
+#include <ucxx/request_am.h>
+#include <ucxx/request_endpoint_close.h>
+#include <ucxx/request_flush.h>
+#include <ucxx/request_mem.h>
+#include <ucxx/request_stream.h>
+#include <ucxx/request_tag.h>
 #include <ucxx/request_tag_multi.h>
 #include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>

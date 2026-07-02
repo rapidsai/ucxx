@@ -9,9 +9,9 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/experimental/request_stream_builder.h>
 #include <ucxx/request.h>
 #include <ucxx/request_data.h>
+#include <ucxx/request_stream_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -33,9 +33,9 @@ class RequestStream : public Request {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Endpoint::streamRecv()`
-   * - `ucxx::Endpoint::streamSend()`
-   * - `ucxx::createRequestStream()`
+   * - `ucxx::Endpoint::streamRecvBuilder()`
+   * - `ucxx::Endpoint::streamSendBuilder()`
+   * - `ucxx::requestStreamBuilder()`
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
    * @param[in] requestData         container of the specified message type, including all
