@@ -30,8 +30,7 @@ function(ConfigureTest CMAKE_TEST_NAME)
                                $<TARGET_NAME_IF_EXISTS:conda_env>
   )
   target_compile_definitions(
-    ${CMAKE_TEST_NAME}
-    PRIVATE UCXX_DISABLE_DEPRECATED_NON_BUILDER_CONSTRUCTOR_WARNINGS
+    ${CMAKE_TEST_NAME} PRIVATE UCXX_DISABLE_DEPRECATED_NON_BUILDER_CONSTRUCTOR_WARNINGS
   )
   if(UCXX_ENABLE_CCCL)
     find_package(CUDAToolkit REQUIRED)
