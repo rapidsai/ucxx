@@ -68,7 +68,6 @@ class RequestStream : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestStream>` object
    */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestStreamBuilder() instead.")
   friend std::shared_ptr<RequestStream> createRequestStream(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::StreamSend, data::StreamReceive> requestData,

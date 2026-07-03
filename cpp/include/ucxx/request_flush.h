@@ -94,7 +94,6 @@ class RequestFlush : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestFlush>` object
    */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestFlushBuilder() instead.")
   friend std::shared_ptr<RequestFlush> createRequestFlush(
     std::shared_ptr<Component> endpointOrWorker,
     const data::Flush requestData,

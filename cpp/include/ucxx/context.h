@@ -71,7 +71,6 @@ class Context : public Component {
    * This friend declaration allows the standalone `ucxx::createContext` function to access
    * the private constructor. See the public declaration for full documentation.
    */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::contextBuilder() instead.")
   friend std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
 
   /**
