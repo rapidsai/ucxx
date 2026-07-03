@@ -102,7 +102,6 @@ class RequestAm : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestAmBuilder() instead.")
   friend std::shared_ptr<RequestAm> createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,
