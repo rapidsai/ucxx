@@ -20,7 +20,6 @@ license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
-    "cuda-core>=0.5.1",
     "pyyaml>=6",
     "rapids-dask-dependency==26.8.*,>=0.0.0a0",
     "ucxx==0.51.*,>=0.0.0a0",

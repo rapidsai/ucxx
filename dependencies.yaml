@@ -22,10 +22,11 @@ files:
       - run_python_ucxx
       - run_python_distributed_ucxx
       - test_cpp
+      - test_python_common
       - test_python_ucxx
-      - test_python_distributed_ucxx
       - depends_on_cudf
       - depends_on_cupy
+      - depends_on_numba_cuda
       - depends_on_rmm
       - depends_on_ucx_run
   test_cpp:
@@ -45,6 +46,7 @@ files:
       - depends_on_cupy
       - depends_on_cudf
       - depends_on_libucxx
+      - depends_on_numba_cuda
       - depends_on_ucxx
       - depends_on_ucxx_tests
   test_python_distributed:
@@ -52,10 +54,11 @@ files:
     includes:
       - cuda_version
       - py_version
-      - test_python_distributed_ucxx
+      - test_python_common
       - depends_on_cupy
       - depends_on_cudf
       - depends_on_libucxx
+      - depends_on_numba_cuda
       - depends_on_ucxx
       - depends_on_distributed_ucxx
   checks:
@@ -130,9 +133,11 @@ files:
       table: project.optional-dependencies
       key: test
     includes:
+      - test_python_common
       - test_python_ucxx
       - depends_on_cupy
       - depends_on_cudf
+      - depends_on_numba_cuda
   py_build_distributed_ucxx:
     output: pyproject
     pyproject_dir: python/distributed-ucxx
@@ -155,9 +160,10 @@ files:
       table: project.optional-dependencies
       key: test
     includes:
-      - test_python_distributed_ucxx
+      - test_python_common
       - depends_on_cupy
       - depends_on_cudf
+      - depends_on_numba_cuda
 channels:
   - rapidsai-nightly
   - rapidsai
@@ -373,47 +379,14 @@ dependencies:
         packages:
           - rapids-dask-dependency==26.8.*,>=0.0.0a0
           - pyyaml>=6
-          - cuda-core>=0.5.1
   test_cpp:
     common:
       - output_types: conda
         packages:
           - *cmake_ver
-          - gdb  # Used for timeout_with_stack.py
-          - psutil  # Used for timeout_with_stack.py
-  test_python_ucxx:
-    common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - cloudpickle
-          - pytest
-          - pytest-asyncio>=1.0.0
-          - rapids-dask-dependency==26.8.*,>=0.0.0a0
-          - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
-          - pytest-xdist
-      - output_types: [conda]
-        packages:
-          - gdb  # Used for timeout_with_stack.py
-          - &numba_cuda_test numba-cuda>=0.22.1
-          - psutil  # Used for timeout_with_stack.py
-    specific:
-      - output_types: pyproject
-        matrices:
-          - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "true"
-            packages:
-              - &numba_cuda_cu12_test numba-cuda[cu12]>=0.22.1
-          - matrix:
-              cuda: "13.*"
-              cuda_suffixed: "true"
-            packages:
-              - &numba_cuda_cu13_test numba-cuda[cu13]>=0.22.1
-          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
-          - matrix:
-            packages:
-              - *numba_cuda_test
-  test_python_distributed_ucxx:
+          - &gdb gdb  # Used for timeout_with_stack.py
+          - &psutil psutil  # Used for timeout_with_stack.py
+  test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -422,25 +395,26 @@ dependencies:
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
       - output_types: [conda]
         packages:
-          - gdb  # Used for timeout_with_stack.py
-          - *numba_cuda_test
-          - psutil  # Used for timeout_with_stack.py
+          - *gdb  # Used for timeout_with_stack.py
+          - *psutil  # Used for timeout_with_stack.py
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "true"
+              dependencies: "oldest"
             packages:
-              - *numba_cuda_cu12_test
-          - matrix:
-              cuda: "13.*"
-              cuda_suffixed: "true"
-            packages:
-              - *numba_cuda_cu13_test
+              - cuda-core==0.5.1
+              - numpy==2.0.*
           - matrix:
             packages:
-              - *numba_cuda_test
+  test_python_ucxx:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - cloudpickle
+          - pytest-asyncio>=1.0.0
+          - rapids-dask-dependency==26.8.*,>=0.0.0a0
+          - pytest-xdist
   depends_on_cupy:
     common:
       - output_types: conda
@@ -477,6 +451,28 @@ dependencies:
           - matrix:
             packages:
               - cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
+  depends_on_numba_cuda:
+    common:
+      - output_types: [conda]
+        packages:
+        - &numba_cuda numba-cuda>=0.22.1
+    specific:
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - numba-cuda[cu12]>=0.22.1
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - numba-cuda[cu13]>=0.22.1
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
+          - matrix:
+            packages:
+              - *numba_cuda
   depends_on_librmm:
     common:
       - output_types: conda

@@ -45,6 +45,7 @@ test = [
     "cudf==26.8.*,>=0.0.0a0",
     "cupy-cuda13x[ctk]>=14.0.1,!=14.1.0",
     "numba-cuda>=0.22.1",
+    "numpy>=2.0,<3.0",
     "pytest",
     "pytest-asyncio>=1.0.0",
     "pytest-rerunfailures!=16.0.0",
