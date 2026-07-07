@@ -238,7 +238,6 @@ outputs:
         - setuptools>=77.0.0
         - wheel
       run:
-        - cuda-core >=0.5.1
         - python
         - pyyaml >=6
         - rapids-dask-dependency ${{ rapids_version }}
