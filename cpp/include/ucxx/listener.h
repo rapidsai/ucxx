@@ -20,6 +20,7 @@ class Listener;
 
 namespace detail {
 [[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
+                                                       std::string ipAddress,
                                                        uint16_t port,
                                                        ucp_listener_conn_callback_t callback,
                                                        void* callbackArgs);
@@ -50,12 +51,16 @@ class Listener : public Component {
    *
    *
    * @param[in] worker        the worker from which to create the listener.
+   * @param[in] ipAddress     the hostname or IP address which the listener should be
+   *                          bound to, an empty string binds to all interfaces
+   *                          (wildcard).
    * @param[in] port          the port which the listener should be bound to.
    * @param[in] callback      user-defined callback to be executed on incoming client
    *                          connections.
    * @param[in] callbackArgs  argument to be passed to the callback.
    */
   Listener(std::shared_ptr<Worker> worker,
+           std::string ipAddress,
            uint16_t port,
            ucp_listener_conn_callback_t callback,
            void* callbackArgs);
@@ -100,6 +105,9 @@ class Listener : public Component {
    * @endcode
    *
    * @param[in] worker        the worker from which to create the listener.
+   * @param[in] ipAddress     the hostname or IP address which the listener should be
+   *                          bound to, an empty string binds to all interfaces
+   *                          (wildcard).
    * @param[in] port          the port which the listener should be bound to.
    * @param[in] callback      user-defined callback to be executed on incoming client
    *                          connections.
@@ -108,6 +116,7 @@ class Listener : public Component {
    * @returns The `shared_ptr<ucxx::Listener>` object.
    */
   friend std::shared_ptr<Listener> detail::createListener(std::shared_ptr<Worker> worker,
+                                                          std::string ipAddress,
                                                           uint16_t port,
                                                           ucp_listener_conn_callback_t callback,
                                                           void* callbackArgs);
