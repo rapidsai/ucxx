@@ -313,16 +313,16 @@ TEST_P(ListenerPortTest, Port)
 
 INSTANTIATE_TEST_SUITE_P(PortAssignment, ListenerPortTest, ::testing::Values(0, 12345));
 
-class ListenerIpAddressTest : public ListenerTestBase, public ::testing::Test {
+class ListenerHostTest : public ListenerTestBase, public ::testing::Test {
  protected:
   virtual void SetUp() { _worker = _context->createWorker(); }
 };
 
-TEST_F(ListenerIpAddressTest, BindToIpAddress)
+TEST_F(ListenerHostTest, BindToHost)
 {
   auto listenerContainer = createListenerContainer();
   auto listener          = _worker->listenerBuilder(0, listenerCallback, listenerContainer.get())
-                    .ipAddress("127.0.0.1")
+                    .host("127.0.0.1")
                     .build();
   listenerContainer->listener = listener;
   auto progress               = getProgressFunction(_worker, ProgressMode::Polling);
@@ -348,11 +348,11 @@ TEST_F(ListenerIpAddressTest, BindToIpAddress)
   ASSERT_EQ(server_buf[0], client_buf[0]);
 }
 
-TEST_F(ListenerIpAddressTest, BindToInvalidIpAddress)
+TEST_F(ListenerHostTest, BindToInvalidHost)
 {
   auto listenerContainer = createListenerContainer();
   EXPECT_THROW(std::ignore = _worker->listenerBuilder(0, listenerCallback, listenerContainer.get())
-                               .ipAddress("invalid-address!")
+                               .host("invalid-address!")
                                .build(),
                ucxx::Error);
 }

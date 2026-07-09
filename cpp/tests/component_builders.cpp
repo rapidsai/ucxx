@@ -531,14 +531,14 @@ TEST_F(ComponentBuilderTest, ListenerBuilder)
   ASSERT_GT(listener->getPort(), 0u);
 }
 
-TEST_F(ComponentBuilderTest, ListenerBuilderIpAddress)
+TEST_F(ComponentBuilderTest, ListenerBuilderHost)
 {
   auto builder = ucxx::ListenerBuilder(_worker, 0, listenerCallback, nullptr);
   static_assert(
-    std::is_same<decltype(builder.ipAddress("127.0.0.1")), ucxx::ListenerBuilder&>::value,
-    "ListenerBuilder::ipAddress returns ListenerBuilder& for chaining");
+    std::is_same<decltype(builder.host("127.0.0.1")), ucxx::ListenerBuilder&>::value,
+    "ListenerBuilder::host returns ListenerBuilder& for chaining");
 
-  auto listener = builder.ipAddress("127.0.0.1").build();
+  auto listener = builder.host("127.0.0.1").build();
   ASSERT_TRUE(listener != nullptr);
   ASSERT_TRUE(listener->getHandle() != nullptr);
   ASSERT_EQ(listener->getIp(), "127.0.0.1");

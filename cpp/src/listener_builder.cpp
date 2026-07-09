@@ -14,7 +14,7 @@ namespace ucxx {
 
 struct ListenerBuilder::Impl {
   std::shared_ptr<Worker> worker{nullptr};
-  std::string ipAddress{};
+  std::string host{};
   uint16_t port{0};
   ucp_listener_conn_callback_t callback{nullptr};
   void* callbackArgs{nullptr};
@@ -35,16 +35,16 @@ ListenerBuilder::ListenerBuilder(std::shared_ptr<Worker> worker,
 
 UCXX_BUILDER_PIMPL_DEFAULTS(ListenerBuilder, Listener)
 
-ListenerBuilder& ListenerBuilder::ipAddress(std::string ipAddress)
+ListenerBuilder& ListenerBuilder::host(std::string host)
 {
-  _impl->ipAddress = std::move(ipAddress);
+  _impl->host = std::move(host);
   return *this;
 }
 
 std::shared_ptr<Listener> ListenerBuilder::build()
 {
   return detail::createListener(
-    _impl->worker, _impl->ipAddress, _impl->port, _impl->callback, _impl->callbackArgs);
+    _impl->worker, _impl->host, _impl->port, _impl->callback, _impl->callbackArgs);
 }
 
 }  // namespace ucxx
