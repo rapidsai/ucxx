@@ -64,11 +64,11 @@ class ListenerBuilder final {
    * the listener to a specific interface, e.g., `"127.0.0.1"` to accept connections
    * from the local host only.
    *
-   * @param[in] ipAddress hostname or IP address the listener should bind to, an empty
-   *                      string binds to all interfaces.
+   * @param[in] host hostname or IP address the listener should bind to, an empty
+   *                 string binds to all interfaces.
    * @return Reference to this builder for method chaining.
    */
-  ListenerBuilder& ipAddress(std::string ipAddress);
+  ListenerBuilder& host(std::string host);
 
   /**
    * @brief Build and return the `Listener`.

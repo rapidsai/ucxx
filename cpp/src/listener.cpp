@@ -18,7 +18,7 @@
 namespace ucxx {
 
 Listener::Listener(std::shared_ptr<Worker> worker,
-                   std::string ipAddress,
+                   std::string host,
                    uint16_t port,
                    ucp_listener_conn_callback_t callback,
                    void* callbackArgs)
@@ -29,7 +29,7 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   ucp_listener_params_t params = {
     .field_mask   = UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER,
     .conn_handler = {.cb = callback, .arg = callbackArgs}};
-  auto info = ucxx::utils::get_addrinfo(ipAddress.empty() ? nullptr : ipAddress.c_str(), port);
+  auto info = ucxx::utils::get_addrinfo(host.empty() ? nullptr : host.c_str(), port);
   params.sockaddr.addr    = info->ai_addr;
   params.sockaddr.addrlen = info->ai_addrlen;
 
@@ -69,13 +69,13 @@ Listener::~Listener()
 namespace detail {
 
 std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                         std::string ipAddress,
+                                         std::string host,
                                          uint16_t port,
                                          ucp_listener_conn_callback_t callback,
                                          void* callbackArgs)
 {
   return std::shared_ptr<Listener>(
-    new Listener(worker, std::move(ipAddress), port, callback, callbackArgs));
+    new Listener(worker, std::move(host), port, callback, callbackArgs));
 }
 
 }  // namespace detail
