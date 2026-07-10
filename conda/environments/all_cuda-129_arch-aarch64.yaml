@@ -9,7 +9,7 @@ dependencies:
 - automake
 - c-compiler
 - cloudpickle
-- cmake>=4.0
+- cmake>=4.0,<4.4
 - cuda-core>=0.5.1
 - cuda-cudart-dev
 - cuda-nvcc

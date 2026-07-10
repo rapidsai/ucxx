@@ -180,7 +180,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - &cmake_ver cmake>=4.0
+          - &cmake_ver cmake>=4.0,<4.4
           - librmm==26.8.*,>=0.0.0a0
           - ninja
       - output_types: [requirements, pyproject]
