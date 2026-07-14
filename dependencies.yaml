@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
@@ -180,7 +180,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - &cmake_ver cmake>=4.0,<4.4
+          - &cmake_ver cmake>=4.0
           - librmm==26.8.*,>=0.0.0a0
           - ninja
       - output_types: [requirements, pyproject]

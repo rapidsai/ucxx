@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 [build-system]
@@ -60,7 +60,7 @@ build-backend = "scikit_build_core.build"
 dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true"
 requires = [
-    "cmake>=4.0,<4.4",
+    "cmake>=4.0",
     "cython>=3.2.2",
     "librmm==26.8.*,>=0.0.0a0",
     "libucxx==0.51.*,>=0.0.0a0",
