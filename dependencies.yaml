@@ -377,7 +377,7 @@ dependencies:
           - &numpy numpy>=2.0,<3.0
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
-          - cuda-core>=0.5.1
+          - cuda-core>=0.5.1,<2
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
