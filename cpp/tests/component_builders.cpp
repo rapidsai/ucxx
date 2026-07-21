@@ -531,6 +531,20 @@ TEST_F(ComponentBuilderTest, ListenerBuilder)
   ASSERT_GT(listener->getPort(), 0u);
 }
 
+TEST_F(ComponentBuilderTest, ListenerBuilderHost)
+{
+  auto builder = ucxx::ListenerBuilder(_worker, 0, listenerCallback, nullptr);
+  static_assert(
+    std::is_same<decltype(builder.host("127.0.0.1")), ucxx::ListenerBuilder&>::value,
+    "ListenerBuilder::host returns ListenerBuilder& for chaining");
+
+  auto listener = builder.host("127.0.0.1").build();
+  ASSERT_TRUE(listener != nullptr);
+  ASSERT_TRUE(listener->getHandle() != nullptr);
+  ASSERT_EQ(listener->getIp(), "127.0.0.1");
+  ASSERT_GT(listener->getPort(), 0u);
+}
+
 TEST_F(ComponentBuilderTest, MemoryHandleBuilder)
 {
   std::vector<char> buffer(128);

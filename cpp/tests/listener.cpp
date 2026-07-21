@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <tuple>
 #include <ucs/config/types.h>
 #include <ucs/type/status.h>
 #include <vector>
@@ -311,5 +312,49 @@ TEST_P(ListenerPortTest, Port)
 }
 
 INSTANTIATE_TEST_SUITE_P(PortAssignment, ListenerPortTest, ::testing::Values(0, 12345));
+
+class ListenerHostTest : public ListenerTestBase, public ::testing::Test {
+ protected:
+  virtual void SetUp() { _worker = _context->createWorker(); }
+};
+
+TEST_F(ListenerHostTest, BindToHost)
+{
+  auto listenerContainer = createListenerContainer();
+  auto listener          = _worker->listenerBuilder(0, listenerCallback, listenerContainer.get())
+                    .host("127.0.0.1")
+                    .build();
+  listenerContainer->listener = listener;
+  auto progress               = getProgressFunction(_worker, ProgressMode::Polling);
+
+  progress();
+
+  ASSERT_EQ(listener->getIp(), "127.0.0.1");
+  ASSERT_GE(listener->getPort(), 1024);
+
+  auto ep = _worker->endpointBuilder("127.0.0.1", listener->getPort()).build();
+  while (listenerContainer->endpoint == nullptr)
+    progress();
+
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+
+  std::vector<int> client_buf{123};
+  std::vector<int> server_buf{0};
+  requests.push_back(ep->tagSend(client_buf.data(), client_buf.size() * sizeof(int), ucxx::Tag{0}));
+  requests.push_back(listenerContainer->endpoint->tagRecv(
+    &server_buf.front(), server_buf.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
+  ::waitRequests(_worker, requests, progress);
+
+  ASSERT_EQ(server_buf[0], client_buf[0]);
+}
+
+TEST_F(ListenerHostTest, BindToInvalidHost)
+{
+  auto listenerContainer = createListenerContainer();
+  EXPECT_THROW(std::ignore = _worker->listenerBuilder(0, listenerCallback, listenerContainer.get())
+                               .host("invalid-address!")
+                               .build(),
+               ucxx::Error);
+}
 
 }  // namespace

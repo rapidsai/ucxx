@@ -41,6 +41,7 @@ namespace detail {
 [[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
 
 [[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
+                                                       std::string host,
                                                        uint16_t port,
                                                        ucp_listener_conn_callback_t callback,
                                                        void* callbackArgs);
