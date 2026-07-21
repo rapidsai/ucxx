@@ -1,5 +1,5 @@
-UCXX
-====
+UCXX Documentation
+==================
 
 UCXX is the Python interface for `UCX <https://github.com/openucx/ucx>`_, a low-level high-performance networking library. UCX and UCXX support several transport methods including InfiniBand and NVLink while still using traditional networking protocols like TCP.
 
