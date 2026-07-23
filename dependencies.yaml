@@ -325,9 +325,9 @@ dependencies:
           - dask-cuda==26.8.*,>=0.0.0a0
           - dask-cudf==26.8.*,>=0.0.0a0
           # UCX Build
-          - libtool
-          - automake
           - autoconf
+          - automake
+          - libtool
           # UCXX Build
           - pkg-config
           # Docs Build
