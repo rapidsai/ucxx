@@ -20,6 +20,17 @@ UCXX_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_pyth
 # generate constraints (possibly pinning to oldest support versions of dependencies)
 rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
 
+python -m venv libucxx-env
+. libucxx-env/bin/activate
+
+rapids-pip-retry install \
+    -v \
+    --prefer-binary \
+    --constraint "${PIP_CONSTRAINT}" \
+    "$(echo "${LIBUCXX_WHEELHOUSE}"/libucxx_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)"
+python -c "import libucxx; libucxx.load_library()"
+deactivate
+
 # notes:
 #
 #   * echo to expand wildcard before adding `[test]` requires for pip
