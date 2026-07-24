@@ -28,7 +28,7 @@ rapids-pip-retry install \
     --prefer-binary \
     --constraint "${PIP_CONSTRAINT}" \
     "$(echo "${LIBUCXX_WHEELHOUSE}"/libucxx_"${RAPIDS_PY_CUDA_SUFFIX}"*.whl)"
-python -c "import libucxx; libucxx.load_library()"
+python -c "import libucxx; assert libucxx.load_library() is not None"
 deactivate
 
 # notes:
