@@ -464,7 +464,7 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-        - &numba_cuda numba-cuda>=0.22.1
+          - &numba_cuda numba-cuda>=0.22.1
     specific:
       - output_types: pyproject
         matrices:

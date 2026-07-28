@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 context:
@@ -9,7 +9,7 @@ context:
   head_rev: '${{ git.head_rev(".")[:8] }}'
   rapids_version: '${{ env.get("RAPIDS_PACKAGE_DEPENDENCY") }}'
   py_abi_min: ${{ env.get("RAPIDS_PY_VERSION") }}
-  py_buildstring : ${{ py_abi_min | version_to_buildstring }}
+  py_buildstring: ${{ py_abi_min | version_to_buildstring }}
   py_runtime_latest: "3.14"
 
 recipe:
@@ -117,14 +117,14 @@ outputs:
           - ucx
     tests:
       - script:
-        - test -f $PREFIX/lib/libucxx_python.so
-        - test -f $PREFIX/include/ucxx/python/exception.h
-        - test -f $PREFIX/include/ucxx/python/future.h
-        - test -f $PREFIX/include/ucxx/python/api.h
-        - test -f $PREFIX/include/ucxx/python/constructors.h
-        - test -f $PREFIX/include/ucxx/python/notifier.h
-        - test -f $PREFIX/include/ucxx/python/python_future.h
-        - test -f $PREFIX/include/ucxx/python/worker.h
+          - test -f $PREFIX/lib/libucxx_python.so
+          - test -f $PREFIX/include/ucxx/python/exception.h
+          - test -f $PREFIX/include/ucxx/python/future.h
+          - test -f $PREFIX/include/ucxx/python/api.h
+          - test -f $PREFIX/include/ucxx/python/constructors.h
+          - test -f $PREFIX/include/ucxx/python/notifier.h
+          - test -f $PREFIX/include/ucxx/python/python_future.h
+          - test -f $PREFIX/include/ucxx/python/worker.h
       - python:
           imports:
             - ucxx
