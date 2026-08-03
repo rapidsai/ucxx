@@ -69,7 +69,6 @@ files:
     output: none
     includes:
       - checks
-      - dev
       - py_version
   docs:
     output: none
@@ -216,6 +215,9 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - pre-commit
+      - output_types: [conda]
+        packages:
+          - &doxygen doxygen=1.9.1 # pre-commit hook needs a specific version.
   # 'cuda_version' intentionally does not contain fallback entries... we want
   # a loud error if an unsupported 'cuda' value is passed
   cuda_version:
@@ -331,7 +333,7 @@ dependencies:
           # UCXX Build
           - pkg-config
           # Docs Build
-          - &doxygen doxygen=1.9.1 # pre-commit hook needs a specific version.
+          - *doxygen
   docs:
     common:
       - output_types: [conda]
