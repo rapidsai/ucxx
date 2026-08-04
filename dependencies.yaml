@@ -679,8 +679,8 @@ dependencies:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu13>=1.19.0,<1.21
+              - libucx-cu13>=1.19.0,<1.20
           # require at least 1.19.0 (CUDA 13 floor) if 'cuda' filter is not provided
           - matrix:
             packages:
-              - libucx>=1.19.0,<1.21
+              - libucx>=1.19.0,<1.20
