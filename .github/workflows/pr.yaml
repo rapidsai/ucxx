@@ -37,6 +37,8 @@ jobs:
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
+  build-details:
+    uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@main
   check-nightly-ci:
     runs-on: ubuntu-latest
     permissions:
