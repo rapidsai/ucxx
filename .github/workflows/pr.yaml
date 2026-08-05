@@ -90,7 +90,10 @@ jobs:
           - '!.github/copy-pr-bot.yaml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.github/zizmor.yml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
           - '!.yamllint.yaml'
@@ -111,7 +114,10 @@ jobs:
           - '!.github/copy-pr-bot.yaml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.github/zizmor.yml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
           - '!.yamllint.yaml'
@@ -135,7 +141,10 @@ jobs:
           - '!.github/copy-pr-bot.yaml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.github/zizmor.yml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
           - '!.yamllint.yaml'
@@ -159,7 +168,10 @@ jobs:
           - '!.github/copy-pr-bot.yaml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.github/zizmor.yml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
           - '!.yamllint.yaml'
@@ -182,7 +194,10 @@ jobs:
           - '!.github/copy-pr-bot.yaml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.github/zizmor.yml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
           - '!.yamllint.yaml'
@@ -206,7 +221,10 @@ jobs:
           - '!.github/copy-pr-bot.yaml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/workflows/build.yaml'
+          - '!.github/workflows/test.yaml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.github/zizmor.yml'
           - '!.pre-commit-config.yaml'
           - '!.shellcheckrc'
           - '!.yamllint.yaml'
@@ -235,7 +253,7 @@ jobs:
       enable_check_generated_files: false
       ignored_pr_jobs: telemetry-summarize
   conda-cpp-build:
-    needs: checks
+    needs: [build-details, checks]
     permissions:
       actions: read
       contents: read
@@ -246,10 +264,11 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
     with:
       build_type: pull-request
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
       script: ci/build_cpp.sh
   conda-python-build:
-    needs: conda-cpp-build
+    needs: [build-details, conda-cpp-build]
     permissions:
       actions: read
       contents: read
@@ -260,6 +279,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
     with:
       build_type: pull-request
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       script: ci/build_python.sh
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
@@ -326,7 +346,7 @@ jobs:
       script: "ci/test_python_distributed.sh"
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   wheel-build-libucxx:
-    needs: checks
+    needs: [build-details, checks]
     permissions:
       actions: read
       contents: read
@@ -337,6 +357,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: pull-request
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
       script: ci/build_wheel_libucxx.sh
       # build for every combination of arch and CUDA version, but only for the latest Python
@@ -344,7 +365,7 @@ jobs:
       package-name: libucxx
       package-type: cpp
   wheel-build-ucxx:
-    needs: wheel-build-libucxx
+    needs: [build-details, wheel-build-libucxx]
     permissions:
       actions: read
       contents: read
@@ -355,6 +376,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: pull-request
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
       script: ci/build_wheel_ucxx.sh
       package-name: ucxx
@@ -377,7 +399,7 @@ jobs:
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_wheel_ucxx.sh
   wheel-build-distributed-ucxx:
-    needs: checks
+    needs: [build-details, checks]
     permissions:
       actions: read
       contents: read
@@ -388,6 +410,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: pull-request
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu8
       script: ci/build_wheel_distributed_ucxx.sh
       package-name: distributed_ucxx
