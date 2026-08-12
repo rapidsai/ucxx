@@ -40,14 +40,11 @@ function(rapids_target_set_py_limited_api target)
   string(REPLACE "." ";" _sabi_parts "${SKBUILD_SABI_VERSION}")
   list(GET _sabi_parts 0 _sabi_major)
   list(GET _sabi_parts 1 _sabi_minor)
-  if(_sabi_minor LESS 16)
-    set(_sabi_minor_pad "0")
-  else()
-    set(_sabi_minor_pad "")
-  endif()
-  math(EXPR _sabi_minor_hex "${_sabi_minor}" OUTPUT_FORMAT HEXADECIMAL)
-  string(REGEX REPLACE "^0x" "" _sabi_minor_hex "${_sabi_minor_hex}")
-  target_compile_definitions(
-    ${target} PRIVATE "Py_LIMITED_API=0x0${_sabi_major}${_sabi_minor_pad}${_sabi_minor_hex}0000"
+  math(EXPR _sabi_major_minor_hex "${_sabi_major} * 256 * 65536 + ${_sabi_minor} * 65536"
+       OUTPUT_FORMAT HEXADECIMAL
   )
+
+  # CPython source code pads '3' to '03' so all version components use 2 digits. Mirror that.
+  string(REGEX REPLACE "^0x" "0x0" _sabi_major_minor_hex "${_sabi_major_minor_hex}")
+  target_compile_definitions(${target} PRIVATE "Py_LIMITED_API=${_sabi_major_minor_hex}")
 endfunction()
