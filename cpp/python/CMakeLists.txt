@@ -82,6 +82,10 @@ set_target_properties(
 
 target_compile_options(ucxx_python PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}>")
 
+# ensure the outputs only use CPython's Limited API
+include(${CMAKE_CURRENT_LIST_DIR}/../cmake/py_limited_api.cmake)
+rapids_target_set_py_limited_api(ucxx_python)
+
 get_filename_component(ucxx_dir "${CMAKE_CURRENT_SOURCE_DIR}" DIRECTORY)
 
 # Specify include paths for the current target and dependents
