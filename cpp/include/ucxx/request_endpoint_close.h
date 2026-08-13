@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -54,6 +54,8 @@ class RequestEndpointClose : public Request {
                        RequestCallbackUserFunction callbackFunction = nullptr,
                        RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RequestEndpointClose>`.
@@ -89,8 +91,6 @@ class RequestEndpointClose : public Request {
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
-
-  virtual void populateDelayedSubmission();
 
   /**
    * @brief Create and submit an endpoint close request.

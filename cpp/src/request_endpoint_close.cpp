@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ucxx/request_data.h"
@@ -81,7 +81,7 @@ void RequestEndpointClose::request()
   publishRequest(request);
 }
 
-void RequestEndpointClose::populateDelayedSubmission()
+void RequestEndpointClose::populateDelayedSubmissionImpl()
 {
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {
     ucxx_warn("Endpoint is already closed");

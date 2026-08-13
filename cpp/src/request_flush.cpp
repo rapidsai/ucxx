@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -80,7 +80,7 @@ void RequestFlush::request()
   publishRequest(request);
 }
 
-void RequestFlush::populateDelayedSubmission()
+void RequestFlush::populateDelayedSubmissionImpl()
 {
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {
     ucxx_warn("Endpoint was closed before it could be flushed");

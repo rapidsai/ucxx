@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -107,6 +107,8 @@ class RequestTagMulti : public Request {
                   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
                   std::string operationName,
                   const bool enablePythonFuture);
+
+  void populateDelayedSubmissionImpl() override;
 
   /**
    * @brief Receive all frames.
@@ -224,8 +226,6 @@ class RequestTagMulti : public Request {
    * @throws std::runtime_error if called by a send request.
    */
   void recvCallback(ucs_status_t status);
-
-  void populateDelayedSubmission() override;
 
   void cancel() override;
 };

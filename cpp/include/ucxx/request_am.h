@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -70,6 +70,8 @@ class RequestAm : public Request {
             RequestCallbackUserFunction callbackFunction = nullptr,
             RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RequestAm>`.
@@ -116,8 +118,6 @@ class RequestAm : public Request {
    * destructor but may be called by the user to cancel the request as well.
    */
   void cancel() override;
-
-  void populateDelayedSubmission() override;
 
   /**
    * @brief Create and submit an active message send request.

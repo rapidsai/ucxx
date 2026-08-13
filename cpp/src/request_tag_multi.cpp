@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -374,7 +374,7 @@ void RequestTagMulti::send()
     _requestData);
 }
 
-void RequestTagMulti::populateDelayedSubmission() {}
+void RequestTagMulti::populateDelayedSubmissionImpl() {}
 
 void RequestTagMulti::cancel()
 {

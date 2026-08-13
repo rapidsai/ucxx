@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstring>
@@ -477,7 +477,7 @@ void RequestAm::request()
     _requestData);
 }
 
-void RequestAm::populateDelayedSubmission()
+void RequestAm::populateDelayedSubmissionImpl()
 {
   bool terminate =
     std::visit(data::dispatch{
