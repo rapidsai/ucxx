@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <chrono>
@@ -87,7 +87,10 @@ void Request::cancel()
                        ucs_status_string(status));
     } else {
       ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "canceling");
-      if (_request != nullptr) ucp_request_cancel(_worker->getHandle(), _request);
+      if (_request != nullptr)
+        ucp_request_cancel(_worker->getHandle(), _request);
+      else
+        setStatus(UCS_ERR_CANCELED);
     }
   } else {
     ucxx_trace_req_f(_ownerString.c_str(),
@@ -98,6 +101,13 @@ void Request::cancel()
                      _status,
                      ucs_status_string(_status));
   }
+}
+
+void Request::populateDelayedSubmission()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+  if (_status != UCS_INPROGRESS) return;
+  populateDelayedSubmissionImpl();
 }
 
 ucs_status_t Request::getStatus()
