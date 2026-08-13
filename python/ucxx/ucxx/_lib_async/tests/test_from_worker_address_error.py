@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -23,10 +23,16 @@ def _test_from_worker_address_error_server(q1, q2, error_type, timeout):
         address = bytearray(ucxx.get_worker_address())
 
         if error_type == "unreachable":
-            # Shutdown worker, then send its address to client process via
-            # multiprocessing.Queue
-            ucxx.reset()
+            # Keep the server worker alive until the client has initialized its
+            # worker. Otherwise the OS may immediately assign the server's released
+            # transport address to the client worker, making this stale address name
+            # a live replacement worker.
             q1.put(address)
+
+            client_ready = q2.get(timeout=timeout)
+            assert client_ready == "Client initialized"
+
+            ucxx.reset()
         else:
             # Send worker address to client process via # multiprocessing.Queue,
             # wait for client to connect, then shutdown worker.
@@ -51,10 +57,17 @@ def _test_from_worker_address_error_server(q1, q2, error_type, timeout):
 def _test_from_worker_address_error_client(q1, q2, error_type, timeout):
     async def run():
         # Receive worker address from server via multiprocessing.Queue
-        remote_address = ucxx.get_ucx_address_from_buffer(q1.get())
+        remote_address_buffer = q1.get()
         if error_type == "unreachable":
+            # Initialize the client while the server worker still owns its transport
+            # resources, then allow the server to destroy the advertised worker.
+            ucxx.get_worker_address()
+            q2.put("Client initialized")
+
             server_closed = q1.get()
             assert server_closed == "Server closed"
+
+        remote_address = ucxx.get_ucx_address_from_buffer(remote_address_buffer)
 
         if error_type == "unreachable":
             with pytest.raises(
