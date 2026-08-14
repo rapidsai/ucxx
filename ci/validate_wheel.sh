@@ -43,9 +43,6 @@ twine check \
 
 rapids-logger "validate packages with 'abi3audit'"
 
-# TODO: remove once https://github.com/rapidsai/ci-imgs/pull/454 is merged
-pip install abi3audit
-
 # 'abi3audit' fails on wheels that contain DSOs but don't have an ABI tag (like 'libucxx').
 # This '-name' filtering avoids trying those.
 find \
