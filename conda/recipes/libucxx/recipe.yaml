@@ -103,7 +103,7 @@ outputs:
         - ucx
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - ucx >=1.18.0,<1.21.0
+        - ucx >=1.18.0,<1.22.0
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       ignore_run_exports:

@@ -103,7 +103,7 @@ outputs:
         # 'nvidia-ml-py' provides the 'pynvml' module
         - nvidia-ml-py>=12
         - python
-        - ucx >=1.18.0,<1.21.0
+        - ucx >=1.18.0,<1.22.0
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libucxx =${{ version }}
       run_constraints:
