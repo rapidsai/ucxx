@@ -94,7 +94,7 @@ outputs:
         - python-abi3 ${{ py_abi_min }}.*
         - rapids-build-backend >=0.4.0,<0.5.0
         - scikit-build-core>=0.11.0
-        - ucx
+        - ucx =${{ ucx_min }}
         - libucxx =${{ version }}
         - cuda-cudart-dev
       run:
@@ -103,7 +103,7 @@ outputs:
         # 'nvidia-ml-py' provides the 'pynvml' module
         - nvidia-ml-py>=12
         - python
-        - ucx >=1.18.0,<1.22.0
+        - ucx >=${{ ucx_min }},<${{ ucx_max }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libucxx =${{ version }}
       run_constraints:

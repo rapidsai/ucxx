@@ -76,7 +76,7 @@ cache:
       - cuda-version =${{ cuda_version }}
       - librmm ${{ rapids_version }}
       - rapids-build-backend >=0.4.0,<0.5.0
-      - ucx
+      - ucx =${{ ucx_min }}
       - cuda-cudart-dev
 
 outputs:
@@ -100,10 +100,10 @@ outputs:
         - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
-        - ucx
+        - ucx =${{ ucx_min }}
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - ucx >=1.18.0,<1.22.0
+        - ucx >=${{ ucx_min }},<${{ ucx_max }}
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       ignore_run_exports:
