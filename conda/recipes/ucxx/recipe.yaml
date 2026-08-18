@@ -1,15 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 context:
   version: ${{ env.get("UCXX_PACKAGE_VERSION") }}
   cuda_version: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[:2] | join(".") }}
   cuda_major: '${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}'
-  date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
+  datetime_string: '${{ env.get("RAPIDS_DATETIME_STRING") }}'
   head_rev: '${{ git.head_rev(".")[:8] }}'
   rapids_version: '${{ env.get("RAPIDS_PACKAGE_DEPENDENCY") }}'
   py_abi_min: ${{ env.get("RAPIDS_PY_VERSION") }}
-  py_buildstring : ${{ py_abi_min | version_to_buildstring }}
+  py_buildstring: ${{ py_abi_min | version_to_buildstring }}
   py_runtime_latest: "3.14"
 
 recipe:
@@ -25,7 +25,7 @@ outputs:
     build:
       python:
         version_independent: true
-      string: cuda${{ cuda_major }}_cp${{ py_buildstring }}_abi3_${{ date_string }}_${{ head_rev }}
+      string: cuda${{ cuda_major }}_cp${{ py_buildstring }}_abi3_${{ datetime_string }}_${{ head_rev }}
       dynamic_linking:
         overlinking_behavior: "error"
         missing_dso_allowlist:
@@ -98,7 +98,7 @@ outputs:
         - libucxx =${{ version }}
         - cuda-cudart-dev
       run:
-        - cuda-core >=0.5.1
+        - cuda-core >=0.5.1,<2
         - numpy >=2.0,<3.0
         # 'nvidia-ml-py' provides the 'pynvml' module
         - nvidia-ml-py>=12
@@ -117,14 +117,14 @@ outputs:
           - ucx
     tests:
       - script:
-        - test -f $PREFIX/lib/libucxx_python.so
-        - test -f $PREFIX/include/ucxx/python/exception.h
-        - test -f $PREFIX/include/ucxx/python/future.h
-        - test -f $PREFIX/include/ucxx/python/api.h
-        - test -f $PREFIX/include/ucxx/python/constructors.h
-        - test -f $PREFIX/include/ucxx/python/notifier.h
-        - test -f $PREFIX/include/ucxx/python/python_future.h
-        - test -f $PREFIX/include/ucxx/python/worker.h
+          - test -f $PREFIX/lib/libucxx_python.so
+          - test -f $PREFIX/include/ucxx/python/exception.h
+          - test -f $PREFIX/include/ucxx/python/future.h
+          - test -f $PREFIX/include/ucxx/python/api.h
+          - test -f $PREFIX/include/ucxx/python/constructors.h
+          - test -f $PREFIX/include/ucxx/python/notifier.h
+          - test -f $PREFIX/include/ucxx/python/python_future.h
+          - test -f $PREFIX/include/ucxx/python/worker.h
       - python:
           imports:
             - ucxx
@@ -141,7 +141,7 @@ outputs:
     build:
       python:
         version_independent: true
-      string: cuda${{ cuda_major }}_cp${{ py_buildstring }}_abi3_${{ date_string }}_${{ head_rev }}
+      string: cuda${{ cuda_major }}_cp${{ py_buildstring }}_abi3_${{ datetime_string }}_${{ head_rev }}
       dynamic_linking:
         overlinking_behavior: "error"
         missing_dso_allowlist:
@@ -228,7 +228,7 @@ outputs:
       version: ${{ version }}
     build:
       noarch: python
-      string: ${{ date_string }}_${{ head_rev }}_h${{ hash }}
+      string: ${{ datetime_string }}_${{ head_rev }}_h${{ hash }}
       script: ./build.sh distributed_ucxx
     requirements:
       host:
