@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <chrono>
@@ -37,6 +37,62 @@ struct ExtraParams {
   GenericCallbackType genericCallbackType{GenericCallbackType::None};
 };
 
+struct ProgressThreadStartBarrier {
+  std::mutex mutex{};
+  std::condition_variable condition{};
+  bool started{false};
+  bool released{false};
+};
+
+void waitForProgressThreadRelease(void* arg)
+{
+  auto& barrier = *static_cast<ProgressThreadStartBarrier*>(arg);
+  std::unique_lock<std::mutex> lock(barrier.mutex);
+  barrier.started = true;
+  barrier.condition.notify_one();
+  barrier.condition.wait(lock, [&barrier]() { return barrier.released; });
+}
+
+class PausedProgressThread {
+ public:
+  explicit PausedProgressThread(std::shared_ptr<ucxx::Worker> worker) : _worker(worker)
+  {
+    _worker->setProgressThreadStartCallback(waitForProgressThreadRelease, &_barrier);
+    _worker->startProgressThread(true);
+
+    std::unique_lock<std::mutex> lock(_barrier.mutex);
+    _barrier.condition.wait(lock, [this]() { return _barrier.started; });
+  }
+
+  ~PausedProgressThread()
+  {
+    resume();
+    if (_worker->isProgressThreadRunning()) _worker->stopProgressThread();
+  }
+
+  void resume()
+  {
+    {
+      std::lock_guard<std::mutex> lock(_barrier.mutex);
+      if (_barrier.released) return;
+      _barrier.released = true;
+    }
+    _barrier.condition.notify_one();
+  }
+
+ private:
+  std::shared_ptr<ucxx::Worker> _worker;
+  ProgressThreadStartBarrier _barrier{};
+};
+
+struct ProbedTagTransfer {
+  std::shared_ptr<ucxx::Worker> recvWorker;
+  std::shared_ptr<ucxx::Worker> sendWorker;
+  std::shared_ptr<ucxx::Endpoint> endpoint;
+  std::shared_ptr<ucxx::Request> sendRequest;
+  std::shared_ptr<ucxx::TagProbeInfo> probe;
+};
+
 class WorkerTest : public ::testing::Test {
  protected:
   std::shared_ptr<ucxx::Context> _context{
@@ -53,6 +109,39 @@ class WorkerTest : public ::testing::Test {
       ucp_tag_msg_recv_nbx(_worker->getHandle(), recv_buf->data(), length, handle, &param);
     EXPECT_FALSE(UCS_PTR_IS_ERR(request));
     EXPECT_FALSE(UCS_PTR_IS_PTR(request));
+  }
+
+  ProbedTagTransfer makeProbedTagTransfer(const void* buffer,
+                                          size_t length,
+                                          bool delayedSubmission,
+                                          bool waitForSendCompletion = false)
+  {
+    ProbedTagTransfer transfer{_context->createWorker(delayedSubmission),
+                               _context->createWorker(false)};
+    transfer.endpoint =
+      transfer.sendWorker->createEndpointFromWorkerAddress(transfer.recvWorker->getAddress());
+    transfer.sendRequest = transfer.endpoint->tagSend(buffer, length, ucxx::Tag{0});
+
+    loopWithTimeout(std::chrono::milliseconds(5000), [&]() {
+      transfer.sendWorker->progress();
+      transfer.recvWorker->progress();
+      return (!waitForSendCompletion || transfer.sendRequest->isCompleted()) &&
+             transfer.recvWorker->tagProbe(ucxx::Tag{0})->isMatched();
+    });
+
+    transfer.probe = transfer.recvWorker->tagProbe(ucxx::Tag{0}, ucxx::TagMaskFull, true);
+    return transfer;
+  }
+
+  void progressUntilCompleted(const ProbedTagTransfer& transfer,
+                              const std::shared_ptr<ucxx::Request>& request,
+                              bool progressReceiver = true)
+  {
+    loopWithTimeout(std::chrono::milliseconds(5000), [&]() {
+      transfer.sendWorker->progress();
+      if (progressReceiver) transfer.recvWorker->progress();
+      return request->isCompleted();
+    });
   }
 };
 
@@ -274,6 +363,104 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
   }
 
   EXPECT_EQ(recv_buf, buf);
+}
+
+TEST_F(WorkerTest, CancelTagRecvWithHandleBeforeDelayedSubmissionConsumesHandle)
+{
+  // Keep the transfer in progress after the rendezvous header is matched so cancel() submits
+  // a real UCP request while the delayed callback remains queued.
+  std::vector<int> sendBuf(1 << 20, 123);
+  auto transfer = makeProbedTagTransfer(sendBuf.data(), sendBuf.size() * sizeof(int), true);
+  ASSERT_TRUE(transfer.probe->isMatched());
+  ASSERT_NO_THROW(transfer.probe->getHandle());
+
+  PausedProgressThread progressThread{transfer.recvWorker};
+
+  std::vector<int> recvBuf(sendBuf.size());
+  auto recvReq =
+    transfer.recvWorker
+      ->tagRecvWithHandleBuilder(recvBuf.data(), recvBuf.size() * sizeof(int), transfer.probe)
+      .build();
+  recvReq->cancel();
+
+  EXPECT_THROW(transfer.probe->getHandle(), std::runtime_error);
+  EXPECT_FALSE(recvReq->isCompleted());
+
+  progressThread.resume();
+  progressUntilCompleted(transfer, recvReq, false);
+}
+
+TEST_F(WorkerTest, TagRecvWithHandleHonorsReceiveBufferLength)
+{
+  std::vector<int> sendBuf{123, 456};
+  auto transfer = makeProbedTagTransfer(sendBuf.data(), sendBuf.size() * sizeof(int), false);
+  ASSERT_TRUE(transfer.probe->isMatched());
+
+  std::vector<int> recvBuf(1);
+  auto recvReq =
+    transfer.recvWorker
+      ->tagRecvWithHandleBuilder(recvBuf.data(), recvBuf.size() * sizeof(int), transfer.probe)
+      .build();
+  progressUntilCompleted(transfer, recvReq);
+
+  EXPECT_EQ(recvReq->getStatus(), UCS_ERR_MESSAGE_TRUNCATED);
+  progressUntilCompleted(transfer, transfer.sendRequest);
+}
+
+TEST_F(WorkerTest, CancelTagRecvWithHandleProcessesImmediateTruncation)
+{
+  std::vector<int> sendBuf{123, 456};
+  auto transfer = makeProbedTagTransfer(sendBuf.data(), sendBuf.size() * sizeof(int), true);
+  ASSERT_TRUE(transfer.probe->isMatched());
+
+  {
+    PausedProgressThread progressThread{transfer.recvWorker};
+    std::vector<int> recvBuf(1);
+    auto recvReq =
+      transfer.recvWorker
+        ->tagRecvWithHandleBuilder(recvBuf.data(), recvBuf.size() * sizeof(int), transfer.probe)
+        .build();
+    recvReq->cancel();
+
+    EXPECT_TRUE(recvReq->isCompleted());
+    EXPECT_EQ(recvReq->getStatus(), UCS_ERR_MESSAGE_TRUNCATED);
+    EXPECT_THROW(transfer.probe->getHandle(), std::runtime_error);
+  }
+
+  progressUntilCompleted(transfer, transfer.sendRequest);
+}
+
+TEST_F(WorkerTest, CancelTagRecvWithHandlePreservesImmediateCompletion)
+{
+  int sendBuf{123};
+  auto transfer = makeProbedTagTransfer(&sendBuf, sizeof(sendBuf), true, true);
+  ASSERT_TRUE(transfer.probe->isMatched());
+
+  PausedProgressThread progressThread{transfer.recvWorker};
+  int recvBuf{};
+  auto recvReq =
+    transfer.recvWorker->tagRecvWithHandleBuilder(&recvBuf, sizeof(recvBuf), transfer.probe)
+      .build();
+  recvReq->cancel();
+
+  EXPECT_TRUE(recvReq->isCompleted());
+  EXPECT_EQ(recvReq->getStatus(), UCS_OK);
+  EXPECT_EQ(recvBuf, sendBuf);
+  EXPECT_THROW(transfer.probe->getHandle(), std::runtime_error);
+}
+
+TEST_F(WorkerTest, TagRecvWithHandleConsumesMessageWithZeroLengthBuffer)
+{
+  int sendBuf{123};
+  auto transfer = makeProbedTagTransfer(&sendBuf, sizeof(sendBuf), false);
+  ASSERT_TRUE(transfer.probe->isMatched());
+
+  auto recvReq = transfer.recvWorker->tagRecvWithHandleBuilder(nullptr, 0, transfer.probe).build();
+  EXPECT_THROW(transfer.probe->getHandle(), std::runtime_error);
+  progressUntilCompleted(transfer, recvReq);
+
+  EXPECT_EQ(recvReq->getStatus(), UCS_ERR_MESSAGE_TRUNCATED);
+  progressUntilCompleted(transfer, transfer.sendRequest);
 }
 
 TEST_F(WorkerTest, TagProbeUnconsumedWarning)

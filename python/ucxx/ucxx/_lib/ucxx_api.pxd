@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -326,6 +326,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         )
         RequestTagBuilder tagRecvWithHandleBuilder(
             void* buffer,
+            size_t length,
             shared_ptr[TagProbeInfo] probe_info
         )
         bint isDelayedRequestSubmissionEnabled() const

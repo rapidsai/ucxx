@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -121,6 +121,19 @@ void RequestTag::tagRecvCallback(void* request,
   return req->callback(request, status, info);
 }
 
+void RequestTag::cancel()
+{
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  if (_status == UCS_INPROGRESS && _request == nullptr &&
+      std::holds_alternative<data::TagReceiveWithHandle>(_requestData)) {
+    request();
+    process();
+  }
+
+  Request::cancel();
+}
+
 void RequestTag::request()
 {
   ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
@@ -150,7 +163,7 @@ void RequestTag::request()
                  auto handle   = tagReceiveWithHandle._probeInfo->getHandle();
                  request       = ucp_tag_msg_recv_nbx(_worker->getHandle(),
                                                 tagReceiveWithHandle._buffer,
-                                                tagReceiveWithHandle._probeInfo->getInfo().length,
+                                                tagReceiveWithHandle._length,
                                                 handle,
                                                 &param);
 
@@ -166,6 +179,10 @@ void RequestTag::request()
 
 void RequestTag::populateDelayedSubmission()
 {
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  if (_status != UCS_INPROGRESS || _request != nullptr) return;
+
   bool terminate =
     std::visit(data::dispatch{
                  [this](data::TagSend) {
