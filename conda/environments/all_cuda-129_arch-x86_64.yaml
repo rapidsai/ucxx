@@ -46,5 +46,5 @@ dependencies:
 - scikit-build-core>=0.11.0
 - setuptools>=77.0.0
 - sphinx>=8.1.0
-- ucx>=1.18.0,<1.21
+- ucx>=1.18.0,<1.22
 name: all_cuda-129_arch-x86_64
