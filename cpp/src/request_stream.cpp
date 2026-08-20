@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -94,7 +94,7 @@ void RequestStream::request()
   publishRequest(request);
 }
 
-void RequestStream::populateDelayedSubmission()
+void RequestStream::populateDelayedSubmissionImpl()
 {
   bool terminate =
     std::visit(data::dispatch{

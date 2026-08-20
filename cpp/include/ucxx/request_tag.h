@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -61,6 +61,8 @@ class RequestTag : public Request {
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RequestTag>`.
@@ -99,8 +101,6 @@ class RequestTag : public Request {
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
-
-  virtual void populateDelayedSubmission();
 
   /**
    * @brief Create and submit a tag request.

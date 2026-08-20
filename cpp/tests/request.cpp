@@ -1,8 +1,9 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
+#include <condition_variable>
 #include <memory>
 #include <numeric>
 #include <stdexcept>
@@ -41,6 +42,22 @@ using ::testing::ContainerEq;
 using ::testing::Values;
 
 typedef std::vector<int> DataContainerType;
+
+struct ProgressThreadStartBarrier {
+  std::mutex mutex{};
+  std::condition_variable condition{};
+  bool started{false};
+  bool released{false};
+};
+
+void waitForProgressThreadRelease(void* arg)
+{
+  auto& barrier = *static_cast<ProgressThreadStartBarrier*>(arg);
+  std::unique_lock<std::mutex> lock(barrier.mutex);
+  barrier.started = true;
+  barrier.condition.notify_one();
+  barrier.condition.wait(lock, [&barrier]() { return barrier.released; });
+}
 
 enum class TestBufferType {
   Host,
@@ -236,6 +253,45 @@ class RequestTest
     }
   }
 };
+
+TEST(RequestCancellationTest, CancelBeforeDelayedSubmission)
+{
+  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+  auto worker  = ucxx::workerBuilder(context).delayedSubmission(true).build();
+  auto ep      = worker->createEndpointFromWorkerAddress(worker->getAddress());
+
+  ProgressThreadStartBarrier barrier{};
+  worker->setProgressThreadStartCallback(waitForProgressThreadRelease, &barrier);
+  worker->startProgressThread(true);
+
+  {
+    std::unique_lock<std::mutex> lock(barrier.mutex);
+    barrier.condition.wait(lock, [&barrier]() { return barrier.started; });
+  }
+
+  int recvBuffer{};
+  auto request = ep->tagRecv(&recvBuffer, sizeof(recvBuffer), ucxx::Tag{0}, ucxx::TagMaskFull);
+  request->cancel();
+
+  const bool completedBeforeSubmission = request->isCompleted();
+  const auto statusBeforeSubmission    = request->getStatus();
+
+  {
+    std::lock_guard<std::mutex> lock(barrier.mutex);
+    barrier.released = true;
+  }
+  barrier.condition.notify_one();
+
+  // Wait until the delayed-submission iteration has completed before cleaning up.
+  EXPECT_TRUE(worker->registerGenericPost([]() {}));
+  if (!request->isCompleted()) request->cancel();
+  while (!request->isCompleted())
+    std::this_thread::yield();
+  worker->stopProgressThread();
+
+  EXPECT_TRUE(completedBeforeSubmission);
+  EXPECT_EQ(statusBeforeSubmission, UCS_ERR_CANCELED);
+}
 
 TEST_P(RequestTest, ProgressAm)
 {
