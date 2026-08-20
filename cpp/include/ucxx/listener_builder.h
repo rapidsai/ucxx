@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
 
 #include <ucp/api/ucp.h>
@@ -55,6 +56,19 @@ class ListenerBuilder final {
    * @return The constructed `shared_ptr<ucxx::Listener>` object.
    */
   operator std::shared_ptr<Listener>();
+
+  /**
+   * @brief Set the hostname or IP address the listener should bind to.
+   *
+   * By default the listener binds to all interfaces (wildcard). Use this to restrict
+   * the listener to a specific interface, e.g., `"127.0.0.1"` to accept connections
+   * from the local host only.
+   *
+   * @param[in] host hostname or IP address the listener should bind to, an empty
+   *                 string binds to all interfaces.
+   * @return Reference to this builder for method chaining.
+   */
+  ListenerBuilder& host(std::string host);
 
   /**
    * @brief Build and return the `Listener`.
