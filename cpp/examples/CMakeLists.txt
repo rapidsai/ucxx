@@ -56,6 +56,7 @@ endfunction()
 # ##################################################################################################
 # * basic example ---------------------------------------------------------------------------------
 ConfigureBench(ucxx_example_basic basic.cpp)
+ConfigureBench(ucxx_example_request_attributes request_attributes.cpp)
 
 add_custom_target(
   run_examples
