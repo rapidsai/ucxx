@@ -3,6 +3,7 @@
 
 import multiprocessing as mp
 import os
+import time
 
 import pytest
 
@@ -118,3 +119,22 @@ def test_close_callback(server_close_callback):
     join_processes([client, server], timeout=10)
     terminate_process(client, error_queue=client_error_q)
     terminate_process(server, error_queue=server_error_q)
+
+
+def test_close_returns_none_if_already_closing():
+    ctx = ucx_api.UCXContext()
+    worker = ucx_api.UCXWorker(ctx)
+    ep = ucx_api.UCXEndpoint.create_from_worker_address(
+        worker, worker.address, endpoint_error_handling=True
+    )
+
+    close_request = ep.close()
+    assert close_request is not None
+    assert ep.close() is None
+
+    deadline = time.monotonic() + 5
+    while not close_request.completed and time.monotonic() < deadline:
+        worker.progress()
+
+    assert close_request.completed
+    close_request.check_error()
