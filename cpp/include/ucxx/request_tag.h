@@ -24,6 +24,8 @@ namespace ucxx {
  */
 class RequestTag : public Request {
  private:
+  bool _cancelRequested{false};  ///< Whether to cancel immediately after delayed submission.
+
   /**
    * @brief Private constructor of `ucxx::RequestTag`.
    *
@@ -106,8 +108,8 @@ class RequestTag : public Request {
    * @brief Cancel the tag request.
    *
    * A receive created from a probed message handle must consume that handle before it can
-   * be canceled. If delayed submission has not occurred yet, submit it first and then use
-   * normal request cancelation.
+   * be canceled. If delayed submission has not occurred yet, defer cancelation until the
+   * progress context has submitted and processed the receive.
    */
   void cancel() override;
 

@@ -365,10 +365,10 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
   EXPECT_EQ(recv_buf, buf);
 }
 
-TEST_F(WorkerTest, CancelTagRecvWithHandleBeforeDelayedSubmissionConsumesHandle)
+TEST_F(WorkerTest, CancelTagRecvWithHandleDefersSubmissionToProgressThread)
 {
-  // Keep the transfer in progress after the rendezvous header is matched so cancel() submits
-  // a real UCP request while the delayed callback remains queued.
+  // Keep the transfer in progress after the rendezvous header is matched so delayed submission
+  // produces a real UCP request that must subsequently be canceled.
   std::vector<int> sendBuf(1 << 20, 123);
   auto transfer = makeProbedTagTransfer(sendBuf.data(), sendBuf.size() * sizeof(int), true);
   ASSERT_TRUE(transfer.probe->isMatched());
@@ -383,11 +383,12 @@ TEST_F(WorkerTest, CancelTagRecvWithHandleBeforeDelayedSubmissionConsumesHandle)
       .build();
   recvReq->cancel();
 
-  EXPECT_THROW(transfer.probe->getHandle(), std::runtime_error);
+  EXPECT_NO_THROW(transfer.probe->getHandle());
   EXPECT_FALSE(recvReq->isCompleted());
 
   progressThread.resume();
   progressUntilCompleted(transfer, recvReq, false);
+  EXPECT_THROW(transfer.probe->getHandle(), std::runtime_error);
 }
 
 TEST_F(WorkerTest, TagRecvWithHandleHonorsReceiveBufferLength)
@@ -422,7 +423,11 @@ TEST_F(WorkerTest, CancelTagRecvWithHandleProcessesImmediateTruncation)
         .build();
     recvReq->cancel();
 
-    EXPECT_TRUE(recvReq->isCompleted());
+    EXPECT_FALSE(recvReq->isCompleted());
+    EXPECT_NO_THROW(transfer.probe->getHandle());
+
+    progressThread.resume();
+    progressUntilCompleted(transfer, recvReq, false);
     EXPECT_EQ(recvReq->getStatus(), UCS_ERR_MESSAGE_TRUNCATED);
     EXPECT_THROW(transfer.probe->getHandle(), std::runtime_error);
   }
@@ -443,7 +448,11 @@ TEST_F(WorkerTest, CancelTagRecvWithHandlePreservesImmediateCompletion)
       .build();
   recvReq->cancel();
 
-  EXPECT_TRUE(recvReq->isCompleted());
+  EXPECT_FALSE(recvReq->isCompleted());
+  EXPECT_NO_THROW(transfer.probe->getHandle());
+
+  progressThread.resume();
+  progressUntilCompleted(transfer, recvReq, false);
   EXPECT_EQ(recvReq->getStatus(), UCS_OK);
   EXPECT_EQ(recvBuf, sendBuf);
   EXPECT_THROW(transfer.probe->getHandle(), std::runtime_error);
