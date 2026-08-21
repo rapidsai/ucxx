@@ -450,8 +450,8 @@ class Endpoint:
         except Exception:
             # Only probe the worker as last resort. To be reliable, probing for the tag
             # requires progressing the worker, thus prevent that happening too often.
-            ctx = self._ctx
-            if ctx is None or not ctx.worker.tag_probe(tag).matched:
+            worker = None if self._ctx is None else self._ctx.worker
+            if worker is None or not worker.tag_probe(tag).matched:
                 raise
 
             if not isinstance(buffer, Array):
@@ -460,7 +460,7 @@ class Endpoint:
             # Reserve the matched message and receive it directly on the worker. A tag
             # receive submitted on an endpoint that has already closed would immediately
             # be scheduled for cancelation.
-            probe_info = ctx.worker.tag_probe(tag, remove=True)
+            probe_info = worker.tag_probe(tag, remove=True)
             if not probe_info.matched:
                 raise
 
@@ -484,7 +484,7 @@ class Endpoint:
         if probe_info is None:
             req = self._ep.tag_recv(buffer, tag, TagMaskFull)
         else:
-            req = ctx.worker.tag_recv_with_handle(buffer, probe_info)
+            req = worker.tag_recv_with_handle(buffer, probe_info)
 
         try:
             ret = await req.wait()
@@ -495,13 +495,13 @@ class Endpoint:
             # worker-owned receive cancelation must always propagate.
             if probe_info is not None:
                 raise
-            ctx = self._ctx
-            if ctx is None:
+            worker = None if self._ctx is None else self._ctx.worker
+            if worker is None:
                 raise
-            probe_info = ctx.worker.tag_probe(tag, remove=True)
+            probe_info = worker.tag_probe(tag, remove=True)
             if not probe_info.matched:
                 raise
-            req = ctx.worker.tag_recv_with_handle(buffer, probe_info)
+            req = worker.tag_recv_with_handle(buffer, probe_info)
             ret = await req.wait()
 
         self._finished_recv_count += 1
