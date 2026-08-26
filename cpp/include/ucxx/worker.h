@@ -886,7 +886,11 @@ class Worker : public Component {
                                                            std::shared_ptr<TagProbeInfo> probeInfo);
 
   /**
-   * @brief Create a builder for a bounded tag receive using a message handle.
+   * @brief Create a builder for a tag receive operation using a message handle.
+   *
+   * If the message does not fit in the receive buffer, the resulting request completes
+   * with `UCS_ERR_MESSAGE_TRUNCATED`. Calling `Request::checkError()` then raises
+   * `ucxx::MessageTruncatedError`.
    *
    * @param[in] buffer     a raw pointer to pre-allocated receive memory.
    * @param[in] length     the size in bytes of the receive buffer.
