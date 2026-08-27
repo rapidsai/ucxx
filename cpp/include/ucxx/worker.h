@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -883,6 +883,23 @@ class Worker : public Component {
    * @returns Builder to configure optional parameters and submit the request.
    */
   [[nodiscard]] RequestTagBuilder tagRecvWithHandleBuilder(void* buffer,
+                                                           std::shared_ptr<TagProbeInfo> probeInfo);
+
+  /**
+   * @brief Create a builder for a tag receive operation using a message handle.
+   *
+   * If the message does not fit in the receive buffer, the resulting request completes
+   * with `UCS_ERR_MESSAGE_TRUNCATED`. Calling `Request::checkError()` then raises
+   * `ucxx::MessageTruncatedError`.
+   *
+   * @param[in] buffer     a raw pointer to pre-allocated receive memory.
+   * @param[in] length     the size in bytes of the receive buffer.
+   * @param[in] probeInfo  the TagProbeInfo object containing message length and handle.
+   *
+   * @returns Builder to configure optional parameters and submit the request.
+   */
+  [[nodiscard]] RequestTagBuilder tagRecvWithHandleBuilder(void* buffer,
+                                                           size_t length,
                                                            std::shared_ptr<TagProbeInfo> probeInfo);
 
   /**
