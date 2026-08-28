@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -442,15 +442,27 @@ class Endpoint:
         if not isinstance(tag, Tag):
             tag = Tag(tag)
 
+        probe_info = None
         try:
             self._ep.raise_on_error()
             if self.closed:
                 raise UCXCloseError("Endpoint closed")
-        except Exception as e:
+        except Exception:
             # Only probe the worker as last resort. To be reliable, probing for the tag
             # requires progressing the worker, thus prevent that happening too often.
-            if not self._ctx.worker.tag_probe(tag).matched:
-                raise e
+            worker = None if self._ctx is None else self._ctx.worker
+            if worker is None or not worker.tag_probe(tag).matched:
+                raise
+
+            if not isinstance(buffer, Array):
+                buffer = Array(buffer)
+
+            # Reserve the matched message and receive it directly on the worker. A tag
+            # receive submitted on an endpoint that has already closed would immediately
+            # be scheduled for cancelation.
+            probe_info = worker.tag_probe(tag, remove=True)
+            if not probe_info.matched:
+                raise
 
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
@@ -469,8 +481,28 @@ class Endpoint:
 
         self._recv_count += 1
 
-        req = self._ep.tag_recv(buffer, tag, TagMaskFull)
-        ret = await req.wait()
+        if probe_info is None:
+            req = self._ep.tag_recv(buffer, tag, TagMaskFull)
+        else:
+            req = worker.tag_recv_with_handle(buffer, probe_info)
+
+        try:
+            ret = await req.wait()
+        except UCXCanceled:
+            # The endpoint may close after the initial status check but before a delayed
+            # receive is submitted. If its message is already queued on the worker,
+            # reserve and receive it there; otherwise preserve the cancelation. A
+            # worker-owned receive cancelation must always propagate.
+            if probe_info is not None:
+                raise
+            worker = None if self._ctx is None else self._ctx.worker
+            if worker is None:
+                raise
+            probe_info = worker.tag_probe(tag, remove=True)
+            if not probe_info.matched:
+                raise
+            req = worker.tag_recv_with_handle(buffer, probe_info)
+            ret = await req.wait()
 
         self._finished_recv_count += 1
         if (

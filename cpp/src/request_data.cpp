@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -114,10 +114,13 @@ TagReceive::TagReceive(void* buffer,
 {
 }
 
-TagReceiveWithHandle::TagReceiveWithHandle(void* buffer, std::shared_ptr<TagProbeInfo> probeInfo)
-  : _buffer(buffer), _probeInfo(std::move(probeInfo))
+TagReceiveWithHandle::TagReceiveWithHandle(void* buffer,
+                                           size_t length,
+                                           std::shared_ptr<TagProbeInfo> probeInfo)
+  : _buffer(buffer), _length(length), _probeInfo(std::move(probeInfo))
 {
-  if (_buffer == nullptr) throw std::runtime_error("Buffer cannot be a nullptr.");
+  if (_buffer == nullptr && _length > 0)
+    throw std::runtime_error("Buffer cannot be a nullptr when length is > 0.");
   if (!_probeInfo->isMatched()) throw std::runtime_error("TagProbeInfo must be matched.");
   // getInfo() and getHandle() will throw runtime_error if invalid, so we can just call them
   try {

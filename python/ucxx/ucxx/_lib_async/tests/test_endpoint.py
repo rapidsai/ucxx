@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -7,7 +7,158 @@ from queue import Empty, Queue
 import pytest
 
 import ucxx
+from ucxx._lib.libucxx import UCXCanceled, UCXCloseError, UCXMessageTruncatedError
+from ucxx._lib_async.endpoint import Endpoint
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx.types import Tag
+
+
+class _MatchedProbe:
+    def __init__(self, tag, message, remove):
+        self.matched = True
+        self.sender_tag = tag
+        self.length = len(message)
+        self.handle = object() if remove else None
+        self.message = message
+
+
+class _UnmatchedProbe:
+    matched = False
+    sender_tag = None
+    length = 0
+    handle = None
+
+
+class _CompletedReceive:
+    def __init__(self, buffer, message):
+        self._buffer = buffer
+        self._message = message
+
+    async def wait(self):
+        self._buffer.obj[:] = self._message
+
+
+class _CanceledReceive:
+    async def wait(self):
+        raise UCXCanceled("Request canceled")
+
+
+class _TruncatedReceive:
+    async def wait(self):
+        raise UCXMessageTruncatedError("Message truncated")
+
+
+class _WorkerWithMatchedMessage:
+    def __init__(self, message):
+        self.message = message
+
+    def tag_probe(self, tag, remove=False):
+        if self.message is None:
+            return _UnmatchedProbe()
+        probe = _MatchedProbe(tag, self.message, remove)
+        if remove:
+            self.message = None
+        return probe
+
+    def tag_recv_with_handle(self, buffer, probe_result):
+        if probe_result.handle is None:
+            raise ValueError("TagProbeResult does not own the matched message")
+        if buffer.nbytes < probe_result.length:
+            return _TruncatedReceive()
+        return _CompletedReceive(buffer, probe_result.message)
+
+
+class _WorkerCancelingMatchedReceive(_WorkerWithMatchedMessage):
+    def __init__(self, message):
+        super().__init__(message)
+        self._receive_attempts = 0
+
+    def tag_recv_with_handle(self, buffer, probe_result):
+        self._receive_attempts += 1
+        if self._receive_attempts == 1:
+            return _CanceledReceive()
+        return super().tag_recv_with_handle(buffer, probe_result)
+
+
+class _ContextWithMatchedMessage:
+    def __init__(self, worker):
+        self.worker = worker
+
+
+class _ClosedEndpoint:
+    alive = False
+    handle = 1
+
+    def raise_on_error(self):
+        raise UCXCloseError("Endpoint closed")
+
+    def tag_recv(self, buffer, tag, tag_mask):
+        raise AssertionError("receive was submitted on a closed endpoint")
+
+
+class _EndpointClosingDuringReceive(_ClosedEndpoint):
+    alive = True
+
+    def raise_on_error(self):
+        pass
+
+    def tag_recv(self, buffer, tag, tag_mask):
+        return _CanceledReceive()
+
+
+def _endpoint_with_matched_message(low_level_endpoint, worker):
+    endpoint = Endpoint.__new__(Endpoint)
+    endpoint._ep = low_level_endpoint
+    endpoint._ctx = _ContextWithMatchedMessage(worker)
+    endpoint._tags = {"msg_recv": Tag(1)}
+    endpoint._recv_count = 0
+    endpoint._finished_recv_count = 0
+    endpoint._close_after_n_recv = None
+    return endpoint
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "low_level_endpoint",
+    [_ClosedEndpoint(), _EndpointClosingDuringReceive()],
+    ids=["already-closed", "closes-during-submission"],
+)
+async def test_recv_matched_message_after_endpoint_closes(low_level_endpoint):
+    message = b"message received before endpoint closed"
+    worker = _WorkerWithMatchedMessage(message)
+    endpoint = _endpoint_with_matched_message(low_level_endpoint, worker)
+    received = bytearray(len(message))
+
+    await endpoint.recv(received)
+
+    assert received == message
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "low_level_endpoint",
+    [_ClosedEndpoint(), _EndpointClosingDuringReceive()],
+    ids=["already-closed", "closes-during-submission"],
+)
+async def test_recv_matched_message_after_endpoint_closes_buffer_too_small(
+    low_level_endpoint,
+):
+    message = b"message received before endpoint closed"
+    worker = _WorkerWithMatchedMessage(message)
+    endpoint = _endpoint_with_matched_message(low_level_endpoint, worker)
+
+    with pytest.raises(UCXMessageTruncatedError):
+        await endpoint.recv(bytearray(len(message) - 1))
+
+
+@pytest.mark.asyncio
+async def test_recv_worker_cancelation_is_not_retried():
+    message = b"message received before endpoint closed"
+    worker = _WorkerCancelingMatchedReceive(message)
+    endpoint = _endpoint_with_matched_message(_ClosedEndpoint(), worker)
+
+    with pytest.raises(UCXCanceled):
+        await endpoint.recv(bytearray(len(message)))
 
 
 @pytest.mark.asyncio

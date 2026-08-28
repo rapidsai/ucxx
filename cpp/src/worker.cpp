@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -675,14 +675,24 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
   }
 
   auto worker = std::static_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(createRequestTag(worker,
-                                                  data::TagReceiveWithHandle(buffer, probeInfo),
-                                                  enableFuture,
-                                                  std::move(callbackFunction),
-                                                  std::move(callbackData)));
+  return registerInflightRequest(
+    createRequestTag(worker,
+                     data::TagReceiveWithHandle(buffer, probeInfo->getInfo().length, probeInfo),
+                     enableFuture,
+                     std::move(callbackFunction),
+                     std::move(callbackData)));
 }
 
 RequestTagBuilder Worker::tagRecvWithHandleBuilder(void* buffer,
+                                                   std::shared_ptr<TagProbeInfo> probeInfo)
+{
+  if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
+  const auto length = probeInfo->getInfo().length;
+  return tagRecvWithHandleBuilder(buffer, length, std::move(probeInfo));
+}
+
+RequestTagBuilder Worker::tagRecvWithHandleBuilder(void* buffer,
+                                                   size_t length,
                                                    std::shared_ptr<TagProbeInfo> probeInfo)
 {
   if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
@@ -695,7 +705,8 @@ RequestTagBuilder Worker::tagRecvWithHandleBuilder(void* buffer,
   }
 
   auto worker = std::static_pointer_cast<Worker>(shared_from_this());
-  return RequestTagBuilder(std::move(worker), data::TagReceiveWithHandle(buffer, probeInfo));
+  return RequestTagBuilder(std::move(worker),
+                           data::TagReceiveWithHandle(buffer, length, probeInfo));
 }
 
 std::shared_ptr<Address> Worker::getAddress()
