@@ -116,7 +116,7 @@ Only necessary to build also UCX from source.
 UCX >= 1.19.0
 ^^^^^^^^^^^^^
 
-Instructions for building UCX >= 1.19.0 (minimum version supported by UCXX), make sure to change ``git checkout v1.18.0`` to a newer version if desired:
+Instructions for building UCX >= 1.19.0 (minimum version supported by UCXX), make sure to change ``git checkout v1.19.0`` to a newer version if desired:
 
 ::
 

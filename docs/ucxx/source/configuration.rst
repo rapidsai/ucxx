@@ -33,12 +33,6 @@ Apply to all UCX versions:
     UCX_FRAG_MEM_TYPE=cuda
     UCX_MAX_RNDV_RAILS=1
 
-Apply to UCX < 1.18.0, newer versions rely on UCX defaults:
-
-::
-
-    UCX_PROTO_ENABLE=n
-
 Apply to devices with a BAR1 size equal to the device size, provided it's not in MIG mode:
 
 ::
