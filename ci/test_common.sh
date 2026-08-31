@@ -42,7 +42,13 @@ print_ucx_config() {
 configure_ucx_tls() {
   local ucx_version
 
-  ucx_version="$(ucx_info -v | sed -nE 's/^# Library version: ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' | head -n 1)"
+  if command -v ucx_info > /dev/null; then
+    ucx_version="$(ucx_info -v | sed -nE 's/^# Library version: ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' | head -n 1)"
+  else
+    # ucx_info is not always available (wheels do not ship executables). Rely on
+    # Python to determine UCX version as a fallback.
+    ucx_version="$(python -c 'import ucxx; print(ucxx.__ucx_version__)')"
+  fi
 
   # See https://github.com/rapidsai/ucxx/issues/733
   # TODO: Remove when UCX 1.23 or higher becomes minimum supported.
