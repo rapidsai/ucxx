@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -37,6 +37,18 @@ print_ucx_config() {
   rapids-logger "UCX Version and Build Configuration"
 
   ucx_info -v
+}
+
+configure_ucx_tls() {
+  local ucx_version
+
+  ucx_version="$(ucx_info -v | sed -nE 's/^# Library version: ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' | head -n 1)"
+
+  # See https://github.com/rapidsai/ucxx/issues/733
+  # TODO: Remove when UCX 1.23 or higher becomes minimum supported.
+  if [[ "${ucx_version}" == 1.21.* ]]; then
+    export UCX_TLS=^cuda_ipc
+  fi
 }
 
 run_port_retry() {
