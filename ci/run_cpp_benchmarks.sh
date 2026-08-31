@@ -5,12 +5,11 @@
 
 set -euo pipefail
 
-# See https://github.com/rapidsai/ucxx/issues/733
-export UCX_TLS=^cuda_ipc
-
 TIMEOUT_TOOL_PATH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/timeout_with_stack.py
 
 source "$(dirname "$0")/test_common.sh"
+
+configure_ucx_tls
 
 # Support invoking run_cpp_benchmarks.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
