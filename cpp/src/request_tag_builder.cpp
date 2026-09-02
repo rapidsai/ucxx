@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -26,7 +26,7 @@ RequestTagBuilder::RequestTagBuilder(
 std::shared_ptr<RequestTag> RequestTagBuilder::build()
 {
   markBuilt();
-  auto req = ucxx::createRequestTag(
+  auto req = detail::createRequestTag(
     _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpointOrWorker, req);
   return req;

@@ -83,7 +83,7 @@ class Worker : public Component {
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
 
-  friend std::shared_ptr<RequestAm> createRequestAm(
+  friend std::shared_ptr<RequestAm> detail::createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,
     const bool enablePythonFuture,
@@ -204,14 +204,14 @@ class Worker : public Component {
   Worker& operator=(Worker&& o)    = delete;
 
   /**
-   * @brief Friend declaration for `ucxx::createWorker` with parameters.
+   * @brief Allow the internal worker factory to access the protected constructor.
    *
-   * This friend declaration allows the standalone `ucxx::createWorker` function to access
-   * the protected constructor. See the public declaration for full documentation.
+   * This friend declaration allows `ucxx::detail::createWorker` to access the protected
+   * constructor.
    */
-  friend std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                              const bool enableDelayedSubmission,
-                                              const bool enableFuture);
+  friend std::shared_ptr<Worker> detail::createWorker(std::shared_ptr<Context> context,
+                                                      const bool enableDelayedSubmission,
+                                                      const bool enableFuture);
 
   /**
    * @brief Allow WorkerBuilder to access protected/private constructor.
@@ -903,20 +903,6 @@ class Worker : public Component {
                                                            std::shared_ptr<TagProbeInfo> probeInfo);
 
   /**
-   * @brief Get the address of the UCX worker object.
-   *
-   * Gets the address of the underlying UCX worker object, which can then be passed
-   * to a remote worker, allowing creating a new endpoint to the local worker via
-   * `ucxx::Worker::endpointBuilder()`.
-   *
-   * @throws ucxx::Error if an error occurred while attempting to get the worker address.
-   *
-   * @returns The address of the local worker.
-   */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::addressBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<Address> getAddress();
-
-  /**
    * @brief Create a builder for this worker's address.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
@@ -939,34 +925,6 @@ class Worker : public Component {
   [[nodiscard]] EndpointBuilder endpointBuilder(std::string ipAddress, uint16_t port);
 
   /**
-   * @brief Create endpoint to worker listening on specific IP and port.
-   *
-   * Creates an endpoint to a remote worker listening on a specific IP address and port.
-   * The remote worker must have an active listener created with
-   * `ucxx::Worker::listenerBuilder()`.
-   *
-   * @code{.cpp}
-   * // `worker` is `std::shared_ptr<ucxx::Worker>`
-   * // Create endpoint to worker listening on `10.10.10.10:12345`.
-   * auto ep = worker->endpointBuilder("10.10.10.10", 12345).build();
-   * @endcode
-   *
-   * @throws std::invalid_argument if the IP address or hostname is invalid.
-   * @throws std::bad_alloc if there was an error allocating space to handle the address.
-   * @throws ucxx::Error if an error occurred while attempting to create the endpoint.
-   *
-   * @param[in] ipAddress string containing the IP address of the remote worker.
-   * @param[in] port port number where the remote worker is listening at.
-   * @param[in] endpointErrorHandling enable endpoint error handling if `true`,
-   *                                  disable otherwise.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object
-   */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromHostname(
-    std::string ipAddress, uint16_t port, bool endpointErrorHandling = true);
-
-  /**
    * @brief Create a builder for an endpoint to a worker located at a UCX address.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
@@ -976,38 +934,6 @@ class Worker : public Component {
    * @returns Builder to configure optional endpoint parameters.
    */
   [[nodiscard]] EndpointBuilder endpointBuilder(std::shared_ptr<Address> address);
-
-  /**
-   * @brief Create endpoint to worker located at UCX address.
-   *
-   * Creates an endpoint to a listener-independent remote worker. The worker location is
-   * identified by its UCX address, wrapped by a `std::shared_ptr<ucxx::Address>` object.
-   *
-   * @code{.cpp}
-   * // `worker` is `std::shared_ptr<ucxx::Worker>`
-   * auto localAddress = worker->addressBuilder().build();
-   *
-   * // pass address to remote process
-   * // ...
-   *
-   * // receive address received from remote process
-   * // ...
-   *
-   * // `remoteAddress` is `std::shared_ptr<ucxx::Address>`
-   * auto ep = worker->endpointBuilder(remoteAddress).build();
-   * @endcode
-   *
-   * @throws ucxx::Error if an error occurred while attempting to create the endpoint.
-   *
-   * @param[in] address address of the remote UCX worker.
-   * @param[in] endpointErrorHandling enable endpoint error handling if `true`,
-   *                                  disable otherwise.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object
-   */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Worker::endpointBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
-    std::shared_ptr<Address> address, bool endpointErrorHandling = true);
 
   /**
    * @brief Create a builder for a listener on this worker.
@@ -1023,28 +949,6 @@ class Worker : public Component {
   [[nodiscard]] ListenerBuilder listenerBuilder(uint16_t port,
                                                 ucp_listener_conn_callback_t callback,
                                                 void* callbackArgs);
-
-  /**
-   * @brief Listen for remote connections on given port.
-   *
-   * Starts a listener on given port. The listener allows remote processes to connect to
-   * the local worker via an IP and port pair. The connection is then handle via a
-   * callback specified by the user.
-   *
-   * @throws std::bad_alloc if there was an error allocating space to handle the address.
-   * @throws ucxx::Error if an error occurred while attempting to create the listener or
-   *                     to acquire its address.
-   *
-   * @param[in] port port number where to listen at.
-   * @param[in] callback to handle each incoming connection.
-   * @param[in] callbackArgs pointer to argument to pass to the callback.
-   *
-   * @returns The `shared_ptr<ucxx::Listener>` object
-   */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::listenerBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<Listener> createListener(uint16_t port,
-                                                         ucp_listener_conn_callback_t callback,
-                                                         void* callbackArgs);
 
   /**
    * @brief Register allocator for active messages.
@@ -1225,9 +1129,5 @@ class Worker : public Component {
  *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
  * @returns The `shared_ptr<ucxx::Worker>` object
  */
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::workerBuilder() instead.")
-[[nodiscard]] std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                                   const bool enableDelayedSubmission,
-                                                   const bool enableFuture);
 
 }  // namespace ucxx

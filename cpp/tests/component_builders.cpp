@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -201,7 +201,7 @@ TEST(ContextBuilderTest, BuilderBackwardCompatibility)
   uint64_t featureFlags = UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP;
 
   // Old API should still work
-  auto context1 = ucxx::createContext({{"TLS", "tcp"}}, featureFlags);
+  auto context1 = ucxx::contextBuilder(featureFlags).configMap({{"TLS", "tcp"}}).build();
   ASSERT_TRUE(context1 != nullptr);
   ASSERT_TRUE(context1->getHandle() != nullptr);
   ASSERT_EQ(context1->getFeatureFlags(), featureFlags);
@@ -225,7 +225,7 @@ TEST(ContextBuilderTest, BuilderContextIsValid)
 {
   auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
 
-  auto worker = context->createWorker();
+  auto worker = context->workerBuilder().build();
   ASSERT_TRUE(worker != nullptr);
 }
 
@@ -373,7 +373,7 @@ TEST(WorkerBuilderTest, BuilderBackwardCompatibility)
   auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
 
   // Old API should still work
-  auto worker1 = context->createWorker(true, true);
+  auto worker1 = context->workerBuilder().delayedSubmission().pythonFuture().build();
   ASSERT_TRUE(worker1 != nullptr);
   ASSERT_TRUE(worker1->getHandle() != nullptr);
   ASSERT_TRUE(worker1->isDelayedRequestSubmissionEnabled());
@@ -501,7 +501,8 @@ TEST_F(ComponentBuilderTest, AddressBuilderFromWorkerAndString)
 
 TEST_F(ComponentBuilderTest, EndpointBuilderFromWorkerAddress)
 {
-  auto builder = ucxx::endpointBuilder(_worker, _worker->getAddress()).endpointErrorHandling(false);
+  auto builder =
+    ucxx::endpointBuilder(_worker, _worker->addressBuilder().build()).endpointErrorHandling(false);
   static_assert(std::is_same<decltype(builder), ucxx::EndpointBuilder>::value,
                 "endpointBuilder returns EndpointBuilder");
   assertBuildRequiresNonConstBuilder<ucxx::EndpointBuilder, ucxx::Endpoint>();
@@ -568,7 +569,7 @@ TEST_F(ComponentBuilderTest, RemoteKeyBuilderFromMemoryHandleAndSerialized)
   ASSERT_TRUE(localRemoteKey != nullptr);
   ASSERT_EQ(localRemoteKey->getSize(), memoryHandle->getSize());
 
-  auto endpoint = ucxx::endpointBuilder(_worker, _worker->getAddress()).build();
+  auto endpoint = ucxx::endpointBuilder(_worker, _worker->addressBuilder().build()).build();
   std::shared_ptr<ucxx::RemoteKey> unpackedRemoteKey =
     ucxx::RemoteKeyBuilder(endpoint, localRemoteKey->serialize());
   ASSERT_TRUE(unpackedRemoteKey != nullptr);
@@ -586,7 +587,7 @@ TEST_F(ComponentBuilderTest, RemoteKeyChildBuilders)
   auto localRemoteKey = builder.build();
   ASSERT_TRUE(localRemoteKey != nullptr);
 
-  auto endpoint      = _worker->endpointBuilder(_worker->getAddress()).build();
+  auto endpoint      = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   auto unpackBuilder = endpoint->remoteKeyBuilder(localRemoteKey->serialize());
   static_assert(std::is_same<decltype(unpackBuilder), ucxx::RemoteKeyBuilder>::value,
                 "endpoint->remoteKeyBuilder() returns RemoteKeyBuilder");

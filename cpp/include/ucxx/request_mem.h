@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -9,6 +9,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/constructors.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
 #include <ucxx/request_mem_builder.h>
@@ -100,7 +101,7 @@ class RequestMem : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestMem>` object
    */
-  friend std::shared_ptr<RequestMem> createRequestMem(
+  friend std::shared_ptr<RequestMem> detail::createRequestMem(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::MemPut, data::MemGet> requestData,
     const bool enablePythonFuture,

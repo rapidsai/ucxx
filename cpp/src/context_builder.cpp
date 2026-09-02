@@ -1,10 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
 #include <utility>
 
+#include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/context_builder.h>
 #include <ucxx/detail/builder_utils.h>
@@ -32,7 +33,7 @@ ContextBuilder& ContextBuilder::configMap(ConfigMap configMap)
 
 std::shared_ptr<Context> ContextBuilder::build()
 {
-  return ucxx::createContext(_impl->configMap, _impl->featureFlags);
+  return detail::createContext(_impl->configMap, _impl->featureFlags);
 }
 
 }  // namespace ucxx

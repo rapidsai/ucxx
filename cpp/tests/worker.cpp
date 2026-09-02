@@ -96,10 +96,10 @@ struct ProbedTagTransfer {
 class WorkerTest : public ::testing::Test {
  protected:
   std::shared_ptr<ucxx::Context> _context{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
 
-  virtual void SetUp() { _worker = _context->createWorker(); }
+  virtual void SetUp() { _worker = _context->workerBuilder().build(); }
 
   void consumeTagMessageHandle(std::vector<int>* recv_buf, ucp_tag_message_h handle, size_t length)
   {
@@ -116,10 +116,11 @@ class WorkerTest : public ::testing::Test {
                                           bool delayedSubmission,
                                           bool waitForSendCompletion = false)
   {
-    ProbedTagTransfer transfer{_context->createWorker(delayedSubmission),
-                               _context->createWorker(false)};
+    ProbedTagTransfer transfer{
+      _context->workerBuilder().delayedSubmission(delayedSubmission).build(),
+      _context->workerBuilder().build()};
     transfer.endpoint =
-      transfer.sendWorker->createEndpointFromWorkerAddress(transfer.recvWorker->getAddress());
+      transfer.sendWorker->endpointBuilder(transfer.recvWorker->addressBuilder().build()).build();
     transfer.sendRequest = transfer.endpoint->tagSend(buffer, length, ucxx::Tag{0});
 
     loopWithTimeout(std::chrono::milliseconds(5000), [&]() {
@@ -149,7 +150,7 @@ class WorkerCapabilityTest : public ::testing::Test,
                              public ::testing::WithParamInterface<std::tuple<bool, bool>> {
  protected:
   std::shared_ptr<ucxx::Context> _context{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   bool _enableDelayedSubmission;
   bool _enableFuture;
@@ -158,7 +159,10 @@ class WorkerCapabilityTest : public ::testing::Test,
   {
     std::tie(_enableDelayedSubmission, _enableFuture) = GetParam();
 
-    _worker = _context->createWorker(_enableDelayedSubmission, _enableFuture);
+    _worker = _context->workerBuilder()
+                .delayedSubmission(_enableDelayedSubmission)
+                .pythonFuture(_enableFuture)
+                .build();
   }
 };
 
@@ -175,7 +179,7 @@ class WorkerProgressTest
   {
     std::tie(_enableDelayedSubmission, _progressMode, _extraParams) = GetParam();
 
-    _worker = _context->createWorker(_enableDelayedSubmission);
+    _worker = _context->workerBuilder().delayedSubmission(_enableDelayedSubmission).build();
 
     if (_progressMode == ProgressMode::Blocking)
       _worker->initBlockingProgressMode();
@@ -279,7 +283,7 @@ INSTANTIATE_TEST_SUITE_P(Capabilities,
 TEST_F(WorkerTest, TagProbe)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   auto probed = _worker->tagProbe(ucxx::Tag{0});
   ASSERT_FALSE(probed->isMatched());
@@ -321,7 +325,7 @@ TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
 TEST_F(WorkerTest, TagProbeRemoveWithMessage)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   // Send a message
   std::vector<int> buf{123};
@@ -475,7 +479,7 @@ TEST_F(WorkerTest, TagRecvWithHandleConsumesMessageWithZeroLengthBuffer)
 TEST_F(WorkerTest, TagProbeUnconsumedWarning)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   // Send a message
   std::vector<int> buf{123};
@@ -526,7 +530,7 @@ TEST_F(WorkerTest, TagProbeUnconsumedWarning)
 TEST_F(WorkerTest, TagProbeReleaseHandle)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   // Send a message
   std::vector<int> buf{123};
@@ -566,7 +570,7 @@ TEST_F(WorkerTest, TagProbeReleaseHandle)
 TEST_F(WorkerTest, TagProbeConsumeHandle)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   // Send a message
   std::vector<int> buf{123};
@@ -607,7 +611,7 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
 TEST_F(WorkerTest, AmProbe)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   ASSERT_FALSE(_worker->amProbe(ep->getHandle()));
 
@@ -631,7 +635,7 @@ TEST_P(WorkerProgressTest, ProgressAm)
     GTEST_SKIP() << "Wait mode not supported";
   }
 
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
 
@@ -676,7 +680,7 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
     });
   _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
 
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
 
@@ -705,18 +709,18 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
 
 TEST_P(WorkerProgressTest, ProgressMemoryGet)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
   std::vector<int> recv(1);
 
   size_t messageSize = send.size() * sizeof(int);
 
-  auto memoryHandle = _context->createMemoryHandle(messageSize, send.data());
+  auto memoryHandle = _context->memoryHandleBuilder(messageSize).buffer(send.data()).build();
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
+  auto remoteKey           = ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(
@@ -729,18 +733,18 @@ TEST_P(WorkerProgressTest, ProgressMemoryGet)
 
 TEST_P(WorkerProgressTest, ProgressMemoryPut)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
   std::vector<int> recv(1);
 
   size_t messageSize = send.size() * sizeof(int);
 
-  auto memoryHandle = _context->createMemoryHandle(messageSize, recv.data());
+  auto memoryHandle = _context->memoryHandleBuilder(messageSize).buffer(recv.data()).build();
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
+  auto remoteKey           = ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(
@@ -753,7 +757,7 @@ TEST_P(WorkerProgressTest, ProgressMemoryPut)
 
 TEST_P(WorkerProgressTest, ProgressStream)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
   std::vector<int> recv(1);
@@ -768,7 +772,7 @@ TEST_P(WorkerProgressTest, ProgressStream)
 
 TEST_P(WorkerProgressTest, ProgressTag)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
   std::vector<int> recv(1);
@@ -788,7 +792,7 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
 

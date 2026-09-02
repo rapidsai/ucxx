@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -24,7 +24,7 @@ RequestFlushBuilder::RequestFlushBuilder(std::shared_ptr<Component> endpointOrWo
 std::shared_ptr<RequestFlush> RequestFlushBuilder::build()
 {
   markBuilt();
-  auto req = ucxx::createRequestFlush(
+  auto req = detail::createRequestFlush(
     _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpointOrWorker, req);
   return req;

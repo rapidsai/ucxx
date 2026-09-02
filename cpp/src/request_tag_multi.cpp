@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -59,7 +59,7 @@ RequestTagMulti::~RequestTagMulti()
   }
 }
 
-std::shared_ptr<RequestTagMulti> createRequestTagMulti(
+std::shared_ptr<RequestTagMulti> detail::createRequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
   const bool enablePythonFuture)

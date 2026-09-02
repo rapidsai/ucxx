@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -10,6 +10,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/component.h>
+#include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/memory_handle_builder.h>
 #include <ucxx/remote_key_builder.h>
@@ -112,10 +113,10 @@ class MemoryHandle : public Component {
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
-  friend std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
-                                                          const size_t size,
-                                                          void* buffer,
-                                                          const ucs_memory_type_t memoryType);
+  friend std::shared_ptr<MemoryHandle> detail::createMemoryHandle(std::shared_ptr<Context> context,
+                                                                  size_t size,
+                                                                  void* buffer,
+                                                                  ucs_memory_type_t memoryType);
 
   ~MemoryHandle();
 
@@ -195,8 +196,6 @@ class MemoryHandle : public Component {
    *
    * @returns A shared pointer to the created remote key.
    */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::MemoryHandle::remoteKeyBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKey();
 };
 
 }  // namespace ucxx

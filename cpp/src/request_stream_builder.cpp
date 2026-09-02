@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -25,7 +25,7 @@ RequestStreamBuilder::RequestStreamBuilder(
 std::shared_ptr<RequestStream> RequestStreamBuilder::build()
 {
   markBuilt();
-  auto req = ucxx::createRequestStream(_endpoint, _requestData, _enablePythonFuture);
+  auto req = detail::createRequestStream(_endpoint, _requestData, _enablePythonFuture);
   detail::registerInflightRequest(_endpoint, req);
   return req;
 }

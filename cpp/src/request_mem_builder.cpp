@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -24,7 +24,7 @@ RequestMemBuilder::RequestMemBuilder(std::shared_ptr<Endpoint> endpoint,
 std::shared_ptr<RequestMem> RequestMemBuilder::build()
 {
   markBuilt();
-  auto req = ucxx::createRequestMem(
+  auto req = detail::createRequestMem(
     _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpoint, req);
   return req;

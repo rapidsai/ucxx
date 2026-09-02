@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -229,15 +229,9 @@ class RemoteKey : public Component {
 /**
  * @brief Deprecated constructor for `std::shared_ptr<ucxx::RemoteKey>` from a memory handle.
  */
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::RemoteKeyBuilder instead.")
-[[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
-  std::shared_ptr<MemoryHandle> memoryHandle);
 
 /**
  * @brief Deprecated constructor for `std::shared_ptr<ucxx::RemoteKey>` from serialized data.
  */
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::RemoteKeyBuilder instead.")
-[[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
-  std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
 
 }  // namespace ucxx

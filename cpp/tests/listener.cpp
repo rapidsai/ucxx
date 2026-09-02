@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -35,14 +35,15 @@ static void listenerCallback(ucp_conn_request_h connRequest, void* arg)
   listenerContainer->status = ucp_conn_request_query(connRequest, &attr);
   if (listenerContainer->status != UCS_OK) return;
 
-  listenerContainer->endpoint = listenerContainer->listener->createEndpointFromConnRequest(
-    connRequest, listenerContainer->endpointErrorHandling);
+  listenerContainer->endpoint = listenerContainer->listener->endpointBuilder(connRequest)
+                                  .endpointErrorHandling(listenerContainer->endpointErrorHandling)
+                                  .build();
 }
 
 class ListenerTestBase {
  protected:
   std::shared_ptr<ucxx::Context> _context{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   bool _endpointErrorHandling{true};
 
@@ -62,12 +63,12 @@ class ListenerTest : public ListenerTestBase,
   virtual void SetUp()
   {
     _endpointErrorHandling = GetParam();
-    _worker                = _context->createWorker();
+    _worker                = _context->workerBuilder().build();
   }
 
-  virtual std::shared_ptr<ucxx::Listener> createListener(ListenerContainerPtr listenerContainer)
+  virtual std::shared_ptr<ucxx::Listener> buildListener(ListenerContainerPtr listenerContainer)
   {
-    auto listener = _worker->createListener(0, listenerCallback, listenerContainer.get());
+    auto listener = _worker->listenerBuilder(0, listenerCallback, listenerContainer.get()).build();
     listenerContainer->listener = listener;
     return listener;
   }
@@ -81,11 +82,12 @@ class ListenerPortTest : public ListenerTestBase,
   virtual void SetUp()
   {
     _port   = GetParam();
-    _worker = _context->createWorker();
+    _worker = _context->workerBuilder().build();
   }
-  virtual std::shared_ptr<ucxx::Listener> createListener(ListenerContainerPtr listenerContainer)
+  virtual std::shared_ptr<ucxx::Listener> buildListener(ListenerContainerPtr listenerContainer)
   {
-    auto listener = _worker->createListener(_port, listenerCallback, listenerContainer.get());
+    auto listener =
+      _worker->listenerBuilder(_port, listenerCallback, listenerContainer.get()).build();
     listenerContainer->listener = listener;
     return listener;
   }
@@ -94,7 +96,7 @@ class ListenerPortTest : public ListenerTestBase,
 TEST_P(ListenerTest, HandleIsValid)
 {
   auto listenerContainer = createListenerContainer();
-  auto listener          = createListener(listenerContainer);
+  auto listener          = buildListener(listenerContainer);
   _worker->progress();
 
   ASSERT_TRUE(listener->getHandle() != nullptr);
@@ -103,13 +105,14 @@ TEST_P(ListenerTest, HandleIsValid)
 TEST_P(ListenerTest, EndpointSendRecv)
 {
   auto listenerContainer = createListenerContainer();
-  auto listener          = createListener(listenerContainer);
+  auto listener          = buildListener(listenerContainer);
   auto progress          = getProgressFunction(_worker, ProgressMode::Polling);
 
   progress();
 
-  auto ep =
-    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
+  auto ep = _worker->endpointBuilder("127.0.0.1", listener->getPort())
+              .endpointErrorHandling(_endpointErrorHandling)
+              .build();
   while (listenerContainer->endpoint == nullptr)
     progress();
 
@@ -137,11 +140,12 @@ TEST_P(ListenerTest, EndpointSendRecv)
 TEST_P(ListenerTest, IsAlive)
 {
   auto listenerContainer = createListenerContainer();
-  auto listener          = createListener(listenerContainer);
+  auto listener          = buildListener(listenerContainer);
   _worker->progress();
 
-  auto ep =
-    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
+  auto ep = _worker->endpointBuilder("127.0.0.1", listener->getPort())
+              .endpointErrorHandling(_endpointErrorHandling)
+              .build();
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
@@ -169,11 +173,12 @@ TEST_P(ListenerTest, IsAlive)
 TEST_P(ListenerTest, RaiseOnError)
 {
   auto listenerContainer = createListenerContainer();
-  auto listener          = createListener(listenerContainer);
+  auto listener          = buildListener(listenerContainer);
   _worker->progress();
 
-  auto ep =
-    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
+  auto ep = _worker->endpointBuilder("127.0.0.1", listener->getPort())
+              .endpointErrorHandling(_endpointErrorHandling)
+              .build();
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
@@ -195,11 +200,12 @@ TEST_P(ListenerTest, RaiseOnError)
 TEST_P(ListenerTest, EndpointCloseCallback)
 {
   auto listenerContainer = createListenerContainer();
-  auto listener          = createListener(listenerContainer);
+  auto listener          = buildListener(listenerContainer);
   _worker->progress();
 
-  auto ep =
-    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
+  auto ep = _worker->endpointBuilder("127.0.0.1", listener->getPort())
+              .endpointErrorHandling(_endpointErrorHandling)
+              .build();
 
   struct CallbackData {
     ucs_status_t status{UCS_INPROGRESS};
@@ -235,11 +241,12 @@ TEST_P(ListenerTest, EndpointCloseCallback)
 TEST_P(ListenerTest, EndpointNonBlockingClose)
 {
   auto listenerContainer = createListenerContainer();
-  auto listener          = createListener(listenerContainer);
+  auto listener          = buildListener(listenerContainer);
   _worker->progress();
 
-  auto ep =
-    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
+  auto ep = _worker->endpointBuilder("127.0.0.1", listener->getPort())
+              .endpointErrorHandling(_endpointErrorHandling)
+              .build();
 
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
@@ -262,7 +269,7 @@ TEST_P(ListenerTest, EndpointNonBlockingClose)
 TEST_P(ListenerTest, EndpointNonBlockingCloseWithCallbacks)
 {
   auto listenerContainer = createListenerContainer();
-  auto listener          = createListener(listenerContainer);
+  auto listener          = buildListener(listenerContainer);
   _worker->progress();
 
   auto closeCallback = [](ucs_status_t status, ucxx::EndpointCloseCallbackUserData data) {
@@ -272,8 +279,9 @@ TEST_P(ListenerTest, EndpointNonBlockingCloseWithCallbacks)
   auto closeCallbackEndpoint = std::make_shared<ucs_status_t>(UCS_INPROGRESS);
   auto closeCallbackRequest  = std::make_shared<ucs_status_t>(UCS_INPROGRESS);
 
-  auto ep =
-    _worker->createEndpointFromHostname("127.0.0.1", listener->getPort(), _endpointErrorHandling);
+  auto ep = _worker->endpointBuilder("127.0.0.1", listener->getPort())
+              .endpointErrorHandling(_endpointErrorHandling)
+              .build();
   ep->setCloseCallback(closeCallback, closeCallbackEndpoint);
 
   while (listenerContainer->endpoint == nullptr)
@@ -301,7 +309,7 @@ INSTANTIATE_TEST_SUITE_P(EndpointErrorHandling, ListenerTest, ::testing::Values(
 TEST_P(ListenerPortTest, Port)
 {
   auto listenerContainer = createListenerContainer();
-  auto listener          = createListener(listenerContainer);
+  auto listener          = buildListener(listenerContainer);
   _worker->progress();
 
   if (GetParam() == 0)

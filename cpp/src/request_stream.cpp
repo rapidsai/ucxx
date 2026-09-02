@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -34,10 +34,10 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
              requestData);
 }
 
-std::shared_ptr<RequestStream> createRequestStream(
+std::shared_ptr<RequestStream> detail::createRequestStream(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::StreamSend, data::StreamReceive> requestData,
-  const bool enablePythonFuture = false)
+  const bool enablePythonFuture)
 {
   std::shared_ptr<RequestStream> req =
     std::visit(data::dispatch{

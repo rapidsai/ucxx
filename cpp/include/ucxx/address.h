@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -128,13 +128,9 @@ class Address : public Component {
 /**
  * @brief Deprecated constructor for `std::shared_ptr<ucxx::Address>` from a worker.
  */
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::AddressBuilder instead.")
-[[nodiscard]] std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
 
 /**
  * @brief Deprecated constructor for `std::shared_ptr<ucxx::Address>` from a string.
  */
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::AddressBuilder instead.")
-[[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
 
 }  // namespace ucxx

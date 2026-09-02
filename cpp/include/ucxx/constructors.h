@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -56,117 +56,61 @@ namespace detail {
 [[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
                                                                ucp_tag_message_h handle);
 
-}  // namespace detail
-
-// Components
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::AddressBuilder instead.")
-[[nodiscard]] std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::AddressBuilder instead.")
-[[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::contextBuilder() instead.")
-[[nodiscard]] std::shared_ptr<Context> createContext(const ConfigMap ucxConfig,
-                                                     const uint64_t featureFlags);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointBuilder() instead.")
+[[nodiscard]] std::shared_ptr<Context> createContext(ConfigMap ucxConfig, uint64_t featureFlags);
 [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
                                                                    std::string ipAddress,
                                                                    uint16_t port,
                                                                    bool endpointErrorHandling);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromConnRequest(
   std::shared_ptr<Listener> listener, ucp_conn_request_h connRequest, bool endpointErrorHandling);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::endpointBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(
   std::shared_ptr<Worker> worker, std::shared_ptr<Address> address, bool endpointErrorHandling);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::ListenerBuilder instead.")
-[[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                                       uint16_t port,
-                                                       ucp_listener_conn_callback_t callback,
-                                                       void* callbackArgs);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::workerBuilder() instead.")
 [[nodiscard]] std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                                   const bool enableDelayedSubmission,
-                                                   const bool enableFuture);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::MemoryHandleBuilder instead.")
-[[nodiscard]] std::shared_ptr<MemoryHandle> createMemoryHandle(
-  std::shared_ptr<Context> context,
-  const size_t size,
-  void* buffer                       = nullptr,
-  const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::RemoteKeyBuilder instead.")
-[[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
-  std::shared_ptr<MemoryHandle> memoryHandle);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::RemoteKeyBuilder instead.")
-[[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
-  std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
-
-// Transfers
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestAmBuilder() instead.")
+                                                   bool enableDelayedSubmission,
+                                                   bool enableFuture);
+[[nodiscard]] std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
+                                                               size_t size,
+                                                               void* buffer,
+                                                               ucs_memory_type_t memoryType);
 [[nodiscard]] std::shared_ptr<RequestAm> createRequestAm(
   std::shared_ptr<Endpoint> endpoint,
-  const std::variant<data::AmSend, data::AmReceive> requestData,
-  const bool enablePythonFuture,
+  std::variant<data::AmSend, data::AmReceive> requestData,
+  bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestEndpointCloseBuilder() instead.")
 [[nodiscard]] std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
   std::shared_ptr<Endpoint> endpoint,
-  const data::EndpointClose requestData,
-  const bool enablePythonFuture,
+  data::EndpointClose requestData,
+  bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestFlushBuilder() instead.")
 [[nodiscard]] std::shared_ptr<RequestFlush> createRequestFlush(
   std::shared_ptr<Component> endpointOrWorker,
-  const data::Flush requestData,
-  const bool enablePythonFuture,
+  data::Flush requestData,
+  bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestStreamBuilder() instead.")
 [[nodiscard]] std::shared_ptr<RequestStream> createRequestStream(
   std::shared_ptr<Endpoint> endpoint,
-  const std::variant<data::StreamSend, data::StreamReceive> requestData,
-  const bool enablePythonFuture);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestTagBuilder() instead.")
+  std::variant<data::StreamSend, data::StreamReceive> requestData,
+  bool enablePythonFuture);
 [[nodiscard]] std::shared_ptr<RequestTag> createRequestTag(
   std::shared_ptr<Component> endpointOrWorker,
-  const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
-  const bool enablePythonFuture,
+  std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
+  bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestMemBuilder() instead.")
 [[nodiscard]] std::shared_ptr<RequestMem> createRequestMem(
   std::shared_ptr<Endpoint> endpoint,
-  const std::variant<data::MemPut, data::MemGet> requestData,
-  const bool enablePythonFuture,
+  std::variant<data::MemPut, data::MemGet> requestData,
+  bool enablePythonFuture,
   RequestCallbackUserFunction callbackFunction,
   RequestCallbackUserData callbackData);
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::requestTagMultiBuilder() instead.")
 [[nodiscard]] std::shared_ptr<RequestTagMulti> createRequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
-  const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
-  const bool enablePythonFuture);
+  std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
+  bool enablePythonFuture);
 
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::TagProbeInfoBuilder instead.")
-[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo();
-
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::TagProbeInfoBuilder instead.")
-[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
-                                                               ucp_tag_message_h handle);
+}  // namespace detail
 
 }  // namespace ucxx

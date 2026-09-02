@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -73,13 +73,13 @@ std::shared_ptr<Endpoint> EndpointBuilder::build()
 {
   switch (_impl->source) {
     case EndpointBuilderSource::Hostname:
-      return ucxx::createEndpointFromHostname(
+      return detail::createEndpointFromHostname(
         _impl->worker, _impl->ipAddress, _impl->port, _impl->endpointErrorHandling);
     case EndpointBuilderSource::ConnRequest:
-      return ucxx::createEndpointFromConnRequest(
+      return detail::createEndpointFromConnRequest(
         _impl->listener, _impl->connRequest, _impl->endpointErrorHandling);
     case EndpointBuilderSource::WorkerAddress:
-      return ucxx::createEndpointFromWorkerAddress(
+      return detail::createEndpointFromWorkerAddress(
         _impl->worker, _impl->address, _impl->endpointErrorHandling);
   }
 

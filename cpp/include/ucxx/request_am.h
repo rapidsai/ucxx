@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -11,6 +11,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/constructors.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
 #include <ucxx/request_am_builder.h>
@@ -102,7 +103,7 @@ class RequestAm : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
-  friend std::shared_ptr<RequestAm> createRequestAm(
+  friend std::shared_ptr<RequestAm> detail::createRequestAm(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::AmSend, data::AmReceive> requestData,
     const bool enablePythonFuture,

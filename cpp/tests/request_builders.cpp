@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -27,14 +27,14 @@ namespace {
 class RequestBuilderTest : public ::testing::Test {
  protected:
   std::shared_ptr<ucxx::Context> _context{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   std::shared_ptr<ucxx::Endpoint> _ep{nullptr};
 
   void SetUp() override
   {
-    _worker = _context->createWorker();
-    _ep     = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    _worker = _context->workerBuilder().build();
+    _ep     = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   }
 
   void progressUntilCompleted(std::shared_ptr<ucxx::Request> req)
@@ -381,7 +381,7 @@ TEST_F(RequestBuilderTest, StreamBuilderImplicitConversion)
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderAutoType)
 {
-  auto ep      = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep      = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   auto builder = ucxx::requestEndpointCloseBuilder(ep, ucxx::data::EndpointClose{false});
   static_assert(std::is_same<decltype(builder), ucxx::RequestEndpointCloseBuilder>::value,
                 "auto without .build() is RequestEndpointCloseBuilder");
@@ -389,7 +389,7 @@ TEST_F(RequestBuilderTest, EndpointCloseBuilderAutoType)
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderMethodChaining)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   ucxx::RequestCallbackUserFunction callbackFn{nullptr};
   ucxx::RequestCallbackUserData callbackData{nullptr};
@@ -404,7 +404,7 @@ TEST_F(RequestBuilderTest, EndpointCloseBuilderMethodChaining)
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderBuild)
 {
-  auto ep  = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep  = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   auto req = ucxx::requestEndpointCloseBuilder(ep, ucxx::data::EndpointClose{true}).build();
 
   ASSERT_TRUE(req != nullptr);
@@ -444,7 +444,7 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
                 "auto without .build() is RequestFlushBuilder");
 
   {
-    auto closeEp = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    auto closeEp = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
     auto closeBuilder =
       ucxx::requestEndpointCloseBuilder(closeEp, ucxx::data::EndpointClose{false});
     static_assert(std::is_same<decltype(closeBuilder), ucxx::RequestEndpointCloseBuilder>::value,

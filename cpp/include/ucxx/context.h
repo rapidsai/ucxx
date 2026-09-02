@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -66,12 +66,13 @@ class Context : public Component {
   Context& operator=(Context&& o)    = delete;
 
   /**
-   * @brief Friend declaration for `ucxx::createContext` with parameters.
+   * @brief Allow the internal context factory to access the private constructor.
    *
-   * This friend declaration allows the standalone `ucxx::createContext` function to access
-   * the private constructor. See the public declaration for full documentation.
+   * This friend declaration allows `ucxx::detail::createContext` to access the private
+   * constructor.
    */
-  friend std::shared_ptr<Context> createContext(ConfigMap ucxConfig, const uint64_t featureFlags);
+  friend std::shared_ptr<Context> detail::createContext(ConfigMap ucxConfig,
+                                                        const uint64_t featureFlags);
 
   /**
    * @brief Allow ContextBuilder to access private constructor.
@@ -174,28 +175,6 @@ class Context : public Component {
   [[nodiscard]] WorkerBuilder workerBuilder();
 
   /**
-   * @brief Create a new `ucxx::Worker`.
-   *
-   * Create a new `ucxx::Worker` as a child of the current `ucxx::Context`.
-   * The `ucxx::Context` will retain ownership of the `ucxx::Worker` and will
-   * not be destroyed until all `ucxx::Worker` objects are destroyed first.
-   *
-   * @code{.cpp}
-   *   // context is `std::shared_ptr<ucxx::Context>`
-   *   auto worker = context->workerBuilder().delayedSubmission(true).build();
-   * @endcode
-   *
-   * @param[in] enableDelayedSubmission whether the worker should delay
-   *                                    transfer requests to the worker thread.
-   * @param[in] enableFuture if `true`, notifies the future associated with each
-   *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
-   * @return Shared pointer to the `ucxx::Worker` object.
-   */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Context::workerBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<Worker> createWorker(const bool enableDelayedSubmission = false,
-                                                     const bool enableFuture            = false);
-
-  /**
    * @brief Create a builder for a new `ucxx::MemoryHandle`.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
@@ -205,66 +184,6 @@ class Context : public Component {
    * @returns Builder to configure optional memory mapping parameters.
    */
   [[nodiscard]] MemoryHandleBuilder memoryHandleBuilder(size_t size);
-
-  /**
-   * @brief Create a new `std::shared_ptr<ucxx::memoryHandle>`.
-   *
-   * Create a new `std::shared_ptr<ucxx::MemoryHandle>` as a child of the current
-   * `ucxx::Context`.  The `ucxx::Context` will retain ownership of the underlying
-   * `ucxx::MemoryHandle` and will not be destroyed until all `ucxx::MemoryHandle`
-   * objects are destroyed first.
-   *
-   * The allocation requires a `size` and a `buffer`. The actual size of the allocation may
-   * be larger than requested, and can later be found calling the `getSize()` method. The
-   * `buffer` provided may be either a `nullptr`, in which case UCP will allocate a new
-   * memory region for it, or an already existing allocation, in which case UCP will only
-   * map it for RMA and it's the caller's responsibility to keep `buffer` alive until this
-   * object is destroyed.
-   *
-   * @code{.cpp}
-   * // `context` is `std::shared_ptr<ucxx::Context>`
-   * // Allocate a 128-byte buffer with UCP.
-   * auto memoryHandle = context->memoryHandleBuilder(128).build();
-   *
-   * // Map an existing 128-byte buffer with UCP.
-   * size_t allocationSize = 128;
-   * auto buffer = new uint8_t[allocationSize];
-   * auto memoryHandleFromBuffer = context->memoryHandleBuilder(allocationSize * sizeof(*buffer))
-   *                                  .buffer(buffer)
-   *                                  .build();
-   * @endcode
-   *
-   * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
-   *
-   * @param[in] size        the minimum size of the memory allocation.
-   * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
-   *                        new memory region.
-   * @param[in] memoryType  the type of memory the handle points to.
-   *
-   * @returns The `shared_ptr<ucxx::MemoryHandle>` object
-   */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Context::memoryHandleBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<MemoryHandle> createMemoryHandle(
-    const size_t size, void* buffer, const ucs_memory_type_t memoryType = UCS_MEMORY_TYPE_HOST);
 };
-
-/**
- * @brief Constructor of `shared_ptr<ucxx::Context>` with parameters.
- *
- * The constructor for a `shared_ptr<ucxx::Context>` object. The default constructor is
- * made private to ensure all UCXX objects are shared pointers for correct lifetime
- * management.
- *
- * @code{.cpp}
- *   auto context = ucxx::contextBuilder(UCP_FEATURE_WAKEUP | UCP_FEATURE_TAG).build();
- * @endcode
- *
- * @param[in] ucxConfig configurations overriding `UCX_*` defaults and environment variables.
- * @param[in] featureFlags feature flags to be used at UCP context construction time.
- * @return The `shared_ptr<ucxx::Context>` object.
- */
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::contextBuilder() instead.")
-[[nodiscard]] std::shared_ptr<Context> createContext(ConfigMap ucxConfig,
-                                                     const uint64_t featureFlags);
 
 }  // namespace ucxx

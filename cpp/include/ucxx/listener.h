@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -148,9 +148,6 @@ class Listener : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object.
    */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use Listener::endpointBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromConnRequest(
-    ucp_conn_request_h connRequest, bool endpointErrorHandling = true);
 
   /**
    * @brief Get the underlying `ucp_listener_h` handle.
@@ -191,10 +188,5 @@ class Listener : public Component {
 /**
  * @brief Deprecated constructor for `std::shared_ptr<ucxx::Listener>`.
  */
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::ListenerBuilder instead.")
-[[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                                       uint16_t port,
-                                                       ucp_listener_conn_callback_t callback,
-                                                       void* callbackArgs);
 
 }  // namespace ucxx

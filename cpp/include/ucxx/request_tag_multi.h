@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -12,6 +12,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/buffer.h>
+#include <ucxx/constructors.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/future.h>
 #include <ucxx/request.h>
@@ -177,7 +178,7 @@ class RequestTagMulti : public Request {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  friend std::shared_ptr<RequestTagMulti> createRequestTagMulti(
+  friend std::shared_ptr<RequestTagMulti> detail::createRequestTagMulti(
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
     const bool enablePythonFuture);

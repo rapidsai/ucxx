@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
@@ -19,7 +19,6 @@
 
 #include "include/utils.h"
 #include "ucxx/buffer.h"
-#include "ucxx/constructors.h"
 #include "ucxx/utils/ucx.h"
 
 #ifndef UCXX_TESTS_ENABLE_RMM
@@ -119,7 +118,7 @@ class RequestTest
 
     _progressWorker = getProgressFunction(_worker, _progressMode);
 
-    _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    _ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   }
 
   void rebuildWorker(bool enableRequestAttributes)
@@ -153,8 +152,9 @@ class RequestTest
     _memoryType  = isCudaBufferType(_bufferType) ? UCS_MEMORY_TYPE_CUDA : UCS_MEMORY_TYPE_HOST;
     _messageSize = _messageLength * sizeof(int);
 
-    _context = ucxx::createContext({{"RNDV_THRESH", std::to_string(_rndvThresh)}},
-                                   ucxx::Context::defaultFeatureFlags);
+    _context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags)
+                 .configMap({{"RNDV_THRESH", std::to_string(_rndvThresh)}})
+                 .build();
     buildWorker(false);
   }
 
@@ -608,11 +608,11 @@ class RequestAttributesDisabledTest : public ::testing::Test {
 
   void SetUp() override
   {
-    _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+    _context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
     _worker  = ucxx::workerBuilder(_context).build();
     ASSERT_FALSE(_worker->isRequestAttributesEnabled());
 
-    _ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    _ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
     _progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
 
     _sendBuf.resize(kMessageLength);
@@ -668,12 +668,15 @@ TEST_F(RequestAttributesDisabledTest, Am)
 
 TEST_F(RequestAttributesDisabledTest, MemoryGet)
 {
-  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+  auto memoryHandle = _context->memoryHandleBuilder(kMessageSize)
+                        .buffer(nullptr)
+                        .memoryType(UCS_MEMORY_TYPE_HOST)
+                        .build();
   std::memcpy(
     reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendBuf.data(), kMessageSize);
 
-  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto serializedRemoteKey = memoryHandle->remoteKeyBuilder().build()->serialize();
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::shared_ptr<ucxx::Request> request = _ep->memGet(_recvBuf.data(), kMessageSize, remoteKey);
   std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
@@ -685,10 +688,13 @@ TEST_F(RequestAttributesDisabledTest, MemoryGet)
 
 TEST_F(RequestAttributesDisabledTest, MemoryPut)
 {
-  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+  auto memoryHandle = _context->memoryHandleBuilder(kMessageSize)
+                        .buffer(nullptr)
+                        .memoryType(UCS_MEMORY_TYPE_HOST)
+                        .build();
 
-  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto serializedRemoteKey = memoryHandle->remoteKeyBuilder().build()->serialize();
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::shared_ptr<ucxx::Request> request = _ep->memPut(_sendBuf.data(), kMessageSize, remoteKey);
   std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
@@ -768,13 +774,14 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
 
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   copyMemoryTypeAware(
     reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::shared_ptr<ucxx::Request> request = _ep->memGet(_recvPtr[0], _messageSize, remoteKey);
   std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -797,11 +804,12 @@ TEST_P(RequestTest, MemoryPutRequestAttributes)
 
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::shared_ptr<ucxx::Request> request = _ep->memPut(_sendPtr[0], _messageSize, remoteKey);
   std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -957,7 +965,8 @@ TEST_P(RequestTest, MemoryGet)
 {
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
@@ -965,9 +974,9 @@ TEST_P(RequestTest, MemoryGet)
   copyMemoryTypeAware(
     reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->memGet(_recvPtr[0], _messageSize, remoteKey));
@@ -985,14 +994,16 @@ TEST_P(RequestTest, MemoryGetPreallocated)
   allocate();
 
   // Memory handles are always non-const
-  auto memoryHandle =
-    _context->createMemoryHandle(_messageSize, const_cast<void*>(_sendPtr[0]), _memoryType);
+  auto memoryHandle = _context->memoryHandleBuilder(_messageSize)
+                        .buffer(const_cast<void*>(_sendPtr[0]))
+                        .memoryType(_memoryType)
+                        .build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->memGet(_recvPtr[0], _messageSize, remoteKey));
@@ -1013,7 +1024,8 @@ TEST_P(RequestTest, MemoryGetWithOffset)
   size_t offset      = 1;
   size_t offsetBytes = offset * sizeof(_send[0][0]);
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
@@ -1021,9 +1033,9 @@ TEST_P(RequestTest, MemoryGetWithOffset)
   copyMemoryTypeAware(
     reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->memGet(reinterpret_cast<char*>(_recvPtr[0]) + offsetBytes,
@@ -1045,13 +1057,14 @@ TEST_P(RequestTest, MemoryPut)
 {
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->memPut(_sendPtr[0], _messageSize, remoteKey));
@@ -1072,13 +1085,14 @@ TEST_P(RequestTest, MemoryPutPreallocated)
 {
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, _recvPtr[0], _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(_recvPtr[0]).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->memPut(_sendPtr[0], _messageSize, remoteKey));
@@ -1099,13 +1113,14 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   size_t offset      = 1;
   size_t offsetBytes = offset * sizeof(_send[0][0]);
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(_ep->memPut(reinterpret_cast<const char*>(_sendPtr[0]) + offsetBytes,
