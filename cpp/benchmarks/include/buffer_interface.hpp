@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -740,9 +740,9 @@ inline void initialize_send_pattern(rmm::device_buffer& send, std::size_t messag
                                      pattern.data(),
                                      messageSize,
                                      cudaMemcpyHostToDevice,
-                                     send.stream()),
+                                     send.stream().get()),
                      "RMM send buffer initialization");
-  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream()), "RMM stream synchronization");
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream().get()), "RMM stream synchronization");
 }
 
 inline void verify_device_buffers(rmm::device_buffer& send,
@@ -755,17 +755,17 @@ inline void verify_device_buffers(rmm::device_buffer& send,
                                      send.data(),
                                      messageSize,
                                      cudaMemcpyDeviceToHost,
-                                     send.stream()),
+                                     send.stream().get()),
                      "RMM send data copy for verification");
   CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recvData.data(),
                                      recv.data(),
                                      messageSize,
                                      cudaMemcpyDeviceToHost,
-                                     recv.stream()),
+                                     recv.stream().get()),
                      "RMM recv data copy for verification");
-  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream()),
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream().get()),
                      "RMM send stream synchronization for verification");
-  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(recv.stream()),
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(recv.stream().get()),
                      "RMM recv stream synchronization for verification");
   for (std::size_t j = 0; j < messageSize; ++j)
     if (recvData[j] != sendData[j])
