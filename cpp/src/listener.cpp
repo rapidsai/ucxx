@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -29,7 +29,7 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   ucp_listener_params_t params = {
     .field_mask   = UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER,
     .conn_handler = {.cb = callback, .arg = callbackArgs}};
-  auto info = ucxx::utils::get_addrinfo(host.empty() ? nullptr : host.c_str(), port);
+  auto info               = ucxx::utils::get_addrinfo(host.empty() ? nullptr : host.c_str(), port);
   params.sockaddr.addr    = info->ai_addr;
   params.sockaddr.addrlen = info->ai_addrlen;
 
