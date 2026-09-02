@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Configuration file for the Sphinx documentation builder.
@@ -29,6 +29,20 @@ UCXX_VERSION = Version(ucxx.__version__)
 version = f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}"
 # The full version.
 release = f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}.{UCXX_VERSION.micro:02}"
+
+rapids_branch_file = os.path.join(
+    os.path.dirname(__file__), "..", "..", "..", "RAPIDS_BRANCH"
+)
+try:
+    with open(rapids_branch_file) as f:
+        RAPIDS_BRANCH = f.read().strip()
+except FileNotFoundError:
+    RAPIDS_BRANCH = "main"
+nvidia_docs_intersphinx_version = (
+    RAPIDS_BRANCH.removeprefix("release/")
+    if RAPIDS_BRANCH.startswith("release/")
+    else "latest"
+)
 
 
 # -- General configuration ---------------------------------------------------
@@ -169,7 +183,10 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    "cudf": ("https://docs.rapids.ai/api/cudf/nightly/", None),
+    "cudf": (
+        f"https://docs.nvidia.com/cudf/{nvidia_docs_intersphinx_version}/",
+        None,
+    ),
     "cupy": ("https://docs.cupy.dev/en/stable/", None),
     "numpy": ("https://numpy.org/doc/stable", None),
     "pandas": (
@@ -177,7 +194,10 @@ intersphinx_mapping = {
         None,
     ),
     "python": ("https://docs.python.org/3", None),
-    "rmm": ("https://docs.rapids.ai/api/rmm/nightly/", None),
+    "rmm": (
+        f"https://docs.nvidia.com/rmm/{nvidia_docs_intersphinx_version}/",
+        None,
+    ),
     "typing_extensions": (
         "https://typing-extensions.readthedocs.io/en/stable/",
         None,
