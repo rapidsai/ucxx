@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Configuration file for the Sphinx documentation builder.
@@ -6,7 +6,6 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 import datetime
-import os
 
 import ucxx
 from packaging.version import Version
@@ -73,7 +72,6 @@ exclude_patterns = []
 pygments_style = "sphinx"
 
 html_theme_options = {
-    "public_docs_features": os.environ.get("CI") == "true",
     "external_links": [],
     # https://github.com/pydata/pydata-sphinx-theme/issues/1220
     "icon_links": [],
