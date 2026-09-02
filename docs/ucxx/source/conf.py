@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Configuration file for the Sphinx documentation builder.
@@ -42,8 +42,12 @@ release = f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}.{UCXX_VERSION.micro:
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.autosummary",
 ]
+
+# Disambiguate section anchors across documents
+autosectionlabel_prefix_document = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
