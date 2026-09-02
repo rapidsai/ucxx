@@ -7,8 +7,8 @@
 #include <string>
 #include <utility>
 
-#include <ucxx/constructors.h>
 #include <ucxx/detail/builder_utils.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/endpoint_builder.h>
 
 namespace ucxx {

@@ -5,7 +5,7 @@
 #include <memory>
 #include <utility>
 
-#include <ucxx/constructors.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/detail/register_inflight_request.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/request.h>

@@ -12,7 +12,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/buffer.h>
-#include <ucxx/constructors.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/future.h>
 #include <ucxx/request.h>

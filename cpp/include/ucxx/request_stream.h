@@ -8,8 +8,8 @@
 
 #include <ucp/api/ucp.h>
 
-#include <ucxx/constructors.h>
 #include <ucxx/delayed_submission.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/request.h>
 #include <ucxx/request_data.h>
 #include <ucxx/request_stream_builder.h>

@@ -18,12 +18,9 @@ namespace ucxx {
 class Address;
 class Context;
 class Endpoint;
-class Future;
 class Listener;
 class MemoryHandle;
-class Notifier;
 class RemoteKey;
-class Request;
 class RequestAm;
 class RequestEndpointClose;
 class RequestFlush;
@@ -37,25 +34,18 @@ class Worker;
 namespace detail {
 
 [[nodiscard]] std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
-
 [[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
-
 [[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
                                                        uint16_t port,
                                                        ucp_listener_conn_callback_t callback,
                                                        void* callbackArgs);
-
 [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
   std::shared_ptr<MemoryHandle> memoryHandle);
-
 [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
   std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
-
 [[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo();
-
 [[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
                                                                ucp_tag_message_h handle);
-
 [[nodiscard]] std::shared_ptr<Context> createContext(ConfigMap ucxConfig, uint64_t featureFlags);
 [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
                                                                    std::string ipAddress,

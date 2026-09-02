@@ -9,7 +9,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucs/memory/memory_type.h>
-#include <ucxx/constructors.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/log.h>
 #include <ucxx/memory_handle.h>
 #include <ucxx/utils/ucx.h>

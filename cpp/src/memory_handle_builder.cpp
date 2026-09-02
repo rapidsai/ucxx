@@ -5,8 +5,8 @@
 #include <memory>
 #include <utility>
 
-#include <ucxx/constructors.h>
 #include <ucxx/detail/builder_utils.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/memory_handle_builder.h>
 
 namespace ucxx {

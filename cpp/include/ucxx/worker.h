@@ -19,9 +19,9 @@
 #include <ucxx/address_builder.h>
 #include <ucxx/buffer.h>
 #include <ucxx/component.h>
-#include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/delayed_submission.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/endpoint_builder.h>
 #include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>

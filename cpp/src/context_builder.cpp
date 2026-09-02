@@ -5,10 +5,10 @@
 #include <memory>
 #include <utility>
 
-#include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/context_builder.h>
 #include <ucxx/detail/builder_utils.h>
+#include <ucxx/detail/constructors.h>
 
 namespace ucxx {
 

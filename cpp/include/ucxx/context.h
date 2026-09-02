@@ -13,8 +13,8 @@
 
 #include <ucxx/component.h>
 #include <ucxx/config.h>
-#include <ucxx/constructors.h>
 #include <ucxx/context_builder.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/memory_handle_builder.h>
 #include <ucxx/worker_builder.h>
 

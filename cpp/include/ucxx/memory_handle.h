@@ -10,8 +10,8 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/component.h>
-#include <ucxx/constructors.h>
 #include <ucxx/context.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/memory_handle_builder.h>
 #include <ucxx/remote_key_builder.h>
 

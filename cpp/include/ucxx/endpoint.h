@@ -14,7 +14,7 @@
 
 #include <ucxx/address.h>
 #include <ucxx/component.h>
-#include <ucxx/constructors.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/endpoint_builder.h>
 #include <ucxx/exception.h>
 #include <ucxx/inflight_requests.h>
