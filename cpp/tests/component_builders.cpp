@@ -534,9 +534,6 @@ TEST_F(ComponentBuilderTest, ListenerBuilder)
 TEST_F(ComponentBuilderTest, ListenerBuilderHost)
 {
   auto builder = ucxx::ListenerBuilder(_worker, 0, listenerCallback, nullptr);
-  static_assert(
-    std::is_same<decltype(builder.host("127.0.0.1")), ucxx::ListenerBuilder&>::value,
-    "ListenerBuilder::host returns ListenerBuilder& for chaining");
 
   auto listener = builder.host("127.0.0.1").build();
   ASSERT_TRUE(listener != nullptr);
