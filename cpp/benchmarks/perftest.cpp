@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <sched.h>   // for cpu_set_t, CPU_SET, CPU_ZERO, sched_setaffinity
@@ -184,7 +184,8 @@ class ListenerContext {
   {
     if (!isAvailable()) throw std::runtime_error("Listener context already has an endpoint");
 
-    _endpoint    = _listener->createEndpointFromConnRequest(connRequest, _endpointErrorHandling);
+    _endpoint =
+      _listener->endpointBuilder(connRequest).endpointErrorHandling(_endpointErrorHandling).build();
     _isAvailable = false;
   }
 
@@ -1017,8 +1018,8 @@ class Application {
         appContext.progressMode == ProgressMode::Wait) {
       ucpFeatures |= UCP_FEATURE_WAKEUP;
     }
-    _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucpFeatures), "Context creation");
-    _worker  = UCXX_EXIT_ON_ERROR(_context->createWorker(), "Worker creation");
+    _context = UCXX_EXIT_ON_ERROR(ucxx::contextBuilder(ucpFeatures).build(), "Context creation");
+    _worker  = UCXX_EXIT_ON_ERROR(_context->workerBuilder().build(), "Worker creation");
 
     if (_appContext.loopback) {
       // In loopback mode, _endpoint acts as the "client" side and
@@ -1042,7 +1043,8 @@ class Application {
       _listenerContext =
         std::make_unique<ListenerContext>(_worker, _appContext.endpointErrorHandling);
       _listener = UCXX_EXIT_ON_ERROR(
-        _worker->createListener(_appContext.listenerPort, listenerCallback, _listenerContext.get()),
+        _worker->listenerBuilder(_appContext.listenerPort, listenerCallback, _listenerContext.get())
+          .build(),
         "Listener creation");
       _listenerContext->setListener(_listener);
     }
@@ -1059,10 +1061,10 @@ class Application {
 
     if (_appContext.loopback) {
       // Connect to our own listener
-      _endpoint = UCXX_EXIT_ON_ERROR(
-        _worker->createEndpointFromHostname(
-          "127.0.0.1", _appContext.listenerPort, _appContext.endpointErrorHandling),
-        "Self-endpoint creation");
+      _endpoint = UCXX_EXIT_ON_ERROR(_worker->endpointBuilder("127.0.0.1", _appContext.listenerPort)
+                                       .endpointErrorHandling(_appContext.endpointErrorHandling)
+                                       .build(),
+                                     "Self-endpoint creation");
 
       // Wait for the listener to accept our connection
       while (_listenerContext->isAvailable())
@@ -1085,8 +1087,9 @@ class Application {
         appContext.testAttributes->description, appContext.memoryType, appContext.memoryType);
     } else {
       _endpoint = UCXX_EXIT_ON_ERROR(
-        _worker->createEndpointFromHostname(
-          _appContext.serverAddress, _appContext.listenerPort, _appContext.endpointErrorHandling),
+        _worker->endpointBuilder(_appContext.serverAddress, _appContext.listenerPort)
+          .endpointErrorHandling(_appContext.endpointErrorHandling)
+          .build(),
         "Endpoint creation");
       printClientHeader(appContext.testAttributes->category);
     }
