@@ -15,12 +15,12 @@
 
 namespace ucxx {
 
-std::shared_ptr<RequestTag> createRequestTag(
+std::shared_ptr<RequestTag> detail::createRequestTag(
   std::shared_ptr<Component> endpointOrWorker,
   const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
-  const bool enablePythonFuture                = false,
-  RequestCallbackUserFunction callbackFunction = nullptr,
-  RequestCallbackUserData callbackData         = nullptr)
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData)
 {
   std::shared_ptr<RequestTag> req =
     std::visit(data::dispatch{

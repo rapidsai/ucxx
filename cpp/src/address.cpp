@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstring>
@@ -54,16 +54,6 @@ std::shared_ptr<Address> createAddressFromString(std::string_view addressString)
 }
 
 }  // namespace detail
-
-std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
-{
-  return detail::createAddressFromWorker(std::move(worker));
-}
-
-std::shared_ptr<Address> createAddressFromString(std::string_view addressString)
-{
-  return detail::createAddressFromString(addressString);
-}
 
 ucp_address_t* Address::getHandle() const { return _handle; }
 

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstring>
@@ -118,12 +118,12 @@ struct AmHeader {
   }
 };
 
-std::shared_ptr<RequestAm> createRequestAm(
+std::shared_ptr<RequestAm> detail::createRequestAm(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::AmSend, data::AmReceive> requestData,
-  const bool enablePythonFuture                = false,
-  RequestCallbackUserFunction callbackFunction = nullptr,
-  RequestCallbackUserData callbackData         = nullptr)
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData)
 {
   std::shared_ptr<RequestAm> req = std::visit(
     data::dispatch{

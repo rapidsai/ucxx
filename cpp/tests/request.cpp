@@ -19,7 +19,6 @@
 
 #include "include/utils.h"
 #include "ucxx/buffer.h"
-#include "ucxx/constructors.h"
 #include "ucxx/utils/ucx.h"
 
 #ifndef UCXX_TESTS_ENABLE_RMM
@@ -121,7 +120,7 @@ class RequestTest
 
     _progressWorker = getProgressFunction(_worker, _progressMode);
 
-    _ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    _ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   }
 
   void rebuildWorker(bool enableRequestAttributes)
@@ -155,8 +154,9 @@ class RequestTest
     _memoryType  = isCudaBufferType(_bufferType) ? UCS_MEMORY_TYPE_CUDA : UCS_MEMORY_TYPE_HOST;
     _messageSize = _messageLength * sizeof(int);
 
-    _context = ucxx::createContext({{"RNDV_THRESH", std::to_string(_rndvThresh)}},
-                                   ucxx::Context::defaultFeatureFlags);
+    _context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags)
+                 .configMap({{"RNDV_THRESH", std::to_string(_rndvThresh)}})
+                 .build();
     buildWorker(false);
   }
 
@@ -265,8 +265,8 @@ TEST_P(RequestTest, ProgressAm)
 
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amSendBuilder(_sendPtr[0], _messageSize, _memoryType).build());
+  requests.push_back(_ep->amRecvBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq = requests[1];
@@ -312,8 +312,8 @@ TEST_P(RequestTest, ProgressAmIovHost)
   amSendParams.memoryType = UCS_MEMORY_TYPE_HOST;
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(iov, amSendParams));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amSendBuilder(iov, amSendParams).build());
+  requests.push_back(_ep->amRecvBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq    = requests[1];
@@ -332,13 +332,14 @@ TEST_P(RequestTest, ProgressAmIovValidation)
   amSendParams.datatype   = UCP_DATATYPE_IOV;
   amSendParams.memoryType = UCS_MEMORY_TYPE_HOST;
 
-  EXPECT_THROW(std::ignore = _ep->amSend(std::vector<ucp_dt_iov_t>{}, amSendParams),
+  EXPECT_THROW(std::ignore = _ep->amSendBuilder(std::vector<ucp_dt_iov_t>{}, amSendParams).build(),
                std::runtime_error);
 
   std::vector<ucp_dt_iov_t> iovWithNullBuffer(1);
   iovWithNullBuffer[0].buffer = nullptr;
   iovWithNullBuffer[0].length = 16;
-  EXPECT_THROW(std::ignore = _ep->amSend(iovWithNullBuffer, amSendParams), std::runtime_error);
+  EXPECT_THROW(std::ignore = _ep->amSendBuilder(iovWithNullBuffer, amSendParams).build(),
+               std::runtime_error);
 
   std::vector<int> send{1, 2, 3, 4};
   std::vector<ucp_dt_iov_t> validIov(1);
@@ -347,7 +348,8 @@ TEST_P(RequestTest, ProgressAmIovValidation)
 
   auto wrongDatatypeParams     = amSendParams;
   wrongDatatypeParams.datatype = ucp_dt_make_contig(1);
-  EXPECT_THROW(std::ignore = _ep->amSend(validIov, wrongDatatypeParams), std::runtime_error);
+  EXPECT_THROW(std::ignore = _ep->amSendBuilder(validIov, wrongDatatypeParams).build(),
+               std::runtime_error);
 }
 
 TEST_P(RequestTest, ProgressAmMemoryTypePolicyStrict)
@@ -364,8 +366,8 @@ TEST_P(RequestTest, ProgressAmMemoryTypePolicyStrict)
   amSendParams.memoryTypePolicy = ucxx::AmSendMemoryTypePolicy::ErrorOnUnsupported;
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(send.data(), send.size(), amSendParams));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amSendBuilder(send.data(), send.size(), amSendParams).build());
+  requests.push_back(_ep->amRecvBuilder().build());
 
   // Wait for completion without calling checkError(), since the receive request
   // is expected to complete with UCS_ERR_UNSUPPORTED.
@@ -415,7 +417,9 @@ TEST_P(RequestTest, ProgressAmReceiverCallback)
 
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType, receiverCallbackInfo));
+  requests.push_back(_ep->amSendBuilder(_sendPtr[0], _messageSize, _memoryType)
+                       .receiverCallbackInfo(receiverCallbackInfo)
+                       .build());
   waitRequests(_worker, requests, _progressWorker);
 
   while (receivedRequests.size() < 1)
@@ -457,8 +461,8 @@ TEST_P(RequestTest, ProgressAmUserHeader)
   amSendParams.setUserHeader(sentHeader);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, amSendParams));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amSendBuilder(_sendPtr[0], _messageSize, amSendParams).build());
+  requests.push_back(_ep->amRecvBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq = requests[1];
@@ -499,8 +503,8 @@ TEST_P(RequestTest, ProgressAmIovUserHeader)
   amSendParams.setUserHeader(sentHeader);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(iov, amSendParams));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amSendBuilder(iov, amSendParams).build());
+  requests.push_back(_ep->amRecvBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq    = requests[1];
@@ -528,8 +532,8 @@ TEST_P(RequestTest, ProgressAmEmptyUserHeader)
 
   // Send without user header (default empty)
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amSendBuilder(_sendPtr[0], _messageSize, _memoryType).build());
+  requests.push_back(_ep->amRecvBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq = requests[1];
@@ -546,12 +550,16 @@ TEST_P(RequestTest, ProgressStream)
 
   // Submit and wait for transfers to complete
   if (_messageSize == 0) {
-    EXPECT_THROW(std::ignore = _ep->streamSend(_sendPtr[0], _messageSize, 0), std::runtime_error);
-    EXPECT_THROW(std::ignore = _ep->streamRecv(_recvPtr[0], _messageSize, 0), std::runtime_error);
+    EXPECT_THROW(
+      std::ignore = _ep->streamSendBuilder(_sendPtr[0], _messageSize).pythonFuture(0).build(),
+      std::runtime_error);
+    EXPECT_THROW(
+      std::ignore = _ep->streamRecvBuilder(_recvPtr[0], _messageSize).pythonFuture(0).build(),
+      std::runtime_error);
   } else {
     std::vector<std::shared_ptr<ucxx::Request>> requests;
-    requests.push_back(_ep->streamSend(_sendPtr[0], _messageSize, 0));
-    requests.push_back(_ep->streamRecv(_recvPtr[0], _messageSize, 0));
+    requests.push_back(_ep->streamSendBuilder(_sendPtr[0], _messageSize).pythonFuture(0).build());
+    requests.push_back(_ep->streamRecvBuilder(_recvPtr[0], _messageSize).pythonFuture(0).build());
     waitRequests(_worker, requests, _progressWorker);
 
     copyResults();
@@ -567,8 +575,9 @@ TEST_P(RequestTest, ProgressTag)
 
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
-  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  requests.push_back(_ep->tagSendBuilder(_sendPtr[0], _messageSize, ucxx::Tag{0}).build());
+  requests.push_back(
+    _ep->tagRecvBuilder(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull).build());
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();
@@ -587,8 +596,9 @@ TEST_P(RequestTest, ProgressTagRequestAttributes)
   allocate();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}));
-  requests.push_back(_ep->tagRecv(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  requests.push_back(_ep->tagSendBuilder(_sendPtr[0], _messageSize, ucxx::Tag{0}).build());
+  requests.push_back(
+    _ep->tagRecvBuilder(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull).build());
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& request : requests) {
@@ -616,11 +626,11 @@ class RequestAttributesDisabledTest : public ::testing::Test {
 
   void SetUp() override
   {
-    _context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+    _context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
     _worker  = ucxx::workerBuilder(_context).build();
     ASSERT_FALSE(_worker->isRequestAttributesEnabled());
 
-    _ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    _ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
     _progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
 
     _sendBuf.resize(kMessageLength);
@@ -639,8 +649,9 @@ class RequestAttributesDisabledTest : public ::testing::Test {
 TEST_F(RequestAttributesDisabledTest, Tag)
 {
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->tagSend(_sendBuf.data(), kMessageSize, ucxx::Tag{0}));
-  requests.push_back(_ep->tagRecv(_recvBuf.data(), kMessageSize, ucxx::Tag{0}, ucxx::TagMaskFull));
+  requests.push_back(_ep->tagSendBuilder(_sendBuf.data(), kMessageSize, ucxx::Tag{0}).build());
+  requests.push_back(
+    _ep->tagRecvBuilder(_recvBuf.data(), kMessageSize, ucxx::Tag{0}, ucxx::TagMaskFull).build());
   waitRequests(_worker, requests, _progressWorker);
 
   expectAllThrow(requests);
@@ -650,8 +661,8 @@ TEST_F(RequestAttributesDisabledTest, Tag)
 TEST_F(RequestAttributesDisabledTest, Stream)
 {
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->streamSend(_sendBuf.data(), kMessageSize, 0));
-  requests.push_back(_ep->streamRecv(_recvBuf.data(), kMessageSize, 0));
+  requests.push_back(_ep->streamSendBuilder(_sendBuf.data(), kMessageSize).pythonFuture(0).build());
+  requests.push_back(_ep->streamRecvBuilder(_recvBuf.data(), kMessageSize).pythonFuture(0).build());
   waitRequests(_worker, requests, _progressWorker);
 
   expectAllThrow(requests);
@@ -661,8 +672,9 @@ TEST_F(RequestAttributesDisabledTest, Stream)
 TEST_F(RequestAttributesDisabledTest, Am)
 {
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendBuf.data(), kMessageSize, UCS_MEMORY_TYPE_HOST));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(
+    _ep->amSendBuilder(_sendBuf.data(), kMessageSize, UCS_MEMORY_TYPE_HOST).build());
+  requests.push_back(_ep->amRecvBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   expectAllThrow(requests);
@@ -676,15 +688,19 @@ TEST_F(RequestAttributesDisabledTest, Am)
 
 TEST_F(RequestAttributesDisabledTest, MemoryGet)
 {
-  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+  auto memoryHandle = _context->memoryHandleBuilder(kMessageSize)
+                        .buffer(nullptr)
+                        .memoryType(UCS_MEMORY_TYPE_HOST)
+                        .build();
   std::memcpy(
     reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendBuf.data(), kMessageSize);
 
-  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto serializedRemoteKey = memoryHandle->remoteKeyBuilder().build()->serialize();
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
-  std::shared_ptr<ucxx::Request> request = _ep->memGet(_recvBuf.data(), kMessageSize, remoteKey);
-  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
+  std::shared_ptr<ucxx::Request> request =
+    _ep->memGetBuilder(_recvBuf.data(), kMessageSize, remoteKey).build();
+  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flushBuilder().build()};
   waitRequests(_worker, requests, _progressWorker);
 
   expectAllThrow({request});
@@ -693,13 +709,17 @@ TEST_F(RequestAttributesDisabledTest, MemoryGet)
 
 TEST_F(RequestAttributesDisabledTest, MemoryPut)
 {
-  auto memoryHandle = _context->createMemoryHandle(kMessageSize, nullptr, UCS_MEMORY_TYPE_HOST);
+  auto memoryHandle = _context->memoryHandleBuilder(kMessageSize)
+                        .buffer(nullptr)
+                        .memoryType(UCS_MEMORY_TYPE_HOST)
+                        .build();
 
-  auto serializedRemoteKey = memoryHandle->createRemoteKey()->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto serializedRemoteKey = memoryHandle->remoteKeyBuilder().build()->serialize();
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
-  std::shared_ptr<ucxx::Request> request = _ep->memPut(_sendBuf.data(), kMessageSize, remoteKey);
-  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flush()};
+  std::shared_ptr<ucxx::Request> request =
+    _ep->memPutBuilder(_sendBuf.data(), kMessageSize, remoteKey).build();
+  std::vector<std::shared_ptr<ucxx::Request>> requests{request, _ep->flushBuilder().build()};
   waitRequests(_worker, requests, _progressWorker);
 
   expectAllThrow({request});
@@ -717,8 +737,10 @@ TEST_P(RequestTest, ProgressStreamRequestAttributes)
 
   allocate();
 
-  std::shared_ptr<ucxx::Request> sendRequest = _ep->streamSend(_sendPtr[0], _messageSize, 0);
-  std::shared_ptr<ucxx::Request> recvRequest = _ep->streamRecv(_recvPtr[0], _messageSize, 0);
+  std::shared_ptr<ucxx::Request> sendRequest =
+    _ep->streamSendBuilder(_sendPtr[0], _messageSize).pythonFuture(0).build();
+  std::shared_ptr<ucxx::Request> recvRequest =
+    _ep->streamRecvBuilder(_recvPtr[0], _messageSize).pythonFuture(0).build();
   std::vector<std::shared_ptr<ucxx::Request>> requests{sendRequest, recvRequest};
   waitRequests(_worker, requests, _progressWorker);
 
@@ -753,8 +775,8 @@ TEST_P(RequestTest, ProgressAmRequestAttributes)
   allocate(1, false);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->amSend(_sendPtr[0], _messageSize, _memoryType));
-  requests.push_back(_ep->amRecv());
+  requests.push_back(_ep->amSendBuilder(_sendPtr[0], _messageSize, _memoryType).build());
+  requests.push_back(_ep->amRecvBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& request : requests) {
@@ -776,18 +798,20 @@ TEST_P(RequestTest, MemoryGetRequestAttributes)
 
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   copyMemoryTypeAware(
     reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
-  std::shared_ptr<ucxx::Request> request = _ep->memGet(_recvPtr[0], _messageSize, remoteKey);
+  std::shared_ptr<ucxx::Request> request =
+    _ep->memGetBuilder(_recvPtr[0], _messageSize, remoteKey).build();
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(request);
-  requests.push_back(_ep->flush());
+  requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   auto debugString = request->queryAttributes().debugString;
@@ -805,16 +829,18 @@ TEST_P(RequestTest, MemoryPutRequestAttributes)
 
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
-  std::shared_ptr<ucxx::Request> request = _ep->memPut(_sendPtr[0], _messageSize, remoteKey);
+  std::shared_ptr<ucxx::Request> request =
+    _ep->memPutBuilder(_sendPtr[0], _messageSize, remoteKey).build();
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(request);
-  requests.push_back(_ep->flush());
+  requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   try {
@@ -853,8 +879,11 @@ TEST_P(RequestTest, ProgressTagMulti)
 
   // Submit and wait for transfers to complete
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->tagMultiSend(_sendPtr, multiSize, multiIsCUDA, ucxx::Tag{0}, false));
-  requests.push_back(_ep->tagMultiRecv(ucxx::Tag{0}, ucxx::TagMaskFull, false));
+  requests.push_back(_ep->tagMultiSendBuilder(_sendPtr, multiSize, multiIsCUDA, ucxx::Tag{0})
+                       .pythonFuture(false)
+                       .build());
+  requests.push_back(
+    _ep->tagMultiRecvBuilder(ucxx::Tag{0}, ucxx::TagMaskFull).pythonFuture(false).build());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvRequest = requests[1];
@@ -902,10 +931,16 @@ TEST_P(RequestTest, TagUserCallback)
   auto recvIndex = std::make_shared<size_t>(1u);
 
   // Submit and wait for transfers to complete
-  requests[0] =
-    _ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}, false, checkStatus, sendIndex);
-  requests[1] = _ep->tagRecv(
-    _recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull, false, checkStatus, recvIndex);
+  requests[0] = _ep->tagSendBuilder(_sendPtr[0], _messageSize, ucxx::Tag{0})
+                  .pythonFuture(false)
+                  .callbackFunction(checkStatus)
+                  .callbackData(sendIndex)
+                  .build();
+  requests[1] = _ep->tagRecvBuilder(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull)
+                  .pythonFuture(false)
+                  .callbackFunction(checkStatus)
+                  .callbackData(recvIndex)
+                  .build();
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();
@@ -947,9 +982,17 @@ TEST_P(RequestTest, TagUserCallbackDiscardReturn)
   // Submit and wait for transfers to complete via callbacks; the shared_ptr is discarded
   // but the request is kept alive by the endpoint's inflight-request registry.
   std::shared_ptr<ucxx::Request> sendReq =
-    _ep->tagSend(_sendPtr[0], _messageSize, ucxx::Tag{0}, false, checkStatus, sendIndex);
-  std::shared_ptr<ucxx::Request> recvReq = _ep->tagRecv(
-    _recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull, false, checkStatus, recvIndex);
+    _ep->tagSendBuilder(_sendPtr[0], _messageSize, ucxx::Tag{0})
+      .pythonFuture(false)
+      .callbackFunction(checkStatus)
+      .callbackData(sendIndex)
+      .build();
+  std::shared_ptr<ucxx::Request> recvReq =
+    _ep->tagRecvBuilder(_recvPtr[0], _messageSize, ucxx::Tag{0}, ucxx::TagMaskFull)
+      .pythonFuture(false)
+      .callbackFunction(checkStatus)
+      .callbackData(recvIndex)
+      .build();
   checkCompletion();
 
   copyResults();
@@ -965,7 +1008,8 @@ TEST_P(RequestTest, MemoryGet)
 {
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
@@ -973,13 +1017,13 @@ TEST_P(RequestTest, MemoryGet)
   copyMemoryTypeAware(
     reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->memGet(_recvPtr[0], _messageSize, remoteKey));
-  requests.push_back(_ep->flush());
+  requests.push_back(_ep->memGetBuilder(_recvPtr[0], _messageSize, remoteKey).build());
+  requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();
@@ -993,18 +1037,20 @@ TEST_P(RequestTest, MemoryGetPreallocated)
   allocate();
 
   // Memory handles are always non-const
-  auto memoryHandle =
-    _context->createMemoryHandle(_messageSize, const_cast<void*>(_sendPtr[0]), _memoryType);
+  auto memoryHandle = _context->memoryHandleBuilder(_messageSize)
+                        .buffer(const_cast<void*>(_sendPtr[0]))
+                        .memoryType(_memoryType)
+                        .build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->memGet(_recvPtr[0], _messageSize, remoteKey));
-  requests.push_back(_ep->flush());
+  requests.push_back(_ep->memGetBuilder(_recvPtr[0], _messageSize, remoteKey).build());
+  requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();
@@ -1021,7 +1067,8 @@ TEST_P(RequestTest, MemoryGetWithOffset)
   size_t offset      = 1;
   size_t offsetBytes = offset * sizeof(_send[0][0]);
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
@@ -1029,16 +1076,18 @@ TEST_P(RequestTest, MemoryGetWithOffset)
   copyMemoryTypeAware(
     reinterpret_cast<void*>(memoryHandle->getBaseAddress()), _sendPtr[0], _messageSize);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->memGet(reinterpret_cast<char*>(_recvPtr[0]) + offsetBytes,
-                                 _messageSize - offsetBytes,
-                                 remoteKey,
-                                 offsetBytes));
-  requests.push_back(_ep->flush());
+  requests.push_back(_ep
+                       ->memGetBuilder(reinterpret_cast<char*>(_recvPtr[0]) + offsetBytes,
+                                       _messageSize - offsetBytes,
+                                       remoteKey)
+                       .remoteAddressOffset(offsetBytes)
+                       .build());
+  requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();
@@ -1053,17 +1102,18 @@ TEST_P(RequestTest, MemoryPut)
 {
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->memPut(_sendPtr[0], _messageSize, remoteKey));
-  requests.push_back(_ep->flush());
+  requests.push_back(_ep->memPutBuilder(_sendPtr[0], _messageSize, remoteKey).build());
+  requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   // Copy memory handle data to receive buffer
@@ -1080,17 +1130,18 @@ TEST_P(RequestTest, MemoryPutPreallocated)
 {
   allocate();
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, _recvPtr[0], _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(_recvPtr[0]).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->memPut(_sendPtr[0], _messageSize, remoteKey));
-  requests.push_back(_ep->flush());
+  requests.push_back(_ep->memPutBuilder(_sendPtr[0], _messageSize, remoteKey).build());
+  requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   copyResults();
@@ -1107,20 +1158,23 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   size_t offset      = 1;
   size_t offsetBytes = offset * sizeof(_send[0][0]);
 
-  auto memoryHandle = _context->createMemoryHandle(_messageSize, nullptr, _memoryType);
+  auto memoryHandle =
+    _context->memoryHandleBuilder(_messageSize).buffer(nullptr).memoryType(_memoryType).build();
   // If message size is 0, there's no allocation and memory type is then "host" by default.
   if (_messageSize > 0) ASSERT_EQ(memoryHandle->getMemoryType(), _memoryType);
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(_ep, serializedRemoteKey);
+  auto remoteKey           = _ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(_ep->memPut(reinterpret_cast<const char*>(_sendPtr[0]) + offsetBytes,
-                                 _messageSize - offsetBytes,
-                                 remoteKey,
-                                 offsetBytes));
-  requests.push_back(_ep->flush());
+  requests.push_back(_ep
+                       ->memPutBuilder(reinterpret_cast<const char*>(_sendPtr[0]) + offsetBytes,
+                                       _messageSize - offsetBytes,
+                                       remoteKey)
+                       .remoteAddressOffset(offsetBytes)
+                       .build());
+  requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   // Copy memory handle data to receive buffer

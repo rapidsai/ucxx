@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -34,14 +34,6 @@ std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info
 }
 
 }  // namespace detail
-
-std::shared_ptr<TagProbeInfo> createTagProbeInfo() { return detail::createTagProbeInfo(); }
-
-std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
-                                                 ucp_tag_message_h handle)
-{
-  return detail::createTagProbeInfo(info, handle);
-}
 
 TagProbeInfo::~TagProbeInfo()
 {

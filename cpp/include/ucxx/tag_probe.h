@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -195,18 +195,5 @@ class TagProbeInfo {
   // Allow RequestTag to consume the handle
   friend class RequestTag;
 };
-
-/**
- * @brief Deprecated constructor for an unmatched `std::shared_ptr<ucxx::TagProbeInfo>`.
- */
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::TagProbeInfoBuilder instead.")
-[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo();
-
-/**
- * @brief Deprecated constructor for a matched `std::shared_ptr<ucxx::TagProbeInfo>`.
- */
-UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::TagProbeInfoBuilder instead.")
-[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
-                                                               ucp_tag_message_h handle);
 
 }  // namespace ucxx

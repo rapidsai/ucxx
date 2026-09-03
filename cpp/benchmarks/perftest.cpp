@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <sched.h>   // for cpu_set_t, CPU_SET, CPU_ZERO, sched_setaffinity
@@ -184,7 +184,8 @@ class ListenerContext {
   {
     if (!isAvailable()) throw std::runtime_error("Listener context already has an endpoint");
 
-    _endpoint    = _listener->createEndpointFromConnRequest(connRequest, _endpointErrorHandling);
+    _endpoint =
+      _listener->endpointBuilder(connRequest).endpointErrorHandling(_endpointErrorHandling).build();
     _isAvailable = false;
   }
 
@@ -800,13 +801,17 @@ class Application {
                                             {DirectionType::Recv, std::vector<char>(3, 0)}});
 
     // Schedule small wireup messages to let UCX identify capabilities between endpoints
-    requests.push_back(_endpoint->tagSend((*wireupBufferMap)[DirectionType::Send].data(),
+    requests.push_back(_endpoint
+                         ->tagSendBuilder((*wireupBufferMap)[DirectionType::Send].data(),
                                           (*wireupBufferMap)[DirectionType::Send].size(),
-                                          (*_tagMap)[DirectionType::Send]));
-    requests.push_back(_endpoint->tagRecv((*wireupBufferMap)[DirectionType::Recv].data(),
+                                          (*_tagMap)[DirectionType::Send])
+                         .build());
+    requests.push_back(_endpoint
+                         ->tagRecvBuilder((*wireupBufferMap)[DirectionType::Recv].data(),
                                           (*wireupBufferMap)[DirectionType::Recv].size(),
                                           (*_tagMap)[DirectionType::Recv],
-                                          ucxx::TagMaskFull));
+                                          ucxx::TagMaskFull)
+                         .build());
 
     // In loopback mode, also schedule the peer (server-side) wireup
     std::shared_ptr<BufferMap> peerWireupBufferMap;
@@ -815,13 +820,17 @@ class Application {
         std::make_shared<BufferMap>(BufferMap{{DirectionType::Send, std::vector<char>{1, 2, 3}},
                                               {DirectionType::Recv, std::vector<char>(3, 0)}});
 
-      requests.push_back(_peerEndpoint->tagSend((*peerWireupBufferMap)[DirectionType::Send].data(),
-                                                (*peerWireupBufferMap)[DirectionType::Send].size(),
-                                                (*_peerTagMap)[DirectionType::Send]));
-      requests.push_back(_peerEndpoint->tagRecv((*peerWireupBufferMap)[DirectionType::Recv].data(),
-                                                (*peerWireupBufferMap)[DirectionType::Recv].size(),
-                                                (*_peerTagMap)[DirectionType::Recv],
-                                                ucxx::TagMaskFull));
+      requests.push_back(_peerEndpoint
+                           ->tagSendBuilder((*peerWireupBufferMap)[DirectionType::Send].data(),
+                                            (*peerWireupBufferMap)[DirectionType::Send].size(),
+                                            (*_peerTagMap)[DirectionType::Send])
+                           .build());
+      requests.push_back(_peerEndpoint
+                           ->tagRecvBuilder((*peerWireupBufferMap)[DirectionType::Recv].data(),
+                                            (*peerWireupBufferMap)[DirectionType::Recv].size(),
+                                            (*_peerTagMap)[DirectionType::Recv],
+                                            ucxx::TagMaskFull)
+                           .build());
     }
 
     // Wait for wireup requests and clear requests
@@ -883,38 +892,55 @@ class Application {
     auto start = std::chrono::high_resolution_clock::now();
     if (_appContext.testAttributes->testType == TestType::PingPong) {
       requests = {
-        _endpoint->tagSend(
-          bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send]),
-        _endpoint->tagRecv(bufferInterface->getRecvPtr(),
+        _endpoint
+          ->tagSendBuilder(
+            bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send])
+          .build(),
+        _endpoint
+          ->tagRecvBuilder(bufferInterface->getRecvPtr(),
                            _appContext.messageSize,
                            (*_tagMap)[DirectionType::Recv],
-                           ucxx::TagMaskFull)};
+                           ucxx::TagMaskFull)
+          .build()};
       if (_appContext.loopback) {
-        requests.push_back(_peerEndpoint->tagSend(peerBufferInterface->getSendPtr(),
-                                                  _appContext.messageSize,
-                                                  (*_peerTagMap)[DirectionType::Send]));
-        requests.push_back(_peerEndpoint->tagRecv(peerBufferInterface->getRecvPtr(),
-                                                  _appContext.messageSize,
-                                                  (*_peerTagMap)[DirectionType::Recv],
-                                                  ucxx::TagMaskFull));
+        requests.push_back(_peerEndpoint
+                             ->tagSendBuilder(peerBufferInterface->getSendPtr(),
+                                              _appContext.messageSize,
+                                              (*_peerTagMap)[DirectionType::Send])
+                             .build());
+        requests.push_back(_peerEndpoint
+                             ->tagRecvBuilder(peerBufferInterface->getRecvPtr(),
+                                              _appContext.messageSize,
+                                              (*_peerTagMap)[DirectionType::Recv],
+                                              ucxx::TagMaskFull)
+                             .build());
       }
     } else {
       if (_appContext.loopback) {
-        requests = {_endpoint->tagSend(bufferInterface->getSendPtr(),
+        requests = {_endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
                                        _appContext.messageSize,
-                                       (*_tagMap)[DirectionType::Send]),
-                    _peerEndpoint->tagRecv(peerBufferInterface->getRecvPtr(),
-                                           _appContext.messageSize,
-                                           (*_peerTagMap)[DirectionType::Recv],
-                                           ucxx::TagMaskFull)};
+                                       (*_tagMap)[DirectionType::Send])
+                      .build(),
+                    _peerEndpoint
+                      ->tagRecvBuilder(peerBufferInterface->getRecvPtr(),
+                                       _appContext.messageSize,
+                                       (*_peerTagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)
+                      .build()};
       } else if (_isServer) {
-        requests = {_endpoint->tagRecv(bufferInterface->getRecvPtr(),
+        requests = {_endpoint
+                      ->tagRecvBuilder(bufferInterface->getRecvPtr(),
                                        _appContext.messageSize,
                                        (*_tagMap)[DirectionType::Recv],
-                                       ucxx::TagMaskFull)};
+                                       ucxx::TagMaskFull)
+                      .build()};
       } else {
-        requests = {_endpoint->tagSend(
-          bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send])};
+        requests = {_endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])
+                      .build()};
       }
     }
 
@@ -1017,8 +1043,8 @@ class Application {
         appContext.progressMode == ProgressMode::Wait) {
       ucpFeatures |= UCP_FEATURE_WAKEUP;
     }
-    _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucpFeatures), "Context creation");
-    _worker  = UCXX_EXIT_ON_ERROR(_context->createWorker(), "Worker creation");
+    _context = UCXX_EXIT_ON_ERROR(ucxx::contextBuilder(ucpFeatures).build(), "Context creation");
+    _worker  = UCXX_EXIT_ON_ERROR(_context->workerBuilder().build(), "Worker creation");
 
     if (_appContext.loopback) {
       // In loopback mode, _endpoint acts as the "client" side and
@@ -1042,7 +1068,8 @@ class Application {
       _listenerContext =
         std::make_unique<ListenerContext>(_worker, _appContext.endpointErrorHandling);
       _listener = UCXX_EXIT_ON_ERROR(
-        _worker->createListener(_appContext.listenerPort, listenerCallback, _listenerContext.get()),
+        _worker->listenerBuilder(_appContext.listenerPort, listenerCallback, _listenerContext.get())
+          .build(),
         "Listener creation");
       _listenerContext->setListener(_listener);
     }
@@ -1059,10 +1086,10 @@ class Application {
 
     if (_appContext.loopback) {
       // Connect to our own listener
-      _endpoint = UCXX_EXIT_ON_ERROR(
-        _worker->createEndpointFromHostname(
-          "127.0.0.1", _appContext.listenerPort, _appContext.endpointErrorHandling),
-        "Self-endpoint creation");
+      _endpoint = UCXX_EXIT_ON_ERROR(_worker->endpointBuilder("127.0.0.1", _appContext.listenerPort)
+                                       .endpointErrorHandling(_appContext.endpointErrorHandling)
+                                       .build(),
+                                     "Self-endpoint creation");
 
       // Wait for the listener to accept our connection
       while (_listenerContext->isAvailable())
@@ -1085,8 +1112,9 @@ class Application {
         appContext.testAttributes->description, appContext.memoryType, appContext.memoryType);
     } else {
       _endpoint = UCXX_EXIT_ON_ERROR(
-        _worker->createEndpointFromHostname(
-          _appContext.serverAddress, _appContext.listenerPort, _appContext.endpointErrorHandling),
+        _worker->endpointBuilder(_appContext.serverAddress, _appContext.listenerPort)
+          .endpointErrorHandling(_appContext.endpointErrorHandling)
+          .build(),
         "Endpoint creation");
       printClientHeader(appContext.testAttributes->category);
     }

@@ -196,36 +196,11 @@ TEST(ContextBuilderTest, BuilderDifferentInstances)
   ASSERT_NE(context1->getHandle(), context2->getHandle());
 }
 
-TEST(ContextBuilderTest, BuilderBackwardCompatibility)
-{
-  uint64_t featureFlags = UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP;
-
-  // Old API should still work
-  auto context1 = ucxx::createContext({{"TLS", "tcp"}}, featureFlags);
-  ASSERT_TRUE(context1 != nullptr);
-  ASSERT_TRUE(context1->getHandle() != nullptr);
-  ASSERT_EQ(context1->getFeatureFlags(), featureFlags);
-  auto config1 = context1->getConfig();
-  ASSERT_EQ(config1["TLS"], "tcp");
-
-  // New API should produce equivalent result
-  auto context2 = ucxx::contextBuilder(featureFlags).configMap({{"TLS", "tcp"}}).build();
-  ASSERT_TRUE(context2 != nullptr);
-  ASSERT_TRUE(context2->getHandle() != nullptr);
-  ASSERT_EQ(context2->getFeatureFlags(), featureFlags);
-  auto config2 = context2->getConfig();
-  ASSERT_EQ(config2["TLS"], "tcp");
-
-  // Both should have same configuration
-  ASSERT_EQ(context1->getFeatureFlags(), context2->getFeatureFlags());
-  ASSERT_EQ(config1["TLS"], config2["TLS"]);
-}
-
 TEST(ContextBuilderTest, BuilderContextIsValid)
 {
   auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
 
-  auto worker = context->createWorker();
+  auto worker = context->workerBuilder().build();
   ASSERT_TRUE(worker != nullptr);
 }
 
@@ -368,25 +343,6 @@ TEST(WorkerBuilderTest, BuilderDifferentInstances)
   ASSERT_NE(worker1->getHandle(), worker2->getHandle());
 }
 
-TEST(WorkerBuilderTest, BuilderBackwardCompatibility)
-{
-  auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
-
-  // Old API should still work
-  auto worker1 = context->createWorker(true, true);
-  ASSERT_TRUE(worker1 != nullptr);
-  ASSERT_TRUE(worker1->getHandle() != nullptr);
-  ASSERT_TRUE(worker1->isDelayedRequestSubmissionEnabled());
-  ASSERT_TRUE(worker1->isFutureEnabled());
-
-  // New API should produce equivalent result
-  auto worker2 = ucxx::workerBuilder(context).delayedSubmission(true).pythonFuture(true).build();
-  ASSERT_TRUE(worker2 != nullptr);
-  ASSERT_TRUE(worker2->getHandle() != nullptr);
-  ASSERT_TRUE(worker2->isDelayedRequestSubmissionEnabled());
-  ASSERT_TRUE(worker2->isFutureEnabled());
-}
-
 TEST(WorkerBuilderTest, RequestAttributesDefaultDisabled)
 {
   auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
@@ -501,7 +457,8 @@ TEST_F(ComponentBuilderTest, AddressBuilderFromWorkerAndString)
 
 TEST_F(ComponentBuilderTest, EndpointBuilderFromWorkerAddress)
 {
-  auto builder = ucxx::endpointBuilder(_worker, _worker->getAddress()).endpointErrorHandling(false);
+  auto builder =
+    ucxx::endpointBuilder(_worker, _worker->addressBuilder().build()).endpointErrorHandling(false);
   static_assert(std::is_same<decltype(builder), ucxx::EndpointBuilder>::value,
                 "endpointBuilder returns EndpointBuilder");
   assertBuildRequiresNonConstBuilder<ucxx::EndpointBuilder, ucxx::Endpoint>();
@@ -579,7 +536,7 @@ TEST_F(ComponentBuilderTest, RemoteKeyBuilderFromMemoryHandleAndSerialized)
   ASSERT_TRUE(localRemoteKey != nullptr);
   ASSERT_EQ(localRemoteKey->getSize(), memoryHandle->getSize());
 
-  auto endpoint = ucxx::endpointBuilder(_worker, _worker->getAddress()).build();
+  auto endpoint = ucxx::endpointBuilder(_worker, _worker->addressBuilder().build()).build();
   std::shared_ptr<ucxx::RemoteKey> unpackedRemoteKey =
     ucxx::RemoteKeyBuilder(endpoint, localRemoteKey->serialize());
   ASSERT_TRUE(unpackedRemoteKey != nullptr);
@@ -597,7 +554,7 @@ TEST_F(ComponentBuilderTest, RemoteKeyChildBuilders)
   auto localRemoteKey = builder.build();
   ASSERT_TRUE(localRemoteKey != nullptr);
 
-  auto endpoint      = _worker->endpointBuilder(_worker->getAddress()).build();
+  auto endpoint      = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   auto unpackBuilder = endpoint->remoteKeyBuilder(localRemoteKey->serialize());
   static_assert(std::is_same<decltype(unpackBuilder), ucxx::RemoteKeyBuilder>::value,
                 "endpoint->remoteKeyBuilder() returns RemoteKeyBuilder");
