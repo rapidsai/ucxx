@@ -121,7 +121,6 @@ outputs:
             - include/ucxx/buffer.h
             - include/ucxx/component.h
             - include/ucxx/config.h
-            - include/ucxx/detail/constructors.h
             - include/ucxx/context.h
             - include/ucxx/delayed_submission.h
             - include/ucxx/endpoint.h
