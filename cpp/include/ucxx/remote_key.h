@@ -199,7 +199,7 @@ class RemoteKey : public Component {
    *
    * Get the base address of the memory allocation the remote key packs, which is going
    * to be used as the remote address to put or get memory via the
-   * `ucxx::Endpoint::memPut()` or `ucxx::Endpoint::memGet()` methods.
+   * `ucxx::Endpoint::memPutBuilder()` or `ucxx::Endpoint::memGetBuilder()` methods.
    *
    * @code{.cpp}
    * // remoteKey is `std::shared_ptr<ucxx::RemoteKey>`
