@@ -26,6 +26,7 @@
 #endif
 
 #if UCXX_TESTS_ENABLE_RMM
+#include <cuda/stream>
 #include <rmm/device_buffer.hpp>
 #endif
 
@@ -57,7 +58,8 @@ class RMMTestBuffer : public ucxx::Buffer {
  public:
   explicit RMMTestBuffer(size_t size)
     : ucxx::Buffer(ucxx::BufferType::Invalid, size),
-      _buffer{std::make_unique<rmm::device_buffer>(size, rmm::cuda_stream_default)}
+      _buffer{std::make_unique<rmm::device_buffer>(
+        size, cuda::stream_ref{cudaStream_t{cudaStreamDefault}})}
   {
   }
 
@@ -205,7 +207,10 @@ class RequestTest
       if (allocateRecvBuffer) _recvPtr[i] = _recvBuffer[i]->data();
     }
 #if UCXX_TESTS_ENABLE_RMM
-    if (_bufferType == TestBufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
+    if (_bufferType == TestBufferType::RMM) {
+      auto stream = cuda::stream_ref{cudaStream_t { cudaStreamDefault }};
+      stream.sync();
+    }
 #endif
     if (_bufferType == TestBufferType::CCCL) { cudaStreamSynchronize(nullptr); }
   }
@@ -215,7 +220,10 @@ class RequestTest
     for (size_t i = 0; i < _numBuffers; ++i)
       copyMemoryTypeAware(_recv[i].data(), _recvPtr[i], _messageSize, false);
 #if UCXX_TESTS_ENABLE_RMM
-    if (_bufferType == TestBufferType::RMM) { rmm::cuda_stream_default.synchronize(); }
+    if (_bufferType == TestBufferType::RMM) {
+      auto stream = cuda::stream_ref{cudaStream_t { cudaStreamDefault }};
+      stream.sync();
+    }
 #endif
     if (_bufferType == TestBufferType::CCCL) { cudaStreamSynchronize(nullptr); }
   }
@@ -226,9 +234,9 @@ class RequestTest
       memcpy(dst, src, size);
 #if UCXX_TESTS_ENABLE_RMM
     } else if (_memoryType == UCS_MEMORY_TYPE_CUDA && _bufferType == TestBufferType::RMM) {
-      RMM_CUDA_TRY(
-        cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, rmm::cuda_stream_default.value()));
-      if (synchronize) rmm::cuda_stream_default.synchronize();
+      auto stream = cuda::stream_ref{cudaStream_t { cudaStreamDefault }};
+      RMM_CUDA_TRY(cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, stream.get()));
+      if (synchronize) { stream.sync(); }
 #endif
     } else if (_memoryType == UCS_MEMORY_TYPE_CUDA) {
       cudaMemcpyAsync(dst, src, size, cudaMemcpyDefault, nullptr);

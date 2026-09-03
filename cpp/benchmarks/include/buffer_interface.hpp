@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -19,8 +19,8 @@
 #endif
 
 #ifdef UCXX_BENCHMARKS_ENABLE_RMM
+#include <cuda/stream>
 #include <rmm/aligned.hpp>
-#include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
 #include <rmm/mr/cuda_async_managed_memory_resource.hpp>
 #include <rmm/mr/cuda_async_memory_resource.hpp>
@@ -740,9 +740,9 @@ inline void initialize_send_pattern(rmm::device_buffer& send, std::size_t messag
                                      pattern.data(),
                                      messageSize,
                                      cudaMemcpyHostToDevice,
-                                     send.stream()),
+                                     send.stream().get()),
                      "RMM send buffer initialization");
-  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream()), "RMM stream synchronization");
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream().get()), "RMM stream synchronization");
 }
 
 inline void verify_device_buffers(rmm::device_buffer& send,
@@ -755,17 +755,17 @@ inline void verify_device_buffers(rmm::device_buffer& send,
                                      send.data(),
                                      messageSize,
                                      cudaMemcpyDeviceToHost,
-                                     send.stream()),
+                                     send.stream().get()),
                      "RMM send data copy for verification");
   CUDA_EXIT_ON_ERROR(cudaMemcpyAsync(recvData.data(),
                                      recv.data(),
                                      messageSize,
                                      cudaMemcpyDeviceToHost,
-                                     recv.stream()),
+                                     recv.stream().get()),
                      "RMM recv data copy for verification");
-  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream()),
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(send.stream().get()),
                      "RMM send stream synchronization for verification");
-  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(recv.stream()),
+  CUDA_EXIT_ON_ERROR(cudaStreamSynchronize(recv.stream().get()),
                      "RMM recv stream synchronization for verification");
   for (std::size_t j = 0; j < messageSize; ++j)
     if (recvData[j] != sendData[j])
@@ -780,8 +780,8 @@ struct RmmDeviceMrBuffers {
   static std::shared_ptr<RmmDeviceMrBuffers> allocate(std::size_t messageSize)
   {
     auto p    = std::make_shared<RmmDeviceMrBuffers>();
-    p->send   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
-    p->recv   = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
+    p->send   = std::make_unique<rmm::device_buffer>(messageSize, cuda::stream_ref{cudaStream_t{cudaStreamDefault}}, p->mr);
+    p->recv   = std::make_unique<rmm::device_buffer>(messageSize, cuda::stream_ref{cudaStream_t{cudaStreamDefault}}, p->mr);
     initialize_send_pattern(*p->send, messageSize);
     return p;
   }
@@ -795,8 +795,8 @@ struct RmmPoolBuffers {
   explicit RmmPoolBuffers(std::size_t messageSize)
     : pool(rmm::mr::cuda_memory_resource{}, rmm_benchmark_detail::initial_pool_size(messageSize))
   {
-    send     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, pool);
-    recv     = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, pool);
+    send     = std::make_unique<rmm::device_buffer>(messageSize, cuda::stream_ref{cudaStream_t{cudaStreamDefault}}, pool);
+    recv     = std::make_unique<rmm::device_buffer>(messageSize, cuda::stream_ref{cudaStream_t{cudaStreamDefault}}, pool);
     rmm_benchmark_detail::initialize_send_pattern(*send, messageSize);
   }
 
@@ -814,8 +814,8 @@ struct RmmCudaAsyncMrBuffers {
   static std::shared_ptr<RmmCudaAsyncMrBuffers> allocate(std::size_t messageSize)
   {
     auto p   = std::make_shared<RmmCudaAsyncMrBuffers>();
-    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
-    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
+    p->send  = std::make_unique<rmm::device_buffer>(messageSize, cuda::stream_ref{cudaStream_t{cudaStreamDefault}}, p->mr);
+    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, cuda::stream_ref{cudaStream_t{cudaStreamDefault}}, p->mr);
     initialize_send_pattern(*p->send, messageSize);
     return p;
   }
@@ -829,8 +829,8 @@ struct RmmCudaAsyncManagedMrBuffers {
   static std::shared_ptr<RmmCudaAsyncManagedMrBuffers> allocate(std::size_t messageSize)
   {
     auto p   = std::make_shared<RmmCudaAsyncManagedMrBuffers>();
-    p->send  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
-    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, rmm::cuda_stream_default, p->mr);
+    p->send  = std::make_unique<rmm::device_buffer>(messageSize, cuda::stream_ref{cudaStream_t{cudaStreamDefault}}, p->mr);
+    p->recv  = std::make_unique<rmm::device_buffer>(messageSize, cuda::stream_ref{cudaStream_t{cudaStreamDefault}}, p->mr);
     initialize_send_pattern(*p->send, messageSize);
     return p;
   }
