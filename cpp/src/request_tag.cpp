@@ -121,6 +121,22 @@ void RequestTag::tagRecvCallback(void* request,
   return req->callback(request, status, info);
 }
 
+void RequestTag::cancel()
+{
+  std::unique_lock<std::recursive_mutex> lock(_mutex);
+
+  if (_status == UCS_INPROGRESS && _request == nullptr &&
+      std::holds_alternative<data::TagReceiveWithHandle>(_requestData) &&
+      _worker->isDelayedRequestSubmissionEnabled()) {
+    _cancelRequested = true;
+    lock.unlock();
+    _worker->signal();
+    return;
+  }
+
+  Request::cancel();
+}
+
 void RequestTag::request()
 {
   ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
@@ -150,7 +166,7 @@ void RequestTag::request()
                  auto handle   = tagReceiveWithHandle._probeInfo->getHandle();
                  request       = ucp_tag_msg_recv_nbx(_worker->getHandle(),
                                                 tagReceiveWithHandle._buffer,
-                                                tagReceiveWithHandle._probeInfo->getInfo().length,
+                                                tagReceiveWithHandle._length,
                                                 handle,
                                                 &param);
 
@@ -166,6 +182,10 @@ void RequestTag::request()
 
 void RequestTag::populateDelayedSubmissionImpl()
 {
+  std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+  if (_status != UCS_INPROGRESS || _request != nullptr) return;
+
   bool terminate =
     std::visit(data::dispatch{
                  [this](data::TagSend) {
@@ -244,6 +264,7 @@ void RequestTag::populateDelayedSubmissionImpl()
              _requestData);
 
   process();
+  if (_cancelRequested) Request::cancel();
 }
 
 }  // namespace ucxx

@@ -625,11 +625,6 @@ dependencies:
               no_libucx: "true"
             packages:
           - matrix:
-              cuda: "12.*"
-            packages:
-              - ucx==1.18.0
-          # build against 1.19.0 on CUDA 13 (and make that the default when 'cuda' filter is not provided)
-          - matrix:
             packages:
               - ucx==1.19.0
       # very tight >=x.x.x,<x.x.(x+1) on these wheel dependencies, instead of '==',
@@ -643,7 +638,7 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.18.0,<1.18.1
+              - libucx-cu12>=1.19.0,<1.19.1
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
@@ -660,13 +655,8 @@ dependencies:
               no_libucx: "true"
             packages:
           - matrix:
-              cuda: "12.*"
             packages:
-              - ucx>=1.18.0,<1.21
-          # require at least 1.19.0 on CUDA 13 (and make that the default when 'cuda' filter is not provided)
-          - matrix:
-            packages:
-              - ucx>=1.19.0,<1.21
+              - ucx>=1.19.0,<1.22
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
@@ -676,13 +666,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.18.0,<1.20
+              - libucx-cu12>=1.19.0,<1.22
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu13>=1.19.0,<1.21
-          # require at least 1.19.0 (CUDA 13 floor) if 'cuda' filter is not provided
+              - libucx-cu13>=1.19.0,<1.22
           - matrix:
             packages:
-              - libucx>=1.19.0,<1.21
+              - libucx>=1.19.0,<1.22

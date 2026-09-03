@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -927,6 +927,7 @@ cdef class UCXWorker():
         the message matching queue again.
         """
         cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
         cdef unique_ptr[RequestTagBuilder] builder
 
@@ -939,7 +940,7 @@ cdef class UCXWorker():
         with nogil:
             builder = make_unique[RequestTagBuilder](
                 self._worker.get().tagRecvWithHandleBuilder(
-                    buf, probe_result._probe_info_ptr
+                    buf, nbytes, probe_result._probe_info_ptr
                 )
             )
             builder.get().pythonFuture(self._enable_python_future)
@@ -1541,6 +1542,7 @@ cdef class UCXEndpoint():
         the message matching queue again.
         """
         cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
         cdef shared_ptr[Worker] worker
         cdef unique_ptr[RequestTagBuilder] builder
@@ -1555,7 +1557,7 @@ cdef class UCXEndpoint():
             worker = self._endpoint.get().getWorker()
             builder = make_unique[RequestTagBuilder](
                 worker.get().tagRecvWithHandleBuilder(
-                    buf, probe_result._probe_info_ptr
+                    buf, nbytes, probe_result._probe_info_ptr
                 )
             )
             builder.get().pythonFuture(self._enable_python_future)

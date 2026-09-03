@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -528,6 +528,17 @@ TEST_F(ComponentBuilderTest, ListenerBuilder)
                 "ListenerBuilder::build returns shared_ptr<Listener>");
   ASSERT_TRUE(listener != nullptr);
   ASSERT_TRUE(listener->getHandle() != nullptr);
+  ASSERT_GT(listener->getPort(), 0u);
+}
+
+TEST_F(ComponentBuilderTest, ListenerBuilderHost)
+{
+  auto builder = ucxx::ListenerBuilder(_worker, 0, listenerCallback, nullptr);
+
+  auto listener = builder.host("127.0.0.1").build();
+  ASSERT_TRUE(listener != nullptr);
+  ASSERT_TRUE(listener->getHandle() != nullptr);
+  ASSERT_EQ(listener->getIp(), "127.0.0.1");
   ASSERT_GT(listener->getPort(), 0u);
 }
 
