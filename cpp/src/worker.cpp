@@ -762,7 +762,7 @@ std::shared_ptr<Listener> Worker::createListener(uint16_t port,
                                                  void* callbackArgs)
 {
   auto worker   = std::static_pointer_cast<Worker>(shared_from_this());
-  auto listener = detail::createListener(worker, port, callback, callbackArgs);
+  auto listener = detail::createListener(worker, std::string{}, port, callback, callbackArgs);
   return listener;
 }
 

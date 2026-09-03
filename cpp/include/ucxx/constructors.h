@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -41,6 +41,7 @@ namespace detail {
 [[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
 
 [[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
+                                                       std::string host,
                                                        uint16_t port,
                                                        ucp_listener_conn_callback_t callback,
                                                        void* callbackArgs);
