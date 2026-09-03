@@ -157,36 +157,7 @@ class TagProbeInfo {
    */
   TagProbeInfo(const ucp_tag_recv_info_t& info, ucp_tag_message_h handle);
 
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
-   * the object as unmatched (`isMatched()` returns `false`).
-   *
-   * @code{.cpp}
-   * auto tagProbeInfo = ucxx::TagProbeInfoBuilder().build();
-   * @endcode
-   *
-   * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
-   */
-  friend class detail::ConstructorFactory;
-
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::TagProbeInfo>` object, initializing
-   * the object as matched (`isMatched()` returns `true`) with the provided info and handle.
-   *
-   * @code{.cpp}
-   * auto tagProbeInfo = ucxx::TagProbeInfoBuilder(info, handle).build();
-   * @endcode
-   *
-   * @param[in] info    The UCP tag receive info structure.
-   * @param[in] handle  The UCP tag message handle (can be nullptr if `tagProbe()` is called
-   *                    with `remove=false`).
-   *
-   * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
-   */
+  // Allow internal construction without exposing factory functions.
   friend class detail::ConstructorFactory;
 
   // Allow RequestTag to consume the handle

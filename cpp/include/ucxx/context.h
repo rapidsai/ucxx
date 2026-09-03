@@ -64,12 +64,7 @@ class Context : public Component {
   Context(Context&& o)               = delete;
   Context& operator=(Context&& o)    = delete;
 
-  /**
-   * @brief Allow the internal context factory to access the private constructor.
-   *
-   * This friend declaration allows `ucxx::detail::ConstructorFactory` to access the private
-   * constructor.
-   */
+  // Allow internal construction without exposing factory functions.
   friend class detail::ConstructorFactory;
 
   /**

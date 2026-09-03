@@ -101,54 +101,7 @@ class RemoteKey : public Component {
   void deserialize(const SerializedRemoteKey& serializedHeader);
 
  public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RemoteKey>` from local memory handle.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RemoteKey>` object from a local
-   * `std::shared_ptr<ucxx::MemoryHandle>`, mapping a local memory buffer to be made
-   * accessible from a remote endpoint to perform RMA (Remote Memory Access) on the memory.
-   *
-   * @code{.cpp}
-   * // `memoryHandle` is `std::shared_ptr<ucxx::MemoryHandle>`
-   * auto remoteKey = memoryHandle->remoteKeyBuilder().build();
-   *
-   * // Equivalent to line above
-   * // auto remoteKey = ucxx::RemoteKeyBuilder(memoryHandle).build();
-   * @endcode
-   *
-   * @throws ucxx::Error if `ucp_rkey_pack` fails.
-   *
-   * @param[in] memoryHandle the memory handle mapped on the local process.
-   *
-   * @returns The `shared_ptr<ucxx::RemoteKey>` object
-   */
-  friend class detail::ConstructorFactory;
-
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RemoteKey>` from remote.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RemoteKey>` object from a serialized
-   * `std::shared_ptr<ucxx::RemoteKey>`, mapping a remote memory buffer to be made
-   * accessible via a local endpoint to perform RMA (Remote Memory Access) on the memory.
-   *
-   * @code{.cpp}
-   * // `serializedRemoteKey` is `ucxx::SerializedRemoteKey>`, created on a remote worker
-   * // after a call to `ucxx::RemoteKey::serialize()` and transferred over-the-wire.
-   * auto remoteKey = endpoint->remoteKeyBuilder(serializedRemoteKey).build();
-   *
-   * // Equivalent to line above
-   * // auto remoteKey = ucxx::RemoteKeyBuilder(endpoint, serializedRemoteKey).build();
-   * @endcode
-   *
-   * @throws ucxx::Error if `ucp_ep_rkey_unpack` fails.
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component.
-   * @param[in] serializedRemoteKey the remote key that was serialized by the owner of
-   *                                the memory handle and transferred over-the-wire for
-   *                                reconstruction and remote access.
-   *
-   * @returns The `shared_ptr<ucxx::RemoteKey>` object
-   */
+  // Allow internal construction without exposing factory functions.
   friend class detail::ConstructorFactory;
 
   ~RemoteKey();

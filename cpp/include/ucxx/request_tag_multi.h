@@ -142,41 +142,7 @@ class RequestTagMulti : public Request {
   void send();
 
  public:
-  /**
-   * @brief Enqueue a multi-buffer tag send operation.
-   *
-   * Initiate a multi-buffer tag operation, returning a `std::shared<ucxx::RequestTagMulti>`
-   * that can be later awaited and checked for errors.
-   *
-   * This is a non-blocking operation, and the status of a send transfer must be verified
-   * from the resulting request object before the data can be released. If this is a receive
-   * transfer and because the receiver has no a priori knowledge of the data being received,
-   * memory allocations are automatically handled internally. Receiving CUDA frames requires UCXX
-   * to be compiled with CCCL support (`UCXX_ENABLE_CCCL`) and the receiving worker to be
-   * configured to allocate CCCL buffers for CUDA frames.
-   *
-   * The primary use of multi-buffer transfers is in Python where we want to reduce the
-   * amount of futures needed to watch for, thus reducing Python overhead. However, this
-   * may be used as a convenience implementation for transfers that require multiple
-   * frames, internally this is implemented as one or more `ucxx::RequestTag` calls sending
-   * headers (depending on the number of frames being transferred), followed by one
-   * `ucxx::RequestTag` for each data frame.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
-   *
-   * @throws  std::runtime_error  if sizes of `buffer`, `size` and `isCUDA` do not match.
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   *
-   * @returns Request to be subsequently checked for the completion and its state.
-   */
+  // Allow internal construction without exposing factory functions.
   friend class detail::ConstructorFactory;
 
   /**

@@ -14,6 +14,7 @@
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
+
 class Address;
 class Context;
 class Endpoint;
@@ -32,6 +33,12 @@ class Worker;
 
 namespace detail {
 
+/**
+ * @brief Internal factory for constructing UCXX objects with non-public constructors.
+ *
+ * This factory centralizes privileged construction used by builders and internal operations.
+ * It is an implementation detail and is not installed as part of the UCXX public API.
+ */
 class ConstructorFactory {
  public:
   [[nodiscard]] static std::shared_ptr<Address> createAddressFromWorker(
@@ -108,4 +115,5 @@ class ConstructorFactory {
 };
 
 }  // namespace detail
+
 }  // namespace ucxx

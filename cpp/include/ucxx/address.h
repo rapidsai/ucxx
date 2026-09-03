@@ -55,28 +55,7 @@ class Address : public Component {
 
   ~Address();
 
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Address>` from worker.
-   *
-   * The constructor for a `shared_ptr<ucxx::Address>` object from a
-   * `std::shared_ptr<ucxx::Worker>` to obtain its address.
-   *
-   * @param[in] worker  parent worker from which to get the address.
-   *
-   * @returns The `shared_ptr<ucxx::Address>` object.
-   */
-  friend class detail::ConstructorFactory;
-
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Address>` from string.
-   *
-   * The constructor for a `shared_ptr<ucxx::Address>` object from the address extracted
-   * as string from a remote `std::shared_ptr<ucxx::Worker>`.
-   *
-   * @param[in] addressString the string from which to create the address.
-   *
-   * @returns The `shared_ptr<ucxx::Address>` object.
-   */
+  // Allow internal construction without exposing factory functions.
   friend class detail::ConstructorFactory;
 
   /**

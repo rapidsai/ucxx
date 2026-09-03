@@ -198,14 +198,6 @@ class Worker : public Component {
   Worker& operator=(Worker&& o)    = delete;
 
   /**
-   * @brief Allow the internal worker factory to access the protected constructor.
-   *
-   * This friend declaration allows `ucxx::detail::ConstructorFactory` to access the protected
-   * constructor.
-   */
-  friend class detail::ConstructorFactory;
-
-  /**
    * @brief Allow WorkerBuilder to access protected/private constructor.
    */
   friend class WorkerBuilder;

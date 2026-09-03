@@ -69,37 +69,7 @@ class RequestMem : public Request {
              RequestCallbackUserData callbackData         = nullptr);
 
  public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestMem>`.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RequestMem>` object, creating a get or put
-   * request, returning a pointer to a request object that can be later awaited and checked
-   * for errors. This is a non-blocking operation, and the status of the transfer must be
-   * verified from the resulting request object before both the local and remote data can
-   * be released and the local data (on get operations) or remote data (on put operations)
-   * can be consumed.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @throws ucxx::Error  if `endpointOrWorker` is not a valid
-   *                      `std::shared_ptr<ucxx::Endpoint>` or
-   *                      `std::shared_ptr<ucxx::Worker>`.
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component.
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns The `shared_ptr<ucxx::RequestMem>` object
-   */
+  // Allow internal construction without exposing factory functions.
   friend class detail::ConstructorFactory;
 
   virtual void populateDelayedSubmission();
