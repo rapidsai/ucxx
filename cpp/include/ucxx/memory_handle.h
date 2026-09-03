@@ -11,7 +11,6 @@
 
 #include <ucxx/component.h>
 #include <ucxx/context.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/memory_handle_builder.h>
 #include <ucxx/remote_key_builder.h>
 
@@ -113,10 +112,7 @@ class MemoryHandle : public Component {
    *
    * @returns The `shared_ptr<ucxx::MemoryHandle>` object
    */
-  friend std::shared_ptr<MemoryHandle> detail::createMemoryHandle(std::shared_ptr<Context> context,
-                                                                  size_t size,
-                                                                  void* buffer,
-                                                                  ucs_memory_type_t memoryType);
+  friend class detail::ConstructorFactory;
 
   ~MemoryHandle();
 

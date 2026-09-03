@@ -14,15 +14,13 @@
 
 namespace ucxx {
 
+namespace detail {
+class ConstructorFactory;
+}
+
 // Forward declaration for friend access
 class RequestTag;
 class TagProbeInfo;
-
-namespace detail {
-[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo();
-[[nodiscard]] std::shared_ptr<TagProbeInfo> createTagProbeInfo(const ucp_tag_recv_info_t& info,
-                                                               ucp_tag_message_h handle);
-}  // namespace detail
 
 /**
  * @brief Information about probed tag message.
@@ -171,7 +169,7 @@ class TagProbeInfo {
    *
    * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
    */
-  friend std::shared_ptr<TagProbeInfo> detail::createTagProbeInfo();
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::TagProbeInfo>`.
@@ -189,8 +187,7 @@ class TagProbeInfo {
    *
    * @returns The `shared_ptr<ucxx::TagProbeInfo>` object
    */
-  friend std::shared_ptr<TagProbeInfo> detail::createTagProbeInfo(const ucp_tag_recv_info_t& info,
-                                                                  ucp_tag_message_h handle);
+  friend class detail::ConstructorFactory;
 
   // Allow RequestTag to consume the handle
   friend class RequestTag;

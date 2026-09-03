@@ -12,6 +12,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/remote_key.h>
 #include <ucxx/utils/ucx.h>
 
@@ -75,14 +76,14 @@ RemoteKey::~RemoteKey()
 
 namespace detail {
 
-std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
+std::shared_ptr<RemoteKey> ConstructorFactory::createRemoteKeyFromMemoryHandle(
   std::shared_ptr<MemoryHandle> memoryHandle)
 {
   return std::shared_ptr<RemoteKey>(new RemoteKey(memoryHandle));
 }
 
-std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(std::shared_ptr<Endpoint> endpoint,
-                                                         SerializedRemoteKey serializedRemoteKey)
+std::shared_ptr<RemoteKey> ConstructorFactory::createRemoteKeyFromSerialized(
+  std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey)
 {
   return std::shared_ptr<RemoteKey>(new RemoteKey(endpoint, serializedRemoteKey));
 }

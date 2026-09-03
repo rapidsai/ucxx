@@ -10,7 +10,6 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/request.h>
 #include <ucxx/request_tag_builder.h>
 #include <ucxx/typedefs.h>
@@ -96,12 +95,7 @@ class RequestTag : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestTag>` object
    */
-  friend std::shared_ptr<RequestTag> detail::createRequestTag(
-    std::shared_ptr<Component> endpointOrWorker,
-    const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
-    const bool enablePythonFuture,
-    RequestCallbackUserFunction callbackFunction,
-    RequestCallbackUserData callbackData);
+  friend class detail::ConstructorFactory;
 
   virtual void populateDelayedSubmission();
 

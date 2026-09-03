@@ -17,15 +17,6 @@
 namespace ucxx {
 
 class Listener;
-
-namespace detail {
-[[nodiscard]] std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                                       std::string host,
-                                                       uint16_t port,
-                                                       ucp_listener_conn_callback_t callback,
-                                                       void* callbackArgs);
-}  // namespace detail
-
 /**
  * @brief Component encapsulating a UCP listener.
  *
@@ -115,11 +106,7 @@ class Listener : public Component {
    *
    * @returns The `shared_ptr<ucxx::Listener>` object.
    */
-  friend std::shared_ptr<Listener> detail::createListener(std::shared_ptr<Worker> worker,
-                                                          std::string host,
-                                                          uint16_t port,
-                                                          ucp_listener_conn_callback_t callback,
-                                                          void* callbackArgs);
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Create a builder for an endpoint from a connection request.

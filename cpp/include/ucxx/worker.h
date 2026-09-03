@@ -21,7 +21,6 @@
 #include <ucxx/component.h>
 #include <ucxx/context.h>
 #include <ucxx/delayed_submission.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/endpoint_builder.h>
 #include <ucxx/future.h>
 #include <ucxx/inflight_requests.h>
@@ -83,12 +82,7 @@ class Worker : public Component {
   std::shared_ptr<DelayedSubmissionCollection> _delayedSubmissionCollection{
     nullptr};  ///< Collection of enqueued delayed submissions
 
-  friend std::shared_ptr<RequestAm> detail::createRequestAm(
-    std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::AmSend, data::AmReceive> requestData,
-    const bool enablePythonFuture,
-    RequestCallbackUserFunction callbackFunction,
-    RequestCallbackUserData callbackData);
+  friend class detail::ConstructorFactory;
 
  protected:
   bool _enableFuture{
@@ -206,12 +200,10 @@ class Worker : public Component {
   /**
    * @brief Allow the internal worker factory to access the protected constructor.
    *
-   * This friend declaration allows `ucxx::detail::createWorker` to access the protected
+   * This friend declaration allows `ucxx::detail::ConstructorFactory` to access the protected
    * constructor.
    */
-  friend std::shared_ptr<Worker> detail::createWorker(std::shared_ptr<Context> context,
-                                                      const bool enableDelayedSubmission,
-                                                      const bool enableFuture);
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Allow WorkerBuilder to access protected/private constructor.

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -7,6 +7,10 @@
 #include <memory>
 
 namespace ucxx {
+
+namespace detail {
+class ConstructorFactory;
+}
 
 /**
  * @brief A UCXX component class to prevent early destruction of parent object.

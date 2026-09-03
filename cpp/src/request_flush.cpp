@@ -9,13 +9,14 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_flush.h>
 
 namespace ucxx {
 
-std::shared_ptr<RequestFlush> detail::createRequestFlush(
+std::shared_ptr<RequestFlush> detail::ConstructorFactory::createRequestFlush(
   std::shared_ptr<Component> endpointOrWorker,
   const data::Flush requestData,
   const bool enablePythonFuture,

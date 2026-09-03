@@ -14,7 +14,6 @@
 
 #include <ucxx/address.h>
 #include <ucxx/component.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/endpoint_builder.h>
 #include <ucxx/exception.h>
 #include <ucxx/inflight_requests.h>
@@ -210,11 +209,7 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  friend std::shared_ptr<Endpoint> detail::createEndpointFromHostname(
-    std::shared_ptr<Worker> worker,
-    std::string ipAddress,
-    uint16_t port,
-    bool endpointErrorHandling);
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -242,8 +237,7 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  friend std::shared_ptr<Endpoint> detail::createEndpointFromConnRequest(
-    std::shared_ptr<Listener> listener, ucp_conn_request_h connRequest, bool endpointErrorHandling);
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
@@ -268,8 +262,7 @@ class Endpoint : public Component {
    *
    * @returns The `shared_ptr<ucxx::Endpoint>` object
    */
-  friend std::shared_ptr<Endpoint> detail::createEndpointFromWorkerAddress(
-    std::shared_ptr<Worker> worker, std::shared_ptr<Address> address, bool endpointErrorHandling);
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Get the underlying `ucp_ep_h` handle.

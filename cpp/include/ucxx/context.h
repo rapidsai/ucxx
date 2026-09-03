@@ -14,7 +14,6 @@
 #include <ucxx/component.h>
 #include <ucxx/config.h>
 #include <ucxx/context_builder.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/memory_handle_builder.h>
 #include <ucxx/worker_builder.h>
 
@@ -68,11 +67,10 @@ class Context : public Component {
   /**
    * @brief Allow the internal context factory to access the private constructor.
    *
-   * This friend declaration allows `ucxx::detail::createContext` to access the private
+   * This friend declaration allows `ucxx::detail::ConstructorFactory` to access the private
    * constructor.
    */
-  friend std::shared_ptr<Context> detail::createContext(ConfigMap ucxConfig,
-                                                        const uint64_t featureFlags);
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Allow ContextBuilder to access private constructor.

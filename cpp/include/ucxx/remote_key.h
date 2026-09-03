@@ -19,13 +19,6 @@ namespace ucxx {
 
 class RemoteKey;
 
-namespace detail {
-[[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
-  std::shared_ptr<MemoryHandle> memoryHandle);
-[[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
-  std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
-}  // namespace detail
-
 /**
  * @brief Type for hashing serialized remote keys.
  *
@@ -129,8 +122,7 @@ class RemoteKey : public Component {
    *
    * @returns The `shared_ptr<ucxx::RemoteKey>` object
    */
-  friend std::shared_ptr<RemoteKey> detail::createRemoteKeyFromMemoryHandle(
-    std::shared_ptr<MemoryHandle> memoryHandle);
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RemoteKey>` from remote.
@@ -157,8 +149,7 @@ class RemoteKey : public Component {
    *
    * @returns The `shared_ptr<ucxx::RemoteKey>` object
    */
-  friend std::shared_ptr<RemoteKey> detail::createRemoteKeyFromSerialized(
-    std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
+  friend class detail::ConstructorFactory;
 
   ~RemoteKey();
 

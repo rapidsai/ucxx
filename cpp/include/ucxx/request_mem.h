@@ -10,7 +10,6 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/request.h>
 #include <ucxx/request_mem_builder.h>
 #include <ucxx/typedefs.h>
@@ -101,12 +100,7 @@ class RequestMem : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestMem>` object
    */
-  friend std::shared_ptr<RequestMem> detail::createRequestMem(
-    std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::MemPut, data::MemGet> requestData,
-    const bool enablePythonFuture,
-    RequestCallbackUserFunction callbackFunction,
-    RequestCallbackUserData callbackData);
+  friend class detail::ConstructorFactory;
 
   virtual void populateDelayedSubmission();
 

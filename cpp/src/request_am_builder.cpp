@@ -8,7 +8,7 @@
 #include <utility>
 #include <variant>
 
-#include <ucxx/detail/constructors.h>
+#include <internal/constructors.h>
 #include <ucxx/detail/register_inflight_request.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/request.h>
@@ -58,7 +58,7 @@ RequestAmBuilder&& RequestAmBuilder::receiverCallbackInfo(
 std::shared_ptr<RequestAm> RequestAmBuilder::build()
 {
   markBuilt();
-  auto req = detail::createRequestAm(
+  auto req = detail::ConstructorFactory::createRequestAm(
     _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpoint, req);
   return req;

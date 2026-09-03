@@ -6,8 +6,8 @@
 #include <string>
 #include <utility>
 
+#include <internal/constructors.h>
 #include <ucxx/detail/builder_utils.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/listener_builder.h>
 
 namespace ucxx {
@@ -43,7 +43,7 @@ ListenerBuilder& ListenerBuilder::host(std::string host)
 
 std::shared_ptr<Listener> ListenerBuilder::build()
 {
-  return detail::createListener(
+  return detail::ConstructorFactory::createListener(
     _impl->worker, _impl->host, _impl->port, _impl->callback, _impl->callbackArgs);
 }
 

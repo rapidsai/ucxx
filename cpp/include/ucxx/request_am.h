@@ -12,7 +12,6 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/request.h>
 #include <ucxx/request_am_builder.h>
 #include <ucxx/typedefs.h>
@@ -103,12 +102,7 @@ class RequestAm : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestAm>` object
    */
-  friend std::shared_ptr<RequestAm> detail::createRequestAm(
-    std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::AmSend, data::AmReceive> requestData,
-    const bool enablePythonFuture,
-    RequestCallbackUserFunction callbackFunction,
-    RequestCallbackUserData callbackData);
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Cancel the request.

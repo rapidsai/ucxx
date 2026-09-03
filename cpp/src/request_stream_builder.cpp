@@ -6,7 +6,7 @@
 #include <utility>
 #include <variant>
 
-#include <ucxx/detail/constructors.h>
+#include <internal/constructors.h>
 #include <ucxx/detail/register_inflight_request.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/request.h>
@@ -25,7 +25,8 @@ RequestStreamBuilder::RequestStreamBuilder(
 std::shared_ptr<RequestStream> RequestStreamBuilder::build()
 {
   markBuilt();
-  auto req = detail::createRequestStream(_endpoint, _requestData, _enablePythonFuture);
+  auto req =
+    detail::ConstructorFactory::createRequestStream(_endpoint, _requestData, _enablePythonFuture);
   detail::registerInflightRequest(_endpoint, req);
   return req;
 }

@@ -12,7 +12,6 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/buffer.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/future.h>
 #include <ucxx/request.h>
@@ -178,10 +177,7 @@ class RequestTagMulti : public Request {
    *
    * @returns Request to be subsequently checked for the completion and its state.
    */
-  friend std::shared_ptr<RequestTagMulti> detail::createRequestTagMulti(
-    std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
-    const bool enablePythonFuture);
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief `ucxx::RequestTagMulti` destructor.
