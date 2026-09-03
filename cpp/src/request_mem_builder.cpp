@@ -21,9 +21,29 @@ RequestMemBuilder::RequestMemBuilder(std::shared_ptr<Endpoint> endpoint,
 {
 }
 
+RequestMemBuilder& RequestMemBuilder::remoteAddressOffset(uint64_t offset) &
+{
+  _remoteAddressOffset = offset;
+  return *this;
+}
+
+RequestMemBuilder&& RequestMemBuilder::remoteAddressOffset(uint64_t offset) &&
+{
+  remoteAddressOffset(offset);
+  return std::move(*this);
+}
+
 std::shared_ptr<RequestMem> RequestMemBuilder::build()
 {
   markBuilt();
+  if (auto* memPut = std::get_if<data::MemPut>(&_requestData)) {
+    _requestData.emplace<data::MemPut>(
+      memPut->_buffer, memPut->_length, memPut->_remoteAddr + _remoteAddressOffset, memPut->_rkey);
+  } else {
+    auto* memGet = std::get_if<data::MemGet>(&_requestData);
+    _requestData.emplace<data::MemGet>(
+      memGet->_buffer, memGet->_length, memGet->_remoteAddr + _remoteAddressOffset, memGet->_rkey);
+  }
   auto req = detail::createRequestMem(
     _endpoint, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpoint, req);
