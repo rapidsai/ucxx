@@ -5,12 +5,16 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+from docutils.nodes import Node
+from sphinx.application import Sphinx
 import datetime
 import os
 
-import ucxx
+from docutils import nodes
 from packaging.version import Version
+from sphinx.util.nodes import clean_astext
 
+import ucxx
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -87,7 +91,6 @@ exclude_patterns = []
 pygments_style = "sphinx"
 
 html_theme_options = {
-    "public_docs_features": os.environ.get("CI") == "true",
     "external_links": [],
     # https://github.com/pydata/pydata-sphinx-theme/issues/1220
     "icon_links": [],
@@ -218,7 +221,35 @@ numpydoc_attributes_as_param_list = False
 autoclass_content = "class"
 
 
+def register_sections_as_label(app: Sphinx, document: Node) -> None:
+    """
+    Turn all sections in documents into labels for intersphinx.
+
+    Unlike the autosectionlabel extension this uses the perfectly good,
+    document-unique, section label name. So repeated sections with the same
+    name do not produce duplicate label warnings.
+    """
+    domain = app.env.domains.standard_domain
+    docname = app.env.docname
+
+    for node in document.findall(nodes.section):
+        labelid = node["ids"][0]
+        name = nodes.fully_normalize_name(f"{docname}:{labelid}")
+        title = clean_astext(node[0])
+
+        domain.anonlabels[name] = docname, labelid
+        domain.labels[name] = docname, labelid, title
+
+
+def use_slugged_duplicate_ids(app):
+    # Use default docutils deduplication scheme for duplicate node ids.
+    app.env.settings["auto_id_prefix"] = "%"
+
+
 def setup(app):
+    app.connect("builder-inited", use_slugged_duplicate_ids)
+    app.connect("doctree-read", register_sections_as_label)
+
     app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
     app.add_js_file(
         "https://docs.rapids.ai/assets/js/custom.js", loading_method="defer"
