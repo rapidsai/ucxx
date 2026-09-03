@@ -271,10 +271,6 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Component] getParent()
 
     cdef cppclass Context(Component):
-        shared_ptr[Worker] createWorker(
-            bint enableDelayedSubmission,
-            bint enableFuture,
-        ) except +raise_py_error
         ConfigMap getConfig() except +raise_py_error
         ucp_context_h getHandle()
         string getInfo() except +raise_py_error
@@ -287,7 +283,6 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass Worker(Component):
         ucp_worker_h getHandle()
         string getInfo() except +raise_py_error
-        shared_ptr[Address] getAddress() except +raise_py_error
         EndpointBuilder endpointBuilder(
             string ip_address, uint16_t port
         )
