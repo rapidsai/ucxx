@@ -637,51 +637,10 @@ std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
   }
 }
 
-std::shared_ptr<Request> Worker::tagRecv(void* buffer,
-                                         size_t length,
-                                         Tag tag,
-                                         TagMask tagMask,
-                                         const bool enableFuture,
-                                         RequestCallbackUserFunction callbackFunction,
-                                         RequestCallbackUserData callbackData)
-{
-  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(
-    detail::createRequestTag(worker,
-                             data::TagReceive(buffer, length, tag, tagMask),
-                             enableFuture,
-                             std::move(callbackFunction),
-                             std::move(callbackData)));
-}
-
 RequestTagBuilder Worker::tagRecvBuilder(void* buffer, size_t length, Tag tag, TagMask tagMask)
 {
   auto worker = std::static_pointer_cast<Worker>(shared_from_this());
   return RequestTagBuilder(std::move(worker), data::TagReceive(buffer, length, tag, tagMask));
-}
-
-std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
-                                                   std::shared_ptr<TagProbeInfo> probeInfo,
-                                                   const bool enableFuture,
-                                                   RequestCallbackUserFunction callbackFunction,
-                                                   RequestCallbackUserData callbackData)
-{
-  if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
-
-  // getHandle() will throw runtime_error if handle is nullptr or consumed
-  try {
-    probeInfo->getHandle();
-  } catch (const std::runtime_error& e) {
-    throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
-  }
-
-  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(detail::createRequestTag(
-    worker,
-    data::TagReceiveWithHandle(buffer, probeInfo->getInfo().length, probeInfo),
-    enableFuture,
-    std::move(callbackFunction),
-    std::move(callbackData)));
 }
 
 RequestTagBuilder Worker::tagRecvWithHandleBuilder(void* buffer,
@@ -757,15 +716,6 @@ void Worker::registerAmReceiverCallback(AmReceiverCallbackInfo info,
 bool Worker::amProbe(const ucp_ep_h endpointHandle) const
 {
   return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
-}
-
-std::shared_ptr<Request> Worker::flush(const bool enableFuture,
-                                       RequestCallbackUserFunction callbackFunction,
-                                       RequestCallbackUserData callbackData)
-{
-  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(detail::createRequestFlush(
-    worker, data::Flush(), enableFuture, std::move(callbackFunction), std::move(callbackData)));
 }
 
 RequestFlushBuilder Worker::flushBuilder()

@@ -226,12 +226,4 @@ class RemoteKey : public Component {
   [[nodiscard]] SerializedRemoteKey serialize() const;
 };
 
-/**
- * @brief Deprecated constructor for `std::shared_ptr<ucxx::RemoteKey>` from a memory handle.
- */
-
-/**
- * @brief Deprecated constructor for `std::shared_ptr<ucxx::RemoteKey>` from serialized data.
- */
-
 }  // namespace ucxx

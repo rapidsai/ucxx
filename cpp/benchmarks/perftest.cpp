@@ -801,13 +801,17 @@ class Application {
                                             {DirectionType::Recv, std::vector<char>(3, 0)}});
 
     // Schedule small wireup messages to let UCX identify capabilities between endpoints
-    requests.push_back(_endpoint->tagSend((*wireupBufferMap)[DirectionType::Send].data(),
+    requests.push_back(_endpoint
+                         ->tagSendBuilder((*wireupBufferMap)[DirectionType::Send].data(),
                                           (*wireupBufferMap)[DirectionType::Send].size(),
-                                          (*_tagMap)[DirectionType::Send]));
-    requests.push_back(_endpoint->tagRecv((*wireupBufferMap)[DirectionType::Recv].data(),
+                                          (*_tagMap)[DirectionType::Send])
+                         .build());
+    requests.push_back(_endpoint
+                         ->tagRecvBuilder((*wireupBufferMap)[DirectionType::Recv].data(),
                                           (*wireupBufferMap)[DirectionType::Recv].size(),
                                           (*_tagMap)[DirectionType::Recv],
-                                          ucxx::TagMaskFull));
+                                          ucxx::TagMaskFull)
+                         .build());
 
     // In loopback mode, also schedule the peer (server-side) wireup
     std::shared_ptr<BufferMap> peerWireupBufferMap;
@@ -816,13 +820,17 @@ class Application {
         std::make_shared<BufferMap>(BufferMap{{DirectionType::Send, std::vector<char>{1, 2, 3}},
                                               {DirectionType::Recv, std::vector<char>(3, 0)}});
 
-      requests.push_back(_peerEndpoint->tagSend((*peerWireupBufferMap)[DirectionType::Send].data(),
-                                                (*peerWireupBufferMap)[DirectionType::Send].size(),
-                                                (*_peerTagMap)[DirectionType::Send]));
-      requests.push_back(_peerEndpoint->tagRecv((*peerWireupBufferMap)[DirectionType::Recv].data(),
-                                                (*peerWireupBufferMap)[DirectionType::Recv].size(),
-                                                (*_peerTagMap)[DirectionType::Recv],
-                                                ucxx::TagMaskFull));
+      requests.push_back(_peerEndpoint
+                           ->tagSendBuilder((*peerWireupBufferMap)[DirectionType::Send].data(),
+                                            (*peerWireupBufferMap)[DirectionType::Send].size(),
+                                            (*_peerTagMap)[DirectionType::Send])
+                           .build());
+      requests.push_back(_peerEndpoint
+                           ->tagRecvBuilder((*peerWireupBufferMap)[DirectionType::Recv].data(),
+                                            (*peerWireupBufferMap)[DirectionType::Recv].size(),
+                                            (*_peerTagMap)[DirectionType::Recv],
+                                            ucxx::TagMaskFull)
+                           .build());
     }
 
     // Wait for wireup requests and clear requests
@@ -884,38 +892,55 @@ class Application {
     auto start = std::chrono::high_resolution_clock::now();
     if (_appContext.testAttributes->testType == TestType::PingPong) {
       requests = {
-        _endpoint->tagSend(
-          bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send]),
-        _endpoint->tagRecv(bufferInterface->getRecvPtr(),
+        _endpoint
+          ->tagSendBuilder(
+            bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send])
+          .build(),
+        _endpoint
+          ->tagRecvBuilder(bufferInterface->getRecvPtr(),
                            _appContext.messageSize,
                            (*_tagMap)[DirectionType::Recv],
-                           ucxx::TagMaskFull)};
+                           ucxx::TagMaskFull)
+          .build()};
       if (_appContext.loopback) {
-        requests.push_back(_peerEndpoint->tagSend(peerBufferInterface->getSendPtr(),
-                                                  _appContext.messageSize,
-                                                  (*_peerTagMap)[DirectionType::Send]));
-        requests.push_back(_peerEndpoint->tagRecv(peerBufferInterface->getRecvPtr(),
-                                                  _appContext.messageSize,
-                                                  (*_peerTagMap)[DirectionType::Recv],
-                                                  ucxx::TagMaskFull));
+        requests.push_back(_peerEndpoint
+                             ->tagSendBuilder(peerBufferInterface->getSendPtr(),
+                                              _appContext.messageSize,
+                                              (*_peerTagMap)[DirectionType::Send])
+                             .build());
+        requests.push_back(_peerEndpoint
+                             ->tagRecvBuilder(peerBufferInterface->getRecvPtr(),
+                                              _appContext.messageSize,
+                                              (*_peerTagMap)[DirectionType::Recv],
+                                              ucxx::TagMaskFull)
+                             .build());
       }
     } else {
       if (_appContext.loopback) {
-        requests = {_endpoint->tagSend(bufferInterface->getSendPtr(),
+        requests = {_endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
                                        _appContext.messageSize,
-                                       (*_tagMap)[DirectionType::Send]),
-                    _peerEndpoint->tagRecv(peerBufferInterface->getRecvPtr(),
-                                           _appContext.messageSize,
-                                           (*_peerTagMap)[DirectionType::Recv],
-                                           ucxx::TagMaskFull)};
+                                       (*_tagMap)[DirectionType::Send])
+                      .build(),
+                    _peerEndpoint
+                      ->tagRecvBuilder(peerBufferInterface->getRecvPtr(),
+                                       _appContext.messageSize,
+                                       (*_peerTagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)
+                      .build()};
       } else if (_isServer) {
-        requests = {_endpoint->tagRecv(bufferInterface->getRecvPtr(),
+        requests = {_endpoint
+                      ->tagRecvBuilder(bufferInterface->getRecvPtr(),
                                        _appContext.messageSize,
                                        (*_tagMap)[DirectionType::Recv],
-                                       ucxx::TagMaskFull)};
+                                       ucxx::TagMaskFull)
+                      .build()};
       } else {
-        requests = {_endpoint->tagSend(
-          bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send])};
+        requests = {_endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])
+                      .build()};
       }
     }
 

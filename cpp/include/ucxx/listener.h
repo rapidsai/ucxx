@@ -124,32 +124,6 @@ class Listener : public Component {
   [[nodiscard]] EndpointBuilder endpointBuilder(ucp_conn_request_h connRequest);
 
   /**
-   * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::Endpoint>` object from a `ucp_conn_request_h`,
-   * as delivered by a `ucxx::Listener` connection callback.
-   *
-   * @code{.cpp}
-   * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
-   * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = listener->endpointBuilder(connRequest)
-   *                   .endpointErrorHandling(true)
-   *                   .build();
-   *
-   * // Equivalent to line above
-   * // auto endpoint = ucxx::endpointBuilder(listener, connRequest)
-   * //                   .endpointErrorHandling(true)
-   * //                   .build();
-   * @endcode
-   *
-   * @param[in] connRequest           handle to connection request delivered by a
-   *                                  listener callback.
-   * @param[in] endpointErrorHandling whether to enable endpoint error handling.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object.
-   */
-
-  /**
    * @brief Get the underlying `ucp_listener_h` handle.
    *
    * Lifetime of the `ucp_listener_h` handle is managed by the `ucxx::Listener` object and
@@ -184,9 +158,5 @@ class Listener : public Component {
    */
   [[nodiscard]] std::string getIp();
 };
-
-/**
- * @brief Deprecated constructor for `std::shared_ptr<ucxx::Listener>`.
- */
 
 }  // namespace ucxx

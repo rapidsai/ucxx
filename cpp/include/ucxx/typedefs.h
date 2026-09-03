@@ -20,15 +20,6 @@
 
 #include <ucp/api/ucp.h>
 
-// rapids-pre-commit-hooks: disable[verify-hardcoded-version]
-#ifdef UCXX_DISABLE_DEPRECATED_NON_BUILDER_CONSTRUCTOR_WARNINGS
-#define UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR(message)
-#else
-#define UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR(message) \
-  [[deprecated(message " This non-builder constructor will be removed in UCXX 0.52.")]]
-#endif
-// rapids-pre-commit-hooks: enable[verify-hardcoded-version]
-
 namespace ucxx {
 
 class Buffer;

@@ -187,15 +187,6 @@ class MemoryHandle : public Component {
    * @returns Builder to create the remote key.
    */
   [[nodiscard]] RemoteKeyBuilder remoteKeyBuilder();
-
-  /**
-   * @brief Create a remote key for the memory allocation.
-   *
-   * Create a remote key that can be used by a remote endpoint to access this memory
-   * allocation. The remote key is required for remote memory access operations.
-   *
-   * @returns A shared pointer to the created remote key.
-   */
 };
 
 }  // namespace ucxx

@@ -780,47 +780,6 @@ class Worker : public Component {
                                                        const bool remove     = false) const;
 
   /**
-   * @brief Enqueue a tag receive operation.
-   *
-   * Enqueue a tag receive operation, returning a `std::shared<ucxx::Request>` that can
-   * be later awaited and checked for errors. This is a non-blocking operation, and the
-   * status of the transfer must be verified from the resulting request object before the
-   * data can be consumed.
-   *
-   * Using a future may be requested by specifying `enableFuture` if the worker
-   * implementation has support for it. If a future is requested, the application must then
-   * await on this future to ensure the transfer has completed.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
-   *                              data will be stored.
-   * @param[in] length            the size in bytes of the tag message to be received.
-   * @param[in] tag               the tag to match.
-   * @param[in] tagMask           the tag mask to use.
-   * @param[in] enableFuture      whether a future should be created and subsequently
-   *                              notified.
-   * @param[in] callbackFunction  user-defined callback function to call upon completion.
-   * @param[in] callbackData      user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns Request to be subsequently checked for the completion and its state.
-   */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::tagRecvBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<Request> tagRecv(
-    void* buffer,
-    size_t length,
-    Tag tag,
-    TagMask tagMask,
-    const bool enableFuture                      = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
-
-  /**
    * @brief Create a builder for a tag receive operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
@@ -838,37 +797,6 @@ class Worker : public Component {
                                                  size_t length,
                                                  Tag tag,
                                                  TagMask tagMask);
-
-  /**
-   * @brief Enqueue a tag receive operation using a message handle.
-   *
-   * Enqueue a tag receive operation using a message handle obtained from `tagProbe` with
-   * `remove=true`. This is more efficient than regular `tagRecv` as it doesn't need to
-   * go through the message matching queue again.
-   *
-   * Using a future may be requested by specifying `enableFuture` if the worker
-   * implementation has support for it. If a future is requested, the application must then
-   * await on this future to ensure the transfer has completed.
-   *
-   * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
-   *                              data will be stored. The buffer must be large enough to
-   *                              hold the message data, otherwise the behavior is undefined.
-   *                              The buffer must be pre-allocated.
-   * @param[in] probeInfo         the TagProbeInfo object containing message length and handle.
-   * @param[in] enableFuture      whether a future should be created and subsequently
-   *                              notified.
-   * @param[in] callbackFunction  user-defined callback function to call upon completion.
-   * @param[in] callbackData      user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns Request to be subsequently checked for the completion and its state.
-   */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::tagRecvWithHandleBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<Request> tagRecvWithHandle(
-    void* buffer,
-    std::shared_ptr<TagProbeInfo> probeInfo,
-    const bool enableFuture                      = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
 
   /**
    * @brief Create a builder for a tag receive operation using a message handle.
@@ -1039,39 +967,6 @@ class Worker : public Component {
   [[nodiscard]] bool amProbe(const ucp_ep_h endpointHandle) const;
 
   /**
-   * @brief Enqueue a flush operation.
-   *
-   * Enqueue request to flush outstanding AMO (Atomic Memory Operation) and RMA (Remote
-   * Memory Access) operations on the worker, returning a pointer to a request object that
-   * can be later awaited and checked for errors. This is a non-blocking operation, and its
-   * status must be verified from the resulting request object to confirm the flush
-   * operation has completed successfully.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns Request to be subsequently checked for the completion and its state.
-   */
-  UCXX_DEPRECATED_NON_BUILDER_CONSTRUCTOR("Use ucxx::Worker::flushBuilder() instead.")
-  [[nodiscard]] std::shared_ptr<Request> flush(
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
-
-  /**
    * @brief Create a builder for a flush operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
@@ -1107,27 +1002,5 @@ class Worker : public Component {
    */
   [[nodiscard]] Attributes queryAttributes() const;
 };
-
-/**
- * @brief Constructor of `shared_ptr<ucxx::Worker>` with parameters.
- *
- * The constructor for a `shared_ptr<ucxx::Worker>` object. The default constructor is
- * made private to ensure all UCXX objects are shared pointers for correct lifetime
- * management.
- *
- * @code{.cpp}
- *   // context is `std::shared_ptr<ucxx::Context>`
- *   auto worker = ucxx::workerBuilder(context).build();
- * @endcode
- *
- * @param[in] context the context from which to create the worker.
- * @param[in] enableDelayedSubmission if `true`, each `ucxx::Request` will not be
- *                                    submitted immediately, but instead delayed to
- *                                    the progress thread. Requires use of the
- *                                    progress thread.
- * @param[in] enableFuture if `true`, notifies the future associated with each
- *                         `ucxx::Request`, currently used only by `ucxx::python::Worker`.
- * @returns The `shared_ptr<ucxx::Worker>` object
- */
 
 }  // namespace ucxx

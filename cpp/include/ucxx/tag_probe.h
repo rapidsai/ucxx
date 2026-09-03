@@ -196,12 +196,4 @@ class TagProbeInfo {
   friend class RequestTag;
 };
 
-/**
- * @brief Deprecated constructor for an unmatched `std::shared_ptr<ucxx::TagProbeInfo>`.
- */
-
-/**
- * @brief Deprecated constructor for a matched `std::shared_ptr<ucxx::TagProbeInfo>`.
- */
-
 }  // namespace ucxx
