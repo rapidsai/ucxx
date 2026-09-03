@@ -49,7 +49,7 @@ TEST_F(EndpointTest, IsAlive)
 
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
   while (!send_req->isCompleted())
     _worker->progress();
 

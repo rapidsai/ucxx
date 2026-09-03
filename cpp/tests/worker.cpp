@@ -121,7 +121,7 @@ class WorkerTest : public ::testing::Test {
       _context->workerBuilder().build()};
     transfer.endpoint =
       transfer.sendWorker->endpointBuilder(transfer.recvWorker->addressBuilder().build()).build();
-    transfer.sendRequest = transfer.endpoint->tagSend(buffer, length, ucxx::Tag{0});
+    transfer.sendRequest = transfer.endpoint->tagSendBuilder(buffer, length, ucxx::Tag{0}).build();
 
     loopWithTimeout(std::chrono::milliseconds(5000), [&]() {
       transfer.sendWorker->progress();
@@ -292,7 +292,8 @@ TEST_F(WorkerTest, TagProbe)
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}));
+  requests.push_back(
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build());
   waitRequests(_worker, requests, progressWorker);
 
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
@@ -330,7 +331,7 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
   // Send a message
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -359,7 +360,8 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
 
   // Test receiving with the message handle
   std::vector<int> recv_buf(1);
-  std::shared_ptr<ucxx::Request> recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe2);
+  std::shared_ptr<ucxx::Request> recv_req =
+    _worker->tagRecvWithHandleBuilder(recv_buf.data(), probe2).build();
 
   // Progress until message is received
   while (!recv_req->isCompleted()) {
@@ -484,7 +486,7 @@ TEST_F(WorkerTest, TagProbeUnconsumedWarning)
   // Send a message
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -535,7 +537,7 @@ TEST_F(WorkerTest, TagProbeReleaseHandle)
   // Send a message
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -575,7 +577,7 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
   // Send a message
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -598,7 +600,8 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
 
     // Actually use the handle via tagRecvWithHandle to consume it properly
     std::vector<int> recv_buf(1);
-    std::shared_ptr<ucxx::Request> recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe);
+    std::shared_ptr<ucxx::Request> recv_req =
+      _worker->tagRecvWithHandleBuilder(recv_buf.data(), probe).build();
 
     // Progress until message is received
     while (!recv_req->isCompleted()) {
@@ -617,7 +620,8 @@ TEST_F(WorkerTest, AmProbe)
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->amSend(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
+  requests.push_back(
+    ep->amSendBuilder(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST).build());
   waitRequests(_worker, requests, progressWorker);
 
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker, ep]() {
@@ -640,8 +644,9 @@ TEST_P(WorkerProgressTest, ProgressAm)
   std::vector<int> send{123};
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
-  requests.push_back(ep->amRecv());
+  requests.push_back(
+    ep->amSendBuilder(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST).build());
+  requests.push_back(ep->amRecvBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq    = requests[1];
@@ -685,8 +690,9 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
   std::vector<int> send{123};
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(
-    ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST, receiverCallbackInfo));
+  requests.push_back(ep->amSendBuilder(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST)
+                       .receiverCallbackInfo(receiverCallbackInfo)
+                       .build());
   waitRequests(_worker, requests, _progressWorker);
 
   while (receivedRequests.size() < 1)
@@ -724,8 +730,9 @@ TEST_P(WorkerProgressTest, ProgressMemoryGet)
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(
-    ep->memGet(recv.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle()));
-  requests.push_back(_worker->flush());
+    ep->memGetBuilder(recv.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle())
+      .build());
+  requests.push_back(_worker->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -748,8 +755,9 @@ TEST_P(WorkerProgressTest, ProgressMemoryPut)
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(
-    ep->memPut(send.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle()));
-  requests.push_back(_worker->flush());
+    ep->memPutBuilder(send.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle())
+      .build());
+  requests.push_back(_worker->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -763,8 +771,10 @@ TEST_P(WorkerProgressTest, ProgressStream)
   std::vector<int> recv(1);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->streamSend(send.data(), send.size() * sizeof(int), 0));
-  requests.push_back(ep->streamRecv(recv.data(), recv.size() * sizeof(int), 0));
+  requests.push_back(
+    ep->streamSendBuilder(send.data(), send.size() * sizeof(int)).pythonFuture(0).build());
+  requests.push_back(
+    ep->streamRecvBuilder(recv.data(), recv.size() * sizeof(int)).pythonFuture(0).build());
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -778,9 +788,11 @@ TEST_P(WorkerProgressTest, ProgressTag)
   std::vector<int> recv(1);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagSend(send.data(), send.size() * sizeof(int), ucxx::Tag{0}));
   requests.push_back(
-    ep->tagRecv(recv.data(), recv.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
+    ep->tagSendBuilder(send.data(), send.size() * sizeof(int), ucxx::Tag{0}).build());
+  requests.push_back(
+    ep->tagRecvBuilder(recv.data(), recv.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull)
+      .build());
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -803,8 +815,11 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
   std::vector<int> multiIsCUDA(numMulti, false);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagMultiSend(multiBuffer, multiSize, multiIsCUDA, ucxx::Tag{0}, false));
-  requests.push_back(ep->tagMultiRecv(ucxx::Tag{0}, ucxx::TagMaskFull, false));
+  requests.push_back(ep->tagMultiSendBuilder(multiBuffer, multiSize, multiIsCUDA, ucxx::Tag{0})
+                       .pythonFuture(false)
+                       .build());
+  requests.push_back(
+    ep->tagMultiRecvBuilder(ucxx::Tag{0}, ucxx::TagMaskFull).pythonFuture(false).build());
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& br :

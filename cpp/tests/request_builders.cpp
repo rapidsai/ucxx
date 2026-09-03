@@ -409,7 +409,6 @@ TEST_F(RequestBuilderTest, EndpointCloseBuilderBuild)
 
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
-  EXPECT_EQ(nullptr, ep->close());
 }
 
 TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
@@ -670,95 +669,6 @@ TEST(RequestBuilderSingleUseTest, ImplicitConversionAttemptMarksBuilderBuilt)
   EXPECT_THROW(std::ignore = static_cast<std::shared_ptr<ucxx::Request>>(builder), ucxx::Error);
   EXPECT_THROW(std::ignore = static_cast<std::shared_ptr<ucxx::Request>>(builder),
                std::logic_error);
-}
-
-TEST_F(RequestBuilderTest, EndpointFlushReturnsRequest)
-{
-  auto req = _ep->flush();
-  static_assert(std::is_same<decltype(req), std::shared_ptr<ucxx::Request>>::value,
-                "ep->flush() returns shared_ptr<Request>");
-  ASSERT_TRUE(req != nullptr);
-  progressUntilCompleted(req);
-}
-
-TEST_F(RequestBuilderTest, WorkerFlushReturnsRequest)
-{
-  auto req = _worker->flush();
-  static_assert(std::is_same<decltype(req), std::shared_ptr<ucxx::Request>>::value,
-                "worker->flush() returns shared_ptr<Request>");
-  ASSERT_TRUE(req != nullptr);
-  progressUntilCompleted(req);
-}
-
-TEST_F(RequestBuilderTest, EndpointWorkerTagSendRecvReturnRequests)
-{
-  std::vector<int> sendBuf{10, 20, 30};
-  std::vector<int> recvBuf(3);
-  auto tag     = ucxx::Tag{42};
-  auto tagMask = ucxx::TagMaskFull;
-
-  auto sendReq = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag);
-  auto recvReq = _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
-  static_assert(std::is_same<decltype(sendReq), std::shared_ptr<ucxx::Request>>::value,
-                "ep->tagSend() returns shared_ptr<Request>");
-  static_assert(std::is_same<decltype(recvReq), std::shared_ptr<ucxx::Request>>::value,
-                "worker->tagRecv() returns shared_ptr<Request>");
-
-  ASSERT_TRUE(sendReq != nullptr);
-  ASSERT_TRUE(recvReq != nullptr);
-
-  while (!sendReq->isCompleted() || !recvReq->isCompleted())
-    _worker->progress();
-  sendReq->checkError();
-  recvReq->checkError();
-
-  EXPECT_EQ(sendBuf, recvBuf);
-}
-
-TEST_F(RequestBuilderTest, EndpointTagSendCallback)
-{
-  std::vector<int> sendBuf{1, 2};
-  std::vector<int> recvBuf(2);
-  auto tag     = ucxx::Tag{99};
-  auto tagMask = ucxx::TagMaskFull;
-
-  bool callbackCalled                  = false;
-  ucxx::RequestCallbackUserFunction cb = [&callbackCalled](ucs_status_t, std::shared_ptr<void>) {
-    callbackCalled = true;
-  };
-
-  auto sendReq = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag, false, cb);
-  auto recvReq = _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
-
-  while (!sendReq->isCompleted() || !recvReq->isCompleted())
-    _worker->progress();
-  sendReq->checkError();
-  recvReq->checkError();
-
-  EXPECT_EQ(sendBuf, recvBuf);
-  EXPECT_TRUE(callbackCalled);
-}
-
-TEST_F(RequestBuilderTest, EndpointTagSendAutoDeducesRequest)
-{
-  // Verify that `auto req = ep->tagSend(...)` preserves the legacy request type.
-  std::vector<int> sendBuf{9, 8, 7};
-  std::vector<int> recvBuf(3);
-  auto tag     = ucxx::Tag{55};
-  auto tagMask = ucxx::TagMaskFull;
-
-  auto sendReq = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag);
-  auto recvReq = _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
-
-  static_assert(std::is_same<decltype(sendReq), std::shared_ptr<ucxx::Request>>::value,
-                "auto ep->tagSend() deduces shared_ptr<Request>");
-
-  while (!sendReq->isCompleted() || !recvReq->isCompleted())
-    _worker->progress();
-  sendReq->checkError();
-  recvReq->checkError();
-
-  EXPECT_EQ(sendBuf, recvBuf);
 }
 
 TEST_F(RequestBuilderTest, EndpointFlushBuilderMethod)

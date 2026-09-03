@@ -744,9 +744,9 @@ class Worker : public Component {
    * When `remove` is `false` (default), the message remains in the receive queue and
    * a normal tag receive operation must be posted to consume it. When `remove` is `true`,
    * the message is removed from the queue and a message handle is returned that can be
-   * passed directly to `tagRecvWithHandle` for efficient consumption, in this case the
-   * caller is required to call `tagRecvWithHandle`, otherwise a warning will be thrown
-   * during destruction of the returned object.
+   * passed directly to `tagRecvWithHandleBuilder` for efficient consumption, in this case
+   * the caller is required to build a `tagRecvWithHandleBuilder` request, otherwise a
+   * warning will be thrown during destruction of the returned object.
    *
    * Note this is a non-blocking call, if this is being used to actively check for an
    * incoming message the worker should be constantly progress until a valid probe is
@@ -758,7 +758,7 @@ class Worker : public Component {
    * assert(!probe->isMatched());
    *
    * // `ep` is a remote `std::shared_ptr<ucxx::Endpoint` to the local `worker`
-   * ep->tagSend(buffer, length, 0);
+   * ep->tagSendBuilder(buffer, length, 0).build();
    *
    * probe = worker->tagProbe(0);
    * assert(probe->isMatched());
@@ -950,14 +950,14 @@ class Worker : public Component {
    *
    * Checks the worker for any uncaught active messages. An uncaught active message is any
    * active message that has been fully or partially received by the worker, but not matched
-   * by a corresponding `createRequestAmRecv()` call.
+   * by a corresponding active-message receive request.
    *
    * @code{.cpp}
    * // `worker` is `std::shared_ptr<ucxx::Worker>`
    * // `ep` is a remote `std::shared_ptr<ucxx::Endpoint` to the local `worker`
    * assert(!worker->amProbe(ep->getHandle()));
    *
-   * ep->amSend(buffer, length);
+   * ep->amSendBuilder(buffer, length, UCS_MEMORY_TYPE_HOST).build();
    *
    * assert(worker->amProbe(0));
    * @endcode

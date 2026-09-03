@@ -120,17 +120,25 @@ TEST_P(ListenerTest, EndpointSendRecv)
 
   std::vector<int> client_buf{123};
   std::vector<int> server_buf{0};
-  requests.push_back(ep->tagSend(client_buf.data(), client_buf.size() * sizeof(int), ucxx::Tag{0}));
-  requests.push_back(listenerContainer->endpoint->tagRecv(
-    &server_buf.front(), server_buf.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
+  requests.push_back(
+    ep->tagSendBuilder(client_buf.data(), client_buf.size() * sizeof(int), ucxx::Tag{0}).build());
+  requests.push_back(
+    listenerContainer->endpoint
+      ->tagRecvBuilder(
+        &server_buf.front(), server_buf.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull)
+      .build());
   ::waitRequests(_worker, requests, progress);
 
   ASSERT_EQ(server_buf[0], client_buf[0]);
 
-  requests.push_back(listenerContainer->endpoint->tagSend(
-    &server_buf.front(), server_buf.size() * sizeof(int), ucxx::Tag{1}));
-  requests.push_back(ep->tagRecv(
-    client_buf.data(), client_buf.size() * sizeof(int), ucxx::Tag{1}, ucxx::TagMaskFull));
+  requests.push_back(
+    listenerContainer->endpoint
+      ->tagSendBuilder(&server_buf.front(), server_buf.size() * sizeof(int), ucxx::Tag{1})
+      .build());
+  requests.push_back(
+    ep->tagRecvBuilder(
+        client_buf.data(), client_buf.size() * sizeof(int), ucxx::Tag{1}, ucxx::TagMaskFull)
+      .build());
   ::waitRequests(_worker, requests, progress);
   ASSERT_EQ(client_buf[0], server_buf[0]);
 
@@ -153,7 +161,7 @@ TEST_P(ListenerTest, IsAlive)
 
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
   while (!send_req->isCompleted())
     _worker->progress();
 
@@ -251,7 +259,7 @@ TEST_P(ListenerTest, EndpointNonBlockingClose)
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
-  auto closeRequest = ep->close();
+  auto closeRequest = ep->closeBuilder().build();
 
   auto f = [this, &closeRequest]() {
     _worker->progress();
@@ -287,7 +295,11 @@ TEST_P(ListenerTest, EndpointNonBlockingCloseWithCallbacks)
   while (listenerContainer->endpoint == nullptr)
     _worker->progress();
 
-  auto closeRequest = ep->close(false, closeCallback, closeCallbackRequest);
+  auto closeRequest = ep->closeBuilder()
+                        .pythonFuture(false)
+                        .callbackFunction(closeCallback)
+                        .callbackData(closeCallbackRequest)
+                        .build();
 
   auto f = [this, &closeRequest]() {
     _worker->progress();

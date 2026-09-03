@@ -196,31 +196,6 @@ TEST(ContextBuilderTest, BuilderDifferentInstances)
   ASSERT_NE(context1->getHandle(), context2->getHandle());
 }
 
-TEST(ContextBuilderTest, BuilderBackwardCompatibility)
-{
-  uint64_t featureFlags = UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP;
-
-  // Old API should still work
-  auto context1 = ucxx::contextBuilder(featureFlags).configMap({{"TLS", "tcp"}}).build();
-  ASSERT_TRUE(context1 != nullptr);
-  ASSERT_TRUE(context1->getHandle() != nullptr);
-  ASSERT_EQ(context1->getFeatureFlags(), featureFlags);
-  auto config1 = context1->getConfig();
-  ASSERT_EQ(config1["TLS"], "tcp");
-
-  // New API should produce equivalent result
-  auto context2 = ucxx::contextBuilder(featureFlags).configMap({{"TLS", "tcp"}}).build();
-  ASSERT_TRUE(context2 != nullptr);
-  ASSERT_TRUE(context2->getHandle() != nullptr);
-  ASSERT_EQ(context2->getFeatureFlags(), featureFlags);
-  auto config2 = context2->getConfig();
-  ASSERT_EQ(config2["TLS"], "tcp");
-
-  // Both should have same configuration
-  ASSERT_EQ(context1->getFeatureFlags(), context2->getFeatureFlags());
-  ASSERT_EQ(config1["TLS"], config2["TLS"]);
-}
-
 TEST(ContextBuilderTest, BuilderContextIsValid)
 {
   auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
@@ -366,25 +341,6 @@ TEST(WorkerBuilderTest, BuilderDifferentInstances)
   ASSERT_TRUE(worker1 != nullptr);
   ASSERT_TRUE(worker2 != nullptr);
   ASSERT_NE(worker1->getHandle(), worker2->getHandle());
-}
-
-TEST(WorkerBuilderTest, BuilderBackwardCompatibility)
-{
-  auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
-
-  // Old API should still work
-  auto worker1 = context->workerBuilder().delayedSubmission().pythonFuture().build();
-  ASSERT_TRUE(worker1 != nullptr);
-  ASSERT_TRUE(worker1->getHandle() != nullptr);
-  ASSERT_TRUE(worker1->isDelayedRequestSubmissionEnabled());
-  ASSERT_TRUE(worker1->isFutureEnabled());
-
-  // New API should produce equivalent result
-  auto worker2 = ucxx::workerBuilder(context).delayedSubmission(true).pythonFuture(true).build();
-  ASSERT_TRUE(worker2 != nullptr);
-  ASSERT_TRUE(worker2->getHandle() != nullptr);
-  ASSERT_TRUE(worker2->isDelayedRequestSubmissionEnabled());
-  ASSERT_TRUE(worker2->isFutureEnabled());
 }
 
 TEST(WorkerBuilderTest, RequestAttributesDefaultDisabled)
