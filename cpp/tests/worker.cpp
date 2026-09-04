@@ -96,10 +96,10 @@ struct ProbedTagTransfer {
 class WorkerTest : public ::testing::Test {
  protected:
   std::shared_ptr<ucxx::Context> _context{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
 
-  virtual void SetUp() { _worker = _context->createWorker(); }
+  virtual void SetUp() { _worker = _context->workerBuilder().build(); }
 
   void consumeTagMessageHandle(std::vector<int>* recv_buf, ucp_tag_message_h handle, size_t length)
   {
@@ -116,11 +116,12 @@ class WorkerTest : public ::testing::Test {
                                           bool delayedSubmission,
                                           bool waitForSendCompletion = false)
   {
-    ProbedTagTransfer transfer{_context->createWorker(delayedSubmission),
-                               _context->createWorker(false)};
+    ProbedTagTransfer transfer{
+      _context->workerBuilder().delayedSubmission(delayedSubmission).build(),
+      _context->workerBuilder().build()};
     transfer.endpoint =
-      transfer.sendWorker->createEndpointFromWorkerAddress(transfer.recvWorker->getAddress());
-    transfer.sendRequest = transfer.endpoint->tagSend(buffer, length, ucxx::Tag{0});
+      transfer.sendWorker->endpointBuilder(transfer.recvWorker->addressBuilder().build()).build();
+    transfer.sendRequest = transfer.endpoint->tagSendBuilder(buffer, length, ucxx::Tag{0}).build();
 
     loopWithTimeout(std::chrono::milliseconds(5000), [&]() {
       transfer.sendWorker->progress();
@@ -149,7 +150,7 @@ class WorkerCapabilityTest : public ::testing::Test,
                              public ::testing::WithParamInterface<std::tuple<bool, bool>> {
  protected:
   std::shared_ptr<ucxx::Context> _context{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   bool _enableDelayedSubmission;
   bool _enableFuture;
@@ -158,7 +159,10 @@ class WorkerCapabilityTest : public ::testing::Test,
   {
     std::tie(_enableDelayedSubmission, _enableFuture) = GetParam();
 
-    _worker = _context->createWorker(_enableDelayedSubmission, _enableFuture);
+    _worker = _context->workerBuilder()
+                .delayedSubmission(_enableDelayedSubmission)
+                .pythonFuture(_enableFuture)
+                .build();
   }
 };
 
@@ -175,7 +179,7 @@ class WorkerProgressTest
   {
     std::tie(_enableDelayedSubmission, _progressMode, _extraParams) = GetParam();
 
-    _worker = _context->createWorker(_enableDelayedSubmission);
+    _worker = _context->workerBuilder().delayedSubmission(_enableDelayedSubmission).build();
 
     if (_progressMode == ProgressMode::Blocking)
       _worker->initBlockingProgressMode();
@@ -279,7 +283,7 @@ INSTANTIATE_TEST_SUITE_P(Capabilities,
 TEST_F(WorkerTest, TagProbe)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   auto probed = _worker->tagProbe(ucxx::Tag{0});
   ASSERT_FALSE(probed->isMatched());
@@ -288,7 +292,8 @@ TEST_F(WorkerTest, TagProbe)
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}));
+  requests.push_back(
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build());
   waitRequests(_worker, requests, progressWorker);
 
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker]() {
@@ -321,12 +326,12 @@ TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
 TEST_F(WorkerTest, TagProbeRemoveWithMessage)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   // Send a message
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -355,7 +360,8 @@ TEST_F(WorkerTest, TagProbeRemoveWithMessage)
 
   // Test receiving with the message handle
   std::vector<int> recv_buf(1);
-  std::shared_ptr<ucxx::Request> recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe2);
+  std::shared_ptr<ucxx::Request> recv_req =
+    _worker->tagRecvWithHandleBuilder(recv_buf.data(), probe2).build();
 
   // Progress until message is received
   while (!recv_req->isCompleted()) {
@@ -475,12 +481,12 @@ TEST_F(WorkerTest, TagRecvWithHandleConsumesMessageWithZeroLengthBuffer)
 TEST_F(WorkerTest, TagProbeUnconsumedWarning)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   // Send a message
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -526,12 +532,12 @@ TEST_F(WorkerTest, TagProbeUnconsumedWarning)
 TEST_F(WorkerTest, TagProbeReleaseHandle)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   // Send a message
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -566,12 +572,12 @@ TEST_F(WorkerTest, TagProbeReleaseHandle)
 TEST_F(WorkerTest, TagProbeConsumeHandle)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   // Send a message
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
 
   // Progress until message is sent
   while (!send_req->isCompleted()) {
@@ -594,7 +600,8 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
 
     // Actually use the handle via tagRecvWithHandle to consume it properly
     std::vector<int> recv_buf(1);
-    std::shared_ptr<ucxx::Request> recv_req = _worker->tagRecvWithHandle(recv_buf.data(), probe);
+    std::shared_ptr<ucxx::Request> recv_req =
+      _worker->tagRecvWithHandleBuilder(recv_buf.data(), probe).build();
 
     // Progress until message is received
     while (!recv_req->isCompleted()) {
@@ -607,13 +614,14 @@ TEST_F(WorkerTest, TagProbeConsumeHandle)
 TEST_F(WorkerTest, AmProbe)
 {
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   ASSERT_FALSE(_worker->amProbe(ep->getHandle()));
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->amSend(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
+  requests.push_back(
+    ep->amSendBuilder(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST).build());
   waitRequests(_worker, requests, progressWorker);
 
   loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker, ep]() {
@@ -631,13 +639,14 @@ TEST_P(WorkerProgressTest, ProgressAm)
     GTEST_SKIP() << "Wait mode not supported";
   }
 
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST));
-  requests.push_back(ep->amRecv());
+  requests.push_back(
+    ep->amSendBuilder(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST).build());
+  requests.push_back(ep->amRecvBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   auto recvReq    = requests[1];
@@ -676,13 +685,14 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
     });
   _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
 
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(
-    ep->amSend(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST, receiverCallbackInfo));
+  requests.push_back(ep->amSendBuilder(send.data(), send.size() * sizeof(int), UCS_MEMORY_TYPE_HOST)
+                       .receiverCallbackInfo(receiverCallbackInfo)
+                       .build());
   waitRequests(_worker, requests, _progressWorker);
 
   while (receivedRequests.size() < 1)
@@ -705,23 +715,24 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
 
 TEST_P(WorkerProgressTest, ProgressMemoryGet)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
   std::vector<int> recv(1);
 
   size_t messageSize = send.size() * sizeof(int);
 
-  auto memoryHandle = _context->createMemoryHandle(messageSize, send.data());
+  auto memoryHandle = _context->memoryHandleBuilder(messageSize).buffer(send.data()).build();
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
+  auto remoteKey           = ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(
-    ep->memGet(recv.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle()));
-  requests.push_back(_worker->flush());
+    ep->memGetBuilder(recv.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle())
+      .build());
+  requests.push_back(_worker->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -729,23 +740,24 @@ TEST_P(WorkerProgressTest, ProgressMemoryGet)
 
 TEST_P(WorkerProgressTest, ProgressMemoryPut)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
   std::vector<int> recv(1);
 
   size_t messageSize = send.size() * sizeof(int);
 
-  auto memoryHandle = _context->createMemoryHandle(messageSize, recv.data());
+  auto memoryHandle = _context->memoryHandleBuilder(messageSize).buffer(recv.data()).build();
 
-  auto localRemoteKey      = memoryHandle->createRemoteKey();
+  auto localRemoteKey      = memoryHandle->remoteKeyBuilder().build();
   auto serializedRemoteKey = localRemoteKey->serialize();
-  auto remoteKey           = ucxx::createRemoteKeyFromSerialized(ep, serializedRemoteKey);
+  auto remoteKey           = ep->remoteKeyBuilder(serializedRemoteKey).build();
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
   requests.push_back(
-    ep->memPut(send.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle()));
-  requests.push_back(_worker->flush());
+    ep->memPutBuilder(send.data(), messageSize, remoteKey->getBaseAddress(), remoteKey->getHandle())
+      .build());
+  requests.push_back(_worker->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -753,14 +765,16 @@ TEST_P(WorkerProgressTest, ProgressMemoryPut)
 
 TEST_P(WorkerProgressTest, ProgressStream)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
   std::vector<int> recv(1);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->streamSend(send.data(), send.size() * sizeof(int), 0));
-  requests.push_back(ep->streamRecv(recv.data(), recv.size() * sizeof(int), 0));
+  requests.push_back(
+    ep->streamSendBuilder(send.data(), send.size() * sizeof(int)).pythonFuture(0).build());
+  requests.push_back(
+    ep->streamRecvBuilder(recv.data(), recv.size() * sizeof(int)).pythonFuture(0).build());
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -768,15 +782,17 @@ TEST_P(WorkerProgressTest, ProgressStream)
 
 TEST_P(WorkerProgressTest, ProgressTag)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
   std::vector<int> recv(1);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagSend(send.data(), send.size() * sizeof(int), ucxx::Tag{0}));
   requests.push_back(
-    ep->tagRecv(recv.data(), recv.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull));
+    ep->tagSendBuilder(send.data(), send.size() * sizeof(int), ucxx::Tag{0}).build());
+  requests.push_back(
+    ep->tagRecvBuilder(recv.data(), recv.size() * sizeof(int), ucxx::Tag{0}, ucxx::TagMaskFull)
+      .build());
   waitRequests(_worker, requests, _progressWorker);
 
   ASSERT_EQ(recv[0], send[0]);
@@ -788,7 +804,7 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
     GTEST_SKIP() << "Interrupting UCP worker progress operation in wait mode is not possible";
   }
 
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   std::vector<int> send{123};
 
@@ -799,8 +815,11 @@ TEST_P(WorkerProgressTest, ProgressTagMulti)
   std::vector<int> multiIsCUDA(numMulti, false);
 
   std::vector<std::shared_ptr<ucxx::Request>> requests;
-  requests.push_back(ep->tagMultiSend(multiBuffer, multiSize, multiIsCUDA, ucxx::Tag{0}, false));
-  requests.push_back(ep->tagMultiRecv(ucxx::Tag{0}, ucxx::TagMaskFull, false));
+  requests.push_back(ep->tagMultiSendBuilder(multiBuffer, multiSize, multiIsCUDA, ucxx::Tag{0})
+                       .pythonFuture(false)
+                       .build());
+  requests.push_back(
+    ep->tagMultiRecvBuilder(ucxx::Tag{0}, ucxx::TagMaskFull).pythonFuture(false).build());
   waitRequests(_worker, requests, _progressWorker);
 
   for (const auto& br :

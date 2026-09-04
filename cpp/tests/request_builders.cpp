@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -27,14 +27,14 @@ namespace {
 class RequestBuilderTest : public ::testing::Test {
  protected:
   std::shared_ptr<ucxx::Context> _context{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   std::shared_ptr<ucxx::Endpoint> _ep{nullptr};
 
   void SetUp() override
   {
-    _worker = _context->createWorker();
-    _ep     = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    _worker = _context->workerBuilder().build();
+    _ep     = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   }
 
   void progressUntilCompleted(std::shared_ptr<ucxx::Request> req)
@@ -381,7 +381,7 @@ TEST_F(RequestBuilderTest, StreamBuilderImplicitConversion)
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderAutoType)
 {
-  auto ep      = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep      = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   auto builder = ucxx::requestEndpointCloseBuilder(ep, ucxx::data::EndpointClose{false});
   static_assert(std::is_same<decltype(builder), ucxx::RequestEndpointCloseBuilder>::value,
                 "auto without .build() is RequestEndpointCloseBuilder");
@@ -389,7 +389,7 @@ TEST_F(RequestBuilderTest, EndpointCloseBuilderAutoType)
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderMethodChaining)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
 
   ucxx::RequestCallbackUserFunction callbackFn{nullptr};
   ucxx::RequestCallbackUserData callbackData{nullptr};
@@ -404,12 +404,11 @@ TEST_F(RequestBuilderTest, EndpointCloseBuilderMethodChaining)
 
 TEST_F(RequestBuilderTest, EndpointCloseBuilderBuild)
 {
-  auto ep  = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep  = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   auto req = ucxx::requestEndpointCloseBuilder(ep, ucxx::data::EndpointClose{true}).build();
 
   ASSERT_TRUE(req != nullptr);
   progressUntilCompleted(req);
-  EXPECT_EQ(nullptr, ep->close());
 }
 
 TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
@@ -444,7 +443,7 @@ TEST_F(RequestBuilderTest, AllBuilderAutoTypes)
                 "auto without .build() is RequestFlushBuilder");
 
   {
-    auto closeEp = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+    auto closeEp = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
     auto closeBuilder =
       ucxx::requestEndpointCloseBuilder(closeEp, ucxx::data::EndpointClose{false});
     static_assert(std::is_same<decltype(closeBuilder), ucxx::RequestEndpointCloseBuilder>::value,
@@ -670,95 +669,6 @@ TEST(RequestBuilderSingleUseTest, ImplicitConversionAttemptMarksBuilderBuilt)
   EXPECT_THROW(std::ignore = static_cast<std::shared_ptr<ucxx::Request>>(builder), ucxx::Error);
   EXPECT_THROW(std::ignore = static_cast<std::shared_ptr<ucxx::Request>>(builder),
                std::logic_error);
-}
-
-TEST_F(RequestBuilderTest, EndpointFlushReturnsRequest)
-{
-  auto req = _ep->flush();
-  static_assert(std::is_same<decltype(req), std::shared_ptr<ucxx::Request>>::value,
-                "ep->flush() returns shared_ptr<Request>");
-  ASSERT_TRUE(req != nullptr);
-  progressUntilCompleted(req);
-}
-
-TEST_F(RequestBuilderTest, WorkerFlushReturnsRequest)
-{
-  auto req = _worker->flush();
-  static_assert(std::is_same<decltype(req), std::shared_ptr<ucxx::Request>>::value,
-                "worker->flush() returns shared_ptr<Request>");
-  ASSERT_TRUE(req != nullptr);
-  progressUntilCompleted(req);
-}
-
-TEST_F(RequestBuilderTest, EndpointWorkerTagSendRecvReturnRequests)
-{
-  std::vector<int> sendBuf{10, 20, 30};
-  std::vector<int> recvBuf(3);
-  auto tag     = ucxx::Tag{42};
-  auto tagMask = ucxx::TagMaskFull;
-
-  auto sendReq = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag);
-  auto recvReq = _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
-  static_assert(std::is_same<decltype(sendReq), std::shared_ptr<ucxx::Request>>::value,
-                "ep->tagSend() returns shared_ptr<Request>");
-  static_assert(std::is_same<decltype(recvReq), std::shared_ptr<ucxx::Request>>::value,
-                "worker->tagRecv() returns shared_ptr<Request>");
-
-  ASSERT_TRUE(sendReq != nullptr);
-  ASSERT_TRUE(recvReq != nullptr);
-
-  while (!sendReq->isCompleted() || !recvReq->isCompleted())
-    _worker->progress();
-  sendReq->checkError();
-  recvReq->checkError();
-
-  EXPECT_EQ(sendBuf, recvBuf);
-}
-
-TEST_F(RequestBuilderTest, EndpointTagSendCallback)
-{
-  std::vector<int> sendBuf{1, 2};
-  std::vector<int> recvBuf(2);
-  auto tag     = ucxx::Tag{99};
-  auto tagMask = ucxx::TagMaskFull;
-
-  bool callbackCalled                  = false;
-  ucxx::RequestCallbackUserFunction cb = [&callbackCalled](ucs_status_t, std::shared_ptr<void>) {
-    callbackCalled = true;
-  };
-
-  auto sendReq = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag, false, cb);
-  auto recvReq = _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
-
-  while (!sendReq->isCompleted() || !recvReq->isCompleted())
-    _worker->progress();
-  sendReq->checkError();
-  recvReq->checkError();
-
-  EXPECT_EQ(sendBuf, recvBuf);
-  EXPECT_TRUE(callbackCalled);
-}
-
-TEST_F(RequestBuilderTest, EndpointTagSendAutoDeducesRequest)
-{
-  // Verify that `auto req = ep->tagSend(...)` preserves the legacy request type.
-  std::vector<int> sendBuf{9, 8, 7};
-  std::vector<int> recvBuf(3);
-  auto tag     = ucxx::Tag{55};
-  auto tagMask = ucxx::TagMaskFull;
-
-  auto sendReq = _ep->tagSend(sendBuf.data(), sendBuf.size() * sizeof(int), tag);
-  auto recvReq = _worker->tagRecv(recvBuf.data(), recvBuf.size() * sizeof(int), tag, tagMask);
-
-  static_assert(std::is_same<decltype(sendReq), std::shared_ptr<ucxx::Request>>::value,
-                "auto ep->tagSend() deduces shared_ptr<Request>");
-
-  while (!sendReq->isCompleted() || !recvReq->isCompleted())
-    _worker->progress();
-  sendReq->checkError();
-  recvReq->checkError();
-
-  EXPECT_EQ(sendBuf, recvBuf);
 }
 
 TEST_F(RequestBuilderTest, EndpointFlushBuilderMethod)

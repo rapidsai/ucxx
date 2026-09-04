@@ -1,12 +1,12 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
 #include <utility>
 
-#include <ucxx/constructors.h>
 #include <ucxx/detail/builder_utils.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/memory_handle_builder.h>
 
 namespace ucxx {
@@ -44,7 +44,7 @@ MemoryHandleBuilder& MemoryHandleBuilder::memoryType(ucs_memory_type_t memoryTyp
 
 std::shared_ptr<MemoryHandle> MemoryHandleBuilder::build()
 {
-  return ucxx::createMemoryHandle(_impl->context, _impl->size, _impl->buffer, _impl->memoryType);
+  return detail::createMemoryHandle(_impl->context, _impl->size, _impl->buffer, _impl->memoryType);
 }
 
 }  // namespace ucxx

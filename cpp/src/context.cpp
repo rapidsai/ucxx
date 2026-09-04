@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <ucxx/context.h>
+
 #include <ucxx/log.h>
 #include <ucxx/utils/file_descriptor.h>
 #include <ucxx/utils/ucx.h>
@@ -68,7 +69,8 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
     ucxx_info("  %s: %s", kv.first.c_str(), kv.second.c_str());
 }
 
-std::shared_ptr<Context> createContext(const ConfigMap ucxConfig, const uint64_t featureFlags)
+std::shared_ptr<Context> detail::createContext(const ConfigMap ucxConfig,
+                                               const uint64_t featureFlags)
 {
   return std::shared_ptr<Context>(new Context(ucxConfig, featureFlags));
 }
@@ -99,25 +101,9 @@ WorkerBuilder Context::workerBuilder()
   return WorkerBuilder(std::static_pointer_cast<Context>(shared_from_this()));
 }
 
-std::shared_ptr<Worker> Context::createWorker(const bool enableDelayedSubmission,
-                                              const bool enableFuture)
-{
-  auto context = std::static_pointer_cast<Context>(shared_from_this());
-  auto worker  = ucxx::createWorker(context, enableDelayedSubmission, enableFuture);
-  return worker;
-}
-
 MemoryHandleBuilder Context::memoryHandleBuilder(size_t size)
 {
   return MemoryHandleBuilder(std::static_pointer_cast<Context>(shared_from_this()), size);
-}
-
-std::shared_ptr<MemoryHandle> Context::createMemoryHandle(const size_t size,
-                                                          void* buffer,
-                                                          const ucs_memory_type_t memoryType)
-{
-  auto context = std::static_pointer_cast<Context>(shared_from_this());
-  return ucxx::createMemoryHandle(context, size, buffer, memoryType);
 }
 
 }  // namespace ucxx

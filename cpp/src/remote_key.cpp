@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -88,18 +88,6 @@ std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(std::shared_ptr<Endpoin
 }
 
 }  // namespace detail
-
-std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
-  std::shared_ptr<MemoryHandle> memoryHandle)
-{
-  return detail::createRemoteKeyFromMemoryHandle(std::move(memoryHandle));
-}
-
-std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(std::shared_ptr<Endpoint> endpoint,
-                                                         SerializedRemoteKey serializedRemoteKey)
-{
-  return detail::createRemoteKeyFromSerialized(std::move(endpoint), std::move(serializedRemoteKey));
-}
 
 size_t RemoteKey::getSize() const { return _memorySize; }
 

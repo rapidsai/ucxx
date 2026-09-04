@@ -11,6 +11,7 @@
 
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
+
 #include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
@@ -80,25 +81,9 @@ std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
 
 }  // namespace detail
 
-std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                         uint16_t port,
-                                         ucp_listener_conn_callback_t callback,
-                                         void* callbackArgs)
-{
-  return detail::createListener(std::move(worker), std::string{}, port, callback, callbackArgs);
-}
-
 EndpointBuilder Listener::endpointBuilder(ucp_conn_request_h connRequest)
 {
   return EndpointBuilder(std::static_pointer_cast<Listener>(shared_from_this()), connRequest);
-}
-
-std::shared_ptr<Endpoint> Listener::createEndpointFromConnRequest(ucp_conn_request_h connRequest,
-                                                                  bool endpointErrorHandling)
-{
-  auto listener = std::static_pointer_cast<Listener>(shared_from_this());
-  auto endpoint = ucxx::createEndpointFromConnRequest(listener, connRequest, endpointErrorHandling);
-  return endpoint;
 }
 
 ucp_listener_h Listener::getHandle() { return _handle; }

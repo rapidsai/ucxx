@@ -1,12 +1,12 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
 #include <utility>
 #include <variant>
 
-#include <ucxx/constructors.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/detail/register_inflight_request.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/request.h>
@@ -25,7 +25,7 @@ RequestTagMultiBuilder::RequestTagMultiBuilder(
 std::shared_ptr<RequestTagMulti> RequestTagMultiBuilder::build()
 {
   markBuilt();
-  auto req = ucxx::createRequestTagMulti(_endpoint, _requestData, _enablePythonFuture);
+  auto req = detail::createRequestTagMulti(_endpoint, _requestData, _enablePythonFuture);
   detail::registerInflightRequest(_endpoint, req);
   return req;
 }

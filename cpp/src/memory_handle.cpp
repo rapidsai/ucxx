@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -9,7 +9,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucs/memory/memory_type.h>
-#include <ucxx/constructors.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/log.h>
 #include <ucxx/memory_handle.h>
 #include <ucxx/utils/ucx.h>
@@ -69,10 +69,10 @@ MemoryHandle::~MemoryHandle()
     _memoryType);
 }
 
-std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
-                                                 const size_t size,
-                                                 void* buffer,
-                                                 const ucs_memory_type_t memoryType)
+std::shared_ptr<MemoryHandle> detail::createMemoryHandle(std::shared_ptr<Context> context,
+                                                         const size_t size,
+                                                         void* buffer,
+                                                         const ucs_memory_type_t memoryType)
 {
   return std::shared_ptr<MemoryHandle>(new MemoryHandle(context, size, buffer, memoryType));
 }
@@ -88,12 +88,6 @@ ucs_memory_type_t MemoryHandle::getMemoryType() { return _memoryType; }
 RemoteKeyBuilder MemoryHandle::remoteKeyBuilder()
 {
   return RemoteKeyBuilder(std::static_pointer_cast<MemoryHandle>(shared_from_this()));
-}
-
-std::shared_ptr<RemoteKey> MemoryHandle::createRemoteKey()
-{
-  return detail::createRemoteKeyFromMemoryHandle(
-    std::static_pointer_cast<MemoryHandle>(shared_from_this()));
 }
 
 }  // namespace ucxx

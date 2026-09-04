@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -8,8 +8,8 @@
 #include <utility>
 
 #include <ucxx/address_builder.h>
-#include <ucxx/constructors.h>
 #include <ucxx/detail/builder_utils.h>
+#include <ucxx/detail/constructors.h>
 
 namespace ucxx {
 
