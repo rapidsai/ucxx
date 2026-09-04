@@ -14,6 +14,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
 
@@ -181,10 +182,8 @@ void Endpoint::create(ucp_ep_params_t* params)
              _endpointErrorHandling);
 }
 
-std::shared_ptr<Endpoint> detail::createEndpointFromHostname(std::shared_ptr<Worker> worker,
-                                                             std::string ipAddress,
-                                                             uint16_t port,
-                                                             bool endpointErrorHandling)
+std::shared_ptr<Endpoint> detail::ConstructorFactory::createEndpointFromHostname(
+  std::shared_ptr<Worker> worker, std::string ipAddress, uint16_t port, bool endpointErrorHandling)
 {
   if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
@@ -203,9 +202,8 @@ std::shared_ptr<Endpoint> detail::createEndpointFromHostname(std::shared_ptr<Wor
   return ep;
 }
 
-std::shared_ptr<Endpoint> detail::createEndpointFromConnRequest(std::shared_ptr<Listener> listener,
-                                                                ucp_conn_request_h connRequest,
-                                                                bool endpointErrorHandling)
+std::shared_ptr<Endpoint> detail::ConstructorFactory::createEndpointFromConnRequest(
+  std::shared_ptr<Listener> listener, ucp_conn_request_h connRequest, bool endpointErrorHandling)
 {
   if (listener == nullptr || listener->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
@@ -221,9 +219,8 @@ std::shared_ptr<Endpoint> detail::createEndpointFromConnRequest(std::shared_ptr<
   return ep;
 }
 
-std::shared_ptr<Endpoint> detail::createEndpointFromWorkerAddress(std::shared_ptr<Worker> worker,
-                                                                  std::shared_ptr<Address> address,
-                                                                  bool endpointErrorHandling)
+std::shared_ptr<Endpoint> detail::ConstructorFactory::createEndpointFromWorkerAddress(
+  std::shared_ptr<Worker> worker, std::shared_ptr<Address> address, bool endpointErrorHandling)
 {
   if (worker == nullptr || worker->getHandle() == nullptr)
     throw ucxx::Error("Worker not initialized");
@@ -277,7 +274,7 @@ std::shared_ptr<RequestEndpointClose> Endpoint::closeRequest(
     }
   };
 
-  auto req = detail::createRequestEndpointClose(
+  auto req = detail::ConstructorFactory::createRequestEndpointClose(
     endpoint, data::EndpointClose(force), enablePythonFuture, combineCallbacksFunction, nullptr);
   std::ignore = registerInflightRequest(req);
   return req;

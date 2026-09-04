@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include <internal/constructors.h>
 #include <ucxx/context.h>
 
 #include <ucxx/log.h>
@@ -69,8 +70,8 @@ Context::Context(const ConfigMap ucxConfig, const uint64_t featureFlags)
     ucxx_info("  %s: %s", kv.first.c_str(), kv.second.c_str());
 }
 
-std::shared_ptr<Context> detail::createContext(const ConfigMap ucxConfig,
-                                               const uint64_t featureFlags)
+std::shared_ptr<Context> detail::ConstructorFactory::createContext(const ConfigMap ucxConfig,
+                                                                   const uint64_t featureFlags)
 {
   return std::shared_ptr<Context>(new Context(ucxConfig, featureFlags));
 }

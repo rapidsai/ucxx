@@ -10,7 +10,6 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/request.h>
 #include <ucxx/request_tag_builder.h>
 #include <ucxx/typedefs.h>
@@ -65,43 +64,8 @@ class RequestTag : public Request {
     RequestCallbackUserData callbackData         = nullptr);
 
  public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestTag>`.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RequestTag>` object, creating a send or
-   * receive tag request, returning a pointer to a request object that can be later awaited
-   * and checked for errors. This is a non-blocking operation, and the status of the
-   * transfer must be verified from the resulting request object before the data can be
-   * released (for a send operation) or consumed (for a receive operation).
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @throws ucxx::Error  if send is `true` and `endpointOrWorker` is not a
-   *                      `std::shared_ptr<ucxx::Endpoint>`.
-   *
-   * @param[in] endpointOrWorker    the parent component, which may either be a
-   *                                `std::shared_ptr<Endpoint>` or
-   *                                `std::shared_ptr<Worker>`.
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns The `shared_ptr<ucxx::RequestTag>` object
-   */
-  friend std::shared_ptr<RequestTag> detail::createRequestTag(
-    std::shared_ptr<Component> endpointOrWorker,
-    const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
-    const bool enablePythonFuture,
-    RequestCallbackUserFunction callbackFunction,
-    RequestCallbackUserData callbackData);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   virtual void populateDelayedSubmission();
 

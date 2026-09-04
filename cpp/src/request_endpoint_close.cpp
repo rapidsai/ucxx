@@ -10,13 +10,14 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_endpoint_close.h>
 
 namespace ucxx {
 
-std::shared_ptr<RequestEndpointClose> detail::createRequestEndpointClose(
+std::shared_ptr<RequestEndpointClose> detail::ConstructorFactory::createRequestEndpointClose(
   std::shared_ptr<Endpoint> endpoint,
   const data::EndpointClose requestData,
   const bool enablePythonFuture,

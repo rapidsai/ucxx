@@ -7,8 +7,8 @@
 #include <string>
 #include <utility>
 
+#include <internal/constructors.h>
 #include <ucxx/detail/builder_utils.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/endpoint_builder.h>
 
 namespace ucxx {
@@ -73,13 +73,13 @@ std::shared_ptr<Endpoint> EndpointBuilder::build()
 {
   switch (_impl->source) {
     case EndpointBuilderSource::Hostname:
-      return detail::createEndpointFromHostname(
+      return detail::ConstructorFactory::createEndpointFromHostname(
         _impl->worker, _impl->ipAddress, _impl->port, _impl->endpointErrorHandling);
     case EndpointBuilderSource::ConnRequest:
-      return detail::createEndpointFromConnRequest(
+      return detail::ConstructorFactory::createEndpointFromConnRequest(
         _impl->listener, _impl->connRequest, _impl->endpointErrorHandling);
     case EndpointBuilderSource::WorkerAddress:
-      return detail::createEndpointFromWorkerAddress(
+      return detail::ConstructorFactory::createEndpointFromWorkerAddress(
         _impl->worker, _impl->address, _impl->endpointErrorHandling);
   }
 

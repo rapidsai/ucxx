@@ -14,7 +14,6 @@
 
 #include <ucxx/address.h>
 #include <ucxx/component.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/endpoint_builder.h>
 #include <ucxx/exception.h>
 #include <ucxx/inflight_requests.h>
@@ -184,92 +183,8 @@ class Endpoint : public Component {
 
   ~Endpoint();
 
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::Endpoint>` object, connecting to a listener
-   * from the given hostname or IP address and port pair.
-   *
-   * @code{.cpp}
-   * // worker is `std::shared_ptr<ucxx::Worker>`, with a presumed listener on
-   * // "localhost:12345"
-   * auto endpoint = worker->endpointBuilder("localhost", 12345)
-   *                   .endpointErrorHandling(true)
-   *                   .build();
-   *
-   * // Equivalent to line above
-   * // auto endpoint = ucxx::endpointBuilder(worker, "localhost", 12345)
-   * //                   .endpointErrorHandling(true)
-   * //                   .build();
-   * @endcode
-   *
-   * @param[in] worker                parent worker from which to create the endpoint.
-   * @param[in] ipAddress             hostname or IP address the listener is bound to.
-   * @param[in] port                  port the listener is bound to.
-   * @param[in] endpointErrorHandling whether to enable endpoint error handling.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object
-   */
-  friend std::shared_ptr<Endpoint> detail::createEndpointFromHostname(
-    std::shared_ptr<Worker> worker,
-    std::string ipAddress,
-    uint16_t port,
-    bool endpointErrorHandling);
-
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::Endpoint>` object from a `ucp_conn_request_h`,
-   * as delivered by a `ucxx::Listener` connection callback.
-   *
-   * @code{.cpp}
-   * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
-   * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = listener->endpointBuilder(connRequest)
-   *                   .endpointErrorHandling(true)
-   *                   .build();
-   *
-   * // Equivalent to line above
-   * // auto endpoint = ucxx::endpointBuilder(listener, connRequest)
-   * //                   .endpointErrorHandling(true)
-   * //                   .build();
-   * @endcode
-   *
-   * @param[in] listener              listener from which to create the endpoint.
-   * @param[in] connRequest           handle to connection request delivered by a
-   *                                  listener callback.
-   * @param[in] endpointErrorHandling whether to enable endpoint error handling.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object
-   */
-  friend std::shared_ptr<Endpoint> detail::createEndpointFromConnRequest(
-    std::shared_ptr<Listener> listener, ucp_conn_request_h connRequest, bool endpointErrorHandling);
-
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::Endpoint>` object from a `shared_ptr<ucxx::Address>`.
-   *
-   * @code{.cpp}
-   * // worker is `std::shared_ptr<ucxx::Worker>`, address is `std::shared_ptr<ucxx::Address>`
-   * auto endpoint = worker->endpointBuilder(address)
-   *                   .endpointErrorHandling(true)
-   *                   .build();
-   *
-   * // Equivalent to line above
-   * // auto endpoint = ucxx::endpointBuilder(worker, address)
-   * //                   .endpointErrorHandling(true)
-   * //                   .build();
-   * @endcode
-   *
-   * @param[in] worker                parent worker from which to create the endpoint.
-   * @param[in] address               address of the remote UCX worker
-   * @param[in] endpointErrorHandling whether to enable endpoint error handling.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object
-   */
-  friend std::shared_ptr<Endpoint> detail::createEndpointFromWorkerAddress(
-    std::shared_ptr<Worker> worker, std::shared_ptr<Address> address, bool endpointErrorHandling);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Get the underlying `ucp_ep_h` handle.

@@ -11,7 +11,6 @@
 
 #include <ucxx/component.h>
 #include <ucxx/context.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/memory_handle_builder.h>
 #include <ucxx/remote_key_builder.h>
 
@@ -66,57 +65,8 @@ class MemoryHandle : public Component {
   MemoryHandle(MemoryHandle&& o)               = delete;
   MemoryHandle& operator=(MemoryHandle&& o)    = delete;
 
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::MemoryHandle>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::MemoryHandle>` object, mapping a memory buffer
-   * with UCP to provide RMA (Remote Memory Access) to.
-   *
-   * The allocation requires a `size` and a `buffer`.  The `buffer` provided may be either
-   * a `nullptr`, in which case UCP will allocate a new memory region for it, or an already
-   * existing allocation, in which case UCP will only map it for RMA and it's the caller's
-   * responsibility to keep `buffer` alive until this object is destroyed. When the UCP
-   * allocates `buffer` (i.e., when the value passed is `nullptr`), the actual size of the
-   * allocation may be larger than requested, and can later be found calling the `getSize()`
-   * method, if a preallocated buffer is passed `getSize()` will return the same value
-   * specified for `size`.
-   *
-   * @code{.cpp}
-   * // `context` is `std::shared_ptr<ucxx::Context>`
-   * // Allocate a 128-byte buffer with UCP.
-   * auto memoryHandle = context->memoryHandleBuilder(128).build();
-   *
-   * // Equivalent to line above
-   * // auto memoryHandle = ucxx::MemoryHandleBuilder(context, 128).build();
-   *
-   * // Map an existing 128-byte buffer with UCP.
-   * size_t allocationSize = 128;
-   * auto buffer = new uint8_t[allocationSize];
-   * auto memoryHandleFromBuffer = context->memoryHandleBuilder(allocationSize * sizeof(*buffer))
-   *                                  .buffer(buffer)
-   *                                  .build();
-   *
-   * // Equivalent to line above
-   * // auto memoryHandleFromBuffer = ucxx::MemoryHandleBuilder(
-   * //   context, allocationSize * sizeof(*buffer))
-   * //   .buffer(buffer)
-   * //   .build();
-   * @endcode
-   *
-   * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
-   *
-   * @param[in] context     parent context where to map memory.
-   * @param[in] size        the minimum size of the memory allocation
-   * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
-   *                        new memory region.
-   * @param[in] memoryType  the type of memory the handle points to.
-   *
-   * @returns The `shared_ptr<ucxx::MemoryHandle>` object
-   */
-  friend std::shared_ptr<MemoryHandle> detail::createMemoryHandle(std::shared_ptr<Context> context,
-                                                                  size_t size,
-                                                                  void* buffer,
-                                                                  ucs_memory_type_t memoryType);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   ~MemoryHandle();
 

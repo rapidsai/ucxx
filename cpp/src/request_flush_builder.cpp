@@ -5,7 +5,7 @@
 #include <memory>
 #include <utility>
 
-#include <ucxx/detail/constructors.h>
+#include <internal/constructors.h>
 #include <ucxx/detail/register_inflight_request.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/request.h>
@@ -24,7 +24,7 @@ RequestFlushBuilder::RequestFlushBuilder(std::shared_ptr<Component> endpointOrWo
 std::shared_ptr<RequestFlush> RequestFlushBuilder::build()
 {
   markBuilt();
-  auto req = detail::createRequestFlush(
+  auto req = detail::ConstructorFactory::createRequestFlush(
     _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpointOrWorker, req);
   return req;

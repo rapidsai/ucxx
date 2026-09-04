@@ -17,11 +17,6 @@ namespace ucxx {
 
 class Address;
 
-namespace detail {
-[[nodiscard]] std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
-[[nodiscard]] std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
-}  // namespace detail
-
 /**
  * @brief Component encapsulating the address of a UCP worker.
  *
@@ -60,29 +55,8 @@ class Address : public Component {
 
   ~Address();
 
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Address>` from worker.
-   *
-   * The constructor for a `shared_ptr<ucxx::Address>` object from a
-   * `std::shared_ptr<ucxx::Worker>` to obtain its address.
-   *
-   * @param[in] worker  parent worker from which to get the address.
-   *
-   * @returns The `shared_ptr<ucxx::Address>` object.
-   */
-  friend std::shared_ptr<Address> detail::createAddressFromWorker(std::shared_ptr<Worker> worker);
-
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Address>` from string.
-   *
-   * The constructor for a `shared_ptr<ucxx::Address>` object from the address extracted
-   * as string from a remote `std::shared_ptr<ucxx::Worker>`.
-   *
-   * @param[in] addressString the string from which to create the address.
-   *
-   * @returns The `shared_ptr<ucxx::Address>` object.
-   */
-  friend std::shared_ptr<Address> detail::createAddressFromString(std::string_view addressString);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Get the underlying `ucp_address_t*` handle.

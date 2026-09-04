@@ -9,13 +9,14 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_data.h>
 #include <ucxx/request_tag.h>
 
 namespace ucxx {
 
-std::shared_ptr<RequestTag> detail::createRequestTag(
+std::shared_ptr<RequestTag> detail::ConstructorFactory::createRequestTag(
   std::shared_ptr<Component> endpointOrWorker,
   const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
   const bool enablePythonFuture,

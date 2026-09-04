@@ -9,7 +9,6 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/request.h>
 #include <ucxx/request_data.h>
 #include <ucxx/request_stream_builder.h>
@@ -52,27 +51,8 @@ class RequestStream : public Request {
                 const bool enablePythonFuture = false);
 
  public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestStream>`.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RequestStream>` object, creating a send
-   * or receive stream request, returning a pointer to a request object that can be later
-   * awaited and checked for errors. This is a non-blocking operation, and the status of
-   * the transfer must be verified from the resulting request object before the data can be
-   * released (for a send operation) or consumed (for a receive operation).
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   *
-   * @returns The `shared_ptr<ucxx::RequestStream>` object
-   */
-  friend std::shared_ptr<RequestStream> detail::createRequestStream(
-    std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::StreamSend, data::StreamReceive> requestData,
-    const bool enablePythonFuture);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   virtual void populateDelayedSubmission();
 
