@@ -1,12 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import functools
 import gc
 import inspect
 import os
+import weakref
 
 import pytest
+import pytest_asyncio
 
 import ucxx
 from ucxx._lib_async.pytest_stash_keys import ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY
@@ -61,31 +64,90 @@ def event_loop_policy():
     return policy
 
 
-@pytest.fixture(autouse=True)
-def ucxx_setup_teardown():
-    """Automatically setup and teardown UCX for each test."""
+class _CreatedResources:
+    """Weakly observe resources created by a test and their handler futures."""
+
+    def __init__(self):
+        self._resources = []
+        self._handler_trackers = set()
+
+    def add(self, resource):
+        self._resources.append((type(resource).__name__, weakref.ref(resource)))
+        handler_tracker = getattr(resource, "_handler_tracker", None)
+        if handler_tracker is not None:
+            self._handler_trackers.add(handler_tracker)
+        return resource
+
+    async def drain_listener_handlers(self):
+        ctx = ucxx.core._ctx
+        progress = (
+            ctx.worker.progress
+            if ctx is not None and not ctx.progress_mode.startswith("thread")
+            else None
+        )
+        await asyncio.gather(
+            *(tracker.wait(progress=progress) for tracker in self._handler_trackers),
+            return_exceptions=True,
+        )
+        # Let task and future completion callbacks release their frames before
+        # collecting resources whose ownership ended with the test coroutine.
+        await asyncio.sleep(0)
+        gc.collect()
+
+    @property
+    def live_open_resources(self):
+        live = []
+        for kind, ref in self._resources:
+            resource = ref()
+            if resource is not None and not resource.closed:
+                live.append(kind)
+        return live
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def ucxx_setup_teardown(monkeypatch):
+    """Setup UCXX and verify implicit resource cleanup before closing the loop."""
+    resources = _CreatedResources()
+
+    create_listener = ucxx.core.create_listener
+    create_endpoint = ucxx.core.create_endpoint
+    create_endpoint_from_worker_address = ucxx.core.create_endpoint_from_worker_address
+
+    @functools.wraps(create_listener)
+    def tracked_create_listener(*args, **kwargs):
+        return resources.add(create_listener(*args, **kwargs))
+
+    @functools.wraps(create_endpoint)
+    async def tracked_create_endpoint(*args, **kwargs):
+        return resources.add(await create_endpoint(*args, **kwargs))
+
+    @functools.wraps(create_endpoint_from_worker_address)
+    async def tracked_create_endpoint_from_worker_address(*args, **kwargs):
+        return resources.add(await create_endpoint_from_worker_address(*args, **kwargs))
+
+    monkeypatch.setattr(ucxx, "create_listener", tracked_create_listener)
+    monkeypatch.setattr(ucxx.core, "create_listener", tracked_create_listener)
+    monkeypatch.setattr(ucxx, "create_endpoint", tracked_create_endpoint)
+    monkeypatch.setattr(ucxx.core, "create_endpoint", tracked_create_endpoint)
+    monkeypatch.setattr(
+        ucxx,
+        "create_endpoint_from_worker_address",
+        tracked_create_endpoint_from_worker_address,
+    )
+    monkeypatch.setattr(
+        ucxx.core,
+        "create_endpoint_from_worker_address",
+        tracked_create_endpoint_from_worker_address,
+    )
+
     ucxx.reset()
     yield
+    await resources.drain_listener_handlers()
     ucxx.reset()
-    # Let's make sure that UCX gets time to cancel
-    # progress tasks before closing the event loop.
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        # Python 3.14+ raises if there is no event loop
-        loop = None
-    if loop is None:
-        pass
-    elif loop.is_running():
-        # If loop is running, we can't run_until_complete
-        # The cleanup will happen when the loop is closed
-        pass
-    else:
-        try:
-            loop.run_until_complete(asyncio.sleep(0))
-        except RuntimeError:
-            # Loop might already be closed
-            pass
+    assert not resources.live_open_resources, (
+        "Open UCXX resources remained reachable after the test returned: "
+        f"{resources.live_open_resources}"
+    )
 
 
 def _asyncio_plugin_timeout_seconds(item: pytest.Item) -> float:

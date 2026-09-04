@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import concurrent.futures
 import inspect
 import logging
 import os
@@ -29,71 +30,93 @@ def _log_exception(message):
     )
 
 
-class ActiveClients:
+class _ListenerHandlerTracker:
     """
-    Handle number of active clients on `Listener`.
+    Track client handlers scheduled by a `Listener`.
 
-    Each `Listener` contains a unique ID that can be used to increment/decrement the
-    number of currently active client handlers. Useful to warn when the `Listener` is
-    being destroyed but callbacks handling clients have not yet completed, which may
-    lead to errors as the `Listener` most likely ended prematurely.
+    Listener callbacks run outside the asyncio event loop and submit their handlers
+    with ``run_coroutine_threadsafe``. Tracking the returned futures covers both the
+    interval before the coroutine starts and the completion callbacks that run after
+    the coroutine body exits.
     """
 
     def __init__(self):
-        self._locks = dict()
-        self._active_clients = dict()
+        self._lock = threading.Lock()
+        self._futures = set()
 
-    def add_listener(self, ident: int) -> None:
-        if ident in self._active_clients:
-            raise ValueError("Listener {ident} is already registered in ActiveClients.")
+    @property
+    def active_count(self) -> int:
+        with self._lock:
+            return len(self._futures)
 
-        self._locks[ident] = threading.Lock()
-        self._active_clients[ident] = 0
+    def submit(self, coroutine, event_loop):
+        """Submit and track a handler without exposing an untracked interval."""
+        try:
+            # Keep submission and registration atomic with respect to active_count.
+            # The event loop may finish the coroutine before this call returns.
+            with self._lock:
+                future = asyncio.run_coroutine_threadsafe(coroutine, event_loop)
+                self._futures.add(future)
+        except BaseException:
+            coroutine.close()
+            raise
 
-    def remove_listener(self, ident: int) -> None:
-        with self._locks[ident]:
-            active_clients = self.get_active(ident)
-            if active_clients > 0:
-                raise RuntimeError(
-                    "Listener {ident} is being removed from ActiveClients, but "
-                    f"{active_clients} active client(s) is(are) still accounted for."
-                )
+        future.add_done_callback(
+            lambda completed: self._handler_done(completed, event_loop)
+        )
+        return future
 
-        del self._locks[ident]
-        del self._active_clients[ident]
+    def _handler_done(self, future, event_loop) -> None:
+        try:
+            if not future.cancelled():
+                future.exception()
+        except concurrent.futures.CancelledError:
+            pass
 
-    def inc(self, ident: int) -> None:
-        with self._locks[ident]:
-            self._active_clients[ident] += 1
+        # run_coroutine_threadsafe marks its concurrent future done from an asyncio
+        # Task callback. Retain the future for one more event-loop turn so waiters do
+        # not observe an idle listener while that callback still owns the Task.
+        try:
+            event_loop.call_soon_threadsafe(self._discard, future)
+        except RuntimeError:
+            # A closed loop cannot retain pending callbacks, and cannot service an
+            # asynchronous waiter either.
+            self._discard(future)
 
-    def dec(self, ident: int) -> None:
-        with self._locks[ident]:
-            if self._active_clients[ident] == 0:
-                raise ValueError(f"There are no active clients for listener {ident}")
-            self._active_clients[ident] -= 1
+    def _discard(self, future) -> None:
+        with self._lock:
+            self._futures.discard(future)
 
-    def get_active(self, ident: int) -> int:
-        return self._active_clients[ident]
+    async def wait(self, progress=None) -> None:
+        """Wait until all handlers submitted so far have fully retired."""
+        while True:
+            with self._lock:
+                futures = tuple(self._futures)
+            if not futures:
+                return
+            if progress is not None:
+                progress()
+                await asyncio.sleep(1e-9)
+                continue
+            await asyncio.gather(
+                *(asyncio.wrap_future(future) for future in futures),
+                return_exceptions=True,
+            )
+            await asyncio.sleep(0)
 
 
-def _finalizer(ident: int, active_clients: ActiveClients) -> None:
+def _finalizer(handler_tracker: _ListenerHandlerTracker) -> None:
     """Listener finalizer.
 
-    Finalize the listener and remove it from the `ActiveClients`. If there are
-    active clients, a warning is logged.
+    If there are active client handlers, log a warning.
 
     Parameters
     ----------
-    ident: int
-        The unique identifier of the `Listener`.
-    active_clients: ActiveClients
-        Instance of `ActiveClients` owned by the parent `ApplicationContext`
-        from which to remove the `Listener`.
+    handler_tracker: _ListenerHandlerTracker
+        Tracks handlers scheduled by this listener.
     """
-    try:
-        active_clients.remove_listener(ident)
-    except RuntimeError:
-        active_clients = active_clients.get_active(ident)
+    active_clients = handler_tracker.active_count
+    if active_clients > 0:
         logger.warning(
             f"Listener object is being destroyed, but {active_clients} client "
             "handler(s) is(are) still alive. This usually indicates the Listener "
@@ -108,17 +131,18 @@ class Listener:
     Please use `create_listener()` to create an Listener.
     """
 
-    def __init__(self, listener, ident, active_clients):
+    def __init__(self, listener, handler_tracker, ctx):
         if not isinstance(listener, ucx_api.UCXListener):
             raise ValueError("listener must be an instance of UCXListener")
 
         self._listener = listener
+        self._handler_tracker = handler_tracker
+        # The public Listener owns its context while it is live. The lower-level
+        # listener callback receives only a weak reference, preventing stale callback
+        # data from extending the context lifetime after this object is released.
+        self._ctx = ctx
 
-        active_clients.add_listener(ident)
-        self._ident = ident
-        self._active_clients = active_clients
-
-        weakref.finalize(self, _finalizer, ident, active_clients)
+        weakref.finalize(self, _finalizer, handler_tracker)
 
     @property
     def closed(self):
@@ -137,21 +161,23 @@ class Listener:
 
     @property
     def active_clients(self):
-        return self._active_clients.get_active(self._ident)
+        return self._handler_tracker.active_count
+
+    async def _wait_for_active_clients(self, progress=None):
+        await self._handler_tracker.wait(progress=progress)
 
     def close(self):
         """Closing the listener"""
         self._listener = None
+        self._ctx = None
 
 
 async def _listener_handler_coroutine(
     conn_request,
-    ctx,
+    ctx_ref,
     func,
     endpoint_error_handling,
     connect_timeout,
-    ident,
-    active_clients,
 ):
     # We create the Endpoint in five steps:
     #  1) Create endpoint from conn_request
@@ -159,7 +185,10 @@ async def _listener_handler_coroutine(
     #  3) Exchange endpoint info such as tags
     #  4) Setup control receive callback
     #  5) Execute the listener's callback function
-    active_clients.inc(ident)
+    ctx = ctx_ref()
+    if ctx is None:
+        logger.debug("ApplicationContext was freed before listener handler started")
+        return
     endpoint = None
     ep = None
     try:
@@ -213,28 +242,24 @@ async def _listener_handler_coroutine(
         endpoint = None
         conn_request = None
         ep = None
-        active_clients.dec(ident)
 
 
 def _listener_handler(
     conn_request,
     event_loop,
     callback_func,
-    ctx,
+    ctx_ref,
     endpoint_error_handling,
     connect_timeout,
-    ident,
-    active_clients,
+    handler_tracker,
 ):
-    asyncio.run_coroutine_threadsafe(
+    handler_tracker.submit(
         _listener_handler_coroutine(
             conn_request,
-            ctx,
+            ctx_ref,
             callback_func,
             endpoint_error_handling,
             connect_timeout,
-            ident,
-            active_clients,
         ),
         event_loop,
     )

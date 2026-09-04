@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
@@ -15,7 +15,7 @@ from ucxx.types import Tag
 from .continuous_ucx_progress import BlockingMode, PollingMode, ThreadMode
 from .endpoint import Endpoint
 from .exchange_peer_info import exchange_peer_info
-from .listener import ActiveClients, Listener, _listener_handler
+from .listener import Listener, _ListenerHandlerTracker, _listener_handler
 from .notifier_thread import _notifierThread
 from .utils import get_event_loop, hash64bits
 
@@ -49,9 +49,6 @@ class ApplicationContext:
     ):
         self.notifier_thread_q = None
         self.notifier_thread = None
-        self._listener_active_clients = ActiveClients()
-        self._next_listener_id = 0
-
         self.progress_mode = progress_mode
         self.enable_delayed_submission = enable_delayed_submission
         self.enable_python_future = enable_python_future
@@ -300,8 +297,7 @@ class ApplicationContext:
         loop = get_event_loop()
 
         logger.info("create_listener() - Start listening on port %d" % port)
-        listener_id = self._next_listener_id
-        self._next_listener_id += 1
+        handler_tracker = _ListenerHandlerTracker()
         ret = Listener(
             ucx_api.UCXListener.create(
                 worker=self.worker,
@@ -310,16 +306,15 @@ class ApplicationContext:
                 cb_args=(
                     loop,
                     callback_func,
-                    self,
+                    weakref.ref(self),
                     endpoint_error_handling,
                     connect_timeout,
-                    listener_id,
-                    self._listener_active_clients,
+                    handler_tracker,
                 ),
                 deliver_endpoint=True,
             ),
-            listener_id,
-            self._listener_active_clients,
+            handler_tracker,
+            self,
         )
         return ret
 

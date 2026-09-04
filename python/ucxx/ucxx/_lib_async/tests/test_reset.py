@@ -1,5 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
+
+import gc
+import weakref
 
 import pytest
 
@@ -31,8 +34,13 @@ async def test_reset():
     lt = ucxx.create_listener(server)
     ep = await ucxx.create_endpoint(ucxx.get_address(), lt.port)
     await wait_listener_client_handlers(lt)
+    lt_ref = weakref.ref(lt)
+    ep_ref = weakref.ref(ep)
     del lt
     del ep
+    gc.collect()
+    assert lt_ref() is None
+    assert ep_ref() is None
     reset()
 
 

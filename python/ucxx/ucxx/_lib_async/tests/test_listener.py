@@ -1,27 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import asyncio
+import concurrent.futures
 import gc
-import inspect
 import logging
 import weakref
 
 import pytest
 
 from ucxx._lib_async import listener as listener_mod
-
-
-class _ActiveClients:
-    def __init__(self, on_dec=None):
-        self._on_dec = on_dec
-
-    def inc(self, ident):
-        pass
-
-    def dec(self, ident):
-        if self._on_dec is not None:
-            self._on_dec()
-        pass
 
 
 class _ConnectionRequest:
@@ -48,10 +36,6 @@ class _LogCaptureHandler(logging.Handler):
 
     def emit(self, record):
         self.records.append(record)
-
-
-class _MessageTruncatedError(Exception):
-    pass
 
 
 @pytest.mark.asyncio
@@ -113,12 +97,10 @@ async def test_listener_handler_exception_log_does_not_retain_context(
 
         await listener_mod._listener_handler_coroutine(
             conn_request=_ConnectionRequest(),
-            ctx=ctx,
+            ctx_ref=weakref.ref(ctx),
             func=callback,
             endpoint_error_handling=True,
             connect_timeout=1,
-            ident=1,
-            active_clients=_ActiveClients(),
         )
         del ctx
 
@@ -135,39 +117,82 @@ async def test_listener_handler_exception_log_does_not_retain_context(
 
 
 @pytest.mark.asyncio
-async def test_listener_handler_clears_context_before_final_decrement(monkeypatch):
-    async def fail_peer_info_exchange(*args, **kwargs):
-        raise _MessageTruncatedError("message truncated")
+async def test_listener_handler_tracker_waits_for_scheduled_future():
+    tracker = listener_mod._ListenerHandlerTracker()
+    gate = asyncio.Event()
 
-    def check_listener_frame():
-        frame = inspect.currentframe()
-        assert frame is not None
-        listener_frame = frame.f_back.f_back
-        assert listener_frame.f_code.co_name == "_listener_handler_coroutine"
+    tracker.submit(gate.wait(), asyncio.get_running_loop())
 
-        listener_locals = listener_frame.f_locals
-        assert listener_locals["ctx"] is None
-        assert listener_locals["endpoint"] is None
-        assert listener_locals["conn_request"] is None
-        assert listener_locals["ep"] is None
+    assert tracker.active_count == 1
+    gate.set()
+    await tracker.wait()
+    assert tracker.active_count == 0
+
+
+@pytest.mark.asyncio
+async def test_listener_handler_tracker_retires_on_next_loop_turn(monkeypatch):
+    future = concurrent.futures.Future()
+    tracker = listener_mod._ListenerHandlerTracker()
+
+    def run_coroutine_threadsafe(coroutine, event_loop):
+        coroutine.close()
+        return future
 
     monkeypatch.setattr(
-        listener_mod,
-        "UCXMessageTruncatedError",
-        _MessageTruncatedError,
+        listener_mod.asyncio,
+        "run_coroutine_threadsafe",
+        run_coroutine_threadsafe,
     )
+
+    tracker.submit(asyncio.sleep(0), asyncio.get_running_loop())
+    future.set_result(None)
+
+    # Completion alone is insufficient: run_coroutine_threadsafe may still own the
+    # asyncio Task from the callback that completed this concurrent future.
+    assert tracker.active_count == 1
+    await asyncio.sleep(0)
+    assert tracker.active_count == 0
+
+
+def test_listener_handler_tracker_closes_coroutine_if_submission_fails(monkeypatch):
+    tracker = listener_mod._ListenerHandlerTracker()
+    coroutine = asyncio.sleep(0)
+
+    def run_coroutine_threadsafe(coroutine, event_loop):
+        raise RuntimeError("event loop is closed")
+
     monkeypatch.setattr(
-        listener_mod,
-        "exchange_peer_info",
-        fail_peer_info_exchange,
+        listener_mod.asyncio,
+        "run_coroutine_threadsafe",
+        run_coroutine_threadsafe,
     )
+
+    with pytest.raises(RuntimeError, match="event loop is closed"):
+        tracker.submit(coroutine, object())
+
+    assert coroutine.cr_frame is None
+    assert tracker.active_count == 0
+
+
+@pytest.mark.asyncio
+async def test_listener_handler_ignores_expired_context():
+    callback_called = False
+
+    def callback(ep):
+        nonlocal callback_called
+        callback_called = True
+
+    ctx = _Context()
+    ctx_ref = weakref.ref(ctx)
+    del ctx
+    gc.collect()
 
     await listener_mod._listener_handler_coroutine(
         conn_request=_ConnectionRequest(),
-        ctx=_Context(),
-        func=lambda ep: None,
+        ctx_ref=ctx_ref,
+        func=callback,
         endpoint_error_handling=True,
         connect_timeout=1,
-        ident=1,
-        active_clients=_ActiveClients(on_dec=check_listener_frame),
     )
+
+    assert callback_called is False
