@@ -15,6 +15,9 @@ import pytest_asyncio
 import ucxx
 from ucxx._lib_async.pytest_stash_keys import ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY
 
+
+_CALL_REPORT_STASH_KEY = pytest.StashKey[pytest.TestReport]()
+
 # Prevent calls such as `cudf = pytest.importorskip("cudf")` from initializing
 # a CUDA context. Such calls may cause tests that must initialize the CUDA
 # context on the appropriate device to fail.
@@ -114,6 +117,24 @@ class _CreatedResources:
                 progress()
             await asyncio.sleep(0.01)
 
+    async def close(self):
+        """Explicitly close resources retained by a failed test traceback."""
+        for _, ref in reversed(self._resources):
+            resource = ref()
+            if resource is None or resource.closed:
+                continue
+            abort = getattr(resource, "abort", None)
+            if abort is not None:
+                abort()
+            else:
+                resource.close()
+
+        progress = self._progress()
+        await asyncio.gather(
+            *(tracker.wait(progress=progress) for tracker in self._handler_trackers),
+            return_exceptions=True,
+        )
+
     @property
     def live_open_resources(self):
         live = []
@@ -185,7 +206,7 @@ class _CreatedResources:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def ucxx_setup_teardown(monkeypatch):
+async def ucxx_setup_teardown(monkeypatch, request):
     """Setup UCXX and verify implicit resource cleanup before closing the loop."""
     resources = _CreatedResources()
 
@@ -222,8 +243,26 @@ async def ucxx_setup_teardown(monkeypatch):
 
     ucxx.reset()
     yield
-    await resources.wait_for_release()
+    call_report = request.node.stash.get(_CALL_REPORT_STASH_KEY, None)
+    if call_report is not None and call_report.passed:
+        await resources.wait_for_release()
+    else:
+        # Pytest retains the traceback of a failed test throughout fixture
+        # teardown. Its frames own test-local endpoints and listeners, so they
+        # cannot be implicitly destroyed before reset. Explicit cleanup here
+        # prevents the teardown error from masking the original failure and lets
+        # pytest-rerunfailures start the next attempt with a clean UCXX context.
+        await resources.close()
     ucxx.reset()
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Remember whether the test call passed for failure-safe UCXX teardown."""
+    report = yield
+    if report.when == "call":
+        item.stash[_CALL_REPORT_STASH_KEY] = report
+    return report
 
 
 def _asyncio_plugin_timeout_seconds(item: pytest.Item) -> float:
