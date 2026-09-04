@@ -8,6 +8,7 @@ import weakref
 import pytest
 
 import ucxx
+from conftest import _CreatedResources
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 
@@ -22,6 +23,27 @@ class ResetAfterN:
         self.count += 1
         if self.count == self.n:
             ucxx.reset()
+
+
+class ClosedEndpointHoldingContext:
+    """Endpoint-like resource whose transport is dead but context is retained."""
+
+    def __init__(self):
+        self.closed = True
+        self.context = object()
+
+    def abort(self):
+        self.context = None
+
+
+@pytest.mark.asyncio
+async def test_failed_test_cleanup_aborts_closed_endpoint():
+    resources = _CreatedResources()
+    endpoint = resources.add(ClosedEndpointHoldingContext())
+
+    await resources.close()
+
+    assert endpoint.context is None
 
 
 @pytest.mark.asyncio

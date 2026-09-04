@@ -121,12 +121,12 @@ class _CreatedResources:
         """Explicitly close resources retained by a failed test traceback."""
         for _, ref in reversed(self._resources):
             resource = ref()
-            if resource is None or resource.closed:
+            if resource is None:
                 continue
             abort = getattr(resource, "abort", None)
             if abort is not None:
                 abort()
-            else:
+            elif not resource.closed:
                 resource.close()
 
         progress = self._progress()
@@ -252,6 +252,11 @@ async def ucxx_setup_teardown(monkeypatch, request):
         # cannot be implicitly destroyed before reset. Explicit cleanup here
         # prevents the teardown error from masking the original failure and lets
         # pytest-rerunfailures start the next attempt with a clean UCXX context.
+        if call_report is not None and call_report.failed:
+            print(
+                "Test call failed before UCXX resource cleanup:\n"
+                f"{call_report.longreprtext}"
+            )
         await resources.close()
     ucxx.reset()
 
