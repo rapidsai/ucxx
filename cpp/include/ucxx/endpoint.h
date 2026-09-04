@@ -292,7 +292,7 @@ class Endpoint : public Component {
    * @brief Check whether the endpoint is still alive.
    *
    * Check whether the endpoint is still alive, generally `true` until `closeBlocking()` is
-   * called, `close()` is called and the returned request completes or the endpoint errors
+   * called, a request submitted by `closeBuilder()` completes or the endpoint errors
    * and the error handling procedure is executed. Always `true` if endpoint error handling
    * is disabled.
    *
@@ -393,7 +393,7 @@ class Endpoint : public Component {
    * @brief Create a builder for an active message send operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `amSend()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer                  a raw pointer to the data to be sent.
    * @param[in] length                  the size in bytes of the message to be sent.
@@ -409,7 +409,7 @@ class Endpoint : public Component {
    * @brief Create a builder for an active message send operation with explicit policy parameters.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `amSend()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the message to be sent.
@@ -425,7 +425,7 @@ class Endpoint : public Component {
    * @brief Create a builder for an active message send operation with IOV datatype.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `amSend()`.
+   * implicit conversion submits the request.
    *
    * @param[in] iov                 vector of IOV segments to be sent.
    * @param[in] params              active message send parameters. Datatype must be
@@ -440,7 +440,7 @@ class Endpoint : public Component {
    * @brief Create a builder for an active message receive operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `amRecv()`.
+   * implicit conversion submits the request.
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
@@ -450,7 +450,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a memory put operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `memPut()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the message to be sent.
@@ -469,7 +469,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a memory put operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `memPut()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the message to be sent.
@@ -486,7 +486,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a memory get operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `memGet()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be received.
    * @param[in] length              the size in bytes of the message to be received.
@@ -505,7 +505,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a memory get operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `memGet()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be received.
    * @param[in] length              the size in bytes of the message to be received.
@@ -522,7 +522,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a stream send operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `streamSend()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the message to be sent.
@@ -535,7 +535,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a stream receive operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `streamRecv()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
    *                                data will be stored.
@@ -549,7 +549,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a tag send operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `tagSend()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the message to be sent.
@@ -563,7 +563,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a tag receive operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `tagRecv()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
    *                                data will be stored.
@@ -582,7 +582,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a multi-buffer tag send operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `tagMultiSend()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a vector of raw pointers to the data frames to be sent.
    * @param[in] size                a vector of size in bytes of each frame to be sent.
@@ -600,7 +600,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a multi-buffer tag receive operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `tagMultiRecv()`.
+   * implicit conversion submits the request.
    *
    * @param[in] tag                 the tag to match.
    * @param[in] tagMask             the tag mask to use.
@@ -613,7 +613,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a flush operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `flush()`.
+   * implicit conversion submits the request.
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
@@ -646,7 +646,7 @@ class Endpoint : public Component {
    * @brief Create a builder for a non-blocking endpoint close operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `close()`.
+   * implicit conversion submits the request.
    *
    * @returns Builder to configure optional parameters and submit the close request.
    */

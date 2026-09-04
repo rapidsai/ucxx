@@ -156,8 +156,8 @@ class MemoryHandle : public Component {
    * @brief Get the base address of the memory allocation.
    *
    * Get the base address of the memory allocation, which is going to be used as the remote
-   * address to put or get memory via the `ucxx::Endpoint::memPut()` or
-   * `ucxx::Endpoint::memGet()` methods.
+   * address to put or get memory via the `ucxx::Endpoint::memPutBuilder()` or
+   * `ucxx::Endpoint::memGetBuilder()` methods.
    *
    * @code{.cpp}
    * // memoryHandle is `std::shared_ptr<ucxx::MemoryHandle>`
