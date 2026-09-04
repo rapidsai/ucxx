@@ -6,6 +6,7 @@ import functools
 import gc
 import inspect
 import os
+import types
 import weakref
 
 import pytest
@@ -107,7 +108,7 @@ class _CreatedResources:
             if loop.time() >= deadline:
                 raise AssertionError(
                     "Open UCXX resources remained reachable after the test "
-                    f"returned: {live}"
+                    f"returned: {live}\n{self.resource_referrer_details()}"
                 )
             if progress is not None:
                 progress()
@@ -121,6 +122,66 @@ class _CreatedResources:
             if resource is not None and not resource.closed:
                 live.append(kind)
         return live
+
+    @staticmethod
+    def _describe_referrer(referrer, resource):
+        referrer_type = type(referrer)
+        description = (
+            f"{referrer_type.__module__}.{referrer_type.__qualname__} "
+            f"at {id(referrer):#x}"
+        )
+        if isinstance(referrer, types.FrameType):
+            return (
+                f"{description}: {referrer.f_code.co_filename}:"
+                f"{referrer.f_lineno} in {referrer.f_code.co_name}"
+            )
+        if isinstance(referrer, types.CoroutineType):
+            frame = referrer.cr_frame
+            location = (
+                f"{frame.f_code.co_filename}:{frame.f_lineno}"
+                if frame is not None
+                else "completed"
+            )
+            return f"{description}: {referrer.cr_code.co_name} ({location})"
+        if isinstance(referrer, asyncio.Task):
+            return f"{description}: {referrer.get_name()} {referrer.get_coro()!r}"
+        if isinstance(referrer, dict):
+            keys = [repr(key) for key, value in referrer.items() if value is resource]
+            return f"{description}: keys containing resource: {keys[:10]}"
+        if isinstance(referrer, (list, tuple, set, frozenset)):
+            return f"{description}: length {len(referrer)}"
+        if isinstance(referrer, types.CellType):
+            return f"{description}: closure cell"
+        return description
+
+    def resource_referrer_details(self):
+        """Describe direct owners of resources that failed to leave scope."""
+        details = []
+        diagnostic_frame = inspect.currentframe()
+        try:
+            for kind, ref in self._resources:
+                resource = ref()
+                if resource is None:
+                    continue
+                details.append(
+                    f"{kind} at {id(resource):#x} (closed={resource.closed}) "
+                    "is referenced by:"
+                )
+                referrers = gc.get_referrers(resource)
+                for referrer in referrers:
+                    if referrer is diagnostic_frame:
+                        continue
+                    details.append(f"  {self._describe_referrer(referrer, resource)}")
+                    if isinstance(referrer, dict):
+                        for owner in gc.get_referrers(referrer):
+                            if isinstance(owner, types.FrameType):
+                                details.append(
+                                    "    owned by "
+                                    f"{self._describe_referrer(owner, referrer)}"
+                                )
+        finally:
+            del diagnostic_frame
+        return "\n".join(details)
 
 
 @pytest_asyncio.fixture(autouse=True)
