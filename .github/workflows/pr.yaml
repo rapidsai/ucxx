@@ -20,10 +20,12 @@ jobs:
       - docs-build
       - conda-cpp-tests
       - conda-python-tests
+      - conda-python-tests-gb300
       - conda-python-distributed-tests
       - wheel-build-libucxx
       - wheel-build-ucxx
       - wheel-tests-ucxx
+      - wheel-tests-ucxx-gb300
       - wheel-build-distributed-ucxx
       - wheel-tests-distributed-ucxx
       - telemetry-setup
@@ -331,6 +333,23 @@ jobs:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_python.sh
+  conda-python-tests-gb300:
+    needs: [conda-cpp-build, conda-python-build, changed-files]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
+    with:
+      build_type: pull-request
+      matrix_type: nightly
+      matrix_filter: map(select(.GPU == "gb300"))
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      script: ci/test_python.sh
   conda-python-distributed-tests:
     needs: [conda-cpp-build, conda-python-build, changed-files]
     permissions:
@@ -397,6 +416,23 @@ jobs:
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
     with:
       build_type: pull-request
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      script: ci/test_wheel_ucxx.sh
+  wheel-tests-ucxx-gb300:
+    needs: [wheel-build-ucxx, changed-files]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
+    with:
+      build_type: pull-request
+      matrix_type: nightly
+      matrix_filter: map(select(.GPU == "gb300"))
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_wheel_ucxx.sh
   wheel-build-distributed-ucxx:
