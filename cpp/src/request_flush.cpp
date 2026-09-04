@@ -80,7 +80,7 @@ void RequestFlush::request()
   publishRequest(request);
 }
 
-void RequestFlush::populateDelayedSubmission()
+void RequestFlush::populateDelayedSubmissionImpl()
 {
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {
     ucxx_warn("Endpoint was closed before it could be flushed");

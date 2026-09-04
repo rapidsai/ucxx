@@ -180,7 +180,7 @@ void RequestTag::request()
   publishRequest(request);
 }
 
-void RequestTag::populateDelayedSubmission()
+void RequestTag::populateDelayedSubmissionImpl()
 {
   std::lock_guard<std::recursive_mutex> lock(_mutex);
 

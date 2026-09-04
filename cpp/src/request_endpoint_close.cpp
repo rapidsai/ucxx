@@ -81,7 +81,7 @@ void RequestEndpointClose::request()
   publishRequest(request);
 }
 
-void RequestEndpointClose::populateDelayedSubmission()
+void RequestEndpointClose::populateDelayedSubmissionImpl()
 {
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {
     ucxx_warn("Endpoint is already closed");

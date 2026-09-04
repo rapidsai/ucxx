@@ -64,6 +64,8 @@ class RequestTag : public Request {
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RequestTag>`.
@@ -102,8 +104,6 @@ class RequestTag : public Request {
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
-
-  virtual void populateDelayedSubmission();
 
   /**
    * @brief Cancel the tag request.

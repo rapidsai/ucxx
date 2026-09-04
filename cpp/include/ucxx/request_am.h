@@ -71,6 +71,8 @@ class RequestAm : public Request {
             RequestCallbackUserFunction callbackFunction = nullptr,
             RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RequestAm>`.
@@ -117,8 +119,6 @@ class RequestAm : public Request {
    * destructor but may be called by the user to cancel the request as well.
    */
   void cancel() override;
-
-  void populateDelayedSubmission() override;
 
   /**
    * @brief Create and submit an active message send request.

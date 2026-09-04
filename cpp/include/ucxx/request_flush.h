@@ -61,6 +61,8 @@ class RequestFlush : public Request {
                RequestCallbackUserFunction callbackFunction = nullptr,
                RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RequestFlush>`.
@@ -101,8 +103,6 @@ class RequestFlush : public Request {
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
-
-  virtual void populateDelayedSubmission();
 
   /**
    * @brief Create and submit a flush request.

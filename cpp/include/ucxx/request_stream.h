@@ -51,6 +51,8 @@ class RequestStream : public Request {
                 std::string operationName,
                 const bool enablePythonFuture = false);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RequestStream>`.
@@ -73,8 +75,6 @@ class RequestStream : public Request {
     std::shared_ptr<Endpoint> endpoint,
     const std::variant<data::StreamSend, data::StreamReceive> requestData,
     const bool enablePythonFuture);
-
-  virtual void populateDelayedSubmission();
 
   /**
    * @brief Create and submit a stream request.

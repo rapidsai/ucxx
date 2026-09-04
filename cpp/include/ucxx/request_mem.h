@@ -69,6 +69,8 @@ class RequestMem : public Request {
              RequestCallbackUserFunction callbackFunction = nullptr,
              RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RequestMem>`.
@@ -107,8 +109,6 @@ class RequestMem : public Request {
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
-
-  virtual void populateDelayedSubmission();
 
   /**
    * @brief Callback executed by UCX when a memory put request is completed.

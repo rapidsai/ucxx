@@ -55,6 +55,8 @@ class RequestEndpointClose : public Request {
                        RequestCallbackUserFunction callbackFunction = nullptr,
                        RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   /**
    * @brief Constructor for `std::shared_ptr<ucxx::RequestEndpointClose>`.
@@ -90,8 +92,6 @@ class RequestEndpointClose : public Request {
     const bool enablePythonFuture,
     RequestCallbackUserFunction callbackFunction,
     RequestCallbackUserData callbackData);
-
-  virtual void populateDelayedSubmission();
 
   /**
    * @brief Create and submit an endpoint close request.

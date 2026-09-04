@@ -109,6 +109,8 @@ class RequestTagMulti : public Request {
                   std::string operationName,
                   const bool enablePythonFuture);
 
+  void populateDelayedSubmissionImpl() override;
+
   /**
    * @brief Receive all frames.
    *
@@ -225,8 +227,6 @@ class RequestTagMulti : public Request {
    * @throws std::runtime_error if called by a send request.
    */
   void recvCallback(ucs_status_t status);
-
-  void populateDelayedSubmission() override;
 
   void cancel() override;
 };
