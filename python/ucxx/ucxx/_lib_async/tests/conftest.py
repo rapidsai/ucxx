@@ -78,21 +78,40 @@ class _CreatedResources:
             self._handler_trackers.add(handler_tracker)
         return resource
 
-    async def drain_listener_handlers(self):
+    def _progress(self):
         ctx = ucxx.core._ctx
-        progress = (
+        return (
             ctx.worker.progress
             if ctx is not None and not ctx.progress_mode.startswith("thread")
             else None
         )
+
+    async def wait_for_release(self, timeout=5.0):
+        """Wait for handlers and implicitly-owned resources to be released."""
+        progress = self._progress()
         await asyncio.gather(
             *(tracker.wait(progress=progress) for tracker in self._handler_trackers),
             return_exceptions=True,
         )
-        # Let task and future completion callbacks release their frames before
-        # collecting resources whose ownership ended with the test coroutine.
-        await asyncio.sleep(0)
-        gc.collect()
+
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            # Task, future, and CUDA completion callbacks may release their last
+            # resource references after the test coroutine has returned.
+            await asyncio.sleep(0)
+            gc.collect()
+            live = self.live_open_resources
+            if not live:
+                return
+            if loop.time() >= deadline:
+                raise AssertionError(
+                    "Open UCXX resources remained reachable after the test "
+                    f"returned: {live}"
+                )
+            if progress is not None:
+                progress()
+            await asyncio.sleep(0.01)
 
     @property
     def live_open_resources(self):
@@ -142,12 +161,8 @@ async def ucxx_setup_teardown(monkeypatch):
 
     ucxx.reset()
     yield
-    await resources.drain_listener_handlers()
+    await resources.wait_for_release()
     ucxx.reset()
-    assert not resources.live_open_resources, (
-        "Open UCXX resources remained reachable after the test returned: "
-        f"{resources.live_open_resources}"
-    )
 
 
 def _asyncio_plugin_timeout_seconds(item: pytest.Item) -> float:

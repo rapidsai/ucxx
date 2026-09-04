@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import asyncio
 import gc
 import weakref
 
@@ -42,6 +43,25 @@ async def test_reset():
     assert lt_ref() is None
     assert ep_ref() is None
     reset()
+
+
+@pytest.mark.asyncio
+async def test_reset_waits_for_implicit_resource_release():
+    async def release_later(listener, endpoint):
+        await asyncio.sleep(0.05)
+        assert not listener.closed
+        assert not endpoint.closed
+
+    async def server(ep):
+        ep.abort()
+
+    listener = ucxx.create_listener(server)
+    endpoint = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
+    await wait_listener_client_handlers(listener)
+
+    # Deliberately leave open resources owned by a pending task. The autouse
+    # fixture must allow ordinary scope-based destruction to finish before reset.
+    asyncio.create_task(release_later(listener, endpoint))
 
 
 @pytest.mark.asyncio
