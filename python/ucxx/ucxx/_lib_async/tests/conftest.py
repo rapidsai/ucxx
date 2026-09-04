@@ -105,12 +105,12 @@ class _CreatedResources:
             # resource references after the test coroutine has returned.
             await asyncio.sleep(0)
             gc.collect()
-            live = self.live_open_resources
+            live = self.live_context_owners
             if not live:
                 return
             if loop.time() >= deadline:
                 raise AssertionError(
-                    "Open UCXX resources remained reachable after the test "
+                    "UCXX resources retained their context after the test "
                     f"returned: {live}\n{self.resource_referrer_details()}"
                 )
             if progress is not None:
@@ -136,11 +136,11 @@ class _CreatedResources:
         )
 
     @property
-    def live_open_resources(self):
+    def live_context_owners(self):
         live = []
         for kind, ref in self._resources:
             resource = ref()
-            if resource is not None and not resource.closed:
+            if resource is not None and getattr(resource, "_ctx", None) is not None:
                 live.append(kind)
         return live
 
@@ -156,16 +156,29 @@ class _CreatedResources:
                 f"{description}: {referrer.f_code.co_filename}:"
                 f"{referrer.f_lineno} in {referrer.f_code.co_name}"
             )
-        if isinstance(referrer, types.CoroutineType):
-            frame = referrer.cr_frame
+        if inspect.iscoroutine(referrer):
+            frame = getattr(referrer, "cr_frame", None)
             location = (
                 f"{frame.f_code.co_filename}:{frame.f_lineno}"
                 if frame is not None
                 else "completed"
             )
-            return f"{description}: {referrer.cr_code.co_name} ({location})"
+            code = getattr(referrer, "cr_code", None)
+            name = code.co_name if code is not None else referrer_type.__qualname__
+            return f"{description}: {name} ({location})"
         if isinstance(referrer, asyncio.Task):
             return f"{description}: {referrer.get_name()} {referrer.get_coro()!r}"
+        if isinstance(referrer, asyncio.Future):
+            return (
+                f"{description}: done={referrer.done()} "
+                f"cancelled={referrer.cancelled()}"
+            )
+        if isinstance(referrer, types.TracebackType):
+            frame = referrer.tb_frame
+            return (
+                f"{description}: {frame.f_code.co_filename}:"
+                f"{referrer.tb_lineno} in {frame.f_code.co_name}"
+            )
         if isinstance(referrer, dict):
             keys = [repr(key) for key, value in referrer.items() if value is resource]
             return f"{description}: keys containing resource: {keys[:10]}"
@@ -175,31 +188,70 @@ class _CreatedResources:
             return f"{description}: closure cell"
         return description
 
-    def resource_referrer_details(self):
-        """Describe direct owners of resources that failed to leave scope."""
+    @staticmethod
+    def _traceable_referrer(referrer):
+        return isinstance(
+            referrer,
+            (
+                asyncio.Future,
+                dict,
+                list,
+                tuple,
+                set,
+                frozenset,
+                types.CellType,
+                types.FrameType,
+                types.TracebackType,
+            ),
+        ) or inspect.isawaitable(referrer)
+
+    def resource_referrer_details(self, max_depth=4, max_referrers=10):
+        """Describe the bounded ownership chains retaining UCXX resources."""
         details = []
         diagnostic_frame = inspect.currentframe()
+        ignored_ids = {id(self), id(self._resources), id(details), id(diagnostic_frame)}
+        seen = set()
+
+        def append_referrers(resource, depth):
+            traversal_frame = inspect.currentframe()
+            ignored_ids.add(id(traversal_frame))
+            try:
+                referrers = gc.get_referrers(resource)
+                ignored_ids.add(id(referrers))
+                visible_count = 0
+                for referrer in referrers:
+                    if id(referrer) in ignored_ids or id(referrer) in seen:
+                        continue
+                    visible_count += 1
+                    if visible_count > max_referrers:
+                        continue
+                    seen.add(id(referrer))
+                    details.append(
+                        f"{'  ' * (depth + 1)}owned by "
+                        f"{self._describe_referrer(referrer, resource)}"
+                    )
+                    if depth < max_depth and self._traceable_referrer(referrer):
+                        append_referrers(referrer, depth + 1)
+                if visible_count > max_referrers:
+                    details.append(
+                        f"{'  ' * (depth + 1)}... and "
+                        f"{visible_count - max_referrers} more referrers"
+                    )
+            finally:
+                del traversal_frame
+
         try:
             for kind, ref in self._resources:
                 resource = ref()
-                if resource is None:
+                if resource is None or getattr(resource, "_ctx", None) is None:
                     continue
+                seen.clear()
+                seen.add(id(resource))
                 details.append(
                     f"{kind} at {id(resource):#x} (closed={resource.closed}) "
                     "is referenced by:"
                 )
-                referrers = gc.get_referrers(resource)
-                for referrer in referrers:
-                    if referrer is diagnostic_frame:
-                        continue
-                    details.append(f"  {self._describe_referrer(referrer, resource)}")
-                    if isinstance(referrer, dict):
-                        for owner in gc.get_referrers(referrer):
-                            if isinstance(owner, types.FrameType):
-                                details.append(
-                                    "    owned by "
-                                    f"{self._describe_referrer(owner, referrer)}"
-                                )
+                append_referrers(resource, 0)
         finally:
             del diagnostic_frame
         return "\n".join(details)

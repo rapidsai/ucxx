@@ -30,10 +30,34 @@ class ClosedEndpointHoldingContext:
 
     def __init__(self):
         self.closed = True
-        self.context = object()
+        self._ctx = object()
 
     def abort(self):
-        self.context = None
+        self._ctx = None
+
+
+class ResourceHolder:
+    def __init__(self, resource):
+        self.resource = resource
+
+
+def test_closed_endpoint_holding_context_is_still_live():
+    resources = _CreatedResources()
+    endpoint = resources.add(ClosedEndpointHoldingContext())
+
+    assert resources.live_context_owners == ["ClosedEndpointHoldingContext"]
+    assert endpoint.closed
+
+
+def test_resource_referrer_details_include_indirect_owner():
+    resources = _CreatedResources()
+    endpoint = resources.add(ClosedEndpointHoldingContext())
+    holder = ResourceHolder([endpoint])
+
+    details = resources.resource_referrer_details()
+
+    assert "ResourceHolder" in details
+    assert holder.resource == [endpoint]
 
 
 @pytest.mark.asyncio
@@ -43,7 +67,7 @@ async def test_failed_test_cleanup_aborts_closed_endpoint():
 
     await resources.close()
 
-    assert endpoint.context is None
+    assert endpoint._ctx is None
 
 
 @pytest.mark.asyncio
