@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -138,6 +138,6 @@ async def test_message_probe(api_type, probe_type):
     )
     await _client_node(probe_type, Listener.port)
 
-    wait_listener_client_handlers(Listener)
+    await wait_listener_client_handlers(Listener)
     while not Listener.closed:
         await asyncio.sleep(0.01)

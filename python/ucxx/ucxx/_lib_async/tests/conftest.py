@@ -1,15 +1,21 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import functools
 import gc
 import inspect
 import os
+import weakref
 
 import pytest
+import pytest_asyncio
 
 import ucxx
 from ucxx._lib_async.pytest_stash_keys import ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY
+
+
+_CALL_REPORT_STASH_KEY = pytest.StashKey[pytest.TestReport]()
 
 # Prevent calls such as `cudf = pytest.importorskip("cudf")` from initializing
 # a CUDA context. Such calls may cause tests that must initialize the CUDA
@@ -61,31 +67,160 @@ def event_loop_policy():
     return policy
 
 
-@pytest.fixture(autouse=True)
-def ucxx_setup_teardown():
-    """Automatically setup and teardown UCX for each test."""
+class _CreatedResources:
+    """Weakly observe resources created by a test and their handler futures."""
+
+    def __init__(self):
+        self._resources = []
+        self._handler_trackers = set()
+
+    def add(self, resource):
+        self._resources.append((type(resource).__name__, weakref.ref(resource)))
+        handler_tracker = getattr(resource, "_handler_tracker", None)
+        if handler_tracker is not None:
+            self._handler_trackers.add(handler_tracker)
+        return resource
+
+    def _progress(self):
+        ctx = ucxx.core._ctx
+        return (
+            ctx.worker.progress
+            if ctx is not None and not ctx.progress_mode.startswith("thread")
+            else None
+        )
+
+    async def wait_for_release(self, timeout=5.0):
+        """Wait for handlers and implicitly-owned resources to be released."""
+        progress = self._progress()
+        await asyncio.gather(
+            *(tracker.wait(progress=progress) for tracker in self._handler_trackers),
+            return_exceptions=True,
+        )
+
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            # Task, future, and CUDA completion callbacks may release their last
+            # resource references after the test coroutine has returned.
+            await asyncio.sleep(0)
+            gc.collect()
+            live = self.live_context_owners
+            if not live:
+                return
+            if loop.time() >= deadline:
+                raise AssertionError(
+                    "UCXX resources retained their context after the test "
+                    f"returned: {live}\n{self.resource_referrer_details()}"
+                )
+            if progress is not None:
+                progress()
+            await asyncio.sleep(0.01)
+
+    async def close(self):
+        """Explicitly close resources retained by a failed test traceback."""
+        for _, ref in reversed(self._resources):
+            resource = ref()
+            if resource is None:
+                continue
+            abort = getattr(resource, "abort", None)
+            if abort is not None:
+                abort()
+            elif not resource.closed:
+                resource.close()
+
+        progress = self._progress()
+        await asyncio.gather(
+            *(tracker.wait(progress=progress) for tracker in self._handler_trackers),
+            return_exceptions=True,
+        )
+
+    @property
+    def live_context_owners(self):
+        live = []
+        for kind, ref in self._resources:
+            resource = ref()
+            if resource is not None and getattr(resource, "_ctx", None) is not None:
+                live.append(kind)
+        return live
+
+    def resource_referrer_details(self):
+        """Report Python frames directly retaining UCXX resources."""
+        details = []
+        diagnostic_frame = inspect.currentframe()
+        try:
+            for kind, ref in self._resources:
+                resource = ref()
+                if resource is None or getattr(resource, "_ctx", None) is None:
+                    continue
+                details.append(
+                    f"{kind} at {id(resource):#x} (closed={resource.closed})"
+                )
+                for referrer in gc.get_referrers(resource):
+                    if referrer is diagnostic_frame or not inspect.isframe(referrer):
+                        continue
+                    details.append(
+                        f"  retained by {referrer.f_code.co_filename}:"
+                        f"{referrer.f_lineno} in {referrer.f_code.co_name}"
+                    )
+        finally:
+            del diagnostic_frame
+        return "\n".join(details)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def ucxx_setup_teardown(monkeypatch, request):
+    """Setup UCXX and verify implicit resource cleanup before closing the loop."""
+    resources = _CreatedResources()
+
+    create_listener = ucxx.core.create_listener
+    create_endpoint = ucxx.core.create_endpoint
+    create_endpoint_from_worker_address = ucxx.core.create_endpoint_from_worker_address
+
+    @functools.wraps(create_listener)
+    def tracked_create_listener(*args, **kwargs):
+        return resources.add(create_listener(*args, **kwargs))
+
+    @functools.wraps(create_endpoint)
+    async def tracked_create_endpoint(*args, **kwargs):
+        return resources.add(await create_endpoint(*args, **kwargs))
+
+    @functools.wraps(create_endpoint_from_worker_address)
+    async def tracked_create_endpoint_from_worker_address(*args, **kwargs):
+        return resources.add(await create_endpoint_from_worker_address(*args, **kwargs))
+
+    monkeypatch.setattr(ucxx, "create_listener", tracked_create_listener)
+    monkeypatch.setattr(ucxx.core, "create_listener", tracked_create_listener)
+    monkeypatch.setattr(ucxx, "create_endpoint", tracked_create_endpoint)
+    monkeypatch.setattr(ucxx.core, "create_endpoint", tracked_create_endpoint)
+    monkeypatch.setattr(
+        ucxx,
+        "create_endpoint_from_worker_address",
+        tracked_create_endpoint_from_worker_address,
+    )
+    monkeypatch.setattr(
+        ucxx.core,
+        "create_endpoint_from_worker_address",
+        tracked_create_endpoint_from_worker_address,
+    )
+
     ucxx.reset()
     yield
-    ucxx.reset()
-    # Let's make sure that UCX gets time to cancel
-    # progress tasks before closing the event loop.
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        # Python 3.14+ raises if there is no event loop
-        loop = None
-    if loop is None:
-        pass
-    elif loop.is_running():
-        # If loop is running, we can't run_until_complete
-        # The cleanup will happen when the loop is closed
-        pass
+    call_report = request.node.stash.get(_CALL_REPORT_STASH_KEY, None)
+    if call_report is not None and call_report.passed:
+        await resources.wait_for_release()
     else:
-        try:
-            loop.run_until_complete(asyncio.sleep(0))
-        except RuntimeError:
-            # Loop might already be closed
-            pass
+        # Failed-test tracebacks retain local resources until after teardown.
+        await resources.close()
+    ucxx.reset()
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Remember whether the test call passed for failure-safe UCXX teardown."""
+    report = yield
+    if report.when == "call":
+        item.stash[_CALL_REPORT_STASH_KEY] = report
+    return report
 
 
 def _asyncio_plugin_timeout_seconds(item: pytest.Item) -> float:
