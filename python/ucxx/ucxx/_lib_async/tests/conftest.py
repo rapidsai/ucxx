@@ -6,7 +6,6 @@ import functools
 import gc
 import inspect
 import os
-import types
 import weakref
 
 import pytest
@@ -144,114 +143,25 @@ class _CreatedResources:
                 live.append(kind)
         return live
 
-    @staticmethod
-    def _describe_referrer(referrer, resource):
-        referrer_type = type(referrer)
-        description = (
-            f"{referrer_type.__module__}.{referrer_type.__qualname__} "
-            f"at {id(referrer):#x}"
-        )
-        if isinstance(referrer, types.FrameType):
-            return (
-                f"{description}: {referrer.f_code.co_filename}:"
-                f"{referrer.f_lineno} in {referrer.f_code.co_name}"
-            )
-        if inspect.iscoroutine(referrer):
-            frame = getattr(referrer, "cr_frame", None)
-            location = (
-                f"{frame.f_code.co_filename}:{frame.f_lineno}"
-                if frame is not None
-                else "completed"
-            )
-            code = getattr(referrer, "cr_code", None)
-            name = code.co_name if code is not None else referrer_type.__qualname__
-            return f"{description}: {name} ({location})"
-        if isinstance(referrer, asyncio.Task):
-            return f"{description}: {referrer.get_name()} {referrer.get_coro()!r}"
-        if isinstance(referrer, asyncio.Future):
-            return (
-                f"{description}: done={referrer.done()} "
-                f"cancelled={referrer.cancelled()}"
-            )
-        if isinstance(referrer, types.TracebackType):
-            frame = referrer.tb_frame
-            return (
-                f"{description}: {frame.f_code.co_filename}:"
-                f"{referrer.tb_lineno} in {frame.f_code.co_name}"
-            )
-        if isinstance(referrer, dict):
-            keys = [repr(key) for key, value in referrer.items() if value is resource]
-            return f"{description}: keys containing resource: {keys[:10]}"
-        if isinstance(referrer, (list, tuple, set, frozenset)):
-            return f"{description}: length {len(referrer)}"
-        if isinstance(referrer, types.CellType):
-            return f"{description}: closure cell"
-        return description
-
-    @staticmethod
-    def _traceable_referrer(referrer):
-        return isinstance(
-            referrer,
-            (
-                asyncio.Future,
-                dict,
-                list,
-                tuple,
-                set,
-                frozenset,
-                types.CellType,
-                types.FrameType,
-                types.TracebackType,
-            ),
-        ) or inspect.isawaitable(referrer)
-
-    def resource_referrer_details(self, max_depth=4, max_referrers=10):
-        """Describe the bounded ownership chains retaining UCXX resources."""
+    def resource_referrer_details(self):
+        """Report Python frames directly retaining UCXX resources."""
         details = []
         diagnostic_frame = inspect.currentframe()
-        ignored_ids = {id(self), id(self._resources), id(details), id(diagnostic_frame)}
-        seen = set()
-
-        def append_referrers(resource, depth):
-            traversal_frame = inspect.currentframe()
-            ignored_ids.add(id(traversal_frame))
-            try:
-                referrers = gc.get_referrers(resource)
-                ignored_ids.add(id(referrers))
-                visible_count = 0
-                for referrer in referrers:
-                    if id(referrer) in ignored_ids or id(referrer) in seen:
-                        continue
-                    visible_count += 1
-                    if visible_count > max_referrers:
-                        continue
-                    seen.add(id(referrer))
-                    details.append(
-                        f"{'  ' * (depth + 1)}owned by "
-                        f"{self._describe_referrer(referrer, resource)}"
-                    )
-                    if depth < max_depth and self._traceable_referrer(referrer):
-                        append_referrers(referrer, depth + 1)
-                if visible_count > max_referrers:
-                    details.append(
-                        f"{'  ' * (depth + 1)}... and "
-                        f"{visible_count - max_referrers} more referrers"
-                    )
-            finally:
-                del traversal_frame
-
         try:
             for kind, ref in self._resources:
                 resource = ref()
                 if resource is None or getattr(resource, "_ctx", None) is None:
                     continue
-                seen.clear()
-                seen.add(id(resource))
                 details.append(
-                    f"{kind} at {id(resource):#x} (closed={resource.closed}) "
-                    "is referenced by:"
+                    f"{kind} at {id(resource):#x} (closed={resource.closed})"
                 )
-                append_referrers(resource, 0)
+                for referrer in gc.get_referrers(resource):
+                    if referrer is diagnostic_frame or not inspect.isframe(referrer):
+                        continue
+                    details.append(
+                        f"  retained by {referrer.f_code.co_filename}:"
+                        f"{referrer.f_lineno} in {referrer.f_code.co_name}"
+                    )
         finally:
             del diagnostic_frame
         return "\n".join(details)
@@ -299,16 +209,7 @@ async def ucxx_setup_teardown(monkeypatch, request):
     if call_report is not None and call_report.passed:
         await resources.wait_for_release()
     else:
-        # Pytest retains the traceback of a failed test throughout fixture
-        # teardown. Its frames own test-local endpoints and listeners, so they
-        # cannot be implicitly destroyed before reset. Explicit cleanup here
-        # prevents the teardown error from masking the original failure and lets
-        # pytest-rerunfailures start the next attempt with a clean UCXX context.
-        if call_report is not None and call_report.failed:
-            print(
-                "Test call failed before UCXX resource cleanup:\n"
-                f"{call_report.longreprtext}"
-            )
+        # Failed-test tracebacks retain local resources until after teardown.
         await resources.close()
     ucxx.reset()
 

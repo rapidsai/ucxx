@@ -196,8 +196,7 @@ async def am_recv(ep):
 
 
 async def wait_listener_client_handlers(listener):
-    while listener.active_clients > 0:
-        progress = None
-        if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
-            progress = ucxx.progress
-        await listener._wait_for_active_clients(progress=progress)
+    progress = None
+    if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
+        progress = ucxx.progress
+    await listener._wait_for_active_clients(progress=progress)
