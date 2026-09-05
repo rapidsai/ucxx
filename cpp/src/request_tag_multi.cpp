@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -59,7 +59,7 @@ RequestTagMulti::~RequestTagMulti()
   }
 }
 
-std::shared_ptr<RequestTagMulti> createRequestTagMulti(
+std::shared_ptr<RequestTagMulti> detail::createRequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
   const bool enablePythonFuture)
@@ -136,16 +136,11 @@ void RequestTagMulti::recvFrames()
       if (h.isCUDA[i] && bufferType == ucxx::BufferType::Invalid)
         throw std::runtime_error("CUDA buffer support not enabled, no buffer type configured");
       auto buf               = allocateBuffer(bufferType, h.size[i]);
-      bufferRequest->request = _endpoint->tagRecv(
-        buf->data(),
-        buf->getSize(),
-        tagPair.first,
-        tagPair.second,
-        false,
-        [this](ucs_status_t status, RequestCallbackUserData /* callbackData */) {
-          return this->markCompleted(status);
-        },
-        bufferRequest);
+      bufferRequest->request = static_cast<std::shared_ptr<Request>>(
+        _endpoint->tagRecvBuilder(buf->data(), buf->getSize(), tagPair.first, tagPair.second)
+          .callbackFunction(
+            [this](ucs_status_t status, RequestCallbackUserData) { return markCompleted(status); })
+          .callbackData(bufferRequest));
       bufferRequest->buffer = buf;
       ucxx_trace_req_f(_ownerString.c_str(),
                        this,
@@ -252,15 +247,14 @@ void RequestTagMulti::recvHeader()
   auto bufferRequest = std::make_shared<BufferRequest>();
   _bufferRequests.push_back(bufferRequest);
   bufferRequest->stringBuffer = std::make_shared<std::string>(Header::dataSize(), 0);
-  bufferRequest->request =
-    _endpoint->tagRecv(&bufferRequest->stringBuffer->front(),
+  bufferRequest->request      = static_cast<std::shared_ptr<Request>>(
+    _endpoint
+      ->tagRecvBuilder(&bufferRequest->stringBuffer->front(),
                        bufferRequest->stringBuffer->size(),
                        tagPair.first,
-                       tagPair.second,
-                       false,
-                       [this](ucs_status_t status, RequestCallbackUserData /* callbackData */) {
-                         return this->recvCallback(status);
-                       });
+                       tagPair.second)
+      .callbackFunction(
+        [this](ucs_status_t status, RequestCallbackUserData) { return recvCallback(status); }));
 
   if (bufferRequest->request->isCompleted()) {
     // TODO: Errors may not be raisable within callback
@@ -342,22 +336,20 @@ void RequestTagMulti::send()
           auto serializedHeader = std::make_shared<std::string>(std::move(header.serialize()));
           auto bufferRequest    = std::make_shared<BufferRequest>();
           _bufferRequests.push_back(bufferRequest);
-          bufferRequest->request = _endpoint->tagSend(
-            &serializedHeader->front(), serializedHeader->size(), tagMultiSend._tag, false);
+          bufferRequest->request = static_cast<std::shared_ptr<Request>>(_endpoint->tagSendBuilder(
+            &serializedHeader->front(), serializedHeader->size(), tagMultiSend._tag));
           bufferRequest->stringBuffer = std::move(serializedHeader);
         }
 
         for (size_t i = 0; i < _totalFrames; ++i) {
           auto bufferRequest = std::make_shared<BufferRequest>();
           _bufferRequests.push_back(bufferRequest);
-          bufferRequest->request = _endpoint->tagSend(
-            tagMultiSend._buffer[i],
-            tagMultiSend._length[i],
-            tagMultiSend._tag,
-            false,
-            [this](ucs_status_t status, RequestCallbackUserData /* callbackData */) {
-              return this->markCompleted(status);
-            });
+          bufferRequest->request = static_cast<std::shared_ptr<Request>>(
+            _endpoint
+              ->tagSendBuilder(tagMultiSend._buffer[i], tagMultiSend._length[i], tagMultiSend._tag)
+              .callbackFunction([this](ucs_status_t status, RequestCallbackUserData) {
+                return markCompleted(status);
+              }));
         }
 
         _isFilled = true;

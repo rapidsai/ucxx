@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -10,6 +10,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/request.h>
 #include <ucxx/request_endpoint_close_builder.h>
 #include <ucxx/typedefs.h>
@@ -83,7 +84,7 @@ class RequestEndpointClose : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestEndpointClose>` object.
    */
-  friend std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
+  friend std::shared_ptr<RequestEndpointClose> detail::createRequestEndpointClose(
     std::shared_ptr<Endpoint> endpoint,
     const data::EndpointClose requestData,
     const bool enablePythonFuture,

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -10,6 +10,7 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/delayed_submission.h>
+#include <ucxx/detail/constructors.h>
 #include <ucxx/request.h>
 #include <ucxx/request_flush_builder.h>
 #include <ucxx/typedefs.h>
@@ -94,7 +95,7 @@ class RequestFlush : public Request {
    *
    * @returns The `shared_ptr<ucxx::RequestFlush>` object
    */
-  friend std::shared_ptr<RequestFlush> createRequestFlush(
+  friend std::shared_ptr<RequestFlush> detail::createRequestFlush(
     std::shared_ptr<Component> endpointOrWorker,
     const data::Flush requestData,
     const bool enablePythonFuture,

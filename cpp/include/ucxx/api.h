@@ -1,12 +1,11 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <ucxx/address.h>
 #include <ucxx/buffer.h>
-#include <ucxx/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/header.h>

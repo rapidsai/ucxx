@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ucxx/request_data.h"
@@ -16,12 +16,12 @@
 
 namespace ucxx {
 
-std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
+std::shared_ptr<RequestEndpointClose> detail::createRequestEndpointClose(
   std::shared_ptr<Endpoint> endpoint,
   const data::EndpointClose requestData,
-  const bool enablePythonFuture                = false,
-  RequestCallbackUserFunction callbackFunction = nullptr,
-  RequestCallbackUserData callbackData         = nullptr)
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData)
 {
   std::shared_ptr<RequestEndpointClose> req =
     std::shared_ptr<RequestEndpointClose>(new RequestEndpointClose(endpoint,

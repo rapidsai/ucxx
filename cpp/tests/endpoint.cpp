@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -16,22 +16,22 @@ namespace {
 class EndpointTest : public ::testing::Test {
  protected:
   std::shared_ptr<ucxx::Context> _context{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Context> _remoteContext{
-    ucxx::createContext({}, ucxx::Context::defaultFeatureFlags)};
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   std::shared_ptr<ucxx::Worker> _remoteWorker{nullptr};
 
   virtual void SetUp()
   {
-    _worker       = _context->createWorker();
-    _remoteWorker = _remoteContext->createWorker();
+    _worker       = _context->workerBuilder().build();
+    _remoteWorker = _remoteContext->workerBuilder().build();
   }
 };
 
 TEST_F(EndpointTest, HandleIsValid)
 {
-  auto ep = _worker->createEndpointFromWorkerAddress(_worker->getAddress());
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   _worker->progress();
 
   ASSERT_TRUE(ep->getHandle() != nullptr);
@@ -41,7 +41,7 @@ TEST_F(EndpointTest, IsAlive)
 {
   GTEST_SKIP()
     << "Connecting to worker via its UCX address doesn't seem to call endpoint error handler";
-  auto ep = _worker->createEndpointFromWorkerAddress(_remoteWorker->getAddress());
+  auto ep = _worker->endpointBuilder(_remoteWorker->addressBuilder().build()).build();
   _worker->progress();
   _remoteWorker->progress();
 
@@ -49,7 +49,7 @@ TEST_F(EndpointTest, IsAlive)
 
   std::vector<int> buf{123};
   std::shared_ptr<ucxx::Request> send_req =
-    ep->tagSend(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0});
+    ep->tagSendBuilder(buf.data(), buf.size() * sizeof(int), ucxx::Tag{0}).build();
   while (!send_req->isCompleted())
     _worker->progress();
 
@@ -61,7 +61,7 @@ TEST_F(EndpointTest, IsAlive)
 
 TEST(AddressTest, EmptyAddressRejected)
 {
-  EXPECT_THROW(std::ignore = ucxx::createAddressFromString(""), std::invalid_argument);
+  EXPECT_THROW(std::ignore = ucxx::AddressBuilder("").build(), std::invalid_argument);
 }
 
 }  // namespace

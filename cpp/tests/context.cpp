@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdlib>
@@ -19,7 +19,7 @@ class ContextTestCustomConfig : public testing::TestWithParam<std::string> {};
 
 TEST(ContextTest, HandleIsValid)
 {
-  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+  auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
 
   ASSERT_TRUE(context->getHandle() != nullptr);
 }
@@ -27,7 +27,7 @@ TEST(ContextTest, HandleIsValid)
 TEST(ContextTest, DefaultConfigsAndFlags)
 {
   static constexpr auto featureFlags = ucxx::Context::defaultFeatureFlags;
-  auto context                       = ucxx::createContext({}, featureFlags);
+  auto context                       = ucxx::contextBuilder(featureFlags).build();
   auto configMapOut                  = context->getConfig();
   ASSERT_GT(configMapOut.size(), 1u);
   ASSERT_NE(configMapOut.find("TLS"), configMapOut.end());
@@ -43,7 +43,7 @@ TEST_P(ContextTestCustomConfig, TLS)
 {
   auto tls                           = GetParam();
   static constexpr auto featureFlags = ucxx::Context::defaultFeatureFlags;
-  auto context                       = ucxx::createContext({{"TLS", tls}}, featureFlags);
+  auto context = ucxx::contextBuilder(featureFlags).configMap({{"TLS", tls}}).build();
 
   auto configMapOut = context->getConfig();
   ASSERT_GT(configMapOut.size(), 1u);
@@ -56,26 +56,27 @@ TEST_P(ContextTestCustomConfig, TLS)
 TEST(ContextTest, CustomFlags)
 {
   uint64_t featureFlags = UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP;
-  auto context          = ucxx::createContext({}, featureFlags);
+  auto context          = ucxx::contextBuilder(featureFlags).build();
 
   ASSERT_EQ(context->getFeatureFlags(), featureFlags);
 }
 
 TEST(ContextTest, Info)
 {
-  auto context = ucxx::createContext({{"TLS", "tcp"}}, ucxx::Context::defaultFeatureFlags);
+  auto context =
+    ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).configMap({{"TLS", "tcp"}}).build();
 
   ASSERT_GT(context->getInfo().size(), 0u);
 }
 
 TEST(ContextTest, CreateWorker)
 {
-  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+  auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
 
-  auto worker1 = ucxx::createWorker(context, false, false);
+  auto worker1 = ucxx::workerBuilder(context).build();
   ASSERT_TRUE(worker1 != nullptr);
 
-  auto worker2 = context->createWorker();
+  auto worker2 = context->workerBuilder().build();
   ASSERT_TRUE(worker2 != nullptr);
 }
 
