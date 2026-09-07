@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -24,7 +24,7 @@ class RequestEndpointClose;
  *
  * The `endpoint` and `requestData` are required and must be provided to
  * `requestEndpointCloseBuilder()`.
- * Building the request preserves `ucxx::Endpoint::close()` lifecycle semantics:
+ * Building the request preserves `ucxx::Endpoint::closeBuilder()` lifecycle semantics:
  * only one close request may be submitted for an endpoint.
  *
  * @code{.cpp}
