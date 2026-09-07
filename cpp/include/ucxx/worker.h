@@ -783,7 +783,7 @@ class Worker : public Component {
    * @brief Create a builder for a tag receive operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `tagRecv()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
    *                              data will be stored.
@@ -802,7 +802,7 @@ class Worker : public Component {
    * @brief Create a builder for a tag receive operation using a message handle.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `tagRecvWithHandle()`.
+   * implicit conversion submits the request.
    *
    * @param[in] buffer            a raw pointer to pre-allocated memory where resulting
    *                              data will be stored.
@@ -970,7 +970,7 @@ class Worker : public Component {
    * @brief Create a builder for a flush operation.
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
-   * implicit conversion invokes the same request-creation path as `flush()`.
+   * implicit conversion submits the request.
    *
    * @returns Builder to configure optional parameters and submit the request.
    */
@@ -994,8 +994,8 @@ class Worker : public Component {
    * @brief Get the worker's attributes.
    *
    * Returns the worker attributes as a struct, querying UCP via `ucp_worker_query` under
-   * the hood. All non-address fields exposed by UCP are queried, use `getAddress()` to
-   * obtain the address.
+   * the hood. All non-address fields exposed by UCP are queried, use `addressBuilder()`
+   * to obtain the address.
    *
    * @returns An `Attributes` filled with all queried fields.
    * @throws ucxx::Error if an error occurred while querying worker attributes.
