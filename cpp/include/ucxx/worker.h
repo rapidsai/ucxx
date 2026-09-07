@@ -994,8 +994,8 @@ class Worker : public Component {
    * @brief Get the worker's attributes.
    *
    * Returns the worker attributes as a struct, querying UCP via `ucp_worker_query` under
-   * the hood. All non-address fields exposed by UCP are queried, use `getAddress()` to
-   * obtain the address.
+   * the hood. All non-address fields exposed by UCP are queried, to obtain the address
+   * use `addressBuilder().build()`.
    *
    * @returns An `Attributes` filled with all queried fields.
    * @throws ucxx::Error if an error occurred while querying worker attributes.
