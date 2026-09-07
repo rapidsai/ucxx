@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -41,6 +41,7 @@ class RequestMemBuilder : public RequestCallbackBuilderBase<RequestMemBuilder> {
  private:
   std::shared_ptr<Endpoint> _endpoint;                    ///< Parent endpoint (required)
   std::variant<data::MemPut, data::MemGet> _requestData;  ///< Request-specific data (required)
+  uint64_t _remoteAddressOffset{0};                       ///< Offset from the remote base address
 
  public:
   /**
@@ -52,6 +53,22 @@ class RequestMemBuilder : public RequestCallbackBuilderBase<RequestMemBuilder> {
    */
   explicit RequestMemBuilder(std::shared_ptr<Endpoint> endpoint,
                              std::variant<data::MemPut, data::MemGet> requestData);
+
+  /**
+   * @brief Set the offset from the remote base address.
+   *
+   * @param[in] offset offset in bytes from the remote base address.
+   * @return Reference to this builder for method chaining.
+   */
+  RequestMemBuilder& remoteAddressOffset(uint64_t offset) &;
+
+  /**
+   * @brief Set the offset from the remote base address on a temporary builder.
+   *
+   * @param[in] offset offset in bytes from the remote base address.
+   * @return Rvalue reference to this builder for method chaining.
+   */
+  RequestMemBuilder&& remoteAddressOffset(uint64_t offset) &&;
 
   /**
    * @brief Build and return the `RequestMem`.

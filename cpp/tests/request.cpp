@@ -1084,8 +1084,8 @@ TEST_P(RequestTest, MemoryGetWithOffset)
   requests.push_back(_ep
                        ->memGetBuilder(reinterpret_cast<char*>(_recvPtr[0]) + offsetBytes,
                                        _messageSize - offsetBytes,
-                                       remoteKey->getBaseAddress() + offsetBytes,
-                                       remoteKey->getHandle())
+                                       remoteKey)
+                       .remoteAddressOffset(offsetBytes)
                        .build());
   requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
@@ -1171,8 +1171,8 @@ TEST_P(RequestTest, MemoryPutWithOffset)
   requests.push_back(_ep
                        ->memPutBuilder(reinterpret_cast<const char*>(_sendPtr[0]) + offsetBytes,
                                        _messageSize - offsetBytes,
-                                       remoteKey->getBaseAddress() + offsetBytes,
-                                       remoteKey->getHandle())
+                                       remoteKey)
+                       .remoteAddressOffset(offsetBytes)
                        .build());
   requests.push_back(_ep->flushBuilder().build());
   waitRequests(_worker, requests, _progressWorker);
