@@ -97,7 +97,7 @@ async def test_listener_handler_exception_log_does_not_retain_context(
 
         await listener_mod._listener_handler_coroutine(
             conn_request=_ConnectionRequest(),
-            ctx_ref=weakref.ref(ctx),
+            ctx_ref=ctx_ref,
             func=callback,
             endpoint_error_handling=True,
             connect_timeout=1,

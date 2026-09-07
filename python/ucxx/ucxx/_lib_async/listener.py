@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
-import concurrent.futures
 import inspect
 import logging
 import os
@@ -67,11 +66,8 @@ class _ListenerHandlerTracker:
         return future
 
     def _handler_done(self, future, event_loop) -> None:
-        try:
-            if not future.cancelled():
-                future.exception()
-        except concurrent.futures.CancelledError:
-            pass
+        if not future.cancelled():
+            future.exception()
 
         # run_coroutine_threadsafe marks its concurrent future done from an asyncio
         # Task callback. Retain the future for one more event-loop turn so waiters do

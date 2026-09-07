@@ -89,16 +89,31 @@ class _CreatedResources:
             else None
         )
 
+    async def _wait_for_handlers(self, timeout, progress):
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(
+                    *(
+                        tracker.wait(progress=progress)
+                        for tracker in self._handler_trackers
+                    ),
+                    return_exceptions=True,
+                ),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError as e:
+            active = sum(tracker.active_count for tracker in self._handler_trackers)
+            raise AssertionError(
+                "UCXX listener handlers did not finish within "
+                f"{timeout} seconds ({active} still active)"
+            ) from e
+
     async def wait_for_release(self, timeout=5.0):
         """Wait for handlers and implicitly-owned resources to be released."""
         progress = self._progress()
-        await asyncio.gather(
-            *(tracker.wait(progress=progress) for tracker in self._handler_trackers),
-            return_exceptions=True,
-        )
-
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout
+        await self._wait_for_handlers(timeout, progress)
         while True:
             # Task, future, and CUDA completion callbacks may release their last
             # resource references after the test coroutine has returned.
@@ -110,13 +125,13 @@ class _CreatedResources:
             if loop.time() >= deadline:
                 raise AssertionError(
                     "UCXX resources retained their context after the test "
-                    f"returned: {live}\n{self.resource_referrer_details()}"
+                    f"returned: {live}"
                 )
             if progress is not None:
                 progress()
             await asyncio.sleep(0.01)
 
-    async def close(self):
+    async def close(self, timeout=5.0):
         """Explicitly close resources retained by a failed test traceback."""
         for _, ref in reversed(self._resources):
             resource = ref()
@@ -128,11 +143,7 @@ class _CreatedResources:
             elif not resource.closed:
                 resource.close()
 
-        progress = self._progress()
-        await asyncio.gather(
-            *(tracker.wait(progress=progress) for tracker in self._handler_trackers),
-            return_exceptions=True,
-        )
+        await self._wait_for_handlers(timeout, self._progress())
 
     @property
     def live_context_owners(self):
@@ -142,29 +153,6 @@ class _CreatedResources:
             if resource is not None and getattr(resource, "_ctx", None) is not None:
                 live.append(kind)
         return live
-
-    def resource_referrer_details(self):
-        """Report Python frames directly retaining UCXX resources."""
-        details = []
-        diagnostic_frame = inspect.currentframe()
-        try:
-            for kind, ref in self._resources:
-                resource = ref()
-                if resource is None or getattr(resource, "_ctx", None) is None:
-                    continue
-                details.append(
-                    f"{kind} at {id(resource):#x} (closed={resource.closed})"
-                )
-                for referrer in gc.get_referrers(resource):
-                    if referrer is diagnostic_frame or not inspect.isframe(referrer):
-                        continue
-                    details.append(
-                        f"  retained by {referrer.f_code.co_filename}:"
-                        f"{referrer.f_lineno} in {referrer.f_code.co_name}"
-                    )
-        finally:
-            del diagnostic_frame
-        return "\n".join(details)
 
 
 @pytest_asyncio.fixture(autouse=True)

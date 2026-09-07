@@ -9,6 +9,7 @@ import pytest
 
 import ucxx
 from conftest import _CreatedResources
+from ucxx._lib_async.listener import _ListenerHandlerTracker
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 
@@ -46,6 +47,23 @@ async def test_closed_endpoint_holding_context_is_tracked_and_cleaned_up():
     await resources.close()
 
     assert endpoint._ctx is None
+
+
+@pytest.mark.asyncio
+async def test_resource_cleanup_times_out_waiting_for_listener_handler():
+    resources = _CreatedResources()
+    endpoint = ClosedEndpointHoldingContext()
+    endpoint._handler_tracker = _ListenerHandlerTracker()
+    resources.add(endpoint)
+
+    gate = asyncio.Event()
+    endpoint._handler_tracker.submit(gate.wait(), asyncio.get_running_loop())
+
+    with pytest.raises(
+        AssertionError,
+        match="UCXX listener handlers did not finish within 0.01 seconds",
+    ):
+        await asyncio.wait_for(resources.wait_for_release(timeout=0.01), timeout=0.1)
 
 
 @pytest.mark.asyncio
