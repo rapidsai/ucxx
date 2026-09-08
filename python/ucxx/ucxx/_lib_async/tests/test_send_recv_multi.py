@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
@@ -31,6 +31,7 @@ def make_echo_server():
         """
         msg = await ep.recv_multi()
         await ep.send_multi(msg)
+        await ep.recv(bytearray(1))
         await ep.close()
 
     return echo_server
@@ -46,6 +47,7 @@ async def test_send_recv_bytes(size, multi_size):
     client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
     await client.send_multi(send_msg)
     recv_msg = await client.recv_multi()
+    await client.send(bytearray(1))
     for r, s in zip(recv_msg, send_msg):
         np.testing.assert_array_equal(r, s)
     await client.close()
@@ -63,6 +65,7 @@ async def test_send_recv_numpy(size, multi_size, dtype):
     client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
     await client.send_multi(send_msg)
     recv_msg = await client.recv_multi()
+    await client.send(bytearray(1))
     for r, s in zip(recv_msg, send_msg):
         np.testing.assert_array_equal(r.view(dtype), s)
     await wait_listener_client_handlers(listener)
@@ -82,6 +85,7 @@ async def test_send_recv_cupy(size, multi_size, dtype):
     client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
     await client.send_multi(send_msg)
     recv_msg = await client.recv_multi()
+    await client.send(bytearray(1))
     for r, s in zip(recv_msg, send_msg):
         cupy.testing.assert_array_equal(cupy.asarray(r).view(dtype), cupy.asarray(s))
     await wait_listener_client_handlers(listener)
@@ -101,6 +105,7 @@ async def test_send_recv_numba(size, multi_size, dtype):
     client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
     await client.send_multi(send_msg)
     recv_msg = await client.recv_multi()
+    await client.send(bytearray(1))
     for r, s in zip(recv_msg, send_msg):
         np.testing.assert_array_equal(
             r.copy_to_host().view(dtype), s.copy_to_host().view(dtype)
