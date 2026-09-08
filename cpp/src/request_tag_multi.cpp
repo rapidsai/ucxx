@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/header.h>
@@ -59,7 +60,7 @@ RequestTagMulti::~RequestTagMulti()
   }
 }
 
-std::shared_ptr<RequestTagMulti> detail::createRequestTagMulti(
+std::shared_ptr<RequestTagMulti> detail::ConstructorFactory::createRequestTagMulti(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
   const bool enablePythonFuture)

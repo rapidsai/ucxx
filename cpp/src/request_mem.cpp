@@ -9,13 +9,14 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_mem.h>
 
 namespace ucxx {
 
-std::shared_ptr<RequestMem> detail::createRequestMem(
+std::shared_ptr<RequestMem> detail::ConstructorFactory::createRequestMem(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::MemPut, data::MemGet> requestData,
   const bool enablePythonFuture,

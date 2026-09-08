@@ -5,10 +5,10 @@
 #include <memory>
 #include <utility>
 
+#include <internal/constructors.h>
 #include <ucxx/context.h>
 #include <ucxx/context_builder.h>
 #include <ucxx/detail/builder_utils.h>
-#include <ucxx/detail/constructors.h>
 
 namespace ucxx {
 
@@ -33,7 +33,7 @@ ContextBuilder& ContextBuilder::configMap(ConfigMap configMap)
 
 std::shared_ptr<Context> ContextBuilder::build()
 {
-  return detail::createContext(_impl->configMap, _impl->featureFlags);
+  return detail::ConstructorFactory::createContext(_impl->configMap, _impl->featureFlags);
 }
 
 }  // namespace ucxx

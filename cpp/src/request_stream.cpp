@@ -9,6 +9,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_stream.h>
 
@@ -34,7 +35,7 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
              requestData);
 }
 
-std::shared_ptr<RequestStream> detail::createRequestStream(
+std::shared_ptr<RequestStream> detail::ConstructorFactory::createRequestStream(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::StreamSend, data::StreamReceive> requestData,
   const bool enablePythonFuture)

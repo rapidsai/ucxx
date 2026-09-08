@@ -7,9 +7,9 @@
 #include <string>
 #include <utility>
 
+#include <internal/constructors.h>
 #include <ucxx/address_builder.h>
 #include <ucxx/detail/builder_utils.h>
-#include <ucxx/detail/constructors.h>
 
 namespace ucxx {
 
@@ -46,8 +46,10 @@ UCXX_BUILDER_PIMPL_DEFAULTS(AddressBuilder, Address)
 std::shared_ptr<Address> AddressBuilder::build()
 {
   switch (_impl->source) {
-    case AddressBuilderSource::Worker: return detail::createAddressFromWorker(_impl->worker);
-    case AddressBuilderSource::String: return detail::createAddressFromString(_impl->addressString);
+    case AddressBuilderSource::Worker:
+      return detail::ConstructorFactory::createAddressFromWorker(_impl->worker);
+    case AddressBuilderSource::String:
+      return detail::ConstructorFactory::createAddressFromString(_impl->addressString);
   }
 
   throw std::logic_error("Invalid AddressBuilder source");
