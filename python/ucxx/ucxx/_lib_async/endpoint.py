@@ -9,7 +9,12 @@ import weakref
 
 import ucxx._lib.libucxx as ucx_api
 from ucxx._lib.arr import Array
-from ucxx._lib.libucxx import UCXCanceled, UCXCloseError, UCXError
+from ucxx._lib.libucxx import (
+    UCXCanceled,
+    UCXCloseError,
+    UCXConnectionResetError,
+    UCXError,
+)
 from ucxx.types import Tag, TagMaskFull
 
 from .utils import hash64bits
@@ -603,10 +608,45 @@ class Endpoint:
 
         buffer_requests = self._ep.tag_recv_multi(tag, TagMaskFull)
         await buffer_requests.wait()
-        buffer_requests.check_error()
-        for r in buffer_requests.requests:
-            r.check_error()
         buffers = buffer_requests.py_buffers
+        try:
+            buffer_requests.check_error()
+        except (UCXCanceled, UCXConnectionResetError):
+            # Header requests precede frame requests in RequestTagMulti. A failed
+            # frame may still be queued on the worker when the endpoint closes, so
+            # receive only those failed frames directly from the worker.
+            frame_requests = (
+                buffer_requests.requests[-len(buffers) :] if buffers else ()
+            )
+            worker = None if self._ctx is None else self._ctx.worker
+            recovered = False
+            if worker is None:
+                raise
+
+            for request, buffer in zip(frame_requests, buffers):
+                try:
+                    request.check_error()
+                except (UCXCanceled, UCXConnectionResetError):
+                    probe_info = worker.tag_probe(tag, remove=True)
+                    if not probe_info.matched:
+                        raise
+
+                    array = buffer if isinstance(buffer, Array) else Array(buffer)
+                    if probe_info.length != array.nbytes:
+                        # A removed message handle must be consumed even when it
+                        # cannot belong to this frame.
+                        scratch = Array(bytearray(probe_info.length))
+                        await worker.tag_recv_with_handle(scratch, probe_info).wait()
+                        raise
+
+                    await worker.tag_recv_with_handle(array, probe_info).wait()
+                    recovered = True
+
+            if not recovered:
+                raise
+        else:
+            for request in buffer_requests.requests:
+                request.check_error()
 
         self._finished_recv_count += 1
         if (
