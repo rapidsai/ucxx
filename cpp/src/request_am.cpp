@@ -12,6 +12,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucs/memory/memory_type.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
@@ -118,7 +119,7 @@ struct AmHeader {
   }
 };
 
-std::shared_ptr<RequestAm> detail::createRequestAm(
+std::shared_ptr<RequestAm> detail::ConstructorFactory::createRequestAm(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::AmSend, data::AmReceive> requestData,
   const bool enablePythonFuture,

@@ -5,8 +5,8 @@
 #include <memory>
 #include <utility>
 
+#include <internal/constructors.h>
 #include <ucxx/detail/builder_utils.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/worker.h>
 #include <ucxx/worker_builder.h>
 
@@ -55,8 +55,8 @@ WorkerBuilder& WorkerBuilder::cudaBufferType(BufferType bufferType)
 
 std::shared_ptr<Worker> WorkerBuilder::build()
 {
-  auto worker =
-    detail::createWorker(_impl->context, _impl->enableDelayedSubmission, _impl->enableFuture);
+  auto worker = detail::ConstructorFactory::createWorker(
+    _impl->context, _impl->enableDelayedSubmission, _impl->enableFuture);
   worker->_enableRequestAttributes = _impl->enableRequestAttributes;
   if (_impl->cudaBufferType != BufferType::Invalid)
     worker->setCudaBufferType(_impl->cudaBufferType);

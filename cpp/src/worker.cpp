@@ -18,6 +18,7 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
+#include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
@@ -140,9 +141,9 @@ std::shared_ptr<RequestAm> Worker::getAmRecv(
   }
 }
 
-std::shared_ptr<Worker> detail::createWorker(std::shared_ptr<Context> context,
-                                             const bool enableDelayedSubmission,
-                                             const bool enableFuture)
+std::shared_ptr<Worker> detail::ConstructorFactory::createWorker(std::shared_ptr<Context> context,
+                                                                 const bool enableDelayedSubmission,
+                                                                 const bool enableFuture)
 {
   auto worker = std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
   // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
@@ -631,9 +632,9 @@ std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
 
   if (tag_message != NULL) {
-    return detail::createTagProbeInfo(info, remove ? tag_message : nullptr);
+    return detail::ConstructorFactory::createTagProbeInfo(info, remove ? tag_message : nullptr);
   } else {
-    return detail::createTagProbeInfo();
+    return detail::ConstructorFactory::createTagProbeInfo();
   }
 }
 

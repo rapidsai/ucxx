@@ -9,6 +9,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
 
@@ -69,11 +70,11 @@ Listener::~Listener()
 
 namespace detail {
 
-std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                         std::string host,
-                                         uint16_t port,
-                                         ucp_listener_conn_callback_t callback,
-                                         void* callbackArgs)
+std::shared_ptr<Listener> ConstructorFactory::createListener(std::shared_ptr<Worker> worker,
+                                                             std::string host,
+                                                             uint16_t port,
+                                                             ucp_listener_conn_callback_t callback,
+                                                             void* callbackArgs)
 {
   return std::shared_ptr<Listener>(
     new Listener(worker, std::move(host), port, callback, callbackArgs));
