@@ -61,7 +61,7 @@ typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
  */
 class RequestTagMulti : public Request {
  private:
-  size_t _totalFrames{0};  ///< The total number of frames handled by this request
+  size_t _totalRequests{0};  ///< The total number of child requests tracked for completion
   std::mutex
     _completedRequestsMutex{};   ///< Mutex to control access to completed requests container
   size_t _completedRequests{0};  ///< Count requests that already completed
@@ -198,11 +198,11 @@ class RequestTagMulti : public Request {
    * executed when that completes.
    *
    * When this method is called, the request that completed will be pushed into a container
-   * which will be later used to evaluate if all frames completed and set the final status
-   * of the multi-transfer request and the Python future, if enabled. The final status is
-   * either `UCS_OK` if all underlying requests completed successfully, otherwise it will
-   * contain the status of the first failing request, for granular information the user
-   * may still verify each of the underlying requests individually.
+   * which will be later used to evaluate if all tracked requests completed and set the
+   * final status of the multi-transfer request and the Python future, if enabled. The final
+   * status is either `UCS_OK` if all underlying requests completed successfully, otherwise
+   * it will contain the status of the first failing request, for granular information the
+   * user may still verify each of the underlying requests individually.
    *
    * @param[in] status the status of the request being completed.
    */

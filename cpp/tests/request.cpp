@@ -914,6 +914,28 @@ TEST_P(RequestTest, ProgressTagMulti)
     ASSERT_THAT(_recv[i], ContainerEq(_send[i]));
 }
 
+TEST(RequestTagMultiTest, SendWaitsForHeaderAndFrameRequests)
+{
+  auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
+  auto worker  = ucxx::workerBuilder(context).delayedSubmission(true).build();
+  auto ep      = worker->endpointBuilder(worker->addressBuilder().build()).build();
+
+  int send = 42;
+  std::vector<const void*> ptr{&send};
+  std::vector<size_t> size{sizeof(send)};
+  std::vector<int> isCuda{false};
+  auto request =
+    ep->tagMultiSendBuilder(ptr, size, isCuda, ucxx::Tag{0}).pythonFuture(false).build();
+
+  // Delayed submission keeps both the header and frame requests pending. Completing
+  // either one must not complete their aggregate while the other remains pending.
+  ASSERT_EQ(request->_bufferRequests.size(), 2);
+  request->markCompleted(UCS_OK);
+  EXPECT_FALSE(request->isCompleted());
+  request->markCompleted(UCS_OK);
+  EXPECT_TRUE(request->isCompleted());
+}
+
 TEST_P(RequestTest, TagUserCallback)
 {
   allocate();

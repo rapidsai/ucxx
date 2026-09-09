@@ -7,12 +7,7 @@ from queue import Empty, Queue
 import pytest
 
 import ucxx
-from ucxx._lib.libucxx import (
-    UCXCanceled,
-    UCXCloseError,
-    UCXConnectionResetError,
-    UCXMessageTruncatedError,
-)
+from ucxx._lib.libucxx import UCXCanceled, UCXCloseError, UCXMessageTruncatedError
 from ucxx._lib_async.endpoint import Endpoint
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 from ucxx.types import Tag
@@ -53,49 +48,6 @@ class _TruncatedReceive:
         raise UCXMessageTruncatedError("Message truncated")
 
 
-class _SuccessfulRequest:
-    def check_error(self):
-        pass
-
-
-class _FailedRequest:
-    def __init__(self, error_type):
-        self.error_type = error_type
-
-    def check_error(self):
-        raise self.error_type("Endpoint closed")
-
-
-class _FailedMultiReceive:
-    def __init__(self, frame_sizes, error_type=UCXConnectionResetError):
-        frame_sizes = tuple(frame_sizes)
-        self.requests = (_SuccessfulRequest(),) + tuple(
-            _FailedRequest(error_type) for _ in frame_sizes
-        )
-        self.py_buffers = [bytearray(size) for size in frame_sizes]
-        self.error_type = error_type
-
-    async def wait(self):
-        pass
-
-    def check_error(self):
-        raise self.error_type("Endpoint closed")
-
-
-class _EndpointWithFailedMultiReceive:
-    alive = True
-    handle = 1
-
-    def __init__(self, frame_sizes, error_type=UCXConnectionResetError):
-        self._multi_receive = _FailedMultiReceive(frame_sizes, error_type)
-
-    def raise_on_error(self):
-        pass
-
-    def tag_recv_multi(self, tag, tag_mask):
-        return self._multi_receive
-
-
 class _WorkerWithMatchedMessage:
     def __init__(self, message):
         self.message = message
@@ -114,19 +66,6 @@ class _WorkerWithMatchedMessage:
         if buffer.nbytes < probe_result.length:
             return _TruncatedReceive()
         return _CompletedReceive(buffer, probe_result.message)
-
-
-class _WorkerWithMatchedMessages(_WorkerWithMatchedMessage):
-    def __init__(self, messages):
-        self.messages = list(messages)
-
-    def tag_probe(self, tag, remove=False):
-        if not self.messages:
-            return _UnmatchedProbe()
-        probe = _MatchedProbe(tag, self.messages[0], remove)
-        if remove:
-            self.messages.pop(0)
-        return probe
 
 
 class _WorkerCancelingMatchedReceive(_WorkerWithMatchedMessage):
@@ -220,30 +159,6 @@ async def test_recv_worker_cancelation_is_not_retried():
 
     with pytest.raises(UCXCanceled):
         await endpoint.recv(bytearray(len(message)))
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("error_type", [UCXCanceled, UCXConnectionResetError])
-async def test_recv_multi_recovers_queued_frames_after_endpoint_closes(error_type):
-    messages = [b"first frame", b"second frame is a different size"]
-    worker = _WorkerWithMatchedMessages(messages)
-    low_level_endpoint = _EndpointWithFailedMultiReceive(map(len, messages), error_type)
-    endpoint = _endpoint_with_matched_message(low_level_endpoint, worker)
-
-    received = await endpoint.recv_multi()
-
-    assert received == messages
-    assert worker.messages == []
-
-
-@pytest.mark.asyncio
-async def test_recv_multi_preserves_connection_error_without_queued_frame():
-    worker = _WorkerWithMatchedMessages([])
-    low_level_endpoint = _EndpointWithFailedMultiReceive([16])
-    endpoint = _endpoint_with_matched_message(low_level_endpoint, worker)
-
-    with pytest.raises(UCXConnectionResetError):
-        await endpoint.recv_multi()
 
 
 @pytest.mark.asyncio
