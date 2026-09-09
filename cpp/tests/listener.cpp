@@ -3,12 +3,18 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <thread>
 #include <tuple>
 #include <ucs/config/types.h>
 #include <ucs/type/status.h>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#if UCXX_ENABLE_CCCL
+#include <cuda_runtime_api.h>
+#endif
 
 #include <ucxx/api.h>
 
@@ -337,6 +343,155 @@ class ListenerHostTest : public ListenerTestBase, public ::testing::Test {
  protected:
   void SetUp() override { _worker = _context->workerBuilder().build(); }
 };
+
+#if UCXX_ENABLE_CCCL
+class ListenerCudaCloseAfterSendTest : public ::testing::Test {
+ protected:
+  static constexpr size_t BufferSize{1 << 20};
+  static constexpr size_t NumBuffers{3};
+  static constexpr ucxx::Tag Tag{0};
+
+  std::shared_ptr<ucxx::Context> _context{nullptr};
+  std::shared_ptr<ucxx::Worker> _worker{nullptr};
+  ListenerContainerPtr _listenerContainer{nullptr};
+  std::shared_ptr<ucxx::Listener> _listener{nullptr};
+  std::shared_ptr<ucxx::Endpoint> _client{nullptr};
+  std::shared_ptr<ucxx::Endpoint> _server{nullptr};
+
+  void SetUp() override
+  {
+    ASSERT_EQ(cudaFree(nullptr), cudaSuccess);
+
+    _context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags)
+                 .configMap({{"RNDV_THRESH", "8192"}})
+                 .build();
+    _worker = _context->workerBuilder().cudaBufferType(ucxx::BufferType::CCCL).build();
+
+    _listenerContainer                        = std::make_shared<ListenerContainer>();
+    _listenerContainer->worker                = _worker;
+    _listenerContainer->endpointErrorHandling = true;
+    _listener = _worker->listenerBuilder(0, listenerCallback, _listenerContainer.get()).build();
+    _listenerContainer->listener = _listener;
+
+    _client = _worker->endpointBuilder("127.0.0.1", _listener->getPort())
+                .endpointErrorHandling(true)
+                .build();
+    ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [this]() {
+      _worker->progress();
+      return _listenerContainer->endpoint != nullptr;
+    }));
+    ASSERT_EQ(_listenerContainer->status, UCS_OK);
+    _server = _listenerContainer->endpoint;
+
+    _worker->setProgressThreadStartCallback(createCudaContextCallback, nullptr);
+    _worker->startProgressThread(false);
+  }
+
+  void TearDown() override
+  {
+    if (_worker && _worker->isProgressThreadRunning()) _worker->stopProgressThread();
+  }
+
+  static bool waitForRequest(const std::shared_ptr<ucxx::Request>& request)
+  {
+    return loopWithTimeout(std::chrono::milliseconds(5000), [request]() {
+      std::this_thread::yield();
+      return request->isCompleted();
+    });
+  }
+
+  void closeServer() { _server->closeBlocking(10000000000 /* 10s */); }
+
+  std::shared_ptr<ucxx::RequestTagMulti> postMultiReceive()
+  {
+    return _client->tagMultiRecvBuilder(Tag, ucxx::TagMaskFull).pythonFuture(false).build();
+  }
+
+  std::shared_ptr<ucxx::RequestTagMulti> postMultiSend(
+    std::vector<std::shared_ptr<ucxx::Buffer>>* buffers)
+  {
+    std::vector<const void*> pointers;
+    std::vector<size_t> sizes(NumBuffers, BufferSize);
+    std::vector<int> isCuda(NumBuffers, true);
+
+    for (size_t i = 0; i < NumBuffers; ++i) {
+      auto buffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+      EXPECT_EQ(cudaMemset(buffer->data(), static_cast<int>(i + 1), BufferSize), cudaSuccess);
+      pointers.push_back(buffer->data());
+      buffers->push_back(std::move(buffer));
+    }
+
+    return _server->tagMultiSendBuilder(pointers, sizes, isCuda, Tag).pythonFuture(false).build();
+  }
+
+  void expectChildrenCompletedSuccessfully(const std::shared_ptr<ucxx::RequestTagMulti>& request)
+  {
+    for (size_t i = 0; i < request->_bufferRequests.size(); ++i) {
+      const auto& child = request->_bufferRequests[i]->request;
+      ASSERT_NE(child, nullptr) << "child " << i;
+      EXPECT_TRUE(child->isCompleted()) << "child " << i;
+      EXPECT_EQ(child->getStatus(), UCS_OK) << "child " << i;
+    }
+  }
+};
+
+TEST_F(ListenerCudaCloseAfterSendTest, TagMultiReceiveCompletesAfterSenderClose)
+{
+  std::vector<std::shared_ptr<ucxx::Buffer>> sendBuffers;
+  auto receive = postMultiReceive();
+  auto send    = postMultiSend(&sendBuffers);
+
+  ASSERT_TRUE(waitForRequest(send));
+  ASSERT_EQ(send->getStatus(), UCS_OK);
+  expectChildrenCompletedSuccessfully(send);
+  ASSERT_FALSE(receive->isCompleted()) << "close-after-send path was not exercised";
+
+  closeServer();
+
+  ASSERT_TRUE(waitForRequest(receive));
+  EXPECT_EQ(receive->getStatus(), UCS_OK);
+  expectChildrenCompletedSuccessfully(receive);
+}
+
+TEST_F(ListenerCudaCloseAfterSendTest, TagMultiReceiveCompletesBeforeSenderClose)
+{
+  std::vector<std::shared_ptr<ucxx::Buffer>> sendBuffers;
+  auto receive = postMultiReceive();
+  auto send    = postMultiSend(&sendBuffers);
+
+  ASSERT_TRUE(waitForRequest(send));
+  ASSERT_EQ(send->getStatus(), UCS_OK);
+  ASSERT_TRUE(waitForRequest(receive));
+  ASSERT_EQ(receive->getStatus(), UCS_OK);
+
+  closeServer();
+
+  expectChildrenCompletedSuccessfully(send);
+  expectChildrenCompletedSuccessfully(receive);
+}
+
+TEST_F(ListenerCudaCloseAfterSendTest, TagReceiveCompletesAfterSenderClose)
+{
+  auto sendBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+  auto recvBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+  ASSERT_EQ(cudaMemset(sendBuffer->data(), 1, BufferSize), cudaSuccess);
+
+  auto receive = _client->tagRecvBuilder(recvBuffer->data(), BufferSize, Tag, ucxx::TagMaskFull)
+                   .pythonFuture(false)
+                   .build();
+  auto send =
+    _server->tagSendBuilder(sendBuffer->data(), BufferSize, Tag).pythonFuture(false).build();
+
+  ASSERT_TRUE(waitForRequest(send));
+  ASSERT_EQ(send->getStatus(), UCS_OK);
+  ASSERT_FALSE(receive->isCompleted()) << "close-after-send path was not exercised";
+
+  closeServer();
+
+  ASSERT_TRUE(waitForRequest(receive));
+  EXPECT_EQ(receive->getStatus(), UCS_OK);
+}
+#endif
 
 TEST_F(ListenerHostTest, BindToHost)
 {
