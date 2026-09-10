@@ -402,26 +402,52 @@ class ListenerCudaCloseAfterSendTest : public ::testing::Test {
 
   void closeServer() { _server->closeBlocking(10000000000 /* 10s */); }
 
-  std::shared_ptr<ucxx::RequestTagMulti> postMultiReceive()
+  std::vector<std::shared_ptr<ucxx::Buffer>> allocateCudaBuffers()
   {
-    return _client->tagMultiRecvBuilder(Tag, ucxx::TagMaskFull).pythonFuture(false).build();
+    std::vector<std::shared_ptr<ucxx::Buffer>> buffers;
+    for (size_t i = 0; i < NumBuffers; ++i) {
+      auto buffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+      EXPECT_EQ(cudaMemset(buffer->data(), static_cast<int>(i + 1), BufferSize), cudaSuccess);
+      buffers.push_back(std::move(buffer));
+    }
+    return buffers;
+  }
+
+  std::shared_ptr<ucxx::RequestTagMulti> postMultiReceive(
+    const std::shared_ptr<ucxx::Endpoint>& endpoint)
+  {
+    return endpoint->tagMultiRecvBuilder(Tag, ucxx::TagMaskFull).pythonFuture(false).build();
   }
 
   std::shared_ptr<ucxx::RequestTagMulti> postMultiSend(
-    std::vector<std::shared_ptr<ucxx::Buffer>>* buffers)
+    const std::shared_ptr<ucxx::Endpoint>& endpoint,
+    const std::vector<std::shared_ptr<ucxx::Buffer>>& buffers)
   {
     std::vector<const void*> pointers;
     std::vector<size_t> sizes(NumBuffers, BufferSize);
     std::vector<int> isCuda(NumBuffers, true);
 
-    for (size_t i = 0; i < NumBuffers; ++i) {
-      auto buffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
-      EXPECT_EQ(cudaMemset(buffer->data(), static_cast<int>(i + 1), BufferSize), cudaSuccess);
+    for (const auto& buffer : buffers)
       pointers.push_back(buffer->data());
-      buffers->push_back(std::move(buffer));
-    }
 
-    return _server->tagMultiSendBuilder(pointers, sizes, isCuda, Tag).pythonFuture(false).build();
+    return endpoint->tagMultiSendBuilder(pointers, sizes, isCuda, Tag).pythonFuture(false).build();
+  }
+
+  static std::vector<std::shared_ptr<ucxx::Buffer>> getReceivedBuffers(
+    const std::shared_ptr<ucxx::RequestTagMulti>& request)
+  {
+    std::vector<std::shared_ptr<ucxx::Buffer>> buffers;
+    for (const auto& child : request->_bufferRequests)
+      if (child->buffer) buffers.push_back(child->buffer);
+    return buffers;
+  }
+
+  bool waitForUnexpectedTag()
+  {
+    return loopWithTimeout(std::chrono::milliseconds(5000), [this]() {
+      std::this_thread::yield();
+      return _worker->tagProbe(Tag)->isMatched();
+    });
   }
 
   void expectChildrenCompletedSuccessfully(const std::shared_ptr<ucxx::RequestTagMulti>& request)
@@ -435,11 +461,11 @@ class ListenerCudaCloseAfterSendTest : public ::testing::Test {
   }
 };
 
-TEST_F(ListenerCudaCloseAfterSendTest, TagMultiReceiveCompletesAfterSenderClose)
+TEST_F(ListenerCudaCloseAfterSendTest, TagMultiExpectedMessageCompletesAfterSenderClose)
 {
-  std::vector<std::shared_ptr<ucxx::Buffer>> sendBuffers;
-  auto receive = postMultiReceive();
-  auto send    = postMultiSend(&sendBuffers);
+  auto sendBuffers = allocateCudaBuffers();
+  auto receive     = postMultiReceive(_client);
+  auto send        = postMultiSend(_server, sendBuffers);
 
   ASSERT_TRUE(waitForRequest(send));
   ASSERT_EQ(send->getStatus(), UCS_OK);
@@ -453,11 +479,11 @@ TEST_F(ListenerCudaCloseAfterSendTest, TagMultiReceiveCompletesAfterSenderClose)
   expectChildrenCompletedSuccessfully(receive);
 }
 
-TEST_F(ListenerCudaCloseAfterSendTest, TagMultiReceiveCompletesBeforeSenderClose)
+TEST_F(ListenerCudaCloseAfterSendTest, TagMultiExpectedMessageCompletesBeforeSenderClose)
 {
-  std::vector<std::shared_ptr<ucxx::Buffer>> sendBuffers;
-  auto receive = postMultiReceive();
-  auto send    = postMultiSend(&sendBuffers);
+  auto sendBuffers = allocateCudaBuffers();
+  auto receive     = postMultiReceive(_client);
+  auto send        = postMultiSend(_server, sendBuffers);
 
   ASSERT_TRUE(waitForRequest(send));
   ASSERT_EQ(send->getStatus(), UCS_OK);
@@ -470,17 +496,54 @@ TEST_F(ListenerCudaCloseAfterSendTest, TagMultiReceiveCompletesBeforeSenderClose
   expectChildrenCompletedSuccessfully(receive);
 }
 
-TEST_F(ListenerCudaCloseAfterSendTest, TagReceiveCompletesAfterSenderClose)
+TEST_F(ListenerCudaCloseAfterSendTest, TagMultiUnexpectedMessageCompletesAfterSenderClose)
+{
+  // Complete the client-to-server half of the echo before submitting the response.
+  auto clientBuffers = allocateCudaBuffers();
+  auto serverReceive = postMultiReceive(_server);
+  auto clientSend    = postMultiSend(_client, clientBuffers);
+  ASSERT_TRUE(waitForRequest(clientSend));
+  ASSERT_EQ(clientSend->getStatus(), UCS_OK);
+  ASSERT_TRUE(waitForRequest(serverReceive));
+  ASSERT_EQ(serverReceive->getStatus(), UCS_OK);
+
+  auto serverBuffers = getReceivedBuffers(serverReceive);
+  ASSERT_EQ(serverBuffers.size(), NumBuffers);
+  clientSend.reset();
+  serverReceive.reset();
+
+  // Mirror the coroutine ordering where the server begins its echo before the
+  // client posts recv_multi(). The non-removing probe proves the header entered
+  // UCX's unexpected-message queue and leaves it there for tagMultiRecv.
+  auto serverSend = postMultiSend(_server, serverBuffers);
+  ASSERT_TRUE(waitForUnexpectedTag());
+  auto clientReceive = postMultiReceive(_client);
+
+  ASSERT_TRUE(waitForRequest(serverSend));
+  ASSERT_EQ(serverSend->getStatus(), UCS_OK);
+  expectChildrenCompletedSuccessfully(serverSend);
+  ASSERT_FALSE(clientReceive->isCompleted()) << "close-after-send path was not exercised";
+  serverSend.reset();
+
+  closeServer();
+
+  ASSERT_TRUE(waitForRequest(clientReceive));
+  EXPECT_EQ(clientReceive->getStatus(), UCS_OK);
+  expectChildrenCompletedSuccessfully(clientReceive);
+}
+
+TEST_F(ListenerCudaCloseAfterSendTest, TagUnexpectedMessageCompletesAfterSenderClose)
 {
   auto sendBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
   auto recvBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
   ASSERT_EQ(cudaMemset(sendBuffer->data(), 1, BufferSize), cudaSuccess);
 
+  auto send =
+    _server->tagSendBuilder(sendBuffer->data(), BufferSize, Tag).pythonFuture(false).build();
+  ASSERT_TRUE(waitForUnexpectedTag());
   auto receive = _client->tagRecvBuilder(recvBuffer->data(), BufferSize, Tag, ucxx::TagMaskFull)
                    .pythonFuture(false)
                    .build();
-  auto send =
-    _server->tagSendBuilder(sendBuffer->data(), BufferSize, Tag).pythonFuture(false).build();
 
   ASSERT_TRUE(waitForRequest(send));
   ASSERT_EQ(send->getStatus(), UCS_OK);
