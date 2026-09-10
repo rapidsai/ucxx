@@ -20,8 +20,6 @@ jobs:
       - docs-build
       - conda-cpp-tests
       - conda-cpp-tests-gb300
-      - conda-cpp-tests-gb300-rerun-1
-      - conda-cpp-tests-gb300-rerun-2
       - conda-python-tests
       - conda-python-tests-gb300
       - conda-python-tests-gb300-rerun-1
@@ -342,40 +340,6 @@ jobs:
       matrix_filter: map(select(.GPU == "gb300"))
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_cpp.sh
-  conda-cpp-tests-gb300-rerun-1:
-    needs: [conda-cpp-tests-gb300, changed-files]
-    permissions:
-      actions: read
-      contents: read
-      id-token: write
-      packages: read
-      pull-requests: read
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@main
-    if: always() && !cancelled() && needs.conda-cpp-tests-gb300.result != 'skipped' && fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
-    with:
-      build_type: pull-request
-      matrix_type: nightly
-      matrix_filter: map(select(.GPU == "gb300"))
-      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_cpp.sh
-  conda-cpp-tests-gb300-rerun-2:
-    needs: [conda-cpp-tests-gb300-rerun-1, changed-files]
-    permissions:
-      actions: read
-      contents: read
-      id-token: write
-      packages: read
-      pull-requests: read
-    secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@main
-    if: always() && !cancelled() && needs.conda-cpp-tests-gb300-rerun-1.result != 'skipped' && fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
-    with:
-      build_type: pull-request
-      matrix_type: nightly
-      matrix_filter: map(select(.GPU == "gb300"))
-      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_cpp.sh
   conda-python-tests:
     needs: [conda-cpp-build, conda-python-build, changed-files]
     permissions:
@@ -424,7 +388,9 @@ jobs:
       matrix_type: nightly
       matrix_filter: map(select(.GPU == "gb300"))
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_python.sh
+      script: >-
+        env UCXX_PYTHON_TEST_SCRIPT=./ci/run_tag_multi_diagnostic.sh
+        UCXX_TAG_MULTI_DIAGNOSTIC_WORKERS=1 ci/test_python.sh
   conda-python-tests-gb300-rerun-2:
     needs: [conda-python-tests-gb300-rerun-1, changed-files]
     permissions:
@@ -441,7 +407,9 @@ jobs:
       matrix_type: nightly
       matrix_filter: map(select(.GPU == "gb300"))
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_python.sh
+      script: >-
+        env UCXX_PYTHON_TEST_SCRIPT=./ci/run_tag_multi_diagnostic.sh
+        UCXX_TAG_MULTI_DIAGNOSTIC_WORKERS=4 ci/test_python.sh
   conda-python-distributed-tests:
     needs: [conda-cpp-build, conda-python-build, changed-files]
     permissions:
@@ -543,7 +511,9 @@ jobs:
       matrix_type: nightly
       matrix_filter: map(select(.GPU == "gb300"))
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_wheel_ucxx.sh
+      script: >-
+        env UCXX_PYTHON_TEST_SCRIPT=./ci/run_tag_multi_diagnostic.sh
+        UCXX_TAG_MULTI_DIAGNOSTIC_WORKERS=1 ci/test_wheel_ucxx.sh
   wheel-tests-ucxx-gb300-rerun-2:
     needs: [wheel-tests-ucxx-gb300-rerun-1, changed-files]
     permissions:
@@ -560,7 +530,9 @@ jobs:
       matrix_type: nightly
       matrix_filter: map(select(.GPU == "gb300"))
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
-      script: ci/test_wheel_ucxx.sh
+      script: >-
+        env UCXX_PYTHON_TEST_SCRIPT=./ci/run_tag_multi_diagnostic.sh
+        UCXX_TAG_MULTI_DIAGNOSTIC_WORKERS=4 ci/test_wheel_ucxx.sh
   wheel-build-distributed-ucxx:
     needs: [build-details, checks]
     permissions:
