@@ -6,7 +6,7 @@
 #include <utility>
 #include <variant>
 
-#include <ucxx/detail/constructors.h>
+#include <internal/constructors.h>
 #include <ucxx/detail/register_inflight_request.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/request.h>
@@ -26,7 +26,7 @@ RequestTagBuilder::RequestTagBuilder(
 std::shared_ptr<RequestTag> RequestTagBuilder::build()
 {
   markBuilt();
-  auto req = detail::createRequestTag(
+  auto req = detail::ConstructorFactory::createRequestTag(
     _endpointOrWorker, _requestData, _enablePythonFuture, _callbackFunction, _callbackData);
   detail::registerInflightRequest(_endpointOrWorker, req);
   return req;

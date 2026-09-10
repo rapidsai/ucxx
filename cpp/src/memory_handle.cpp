@@ -8,8 +8,8 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucs/memory/memory_type.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/log.h>
 #include <ucxx/memory_handle.h>
 #include <ucxx/utils/ucx.h>
@@ -69,10 +69,11 @@ MemoryHandle::~MemoryHandle()
     _memoryType);
 }
 
-std::shared_ptr<MemoryHandle> detail::createMemoryHandle(std::shared_ptr<Context> context,
-                                                         const size_t size,
-                                                         void* buffer,
-                                                         const ucs_memory_type_t memoryType)
+std::shared_ptr<MemoryHandle> detail::ConstructorFactory::createMemoryHandle(
+  std::shared_ptr<Context> context,
+  const size_t size,
+  void* buffer,
+  const ucs_memory_type_t memoryType)
 {
   return std::shared_ptr<MemoryHandle>(new MemoryHandle(context, size, buffer, memoryType));
 }

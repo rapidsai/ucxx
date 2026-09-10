@@ -5,8 +5,8 @@
 #include <memory>
 #include <utility>
 
+#include <internal/constructors.h>
 #include <ucxx/detail/builder_utils.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/memory_handle_builder.h>
 
 namespace ucxx {
@@ -44,7 +44,8 @@ MemoryHandleBuilder& MemoryHandleBuilder::memoryType(ucs_memory_type_t memoryTyp
 
 std::shared_ptr<MemoryHandle> MemoryHandleBuilder::build()
 {
-  return detail::createMemoryHandle(_impl->context, _impl->size, _impl->buffer, _impl->memoryType);
+  return detail::ConstructorFactory::createMemoryHandle(
+    _impl->context, _impl->size, _impl->buffer, _impl->memoryType);
 }
 
 }  // namespace ucxx

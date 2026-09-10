@@ -6,8 +6,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include <internal/constructors.h>
 #include <ucxx/detail/builder_utils.h>
-#include <ucxx/detail/constructors.h>
 #include <ucxx/remote_key_builder.h>
 
 namespace ucxx {
@@ -50,9 +50,10 @@ std::shared_ptr<RemoteKey> RemoteKeyBuilder::build()
 {
   switch (_impl->source) {
     case RemoteKeyBuilderSource::MemoryHandle:
-      return detail::createRemoteKeyFromMemoryHandle(_impl->memoryHandle);
+      return detail::ConstructorFactory::createRemoteKeyFromMemoryHandle(_impl->memoryHandle);
     case RemoteKeyBuilderSource::Serialized:
-      return detail::createRemoteKeyFromSerialized(_impl->endpoint, _impl->serializedRemoteKey);
+      return detail::ConstructorFactory::createRemoteKeyFromSerialized(_impl->endpoint,
+                                                                       _impl->serializedRemoteKey);
   }
 
   throw std::logic_error("Invalid RemoteKeyBuilder source");
