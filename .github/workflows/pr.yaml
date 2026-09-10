@@ -18,6 +18,7 @@ jobs:
       - conda-python-build
       - devcontainer
       - docs-build
+      - docs-build-matrix
       - conda-cpp-tests
       - conda-python-tests
       - conda-python-distributed-tests
@@ -284,8 +285,15 @@ jobs:
       script: ci/build_python.sh
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
+  docs-build-matrix:
+    permissions:
+      contents: read
+    uses: rapidsai/shared-workflows/.github/workflows/compute-matrix.yaml@main
+    with:
+      build_type: pull-request
+      matrix_name: docs-build
   docs-build:
-    needs: [conda-cpp-build, conda-python-build, changed-files]
+    needs: [docs-build-matrix, conda-cpp-build, conda-python-build, changed-files]
     permissions:
       actions: read
       contents: read
@@ -294,12 +302,15 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.docs-build-matrix.outputs.matrix) }}
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).build_docs
     with:
       build_type: pull-request
-      node_type: "gpu-l4-latest-1"
-      arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.12-latest"
+      node_type: "gpu-${{ matrix.GPU }}-${{ matrix.DRIVER }}-1"
+      arch: "${{ matrix.arch }}"
+      container_image: "rapidsai/ci-conda:26.12-cuda${{ matrix.CUDA_VER }}-${{ matrix.LINUX_VER }}-py${{ matrix.PY_VER }}"
       script: "ci/build_docs.sh"
   conda-cpp-tests:
     needs: [conda-cpp-build, changed-files]
