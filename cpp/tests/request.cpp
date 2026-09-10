@@ -264,9 +264,9 @@ class RequestTest
 
 TEST(RequestCancellationTest, CancelBeforeDelayedSubmission)
 {
-  auto context = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
+  auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
   auto worker  = ucxx::workerBuilder(context).delayedSubmission(true).build();
-  auto ep      = worker->createEndpointFromWorkerAddress(worker->getAddress());
+  auto ep      = worker->endpointBuilder(worker->addressBuilder().build()).build();
 
   ProgressThreadStartBarrier barrier{};
   worker->setProgressThreadStartCallback(waitForProgressThreadRelease, &barrier);
@@ -278,7 +278,8 @@ TEST(RequestCancellationTest, CancelBeforeDelayedSubmission)
   }
 
   int recvBuffer{};
-  auto request = ep->tagRecv(&recvBuffer, sizeof(recvBuffer), ucxx::Tag{0}, ucxx::TagMaskFull);
+  auto request =
+    ep->tagRecvBuilder(&recvBuffer, sizeof(recvBuffer), ucxx::Tag{0}, ucxx::TagMaskFull).build();
   request->cancel();
 
   const bool completedBeforeSubmission = request->isCompleted();
