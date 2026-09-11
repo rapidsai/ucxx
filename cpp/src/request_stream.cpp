@@ -95,7 +95,7 @@ void RequestStream::request()
   publishRequest(request);
 }
 
-void RequestStream::populateDelayedSubmission()
+void RequestStream::populateDelayedSubmissionImpl()
 {
   bool terminate =
     std::visit(data::dispatch{
