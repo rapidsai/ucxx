@@ -91,6 +91,31 @@ void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   // Endpoint is already closing.
   if (endpoint->_closing.exchange(true)) return;
 
+  // Log before handing requests to the worker so the trace preserves the
+  // ordering between the endpoint failure and request cancelation callbacks.
+  // Connection reset and timeout often represent just a normal remote
+  // endpoint disconnect, log only in diagnostic mode.
+  if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
+    ucxx_diag(
+      "ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s, "
+      "inflight requests: %lu",
+      __func__,
+      endpoint.get(),
+      ep,
+      status,
+      ucs_status_string(status),
+      endpoint->_inflightRequests->size());
+  else
+    ucxx_error(
+      "ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s, "
+      "inflight requests: %lu",
+      __func__,
+      endpoint.get(),
+      ep,
+      status,
+      ucs_status_string(status),
+      endpoint->_inflightRequests->size());
+
   endpoint->_status = status;
   auto worker       = ::ucxx::getWorker(endpoint->_parent);
   worker->scheduleRequestCancel(endpoint->_inflightRequests->release());
@@ -106,23 +131,6 @@ void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
       endpoint->_closeCallbackArg = nullptr;
     }
   }
-
-  // Connection reset and timeout often represent just a normal remote
-  // endpoint disconnect, log only in debug mode.
-  if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT)
-    ucxx_debug("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
-               __func__,
-               endpoint.get(),
-               ep,
-               status,
-               ucs_status_string(status));
-  else
-    ucxx_error("ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s",
-               __func__,
-               endpoint.get(),
-               ep,
-               status,
-               ucs_status_string(status));
 }
 
 Endpoint::Endpoint(std::shared_ptr<Component> workerOrListener, bool endpointErrorHandling)

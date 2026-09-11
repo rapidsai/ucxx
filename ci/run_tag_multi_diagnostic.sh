@@ -33,6 +33,7 @@ for iteration in $(seq 1 100); do
   UCXPY_PROGRESS_MODE=thread \
   UCXPY_ENABLE_DELAYED_SUBMISSION=0 \
   UCXPY_ENABLE_PYTHON_FUTURE=0 \
+  UCXX_LOG_LEVEL=DIAG \
   python "${TIMEOUT_TOOL_PATH}" --enable-python $((5*60)) \
     python -m pytest -n "${workers}" --force-reruns 0 --import-mode=append -vs "${tests[@]}"
 done

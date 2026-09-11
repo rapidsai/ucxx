@@ -204,7 +204,17 @@ void RequestTagMulti::markCompleted(ucs_status_t status)
 
   if (_finalStatus == UCS_OK && status != UCS_OK) _finalStatus = status;
 
-  if (++_completedRequests == _totalRequests) {
+  ++_completedRequests;
+  ucxx_diag("ucxx::RequestTagMulti::%s: %p, op: %s, child status: %d (%s), completed: %lu/%lu",
+            __func__,
+            this,
+            _operationName.c_str(),
+            status,
+            ucs_status_string(status),
+            _completedRequests,
+            _totalRequests);
+
+  if (_completedRequests == _totalRequests) {
     setStatus(_finalStatus);
 
     ucxx_trace_req_f(_ownerString.c_str(),
@@ -377,8 +387,31 @@ void RequestTagMulti::populateDelayedSubmission() {}
 
 void RequestTagMulti::cancel()
 {
-  for (auto& br : _bufferRequests)
-    if (br->request) br->request->cancel();
+  size_t completedRequests;
+  {
+    std::lock_guard<std::mutex> lock(_completedRequestsMutex);
+    completedRequests = _completedRequests;
+  }
+
+  ucxx_diag("ucxx::RequestTagMulti::%s: %p, completed requests: %lu/%lu",
+            __func__,
+            this,
+            completedRequests,
+            _totalRequests);
+
+  for (size_t i = 0; i < _bufferRequests.size(); ++i) {
+    const auto& request = _bufferRequests[i]->request;
+    if (request) {
+      const auto status = request->getStatus();
+      ucxx_diag("ucxx::RequestTagMulti::%s: %p, child %lu status before cancelation: %d (%s)",
+                __func__,
+                this,
+                i,
+                status,
+                ucs_status_string(status));
+      request->cancel();
+    }
+  }
 }
 
 }  // namespace ucxx

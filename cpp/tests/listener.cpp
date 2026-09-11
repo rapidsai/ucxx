@@ -349,6 +349,7 @@ class ListenerCudaCloseAfterSendTest : public ::testing::Test {
  protected:
   static constexpr size_t BufferSize{1 << 20};
   static constexpr size_t NumBuffers{3};
+  static constexpr size_t MaxClosePathAttempts{100};
   static constexpr ucxx::Tag Tag{0};
 
   std::shared_ptr<ucxx::Context> _context{nullptr};
@@ -463,20 +464,30 @@ class ListenerCudaCloseAfterSendTest : public ::testing::Test {
 
 TEST_F(ListenerCudaCloseAfterSendTest, TagMultiExpectedMessageCompletesAfterSenderClose)
 {
-  auto sendBuffers = allocateCudaBuffers();
-  auto receive     = postMultiReceive(_client);
-  auto send        = postMultiSend(_server, sendBuffers);
+  for (size_t attempt = 0; attempt < MaxClosePathAttempts; ++attempt) {
+    auto sendBuffers = allocateCudaBuffers();
+    auto receive     = postMultiReceive(_client);
+    auto send        = postMultiSend(_server, sendBuffers);
 
-  ASSERT_TRUE(waitForRequest(send));
-  ASSERT_EQ(send->getStatus(), UCS_OK);
-  expectChildrenCompletedSuccessfully(send);
-  ASSERT_FALSE(receive->isCompleted()) << "close-after-send path was not exercised";
+    ASSERT_TRUE(waitForRequest(send));
+    ASSERT_EQ(send->getStatus(), UCS_OK);
+    expectChildrenCompletedSuccessfully(send);
 
-  closeServer();
+    if (receive->isCompleted()) {
+      ASSERT_EQ(receive->getStatus(), UCS_OK);
+      expectChildrenCompletedSuccessfully(receive);
+      continue;
+    }
 
-  ASSERT_TRUE(waitForRequest(receive));
-  EXPECT_EQ(receive->getStatus(), UCS_OK);
-  expectChildrenCompletedSuccessfully(receive);
+    closeServer();
+
+    ASSERT_TRUE(waitForRequest(receive));
+    EXPECT_EQ(receive->getStatus(), UCS_OK);
+    expectChildrenCompletedSuccessfully(receive);
+    return;
+  }
+
+  FAIL() << "close-after-send path was not exercised in " << MaxClosePathAttempts << " attempts";
 }
 
 TEST_F(ListenerCudaCloseAfterSendTest, TagMultiExpectedMessageCompletesBeforeSenderClose)
@@ -498,61 +509,80 @@ TEST_F(ListenerCudaCloseAfterSendTest, TagMultiExpectedMessageCompletesBeforeSen
 
 TEST_F(ListenerCudaCloseAfterSendTest, TagMultiUnexpectedMessageCompletesAfterSenderClose)
 {
-  // Complete the client-to-server half of the echo before submitting the response.
-  auto clientBuffers = allocateCudaBuffers();
-  auto serverReceive = postMultiReceive(_server);
-  auto clientSend    = postMultiSend(_client, clientBuffers);
-  ASSERT_TRUE(waitForRequest(clientSend));
-  ASSERT_EQ(clientSend->getStatus(), UCS_OK);
-  ASSERT_TRUE(waitForRequest(serverReceive));
-  ASSERT_EQ(serverReceive->getStatus(), UCS_OK);
+  for (size_t attempt = 0; attempt < MaxClosePathAttempts; ++attempt) {
+    // Complete the client-to-server half of the echo before submitting the response.
+    auto clientBuffers = allocateCudaBuffers();
+    auto serverReceive = postMultiReceive(_server);
+    auto clientSend    = postMultiSend(_client, clientBuffers);
+    ASSERT_TRUE(waitForRequest(clientSend));
+    ASSERT_EQ(clientSend->getStatus(), UCS_OK);
+    ASSERT_TRUE(waitForRequest(serverReceive));
+    ASSERT_EQ(serverReceive->getStatus(), UCS_OK);
 
-  auto serverBuffers = getReceivedBuffers(serverReceive);
-  ASSERT_EQ(serverBuffers.size(), NumBuffers);
-  clientSend.reset();
-  serverReceive.reset();
+    auto serverBuffers = getReceivedBuffers(serverReceive);
+    ASSERT_EQ(serverBuffers.size(), NumBuffers);
+    clientSend.reset();
+    serverReceive.reset();
 
-  // Mirror the coroutine ordering where the server begins its echo before the
-  // client posts recv_multi(). The non-removing probe proves the header entered
-  // UCX's unexpected-message queue and leaves it there for tagMultiRecv.
-  auto serverSend = postMultiSend(_server, serverBuffers);
-  ASSERT_TRUE(waitForUnexpectedTag());
-  auto clientReceive = postMultiReceive(_client);
+    // Mirror the coroutine ordering where the server begins its echo before the
+    // client posts recv_multi(). The non-removing probe proves the header entered
+    // UCX's unexpected-message queue and leaves it there for tagMultiRecv.
+    auto serverSend = postMultiSend(_server, serverBuffers);
+    ASSERT_TRUE(waitForUnexpectedTag());
+    auto clientReceive = postMultiReceive(_client);
 
-  ASSERT_TRUE(waitForRequest(serverSend));
-  ASSERT_EQ(serverSend->getStatus(), UCS_OK);
-  expectChildrenCompletedSuccessfully(serverSend);
-  ASSERT_FALSE(clientReceive->isCompleted()) << "close-after-send path was not exercised";
-  serverSend.reset();
+    ASSERT_TRUE(waitForRequest(serverSend));
+    ASSERT_EQ(serverSend->getStatus(), UCS_OK);
+    expectChildrenCompletedSuccessfully(serverSend);
+    serverSend.reset();
 
-  closeServer();
+    if (clientReceive->isCompleted()) {
+      ASSERT_EQ(clientReceive->getStatus(), UCS_OK);
+      expectChildrenCompletedSuccessfully(clientReceive);
+      continue;
+    }
 
-  ASSERT_TRUE(waitForRequest(clientReceive));
-  EXPECT_EQ(clientReceive->getStatus(), UCS_OK);
-  expectChildrenCompletedSuccessfully(clientReceive);
+    closeServer();
+
+    ASSERT_TRUE(waitForRequest(clientReceive));
+    EXPECT_EQ(clientReceive->getStatus(), UCS_OK);
+    expectChildrenCompletedSuccessfully(clientReceive);
+    return;
+  }
+
+  FAIL() << "close-after-send path was not exercised in " << MaxClosePathAttempts << " attempts";
 }
 
 TEST_F(ListenerCudaCloseAfterSendTest, TagUnexpectedMessageCompletesAfterSenderClose)
 {
-  auto sendBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
-  auto recvBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
-  ASSERT_EQ(cudaMemset(sendBuffer->data(), 1, BufferSize), cudaSuccess);
+  for (size_t attempt = 0; attempt < MaxClosePathAttempts; ++attempt) {
+    auto sendBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+    auto recvBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+    ASSERT_EQ(cudaMemset(sendBuffer->data(), 1, BufferSize), cudaSuccess);
 
-  auto send =
-    _server->tagSendBuilder(sendBuffer->data(), BufferSize, Tag).pythonFuture(false).build();
-  ASSERT_TRUE(waitForUnexpectedTag());
-  auto receive = _client->tagRecvBuilder(recvBuffer->data(), BufferSize, Tag, ucxx::TagMaskFull)
-                   .pythonFuture(false)
-                   .build();
+    auto send =
+      _server->tagSendBuilder(sendBuffer->data(), BufferSize, Tag).pythonFuture(false).build();
+    ASSERT_TRUE(waitForUnexpectedTag());
+    auto receive = _client->tagRecvBuilder(recvBuffer->data(), BufferSize, Tag, ucxx::TagMaskFull)
+                     .pythonFuture(false)
+                     .build();
 
-  ASSERT_TRUE(waitForRequest(send));
-  ASSERT_EQ(send->getStatus(), UCS_OK);
-  ASSERT_FALSE(receive->isCompleted()) << "close-after-send path was not exercised";
+    ASSERT_TRUE(waitForRequest(send));
+    ASSERT_EQ(send->getStatus(), UCS_OK);
 
-  closeServer();
+    if (receive->isCompleted()) {
+      ASSERT_EQ(receive->getStatus(), UCS_OK);
+      continue;
+    }
 
-  ASSERT_TRUE(waitForRequest(receive));
-  EXPECT_EQ(receive->getStatus(), UCS_OK);
+    closeServer();
+
+    ASSERT_TRUE(waitForRequest(receive));
+    EXPECT_EQ(receive->getStatus(), UCS_OK);
+    return;
+  }
+
+  FAIL() << "close-after-send path was not exercised in " << MaxClosePathAttempts << " attempts";
 }
 #endif
 
