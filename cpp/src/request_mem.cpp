@@ -131,7 +131,7 @@ void RequestMem::request()
   publishRequest(request);
 }
 
-void RequestMem::populateDelayedSubmission()
+void RequestMem::populateDelayedSubmissionImpl()
 {
   bool terminate =
     std::visit(data::dispatch{

@@ -50,11 +50,11 @@ class RequestStream : public Request {
                 std::string operationName,
                 const bool enablePythonFuture = false);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   // Allow internal construction without exposing factory functions.
   friend class detail::ConstructorFactory;
-
-  virtual void populateDelayedSubmission();
 
   /**
    * @brief Create and submit a stream request.
