@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -18,6 +19,16 @@
 #include <ucxx/worker.h>
 
 namespace ucxx {
+
+namespace {
+
+bool tagMultiDiagnosticsEnabled()
+{
+  const auto* value = std::getenv("UCXX_TAG_MULTI_DIAGNOSTICS");
+  return value != nullptr && std::string{value} == "1";
+}
+
+}  // namespace
 
 typedef std::pair<Tag, TagMask> TagPair;
 
@@ -205,14 +216,15 @@ void RequestTagMulti::markCompleted(ucs_status_t status)
   if (_finalStatus == UCS_OK && status != UCS_OK) _finalStatus = status;
 
   ++_completedRequests;
-  ucxx_diag("ucxx::RequestTagMulti::%s: %p, op: %s, child status: %d (%s), completed: %lu/%lu",
-            __func__,
-            this,
-            _operationName.c_str(),
-            status,
-            ucs_status_string(status),
-            _completedRequests,
-            _totalRequests);
+  if (tagMultiDiagnosticsEnabled())
+    ucxx_warn("ucxx::RequestTagMulti::%s: %p, op: %s, child status: %d (%s), completed: %lu/%lu",
+              __func__,
+              this,
+              _operationName.c_str(),
+              status,
+              ucs_status_string(status),
+              _completedRequests,
+              _totalRequests);
 
   if (_completedRequests == _totalRequests) {
     setStatus(_finalStatus);
@@ -393,22 +405,24 @@ void RequestTagMulti::cancel()
     completedRequests = _completedRequests;
   }
 
-  ucxx_diag("ucxx::RequestTagMulti::%s: %p, completed requests: %lu/%lu",
-            __func__,
-            this,
-            completedRequests,
-            _totalRequests);
+  if (tagMultiDiagnosticsEnabled())
+    ucxx_warn("ucxx::RequestTagMulti::%s: %p, completed requests: %lu/%lu",
+              __func__,
+              this,
+              completedRequests,
+              _totalRequests);
 
   for (size_t i = 0; i < _bufferRequests.size(); ++i) {
     const auto& request = _bufferRequests[i]->request;
     if (request) {
       const auto status = request->getStatus();
-      ucxx_diag("ucxx::RequestTagMulti::%s: %p, child %lu status before cancelation: %d (%s)",
-                __func__,
-                this,
-                i,
-                status,
-                ucs_status_string(status));
+      if (tagMultiDiagnosticsEnabled())
+        ucxx_warn("ucxx::RequestTagMulti::%s: %p, child %lu status before cancelation: %d (%s)",
+                  __func__,
+                  this,
+                  i,
+                  status,
+                  ucs_status_string(status));
       request->cancel();
     }
   }
