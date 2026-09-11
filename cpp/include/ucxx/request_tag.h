@@ -63,11 +63,11 @@ class RequestTag : public Request {
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
   // Allow internal construction without exposing factory functions.
   friend class detail::ConstructorFactory;
-
-  virtual void populateDelayedSubmission();
 
   /**
    * @brief Cancel the tag request.
