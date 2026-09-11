@@ -87,10 +87,11 @@ void Request::cancel()
                        ucs_status_string(status));
     } else {
       ucxx_trace_req_f(_ownerString.c_str(), this, _request, _operationName.c_str(), "canceling");
-      if (_request != nullptr)
+      if (_request != nullptr) {
         ucp_request_cancel(_worker->getHandle(), _request);
-      else
+      } else {
         setStatus(UCS_ERR_CANCELED);
+      }
     }
   } else {
     ucxx_trace_req_f(_ownerString.c_str(),
