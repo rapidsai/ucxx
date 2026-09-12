@@ -2,6 +2,8 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -18,6 +20,24 @@
 #include <ucxx/worker.h>
 
 namespace ucxx {
+
+namespace {
+
+bool tagMultiDiagnosticsEnabled()
+{
+  const auto* value = std::getenv("UCXX_TAG_MULTI_DIAGNOSTICS");
+  return value != nullptr && std::string{value} == "1";
+}
+
+template <typename... Args>
+void tagMultiDiagnostic(const char* format, Args... args)
+{
+  if (!tagMultiDiagnosticsEnabled()) return;
+  std::fprintf(stderr, format, args...);
+  std::fflush(stderr);
+}
+
+}  // namespace
 
 typedef std::pair<Tag, TagMask> TagPair;
 
@@ -129,7 +149,7 @@ void RequestTagMulti::recvFrames()
   }
 
   for (auto& h : headers) {
-    _totalFrames += h.nframes;
+    _totalRequests += h.nframes;
     for (size_t i = 0; i < h.nframes; ++i) {
       auto bufferRequest = std::make_shared<BufferRequest>();
       _bufferRequests.push_back(bufferRequest);
@@ -204,7 +224,20 @@ void RequestTagMulti::markCompleted(ucs_status_t status)
 
   if (_finalStatus == UCS_OK && status != UCS_OK) _finalStatus = status;
 
-  if (++_completedRequests == _totalFrames) {
+  ++_completedRequests;
+  if (status != UCS_OK)
+    tagMultiDiagnostic(
+      "UCXX tag-multi diagnostic: ucxx::RequestTagMulti::%s: %p, op: %s, child status: %d "
+      "(%s), completed: %lu/%lu\n",
+      __func__,
+      this,
+      _operationName.c_str(),
+      status,
+      ucs_status_string(status),
+      _completedRequests,
+      _totalRequests);
+
+  if (_completedRequests == _totalRequests) {
     setStatus(_finalStatus);
 
     ucxx_trace_req_f(_ownerString.c_str(),
@@ -217,7 +250,7 @@ void RequestTagMulti::markCompleted(ucs_status_t status)
                      tagPair.first,
                      tagPair.second,
                      _completedRequests,
-                     _totalFrames,
+                     _totalRequests,
                      _finalStatus,
                      ucs_status_string(_finalStatus));
   } else {
@@ -229,7 +262,7 @@ void RequestTagMulti::markCompleted(ucs_status_t status)
                      tagPair.first,
                      tagPair.second,
                      _completedRequests,
-                     _totalFrames);
+                     _totalRequests);
   }
 }
 
@@ -329,20 +362,26 @@ void RequestTagMulti::send()
   std::visit(
     data::dispatch{
       [this](data::TagMultiSend tagMultiSend) {
-        _totalFrames = tagMultiSend._buffer.size();
+        const auto totalFrames = tagMultiSend._buffer.size();
 
-        auto headers = Header::buildHeaders(tagMultiSend._length, tagMultiSend._isCUDA);
+        auto headers   = Header::buildHeaders(tagMultiSend._length, tagMultiSend._isCUDA);
+        _totalRequests = totalFrames + headers.size();
 
         for (const auto& header : headers) {
           auto serializedHeader = std::make_shared<std::string>(std::move(header.serialize()));
           auto bufferRequest    = std::make_shared<BufferRequest>();
           _bufferRequests.push_back(bufferRequest);
-          bufferRequest->request = static_cast<std::shared_ptr<Request>>(_endpoint->tagSendBuilder(
-            &serializedHeader->front(), serializedHeader->size(), tagMultiSend._tag));
+          bufferRequest->request = static_cast<std::shared_ptr<Request>>(
+            _endpoint
+              ->tagSendBuilder(
+                &serializedHeader->front(), serializedHeader->size(), tagMultiSend._tag)
+              .callbackFunction([this](ucs_status_t status, RequestCallbackUserData) {
+                return markCompleted(status);
+              }));
           bufferRequest->stringBuffer = std::move(serializedHeader);
         }
 
-        for (size_t i = 0; i < _totalFrames; ++i) {
+        for (size_t i = 0; i < totalFrames; ++i) {
           auto bufferRequest = std::make_shared<BufferRequest>();
           _bufferRequests.push_back(bufferRequest);
           bufferRequest->request = static_cast<std::shared_ptr<Request>>(
@@ -371,8 +410,34 @@ void RequestTagMulti::populateDelayedSubmissionImpl() {}
 
 void RequestTagMulti::cancel()
 {
-  for (auto& br : _bufferRequests)
-    if (br->request) br->request->cancel();
+  size_t completedRequests;
+  {
+    std::lock_guard<std::mutex> lock(_completedRequestsMutex);
+    completedRequests = _completedRequests;
+  }
+
+  tagMultiDiagnostic(
+    "UCXX tag-multi diagnostic: ucxx::RequestTagMulti::%s: %p, completed requests: %lu/%lu\n",
+    __func__,
+    this,
+    completedRequests,
+    _totalRequests);
+
+  for (size_t i = 0; i < _bufferRequests.size(); ++i) {
+    const auto& request = _bufferRequests[i]->request;
+    if (request) {
+      const auto status = request->getStatus();
+      tagMultiDiagnostic(
+        "UCXX tag-multi diagnostic: ucxx::RequestTagMulti::%s: %p, child %lu status before "
+        "cancelation: %d (%s)\n",
+        __func__,
+        this,
+        i,
+        status,
+        ucs_status_string(status));
+      request->cancel();
+    }
+  }
 }
 
 }  // namespace ucxx

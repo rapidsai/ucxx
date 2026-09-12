@@ -3,12 +3,18 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <thread>
 #include <tuple>
 #include <ucs/config/types.h>
 #include <ucs/type/status.h>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#if UCXX_ENABLE_CCCL
+#include <cuda_runtime_api.h>
+#endif
 
 #include <ucxx/api.h>
 
@@ -337,6 +343,248 @@ class ListenerHostTest : public ListenerTestBase, public ::testing::Test {
  protected:
   void SetUp() override { _worker = _context->workerBuilder().build(); }
 };
+
+#if UCXX_ENABLE_CCCL
+class ListenerCudaCloseAfterSendTest : public ::testing::Test {
+ protected:
+  static constexpr size_t BufferSize{1 << 20};
+  static constexpr size_t NumBuffers{3};
+  static constexpr size_t MaxClosePathAttempts{100};
+  static constexpr ucxx::Tag Tag{0};
+
+  std::shared_ptr<ucxx::Context> _context{nullptr};
+  std::shared_ptr<ucxx::Worker> _worker{nullptr};
+  ListenerContainerPtr _listenerContainer{nullptr};
+  std::shared_ptr<ucxx::Listener> _listener{nullptr};
+  std::shared_ptr<ucxx::Endpoint> _client{nullptr};
+  std::shared_ptr<ucxx::Endpoint> _server{nullptr};
+
+  void SetUp() override
+  {
+    ASSERT_EQ(cudaFree(nullptr), cudaSuccess);
+
+    _context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags)
+                 .configMap({{"RNDV_THRESH", "8192"}})
+                 .build();
+    _worker = _context->workerBuilder().cudaBufferType(ucxx::BufferType::CCCL).build();
+
+    _listenerContainer                        = std::make_shared<ListenerContainer>();
+    _listenerContainer->worker                = _worker;
+    _listenerContainer->endpointErrorHandling = true;
+    _listener = _worker->listenerBuilder(0, listenerCallback, _listenerContainer.get()).build();
+    _listenerContainer->listener = _listener;
+
+    _client = _worker->endpointBuilder("127.0.0.1", _listener->getPort())
+                .endpointErrorHandling(true)
+                .build();
+    ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [this]() {
+      _worker->progress();
+      return _listenerContainer->endpoint != nullptr;
+    }));
+    ASSERT_EQ(_listenerContainer->status, UCS_OK);
+    _server = _listenerContainer->endpoint;
+
+    _worker->setProgressThreadStartCallback(createCudaContextCallback, nullptr);
+    _worker->startProgressThread(false);
+  }
+
+  void TearDown() override
+  {
+    if (_worker && _worker->isProgressThreadRunning()) _worker->stopProgressThread();
+  }
+
+  static bool waitForRequest(const std::shared_ptr<ucxx::Request>& request)
+  {
+    return loopWithTimeout(std::chrono::milliseconds(5000), [request]() {
+      std::this_thread::yield();
+      return request->isCompleted();
+    });
+  }
+
+  void closeServer() { _server->closeBlocking(10000000000 /* 10s */); }
+
+  std::vector<std::shared_ptr<ucxx::Buffer>> allocateCudaBuffers()
+  {
+    std::vector<std::shared_ptr<ucxx::Buffer>> buffers;
+    for (size_t i = 0; i < NumBuffers; ++i) {
+      auto buffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+      EXPECT_EQ(cudaMemset(buffer->data(), static_cast<int>(i + 1), BufferSize), cudaSuccess);
+      buffers.push_back(std::move(buffer));
+    }
+    return buffers;
+  }
+
+  std::shared_ptr<ucxx::RequestTagMulti> postMultiReceive(
+    const std::shared_ptr<ucxx::Endpoint>& endpoint)
+  {
+    return endpoint->tagMultiRecvBuilder(Tag, ucxx::TagMaskFull).pythonFuture(false).build();
+  }
+
+  std::shared_ptr<ucxx::RequestTagMulti> postMultiSend(
+    const std::shared_ptr<ucxx::Endpoint>& endpoint,
+    const std::vector<std::shared_ptr<ucxx::Buffer>>& buffers)
+  {
+    std::vector<const void*> pointers;
+    std::vector<size_t> sizes(NumBuffers, BufferSize);
+    std::vector<int> isCuda(NumBuffers, true);
+
+    for (const auto& buffer : buffers)
+      pointers.push_back(buffer->data());
+
+    return endpoint->tagMultiSendBuilder(pointers, sizes, isCuda, Tag).pythonFuture(false).build();
+  }
+
+  static std::vector<std::shared_ptr<ucxx::Buffer>> getReceivedBuffers(
+    const std::shared_ptr<ucxx::RequestTagMulti>& request)
+  {
+    std::vector<std::shared_ptr<ucxx::Buffer>> buffers;
+    for (const auto& child : request->_bufferRequests)
+      if (child->buffer) buffers.push_back(child->buffer);
+    return buffers;
+  }
+
+  bool waitForUnexpectedTag()
+  {
+    return loopWithTimeout(std::chrono::milliseconds(5000), [this]() {
+      std::this_thread::yield();
+      return _worker->tagProbe(Tag)->isMatched();
+    });
+  }
+
+  void expectChildrenCompletedSuccessfully(const std::shared_ptr<ucxx::RequestTagMulti>& request)
+  {
+    for (size_t i = 0; i < request->_bufferRequests.size(); ++i) {
+      const auto& child = request->_bufferRequests[i]->request;
+      ASSERT_NE(child, nullptr) << "child " << i;
+      EXPECT_TRUE(child->isCompleted()) << "child " << i;
+      EXPECT_EQ(child->getStatus(), UCS_OK) << "child " << i;
+    }
+  }
+};
+
+TEST_F(ListenerCudaCloseAfterSendTest, TagMultiExpectedMessageCompletesAfterSenderClose)
+{
+  for (size_t attempt = 0; attempt < MaxClosePathAttempts; ++attempt) {
+    auto sendBuffers = allocateCudaBuffers();
+    auto receive     = postMultiReceive(_client);
+    auto send        = postMultiSend(_server, sendBuffers);
+
+    ASSERT_TRUE(waitForRequest(send));
+    ASSERT_EQ(send->getStatus(), UCS_OK);
+    expectChildrenCompletedSuccessfully(send);
+
+    if (receive->isCompleted()) {
+      ASSERT_EQ(receive->getStatus(), UCS_OK);
+      expectChildrenCompletedSuccessfully(receive);
+      continue;
+    }
+
+    closeServer();
+
+    ASSERT_TRUE(waitForRequest(receive));
+    EXPECT_EQ(receive->getStatus(), UCS_OK);
+    expectChildrenCompletedSuccessfully(receive);
+    return;
+  }
+
+  FAIL() << "close-after-send path was not exercised in " << MaxClosePathAttempts << " attempts";
+}
+
+TEST_F(ListenerCudaCloseAfterSendTest, TagMultiExpectedMessageCompletesBeforeSenderClose)
+{
+  auto sendBuffers = allocateCudaBuffers();
+  auto receive     = postMultiReceive(_client);
+  auto send        = postMultiSend(_server, sendBuffers);
+
+  ASSERT_TRUE(waitForRequest(send));
+  ASSERT_EQ(send->getStatus(), UCS_OK);
+  ASSERT_TRUE(waitForRequest(receive));
+  ASSERT_EQ(receive->getStatus(), UCS_OK);
+
+  closeServer();
+
+  expectChildrenCompletedSuccessfully(send);
+  expectChildrenCompletedSuccessfully(receive);
+}
+
+TEST_F(ListenerCudaCloseAfterSendTest, TagMultiUnexpectedMessageCompletesAfterSenderClose)
+{
+  for (size_t attempt = 0; attempt < MaxClosePathAttempts; ++attempt) {
+    // Complete the client-to-server half of the echo before submitting the response.
+    auto clientBuffers = allocateCudaBuffers();
+    auto serverReceive = postMultiReceive(_server);
+    auto clientSend    = postMultiSend(_client, clientBuffers);
+    ASSERT_TRUE(waitForRequest(clientSend));
+    ASSERT_EQ(clientSend->getStatus(), UCS_OK);
+    ASSERT_TRUE(waitForRequest(serverReceive));
+    ASSERT_EQ(serverReceive->getStatus(), UCS_OK);
+
+    auto serverBuffers = getReceivedBuffers(serverReceive);
+    ASSERT_EQ(serverBuffers.size(), NumBuffers);
+    clientSend.reset();
+    serverReceive.reset();
+
+    // Mirror the coroutine ordering where the server begins its echo before the
+    // client posts recv_multi(). The non-removing probe proves the header entered
+    // UCX's unexpected-message queue and leaves it there for tagMultiRecv.
+    auto serverSend = postMultiSend(_server, serverBuffers);
+    ASSERT_TRUE(waitForUnexpectedTag());
+    auto clientReceive = postMultiReceive(_client);
+
+    ASSERT_TRUE(waitForRequest(serverSend));
+    ASSERT_EQ(serverSend->getStatus(), UCS_OK);
+    expectChildrenCompletedSuccessfully(serverSend);
+    serverSend.reset();
+
+    if (clientReceive->isCompleted()) {
+      ASSERT_EQ(clientReceive->getStatus(), UCS_OK);
+      expectChildrenCompletedSuccessfully(clientReceive);
+      continue;
+    }
+
+    closeServer();
+
+    ASSERT_TRUE(waitForRequest(clientReceive));
+    EXPECT_EQ(clientReceive->getStatus(), UCS_OK);
+    expectChildrenCompletedSuccessfully(clientReceive);
+    return;
+  }
+
+  FAIL() << "close-after-send path was not exercised in " << MaxClosePathAttempts << " attempts";
+}
+
+TEST_F(ListenerCudaCloseAfterSendTest, TagUnexpectedMessageCompletesAfterSenderClose)
+{
+  for (size_t attempt = 0; attempt < MaxClosePathAttempts; ++attempt) {
+    auto sendBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+    auto recvBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+    ASSERT_EQ(cudaMemset(sendBuffer->data(), 1, BufferSize), cudaSuccess);
+
+    auto send =
+      _server->tagSendBuilder(sendBuffer->data(), BufferSize, Tag).pythonFuture(false).build();
+    ASSERT_TRUE(waitForUnexpectedTag());
+    auto receive = _client->tagRecvBuilder(recvBuffer->data(), BufferSize, Tag, ucxx::TagMaskFull)
+                     .pythonFuture(false)
+                     .build();
+
+    ASSERT_TRUE(waitForRequest(send));
+    ASSERT_EQ(send->getStatus(), UCS_OK);
+
+    if (receive->isCompleted()) {
+      ASSERT_EQ(receive->getStatus(), UCS_OK);
+      continue;
+    }
+
+    closeServer();
+
+    ASSERT_TRUE(waitForRequest(receive));
+    EXPECT_EQ(receive->getStatus(), UCS_OK);
+    return;
+  }
+
+  FAIL() << "close-after-send path was not exercised in " << MaxClosePathAttempts << " attempts";
+}
+#endif
 
 TEST_F(ListenerHostTest, BindToHost)
 {

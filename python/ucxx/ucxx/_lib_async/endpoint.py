@@ -603,7 +603,15 @@ class Endpoint:
 
         buffer_requests = self._ep.tag_recv_multi(tag, TagMaskFull)
         await buffer_requests.wait()
-        buffer_requests.check_error()
+        try:
+            buffer_requests.check_error()
+        except UCXError:
+            logger.error(
+                "recv_multi failed: aggregate status=%s, child statuses=%s",
+                buffer_requests.status,
+                [request.status for request in buffer_requests.requests],
+            )
+            raise
         for r in buffer_requests.requests:
             r.check_error()
         buffers = buffer_requests.py_buffers
