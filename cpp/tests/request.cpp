@@ -4,6 +4,7 @@
  */
 #include <algorithm>
 #include <condition_variable>
+#include <cstdlib>
 #include <memory>
 #include <numeric>
 #include <stdexcept>
@@ -17,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <ucxx/api.h>
+#include <ucxx/log.h>
 
 #include "include/utils.h"
 #include "ucxx/buffer.h"
@@ -991,6 +993,43 @@ TEST(RequestTagMultiTest, SendWaitsForHeaderAndFrameRequests)
   EXPECT_FALSE(request->isCompleted());
   request->markCompleted(UCS_OK);
   EXPECT_TRUE(request->isCompleted());
+}
+
+TEST(RequestTagMultiTest, FailureOnlyDiagnosticsBypassLogLevel)
+{
+  auto context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
+  auto worker  = ucxx::workerBuilder(context).delayedSubmission(true).build();
+  auto ep      = worker->endpointBuilder(worker->addressBuilder().build()).build();
+
+  int send = 42;
+  std::vector<const void*> ptr{&send};
+  std::vector<size_t> size{sizeof(send)};
+  std::vector<int> isCuda{false};
+  auto request =
+    ep->tagMultiSendBuilder(ptr, size, isCuda, ucxx::Tag{0}).pythonFuture(false).build();
+
+  const auto originalLogLevel               = ucxx::ucxx_log_component_config.log_level;
+  ucxx::ucxx_log_component_config.log_level = UCS_LOG_LEVEL_FATAL;
+  const auto* diagnosticsEnvironment        = std::getenv("UCXX_TAG_MULTI_DIAGNOSTICS");
+  const bool diagnosticsEnvironmentWasSet   = diagnosticsEnvironment != nullptr;
+  const std::string originalDiagnosticsEnvironment =
+    diagnosticsEnvironmentWasSet ? diagnosticsEnvironment : "";
+  ASSERT_EQ(setenv("UCXX_TAG_MULTI_DIAGNOSTICS", "1", 1), 0);
+
+  testing::internal::CaptureStderr();
+  request->markCompleted(UCS_OK);
+  request->markCompleted(UCS_ERR_CONNECTION_RESET);
+  const auto diagnostics = testing::internal::GetCapturedStderr();
+
+  if (diagnosticsEnvironmentWasSet)
+    EXPECT_EQ(setenv("UCXX_TAG_MULTI_DIAGNOSTICS", originalDiagnosticsEnvironment.c_str(), 1), 0);
+  else
+    EXPECT_EQ(unsetenv("UCXX_TAG_MULTI_DIAGNOSTICS"), 0);
+  ucxx::ucxx_log_component_config.log_level = originalLogLevel;
+
+  EXPECT_THAT(diagnostics,
+              testing::HasSubstr("child status: -25 (Connection reset by remote peer)"));
+  EXPECT_THAT(diagnostics, testing::Not(testing::HasSubstr("child status: 0 (Success)")));
 }
 
 TEST_P(RequestTest, TagUserCallback)

@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <sstream>
@@ -51,6 +52,13 @@ bool tagMultiDiagnosticsEnabled()
 {
   const auto* value = std::getenv("UCXX_TAG_MULTI_DIAGNOSTICS");
   return value != nullptr && std::string{value} == "1";
+}
+
+template <typename... Args>
+void tagMultiDiagnostic(const char* format, Args... args)
+{
+  std::fprintf(stderr, format, args...);
+  std::fflush(stderr);
 }
 
 }  // namespace
@@ -108,9 +116,9 @@ void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
   // endpoint disconnect, log only in diagnostic mode.
   if (status == UCS_ERR_CONNECTION_RESET || status == UCS_ERR_ENDPOINT_TIMEOUT) {
     if (tagMultiDiagnosticsEnabled())
-      ucxx_warn(
-        "ucxx::Endpoint::%s: %p, UCP handle: %p, error callback called with status %d: %s, "
-        "inflight requests: %lu",
+      tagMultiDiagnostic(
+        "UCXX tag-multi diagnostic: ucxx::Endpoint::%s: %p, UCP handle: %p, error callback "
+        "called with status %d: %s, inflight requests: %lu\n",
         __func__,
         endpoint.get(),
         ep,
