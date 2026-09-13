@@ -33,20 +33,6 @@ version = f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}"
 # The full version.
 release = f"{UCXX_VERSION.major:02}.{UCXX_VERSION.minor:02}.{UCXX_VERSION.micro:02}"
 
-rapids_branch_file = os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "RAPIDS_BRANCH"
-)
-try:
-    with open(rapids_branch_file) as f:
-        RAPIDS_BRANCH = f.read().strip()
-except FileNotFoundError:
-    RAPIDS_BRANCH = "main"
-nvidia_docs_intersphinx_version = (
-    RAPIDS_BRANCH.removeprefix("release/")
-    if RAPIDS_BRANCH.startswith("release/")
-    else "latest"
-)
-
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -183,10 +169,14 @@ texinfo_documents = [
 ]
 
 
+with open("../../../RAPIDS_BRANCH", "r") as f:
+    branch = f.read().strip()
+intersphinx_version = "latest" if branch == "main" else branch.removeprefix("release/")
+
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
     "cudf": (
-        f"https://docs.nvidia.com/cudf/{nvidia_docs_intersphinx_version}/",
+        f"https://docs.nvidia.com/cudf/{intersphinx_version}/",
         None,
     ),
     "cupy": ("https://docs.cupy.dev/en/stable/", None),
@@ -197,7 +187,7 @@ intersphinx_mapping = {
     ),
     "python": ("https://docs.python.org/3", None),
     "rmm": (
-        f"https://docs.nvidia.com/rmm/{nvidia_docs_intersphinx_version}/",
+        f"https://docs.nvidia.com/rmm/{intersphinx_version}/",
         None,
     ),
     "typing_extensions": (
