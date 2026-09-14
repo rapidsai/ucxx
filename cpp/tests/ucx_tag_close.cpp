@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <ucp/api/ucp.h>
+#include <ucxx/buffer.h>
 
 #if UCXX_ENABLE_CCCL
 #include <cuda_runtime_api.h>
@@ -81,8 +82,10 @@ void headerRecvCallback(void* request,
   if (status != UCS_OK) return;
 
   ucp_request_param_t recvParams{};
-  recvParams.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA;
-  recvParams.cb.recv      = recvCallback;
+  recvParams.op_attr_mask =
+    UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_DATATYPE | UCP_OP_ATTR_FIELD_USER_DATA;
+  recvParams.cb.recv  = recvCallback;
+  recvParams.datatype = ucp_dt_make_contig(1);
   for (size_t i = 0; i < NumMessages; ++i) {
     recvParams.user_data = &receiveState->frames[i];
     const auto request   = ucp_tag_recv_nbx(
@@ -108,8 +111,9 @@ void listenerCallback(ucp_conn_request_h connRequest, void* arg)
   auto* state = static_cast<ListenerState*>(arg);
 
   ucp_ep_params_t params{};
-  params.field_mask = UCP_EP_PARAM_FIELD_CONN_REQUEST | UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE |
-                      UCP_EP_PARAM_FIELD_ERR_HANDLER;
+  params.field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_CONN_REQUEST |
+                      UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE | UCP_EP_PARAM_FIELD_ERR_HANDLER;
+  params.flags           = UCP_EP_PARAMS_FLAGS_NO_LOOPBACK;
   params.conn_request    = connRequest;
   params.err_mode        = UCP_ERR_HANDLING_MODE_PEER;
   params.err_handler.cb  = endpointErrorCallback;
@@ -139,11 +143,14 @@ class RawUcxTagCloseTest : public ::testing::Test {
 
     ucp_params_t contextParams{};
     contextParams.field_mask = UCP_PARAM_FIELD_FEATURES;
-    contextParams.features   = UCP_FEATURE_TAG;
+    contextParams.features =
+      UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP | UCP_FEATURE_STREAM | UCP_FEATURE_AM | UCP_FEATURE_RMA;
     ASSERT_EQ(ucp_init(&contextParams, config, &_context), UCS_OK);
     ucp_config_release(config);
 
     ucp_worker_params_t workerParams{};
+    workerParams.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+    workerParams.thread_mode = UCS_THREAD_MODE_MULTI;
     ASSERT_EQ(ucp_worker_create(_context, &workerParams, &_clientWorker), UCS_OK);
     ASSERT_EQ(ucp_worker_create(_context, &workerParams, &_serverWorker), UCS_OK);
 
@@ -167,9 +174,10 @@ class RawUcxTagCloseTest : public ::testing::Test {
     ASSERT_EQ(ucp_listener_query(_listener, &listenerAttr), UCS_OK);
 
     ucp_ep_params_t endpointParams{};
-    endpointParams.field_mask = UCP_EP_PARAM_FIELD_SOCK_ADDR |
+    endpointParams.field_mask = UCP_EP_PARAM_FIELD_FLAGS | UCP_EP_PARAM_FIELD_SOCK_ADDR |
                                 UCP_EP_PARAM_FIELD_ERR_HANDLING_MODE |
                                 UCP_EP_PARAM_FIELD_ERR_HANDLER;
+    endpointParams.flags            = UCP_EP_PARAMS_FLAGS_CLIENT_SERVER;
     endpointParams.sockaddr.addr    = reinterpret_cast<sockaddr*>(&listenerAttr.sockaddr);
     endpointParams.sockaddr.addrlen = sizeof(sockaddr_in);
     endpointParams.err_mode         = UCP_ERR_HANDLING_MODE_PEER;
@@ -253,25 +261,34 @@ TEST_F(RawUcxTagCloseTest, PostedTagReceivesCompleteAfterSenderForceClose)
   constexpr size_t MaxAttempts{100};
 
   for (size_t attempt = 0; attempt < MaxAttempts; ++attempt) {
-    std::vector<void*> sendBuffers(NumMessages, nullptr);
-    std::vector<void*> recvBuffers(NumMessages, nullptr);
+    std::vector<std::shared_ptr<ucxx::Buffer>> sendBuffers;
+    std::vector<std::shared_ptr<ucxx::Buffer>> recvBuffers;
+    std::vector<void*> recvPointers;
     std::array<char, 64> headerRecvBuffer{};
     std::array<char, 64> headerSendBuffer{};
     std::vector<Completion> sends(NumMessages + 1);
     ReceiveState receiveState{};
-    receiveState.worker  = _clientWorker;
-    receiveState.buffers = recvBuffers;
+    receiveState.worker = _clientWorker;
+    sendBuffers.reserve(NumMessages);
+    recvBuffers.reserve(NumMessages);
+    recvPointers.reserve(NumMessages);
     for (size_t i = 0; i < NumMessages; ++i) {
-      ASSERT_EQ(cudaMalloc(&sendBuffers[i], MessageSize), cudaSuccess);
-      ASSERT_EQ(cudaMalloc(&recvBuffers[i], MessageSize), cudaSuccess);
-      ASSERT_EQ(cudaMemset(sendBuffers[i], static_cast<int>(i + 1), MessageSize), cudaSuccess);
+      auto sendBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, MessageSize);
+      auto recvBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, MessageSize);
+      ASSERT_EQ(cudaMemset(sendBuffer->data(), static_cast<int>(i + 1), MessageSize), cudaSuccess);
+      recvPointers.push_back(recvBuffer->data());
+      sendBuffers.push_back(std::move(sendBuffer));
+      recvBuffers.push_back(std::move(recvBuffer));
     }
+    receiveState.buffers = recvPointers;
 
     ucp_request_param_t headerRecvParams{};
-    headerRecvParams.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA;
-    headerRecvParams.cb.recv      = headerRecvCallback;
-    headerRecvParams.user_data    = &receiveState;
-    const auto headerRecvRequest  = ucp_tag_recv_nbx(_clientWorker,
+    headerRecvParams.op_attr_mask =
+      UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_DATATYPE | UCP_OP_ATTR_FIELD_USER_DATA;
+    headerRecvParams.cb.recv     = headerRecvCallback;
+    headerRecvParams.datatype    = ucp_dt_make_contig(1);
+    headerRecvParams.user_data   = &receiveState;
+    const auto headerRecvRequest = ucp_tag_recv_nbx(_clientWorker,
                                                     headerRecvBuffer.data(),
                                                     headerRecvBuffer.size(),
                                                     Tag,
@@ -284,8 +301,10 @@ TEST_F(RawUcxTagCloseTest, PostedTagReceivesCompleteAfterSenderForceClose)
     }
 
     ucp_request_param_t sendParams{};
-    sendParams.op_attr_mask      = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_USER_DATA;
+    sendParams.op_attr_mask =
+      UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_DATATYPE | UCP_OP_ATTR_FIELD_USER_DATA;
     sendParams.cb.send           = sendCallback;
+    sendParams.datatype          = ucp_dt_make_contig(1);
     sendParams.user_data         = &sends[0];
     const auto headerSendRequest = ucp_tag_send_nbx(
       _listenerState.endpoint, headerSendBuffer.data(), headerSendBuffer.size(), Tag, &sendParams);
@@ -297,8 +316,8 @@ TEST_F(RawUcxTagCloseTest, PostedTagReceivesCompleteAfterSenderForceClose)
 
     for (size_t i = 0; i < NumMessages; ++i) {
       sendParams.user_data = &sends[i + 1];
-      const auto request =
-        ucp_tag_send_nbx(_listenerState.endpoint, sendBuffers[i], MessageSize, Tag, &sendParams);
+      const auto request   = ucp_tag_send_nbx(
+        _listenerState.endpoint, sendBuffers[i]->data(), MessageSize, Tag, &sendParams);
       ASSERT_FALSE(UCS_PTR_IS_ERR(request));
       if (request == nullptr) {
         sends[i + 1].completed = true;
@@ -313,10 +332,6 @@ TEST_F(RawUcxTagCloseTest, PostedTagReceivesCompleteAfterSenderForceClose)
       ASSERT_EQ(receiveState.header.status, UCS_OK);
       ASSERT_EQ(receiveState.postStatus, UCS_OK);
       expectSuccess(receiveState.frames);
-      for (auto buffer : sendBuffers)
-        ASSERT_EQ(cudaFree(buffer), cudaSuccess);
-      for (auto buffer : recvBuffers)
-        ASSERT_EQ(cudaFree(buffer), cudaSuccess);
       continue;
     }
 
@@ -328,11 +343,6 @@ TEST_F(RawUcxTagCloseTest, PostedTagReceivesCompleteAfterSenderForceClose)
     ASSERT_EQ(receiveState.header.status, UCS_OK);
     ASSERT_EQ(receiveState.postStatus, UCS_OK);
     expectSuccess(receiveState.frames);
-
-    for (auto buffer : sendBuffers)
-      ASSERT_EQ(cudaFree(buffer), cudaSuccess);
-    for (auto buffer : recvBuffers)
-      ASSERT_EQ(cudaFree(buffer), cudaSuccess);
     return;
   }
 
