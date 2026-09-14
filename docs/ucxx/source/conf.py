@@ -169,9 +169,16 @@ texinfo_documents = [
 ]
 
 
+with open("../../../RAPIDS_BRANCH", "r") as f:
+    branch = f.read().strip()
+intersphinx_version = "latest" if branch == "main" else branch.removeprefix("release/")
+
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    "cudf": ("https://docs.rapids.ai/api/cudf/nightly/", None),
+    "cudf": (
+        f"https://docs.nvidia.com/cudf/{intersphinx_version}/",
+        None,
+    ),
     "cupy": ("https://docs.cupy.dev/en/stable/", None),
     "numpy": ("https://numpy.org/doc/stable", None),
     "pandas": (
@@ -179,7 +186,10 @@ intersphinx_mapping = {
         None,
     ),
     "python": ("https://docs.python.org/3", None),
-    "rmm": ("https://docs.rapids.ai/api/rmm/nightly/", None),
+    "rmm": (
+        f"https://docs.nvidia.com/rmm/{intersphinx_version}/",
+        None,
+    ),
     "typing_extensions": (
         "https://typing-extensions.readthedocs.io/en/stable/",
         None,
