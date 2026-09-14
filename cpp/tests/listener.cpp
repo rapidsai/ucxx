@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
-#include <thread>
 #include <tuple>
 #include <ucs/config/types.h>
 #include <ucs/type/status.h>
@@ -353,7 +352,8 @@ class ListenerCudaCloseAfterSendTest : public ::testing::Test {
   static constexpr ucxx::Tag Tag{0};
 
   std::shared_ptr<ucxx::Context> _context{nullptr};
-  std::shared_ptr<ucxx::Worker> _worker{nullptr};
+  std::shared_ptr<ucxx::Worker> _clientWorker{nullptr};
+  std::shared_ptr<ucxx::Worker> _serverWorker{nullptr};
   ListenerContainerPtr _listenerContainer{nullptr};
   std::shared_ptr<ucxx::Listener> _listener{nullptr};
   std::shared_ptr<ucxx::Endpoint> _client{nullptr};
@@ -366,37 +366,33 @@ class ListenerCudaCloseAfterSendTest : public ::testing::Test {
     _context = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags)
                  .configMap({{"RNDV_THRESH", "8192"}})
                  .build();
-    _worker = _context->workerBuilder().cudaBufferType(ucxx::BufferType::CCCL).build();
+    _clientWorker = _context->workerBuilder().cudaBufferType(ucxx::BufferType::CCCL).build();
+    _serverWorker = _context->workerBuilder().cudaBufferType(ucxx::BufferType::CCCL).build();
 
     _listenerContainer                        = std::make_shared<ListenerContainer>();
-    _listenerContainer->worker                = _worker;
+    _listenerContainer->worker                = _serverWorker;
     _listenerContainer->endpointErrorHandling = true;
-    _listener = _worker->listenerBuilder(0, listenerCallback, _listenerContainer.get()).build();
+    _listener =
+      _serverWorker->listenerBuilder(0, listenerCallback, _listenerContainer.get()).build();
     _listenerContainer->listener = _listener;
 
-    _client = _worker->endpointBuilder("127.0.0.1", _listener->getPort())
+    _client = _clientWorker->endpointBuilder("127.0.0.1", _listener->getPort())
                 .endpointErrorHandling(true)
                 .build();
     ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [this]() {
-      _worker->progress();
+      _clientWorker->progress();
+      _serverWorker->progress();
       return _listenerContainer->endpoint != nullptr;
     }));
     ASSERT_EQ(_listenerContainer->status, UCS_OK);
     _server = _listenerContainer->endpoint;
-
-    _worker->setProgressThreadStartCallback(createCudaContextCallback, nullptr);
-    _worker->startProgressThread(false);
   }
 
-  void TearDown() override
+  bool waitForRequest(const std::shared_ptr<ucxx::Request>& request)
   {
-    if (_worker && _worker->isProgressThreadRunning()) _worker->stopProgressThread();
-  }
-
-  static bool waitForRequest(const std::shared_ptr<ucxx::Request>& request)
-  {
-    return loopWithTimeout(std::chrono::milliseconds(5000), [request]() {
-      std::this_thread::yield();
+    return loopWithTimeout(std::chrono::milliseconds(5000), [this, request]() {
+      _clientWorker->progress();
+      _serverWorker->progress();
       return request->isCompleted();
     });
   }
@@ -446,8 +442,26 @@ class ListenerCudaCloseAfterSendTest : public ::testing::Test {
   bool waitForUnexpectedTag()
   {
     return loopWithTimeout(std::chrono::milliseconds(5000), [this]() {
-      std::this_thread::yield();
-      return _worker->tagProbe(Tag)->isMatched();
+      _serverWorker->progressOnce();
+      _clientWorker->progressOnce();
+      return _clientWorker->tagProbe(Tag)->isMatched();
+    });
+  }
+
+  bool waitForSendCompletionWithReceivePending(
+    const std::shared_ptr<ucxx::RequestTagMulti>& send,
+    const std::shared_ptr<ucxx::RequestTagMulti>& receive)
+  {
+    return loopWithTimeout(std::chrono::milliseconds(100), [this, &send, &receive]() {
+      const auto sendCompletedWithReceivePending = [&send, &receive]() {
+        return send->isCompleted() && receive->_bufferRequests.size() == NumBuffers + 1 &&
+               !receive->isCompleted();
+      };
+
+      _serverWorker->progressOnce();
+      if (sendCompletedWithReceivePending()) return true;
+      _clientWorker->progressOnce();
+      return sendCompletedWithReceivePending();
     });
   }
 
@@ -531,21 +545,26 @@ TEST_F(ListenerCudaCloseAfterSendTest, TagMultiUnexpectedMessageCompletesAfterSe
     ASSERT_TRUE(waitForUnexpectedTag());
     auto clientReceive = postMultiReceive(_client);
 
-    ASSERT_TRUE(waitForRequest(serverSend));
-    ASSERT_EQ(serverSend->getStatus(), UCS_OK);
-    expectChildrenCompletedSuccessfully(serverSend);
-    serverSend.reset();
-
-    if (clientReceive->isCompleted()) {
+    if (!waitForSendCompletionWithReceivePending(serverSend, clientReceive)) {
+      ASSERT_TRUE(waitForRequest(serverSend));
+      ASSERT_EQ(serverSend->getStatus(), UCS_OK);
+      ASSERT_TRUE(waitForRequest(clientReceive));
       ASSERT_EQ(clientReceive->getStatus(), UCS_OK);
       expectChildrenCompletedSuccessfully(clientReceive);
       continue;
     }
 
+    ASSERT_EQ(serverSend->getStatus(), UCS_OK);
+    expectChildrenCompletedSuccessfully(serverSend);
+    serverSend.reset();
+
     closeServer();
 
     ASSERT_TRUE(waitForRequest(clientReceive));
-    EXPECT_EQ(clientReceive->getStatus(), UCS_OK);
+    const auto probeInfo = _clientWorker->tagProbe(Tag);
+    EXPECT_EQ(clientReceive->getStatus(), UCS_OK)
+      << "matching unexpected message after receive failure: " << probeInfo->isMatched()
+      << ", length: " << (probeInfo->isMatched() ? probeInfo->getInfo().length : 0);
     expectChildrenCompletedSuccessfully(clientReceive);
     return;
   }

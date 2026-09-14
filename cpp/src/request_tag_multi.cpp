@@ -225,17 +225,22 @@ void RequestTagMulti::markCompleted(ucs_status_t status)
   if (_finalStatus == UCS_OK && status != UCS_OK) _finalStatus = status;
 
   ++_completedRequests;
-  if (status != UCS_OK)
+  if (status != UCS_OK && tagMultiDiagnosticsEnabled()) {
+    const auto probeInfo = _worker->tagProbe(tagPair.first, tagPair.second);
+    const bool matched   = probeInfo->isMatched();
     tagMultiDiagnostic(
       "UCXX tag-multi diagnostic: ucxx::RequestTagMulti::%s: %p, op: %s, child status: %d "
-      "(%s), completed: %lu/%lu\n",
+      "(%s), completed: %lu/%lu, matching unexpected message: %d, length: %lu\n",
       __func__,
       this,
       _operationName.c_str(),
       status,
       ucs_status_string(status),
       _completedRequests,
-      _totalRequests);
+      _totalRequests,
+      matched,
+      matched ? probeInfo->getInfo().length : 0);
+  }
 
   if (_completedRequests == _totalRequests) {
     setStatus(_finalStatus);
