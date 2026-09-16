@@ -79,6 +79,9 @@ files:
       - depends_on_ucxx
   py_build_libucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/libucxx
     extras:
       table: build-system
@@ -86,6 +89,9 @@ files:
       - rapids_build_skbuild
   py_rapids_build_libucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/libucxx
     extras:
       table: tool.rapids-build-backend
@@ -96,6 +102,9 @@ files:
       - depends_on_ucx_build
   py_run_libucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/libucxx
     extras:
       table: project
@@ -104,6 +113,9 @@ files:
       - depends_on_ucx_run
   py_build_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/ucxx
     extras:
       table: build-system
@@ -111,6 +123,9 @@ files:
       - rapids_build_skbuild
   py_rapids_build_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/ucxx
     extras:
       table: tool.rapids-build-backend
@@ -122,6 +137,9 @@ files:
       - depends_on_rmm
   py_run_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/ucxx
     extras:
       table: project
@@ -131,6 +149,9 @@ files:
       - depends_on_rmm
   py_test_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/ucxx
     extras:
       table: project.optional-dependencies
@@ -143,6 +164,9 @@ files:
       - test_python_ucxx
   py_build_distributed_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/distributed-ucxx
     extras:
       table: build-system
@@ -150,6 +174,9 @@ files:
       - rapids_build_setuptools
   py_run_distributed_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/distributed-ucxx
     extras:
       table: project
@@ -158,6 +185,9 @@ files:
       - depends_on_ucxx
   py_test_distributed_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/distributed-ucxx
     extras:
       table: project.optional-dependencies
@@ -456,10 +486,12 @@ dependencies:
               - *cupy_cu13
           - matrix:
               cuda: "12.*"
+              use_cuda_wheels: "true"
             packages:
               - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
+              use_cuda_wheels: "true"
             packages:
               - cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
   depends_on_numba_cuda:
@@ -506,7 +538,10 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - librmm-cu13==26.12.*,>=0.0.0a0
-          - {matrix: null, packages: [*librmm_unsuffixed]}
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *librmm_unsuffixed
   depends_on_rmm:
     common:
       - output_types: conda
@@ -529,7 +564,10 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - rmm-cu13==26.12.*,>=0.0.0a0
-          - {matrix: null, packages: [*rmm_unsuffixed]}
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *rmm_unsuffixed
   depends_on_cudf:
     common:
       - output_types: [conda]
@@ -552,7 +590,10 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - cudf-cu13==26.12.*,>=0.0.0a0
-          - {matrix: null, packages: [*cudf_unsuffixed]}
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *cudf_unsuffixed
   depends_on_distributed_ucxx:
     common:
       - output_types: conda
@@ -577,6 +618,7 @@ dependencies:
             packages:
               - libucxx-cu13==0.53.*,>=0.0.0a0
           - matrix:
+              cuda_suffixed: "false"
             packages:
               - *libucxx_unsuffixed
   depends_on_libucxx_examples:
@@ -611,7 +653,10 @@ dependencies:
               cuda_suffixed: "true"
             packages:
               - ucxx-cu13==0.53.*,>=0.0.0a0
-          - {matrix: null, packages: [*ucxx_unsuffixed]}
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *ucxx_unsuffixed
   depends_on_ucxx_tests:
     common:
       - output_types: conda
