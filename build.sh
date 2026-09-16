@@ -47,6 +47,12 @@ UCXX_BUILD_DIR=${REPODIR}/python/ucxx/build
 
 BUILD_DIRS="${LIB_BUILD_DIR} ${PYTHON_BUILD_DIR} ${UCXX_BUILD_DIR}"
 
+CUDA_VERSION="${RAPIDS_CUDA_VERSION:-$(nvcc --version | sed -E -n "s/^.*release ([0-9]+\.[0-9]+).*$/\1/p")}"
+if [[ -z "$CUDA_VERSION" ]]; then
+    echo "Could not determine CUDA version. Please set RAPIDS_CUDA_VERSION or make sure your \$PATH contains a valid nvcc."
+    exit 1
+fi
+
 # Set defaults for vars modified by flags to this script
 VERBOSE_FLAG=""
 BUILD_TYPE=Release
@@ -276,6 +282,7 @@ if buildAll || hasArg ucxx; then
             --no-build-isolation \
             --no-deps \
             --config-settings rapidsai.disable-cuda=true \
+            --config-settings "rapidsai.matrix-entry=cuda=${CUDA_VERSION};cuda_suffixed=false;use_cuda_wheels=false" \
             --config-settings skbuild.install.components=ucxx \
             --config-settings skbuild.install.components=examples \
             "${PY_API_ARGS[@]}" \
@@ -289,5 +296,5 @@ fi
 if buildAll || hasArg distributed_ucxx; then
 
     cd "${REPODIR}/python/distributed-ucxx/"
-    python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
+    python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true --config-settings "rapidsai.matrix-entry=cuda=${CUDA_VERSION};cuda_suffixed=false;use_cuda_wheels=false" .
 fi
