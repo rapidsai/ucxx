@@ -120,7 +120,7 @@ exclude = [
 [tool.rapids-build-backend]
 build-backend = "setuptools.build_meta"
 dependencies-file = "../../dependencies.yaml"
-matrix-entry = "cuda_suffixed=true"
+matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 
 [tool.setuptools.package-data]
 "distributed_ucxx" = ["VERSION", "*.yaml"]
