@@ -4,7 +4,11 @@
 import pytest
 
 import ucxx
-from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import (
+    recv_close_receipt,
+    send_close_receipt,
+    wait_listener_client_handlers,
+)
 
 np = pytest.importorskip("numpy")
 
@@ -12,11 +16,6 @@ msg_sizes = [2**i for i in range(0, 25, 4)]
 # multi_sizes = [0, 1, 2, 3, 4, 8]
 multi_sizes = [1, 2, 3, 4, 8]
 dtypes = ["|u1", "<i8", "f8"]
-receipt_tag = 0x434F4E4649524D
-
-
-async def send_receipt(ep):
-    await ep.send(np.array([1], dtype=np.uint8), tag=receipt_tag, force_tag=True)
 
 
 def make_echo_server():
@@ -32,9 +31,7 @@ def make_echo_server():
         """
         msg = await ep.recv_multi()
         await ep.send_multi(msg)
-        receipt = np.empty(1, dtype=np.uint8)
-        await ep.recv(receipt, tag=receipt_tag, force_tag=True)
-        np.testing.assert_array_equal(receipt, [1])
+        await recv_close_receipt(ep)
         await ep.close()
 
     return echo_server
@@ -52,7 +49,7 @@ async def test_send_recv_bytes(size, multi_size):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         np.testing.assert_array_equal(r, s)
-    await send_receipt(client)
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -69,7 +66,7 @@ async def test_send_recv_numpy(size, multi_size, dtype):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         np.testing.assert_array_equal(r.view(dtype), s)
-    await send_receipt(client)
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -89,7 +86,7 @@ async def test_send_recv_cupy(size, multi_size, dtype):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         cupy.testing.assert_array_equal(cupy.asarray(r).view(dtype), cupy.asarray(s))
-    await send_receipt(client)
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -111,5 +108,5 @@ async def test_send_recv_numba(size, multi_size, dtype):
         np.testing.assert_array_equal(
             r.copy_to_host().view(dtype), s.copy_to_host().view(dtype)
         )
-    await send_receipt(client)
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)

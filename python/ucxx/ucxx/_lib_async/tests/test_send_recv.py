@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import functools
@@ -6,7 +6,11 @@ import functools
 import pytest
 
 import ucxx
-from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import (
+    recv_close_receipt,
+    send_close_receipt,
+    wait_listener_client_handlers,
+)
 
 np = pytest.importorskip("numpy")
 
@@ -34,6 +38,7 @@ def make_echo_server(create_empty_data):
         msg = create_empty_data(msg_size[0])
         await ep.recv(msg)
         await ep.send(msg)
+        await recv_close_receipt(ep)
         await ep.close()
 
     return echo_server
@@ -52,7 +57,7 @@ async def test_send_recv_bytes(size):
     resp = bytearray(size)
     await client.recv(resp)
     assert resp == msg
-    await client.close()
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -72,6 +77,7 @@ async def test_send_recv_numpy(size, dtype):
     resp = np.empty_like(msg)
     await client.recv(resp)
     np.testing.assert_array_equal(resp, msg)
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -94,6 +100,7 @@ async def test_send_recv_cupy(size, dtype):
     resp = cupy.empty_like(msg)
     await client.recv(resp)
     np.testing.assert_array_equal(cupy.asnumpy(resp), cupy.asnumpy(msg))
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -116,6 +123,7 @@ async def test_send_recv_numba(size, dtype):
     resp = cuda.device_array_like(msg)
     await client.recv(resp)
     np.testing.assert_array_equal(np.array(resp), np.array(msg))
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 

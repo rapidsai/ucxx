@@ -348,7 +348,6 @@ class ListenerCudaCloseAfterSendTest : public ::testing::Test {
  protected:
   static constexpr size_t BufferSize{1 << 20};
   static constexpr size_t NumBuffers{3};
-  static constexpr size_t MaxClosePathAttempts{100};
   static constexpr ucxx::Tag Tag{0};
   static constexpr ucxx::Tag ReceiptTag{1};
 
@@ -562,36 +561,35 @@ TEST_F(ListenerCudaCloseAfterSendTest, TagMultiUnexpectedMessageConfirmsBeforeSe
   closeServer();
 }
 
-TEST_F(ListenerCudaCloseAfterSendTest, TagUnexpectedMessageCompletesAfterSenderClose)
+TEST_F(ListenerCudaCloseAfterSendTest, TagUnexpectedMessageConfirmsBeforeSenderClose)
 {
-  for (size_t attempt = 0; attempt < MaxClosePathAttempts; ++attempt) {
-    auto sendBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
-    auto recvBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
-    ASSERT_EQ(cudaMemset(sendBuffer->data(), 1, BufferSize), cudaSuccess);
+  auto sendBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+  auto recvBuffer = ucxx::allocateBuffer(ucxx::BufferType::CCCL, BufferSize);
+  ASSERT_EQ(cudaMemset(sendBuffer->data(), 1, BufferSize), cudaSuccess);
 
-    auto send =
-      _server->tagSendBuilder(sendBuffer->data(), BufferSize, Tag).pythonFuture(false).build();
-    ASSERT_TRUE(waitForUnexpectedTag());
-    auto receive = _client->tagRecvBuilder(recvBuffer->data(), BufferSize, Tag, ucxx::TagMaskFull)
-                     .pythonFuture(false)
-                     .build();
+  uint8_t receipt{0};
+  auto receiptReceive = postReceiptReceive(_server, &receipt);
+  auto send =
+    _server->tagSendBuilder(sendBuffer->data(), BufferSize, Tag).pythonFuture(false).build();
+  ASSERT_TRUE(waitForUnexpectedTag());
+  auto receive = _client->tagRecvBuilder(recvBuffer->data(), BufferSize, Tag, ucxx::TagMaskFull)
+                   .pythonFuture(false)
+                   .build();
 
-    ASSERT_TRUE(waitForRequest(send));
-    ASSERT_EQ(send->getStatus(), UCS_OK);
+  ASSERT_TRUE(waitForRequest(send));
+  ASSERT_EQ(send->getStatus(), UCS_OK);
 
-    if (receive->isCompleted()) {
-      ASSERT_EQ(receive->getStatus(), UCS_OK);
-      continue;
-    }
+  ASSERT_TRUE(waitForRequest(receive));
+  ASSERT_EQ(receive->getStatus(), UCS_OK);
 
-    closeServer();
+  auto receiptSend = postReceiptSend(_client);
+  ASSERT_TRUE(waitForRequest(receiptSend));
+  ASSERT_EQ(receiptSend->getStatus(), UCS_OK);
+  ASSERT_TRUE(waitForRequest(receiptReceive));
+  ASSERT_EQ(receiptReceive->getStatus(), UCS_OK);
+  ASSERT_EQ(receipt, 1);
 
-    ASSERT_TRUE(waitForRequest(receive));
-    EXPECT_EQ(receive->getStatus(), UCS_OK);
-    return;
-  }
-
-  FAIL() << "close-after-send path was not exercised in " << MaxClosePathAttempts << " attempts";
+  closeServer();
 }
 #endif
 
