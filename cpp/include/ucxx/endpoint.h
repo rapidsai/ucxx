@@ -465,6 +465,9 @@ class Endpoint : public Component {
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
    * implicit conversion submits the request.
+   * Completion makes the local buffer safe to reuse, but does not confirm that the peer
+   * received the message. Applications requiring peer delivery before a force-close must use
+   * an application-level acknowledgement.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the message to be sent.
@@ -498,6 +501,9 @@ class Endpoint : public Component {
    *
    * Calling this method only creates the builder. Finalizing it with `.build()` or
    * implicit conversion submits the request.
+   * Completion makes the local buffers safe to reuse, but does not confirm that the peer
+   * received every frame. Applications requiring peer delivery before a force-close must use
+   * an application-level acknowledgement.
    *
    * @param[in] buffer              a vector of raw pointers to the data frames to be sent.
    * @param[in] size                a vector of size in bytes of each frame to be sent.

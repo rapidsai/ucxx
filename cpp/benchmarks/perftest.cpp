@@ -903,18 +903,18 @@ class Application {
 
     auto start = std::chrono::high_resolution_clock::now();
     if (_appContext.testAttributes->testType == TestType::PingPong) {
-      requests = {
-        _endpoint
-          ->tagSendBuilder(
-            bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send])
-          .build(),
-        _endpoint
-          ->tagRecvBuilder(bufferInterface->getRecvPtr(),
-                           _appContext.messageSize,
-                           (*_tagMap)[DirectionType::Recv],
-                           ucxx::TagMaskFull)
-          .build()};
       if (_appContext.loopback) {
+        requests = {_endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])
+                      .build(),
+                    _endpoint
+                      ->tagRecvBuilder(bufferInterface->getRecvPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)
+                      .build()};
         requests.push_back(_peerEndpoint
                              ->tagSendBuilder(peerBufferInterface->getSendPtr(),
                                               _appContext.messageSize,
@@ -926,6 +926,37 @@ class Application {
                                               (*_peerTagMap)[DirectionType::Recv],
                                               ucxx::TagMaskFull)
                              .build());
+        waitRequests(requests);
+      } else if (_isServer) {
+        // Match tag_lat: server receives before replying.
+        auto recv = _endpoint
+                      ->tagRecvBuilder(bufferInterface->getRecvPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)
+                      .build();
+        waitRequests({recv});
+        auto send = _endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])
+                      .build();
+        waitRequests({send});
+      } else {
+        // Match tag_lat: client sends before receiving the reply.
+        auto send = _endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])
+                      .build();
+        waitRequests({send});
+        auto recv = _endpoint
+                      ->tagRecvBuilder(bufferInterface->getRecvPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)
+                      .build();
+        waitRequests({recv});
       }
     } else {
       if (_appContext.loopback) {
@@ -956,8 +987,8 @@ class Application {
       }
     }
 
-    // Wait for requests and clear requests
-    waitRequests(requests);
+    // Wait for requests and clear requests.
+    if (!requests.empty()) waitRequests(requests);
     auto stop = std::chrono::high_resolution_clock::now();
 
     if (_appContext.verifyResults) {

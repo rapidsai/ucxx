@@ -131,9 +131,12 @@ class Endpoint:
         self._ctx = None
 
     async def close(self, period=10**10, max_attempts=1):
-        """Close the endpoint cleanly.
-        This will attempt to flush outgoing buffers before actually
-        closing the underlying UCX endpoint.
+        """Close the endpoint.
+
+        This gives outstanding send coroutines an opportunity to make progress
+        before closing the underlying UCX endpoint. It does not confirm that a
+        peer received tagged messages. Applications that require that guarantee
+        must exchange an application-level acknowledgement before closing.
 
         A maximum timeout and number of attempts may be specified to prevent the
         underlying `Endpoint` object from failing to acquire the GIL, see `abort()`
@@ -207,6 +210,10 @@ class Endpoint:
     async def send(self, buffer, tag=None, force_tag=False):
         """Send `buffer` to connected peer.
 
+        Completion makes the local buffer safe to reuse, but does not confirm
+        that the peer received the message. Exchange an application-level
+        acknowledgement before force-closing when peer delivery is required.
+
         Parameters
         ----------
         buffer: exposing the buffer protocol or array/cuda interface
@@ -258,7 +265,11 @@ class Endpoint:
                 raise e
 
     async def send_multi(self, buffers, tag=None, force_tag=False):
-        """Send `buffer` to connected peer.
+        """Send `buffers` to connected peer.
+
+        Completion makes the local buffers safe to reuse, but does not confirm
+        that the peer received every frame. Exchange an application-level
+        acknowledgement before force-closing when peer delivery is required.
 
         Parameters
         ----------
