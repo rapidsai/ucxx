@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import multiprocessing as mp
@@ -21,7 +21,7 @@ DataMessage = bytearray(b"0" * 10)
 
 
 def _server_probe(queue, probe_type, api_type="worker"):
-    """Server that probes and receives message after client disconnected.
+    """Server that probes and receives a message before client teardown.
 
     Note that since it is illegal to call progress() in callback functions,
     we keep a reference to the endpoint after the listener callback has
@@ -65,11 +65,7 @@ def _server_probe(queue, probe_type, api_type="worker"):
         )
     queue.put("wireup completed")
 
-    # Ensure client has disconnected -- endpoint is not alive anymore
-    while ep.alive is True:
-        worker.progress()
-
-    # Probe/receive message even after the remote endpoint has disconnected
+    # Probe and receive the data message before allowing the client to exit.
     if probe_type == "am":
         while ep.am_probe() is False:
             worker.progress()
@@ -155,6 +151,7 @@ def _server_probe(queue, probe_type, api_type="worker"):
 
     assert wireup == WireupMessage
     assert received == DataMessage
+    queue.put("data received")
 
 
 def _client_probe(queue, probe_type):
@@ -170,24 +167,23 @@ def _client_probe(queue, probe_type):
     )
 
     if probe_type == "am":
-        requests = [
-            ep.am_send(Array(WireupMessage)),
-            ep.am_send(Array(DataMessage)),
-        ]
-    elif probe_type == "tag":
-        requests = [
-            ep.tag_send(Array(WireupMessage), tag=ucx_api.UCXXTag(0)),
-            ep.tag_send(Array(DataMessage), tag=ucx_api.UCXXTag(0)),
-        ]
-    elif probe_type == "tag_remove":
-        requests = [
-            ep.tag_send(Array(WireupMessage), tag=ucx_api.UCXXTag(0)),
-            ep.tag_send(Array(DataMessage), tag=ucx_api.UCXXTag(0)),
-        ]
-    wait_requests(worker, "blocking", requests)
+        wireup_request = ep.am_send(Array(WireupMessage))
+    else:
+        wireup_request = ep.tag_send(Array(WireupMessage), tag=ucx_api.UCXXTag(0))
+    wait_requests(worker, "blocking", wireup_request)
 
-    # Wait for wireup before disconnecting
+    # Wait for the server to receive the wireup before sending the message
+    # whose availability is probed.
     assert queue.get() == "wireup completed"
+
+    if probe_type == "am":
+        data_request = ep.am_send(Array(DataMessage))
+    else:
+        data_request = ep.tag_send(Array(DataMessage), tag=ucx_api.UCXXTag(0))
+    wait_requests(worker, "blocking", data_request)
+
+    # Keep the endpoint alive until the server has probed and received data.
+    assert queue.get() == "data received"
 
 
 @pytest.mark.parametrize("probe_type", ["am", "tag", "tag_remove"])

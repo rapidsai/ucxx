@@ -155,6 +155,7 @@ async def test_send_recv_obj():
     async def echo_obj_server(ep):
         obj = await ep.recv_obj()
         await ep.send_obj(obj)
+        await recv_close_receipt(ep)
 
     listener = ucxx.create_listener(echo_obj_server)
     client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
@@ -163,6 +164,7 @@ async def test_send_recv_obj():
     await client.send_obj(msg)
     got = await client.recv_obj()
     assert msg == got
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -173,6 +175,7 @@ async def test_send_recv_obj_numpy():
     async def echo_obj_server(ep):
         obj = await ep.recv_obj(allocator=allocator)
         await ep.send_obj(obj)
+        await recv_close_receipt(ep)
 
     listener = ucxx.create_listener(echo_obj_server)
     client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
@@ -181,4 +184,5 @@ async def test_send_recv_obj_numpy():
     await client.send_obj(msg)
     got = await client.recv_obj(allocator=allocator)
     assert msg == got
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
