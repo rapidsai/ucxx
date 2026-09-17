@@ -38,9 +38,7 @@ repos:
     rev: v1.7.0
     hooks:
       - id: verify-dependencies
-        args:
-          - --rapids-version-file
-          - RAPIDS_VERSION
+        args: [--fix, --rapids-version-file=RAPIDS_VERSION]
       - id: verify-copyright
         args: [--fix, --spdx, --spdx-license-identifier=BSD-3-Clause]
         files: |
