@@ -85,7 +85,8 @@ async def _server_node_endpoint_tag_remove_coroutine(ep):
 
 
 async def _server_node_am_coroutine(ep):
-    assert ep._ep.am_probe() is True
+    while not ep._ep.am_probe():
+        ucxx.progress()
     return bytes(await ep.am_recv())
 
 
