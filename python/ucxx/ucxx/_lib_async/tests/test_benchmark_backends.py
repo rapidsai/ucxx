@@ -75,11 +75,14 @@ def test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi):
 
 
 if __name__ == "__main__":
-    asyncio.run(
-        _test_async_benchmark_terminal_ack_waits_for_client(
-            sys.argv[1] == "True", sys.argv[2] == "True"
+    try:
+        asyncio.run(
+            _test_async_benchmark_terminal_ack_waits_for_client(
+                sys.argv[1] == "True", sys.argv[2] == "True"
+            )
         )
-    )
+    finally:
+        ucxx.reset()
 
 
 def test_am_benchmark_rejects_device_memory(monkeypatch):
