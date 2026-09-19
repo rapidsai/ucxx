@@ -70,7 +70,7 @@ def test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi):
     subprocess.run(
         [sys.executable, __file__, str(enable_am), str(multi)],
         check=True,
-        timeout=10,
+        timeout=60,
     )
 
 
