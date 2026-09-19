@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
-import multiprocessing as mp
+import subprocess
 import sys
 
 import pytest
@@ -11,7 +11,6 @@ import ucxx
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 from ucxx.benchmarks.backends.ucxx_async import _recv_terminal_ack, _send_terminal_ack
 from ucxx.benchmarks.send_recv import parse_args
-from ucxx.testing import run_in_subprocess, terminate_process
 
 
 async def _test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi):
@@ -62,30 +61,25 @@ async def _test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi):
         await wait_listener_client_handlers(listener)
 
 
-def _run_async_benchmark_terminal_ack_test(enable_am, multi):
-    asyncio.run(_test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi))
-
-
 @pytest.mark.parametrize(
     ("enable_am", "multi"), [(False, False), (False, True), (True, False)]
 )
 def test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi):
     """Run UCX setup outside pytest's process before fork-based tests execute."""
 
-    ctx = mp.get_context("spawn")
-    error_queue = ctx.Queue()
-    process = ctx.Process(
-        target=run_in_subprocess,
-        args=(
-            _run_async_benchmark_terminal_ack_test,
-            error_queue,
-            enable_am,
-            multi,
-        ),
+    subprocess.run(
+        [sys.executable, __file__, str(enable_am), str(multi)],
+        check=True,
+        timeout=10,
     )
-    process.start()
-    process.join(timeout=10)
-    terminate_process(process, error_queue=error_queue)
+
+
+if __name__ == "__main__":
+    asyncio.run(
+        _test_async_benchmark_terminal_ack_waits_for_client(
+            sys.argv[1] == "True", sys.argv[2] == "True"
+        )
+    )
 
 
 def test_am_benchmark_rejects_device_memory(monkeypatch):
