@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -35,4 +35,4 @@ print_system_stats
 print_ucx_config
 
 rapids-logger "Run Python tests with conda package"
-./ci/run_python.sh
+"${UCXX_PYTHON_TEST_SCRIPT:-./ci/run_python.sh}"

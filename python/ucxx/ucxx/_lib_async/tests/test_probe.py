@@ -8,6 +8,7 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import recv_close_receipt, send_close_receipt
 from ucxx.types import Tag
 
 Message = bytearray(b"0" * 10)
@@ -17,15 +18,12 @@ Listener = None
 async def _server_node(ep, listener=None, coroutine=None):
     global Listener
 
-    # Wait for remote endpoint to close before probing the endpoint for
-    # in-transit message and receiving it.
-    while not ep.closed:
-        await asyncio.sleep(0)  # Yield task
-
     received = await coroutine(ep)
-
     assert received == Message
 
+    await send_close_receipt(ep)
+    while not ep.closed:
+        await asyncio.sleep(0)  # Yield task
     await ep.close()
     Listener.close()
 
@@ -87,7 +85,8 @@ async def _server_node_endpoint_tag_remove_coroutine(ep):
 
 
 async def _server_node_am_coroutine(ep):
-    assert ep._ep.am_probe() is True
+    while not ep._ep.am_probe():
+        ucxx.progress()
     return bytes(await ep.am_recv())
 
 
@@ -100,6 +99,7 @@ async def _client_node(probe_type, port):
         await ep.am_send(Message)
     elif probe_type in ("tag", "tag_remove"):
         await ep.send(Message)
+    await recv_close_receipt(ep)
     await ep.close()
 
 
