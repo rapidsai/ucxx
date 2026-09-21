@@ -21,6 +21,19 @@ normal_env = {
 }
 
 
+CLOSE_RECEIPT_TAG = 0x434F4E4649524D
+
+
+async def send_close_receipt(ep):
+    await ep.send(np.array([1], dtype=np.uint8), tag=CLOSE_RECEIPT_TAG, force_tag=True)
+
+
+async def recv_close_receipt(ep):
+    receipt = np.empty(1, dtype=np.uint8)
+    await ep.recv(receipt, tag=CLOSE_RECEIPT_TAG, force_tag=True)
+    np.testing.assert_array_equal(receipt, [1])
+
+
 def set_env():
     os.environ.update(normal_env)
 
