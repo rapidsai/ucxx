@@ -2,12 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import logging
 from queue import Empty, Queue
 
 import pytest
 
 import ucxx
-from ucxx._lib.libucxx import UCXCanceled, UCXCloseError, UCXMessageTruncatedError
+from ucxx._lib.libucxx import (
+    UCXCanceled,
+    UCXCloseError,
+    UCXConnectionResetError,
+    UCXMessageTruncatedError,
+)
 from ucxx._lib_async.endpoint import Endpoint
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 from ucxx.types import Tag
@@ -106,6 +112,33 @@ class _EndpointClosingDuringReceive(_ClosedEndpoint):
         return _CanceledReceive()
 
 
+class _FailedRequest:
+    def __init__(self, status):
+        self.status = status
+
+
+class _FailedMultiReceive:
+    status = -25
+    requests = (_FailedRequest(0), _FailedRequest(-25), _FailedRequest(0))
+
+    async def wait(self):
+        pass
+
+    def check_error(self):
+        raise UCXConnectionResetError("Connection reset by remote peer")
+
+
+class _EndpointWithFailedMultiReceive:
+    alive = True
+    handle = 1
+
+    def raise_on_error(self):
+        pass
+
+    def tag_recv_multi(self, tag, tag_mask):
+        return _FailedMultiReceive()
+
+
 def _endpoint_with_matched_message(low_level_endpoint, worker):
     endpoint = Endpoint.__new__(Endpoint)
     endpoint._ep = low_level_endpoint
@@ -162,6 +195,22 @@ async def test_recv_worker_cancelation_is_not_retried():
 
 
 @pytest.mark.asyncio
+async def test_recv_multi_logs_aggregate_and_child_statuses(caplog):
+    endpoint = _endpoint_with_matched_message(
+        _EndpointWithFailedMultiReceive(), _WorkerWithMatchedMessage(None)
+    )
+
+    with caplog.at_level(logging.ERROR, logger="ucx"):
+        with pytest.raises(UCXConnectionResetError):
+            await endpoint.recv_multi()
+
+    assert (
+        "recv_multi failed: aggregate status=-25, child statuses=[0, -25, 0]"
+        in caplog.messages
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.flaky(
     reruns=3,
     only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
@@ -169,6 +218,7 @@ async def test_recv_worker_cancelation_is_not_retried():
 @pytest.mark.parametrize("server_close_callback", [True, False])
 async def test_close_callback(server_close_callback):
     closed = [False]
+    callback_registered = asyncio.Event()
 
     def _close_callback():
         closed[0] = True
@@ -181,6 +231,11 @@ async def test_close_callback(server_close_callback):
                 # If we fail to set the close callback because the remote endpoint
                 # has closed already, simply execute the callback.
                 _close_callback()
+            callback_registered.set()
+            while closed[0] is False:
+                await asyncio.sleep(0.01)
+        else:
+            await callback_registered.wait()
         await ep.close()
 
     async def client_node(port):
@@ -195,6 +250,11 @@ async def test_close_callback(server_close_callback):
                 # If we fail to set the close callback because the remote endpoint
                 # has closed already, simply execute the callback.
                 _close_callback()
+            callback_registered.set()
+            while closed[0] is False:
+                await asyncio.sleep(0.01)
+        else:
+            await callback_registered.wait()
         await ep.close()
 
     listener = ucxx.create_listener(

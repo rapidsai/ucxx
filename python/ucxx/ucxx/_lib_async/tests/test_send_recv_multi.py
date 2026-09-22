@@ -1,10 +1,14 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
 
 import ucxx
-from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import (
+    recv_close_receipt,
+    send_close_receipt,
+    wait_listener_client_handlers,
+)
 
 np = pytest.importorskip("numpy")
 
@@ -22,15 +26,12 @@ def make_echo_server():
 
     async def echo_server(ep):
         """
-        Basic echo server for sized messages.
-        We expect the other endpoint to follow the pattern::
-        # size of the real message (in bytes)
-        >>> await ep.send(msg_size)
-        >>> await ep.send(msg)       # send the real message
-        >>> await ep.recv(responds)  # receive the echo
+        Echo a multi-buffer message and wait for the client to confirm receipt
+        before force-closing the endpoint.
         """
         msg = await ep.recv_multi()
         await ep.send_multi(msg)
+        await recv_close_receipt(ep)
         await ep.close()
 
     return echo_server
@@ -48,7 +49,7 @@ async def test_send_recv_bytes(size, multi_size):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         np.testing.assert_array_equal(r, s)
-    await client.close()
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -65,6 +66,7 @@ async def test_send_recv_numpy(size, multi_size, dtype):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         np.testing.assert_array_equal(r.view(dtype), s)
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -84,6 +86,7 @@ async def test_send_recv_cupy(size, multi_size, dtype):
     recv_msg = await client.recv_multi()
     for r, s in zip(recv_msg, send_msg):
         cupy.testing.assert_array_equal(cupy.asarray(r).view(dtype), cupy.asarray(s))
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
 
 
@@ -105,4 +108,5 @@ async def test_send_recv_numba(size, multi_size, dtype):
         np.testing.assert_array_equal(
             r.copy_to_host().view(dtype), s.copy_to_host().view(dtype)
         )
+    await send_close_receipt(client)
     await wait_listener_client_handlers(listener)
