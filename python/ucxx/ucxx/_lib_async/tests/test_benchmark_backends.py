@@ -13,6 +13,8 @@ from ucxx._lib_async.utils_test import wait_listener_client_handlers
 from ucxx.benchmarks.backends.ucxx_async import _recv_terminal_ack, _send_terminal_ack
 from ucxx.benchmarks.send_recv import parse_args
 
+CUDA_UNAVAILABLE_EXIT_CODE = 77
+
 
 async def _test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi):
     """The server must not close before the client completed its final response."""
@@ -113,20 +115,24 @@ def test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi):
     )
 
 
-@pytest.mark.skipif(not _cuda_available(), reason="CUDA is unavailable")
 def test_cuda_am_rendezvous_uses_cuda_array_interface():
-    """AM rendezvous receives must remain usable as CUDA array-interface objects."""
+    """Run CUDA setup outside pytest before exercising AM rendezvous buffers."""
 
-    subprocess.run(
+    result = subprocess.run(
         [sys.executable, __file__, "cuda"],
-        check=True,
+        check=False,
         timeout=60,
     )
+    if result.returncode == CUDA_UNAVAILABLE_EXIT_CODE:
+        pytest.skip("CUDA is unavailable")
+    result.check_returncode()
 
 
 if __name__ == "__main__":
     try:
         if sys.argv[1] == "cuda":
+            if not _cuda_available():
+                sys.exit(CUDA_UNAVAILABLE_EXIT_CODE)
             asyncio.run(_test_cuda_am_rendezvous_uses_cuda_array_interface())
         else:
             asyncio.run(

@@ -54,31 +54,33 @@ class UCXPyAsyncServer(BaseServer):
         )
 
         async def server_handler(ep):
-            if not self.args.enable_am:
-                if self.args.reuse_alloc and self.args.n_buffers == 1:
-                    reuse_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
+            try:
+                if not self.args.enable_am:
+                    if self.args.reuse_alloc and self.args.n_buffers == 1:
+                        reuse_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
 
-            for i in range(self.args.n_iter + self.args.n_warmup_iter):
-                if self.args.enable_am:
-                    recv = await ep.am_recv()
-                    await ep.am_send(recv)
-                else:
-                    if self.args.n_buffers == 1:
-                        msg = (
-                            reuse_msg
-                            if self.args.reuse_alloc
-                            else xp.zeros(self.args.n_bytes, dtype="u1")
-                        )
-                        assert msg.nbytes == self.args.n_bytes
-
-                        await ep.recv(msg)
-                        await ep.send(msg)
+                for i in range(self.args.n_iter + self.args.n_warmup_iter):
+                    if self.args.enable_am:
+                        recv = await ep.am_recv()
+                        await ep.am_send(recv)
                     else:
-                        msgs = await ep.recv_multi()
-                        await ep.send_multi(msgs)
-            await _recv_terminal_ack(ep, self.args.enable_am)
-            await ep.close()
-            lf.close()
+                        if self.args.n_buffers == 1:
+                            msg = (
+                                reuse_msg
+                                if self.args.reuse_alloc
+                                else xp.zeros(self.args.n_bytes, dtype="u1")
+                            )
+                            assert msg.nbytes == self.args.n_bytes
+
+                            await ep.recv(msg)
+                            await ep.send(msg)
+                        else:
+                            msgs = await ep.recv_multi()
+                            await ep.send_multi(msgs)
+                await _recv_terminal_ack(ep, self.args.enable_am)
+                await ep.close()
+            finally:
+                lf.close()
 
         lf = ucxx.create_listener(
             server_handler,
