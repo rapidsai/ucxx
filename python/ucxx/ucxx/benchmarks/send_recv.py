@@ -285,7 +285,7 @@ def parse_args():
         "--enable-am",
         default=False,
         action="store_true",
-        help="Use the Active Message API instead of TAG for host-memory transfers",
+        help="Use the Active Message API instead of TAG for transfers",
     )
     parser.add_argument(
         "--rmm-managed-memory",
@@ -394,12 +394,6 @@ def parse_args():
                 "Could not import `gilknocker`. Make sure it is installed or "
                 "remove the `--report-gil-contention` argument."
             )
-
-    if args.enable_am and args.object_type != "numpy":
-        raise RuntimeError(
-            "`--enable-am` currently supports only `--object_type=numpy`; "
-            "CUDA AM allocator configuration is not exposed by the Python bindings."
-        )
 
     return args
 

@@ -184,7 +184,7 @@ class UCXPyCoreServer(BaseServer):
                         self.args.asyncio_wait,
                         [recv_request],
                     )
-                    send_request = ep.am_send(recv_request.recv_buffer)
+                    send_request = ep.am_send(Array(recv_request.recv_buffer))
                     await _wait_requests_checked(
                         worker,
                         self.args.progress_mode,

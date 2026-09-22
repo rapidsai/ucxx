@@ -8,6 +8,7 @@ import sys
 import pytest
 
 import ucxx
+from ucxx._lib.arr import Array
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 from ucxx.benchmarks.backends.ucxx_async import _recv_terminal_ack, _send_terminal_ack
 from ucxx.benchmarks.send_recv import parse_args
@@ -61,6 +62,44 @@ async def _test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi):
         await wait_listener_client_handlers(listener)
 
 
+async def _test_cuda_am_rendezvous_uses_cuda_array_interface():
+    import cupy as cp
+
+    message = cp.arange(16 * 1024, dtype=cp.uint8)
+
+    async def server_handler(ep):
+        received = await ep.am_recv()
+        assert hasattr(received, "__cuda_array_interface__")
+        assert Array(received).cuda
+        cp.testing.assert_array_equal(cp.asarray(received), message)
+        await ep.am_send(received)
+        await ep.close()
+        listener.close()
+
+    listener = ucxx.create_listener(server_handler)
+    client = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
+
+    try:
+        await client.am_send(message)
+        response = await client.am_recv()
+        assert hasattr(response, "__cuda_array_interface__")
+        assert Array(response).cuda
+        cp.testing.assert_array_equal(cp.asarray(response), message)
+    finally:
+        await client.close()
+        listener.close()
+        await wait_listener_client_handlers(listener)
+
+
+def _cuda_available():
+    try:
+        import cupy as cp
+
+        return cp.cuda.runtime.getDeviceCount() > 0
+    except Exception:
+        return False
+
+
 @pytest.mark.parametrize(
     ("enable_am", "multi"), [(False, False), (False, True), (True, False)]
 )
@@ -74,26 +113,39 @@ def test_async_benchmark_terminal_ack_waits_for_client(enable_am, multi):
     )
 
 
+@pytest.mark.skipif(not _cuda_available(), reason="CUDA is unavailable")
+def test_cuda_am_rendezvous_uses_cuda_array_interface():
+    """AM rendezvous receives must remain usable as CUDA array-interface objects."""
+
+    subprocess.run(
+        [sys.executable, __file__, "cuda"],
+        check=True,
+        timeout=60,
+    )
+
+
 if __name__ == "__main__":
     try:
-        asyncio.run(
-            _test_async_benchmark_terminal_ack_waits_for_client(
-                sys.argv[1] == "True", sys.argv[2] == "True"
+        if sys.argv[1] == "cuda":
+            asyncio.run(_test_cuda_am_rendezvous_uses_cuda_array_interface())
+        else:
+            asyncio.run(
+                _test_async_benchmark_terminal_ack_waits_for_client(
+                    sys.argv[1] == "True", sys.argv[2] == "True"
+                )
             )
-        )
     finally:
         ucxx.reset()
 
 
-def test_am_benchmark_rejects_device_memory(monkeypatch):
+def test_am_benchmark_accepts_device_memory(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
         ["send_recv.py", "--enable-am", "--object_type", "cupy"],
     )
 
-    with pytest.raises(RuntimeError, match="supports only `--object_type=numpy`"):
-        parse_args()
+    assert parse_args().enable_am
 
 
 def test_am_benchmark_accepts_host_memory(monkeypatch):
