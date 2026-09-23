@@ -38,6 +38,7 @@ print_system_stats
 rapids-logger "Run distributed-ucxx tests with wheels"
 if [[ "${RAPIDS_PY_VERSION}" == "3.11" ]] && \
    nvidia-smi --query-gpu=name --format=csv,noheader | grep -Eqi '(^| )L4($| )'; then
+    export UCXX_TRANSPOSE_FULL_SUITE_REPEATS=5
     export UCXX_TRANSPOSE_STRESS_REPEATS=10
 fi
 ./ci/run_python_distributed.sh

@@ -97,6 +97,11 @@ UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 0 1 0
 PYTHONMALLOC=debug run_distributed_ucxx_tests thread 1 0 0
 run_distributed_ucxx_tests      thread          1                           1                       0
 
+for attempt in $(seq 2 "${UCXX_TRANSPOSE_FULL_SUITE_REPEATS:-1}"); do
+  log_message "Transposition full-suite diagnostic attempt ${attempt}/${UCXX_TRANSPOSE_FULL_SUITE_REPEATS}"
+  UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 0 1 0
+done
+
 for attempt in $(seq 1 "${UCXX_TRANSPOSE_STRESS_REPEATS:-0}"); do
   log_message "Transposition diagnostic attempt ${attempt}/${UCXX_TRANSPOSE_STRESS_REPEATS}"
   UCXX_FRAME_TRACE=1 UCXPY_PROGRESS_MODE=thread UCXPY_ENABLE_DELAYED_SUBMISSION=0 \
