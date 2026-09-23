@@ -54,6 +54,9 @@ run_distributed_ucxx_tests() {
   SKIP=$4
 
   CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((10*60)) python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/"
+  if [ -n "${PYTHONMALLOC:-}" ]; then
+    CMD_LINE="PYTHONMALLOC=${PYTHONMALLOC} ${CMD_LINE}"
+  fi
 
   if [ "$SKIP" -ne 0 ]; then
     echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
@@ -82,11 +85,13 @@ run_distributed_ucxx_tests_internal() {
 }
 
 # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE    SKIP
-run_distributed_ucxx_tests      blocking        0                           0                       0
+# Diagnose intermittent parent-process segfaults seen in these two configurations.
+# Remove the debug allocator after the crash source is identified.
+PYTHONMALLOC=debug run_distributed_ucxx_tests blocking 0 0 0
 run_distributed_ucxx_tests      polling         0                           0                       0
 run_distributed_ucxx_tests      thread          0                           0                       0
 run_distributed_ucxx_tests      thread          0                           1                       0
-run_distributed_ucxx_tests      thread          1                           0                       0
+PYTHONMALLOC=debug run_distributed_ucxx_tests thread 1 0 0
 run_distributed_ucxx_tests      thread          1                           1                       0
 
 install_distributed_dev_mode

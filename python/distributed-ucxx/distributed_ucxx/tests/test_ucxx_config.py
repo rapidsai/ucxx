@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
@@ -182,6 +182,13 @@ def start_dask_scheduler(
     reason="Workers running without a `Nanny` can't be closed properly",
 )
 def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
+    def log_process(stage, process):
+        print(
+            f"test_ucx_config_w_env_var[{protocol}] {stage}: "
+            f"pid={process.pid} returncode={process.poll()}",
+            flush=True,
+        )
+
     def current_device_resource_is_pool():
         import rmm
 
@@ -210,7 +217,7 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
                 "--no-nanny",
             ],
             env=env,
-        ):
+        ) as worker_process:
             with Client(sched_addr, loop=loop, timeout=60) as c:
                 while not c.scheduler_info()["workers"]:
                     sleep(0.1)
@@ -221,6 +228,13 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
 
                 rmm_resource_workers = c.run(current_device_resource_is_pool)
                 assert all(rmm_resource_workers.values())
+
+            log_process("client closed", worker_process)
+
+        log_process("worker stopped", worker_process)
+        log_process("before scheduler stop", scheduler_process)
+
+    log_process("scheduler stopped", scheduler_process)
 
 
 def test_schema():
