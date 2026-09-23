@@ -39,6 +39,16 @@ except Exception:
     HOST = "127.0.0.1"
 
 
+def _msgpack_extradata_logs(records):
+    return [
+        record
+        for record in records
+        if record.name == "distributed.protocol.core"
+        and record.exc_info is not None
+        and isinstance(record.exc_info[1], msgpack.ExtraData)
+    ]
+
+
 def test_registered(ucxx_loop):
     backend = get_backend("ucx")
     assert isinstance(backend, distributed_ucxx.UCXXBackend)
@@ -80,7 +90,7 @@ async def test_ping_pong(ucxx_loop):
 
 
 @gen_test()
-async def test_deserialization_error_aborts_comm(ucxx_loop):
+async def test_deserialization_error_aborts_comm(ucxx_loop, caplog):
     writer, reader = await get_comm_pair()
     try:
         await writer.ep.send(struct.pack("?Q", False, 1))
@@ -90,6 +100,7 @@ async def test_deserialization_error_aborts_comm(ucxx_loop):
         with pytest.raises(msgpack.ExtraData):
             await reader.read()
         assert reader.closed()
+        assert _msgpack_extradata_logs(caplog.records)
     finally:
         writer.abort()
         reader.abort()
@@ -348,7 +359,7 @@ async def test_ping_pong_numba(ucxx_loop):
 @pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.parametrize("processes", [True, False])
 @gen_test()
-async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes):
+async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes, caplog):
     async with LocalCluster(
         protocol=protocol,
         host=HOST,
@@ -365,6 +376,11 @@ async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes):
             if not processes:
                 assert any(w.data == {x.key: 2} for w in cluster.workers.values())
             assert len(cluster.scheduler.workers) == 2
+
+    if not processes:
+        assert not _msgpack_extradata_logs(caplog.records), (
+            "A worker received malformed protocol frames without failing the test"
+        )
 
 
 @pytest.mark.slow

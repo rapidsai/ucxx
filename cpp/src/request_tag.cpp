@@ -2,7 +2,8 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -91,16 +92,37 @@ RequestTag::RequestTag(
              requestData);
 }
 
-void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* /* info */)
+void RequestTag::diagnoseReceiveLength(const ucp_tag_recv_info_t* info,
+                                       const char* completionPath) const
 {
-  // TODO: Decide on behavior. See https://github.com/rapidsai/ucxx/issues/104 .
-  // if (status != UCS_ERR_CANCELED && info->length != _length) {
-  //   status          = UCS_ERR_MESSAGE_TRUNCATED;
-  //   const char* fmt = "length mismatch: %llu (got) != %llu (expected)";
-  //   size_t len      = std::snprintf(nullptr, 0, fmt, info->length, _length);
-  //   _status_msg     = std::string(len + 1, '\0');  // +1 for null terminator
-  //   std::snprintf(_status_msg.data(), _status_msg.size(), fmt, info->length, _length);
-  // }
+  const char* trace = std::getenv("UCXX_FRAME_TRACE");
+  if (trace == nullptr || std::strcmp(trace, "1") != 0) return;
+
+  size_t requestedLength = 0;
+  if (auto* receive = std::get_if<data::TagReceive>(&_requestData))
+    requestedLength = receive->_length;
+  else if (auto* receiveWithHandle = std::get_if<data::TagReceiveWithHandle>(&_requestData))
+    requestedLength = receiveWithHandle->_length;
+  else
+    return;
+
+  // A short tag message is currently a successful receive. This diagnostic deliberately
+  // leaves the request status unchanged while its source is investigated.
+  if (info->length != requestedLength)
+    ucxx_warn(
+      "UCXX_FRAME_TRACE tag receive length mismatch path=%s owner=%s request=%p "
+      "requested=%zu received=%zu sender_tag=0x%lx",
+      completionPath,
+      _ownerString.c_str(),
+      this,
+      requestedLength,
+      info->length,
+      info->sender_tag);
+}
+
+void RequestTag::callback(void* request, ucs_status_t status, const ucp_tag_recv_info_t* info)
+{
+  if (status == UCS_OK && info != nullptr) diagnoseReceiveLength(info, "callback");
 
   Request::callback(request, status);
 }
@@ -146,6 +168,8 @@ void RequestTag::request()
                                .datatype  = ucp_dt_make_contig(1),
                                .user_data = this};
   void* request             = nullptr;
+  ucp_tag_recv_info_t immediateReceiveInfo{};
+  bool hasImmediateReceiveInfo = false;
 
   std::visit(data::dispatch{
                [this, &request, &param](data::TagSend tagSend) {
@@ -153,9 +177,13 @@ void RequestTag::request()
                  request       = ucp_tag_send_nbx(
                    _endpoint->getHandle(), tagSend._buffer, tagSend._length, tagSend._tag, &param);
                },
-               [this, &request, &param](data::TagReceive tagReceive) {
+               [this, &request, &param, &immediateReceiveInfo, &hasImmediateReceiveInfo](
+                 data::TagReceive tagReceive) {
                  param.cb.recv = tagRecvCallback;
-                 request       = ucp_tag_recv_nbx(_worker->getHandle(),
+                 param.op_attr_mask |= UCP_OP_ATTR_FIELD_RECV_INFO;
+                 param.recv_info.tag_info = &immediateReceiveInfo;
+                 hasImmediateReceiveInfo  = true;
+                 request                  = ucp_tag_recv_nbx(_worker->getHandle(),
                                             tagReceive._buffer,
                                             tagReceive._length,
                                             tagReceive._tag,
@@ -177,6 +205,9 @@ void RequestTag::request()
                [](auto) { throw std::runtime_error("Unreachable"); },
              },
              _requestData);
+
+  if (hasImmediateReceiveInfo && request == nullptr)
+    diagnoseReceiveLength(&immediateReceiveInfo, "immediate");
 
   publishRequest(request);
 }

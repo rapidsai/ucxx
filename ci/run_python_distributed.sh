@@ -97,17 +97,17 @@ UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 0 1 0
 PYTHONMALLOC=debug run_distributed_ucxx_tests thread 1 0 0
 run_distributed_ucxx_tests      thread          1                           1                       0
 
-for attempt in $(seq 2 "${UCXX_TRANSPOSE_FULL_SUITE_REPEATS:-1}"); do
-  log_message "Transposition full-suite diagnostic attempt ${attempt}/${UCXX_TRANSPOSE_FULL_SUITE_REPEATS}"
+for attempt in $(seq 2 "${UCXX_DISTRIBUTED_FULL_SUITE_REPEATS:-1}"); do
+  log_message "Distributed full-suite diagnostic attempt ${attempt}/${UCXX_DISTRIBUTED_FULL_SUITE_REPEATS}"
   UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 0 1 0
 done
 
-for attempt in $(seq 1 "${UCXX_TRANSPOSE_STRESS_REPEATS:-0}"); do
-  log_message "Transposition diagnostic attempt ${attempt}/${UCXX_TRANSPOSE_STRESS_REPEATS}"
+for attempt in $(seq 1 "${UCXX_LOCALCLUSTER_STRESS_REPEATS:-0}"); do
+  log_message "Local-cluster diagnostic attempt ${attempt}/${UCXX_LOCALCLUSTER_STRESS_REPEATS}"
   UCXX_FRAME_TRACE=1 UCXPY_PROGRESS_MODE=thread UCXPY_ENABLE_DELAYED_SUBMISSION=0 \
     UCXPY_ENABLE_PYTHON_FUTURE=1 python "${TIMEOUT_TOOL_PATH}" --enable-python 600 \
     python -m pytest -x -q -s \
-    python/distributed-ucxx/distributed_ucxx/tests/test_ucxx.py::test_transpose
+    'python/distributed-ucxx/distributed_ucxx/tests/test_ucxx.py::test_ucxx_localcluster[False-ucxx]'
 done
 
 install_distributed_dev_mode

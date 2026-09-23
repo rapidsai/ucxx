@@ -4,6 +4,7 @@
  */
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -307,6 +308,73 @@ TEST_F(WorkerTest, TagProbe)
   ASSERT_EQ(probed2->getInfo().senderTag, ucxx::Tag{0});
   ASSERT_EQ(probed2->getInfo().length, buf.size() * sizeof(int));
   EXPECT_THROW(probed2->getHandle(), std::runtime_error);
+}
+
+TEST_F(WorkerTest, ShortTagReceiveReportsActualLengthWhenTracing)
+{
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
+  std::vector<char> send{1};
+  std::vector<char> recv(104, 0);
+
+  const char* previousTrace            = std::getenv("UCXX_FRAME_TRACE");
+  const bool hadPreviousTrace          = previousTrace != nullptr;
+  const std::string previousTraceValue = hadPreviousTrace ? previousTrace : "";
+  ASSERT_EQ(setenv("UCXX_FRAME_TRACE", "1", 1), 0);
+  testing::internal::CaptureStderr();
+  testing::internal::CaptureStdout();
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(ep->tagSendBuilder(send.data(), send.size(), ucxx::Tag{0}).build());
+  requests.push_back(
+    ep->tagRecvBuilder(recv.data(), recv.size(), ucxx::Tag{0}, ucxx::TagMaskFull).build());
+  waitRequests(_worker, requests, getProgressFunction(_worker, ProgressMode::Polling));
+  const auto diagnostics =
+    testing::internal::GetCapturedStderr() + testing::internal::GetCapturedStdout();
+  if (hadPreviousTrace)
+    EXPECT_EQ(setenv("UCXX_FRAME_TRACE", previousTraceValue.c_str(), 1), 0);
+  else
+    EXPECT_EQ(unsetenv("UCXX_FRAME_TRACE"), 0);
+
+  EXPECT_THAT(diagnostics, ::testing::HasSubstr("requested=104 received=1"));
+  EXPECT_THAT(diagnostics, ::testing::HasSubstr("path=callback"));
+  EXPECT_EQ(requests[1]->getStatus(), UCS_OK);
+}
+
+TEST_F(WorkerTest, QueuedShortTagReceiveReportsActualLengthWhenTracing)
+{
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
+  std::vector<char> send{1};
+  std::vector<char> recv(104, 0);
+
+  auto sendRequest = ep->tagSendBuilder(send.data(), send.size(), ucxx::Tag{0}).build();
+  waitRequests(_worker,
+               std::vector<std::shared_ptr<ucxx::Request>>{sendRequest},
+               getProgressFunction(_worker, ProgressMode::Polling));
+  loopWithTimeout(std::chrono::milliseconds(5000), [this]() {
+    _worker->progress();
+    return _worker->tagProbe(ucxx::Tag{0})->isMatched();
+  });
+
+  const char* previousTrace            = std::getenv("UCXX_FRAME_TRACE");
+  const bool hadPreviousTrace          = previousTrace != nullptr;
+  const std::string previousTraceValue = hadPreviousTrace ? previousTrace : "";
+  ASSERT_EQ(setenv("UCXX_FRAME_TRACE", "1", 1), 0);
+  testing::internal::CaptureStderr();
+  testing::internal::CaptureStdout();
+  auto recvRequest =
+    ep->tagRecvBuilder(recv.data(), recv.size(), ucxx::Tag{0}, ucxx::TagMaskFull).build();
+  waitRequests(_worker,
+               std::vector<std::shared_ptr<ucxx::Request>>{recvRequest},
+               getProgressFunction(_worker, ProgressMode::Polling));
+  const auto diagnostics =
+    testing::internal::GetCapturedStderr() + testing::internal::GetCapturedStdout();
+  if (hadPreviousTrace)
+    EXPECT_EQ(setenv("UCXX_FRAME_TRACE", previousTraceValue.c_str(), 1), 0);
+  else
+    EXPECT_EQ(unsetenv("UCXX_FRAME_TRACE"), 0);
+
+  EXPECT_THAT(diagnostics, ::testing::HasSubstr("requested=104 received=1"));
+  EXPECT_THAT(diagnostics, ::testing::HasSubstr("path=immediate"));
+  EXPECT_EQ(recvRequest->getStatus(), UCS_OK);
 }
 
 TEST_F(WorkerTest, TagProbeRemoveBasicFunctionality)
