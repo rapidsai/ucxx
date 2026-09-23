@@ -1,12 +1,14 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
 
 import asyncio
 import os
+import struct
 from unittest.mock import patch
 
+import msgpack
 import pytest
 
 import dask
@@ -75,6 +77,86 @@ async def test_ping_pong(ucxx_loop):
 
     await com.close()
     await serv_com.close()
+
+
+@gen_test()
+async def test_deserialization_error_aborts_comm(ucxx_loop):
+    writer, reader = await get_comm_pair()
+    try:
+        await writer.ep.send(struct.pack("?Q", False, 1))
+        await writer.ep.send(struct.pack("?Q", False, 2))
+        await writer.ep.send(b"\x01\x02")
+
+        with pytest.raises(msgpack.ExtraData):
+            await reader.read()
+        assert reader.closed()
+    finally:
+        writer.abort()
+        reader.abort()
+
+
+@gen_test()
+async def test_frame_trace_records_comm_roundtrip(ucxx_loop):
+    import importlib
+    from io import StringIO
+
+    from distributed_ucxx.frame_trace import FrameTrace
+
+    ucxx_comm = importlib.import_module("distributed_ucxx.ucxx")
+    trace = FrameTrace(capacity=32)
+    with patch.object(ucxx_comm, "frame_trace", trace):
+        writer, reader = await get_comm_pair()
+        try:
+            await writer.write({"op": "ping"})
+            assert await reader.read() == {"op": "ping"}
+            output = StringIO()
+            trace.dump(output)
+            events = output.getvalue()
+            assert "write-start" in events
+            assert "write-done" in events
+            assert "read-done" in events
+            assert "ping" not in events
+        finally:
+            writer.abort()
+            reader.abort()
+
+
+def test_frame_trace_is_bounded_and_does_not_log_payload():
+    from io import StringIO
+
+    from distributed_ucxx.frame_trace import FrameTrace
+
+    trace = FrameTrace(capacity=2)
+    for sequence in range(3):
+        trace.record(
+            "sample",
+            endpoint=1,
+            sequence=sequence,
+            frames=(b"secret payload",),
+        )
+    output = StringIO()
+    trace.dump(output)
+    events = output.getvalue()
+    assert "seq=0" not in events
+    assert "seq=1" in events
+    assert "seq=2" in events
+    assert "secret payload" not in events
+
+
+def test_frame_trace_detects_change_in_second_frame():
+    from io import StringIO
+
+    from distributed_ucxx.frame_trace import FrameTrace
+
+    trace = FrameTrace()
+    trace.record("sample", endpoint=1, sequence=1, frames=(b"header", b"first"))
+    trace.record("sample", endpoint=1, sequence=2, frames=(b"header", b"second"))
+    output = StringIO()
+    trace.dump(output)
+    first, second = (
+        line for line in output.getvalue().splitlines() if "stage=sample" in line
+    )
+    assert first.split("samples=", 1)[1] != second.split("samples=", 1)[1]
 
 
 @gen_test()

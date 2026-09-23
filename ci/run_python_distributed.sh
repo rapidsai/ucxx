@@ -57,6 +57,9 @@ run_distributed_ucxx_tests() {
   if [ -n "${PYTHONMALLOC:-}" ]; then
     CMD_LINE="PYTHONMALLOC=${PYTHONMALLOC} ${CMD_LINE}"
   fi
+  if [ -n "${UCXX_FRAME_TRACE:-}" ]; then
+    CMD_LINE="UCXX_FRAME_TRACE=${UCXX_FRAME_TRACE} ${CMD_LINE}"
+  fi
 
   if [ "$SKIP" -ne 0 ]; then
     echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
@@ -90,9 +93,17 @@ run_distributed_ucxx_tests_internal() {
 PYTHONMALLOC=debug run_distributed_ucxx_tests blocking 0 0 0
 run_distributed_ucxx_tests      polling         0                           0                       0
 run_distributed_ucxx_tests      thread          0                           0                       0
-run_distributed_ucxx_tests      thread          0                           1                       0
+UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 0 1 0
 PYTHONMALLOC=debug run_distributed_ucxx_tests thread 1 0 0
 run_distributed_ucxx_tests      thread          1                           1                       0
+
+for attempt in $(seq 1 "${UCXX_TRANSPOSE_STRESS_REPEATS:-0}"); do
+  log_message "Transposition diagnostic attempt ${attempt}/${UCXX_TRANSPOSE_STRESS_REPEATS}"
+  UCXX_FRAME_TRACE=1 UCXPY_PROGRESS_MODE=thread UCXPY_ENABLE_DELAYED_SUBMISSION=0 \
+    UCXPY_ENABLE_PYTHON_FUTURE=1 python "${TIMEOUT_TOOL_PATH}" --enable-python 600 \
+    python -m pytest -x -q -s \
+    python/distributed-ucxx/distributed_ucxx/tests/test_ucxx.py::test_transpose
+done
 
 install_distributed_dev_mode
 

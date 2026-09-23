@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
@@ -11,6 +11,7 @@ See :ref:`communications` for more.
 
 from __future__ import annotations
 
+import atexit
 import functools
 import gc
 import itertools
@@ -37,8 +38,12 @@ from distributed.protocol.utils import host_array
 from distributed.utils import ensure_ip, get_ip, get_ipv6, log_errors, nbytes
 
 from .config import get_rmm_config, get_ucx_config, setup_config
+from .frame_trace import FrameTrace
 
 logger = logging.getLogger(__name__)
+frame_trace = FrameTrace() if os.environ.get("UCXX_FRAME_TRACE") == "1" else None
+if frame_trace is not None:
+    atexit.register(frame_trace.dump)
 
 # In order to avoid double init when forking/spawning new processes (multiprocess),
 # we make sure only to import and initialize UCXX once at first use. This is also
@@ -397,6 +402,8 @@ class UCXX(Comm):
         super().__init__(deserialize=deserialize)
         self._ep = ep
         self._ep_handle = int(self._ep._ep.handle)
+        self._trace_write_sequence = 0
+        self._trace_read_sequence = 0
         if local_addr:
             assert local_addr.startswith(("ucx://", "ucxx://"))
         assert peer_addr.startswith(("ucx://", "ucxx://"))
@@ -454,6 +461,17 @@ class UCXX(Comm):
             allow_offload=self.allow_offload,
         )
         sizes = tuple(nbytes(f) for f in frames)
+        trace = frame_trace
+        if trace is not None:
+            self._trace_write_sequence += 1
+            trace_sequence = self._trace_write_sequence
+            trace.record(
+                "write-start",
+                endpoint=self._ep_handle,
+                sequence=trace_sequence,
+                frames=frames,
+                sizes=sizes,
+            )
 
         try:
             if multi_buffer is True:
@@ -497,8 +515,23 @@ class UCXX(Comm):
 
                 for each_frame in send_frames:
                     await self.ep.send(each_frame)
+            if trace is not None:
+                trace.record(
+                    "write-done",
+                    endpoint=self._ep_handle,
+                    sequence=trace_sequence,
+                    frames=frames,
+                    sizes=sizes,
+                )
             return sum(sizes)
-        except ucxx.exceptions.UCXError:
+        except ucxx.exceptions.UCXError as e:
+            if trace is not None:
+                trace.record(
+                    "write-error",
+                    endpoint=self._ep_handle,
+                    sequence=trace_sequence,
+                    error=e,
+                )
             self.abort()
             raise CommClosedError("While writing, the connection was closed")
 
@@ -506,6 +539,10 @@ class UCXX(Comm):
     async def read(self, deserializers=("cuda", "dask", "pickle", "error")):
         if deserializers is None:
             deserializers = ("cuda", "dask", "pickle", "error")
+        trace = frame_trace
+        if trace is not None:
+            self._trace_read_sequence += 1
+            trace_sequence = self._trace_read_sequence
 
         if multi_buffer is True:
             try:
@@ -580,17 +617,51 @@ class UCXX(Comm):
                     self.abort()
                     raise CommClosedError("Connection closed by writer") from e
 
+        if trace is not None:
+            sizes = tuple(nbytes(frame) for frame in frames)
+            trace.record(
+                "read-frames",
+                endpoint=self._ep_handle,
+                sequence=trace_sequence,
+                frames=frames,
+                sizes=sizes,
+            )
+
         try:
-            return await from_frames(
+            result = await from_frames(
                 frames,
                 deserialize=self.deserialize,
                 deserializers=deserializers,
                 allow_offload=self.allow_offload,
             )
-        except EOFError:
+            if trace is not None:
+                trace.record(
+                    "read-done", endpoint=self._ep_handle, sequence=trace_sequence
+                )
+            return result
+        except EOFError as e:
             # Frames possibly garbled or truncated by communication error
+            if trace is not None:
+                trace.record(
+                    "read-error",
+                    endpoint=self._ep_handle,
+                    sequence=trace_sequence,
+                    error=e,
+                )
+                trace.dump()
             self.abort()
             raise CommClosedError("Aborted stream on truncated data")
+        except BaseException as e:
+            if trace is not None:
+                trace.record(
+                    "read-error",
+                    endpoint=self._ep_handle,
+                    sequence=trace_sequence,
+                    error=e,
+                )
+                trace.dump()
+            self.abort()
+            raise
 
     async def close(self):
         self._closed = True
