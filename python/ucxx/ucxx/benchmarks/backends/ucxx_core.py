@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
@@ -14,6 +14,7 @@ from ucxx.benchmarks.utils import get_allocator
 from ucxx.utils import print_key_value
 
 WireupMessage = bytearray(b"wireup")
+TerminalAckTag = ucx_api.UCXXTag(2)
 
 
 def _create_cuda_context(device):
@@ -50,49 +51,54 @@ async def _wait_requests_async(worker, requests):
     await asyncio.gather(*[r.wait_yield() for r in requests])
 
 
+async def _wait_requests_checked(worker, progress_mode, asyncio_wait, requests):
+    if asyncio_wait:
+        await _wait_requests_async(worker, requests)
+    else:
+        _wait_requests(worker, progress_mode, requests)
+        for request in requests:
+            request.check_error()
+
+
+async def _send_terminal_ack(ep, worker, args):
+    """Confirm that the peer completed the final benchmark response."""
+    import numpy as np
+
+    ack = Array(np.zeros(1, dtype="u1"))
+    request = (
+        ep.am_send(ack) if args.enable_am else ep.tag_send(ack, tag=TerminalAckTag)
+    )
+    await _wait_requests_checked(
+        worker, args.progress_mode, args.asyncio_wait, [request]
+    )
+
+
+async def _recv_terminal_ack(ep, worker, args):
+    """Wait for the peer to confirm the final benchmark response."""
+    import numpy as np
+
+    if args.enable_am:
+        request = ep.am_recv()
+        await _wait_requests_checked(
+            worker, args.progress_mode, args.asyncio_wait, [request]
+        )
+        ack = request.recv_buffer
+    else:
+        ack = Array(np.empty(1, dtype="u1"))
+        request = ep.tag_recv(ack, tag=TerminalAckTag)
+        await _wait_requests_checked(
+            worker, args.progress_mode, args.asyncio_wait, [request]
+        )
+    if ack.nbytes != 1:
+        raise RuntimeError("Invalid benchmark terminal acknowledgement")
+
+
 def _wait_requests(worker, progress_mode, requests):
     while not all([r.completed for r in requests]):
         if progress_mode == "blocking":
             worker.progress_worker_event()
         if progress_mode == "polling":
             worker.progress()
-
-
-def register_am_allocators(args: Namespace, worker: ucx_api.UCXWorker):
-    """
-    Register Active Message allocator in worker to correct memory type if the
-    benchmark is set to use the Active Message API.
-
-    Parameters
-    ----------
-    args
-        Parsed command-line arguments that will be used as parameters during to
-        determine whether the caller is using the Active Message API and what
-        memory type.
-    worker
-        UCX-Py core Worker object where to register the allocator.
-    """
-    if not args.enable_am:
-        return
-
-    import numpy as np
-
-    worker.register_am_allocator(
-        lambda n: np.empty(n, dtype=np.uint8), ucx_api.AllocatorType.HOST
-    )
-
-    if args.object_type == "cupy":
-        import cupy as cp
-
-        worker.register_am_allocator(
-            lambda n: cp.empty(n, dtype=cp.uint8), ucx_api.AllocatorType.CUDA
-        )
-    elif args.object_type == "rmm":
-        import rmm
-
-        worker.register_am_allocator(
-            lambda n: rmm.DeviceBuffer(size=n), ucx_api.AllocatorType.CUDA
-        )
 
 
 class UCXPyCoreServer(BaseServer):
@@ -122,8 +128,6 @@ class UCXPyCoreServer(BaseServer):
             self.args.rmm_init_pool_size,
             self.args.rmm_managed_memory,
         )
-
-        register_am_allocators(self.args, worker)
 
         if self.args.progress_mode.startswith("thread"):
             worker.set_progress_thread_start_callback(
@@ -172,19 +176,34 @@ class UCXPyCoreServer(BaseServer):
                 if not self.args.reuse_alloc:
                     recv_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
 
-                requests = [
-                    ep.tag_recv(recv_msg, tag=ucx_api.UCXXTag(1)),
-                    ep.tag_send(recv_msg, tag=ucx_api.UCXXTag(0)),
-                ]
-
-                if self.args.asyncio_wait:
-                    await _wait_requests_async(worker, requests)
+                if self.args.enable_am:
+                    recv_request = ep.am_recv()
+                    await _wait_requests_checked(
+                        worker,
+                        self.args.progress_mode,
+                        self.args.asyncio_wait,
+                        [recv_request],
+                    )
+                    send_request = ep.am_send(Array(recv_request.recv_buffer))
+                    await _wait_requests_checked(
+                        worker,
+                        self.args.progress_mode,
+                        self.args.asyncio_wait,
+                        [send_request],
+                    )
                 else:
-                    _wait_requests(worker, self.args.progress_mode, requests)
+                    requests = [
+                        ep.tag_recv(recv_msg, tag=ucx_api.UCXXTag(1)),
+                        ep.tag_send(recv_msg, tag=ucx_api.UCXXTag(0)),
+                    ]
+                    await _wait_requests_checked(
+                        worker,
+                        self.args.progress_mode,
+                        self.args.asyncio_wait,
+                        requests,
+                    )
 
-                    # Check all requests completed successfully
-                    for r in requests:
-                        r.check_error()
+            await _recv_terminal_ack(ep, worker, self.args)
 
         loop = get_event_loop()
         loop.run_until_complete(_transfer())
@@ -221,7 +240,6 @@ class UCXPyCoreClient(BaseClient):
             self.args.rmm_init_pool_size,
             self.args.rmm_managed_memory,
         )
-        register_am_allocators(self.args, worker)
         send_msg = Array(xp.arange(self.args.n_bytes, dtype="u1"))
 
         if self.args.progress_mode.startswith("thread"):
@@ -270,19 +288,32 @@ class UCXPyCoreClient(BaseClient):
                 if not self.args.reuse_alloc:
                     recv_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
 
-                requests = [
-                    ep.tag_send(send_msg, tag=ucx_api.UCXXTag(1)),
-                    ep.tag_recv(recv_msg, tag=ucx_api.UCXXTag(0)),
-                ]
-
-                if self.args.asyncio_wait:
-                    await _wait_requests_async(worker, requests)
+                if self.args.enable_am:
+                    send_request = ep.am_send(send_msg)
+                    await _wait_requests_checked(
+                        worker,
+                        self.args.progress_mode,
+                        self.args.asyncio_wait,
+                        [send_request],
+                    )
+                    recv_request = ep.am_recv()
+                    await _wait_requests_checked(
+                        worker,
+                        self.args.progress_mode,
+                        self.args.asyncio_wait,
+                        [recv_request],
+                    )
                 else:
-                    _wait_requests(worker, self.args.progress_mode, requests)
-
-                    # Check all requests completed successfully
-                    for r in requests:
-                        r.check_error()
+                    requests = [
+                        ep.tag_send(send_msg, tag=ucx_api.UCXXTag(1)),
+                        ep.tag_recv(recv_msg, tag=ucx_api.UCXXTag(0)),
+                    ]
+                    await _wait_requests_checked(
+                        worker,
+                        self.args.progress_mode,
+                        self.args.asyncio_wait,
+                        requests,
+                    )
 
                 stop = monotonic()
                 if i >= self.args.n_warmup_iter:
@@ -293,6 +324,8 @@ class UCXPyCoreClient(BaseClient):
                 contention_metric = knocker.contention_metric
             if self.args.cuda_profile:
                 xp.cuda.profiler.stop()
+
+            await _send_terminal_ack(ep, worker, self.args)
 
         loop = get_event_loop()
         loop.run_until_complete(_transfer())

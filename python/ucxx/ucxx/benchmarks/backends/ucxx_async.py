@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -13,33 +13,24 @@ from ucxx.benchmarks.utils import get_allocator
 from ucxx.utils import print_key_value
 
 
-def register_am_allocators(args: Namespace):
-    """
-    Register Active Message allocator in worker to correct memory type if the
-    benchmark is set to use the Active Message API.
+async def _send_terminal_ack(ep, enable_am):
+    """Confirm that the peer completed the final benchmark response."""
+    ack = bytearray(1)
+    if enable_am:
+        await ep.am_send(ack)
+    else:
+        await ep.send(ack)
 
-    Parameters
-    ----------
-    args
-        Parsed command-line arguments that will be used as parameters during to
-        determine whether the caller is using the Active Message API and what
-        memory type.
-    """
-    if not args.enable_am:
-        return
 
-    import numpy as np
-
-    ucxx.register_am_allocator(lambda n: np.empty(n, dtype=np.uint8), "host")
-
-    if args.object_type == "cupy":
-        import cupy as cp
-
-        ucxx.register_am_allocator(lambda n: cp.empty(n, dtype=cp.uint8), "cuda")
-    elif args.object_type == "rmm":
-        import rmm
-
-        ucxx.register_am_allocator(lambda n: rmm.DeviceBuffer(size=n), "cuda")
+async def _recv_terminal_ack(ep, enable_am):
+    """Wait for the peer to confirm the final benchmark response."""
+    if enable_am:
+        ack = await ep.am_recv()
+    else:
+        ack = bytearray(1)
+        await ep.recv(ack)
+    if (ack.nbytes if isinstance(ack, Array) else len(ack)) != 1:
+        raise RuntimeError("Invalid benchmark terminal acknowledgement")
 
 
 class UCXPyAsyncServer(BaseServer):
@@ -62,33 +53,34 @@ class UCXPyAsyncServer(BaseServer):
             self.args.rmm_managed_memory,
         )
 
-        register_am_allocators(self.args)
-
         async def server_handler(ep):
-            if not self.args.enable_am:
-                if self.args.reuse_alloc and self.args.n_buffers == 1:
-                    reuse_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
+            try:
+                if not self.args.enable_am:
+                    if self.args.reuse_alloc and self.args.n_buffers == 1:
+                        reuse_msg = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
 
-            for i in range(self.args.n_iter + self.args.n_warmup_iter):
-                if self.args.enable_am:
-                    recv = await ep.am_recv()
-                    await ep.am_send(recv)
-                else:
-                    if self.args.n_buffers == 1:
-                        msg = (
-                            reuse_msg
-                            if self.args.reuse_alloc
-                            else xp.zeros(self.args.n_bytes, dtype="u1")
-                        )
-                        assert msg.nbytes == self.args.n_bytes
-
-                        await ep.recv(msg)
-                        await ep.send(msg)
+                for i in range(self.args.n_iter + self.args.n_warmup_iter):
+                    if self.args.enable_am:
+                        recv = await ep.am_recv()
+                        await ep.am_send(recv)
                     else:
-                        msgs = await ep.recv_multi()
-                        await ep.send_multi(msgs)
-            await ep.close()
-            lf.close()
+                        if self.args.n_buffers == 1:
+                            msg = (
+                                reuse_msg
+                                if self.args.reuse_alloc
+                                else xp.zeros(self.args.n_bytes, dtype="u1")
+                            )
+                            assert msg.nbytes == self.args.n_bytes
+
+                            await ep.recv(msg)
+                            await ep.send(msg)
+                        else:
+                            msgs = await ep.recv_multi()
+                            await ep.send_multi(msgs)
+                await _recv_terminal_ack(ep, self.args.enable_am)
+                await ep.close()
+            finally:
+                lf.close()
 
         lf = ucxx.create_listener(
             server_handler,
@@ -126,8 +118,6 @@ class UCXPyAsyncClient(BaseClient):
             self.args.rmm_init_pool_size,
             self.args.rmm_managed_memory,
         )
-
-        register_am_allocators(self.args)
 
         ep = await ucxx.create_endpoint(
             self.server_address,
@@ -190,6 +180,8 @@ class UCXPyAsyncClient(BaseClient):
             knocker.stop()
         if self.args.cuda_profile:
             xp.cuda.profiler.stop()
+
+        await _send_terminal_ack(ep, self.args.enable_am)
 
         self.queue.put(times)
         if self.args.report_gil_contention:
