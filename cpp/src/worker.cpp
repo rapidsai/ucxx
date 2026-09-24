@@ -716,6 +716,7 @@ void Worker::registerAmReceiverCallback(AmReceiverCallbackInfo info,
 
 bool Worker::amProbe(const ucp_ep_h endpointHandle) const
 {
+  std::lock_guard<std::mutex> lock(_amData->_mutex);
   return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
 }
 
