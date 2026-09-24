@@ -94,8 +94,8 @@ PYTHONMALLOC=debug run_distributed_ucxx_tests blocking 0 0 0
 run_distributed_ucxx_tests      polling         0                           0                       0
 run_distributed_ucxx_tests      thread          0                           0                       0
 UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 0 1 0
-PYTHONMALLOC=debug run_distributed_ucxx_tests thread 1 0 0
-run_distributed_ucxx_tests      thread          1                           1                       0
+PYTHONMALLOC=debug UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 1 0 0
+UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 1 1 0
 
 for attempt in $(seq 2 "${UCXX_DISTRIBUTED_FULL_SUITE_REPEATS:-1}"); do
   log_message "Distributed full-suite diagnostic attempt ${attempt}/${UCXX_DISTRIBUTED_FULL_SUITE_REPEATS}"
