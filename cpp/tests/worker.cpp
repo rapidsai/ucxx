@@ -335,6 +335,7 @@ TEST_F(WorkerTest, ShortTagReceiveReportsActualLengthWhenTracing)
     EXPECT_EQ(unsetenv("UCXX_FRAME_TRACE"), 0);
 
   EXPECT_THAT(diagnostics, ::testing::HasSubstr("requested=104 received=1"));
+  EXPECT_THAT(diagnostics, ::testing::HasSubstr("expected_tag=0x0"));
   EXPECT_THAT(diagnostics, ::testing::HasSubstr("path=callback"));
   EXPECT_EQ(requests[1]->getStatus(), UCS_OK);
 }

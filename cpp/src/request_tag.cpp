@@ -99,24 +99,33 @@ void RequestTag::diagnoseReceiveLength(const ucp_tag_recv_info_t* info,
   if (trace == nullptr || std::strcmp(trace, "1") != 0) return;
 
   size_t requestedLength = 0;
-  if (auto* receive = std::get_if<data::TagReceive>(&_requestData))
+  Tag expectedTag{0};
+  TagMask expectedTagMask{0};
+  if (auto* receive = std::get_if<data::TagReceive>(&_requestData)) {
     requestedLength = receive->_length;
-  else if (auto* receiveWithHandle = std::get_if<data::TagReceiveWithHandle>(&_requestData))
+    expectedTag     = receive->_tag;
+    expectedTagMask = receive->_tagMask;
+  } else if (auto* receiveWithHandle = std::get_if<data::TagReceiveWithHandle>(&_requestData)) {
     requestedLength = receiveWithHandle->_length;
-  else
+    expectedTag     = receiveWithHandle->_probeInfo->getInfo().senderTag;
+    expectedTagMask = TagMaskFull;
+  } else {
     return;
+  }
 
   // A short tag message is currently a successful receive. This diagnostic deliberately
   // leaves the request status unchanged while its source is investigated.
   if (info->length != requestedLength)
     ucxx_warn(
       "UCXX_FRAME_TRACE tag receive length mismatch path=%s owner=%s request=%p "
-      "requested=%zu received=%zu sender_tag=0x%lx",
+      "requested=%zu received=%zu expected_tag=0x%lx tag_mask=0x%lx sender_tag=0x%lx",
       completionPath,
       _ownerString.c_str(),
       this,
       requestedLength,
       info->length,
+      static_cast<ucp_tag_t>(expectedTag),
+      static_cast<ucp_tag_t>(expectedTagMask),
       info->sender_tag);
 }
 

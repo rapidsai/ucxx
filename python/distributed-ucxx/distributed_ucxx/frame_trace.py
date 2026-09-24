@@ -29,6 +29,9 @@ class FrameTrace:
         frames=(),
         sizes=(),
         error: BaseException | None = None,
+        part: str | None = None,
+        tag: int | None = None,
+        length: int | None = None,
     ) -> None:
         samples = []
         for frame in frames[:16]:
@@ -47,9 +50,11 @@ class FrameTrace:
                     ).hexdigest()
                     samples.append((frame_size, sampled_bytes, digest))
 
+        tag_text = f"0x{tag:x}" if tag is not None else None
         line = (
             f"UCXX_FRAME_TRACE time_ns={time.time_ns()} pid={os.getpid()} "
             f"ep=0x{endpoint:x} seq={sequence} stage={stage} "
+            f"part={part} tag={tag_text} length={length} "
             f"samples={tuple(samples)} "
             f"sizes={tuple(sizes[:16])} count={len(sizes)} "
             f"error={type(error).__name__ if error is not None else None}"

@@ -126,7 +126,47 @@ async def test_frame_trace_records_comm_roundtrip(ucxx_loop):
             assert "write-start" in events
             assert "write-done" in events
             assert "read-done" in events
+            assert "stage=tag-send-start part=control" in events
+            assert "stage=tag-send-done part=frame[0]" in events
+            assert "stage=tag-recv-done part=frame[0]" in events
+            assert f"tag=0x{writer.ep._tags['msg_send']:x}" in events
+            assert f"tag=0x{reader.ep._tags['msg_recv']:x}" in events
             assert "ping" not in events
+        finally:
+            writer.abort()
+            reader.abort()
+
+
+@gen_test()
+async def test_frame_trace_records_close_header_before_abort(ucxx_loop):
+    import importlib
+    from io import StringIO
+
+    from distributed_ucxx.frame_trace import FrameTrace
+
+    ucxx_comm = importlib.import_module("distributed_ucxx.ucxx")
+    trace = FrameTrace(capacity=32)
+    with patch.object(ucxx_comm, "frame_trace", trace):
+        writer, reader = await get_comm_pair()
+        try:
+            tag = writer.ep._tags["msg_send"]
+            await writer.write({"op": "ping"})
+            assert await reader.read() == {"op": "ping"}
+            await writer.close()
+            output = StringIO()
+            trace.dump(output)
+            events = output.getvalue()
+            assert (
+                f"stage=close-send-start part=control tag=0x{tag:x} length=16" in events
+            )
+            assert (
+                f"stage=close-send-done part=control tag=0x{tag:x} length=16" in events
+            )
+            assert "stage=abort" in events
+            assert events.index("stage=tag-send-done part=frame[0]") < events.index(
+                "stage=close-send-start"
+            )
+            assert events.index("stage=close-send-done") < events.index("stage=abort")
         finally:
             writer.abort()
             reader.abort()
