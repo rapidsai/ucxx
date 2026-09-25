@@ -38,6 +38,30 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _direct_referrer_snapshot(obj):
+    owners = []
+    for referrer in gc.get_referrers(obj):
+        referrer_type = type(referrer)
+        owner = {
+            "type": f"{referrer_type.__module__}.{referrer_type.__name__}",
+            "id": hex(id(referrer)),
+        }
+        if isinstance(referrer, dict):
+            keys = [repr(key)[:100] for key, value in referrer.items() if value is obj]
+            # Exclude this diagnostic function's own locals mapping.
+            if keys == ["'obj'"]:
+                continue
+            owner["keys"] = keys[:10]
+        elif isinstance(referrer, (list, tuple)):
+            owner["indices"] = [
+                index for index, value in enumerate(referrer) if value is obj
+            ][:10]
+        elif isinstance(referrer, set):
+            owner["contains_object"] = obj in referrer
+        owners.append(owner)
+    return owners[:20]
+
+
 logging_levels = {
     name: logger.level
     for name, logger in logging.root.manager.loggerDict.items()
@@ -135,11 +159,17 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
                     {
                         "id": hex(id(obj)),
                         "endpoint": None if endpoint is None else hex(id(endpoint)),
+                        "endpoint_handle": (
+                            None
+                            if getattr(obj, "_ep_handle", None) is None
+                            else hex(obj._ep_handle)
+                        ),
                         "resource_id": getattr(obj, "_resource_id", None),
                         "closed": getattr(obj, "_closed", None),
                         "has_close_callback": getattr(obj, "_has_close_callback", None),
                         "local_addr": getattr(obj, "_local_addr", None),
                         "peer_addr": getattr(obj, "_peer_addr", None),
+                        "direct_referrers": _direct_referrer_snapshot(obj),
                     }
                 )
         details += (
