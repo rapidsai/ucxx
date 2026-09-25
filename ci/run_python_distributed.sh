@@ -54,12 +54,33 @@ run_distributed_ucxx_tests() {
   SKIP=$4
 
   CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((10*60)) python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/"
+  ENV_VARS=(
+    "UCXPY_PROGRESS_MODE=${PROGRESS_MODE}"
+    "UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION}"
+    "UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE}"
+  )
+  if [ -n "${PYTHONMALLOC:-}" ]; then
+    CMD_LINE="PYTHONMALLOC=${PYTHONMALLOC} ${CMD_LINE}"
+    ENV_VARS+=("PYTHONMALLOC=${PYTHONMALLOC}")
+  fi
+  if [ -n "${UCXX_FRAME_TRACE:-}" ]; then
+    CMD_LINE="UCXX_FRAME_TRACE=${UCXX_FRAME_TRACE} ${CMD_LINE}"
+    ENV_VARS+=("UCXX_FRAME_TRACE=${UCXX_FRAME_TRACE}")
+  fi
+  if [ -n "${UCXX_CONFIG_TRACE:-}" ]; then
+    CMD_LINE="UCXX_CONFIG_TRACE=${UCXX_CONFIG_TRACE} ${CMD_LINE}"
+    ENV_VARS+=("UCXX_CONFIG_TRACE=${UCXX_CONFIG_TRACE}")
+  fi
+  if [ -n "${UCXX_BOOTSTRAP_TRACE:-}" ]; then
+    CMD_LINE="UCXX_BOOTSTRAP_TRACE=${UCXX_BOOTSTRAP_TRACE} ${CMD_LINE}"
+    ENV_VARS+=("UCXX_BOOTSTRAP_TRACE=${UCXX_BOOTSTRAP_TRACE}")
+  fi
 
   if [ "$SKIP" -ne 0 ]; then
     echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
   else
     log_command "${CMD_LINE}"
-    UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python "${TIMEOUT_TOOL_PATH}" --enable-python $((10*60)) python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/
+    env "${ENV_VARS[@]}" python "${TIMEOUT_TOOL_PATH}" --enable-python $((10*60)) python -m pytest -vs python/distributed-ucxx/distributed_ucxx/tests/
   fi
 }
 
@@ -82,12 +103,28 @@ run_distributed_ucxx_tests_internal() {
 }
 
 # run_distributed_ucxx_tests    PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION   ENABLE_PYTHON_FUTURE    SKIP
-run_distributed_ucxx_tests      blocking        0                           0                       0
+# Diagnose intermittent parent-process segfaults seen in these two configurations.
+# Remove the debug allocator after the crash source is identified.
+PYTHONMALLOC=debug run_distributed_ucxx_tests blocking 0 0 0
 run_distributed_ucxx_tests      polling         0                           0                       0
-run_distributed_ucxx_tests      thread          0                           0                       0
-run_distributed_ucxx_tests      thread          0                           1                       0
-run_distributed_ucxx_tests      thread          1                           0                       0
-run_distributed_ucxx_tests      thread          1                           1                       0
+PYTHONMALLOC=debug UCXX_FRAME_TRACE=1 UCXX_CONFIG_TRACE=1 UCXX_BOOTSTRAP_TRACE=1 \
+  run_distributed_ucxx_tests thread 0 0 0
+UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 0 1 0
+PYTHONMALLOC=debug UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 1 0 0
+UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 1 1 0
+
+for attempt in $(seq 2 "${UCXX_DISTRIBUTED_FULL_SUITE_REPEATS:-1}"); do
+  log_message "Distributed full-suite diagnostic attempt ${attempt}/${UCXX_DISTRIBUTED_FULL_SUITE_REPEATS}"
+  UCXX_FRAME_TRACE=1 run_distributed_ucxx_tests thread 0 1 0
+done
+
+for attempt in $(seq 1 "${UCXX_LOCALCLUSTER_STRESS_REPEATS:-0}"); do
+  log_message "Local-cluster diagnostic attempt ${attempt}/${UCXX_LOCALCLUSTER_STRESS_REPEATS}"
+  UCXX_FRAME_TRACE=1 UCXPY_PROGRESS_MODE=thread UCXPY_ENABLE_DELAYED_SUBMISSION=0 \
+    UCXPY_ENABLE_PYTHON_FUTURE=1 python "${TIMEOUT_TOOL_PATH}" --enable-python 600 \
+    python -m pytest -x -q -s \
+    'python/distributed-ucxx/distributed_ucxx/tests/test_ucxx.py::test_ucxx_localcluster[False-ucxx]'
+done
 
 install_distributed_dev_mode
 

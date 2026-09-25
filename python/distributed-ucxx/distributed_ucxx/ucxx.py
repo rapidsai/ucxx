@@ -12,6 +12,7 @@ See :ref:`communications` for more.
 from __future__ import annotations
 
 import asyncio
+import atexit
 import functools
 import gc
 import itertools
@@ -38,8 +39,12 @@ from distributed.protocol.utils import host_array
 from distributed.utils import ensure_ip, get_ip, get_ipv6, log_errors, nbytes
 
 from .config import get_rmm_config, get_ucx_config, setup_config
+from .frame_trace import FrameTrace
 
 logger = logging.getLogger(__name__)
+frame_trace = FrameTrace() if os.environ.get("UCXX_FRAME_TRACE") == "1" else None
+if frame_trace is not None:
+    atexit.register(frame_trace.dump)
 
 # In order to avoid double init when forking/spawning new processes (multiprocess),
 # we make sure only to import and initialize UCXX once at first use. This is also
@@ -400,6 +405,8 @@ class UCXX(Comm):
         self._ep_handle = int(self._ep._ep.handle)
         self._write_lock = asyncio.Lock()
         self._closed = False
+        self._trace_write_sequence = 0
+        self._trace_read_sequence = 0
         if local_addr:
             assert local_addr.startswith(("ucx://", "ucxx://"))
         assert peer_addr.startswith(("ucx://", "ucxx://"))
@@ -436,6 +443,80 @@ class UCXX(Comm):
         """Unlike in TCP, local_address can be blank"""
         return super().same_host if self._local_addr else False
 
+    async def _trace_tag_send(self, buffer, sequence, part, stage="tag-send"):
+        trace = frame_trace
+        if trace is None:
+            return await self.ep.send(buffer)
+        tag = self.ep._tags["msg_send"]
+        length = nbytes(buffer)
+        trace.record(
+            f"{stage}-start",
+            endpoint=self._ep_handle,
+            sequence=sequence,
+            part=part,
+            tag=tag,
+            length=length,
+        )
+        try:
+            result = await self.ep.send(buffer)
+        except BaseException as e:
+            trace.record(
+                f"{stage}-error",
+                endpoint=self._ep_handle,
+                sequence=sequence,
+                part=part,
+                tag=tag,
+                length=length,
+                error=e,
+            )
+            raise
+        trace.record(
+            f"{stage}-done",
+            endpoint=self._ep_handle,
+            sequence=sequence,
+            part=part,
+            tag=tag,
+            length=length,
+        )
+        return result
+
+    async def _trace_tag_recv(self, buffer, sequence, part):
+        trace = frame_trace
+        if trace is None:
+            return await self.ep.recv(buffer)
+        tag = self.ep._tags["msg_recv"]
+        length = nbytes(buffer)
+        trace.record(
+            "tag-recv-start",
+            endpoint=self._ep_handle,
+            sequence=sequence,
+            part=part,
+            tag=tag,
+            length=length,
+        )
+        try:
+            result = await self.ep.recv(buffer)
+        except BaseException as e:
+            trace.record(
+                "tag-recv-error",
+                endpoint=self._ep_handle,
+                sequence=sequence,
+                part=part,
+                tag=tag,
+                length=length,
+                error=e,
+            )
+            raise
+        trace.record(
+            "tag-recv-done",
+            endpoint=self._ep_handle,
+            sequence=sequence,
+            part=part,
+            tag=tag,
+            length=length,
+        )
+        return result
+
     @log_errors
     async def write(
         self,
@@ -464,6 +545,17 @@ class UCXX(Comm):
             allow_offload=self.allow_offload,
         )
         sizes = tuple(nbytes(f) for f in frames)
+        trace = frame_trace
+        if trace is not None:
+            self._trace_write_sequence += 1
+            trace_sequence = self._trace_write_sequence
+            trace.record(
+                "write-start",
+                endpoint=self._ep_handle,
+                sequence=trace_sequence,
+                frames=frames,
+                sizes=sizes,
+            )
 
         try:
             if multi_buffer is True:
@@ -488,12 +580,22 @@ class UCXX(Comm):
                 # Send meta data
 
                 # Send close flag and number of frames (_Bool, int64)
-                await self.ep.send(struct.pack("?Q", False, nframes))
+                control = struct.pack("?Q", False, nframes)
+                if trace is not None:
+                    await self._trace_tag_send(control, trace_sequence, "control")
+                else:
+                    await self.ep.send(control)
                 # Send which frames are CUDA (bool) and
                 # how large each frame is (uint64)
-                await self.ep.send(
-                    struct.pack(nframes * "?" + nframes * "Q", *cuda_frames, *sizes)
+                metadata = struct.pack(
+                    nframes * "?" + nframes * "Q", *cuda_frames, *sizes
                 )
+                if trace is not None:
+                    await self._trace_tag_send(
+                        metadata, trace_sequence, "frame-metadata"
+                    )
+                else:
+                    await self.ep.send(metadata)
 
                 # Send frames
 
@@ -505,10 +607,30 @@ class UCXX(Comm):
                 if any(cuda_send_frames):
                     synchronize_stream(CudaStream.Default)
 
-                for each_frame in send_frames:
-                    await self.ep.send(each_frame)
+                for frame_index, each_frame in enumerate(send_frames):
+                    if trace is not None:
+                        await self._trace_tag_send(
+                            each_frame, trace_sequence, f"frame[{frame_index}]"
+                        )
+                    else:
+                        await self.ep.send(each_frame)
+            if trace is not None:
+                trace.record(
+                    "write-done",
+                    endpoint=self._ep_handle,
+                    sequence=trace_sequence,
+                    frames=frames,
+                    sizes=sizes,
+                )
             return sum(sizes)
-        except ucxx.exceptions.UCXError:
+        except ucxx.exceptions.UCXError as e:
+            if trace is not None:
+                trace.record(
+                    "write-error",
+                    endpoint=self._ep_handle,
+                    sequence=trace_sequence,
+                    error=e,
+                )
             self.abort()
             raise CommClosedError("While writing, the connection was closed")
 
@@ -516,6 +638,10 @@ class UCXX(Comm):
     async def read(self, deserializers=("cuda", "dask", "pickle", "error")):
         if deserializers is None:
             deserializers = ("cuda", "dask", "pickle", "error")
+        trace = frame_trace
+        if trace is not None:
+            self._trace_read_sequence += 1
+            trace_sequence = self._trace_read_sequence
 
         if multi_buffer is True:
             try:
@@ -541,7 +667,10 @@ class UCXX(Comm):
 
                 # Recv close flag and number of frames (_Bool, int64)
                 msg = host_array(struct.calcsize("?Q"))
-                await self.ep.recv(msg)
+                if trace is not None:
+                    await self._trace_tag_recv(msg, trace_sequence, "control")
+                else:
+                    await self.ep.recv(msg)
                 (shutdown, nframes) = struct.unpack("?Q", msg)
 
                 if shutdown:  # The writer is closing the connection
@@ -551,7 +680,10 @@ class UCXX(Comm):
                 # how large each frame is (uint64)
                 header_fmt = nframes * "?" + nframes * "Q"
                 header = host_array(struct.calcsize(header_fmt))
-                await self.ep.recv(header)
+                if trace is not None:
+                    await self._trace_tag_recv(header, trace_sequence, "frame-metadata")
+                else:
+                    await self.ep.recv(header)
                 header = struct.unpack(header_fmt, header)
                 cuda_frames, sizes = header[:nframes], header[nframes:]
             except BaseException as e:
@@ -581,8 +713,13 @@ class UCXX(Comm):
                     if any(cuda_recv_frames):
                         synchronize_stream(CudaStream.Default)
 
-                    for each_frame in recv_frames:
-                        await self.ep.recv(each_frame)
+                    for frame_index, each_frame in enumerate(recv_frames):
+                        if trace is not None:
+                            await self._trace_tag_recv(
+                                each_frame, trace_sequence, f"frame[{frame_index}]"
+                            )
+                        else:
+                            await self.ep.recv(each_frame)
                 except BaseException as e:
                     # In addition to UCX exceptions, may be CancelledError or another
                     # "low-level" exception. The only safe thing to do is to abort.
@@ -590,17 +727,51 @@ class UCXX(Comm):
                     self.abort()
                     raise CommClosedError("Connection closed by writer") from e
 
+        if trace is not None:
+            sizes = tuple(nbytes(frame) for frame in frames)
+            trace.record(
+                "read-frames",
+                endpoint=self._ep_handle,
+                sequence=trace_sequence,
+                frames=frames,
+                sizes=sizes,
+            )
+
         try:
-            return await from_frames(
+            result = await from_frames(
                 frames,
                 deserialize=self.deserialize,
                 deserializers=deserializers,
                 allow_offload=self.allow_offload,
             )
-        except EOFError:
+            if trace is not None:
+                trace.record(
+                    "read-done", endpoint=self._ep_handle, sequence=trace_sequence
+                )
+            return result
+        except EOFError as e:
             # Frames possibly garbled or truncated by communication error
+            if trace is not None:
+                trace.record(
+                    "read-error",
+                    endpoint=self._ep_handle,
+                    sequence=trace_sequence,
+                    error=e,
+                )
+                trace.dump()
             self.abort()
             raise CommClosedError("Aborted stream on truncated data")
+        except BaseException as e:
+            if trace is not None:
+                trace.record(
+                    "read-error",
+                    endpoint=self._ep_handle,
+                    sequence=trace_sequence,
+                    error=e,
+                )
+                trace.dump()
+            self.abort()
+            raise
 
     async def close(self):
         async with self._write_lock:
@@ -610,7 +781,16 @@ class UCXX(Comm):
                     if multi_buffer is True:
                         await self.ep.send_multi([struct.pack("?", True)])
                     else:
-                        await self.ep.send(struct.pack("?Q", True, 0))
+                        close_header = struct.pack("?Q", True, 0)
+                        if frame_trace is not None:
+                            await self._trace_tag_send(
+                                close_header,
+                                self._trace_write_sequence,
+                                "control",
+                                "close-send",
+                            )
+                        else:
+                            await self.ep.send(close_header)
                 except (
                     ucxx.exceptions.UCXError,
                     ucxx.exceptions.UCXCloseError,
@@ -628,6 +808,12 @@ class UCXX(Comm):
     def abort(self):
         self._closed = True
         if self._ep is not None:
+            if frame_trace is not None:
+                frame_trace.record(
+                    "abort",
+                    endpoint=self._ep_handle,
+                    sequence=self._trace_write_sequence,
+                )
             self._ep.abort()
             self._ep = None
             _deregister_dask_resource(self._resource_id)

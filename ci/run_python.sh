@@ -58,13 +58,18 @@ run_py_benchmark() {
   N_BUFFERS=$6
   SLOW=$7
 
+  BENCH_TRACE=0
+  if [[ ${BACKEND} == "ucxx-async" && ${N_BUFFERS} -eq 8 ]]; then
+    BENCH_TRACE=1
+  fi
+
   if [ "$ASYNCIO_WAIT" -ne 0 ]; then
     ASYNCIO_WAIT="--asyncio-wait"
   else
     ASYNCIO_WAIT=""
   fi
 
-  CMD_LINE="UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((2*60)) python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}"
+  CMD_LINE="UCXX_BENCH_TRACE=${BENCH_TRACE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((2*60)) python -m ucxx.benchmarks.send_recv --backend ${BACKEND} -o cupy --reuse-alloc -n 8MiB --n-buffers $N_BUFFERS --progress-mode ${PROGRESS_MODE} ${ASYNCIO_WAIT}"
 
   # Workaround for https://github.com/rapidsai/ucxx/issues/15
   CMD_LINE="UCX_KEEPALIVE_INTERVAL=1ms ${CMD_LINE}"
@@ -82,6 +87,7 @@ run_py_benchmark() {
     echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run Python benchmark"
 
     UCX_KEEPALIVE_INTERVAL=1ms \
+    UCXX_BENCH_TRACE=${BENCH_TRACE} \
     UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
     UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
     python "${TIMEOUT_TOOL_PATH}" --enable-python $((2*60)) \
