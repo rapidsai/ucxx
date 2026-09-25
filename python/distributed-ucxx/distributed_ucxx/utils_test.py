@@ -10,6 +10,7 @@ import os
 import sys
 import threading
 import time
+import traceback
 from contextlib import contextmanager
 
 import pytest
@@ -77,21 +78,82 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
     details = (
         f"UCXX_NANNY_TRACE time_ns={time.monotonic_ns()} pid={os.getpid()} "
         f"phase={phase} ctx={None if ctx is None else hex(id(ctx))} "
+        f"progress_mode={None if ctx is None else ctx.progress_mode} "
+        f"delayed_submission={None if ctx is None else ctx.enable_delayed_submission} "
+        f"python_future={None if ctx is None else ctx.enable_python_future} "
         f"resources={resource_ids} "
         f"notifier={notifier_state} "
         f"notifier_threads={notifier_threads}"
     )
     if include_objects:
-        live_objects = [
-            (type(obj).__name__, hex(id(obj)), hex(id(getattr(obj, "_ctx", None))))
-            for obj in gc.get_objects()
-            if type(obj).__module__
-            in ("ucxx._lib_async.endpoint", "ucxx._lib_async.listener")
-            and type(obj).__name__ in ("Endpoint", "Listener")
-        ]
+        live_objects = []
+        live_listeners = []
+        live_comms = []
+        for obj in gc.get_objects():
+            obj_type = type(obj)
+            if (
+                obj_type.__module__ == "ucxx._lib_async.endpoint"
+                and obj_type.__name__ == "Endpoint"
+            ):
+                endpoint = getattr(obj, "_ep", None)
+                context = getattr(obj, "_ctx", None)
+                live_objects.append(
+                    {
+                        "type": "Endpoint",
+                        "id": hex(id(obj)),
+                        "ctx": None if context is None else hex(id(context)),
+                        "ucp_ep": None if endpoint is None else hex(id(endpoint)),
+                        "send_count": getattr(obj, "_send_count", None),
+                        "recv_count": getattr(obj, "_recv_count", None),
+                        "finished_recv_count": getattr(
+                            obj, "_finished_recv_count", None
+                        ),
+                        "shutting_down_peer": getattr(obj, "_shutting_down_peer", None),
+                    }
+                )
+            elif (
+                obj_type.__module__ == "ucxx._lib_async.listener"
+                and obj_type.__name__ == "Listener"
+            ):
+                listener = getattr(obj, "_listener", None)
+                context = getattr(obj, "_ctx", None)
+                tracker = getattr(obj, "_handler_tracker", None)
+                live_listeners.append(
+                    {
+                        "id": hex(id(obj)),
+                        "ctx": None if context is None else hex(id(context)),
+                        "ucp_listener": None if listener is None else hex(id(listener)),
+                        "active_clients": getattr(tracker, "active_count", None),
+                    }
+                )
+            elif (
+                obj_type.__module__ == "distributed_ucxx.ucxx"
+                and obj_type.__name__ == "UCXX"
+            ):
+                endpoint = getattr(obj, "_ep", None)
+                live_comms.append(
+                    {
+                        "id": hex(id(obj)),
+                        "endpoint": None if endpoint is None else hex(id(endpoint)),
+                        "resource_id": getattr(obj, "_resource_id", None),
+                        "closed": getattr(obj, "_closed", None),
+                        "has_close_callback": getattr(obj, "_has_close_callback", None),
+                        "local_addr": getattr(obj, "_local_addr", None),
+                        "peer_addr": getattr(obj, "_peer_addr", None),
+                    }
+                )
         details += (
-            f" live_objects={live_objects[:20]} live_object_count={len(live_objects)}"
+            f" endpoints={live_objects[:20]} endpoint_count={len(live_objects)}"
+            f" listeners={live_listeners[:20]} listener_count={len(live_listeners)}"
+            f" comms={live_comms[:20]} comm_count={len(live_comms)}"
         )
+        frames = sys._current_frames()
+        notifier_stacks = {
+            thread.name: "".join(traceback.format_stack(frames[thread.ident]))
+            for thread in threading.enumerate()
+            if thread.name == "UCX-Py Async Notifier Thread" and thread.ident in frames
+        }
+        details += f" notifier_stacks={notifier_stacks}"
     return details
 
 
@@ -107,6 +169,12 @@ def _nanny_lifecycle_diagnostics(request):
     except BaseException:
         snapshots.append(_nanny_lifecycle_snapshot("failure", include_objects=True))
         print("\n".join(snapshots), flush=True)
+        ucxx_module = sys.modules.get("distributed_ucxx.ucxx")
+        trace = (
+            None if ucxx_module is None else getattr(ucxx_module, "frame_trace", None)
+        )
+        if trace is not None:
+            trace.dump()
         raise
 
 
