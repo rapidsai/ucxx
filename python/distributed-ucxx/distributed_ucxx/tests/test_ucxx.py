@@ -71,6 +71,24 @@ async def get_comm_pair(
         return (comm, serv_comm)
 
 
+class PausedFrameSend:
+    def __init__(self, ep):
+        self.ep = ep
+        self.calls = 0
+        self.frame_started = asyncio.Event()
+        self.release_frame = asyncio.Event()
+
+    async def send(self, buffer):
+        self.calls += 1
+        if self.calls == 3:
+            self.frame_started.set()
+            await self.release_frame.wait()
+        return await self.ep.send(buffer)
+
+    def __getattr__(self, name):
+        return getattr(self.ep, name)
+
+
 @gen_test()
 async def test_ping_pong(ucxx_loop):
     com, serv_com = await get_comm_pair()
@@ -91,23 +109,6 @@ async def test_ping_pong(ucxx_loop):
 
 @gen_test()
 async def test_close_waits_for_inflight_write_frames(ucxx_loop):
-    class PausedFrameSend:
-        def __init__(self, ep):
-            self.ep = ep
-            self.calls = 0
-            self.frame_started = asyncio.Event()
-            self.release_frame = asyncio.Event()
-
-        async def send(self, buffer):
-            self.calls += 1
-            if self.calls == 3:
-                self.frame_started.set()
-                await self.release_frame.wait()
-            return await self.ep.send(buffer)
-
-        def __getattr__(self, name):
-            return getattr(self.ep, name)
-
     writer, reader = await get_comm_pair()
     paused_ep = PausedFrameSend(writer.ep)
     writer._ep = paused_ep
@@ -117,7 +118,7 @@ async def test_close_waits_for_inflight_write_frames(ucxx_loop):
         await asyncio.wait_for(paused_ep.frame_started.wait(), 5)
         close_task = asyncio.create_task(writer.close())
         await asyncio.sleep(0)
-        assert writer._closed
+        assert not close_task.done()
         assert paused_ep.calls == 3
         paused_ep.release_frame.set()
         await write_task
@@ -127,6 +128,34 @@ async def test_close_waits_for_inflight_write_frames(ucxx_loop):
         paused_ep.release_frame.set()
         if close_task is not None:
             await asyncio.gather(close_task, return_exceptions=True)
+        await asyncio.gather(write_task, return_exceptions=True)
+        writer.abort()
+        reader.abort()
+
+
+@gen_test()
+async def test_cancel_pending_close_leaves_comm_usable(ucxx_loop):
+    writer, reader = await get_comm_pair()
+    paused_ep = PausedFrameSend(writer.ep)
+    writer._ep = paused_ep
+    write_task = asyncio.create_task(writer.write({"op": "first"}))
+    try:
+        await asyncio.wait_for(paused_ep.frame_started.wait(), 5)
+        close_task = asyncio.create_task(writer.close())
+        await asyncio.sleep(0)
+        assert not close_task.done()
+        close_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await close_task
+
+        paused_ep.release_frame.set()
+        await write_task
+        assert await reader.read() == {"op": "first"}
+        await writer.write({"op": "second"})
+        assert await reader.read() == {"op": "second"}
+        await writer.close()
+    finally:
+        paused_ep.release_frame.set()
         await asyncio.gather(write_task, return_exceptions=True)
         writer.abort()
         reader.abort()

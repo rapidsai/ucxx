@@ -774,8 +774,8 @@ class UCXX(Comm):
             raise
 
     async def close(self):
-        self._closed = True
         async with self._write_lock:
+            self._closed = True
             if self._ep is not None:
                 try:
                     if multi_buffer is True:
