@@ -90,6 +90,49 @@ async def test_ping_pong(ucxx_loop):
 
 
 @gen_test()
+async def test_close_waits_for_inflight_write_frames(ucxx_loop):
+    class PausedFrameSend:
+        def __init__(self, ep):
+            self.ep = ep
+            self.calls = 0
+            self.frame_started = asyncio.Event()
+            self.release_frame = asyncio.Event()
+
+        async def send(self, buffer):
+            self.calls += 1
+            if self.calls == 3:
+                self.frame_started.set()
+                await self.release_frame.wait()
+            return await self.ep.send(buffer)
+
+        def __getattr__(self, name):
+            return getattr(self.ep, name)
+
+    writer, reader = await get_comm_pair()
+    paused_ep = PausedFrameSend(writer.ep)
+    writer._ep = paused_ep
+    write_task = asyncio.create_task(writer.write({"op": "ping"}))
+    close_task = None
+    try:
+        await asyncio.wait_for(paused_ep.frame_started.wait(), 5)
+        close_task = asyncio.create_task(writer.close())
+        await asyncio.sleep(0)
+        assert writer._closed
+        assert paused_ep.calls == 3
+        paused_ep.release_frame.set()
+        await write_task
+        assert await reader.read() == {"op": "ping"}
+        await close_task
+    finally:
+        paused_ep.release_frame.set()
+        if close_task is not None:
+            await asyncio.gather(close_task, return_exceptions=True)
+        await asyncio.gather(write_task, return_exceptions=True)
+        writer.abort()
+        reader.abort()
+
+
+@gen_test()
 async def test_deserialization_error_aborts_comm(ucxx_loop, caplog):
     writer, reader = await get_comm_pair()
     try:

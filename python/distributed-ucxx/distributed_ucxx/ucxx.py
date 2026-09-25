@@ -11,6 +11,7 @@ See :ref:`communications` for more.
 
 from __future__ import annotations
 
+import asyncio
 import atexit
 import functools
 import gc
@@ -402,6 +403,8 @@ class UCXX(Comm):
         super().__init__(deserialize=deserialize)
         self._ep = ep
         self._ep_handle = int(self._ep._ep.handle)
+        self._write_lock = asyncio.Lock()
+        self._closed = False
         self._trace_write_sequence = 0
         self._trace_read_sequence = 0
         if local_addr:
@@ -416,7 +419,6 @@ class UCXX(Comm):
             # is called.
             ref = weakref.ref(self)
             self._ep.set_close_callback(functools.partial(_close_comm, ref))
-            self._closed = False
             self._has_close_callback = True
         else:
             self._has_close_callback = False
@@ -522,9 +524,17 @@ class UCXX(Comm):
         serializers: Collection[str] | None = None,
         on_error: str = "message",
     ) -> int:
-        if self.closed():
-            raise CommClosedError("Endpoint is closed -- unable to send message")
+        async with self._write_lock:
+            if self._closed or self.closed():
+                raise CommClosedError("Endpoint is closed -- unable to send message")
+            return await self._write_unlocked(msg, serializers, on_error)
 
+    async def _write_unlocked(
+        self,
+        msg: dict,
+        serializers: Collection[str] | None,
+        on_error: str,
+    ) -> int:
         if serializers is None:
             serializers = ("cuda", "dask", "pickle", "error")
         # msg can also be a list of dicts when sending batched messages
@@ -765,34 +775,35 @@ class UCXX(Comm):
 
     async def close(self):
         self._closed = True
-        if self._ep is not None:
-            try:
-                if multi_buffer is True:
-                    await self.ep.send_multi([struct.pack("?", True)])
-                else:
-                    close_header = struct.pack("?Q", True, 0)
-                    if frame_trace is not None:
-                        await self._trace_tag_send(
-                            close_header,
-                            self._trace_write_sequence,
-                            "control",
-                            "close-send",
-                        )
+        async with self._write_lock:
+            if self._ep is not None:
+                try:
+                    if multi_buffer is True:
+                        await self.ep.send_multi([struct.pack("?", True)])
                     else:
-                        await self.ep.send(close_header)
-            except (
-                ucxx.exceptions.UCXError,
-                ucxx.exceptions.UCXCloseError,
-                ucxx.exceptions.UCXCanceledError,
-                ucxx.exceptions.UCXConnectionResetError,
-                ucxx.exceptions.UCXUnreachableError,
-            ):
-                # If the other end is in the process of closing,
-                # UCX will sometimes raise a `Input/output` error,
-                # which we can ignore.
-                pass
-            self.abort()
-            self._ep = None
+                        close_header = struct.pack("?Q", True, 0)
+                        if frame_trace is not None:
+                            await self._trace_tag_send(
+                                close_header,
+                                self._trace_write_sequence,
+                                "control",
+                                "close-send",
+                            )
+                        else:
+                            await self.ep.send(close_header)
+                except (
+                    ucxx.exceptions.UCXError,
+                    ucxx.exceptions.UCXCloseError,
+                    ucxx.exceptions.UCXCanceledError,
+                    ucxx.exceptions.UCXConnectionResetError,
+                    ucxx.exceptions.UCXUnreachableError,
+                ):
+                    # If the other end is in the process of closing,
+                    # UCX will sometimes raise a `Input/output` error,
+                    # which we can ignore.
+                    pass
+                self.abort()
+                self._ep = None
 
     def abort(self):
         self._closed = True

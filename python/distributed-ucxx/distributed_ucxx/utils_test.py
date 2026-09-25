@@ -1,11 +1,16 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
 
 import asyncio
+import gc
 import logging
+import os
 import sys
+import threading
+import time
+from contextlib import contextmanager
 
 import pytest
 
@@ -55,6 +60,56 @@ def ucxx_exception_handler(event_loop, context):
     print(msg)
 
 
+def _nanny_lifecycle_snapshot(phase, include_objects=False):
+    ctx = ucxx.core._ctx
+    notifier = None if ctx is None else ctx.notifier_thread
+    resources = None if ctx is None else getattr(ctx, "_dask_resources", None)
+    try:
+        resource_ids = None if resources is None else tuple(sorted(resources))
+    except RuntimeError:
+        resource_ids = "mutating"
+    notifier_threads = tuple(
+        (thread.ident, thread.is_alive())
+        for thread in threading.enumerate()
+        if thread.name == "UCX-Py Async Notifier Thread"
+    )
+    notifier_state = None if notifier is None else (notifier.ident, notifier.is_alive())
+    details = (
+        f"UCXX_NANNY_TRACE time_ns={time.monotonic_ns()} pid={os.getpid()} "
+        f"phase={phase} ctx={None if ctx is None else hex(id(ctx))} "
+        f"resources={resource_ids} "
+        f"notifier={notifier_state} "
+        f"notifier_threads={notifier_threads}"
+    )
+    if include_objects:
+        live_objects = [
+            (type(obj).__name__, hex(id(obj)), hex(id(getattr(obj, "_ctx", None))))
+            for obj in gc.get_objects()
+            if type(obj).__module__
+            in ("ucxx._lib_async.endpoint", "ucxx._lib_async.listener")
+            and type(obj).__name__ in ("Endpoint", "Listener")
+        ]
+        details += (
+            f" live_objects={live_objects[:20]} live_object_count={len(live_objects)}"
+        )
+    return details
+
+
+@contextmanager
+def _nanny_lifecycle_diagnostics(request):
+    if request.node.name != "test_nanny_closed_by_keyboard_interrupt":
+        yield lambda phase: None
+        return
+
+    snapshots = [_nanny_lifecycle_snapshot("ready")]
+    try:
+        yield lambda phase: snapshots.append(_nanny_lifecycle_snapshot(phase))
+    except BaseException:
+        snapshots.append(_nanny_lifecycle_snapshot("failure", include_objects=True))
+        print("\n".join(snapshots), flush=True)
+        raise
+
+
 # Let's make sure that UCX gets time to cancel
 # progress tasks before closing the event loop.
 @pytest.fixture(scope="function")
@@ -82,8 +137,9 @@ def ucxx_loop(request):
     ucxx.core._get_ctx()
     ucxx.reset()
 
-    with check_thread_leak():
+    with _nanny_lifecycle_diagnostics(request) as snapshot, check_thread_leak():
         yield loop
+        snapshot("before-reset")
         if ignore_alive_references:
             try:
                 ucxx.reset()
@@ -102,6 +158,7 @@ def ucxx_loop(request):
                     raise e
         else:
             ucxx.reset()
+        snapshot("after-reset")
         event_loop.close()
 
         # Reset also Distributed's UCX initialization, i.e., revert the effects of
