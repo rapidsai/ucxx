@@ -46,33 +46,24 @@ class _BenchmarkTrace:
         print(f"UCXX_BENCH_TRACE_END pid={os.getpid()}", file=sys.stderr, flush=True)
 
 
-def register_am_allocators(args: Namespace):
-    """
-    Register Active Message allocator in worker to correct memory type if the
-    benchmark is set to use the Active Message API.
+async def _send_terminal_ack(ep, enable_am):
+    """Confirm that the peer completed the final benchmark response."""
+    ack = bytearray(1)
+    if enable_am:
+        await ep.am_send(ack)
+    else:
+        await ep.send(ack)
 
-    Parameters
-    ----------
-    args
-        Parsed command-line arguments that will be used as parameters during to
-        determine whether the caller is using the Active Message API and what
-        memory type.
-    """
-    if not args.enable_am:
-        return
 
-    import numpy as np
-
-    ucxx.register_am_allocator(lambda n: np.empty(n, dtype=np.uint8), "host")
-
-    if args.object_type == "cupy":
-        import cupy as cp
-
-        ucxx.register_am_allocator(lambda n: cp.empty(n, dtype=cp.uint8), "cuda")
-    elif args.object_type == "rmm":
-        import rmm
-
-        ucxx.register_am_allocator(lambda n: rmm.DeviceBuffer(size=n), "cuda")
+async def _recv_terminal_ack(ep, enable_am):
+    """Wait for the peer to confirm the final benchmark response."""
+    if enable_am:
+        ack = await ep.am_recv()
+    else:
+        ack = bytearray(1)
+        await ep.recv(ack)
+    if (ack.nbytes if isinstance(ack, Array) else len(ack)) != 1:
+        raise RuntimeError("Invalid benchmark terminal acknowledgement")
 
 
 class UCXPyAsyncServer(BaseServer):
@@ -95,8 +86,6 @@ class UCXPyAsyncServer(BaseServer):
             self.args.rmm_init_pool_size,
             self.args.rmm_managed_memory,
         )
-
-        register_am_allocators(self.args)
 
         async def server_handler(ep):
             i = -1
@@ -130,15 +119,20 @@ class UCXPyAsyncServer(BaseServer):
                             await ep.send_multi(msgs)
                             if trace.enabled:
                                 trace.record("send_multi-done", i, id(ep))
+                trace.record("terminal-ack-recv-start", i, id(ep))
+                await _recv_terminal_ack(ep, self.args.enable_am)
+                trace.record("terminal-ack-recv-done", i, id(ep))
                 trace.record("close-start", i, id(ep))
                 await ep.close()
                 trace.record("close-done", i, id(ep))
-                lf.close()
             except BaseException as e:
                 trace.record(f"error:{type(e).__name__}", i, id(ep))
                 raise
             finally:
-                trace.dump()
+                try:
+                    lf.close()
+                finally:
+                    trace.dump()
 
         lf = ucxx.create_listener(
             server_handler,
@@ -177,8 +171,6 @@ class UCXPyAsyncClient(BaseClient):
             self.args.rmm_init_pool_size,
             self.args.rmm_managed_memory,
         )
-
-        register_am_allocators(self.args)
 
         ep = await ucxx.create_endpoint(
             self.server_address,
@@ -247,14 +239,23 @@ class UCXPyAsyncClient(BaseClient):
                     times.append(stop - start)
         except BaseException as e:
             trace.record(f"error:{type(e).__name__}", i, id(ep))
-            raise
-        finally:
             trace.dump()
+            raise
 
         if self.args.report_gil_contention:
             knocker.stop()
         if self.args.cuda_profile:
             xp.cuda.profiler.stop()
+
+        trace.record("terminal-ack-send-start", i, id(ep))
+        try:
+            await _send_terminal_ack(ep, self.args.enable_am)
+        except BaseException as e:
+            trace.record(f"error:{type(e).__name__}", i, id(ep))
+            trace.dump()
+            raise
+        trace.record("terminal-ack-send-done", i, id(ep))
+        trace.dump()
 
         self.queue.put(times)
         if self.args.report_gil_contention:
