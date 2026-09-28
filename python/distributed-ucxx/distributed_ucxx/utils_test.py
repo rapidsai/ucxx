@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 import traceback
+import types
 from contextlib import contextmanager
 
 import pytest
@@ -39,23 +40,129 @@ logger = logging.getLogger(__name__)
 
 
 def _direct_referrer_snapshot(obj):
-    owners = []
+    diagnostic_frame = sys._getframe()
+    diagnostic_frames = {id(diagnostic_frame)}
+    # The snapshot loop itself temporarily owns every object it inspects through
+    # its `obj` local. Exclude that diagnostic frame without suppressing the
+    # actual caller when this helper is used independently.
+    if diagnostic_frame.f_back is not None and (
+        diagnostic_frame.f_back.f_code.co_name == "_nanny_lifecycle_snapshot"
+    ):
+        diagnostic_frames.add(id(diagnostic_frame.f_back))
+
+    def frame_owner(frame, target, *, via=None):
+        if id(frame) in diagnostic_frames or frame.f_code.co_name in {
+            "_direct_referrer_snapshot",
+            "_nanny_lifecycle_snapshot",
+            "active_frame_owners",
+            "frame_owner",
+        }:
+            return None
+        try:
+            local_names = [
+                name for name, value in frame.f_locals.items() if value is target
+            ]
+        except RuntimeError:
+            # A frame may be executing in another thread while its locals are read.
+            local_names = []
+        result = {
+            "file": frame.f_code.co_filename,
+            "function": frame.f_code.co_name,
+            "line": frame.f_lineno,
+            "locals": local_names[:10],
+        }
+        if via is not None:
+            result["via"] = via
+        return result
+
+    def active_frame_owners(target, *, via):
+        # Fast locals in active frames are not necessarily visible to
+        # gc.get_referrers(), so also inspect thread stacks and asyncio task stacks.
+        frames = {}
+        for frame in sys._current_frames().values():
+            while frame is not None:
+                frames[id(frame)] = frame
+                frame = frame.f_back
+        try:
+            loop = asyncio.get_running_loop()
+            for task in asyncio.all_tasks(loop):
+                for frame in task.get_stack():
+                    frames[id(frame)] = frame
+        except RuntimeError:
+            pass
+
+        owners = []
+        for frame in frames.values():
+            details = frame_owner(frame, target, via=via)
+            if details is not None and details["locals"]:
+                owners.append(details)
+        return owners
+
+    owners = [
+        {"type": "active-frame-local", "frame": details}
+        for details in active_frame_owners(obj, via={"kind": "local-reference"})
+    ]
     for referrer in gc.get_referrers(obj):
         referrer_type = type(referrer)
         owner = {
             "type": f"{referrer_type.__module__}.{referrer_type.__name__}",
             "id": hex(id(referrer)),
         }
-        if isinstance(referrer, dict):
+        if isinstance(referrer, types.FrameType):
+            details = frame_owner(referrer, obj)
+            if details is None:
+                continue
+            owner["frame"] = details
+        elif isinstance(referrer, dict):
             keys = [repr(key)[:100] for key, value in referrer.items() if value is obj]
             # Exclude this diagnostic function's own locals mapping.
             if keys == ["'obj'"]:
                 continue
             owner["keys"] = keys[:10]
+            frame_owners = active_frame_owners(
+                referrer, via={"type": owner["type"], "id": owner["id"]}
+            )
+            for parent in gc.get_referrers(referrer):
+                if isinstance(parent, types.FrameType):
+                    details = frame_owner(
+                        parent,
+                        referrer,
+                        via={"type": owner["type"], "id": owner["id"]},
+                    )
+                    if details is not None and details not in frame_owners:
+                        frame_owners.append(details)
+            if frame_owners:
+                owner["frame_owners"] = frame_owners[:10]
         elif isinstance(referrer, (list, tuple)):
-            owner["indices"] = [
-                index for index, value in enumerate(referrer) if value is obj
-            ][:10]
+            indices = [index for index, value in enumerate(referrer) if value is obj][
+                :10
+            ]
+            owner["indices"] = indices
+            # A Comm can be retained indirectly by a tuple in a task/frame local.
+            # Report the owning frame and local name, not the frame/locals dict repr.
+            tuple_owners = active_frame_owners(
+                referrer,
+                via={
+                    "type": owner["type"],
+                    "id": owner["id"],
+                    "indices": indices,
+                },
+            )
+            for parent in gc.get_referrers(referrer):
+                if isinstance(parent, types.FrameType):
+                    details = frame_owner(
+                        parent,
+                        referrer,
+                        via={
+                            "type": owner["type"],
+                            "id": owner["id"],
+                            "indices": indices,
+                        },
+                    )
+                    if details is not None and details not in tuple_owners:
+                        tuple_owners.append(details)
+            if tuple_owners:
+                owner["frame_owners"] = tuple_owners[:10]
         elif isinstance(referrer, set):
             owner["contains_object"] = obj in referrer
         owners.append(owner)
@@ -121,6 +228,8 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
             ):
                 endpoint = getattr(obj, "_ep", None)
                 context = getattr(obj, "_ctx", None)
+                if context is not ctx:
+                    continue
                 live_objects.append(
                     {
                         "type": "Endpoint",
@@ -141,6 +250,8 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
             ):
                 listener = getattr(obj, "_listener", None)
                 context = getattr(obj, "_ctx", None)
+                if context is not ctx:
+                    continue
                 tracker = getattr(obj, "_handler_tracker", None)
                 live_listeners.append(
                     {
@@ -155,6 +266,8 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
                 and obj_type.__name__ == "UCXX"
             ):
                 endpoint = getattr(obj, "_ep", None)
+                if endpoint is None or getattr(endpoint, "_ctx", None) is not ctx:
+                    continue
                 live_comms.append(
                     {
                         "id": hex(id(obj)),
