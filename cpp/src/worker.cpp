@@ -132,6 +132,7 @@ std::shared_ptr<RequestAm> Worker::getAmRecv(
   if (reqs != recvPool.end() && !reqs->second.empty()) {
     auto req = reqs->second.front();
     reqs->second.pop();
+    if (reqs->second.empty()) recvPool.erase(reqs);
     return req;
   } else {
     auto req        = createAmRecvRequestFunction();

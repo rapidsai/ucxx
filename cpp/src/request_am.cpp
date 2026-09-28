@@ -281,6 +281,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     } else if (reqs != recvWait.end() && !reqs->second.empty()) {
       req = reqs->second.front();
       reqs->second.pop();
+      if (reqs->second.empty()) recvWait.erase(reqs);
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
     } else {
       req             = std::shared_ptr<RequestAm>(new RequestAm(worker,
