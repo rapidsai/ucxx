@@ -152,16 +152,11 @@ class Endpoint : public Component {
     EndpointCloseCallbackUserData callbackData);
 
   /**
-   * @brief The error callback registered at endpoint creation time.
-   *
-   * When the endpoint is created with error handling support this method is registered as
-   * the callback to be called when the endpoint is closing, it is responsible for checking
-   * the closing status and update internal state accordingly. If error handling support is
-   * not active, this method is not registered nor called.
+   * @brief Handle UCP endpoint error notifications.
    *
    * The signature for this method must match `ucp_err_handler_cb_t`.
    */
-  friend void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
+  static void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
 
   /**
    * @brief Allow the endpoint close builder to preserve endpoint close state.

@@ -638,6 +638,78 @@ TEST_F(WorkerTest, AmProbe)
   ASSERT_FALSE(_worker->amProbe(ep->getHandle()));
 }
 
+TEST_F(WorkerTest, ClosePreservesQueuedAmRecv)
+{
+  auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
+  auto epHandle       = ep->getHandle();
+
+  std::vector<int> buf{123};
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(
+    ep->amSendBuilder(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST).build());
+  waitRequests(_worker, requests, progressWorker);
+
+  ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker, epHandle]() {
+    progressWorker();
+    return _worker->amProbe(epHandle);
+  }));
+
+  ep->closeBlocking();
+
+  auto newEp = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
+  std::vector<int> newBuf{456};
+  requests.clear();
+  requests.push_back(
+    newEp->amSendBuilder(newBuf.data(), newBuf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST).build());
+  waitRequests(_worker, requests, progressWorker);
+
+  ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker, newEp]() {
+    progressWorker();
+    return _worker->amProbe(newEp->getHandle());
+  }));
+
+  auto recvRequest = ep->amRecvBuilder().build();
+  ASSERT_TRUE(recvRequest->isCompleted());
+  ASSERT_EQ(recvRequest->getStatus(), UCS_OK);
+
+  auto recvBuffer = recvRequest->getRecvBuffer();
+  ASSERT_NE(recvBuffer, nullptr);
+  EXPECT_EQ(*static_cast<int*>(recvBuffer->data()), 123);
+
+  auto newRecvRequest = newEp->amRecvBuilder().build();
+  ASSERT_TRUE(newRecvRequest->isCompleted());
+  ASSERT_EQ(newRecvRequest->getStatus(), UCS_OK);
+  auto newRecvBuffer = newRecvRequest->getRecvBuffer();
+  ASSERT_NE(newRecvBuffer, nullptr);
+  EXPECT_EQ(*static_cast<int*>(newRecvBuffer->data()), 456);
+}
+
+TEST_F(WorkerTest, ReceiveOnClosedEndpointWithoutQueuedAmFails)
+{
+  auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
+  ep->closeBlocking();
+
+  auto recvRequest = ep->amRecvBuilder().build();
+  EXPECT_TRUE(recvRequest->isCompleted());
+  EXPECT_EQ(recvRequest->getStatus(), UCS_ERR_NOT_CONNECTED);
+}
+
+TEST_F(WorkerTest, AsyncCloseCancelsPendingAmRecv)
+{
+  auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
+  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
+
+  auto recvRequest  = ep->amRecvBuilder().build();
+  auto closeRequest = ep->closeBuilder().build();
+
+  std::vector<std::shared_ptr<ucxx::Request>> closeRequests{closeRequest};
+  waitRequests(_worker, closeRequests, progressWorker);
+
+  EXPECT_TRUE(recvRequest->isCompleted());
+  EXPECT_EQ(recvRequest->getStatus(), UCS_ERR_CANCELED);
+}
+
 TEST_P(WorkerProgressTest, ProgressAm)
 {
   if (_progressMode == ProgressMode::Wait) {

@@ -18,6 +18,7 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
+#include <internal/am_endpoint_registry.h>
 #include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/internal/request_am.h>
@@ -120,26 +121,97 @@ void Worker::drainWorkerTagRecv()
   }
 }
 
-std::shared_ptr<RequestAm> Worker::getAmRecv(
-  ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction)
+std::shared_ptr<RequestAm> internal::AmEndpointRegistry::getAmRecv(
+  Worker* worker,
+  Endpoint* endpoint,
+  std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction)
 {
-  std::lock_guard<std::mutex> lock(_amData->_mutex);
+  if (worker == nullptr || worker->_amData == nullptr || endpoint == nullptr) return nullptr;
 
-  auto& recvPool = _amData->_recvPool;
-  auto& recvWait = _amData->_recvWait;
+  std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
+  auto endpointState = worker->_amData->_endpointStates.find(endpoint);
+  if (endpointState == worker->_amData->_endpointStates.end()) return nullptr;
+  auto& endpointData = endpointState->second;
 
-  auto reqs = recvPool.find(ep);
-  if (reqs != recvPool.end() && !reqs->second.empty()) {
-    auto req = reqs->second.front();
-    reqs->second.pop();
-    if (reqs->second.empty()) recvPool.erase(reqs);
-    return req;
-  } else {
-    auto req        = createAmRecvRequestFunction();
-    auto [queue, _] = recvWait.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
-    queue->second.push(req);
+  if (!endpointData->_recvPool.empty()) {
+    auto req = endpointData->_recvPool.front();
+    endpointData->_recvPool.pop();
     return req;
   }
+
+  if (endpointData->_closed) return nullptr;
+
+  auto req = createAmRecvRequestFunction();
+  endpointData->_recvWait.push(req);
+  return req;
+}
+
+void internal::AmEndpointRegistry::registerEndpoint(Worker* worker, ucp_ep_h ep, Endpoint* endpoint)
+{
+  if (worker == nullptr || worker->_amData == nullptr || ep == nullptr || endpoint == nullptr)
+    return;
+
+  std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
+  auto endpointData                          = std::make_shared<internal::AmEndpointData>();
+  worker->_amData->_endpointStates[endpoint] = endpointData;
+  worker->_amData->_endpoints[ep]            = endpointData;
+}
+
+void internal::AmEndpointRegistry::closeEndpoint(Worker* worker, ucp_ep_h ep, Endpoint* endpoint)
+{
+  if (worker == nullptr || worker->_amData == nullptr || endpoint == nullptr) return;
+
+  markEndpointClosed(worker, endpoint);
+
+  std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
+  auto endpointState = worker->_amData->_endpointStates.find(endpoint);
+  if (endpointState == worker->_amData->_endpointStates.end()) return;
+
+  auto route = worker->_amData->_endpoints.find(ep);
+  if (route != worker->_amData->_endpoints.end() && route->second.lock() == endpointState->second)
+    worker->_amData->_endpoints.erase(route);
+}
+
+void internal::AmEndpointRegistry::markEndpointClosed(Worker* worker, Endpoint* endpoint)
+{
+  if (worker == nullptr || worker->_amData == nullptr || endpoint == nullptr) return;
+
+  std::queue<std::shared_ptr<RequestAm>> recvWait;
+  {
+    std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
+    auto endpointState = worker->_amData->_endpointStates.find(endpoint);
+    if (endpointState == worker->_amData->_endpointStates.end()) return;
+    auto& endpointData    = endpointState->second;
+    endpointData->_closed = true;
+    recvWait.swap(endpointData->_recvWait);
+  }
+
+  while (!recvWait.empty()) {
+    auto request = std::move(recvWait.front());
+    recvWait.pop();
+    if (request != nullptr) request->cancel();
+  }
+}
+
+void internal::AmEndpointRegistry::releaseEndpoint(Worker* worker, Endpoint* endpoint)
+{
+  if (worker == nullptr || worker->_amData == nullptr || endpoint == nullptr) return;
+
+  markEndpointClosed(worker, endpoint);
+
+  std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
+  auto endpointState = worker->_amData->_endpointStates.find(endpoint);
+  if (endpointState == worker->_amData->_endpointStates.end()) return;
+
+  auto endpointData = endpointState->second;
+  for (auto route = worker->_amData->_endpoints.begin();
+       route != worker->_amData->_endpoints.end();) {
+    if (route->second.lock() == endpointData)
+      route = worker->_amData->_endpoints.erase(route);
+    else
+      ++route;
+  }
+  worker->_amData->_endpointStates.erase(endpointState);
 }
 
 std::shared_ptr<Worker> detail::ConstructorFactory::createWorker(std::shared_ptr<Context> context,
@@ -717,8 +789,18 @@ void Worker::registerAmReceiverCallback(AmReceiverCallbackInfo info,
 
 bool Worker::amProbe(const ucp_ep_h endpointHandle) const
 {
-  std::lock_guard<std::mutex> lock(_amData->_mutex);
-  return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
+  return internal::AmEndpointRegistry::probe(this, endpointHandle);
+}
+
+bool internal::AmEndpointRegistry::probe(const Worker* worker, ucp_ep_h endpointHandle)
+{
+  if (worker == nullptr || worker->_amData == nullptr || endpointHandle == nullptr) return false;
+
+  std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
+  auto endpoint = worker->_amData->_endpoints.find(endpointHandle);
+  if (endpoint == worker->_amData->_endpoints.end()) return false;
+  auto endpointData = endpoint->second.lock();
+  return endpointData != nullptr && !endpointData->_recvPool.empty();
 }
 
 RequestFlushBuilder Worker::flushBuilder()

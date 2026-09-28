@@ -12,6 +12,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/am_endpoint_registry.h>
 #include <internal/constructors.h>
 #include <ucs/memory/memory_type.h>
 #include <ucxx/buffer.h>
@@ -156,7 +157,18 @@ std::shared_ptr<RequestAm> detail::ConstructorFactory::createRequestAm(
                                                             callbackFunction,
                                                             callbackData));
           };
-        return worker->getAmRecv(endpoint->getHandle(), createRequest);
+        auto req =
+          internal::AmEndpointRegistry::getAmRecv(worker.get(), endpoint.get(), createRequest);
+        if (req != nullptr) return req;
+
+        req = std::shared_ptr<RequestAm>(new RequestAm(worker,
+                                                       amReceive,
+                                                       std::move("amReceive"),
+                                                       enablePythonFuture,
+                                                       callbackFunction,
+                                                       callbackData));
+        req->setEndpointClosedStatus();
+        return req;
       },
     },
     requestData);
@@ -186,6 +198,8 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
              },
              requestData);
 }
+
+void RequestAm::setEndpointClosedStatus() { setStatus(UCS_ERR_NOT_CONNECTED); }
 
 void RequestAm::cancel()
 {
@@ -238,8 +252,6 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   internal::AmData* amData = static_cast<internal::AmData*>(arg);
   auto worker              = amData->_worker.lock();
   auto& ownerString        = amData->_ownerString;
-  auto& recvPool           = amData->_recvPool;
-  auto& recvWait           = amData->_recvWait;
 
   if ((param->recv_attr & UCP_AM_RECV_ATTR_FIELD_REPLY_EP) == 0)
     ucxx_error("UCP_AM_RECV_ATTR_FIELD_REPLY_EP not set");
@@ -265,11 +277,20 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   }();
 
   std::shared_ptr<RequestAm> req{nullptr};
+  std::shared_ptr<internal::AmEndpointData> endpointData{nullptr};
 
   {
     std::lock_guard<std::mutex> lock(amData->_mutex);
 
-    auto reqs = recvWait.find(ep);
+    auto endpoint = amData->_endpoints.find(ep);
+    if (endpoint != amData->_endpoints.end()) endpointData = endpoint->second.lock();
+    if (endpointData == nullptr) {
+      ucxx_error("No active UCXX endpoint state for incoming active message from UCP endpoint %p",
+                 ep);
+      return UCS_ERR_NOT_CONNECTED;
+    }
+
+    auto& recvWait = endpointData->_recvWait;
     if (amHeader.receiverCallbackInfo) {
       req = std::shared_ptr<RequestAm>(new RequestAm(worker,
                                                      data::AmReceive(),
@@ -278,20 +299,18 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                                                      nullptr,
                                                      nullptr));
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "receiverCallback");
-    } else if (reqs != recvWait.end() && !reqs->second.empty()) {
-      req = reqs->second.front();
-      reqs->second.pop();
-      if (reqs->second.empty()) recvWait.erase(reqs);
+    } else if (!recvWait.empty()) {
+      req = recvWait.front();
+      recvWait.pop();
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
     } else {
-      req             = std::shared_ptr<RequestAm>(new RequestAm(worker,
+      req = std::shared_ptr<RequestAm>(new RequestAm(worker,
                                                      data::AmReceive(),
                                                      std::move("amReceive"),
                                                      worker->isFutureEnabled(),
                                                      nullptr,
                                                      nullptr));
-      auto [queue, _] = recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
-      queue->second.push(req);
+      endpointData->_recvPool.push(req);
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvPool");
     }
   }
