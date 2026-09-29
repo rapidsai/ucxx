@@ -309,6 +309,7 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
 def _nanny_lifecycle_diagnostics(request):
     target_tests = {
         "test_nanny_closed_by_keyboard_interrupt",
+        "test_ucxx_localcluster[True-ucxx]",
         "test_ucx_config_w_env_var[ucx]",
     }
     if request.node.name not in target_tests:
@@ -320,10 +321,10 @@ def _nanny_lifecycle_diagnostics(request):
     def snapshot(phase):
         # ucxx.reset() clears the global context before reporting surviving
         # references, so capture ownership immediately before reset as well.
-        include_objects = (
-            request.node.name == "test_ucx_config_w_env_var[ucx]"
-            and phase == "before-reset"
-        )
+        include_objects = phase == "before-reset" and request.node.name in {
+            "test_ucxx_localcluster[True-ucxx]",
+            "test_ucx_config_w_env_var[ucx]",
+        }
         snapshots.append(
             _nanny_lifecycle_snapshot(phase, include_objects=include_objects)
         )
