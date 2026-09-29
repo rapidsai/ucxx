@@ -630,6 +630,12 @@ TEST_F(WorkerTest, AmProbe)
   });
 
   ASSERT_TRUE(_worker->amProbe(ep->getHandle()));
+
+  std::vector<std::shared_ptr<ucxx::Request>> recvRequests;
+  recvRequests.push_back(ep->amRecvBuilder().build());
+  waitRequests(_worker, recvRequests, progressWorker);
+
+  ASSERT_FALSE(_worker->amProbe(ep->getHandle()));
 }
 
 TEST_P(WorkerProgressTest, ProgressAm)

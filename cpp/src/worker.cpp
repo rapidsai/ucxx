@@ -132,6 +132,7 @@ std::shared_ptr<RequestAm> Worker::getAmRecv(
   if (reqs != recvPool.end() && !reqs->second.empty()) {
     auto req = reqs->second.front();
     reqs->second.pop();
+    if (reqs->second.empty()) recvPool.erase(reqs);
     return req;
   } else {
     auto req        = createAmRecvRequestFunction();
@@ -716,6 +717,7 @@ void Worker::registerAmReceiverCallback(AmReceiverCallbackInfo info,
 
 bool Worker::amProbe(const ucp_ep_h endpointHandle) const
 {
+  std::lock_guard<std::mutex> lock(_amData->_mutex);
   return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
 }
 
