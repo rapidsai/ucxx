@@ -89,9 +89,9 @@ class RecvAmMessage {
  */
 class AmEndpointData {
  public:
-  std::queue<std::shared_ptr<RequestAm>> _recvPool{};
-  std::queue<std::shared_ptr<RequestAm>> _recvWait{};
-  bool _closed{false};
+  std::queue<std::shared_ptr<RequestAm>> _recvPool{};  ///< Completed unmatched active messages
+  std::queue<std::shared_ptr<RequestAm>> _recvWait{};  ///< Posted receives waiting for a message
+  bool _closed{false};  ///< Whether the owning endpoint has been closed
 };
 
 typedef std::unordered_map<ucp_ep_h, std::weak_ptr<AmEndpointData>> AmEndpointMapType;
