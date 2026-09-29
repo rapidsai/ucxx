@@ -305,6 +305,8 @@ On the sender side it works by assembling a ``Header`` object with a pre-defined
 
 The receiver side will always begin by waiting for a ``Header`` of that pre-defined size and parse it. If there's a next ``Header`` it will then wait for it until no more ``Header`` objects are expected. Then it will parse the ``Header``, and looping through each buffer described in the ``Header`` it will allocate memory for that buffer, followed by a ``tag_recv_nb`` operation to receive on that buffer. Note that unlike single-buffer transfers, the receiver side has no way of knowing buffer types/sizes in advance, so allocation can't be done in advance by the user and must be dealt with internally.
 
+Completion of ``tag_send_multi`` makes the local buffers safe to reuse, but does not confirm that the peer received the header and every frame. Applications that need peer delivery before force-closing an endpoint must exchange an application-level acknowledgement after the transfer.
+
 ### Supported Buffer Types
 
 Currently, only two types of buffers are supported: host and CUDA. Host buffers are defined in ``UCXXPyHostBuffer`` and are allocated via regular ``malloc`` and released via ``free``. CUDA buffers are defined in ``UCXXPyRMMBuffer``, and as the name suggests it depends on RMM, allocation occurs via ``rmm::device_buffer`` and release occurs when that object goes out-of-scope as implemented by ``rmm::device_buffer`` destructor.
