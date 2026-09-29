@@ -28,9 +28,8 @@ class AmEndpointRegistry {
     Worker* worker,
     Endpoint* endpoint,
     std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction);
-  static void createEndpoint(Worker* worker,
-                             Endpoint* endpoint,
-                             std::function<ucp_ep_h()> createEndpointFunction);
+  [[nodiscard]] static ucs_status_t createEndpoint(
+    Worker* worker, Endpoint* endpoint, std::function<ucs_status_t()> createEndpointFunction);
   static void markEndpointClosed(Worker* worker, Endpoint* endpoint);
   static void closeEndpoint(Worker* worker, ucp_ep_h ep, Endpoint* endpoint);
   static void releaseEndpoint(Worker* worker, Endpoint* endpoint);

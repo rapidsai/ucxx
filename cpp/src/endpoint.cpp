@@ -153,32 +153,31 @@ void Endpoint::create(ucp_ep_params_t* params)
     params->err_handler.arg = nullptr;
   }
 
-  internal::AmEndpointRegistry::createEndpoint(worker.get(), this, [this, &worker, &params]() {
-    if (worker->isProgressThreadRunning()) {
-      ucs_status_t status = UCS_INPROGRESS;
+  ucs_status_t status = UCS_INPROGRESS;
+  auto createEndpoint = [this, &worker, &params, &status]() {
+    status =
+      internal::AmEndpointRegistry::createEndpoint(worker.get(), this, [this, &worker, &params]() {
+        return ucp_ep_create(worker->getHandle(), params, &_handle);
+      });
+  };
 
-      size_t maxAttempts = 3;
-      for (uint64_t i = 0; i < maxAttempts; ++i) {
-        if (worker->registerGenericPre(
-              [this, &worker, &params, &status]() {
-                status = ucp_ep_create(worker->getHandle(), params, &_handle);
-              },
-              3000000000 /* 3s */))
-          break;
+  if (worker->isProgressThreadRunning()) {
+    size_t maxAttempts = 3;
+    for (uint64_t i = 0; i < maxAttempts; ++i) {
+      if (worker->registerGenericPre(createEndpoint, 3000000000 /* 3s */)) break;
 
-        if (i == maxAttempts - 1) {
-          status = UCS_ERR_TIMED_OUT;
-          ucxx_error("Timeout waiting for ucp_ep_create, all attempts failed");
-        } else {
-          ucxx_warn("Timeout waiting for ucp_ep_create, retrying");
-        }
+      if (i == maxAttempts - 1) {
+        status = UCS_ERR_TIMED_OUT;
+        ucxx_error("Timeout waiting for ucp_ep_create, all attempts failed");
+      } else {
+        ucxx_warn("Timeout waiting for ucp_ep_create, retrying");
       }
-      utils::ucsErrorThrow(status);
-    } else {
-      utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
     }
-    return _handle;
-  });
+  } else {
+    createEndpoint();
+  }
+
+  utils::ucsErrorThrow(status);
 
   ucxx_trace("ucxx::Endpoint created: %p, UCP handle: %p, parent: %p, endpointErrorHandling: %d",
              this,

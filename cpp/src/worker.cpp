@@ -146,23 +146,20 @@ std::shared_ptr<RequestAm> internal::AmEndpointRegistry::getAmRecv(
   return req;
 }
 
-void internal::AmEndpointRegistry::createEndpoint(Worker* worker,
-                                                  Endpoint* endpoint,
-                                                  std::function<ucp_ep_h()> createEndpointFunction)
+ucs_status_t internal::AmEndpointRegistry::createEndpoint(
+  Worker* worker, Endpoint* endpoint, std::function<ucs_status_t()> createEndpointFunction)
 {
-  if (worker == nullptr || endpoint == nullptr) return;
-  if (worker->_amData == nullptr) {
-    std::ignore = createEndpointFunction();
-    return;
-  }
+  if (worker == nullptr || endpoint == nullptr) return UCS_ERR_INVALID_PARAM;
+  if (worker->_amData == nullptr) return createEndpointFunction();
 
   std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
-  auto ep = createEndpointFunction();
-  if (ep == nullptr) return;
+  auto status = createEndpointFunction();
+  if (status != UCS_OK) return status;
 
-  auto endpointData                          = std::make_shared<internal::AmEndpointData>();
-  worker->_amData->_endpointStates[endpoint] = endpointData;
-  worker->_amData->_endpoints[ep]            = endpointData;
+  auto endpointData                                  = std::make_shared<internal::AmEndpointData>();
+  worker->_amData->_endpointStates[endpoint]         = endpointData;
+  worker->_amData->_endpoints[endpoint->getHandle()] = endpointData;
+  return status;
 }
 
 void internal::AmEndpointRegistry::closeEndpoint(Worker* worker, ucp_ep_h ep, Endpoint* endpoint)
