@@ -207,7 +207,7 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
     )
     notifier_state = None if notifier is None else (notifier.ident, notifier.is_alive())
     details = (
-        f"UCXX_NANNY_TRACE time_ns={time.monotonic_ns()} pid={os.getpid()} "
+        f"UCXX_LIFECYCLE_TRACE time_ns={time.monotonic_ns()} pid={os.getpid()} "
         f"phase={phase} ctx={None if ctx is None else hex(id(ctx))} "
         f"progress_mode={None if ctx is None else ctx.progress_mode} "
         f"delayed_submission={None if ctx is None else ctx.enable_delayed_submission} "
@@ -236,12 +236,17 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
                         "id": hex(id(obj)),
                         "ctx": None if context is None else hex(id(context)),
                         "ucp_ep": None if endpoint is None else hex(id(endpoint)),
+                        "alive": (
+                            None if endpoint is None else getattr(obj, "alive", None)
+                        ),
+                        "closed": getattr(obj, "closed", None),
                         "send_count": getattr(obj, "_send_count", None),
                         "recv_count": getattr(obj, "_recv_count", None),
                         "finished_recv_count": getattr(
                             obj, "_finished_recv_count", None
                         ),
                         "shutting_down_peer": getattr(obj, "_shutting_down_peer", None),
+                        "direct_referrers": _direct_referrer_snapshot(obj),
                     }
                 )
             elif (
@@ -302,13 +307,29 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
 
 @contextmanager
 def _nanny_lifecycle_diagnostics(request):
-    if request.node.name != "test_nanny_closed_by_keyboard_interrupt":
+    target_tests = {
+        "test_nanny_closed_by_keyboard_interrupt",
+        "test_ucx_config_w_env_var[ucx]",
+    }
+    if request.node.name not in target_tests:
         yield lambda phase: None
         return
 
     snapshots = [_nanny_lifecycle_snapshot("ready")]
+
+    def snapshot(phase):
+        # ucxx.reset() clears the global context before reporting surviving
+        # references, so capture ownership immediately before reset as well.
+        include_objects = (
+            request.node.name == "test_ucx_config_w_env_var[ucx]"
+            and phase == "before-reset"
+        )
+        snapshots.append(
+            _nanny_lifecycle_snapshot(phase, include_objects=include_objects)
+        )
+
     try:
-        yield lambda phase: snapshots.append(_nanny_lifecycle_snapshot(phase))
+        yield snapshot
     except BaseException:
         snapshots.append(_nanny_lifecycle_snapshot("failure", include_objects=True))
         print("\n".join(snapshots), flush=True)
