@@ -933,6 +933,9 @@ class Worker : public Component {
    * @endcode
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
+   *
+   * @note `endpointHandle` must refer to a live UCP endpoint. Use
+   *       `Endpoint::amProbe()` to inspect messages retained after endpoint closure.
    */
   [[nodiscard]] bool amProbe(const ucp_ep_h endpointHandle) const;
 

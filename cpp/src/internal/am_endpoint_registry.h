@@ -28,11 +28,14 @@ class AmEndpointRegistry {
     Worker* worker,
     Endpoint* endpoint,
     std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction);
-  static void registerEndpoint(Worker* worker, ucp_ep_h ep, Endpoint* endpoint);
+  static void createEndpoint(Worker* worker,
+                             Endpoint* endpoint,
+                             std::function<ucp_ep_h()> createEndpointFunction);
   static void markEndpointClosed(Worker* worker, Endpoint* endpoint);
   static void closeEndpoint(Worker* worker, ucp_ep_h ep, Endpoint* endpoint);
   static void releaseEndpoint(Worker* worker, Endpoint* endpoint);
   [[nodiscard]] static bool probe(const Worker* worker, ucp_ep_h endpointHandle);
+  [[nodiscard]] static bool probeEndpoint(const Worker* worker, const Endpoint* endpoint);
 };
 
 }  // namespace internal

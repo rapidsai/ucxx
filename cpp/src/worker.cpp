@@ -146,12 +146,20 @@ std::shared_ptr<RequestAm> internal::AmEndpointRegistry::getAmRecv(
   return req;
 }
 
-void internal::AmEndpointRegistry::registerEndpoint(Worker* worker, ucp_ep_h ep, Endpoint* endpoint)
+void internal::AmEndpointRegistry::createEndpoint(Worker* worker,
+                                                  Endpoint* endpoint,
+                                                  std::function<ucp_ep_h()> createEndpointFunction)
 {
-  if (worker == nullptr || worker->_amData == nullptr || ep == nullptr || endpoint == nullptr)
+  if (worker == nullptr || endpoint == nullptr) return;
+  if (worker->_amData == nullptr) {
+    std::ignore = createEndpointFunction();
     return;
+  }
 
   std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
+  auto ep = createEndpointFunction();
+  if (ep == nullptr) return;
+
   auto endpointData                          = std::make_shared<internal::AmEndpointData>();
   worker->_amData->_endpointStates[endpoint] = endpointData;
   worker->_amData->_endpoints[ep]            = endpointData;
@@ -801,6 +809,16 @@ bool internal::AmEndpointRegistry::probe(const Worker* worker, ucp_ep_h endpoint
   if (endpoint == worker->_amData->_endpoints.end()) return false;
   auto endpointData = endpoint->second.lock();
   return endpointData != nullptr && !endpointData->_recvPool.empty();
+}
+
+bool internal::AmEndpointRegistry::probeEndpoint(const Worker* worker, const Endpoint* endpoint)
+{
+  if (worker == nullptr || worker->_amData == nullptr || endpoint == nullptr) return false;
+
+  std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
+  auto endpointState = worker->_amData->_endpointStates.find(endpoint);
+  return endpointState != worker->_amData->_endpointStates.end() &&
+         !endpointState->second->_recvPool.empty();
 }
 
 RequestFlushBuilder Worker::flushBuilder()

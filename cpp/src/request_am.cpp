@@ -277,20 +277,10 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   }();
 
   std::shared_ptr<RequestAm> req{nullptr};
-  std::shared_ptr<internal::AmEndpointData> endpointData{nullptr};
 
   {
     std::lock_guard<std::mutex> lock(amData->_mutex);
 
-    auto endpoint = amData->_endpoints.find(ep);
-    if (endpoint != amData->_endpoints.end()) endpointData = endpoint->second.lock();
-    if (endpointData == nullptr) {
-      ucxx_error("No active UCXX endpoint state for incoming active message from UCP endpoint %p",
-                 ep);
-      return UCS_ERR_NOT_CONNECTED;
-    }
-
-    auto& recvWait = endpointData->_recvWait;
     if (amHeader.receiverCallbackInfo) {
       req = std::shared_ptr<RequestAm>(new RequestAm(worker,
                                                      data::AmReceive(),
@@ -299,19 +289,30 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                                                      nullptr,
                                                      nullptr));
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "receiverCallback");
-    } else if (!recvWait.empty()) {
-      req = recvWait.front();
-      recvWait.pop();
-      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
     } else {
-      req = std::shared_ptr<RequestAm>(new RequestAm(worker,
-                                                     data::AmReceive(),
-                                                     std::move("amReceive"),
-                                                     worker->isFutureEnabled(),
-                                                     nullptr,
-                                                     nullptr));
-      endpointData->_recvPool.push(req);
-      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvPool");
+      auto endpoint     = amData->_endpoints.find(ep);
+      auto endpointData = endpoint == amData->_endpoints.end() ? nullptr : endpoint->second.lock();
+      if (endpointData == nullptr) {
+        ucxx_error("No active UCXX endpoint state for incoming active message from UCP endpoint %p",
+                   ep);
+        return UCS_ERR_NOT_CONNECTED;
+      }
+
+      auto& recvWait = endpointData->_recvWait;
+      if (!recvWait.empty()) {
+        req = recvWait.front();
+        recvWait.pop();
+        ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
+      } else {
+        req = std::shared_ptr<RequestAm>(new RequestAm(worker,
+                                                       data::AmReceive(),
+                                                       std::move("amReceive"),
+                                                       worker->isFutureEnabled(),
+                                                       nullptr,
+                                                       nullptr));
+        endpointData->_recvPool.push(req);
+        ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvPool");
+      }
     }
   }
 

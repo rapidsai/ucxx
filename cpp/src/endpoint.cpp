@@ -153,31 +153,32 @@ void Endpoint::create(ucp_ep_params_t* params)
     params->err_handler.arg = nullptr;
   }
 
-  if (worker->isProgressThreadRunning()) {
-    ucs_status_t status = UCS_INPROGRESS;
+  internal::AmEndpointRegistry::createEndpoint(worker.get(), this, [this, &worker, &params]() {
+    if (worker->isProgressThreadRunning()) {
+      ucs_status_t status = UCS_INPROGRESS;
 
-    size_t maxAttempts = 3;
-    for (uint64_t i = 0; i < maxAttempts; ++i) {
-      if (worker->registerGenericPre(
-            [this, &worker, &params, &status]() {
-              status = ucp_ep_create(worker->getHandle(), params, &_handle);
-            },
-            3000000000 /* 3s */))
-        break;
+      size_t maxAttempts = 3;
+      for (uint64_t i = 0; i < maxAttempts; ++i) {
+        if (worker->registerGenericPre(
+              [this, &worker, &params, &status]() {
+                status = ucp_ep_create(worker->getHandle(), params, &_handle);
+              },
+              3000000000 /* 3s */))
+          break;
 
-      if (i == maxAttempts - 1) {
-        status = UCS_ERR_TIMED_OUT;
-        ucxx_error("Timeout waiting for ucp_ep_create, all attempts failed");
-      } else {
-        ucxx_warn("Timeout waiting for ucp_ep_create, retrying");
+        if (i == maxAttempts - 1) {
+          status = UCS_ERR_TIMED_OUT;
+          ucxx_error("Timeout waiting for ucp_ep_create, all attempts failed");
+        } else {
+          ucxx_warn("Timeout waiting for ucp_ep_create, retrying");
+        }
       }
+      utils::ucsErrorThrow(status);
+    } else {
+      utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
     }
-    utils::ucsErrorThrow(status);
-  } else {
-    utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
-  }
-
-  internal::AmEndpointRegistry::registerEndpoint(worker.get(), _handle, this);
+    return _handle;
+  });
 
   ucxx_trace("ucxx::Endpoint created: %p, UCP handle: %p, parent: %p, endpointErrorHandling: %d",
              this,
@@ -387,6 +388,12 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 }
 
 ucp_ep_h Endpoint::getHandle() { return _handle; }
+
+bool Endpoint::amProbe() const
+{
+  auto worker = ::ucxx::getWorker(_parent);
+  return internal::AmEndpointRegistry::probeEndpoint(worker.get(), this);
+}
 
 bool Endpoint::isAlive() const
 {

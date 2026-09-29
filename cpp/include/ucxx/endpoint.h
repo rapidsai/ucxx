@@ -199,6 +199,17 @@ class Endpoint : public Component {
   [[nodiscard]] ucp_ep_h getHandle();
 
   /**
+   * @brief Check for uncaught active messages received on this endpoint.
+   *
+   * Checks whether an active message has been received but not matched by an active-message
+   * receive request. Unlike `Worker::amProbe()`, this endpoint-based check remains valid after
+   * closing the underlying UCP endpoint, while this `Endpoint` object remains alive.
+   *
+   * @returns `true` if an uncaught active message is queued, `false` otherwise.
+   */
+  [[nodiscard]] bool amProbe() const;
+
+  /**
    * @brief Check whether the endpoint is still alive.
    *
    * Check whether the endpoint is still alive, generally `true` until `closeBlocking()` is

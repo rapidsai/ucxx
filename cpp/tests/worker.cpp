@@ -18,6 +18,8 @@
 #include <ucxx/delayed_submission.h>
 #include <ucxx/worker_progress_thread.h>
 
+#include <internal/am_endpoint_registry.h>
+
 #include "include/utils.h"
 
 namespace {
@@ -656,6 +658,7 @@ TEST_F(WorkerTest, ClosePreservesQueuedAmRecv)
   }));
 
   ep->closeBlocking();
+  ASSERT_TRUE(ep->amProbe());
 
   auto newEp = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
   std::vector<int> newBuf{456};
@@ -663,6 +666,9 @@ TEST_F(WorkerTest, ClosePreservesQueuedAmRecv)
   requests.push_back(
     newEp->amSendBuilder(newBuf.data(), newBuf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST).build());
   waitRequests(_worker, requests, progressWorker);
+
+  ASSERT_TRUE(ep->amProbe());
+  ASSERT_TRUE(newEp->amProbe());
 
   ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker, newEp]() {
     progressWorker();
@@ -676,6 +682,7 @@ TEST_F(WorkerTest, ClosePreservesQueuedAmRecv)
   auto recvBuffer = recvRequest->getRecvBuffer();
   ASSERT_NE(recvBuffer, nullptr);
   EXPECT_EQ(*static_cast<int*>(recvBuffer->data()), 123);
+  EXPECT_FALSE(ep->amProbe());
 
   auto newRecvRequest = newEp->amRecvBuilder().build();
   ASSERT_TRUE(newRecvRequest->isCompleted());
@@ -683,6 +690,7 @@ TEST_F(WorkerTest, ClosePreservesQueuedAmRecv)
   auto newRecvBuffer = newRecvRequest->getRecvBuffer();
   ASSERT_NE(newRecvBuffer, nullptr);
   EXPECT_EQ(*static_cast<int*>(newRecvBuffer->data()), 456);
+  EXPECT_FALSE(newEp->amProbe());
 }
 
 TEST_F(WorkerTest, ReceiveOnClosedEndpointWithoutQueuedAmFails)
@@ -764,6 +772,7 @@ TEST_P(WorkerProgressTest, ProgressAmReceiverCallback)
   _worker->registerAmReceiverCallback(receiverCallbackInfo, callback);
 
   auto ep = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
+  ucxx::internal::AmEndpointRegistry::releaseEndpoint(_worker.get(), ep.get());
 
   std::vector<int> send{123};
 

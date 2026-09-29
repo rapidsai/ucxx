@@ -118,7 +118,7 @@ class AmData {
   std::weak_ptr<Worker> _worker{};  ///< The worker to which the Active Message callback belongs
   std::string _ownerString{};       ///< The owner string used for logging
   AmEndpointMapType _endpoints{};   ///< Active endpoint handle to stable receive state mapping
-  std::unordered_map<Endpoint*, std::shared_ptr<AmEndpointData>>
+  std::unordered_map<const Endpoint*, std::shared_ptr<AmEndpointData>>
     _endpointStates{};  ///< Stable receive state retained for each live Endpoint object
   RecvAmMessageMapType
     _recvAmMessageMap{};  ///< The active messages waiting to be handled by callback
