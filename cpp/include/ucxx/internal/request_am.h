@@ -95,6 +95,7 @@ class AmEndpointData {
 };
 
 typedef std::unordered_map<ucp_ep_h, std::weak_ptr<AmEndpointData>> AmEndpointMapType;
+typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAm>>> AmUnroutedPoolType;
 typedef std::map<std::shared_ptr<RequestAm>,
                  std::shared_ptr<RecvAmMessage>,
                  std::owner_less<std::shared_ptr<RequestAm>>>
@@ -120,6 +121,9 @@ class AmData {
   AmEndpointMapType _endpoints{};   ///< Active endpoint handle to stable receive state mapping
   std::unordered_map<const Endpoint*, std::shared_ptr<AmEndpointData>>
     _endpointStates{};  ///< Stable receive state retained for each live Endpoint object
+  AmUnroutedPoolType
+    _unroutedRecvPool{};  ///< Completed messages received on UCP endpoints not yet owned by a
+                          ///< `ucxx::Endpoint`.
   RecvAmMessageMapType
     _recvAmMessageMap{};  ///< The active messages waiting to be handled by callback
   AmReceiverCallbackOwnerMapType

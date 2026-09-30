@@ -642,9 +642,20 @@ TEST_F(WorkerTest, AmProbe)
 
 TEST_F(WorkerTest, ClosePreservesQueuedAmRecv)
 {
+  // Endpoints are created without error handling so that closing uses UCX's flush mode
+  // instead of force mode. In flush mode, a loopback UCP endpoint is destroyed
+  // synchronously before the close completes and its memory is returned to the worker's
+  // LIFO endpoint allocator, so the next `ucp_ep_create` deterministically reuses the
+  // handle. Force mode (used with error handling) defers destruction until lanes are
+  // asynchronously discarded, so reuse would depend on progress timing.
   auto progressWorker = getProgressFunction(_worker, ProgressMode::Polling);
-  auto ep             = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
-  auto epHandle       = ep->getHandle();
+  auto createEndpoint = [this]() {
+    return _worker->endpointBuilder(_worker->addressBuilder().build())
+      .endpointErrorHandling(false)
+      .build();
+  };
+  auto ep       = createEndpoint();
+  auto epHandle = ep->getHandle();
 
   std::vector<int> buf{123};
   std::vector<std::shared_ptr<ucxx::Request>> requests;
@@ -660,20 +671,24 @@ TEST_F(WorkerTest, ClosePreservesQueuedAmRecv)
   ep->closeBlocking();
   ASSERT_TRUE(ep->amProbe());
 
-  auto newEp = _worker->endpointBuilder(_worker->addressBuilder().build()).build();
+  // The new endpoint reuses the closed endpoint's UCP handle, so queued messages must be
+  // routed by `ucxx::Endpoint` rather than by UCP handle.
+  auto newEp = createEndpoint();
+  ASSERT_EQ(newEp->getHandle(), epHandle);
+
   std::vector<int> newBuf{456};
   requests.clear();
   requests.push_back(
     newEp->amSendBuilder(newBuf.data(), newBuf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST).build());
   waitRequests(_worker, requests, progressWorker);
 
-  ASSERT_TRUE(ep->amProbe());
-  ASSERT_TRUE(newEp->amProbe());
-
   ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [this, progressWorker, newEp]() {
     progressWorker();
     return _worker->amProbe(newEp->getHandle());
   }));
+
+  ASSERT_TRUE(ep->amProbe());
+  ASSERT_TRUE(newEp->amProbe());
 
   auto recvRequest = ep->amRecvBuilder().build();
   ASSERT_TRUE(recvRequest->isCompleted());
@@ -691,6 +706,60 @@ TEST_F(WorkerTest, ClosePreservesQueuedAmRecv)
   ASSERT_NE(newRecvBuffer, nullptr);
   EXPECT_EQ(*static_cast<int*>(newRecvBuffer->data()), 456);
   EXPECT_FALSE(newEp->amProbe());
+}
+
+TEST_F(WorkerTest, AmRecvBeforeRemoteEndpointCreated)
+{
+  // Worker A connects to worker B via worker address and sends before B creates its own
+  // endpoint to A. UCX delivers the message on an endpoint it created internally on B and
+  // later returns that same handle from B's `ucp_ep_create`, so the message must be
+  // retained and routed to B's `ucxx::Endpoint` once it is created.
+  auto workerA      = _worker;
+  auto workerB      = _context->workerBuilder().build();
+  auto progressBoth = [workerA, workerB]() {
+    workerA->progress();
+    workerB->progress();
+  };
+
+  auto epA = workerA->endpointBuilder(workerB->addressBuilder().build()).build();
+
+  std::vector<int> buf{789};
+  std::vector<std::shared_ptr<ucxx::Request>> requests;
+  requests.push_back(
+    epA->amSendBuilder(buf.data(), buf.size() * sizeof(int), UCS_MEMORY_TYPE_HOST).build());
+  ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [&]() {
+    progressBoth();
+    return requests[0]->isCompleted();
+  }));
+  ASSERT_EQ(requests[0]->getStatus(), UCS_OK);
+
+  auto epB = workerB->endpointBuilder(workerA->addressBuilder().build()).build();
+
+  ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [&]() {
+    progressBoth();
+    return epB->amProbe();
+  }));
+  EXPECT_TRUE(workerB->amProbe(epB->getHandle()));
+
+  auto recvRequest = epB->amRecvBuilder().build();
+  ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [&]() {
+    progressBoth();
+    return recvRequest->isCompleted();
+  }));
+  ASSERT_EQ(recvRequest->getStatus(), UCS_OK);
+
+  auto recvBuffer = recvRequest->getRecvBuffer();
+  ASSERT_NE(recvBuffer, nullptr);
+  EXPECT_EQ(*static_cast<int*>(recvBuffer->data()), 789);
+  EXPECT_FALSE(epB->amProbe());
+
+  // Close both endpoints while progressing both workers so neither side blocks on its peer.
+  std::vector<std::shared_ptr<ucxx::Request>> closeRequests{epA->closeBuilder().build(),
+                                                            epB->closeBuilder().build()};
+  ASSERT_TRUE(loopWithTimeout(std::chrono::milliseconds(5000), [&]() {
+    progressBoth();
+    return closeRequests[0]->isCompleted() && closeRequests[1]->isCompleted();
+  }));
 }
 
 TEST_F(WorkerTest, ReceiveOnClosedEndpointWithoutQueuedAmFails)
