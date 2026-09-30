@@ -38,6 +38,12 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+_NANNY_LIFECYCLE_DIAGNOSTIC_TESTS = {
+    "test_nanny_closed_by_keyboard_interrupt",
+    "test_ucxx_localcluster[True-ucxx]",
+    "test_ucx_config_w_env_var[ucx]",
+}
+
 
 def _direct_referrer_snapshot(obj):
     diagnostic_frame = sys._getframe()
@@ -307,12 +313,7 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
 
 @contextmanager
 def _nanny_lifecycle_diagnostics(request):
-    target_tests = {
-        "test_nanny_closed_by_keyboard_interrupt",
-        "test_ucxx_localcluster[True-ucxx]",
-        "test_ucx_config_w_env_var[ucx]",
-    }
-    if request.node.name not in target_tests:
+    if request.node.name not in _NANNY_LIFECYCLE_DIAGNOSTIC_TESTS:
         yield lambda phase: None
         return
 
@@ -321,10 +322,10 @@ def _nanny_lifecycle_diagnostics(request):
     def snapshot(phase):
         # ucxx.reset() clears the global context before reporting surviving
         # references, so capture ownership immediately before reset as well.
-        include_objects = phase == "before-reset" and request.node.name in {
-            "test_ucxx_localcluster[True-ucxx]",
-            "test_ucx_config_w_env_var[ucx]",
-        }
+        include_objects = (
+            phase == "before-reset"
+            and request.node.name in _NANNY_LIFECYCLE_DIAGNOSTIC_TESTS
+        )
         snapshots.append(
             _nanny_lifecycle_snapshot(phase, include_objects=include_objects)
         )
@@ -373,6 +374,9 @@ def ucxx_loop(request):
     with _nanny_lifecycle_diagnostics(request) as snapshot, check_thread_leak():
         yield loop
         snapshot("before-reset")
+        if request.node.name in _NANNY_LIFECYCLE_DIAGNOSTIC_TESTS:
+            ucxx.stop_notifier_thread()
+            snapshot("after-notifier-stop")
         if ignore_alive_references:
             try:
                 ucxx.reset()
