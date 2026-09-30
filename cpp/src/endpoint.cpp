@@ -14,6 +14,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/am_endpoint_registry.h>
 #include <internal/constructors.h>
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
@@ -78,7 +79,7 @@ static std::shared_ptr<Worker> getWorker(std::shared_ptr<Component> workerOrList
   return worker;
 }
 
-void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
+void Endpoint::endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 {
   if (arg == nullptr) return;
 
@@ -93,6 +94,7 @@ void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status)
 
   endpoint->_status = status;
   auto worker       = ::ucxx::getWorker(endpoint->_parent);
+  internal::AmEndpointRegistry::markEndpointClosed(worker.get(), endpoint.get());
   worker->scheduleRequestCancel(endpoint->_inflightRequests->release());
   {
     std::lock_guard<std::mutex> lock(endpoint->_mutex);
@@ -142,7 +144,7 @@ void Endpoint::create(ucp_ep_params_t* params)
 
   if (_endpointErrorHandling) {
     params->err_mode       = UCP_ERR_HANDLING_MODE_PEER;
-    params->err_handler.cb = endpointErrorCallback;
+    params->err_handler.cb = Endpoint::endpointErrorCallback;
     params->err_handler.arg =
       new EndpointErrorCallbackContext(std::static_pointer_cast<Endpoint>(shared_from_this()));
   } else {
@@ -151,17 +153,18 @@ void Endpoint::create(ucp_ep_params_t* params)
     params->err_handler.arg = nullptr;
   }
 
-  if (worker->isProgressThreadRunning()) {
-    ucs_status_t status = UCS_INPROGRESS;
+  ucs_status_t status = UCS_INPROGRESS;
+  auto createEndpoint = [this, &worker, &params, &status]() {
+    status =
+      internal::AmEndpointRegistry::createEndpoint(worker.get(), this, [this, &worker, &params]() {
+        return ucp_ep_create(worker->getHandle(), params, &_handle);
+      });
+  };
 
+  if (worker->isProgressThreadRunning()) {
     size_t maxAttempts = 3;
     for (uint64_t i = 0; i < maxAttempts; ++i) {
-      if (worker->registerGenericPre(
-            [this, &worker, &params, &status]() {
-              status = ucp_ep_create(worker->getHandle(), params, &_handle);
-            },
-            3000000000 /* 3s */))
-        break;
+      if (worker->registerGenericPre(createEndpoint, 3000000000 /* 3s */)) break;
 
       if (i == maxAttempts - 1) {
         status = UCS_ERR_TIMED_OUT;
@@ -170,10 +173,11 @@ void Endpoint::create(ucp_ep_params_t* params)
         ucxx_warn("Timeout waiting for ucp_ep_create, retrying");
       }
     }
-    utils::ucsErrorThrow(status);
   } else {
-    utils::ucsErrorThrow(ucp_ep_create(worker->getHandle(), params, &_handle));
+    createEndpoint();
   }
+
+  utils::ucsErrorThrow(status);
 
   ucxx_trace("ucxx::Endpoint created: %p, UCP handle: %p, parent: %p, endpointErrorHandling: %d",
              this,
@@ -240,6 +244,7 @@ std::shared_ptr<Endpoint> detail::ConstructorFactory::createEndpointFromWorkerAd
 Endpoint::~Endpoint()
 {
   closeBlocking(10000000000 /* 10s */);
+  internal::AmEndpointRegistry::releaseEndpoint(::ucxx::getWorker(_parent).get(), this);
   ucxx_trace("ucxx::Endpoint destroyed: %p, UCP handle: %p", this, _originalHandle);
 }
 
@@ -263,6 +268,7 @@ std::shared_ptr<RequestEndpointClose> Endpoint::closeRequest(
                                     ucs_status_t status,
                                     EndpointCloseCallbackUserData /* callbackData */) {
     _status = status;
+    internal::AmEndpointRegistry::closeEndpoint(::ucxx::getWorker(_parent).get(), _handle, this);
     if (callbackFunction) callbackFunction(status, callbackData);
     {
       std::lock_guard<std::mutex> lock(_mutex);
@@ -355,6 +361,11 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
       }
     }
   }
+  if (closeComplete) {
+    internal::AmEndpointRegistry::closeEndpoint(worker.get(), _handle, this);
+  } else {
+    internal::AmEndpointRegistry::markEndpointClosed(worker.get(), this);
+  }
   ucxx_trace("ucxx::Endpoint::%s, Endpoint: %p, UCP handle: %p, closed", __func__, this, _handle);
 
   if (UCS_PTR_IS_PTR(status)) ucp_request_free(status);
@@ -376,6 +387,12 @@ void Endpoint::closeBlocking(uint64_t period, uint64_t maxAttempts)
 }
 
 ucp_ep_h Endpoint::getHandle() { return _handle; }
+
+bool Endpoint::amProbe() const
+{
+  auto worker = ::ucxx::getWorker(_parent);
+  return internal::AmEndpointRegistry::probeEndpoint(worker.get(), this);
+}
 
 bool Endpoint::isAlive() const
 {

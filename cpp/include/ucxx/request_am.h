@@ -70,6 +70,8 @@ class RequestAm : public Request {
             RequestCallbackUserFunction callbackFunction = nullptr,
             RequestCallbackUserData callbackData         = nullptr);
 
+  void setEndpointClosedStatus();
+
   void populateDelayedSubmissionImpl() override;
 
  public:
