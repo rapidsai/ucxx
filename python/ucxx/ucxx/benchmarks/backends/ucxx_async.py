@@ -2,15 +2,48 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import os
+import sys
 from argparse import Namespace
+from collections import deque
 from queue import Queue
-from time import monotonic
+from time import monotonic, time_ns
 
 import ucxx
 from ucxx._lib.arr import Array
 from ucxx.benchmarks.backends.base import BaseClient, BaseServer
 from ucxx.benchmarks.utils import get_allocator
 from ucxx.utils import print_key_value
+
+
+class _BenchmarkTrace:
+    """Keep recent operation boundaries without logging timed iterations."""
+
+    def __init__(self, role: str, capacity: int = 64):
+        self.enabled = os.environ.get("UCXX_BENCH_TRACE") == "1"
+        self.role = role
+        self.records = deque(maxlen=capacity)
+
+    def record(self, stage: str, iteration: int, endpoint: int):
+        if self.enabled:
+            self.records.append((time_ns(), stage, iteration, endpoint))
+
+    def dump(self):
+        if not self.enabled:
+            return
+        print(
+            f"UCXX_BENCH_TRACE_BEGIN pid={os.getpid()} role={self.role} "
+            f"count={len(self.records)}",
+            file=sys.stderr,
+        )
+        for timestamp, stage, iteration, endpoint in self.records:
+            print(
+                f"UCXX_BENCH_TRACE time_ns={timestamp} pid={os.getpid()} "
+                f"role={self.role} ep=0x{endpoint:x} iteration={iteration} "
+                f"stage={stage}",
+                file=sys.stderr,
+            )
+        print(f"UCXX_BENCH_TRACE_END pid={os.getpid()}", file=sys.stderr, flush=True)
 
 
 async def _send_terminal_ack(ep, enable_am):
@@ -46,6 +79,7 @@ class UCXPyAsyncServer(BaseServer):
 
     async def run(self):
         ucxx.init(progress_mode=self.args.progress_mode)
+        trace = _BenchmarkTrace("server")
 
         xp = get_allocator(
             self.args.object_type,
@@ -54,6 +88,7 @@ class UCXPyAsyncServer(BaseServer):
         )
 
         async def server_handler(ep):
+            i = -1
             try:
                 if not self.args.enable_am:
                     if self.args.reuse_alloc and self.args.n_buffers == 1:
@@ -75,12 +110,29 @@ class UCXPyAsyncServer(BaseServer):
                             await ep.recv(msg)
                             await ep.send(msg)
                         else:
+                            if trace.enabled:
+                                trace.record("recv_multi-start", i, id(ep))
                             msgs = await ep.recv_multi()
+                            if trace.enabled:
+                                trace.record("recv_multi-done", i, id(ep))
+                                trace.record("send_multi-start", i, id(ep))
                             await ep.send_multi(msgs)
+                            if trace.enabled:
+                                trace.record("send_multi-done", i, id(ep))
+                trace.record("terminal-ack-recv-start", i, id(ep))
                 await _recv_terminal_ack(ep, self.args.enable_am)
+                trace.record("terminal-ack-recv-done", i, id(ep))
+                trace.record("close-start", i, id(ep))
                 await ep.close()
+                trace.record("close-done", i, id(ep))
+            except BaseException as e:
+                trace.record(f"error:{type(e).__name__}", i, id(ep))
+                raise
             finally:
-                lf.close()
+                try:
+                    lf.close()
+                finally:
+                    trace.dump()
 
         lf = ucxx.create_listener(
             server_handler,
@@ -112,6 +164,7 @@ class UCXPyAsyncClient(BaseClient):
 
     async def run(self):
         ucxx.init(progress_mode=self.args.progress_mode)
+        trace = _BenchmarkTrace("client")
 
         xp = get_allocator(
             self.args.object_type,
@@ -147,41 +200,62 @@ class UCXPyAsyncClient(BaseClient):
             knocker.start()
 
         times = []
-        for i in range(self.args.n_iter + self.args.n_warmup_iter):
-            start = monotonic()
-            if self.args.enable_am:
-                await ep.am_send(msg)
-                await ep.am_recv()
-            else:
-                if self.args.n_buffers == 1:
-                    if self.args.reuse_alloc:
-                        msg_send = reuse_msg_send
-                        msg_recv = reuse_msg_recv
-                    else:
-                        msg_send = Array(xp.arange(self.args.n_bytes, dtype="u1"))
-                        msg_recv = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
-                    await ep.send(msg_send)
-                    await ep.recv(msg_recv)
+        i = -1
+        try:
+            for i in range(self.args.n_iter + self.args.n_warmup_iter):
+                start = monotonic()
+                if self.args.enable_am:
+                    await ep.am_send(msg)
+                    await ep.am_recv()
                 else:
-                    if self.args.reuse_alloc:
-                        msg_send = reuse_msg_send
+                    if self.args.n_buffers == 1:
+                        if self.args.reuse_alloc:
+                            msg_send = reuse_msg_send
+                            msg_recv = reuse_msg_recv
+                        else:
+                            msg_send = Array(xp.arange(self.args.n_bytes, dtype="u1"))
+                            msg_recv = Array(xp.zeros(self.args.n_bytes, dtype="u1"))
+                        await ep.send(msg_send)
+                        await ep.recv(msg_recv)
                     else:
-                        msg_send = [
-                            Array(xp.arange(self.args.n_bytes, dtype="u1"))
-                            for i in range(self.args.n_buffers)
-                        ]
-                    await ep.send_multi(msg_send)
-                    msg_recv = await ep.recv_multi()
-            stop = monotonic()
-            if i >= self.args.n_warmup_iter:
-                times.append(stop - start)
+                        if self.args.reuse_alloc:
+                            msg_send = reuse_msg_send
+                        else:
+                            msg_send = [
+                                Array(xp.arange(self.args.n_bytes, dtype="u1"))
+                                for i in range(self.args.n_buffers)
+                            ]
+                        if trace.enabled:
+                            trace.record("send_multi-start", i, id(ep))
+                        await ep.send_multi(msg_send)
+                        if trace.enabled:
+                            trace.record("send_multi-done", i, id(ep))
+                            trace.record("recv_multi-start", i, id(ep))
+                        msg_recv = await ep.recv_multi()
+                        if trace.enabled:
+                            trace.record("recv_multi-done", i, id(ep))
+                stop = monotonic()
+                if i >= self.args.n_warmup_iter:
+                    times.append(stop - start)
+        except BaseException as e:
+            trace.record(f"error:{type(e).__name__}", i, id(ep))
+            trace.dump()
+            raise
 
         if self.args.report_gil_contention:
             knocker.stop()
         if self.args.cuda_profile:
             xp.cuda.profiler.stop()
 
-        await _send_terminal_ack(ep, self.args.enable_am)
+        trace.record("terminal-ack-send-start", i, id(ep))
+        try:
+            await _send_terminal_ack(ep, self.args.enable_am)
+        except BaseException as e:
+            trace.record(f"error:{type(e).__name__}", i, id(ep))
+            trace.dump()
+            raise
+        trace.record("terminal-ack-send-done", i, id(ep))
+        trace.dump()
 
         self.queue.put(times)
         if self.args.report_gil_contention:

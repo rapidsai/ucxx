@@ -22,11 +22,19 @@ jobs:
       - conda-cpp-tests
       - conda-python-tests
       - conda-python-distributed-tests
+      - conda-python-distributed-tests-rerun-1
+      - conda-python-distributed-tests-rerun-2
+      - conda-python-distributed-tests-rerun-3
+      - conda-python-distributed-tests-rerun-4
       - wheel-build-libucxx
       - wheel-build-ucxx
       - wheel-tests-ucxx
       - wheel-build-distributed-ucxx
       - wheel-tests-distributed-ucxx
+      - wheel-tests-distributed-ucxx-rerun-1
+      - wheel-tests-distributed-ucxx-rerun-2
+      - wheel-tests-distributed-ucxx-rerun-3
+      - wheel-tests-distributed-ucxx-rerun-4
       - telemetry-setup
     permissions:
       actions: read
@@ -357,6 +365,88 @@ jobs:
       build_type: pull-request
       script: "ci/test_python_distributed.sh"
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+  # Repeat the full distributed test workflow serially to get fresh runner
+  # allocations without multiplying concurrent CI jobs.
+  conda-python-distributed-tests-rerun-1:
+    needs: [conda-python-distributed-tests]
+    if: >-
+      ${{
+        always() &&
+        (needs.conda-python-distributed-tests.result == 'success' ||
+        needs.conda-python-distributed-tests.result == 'failure')
+      }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    with:
+      build_type: pull-request
+      script: "ci/test_python_distributed.sh"
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+  conda-python-distributed-tests-rerun-2:
+    needs: [conda-python-distributed-tests-rerun-1]
+    if: >-
+      ${{
+        always() &&
+        (needs.conda-python-distributed-tests-rerun-1.result == 'success' ||
+        needs.conda-python-distributed-tests-rerun-1.result == 'failure')
+      }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    with:
+      build_type: pull-request
+      script: "ci/test_python_distributed.sh"
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+  conda-python-distributed-tests-rerun-3:
+    needs: [conda-python-distributed-tests-rerun-2]
+    if: >-
+      ${{
+        always() &&
+        (needs.conda-python-distributed-tests-rerun-2.result == 'success' ||
+        needs.conda-python-distributed-tests-rerun-2.result == 'failure')
+      }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    with:
+      build_type: pull-request
+      script: "ci/test_python_distributed.sh"
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+  conda-python-distributed-tests-rerun-4:
+    needs: [conda-python-distributed-tests-rerun-3]
+    if: >-
+      ${{
+        always() &&
+        (needs.conda-python-distributed-tests-rerun-3.result == 'success' ||
+        needs.conda-python-distributed-tests-rerun-3.result == 'failure')
+      }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    with:
+      build_type: pull-request
+      script: "ci/test_python_distributed.sh"
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
   wheel-build-libucxx:
     needs: [build-details, checks]
     permissions:
@@ -439,6 +529,87 @@ jobs:
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_distributed_wheels
+    with:
+      build_type: pull-request
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      script: ci/test_wheel_distributed_ucxx.sh
+  # Repeat the full wheel test job serially to get fresh runner allocations.
+  wheel-tests-distributed-ucxx-rerun-1:
+    needs: [wheel-tests-distributed-ucxx]
+    if: >-
+      ${{
+        always() &&
+        (needs.wheel-tests-distributed-ucxx.result == 'success' ||
+        needs.wheel-tests-distributed-ucxx.result == 'failure')
+      }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    with:
+      build_type: pull-request
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      script: ci/test_wheel_distributed_ucxx.sh
+  wheel-tests-distributed-ucxx-rerun-2:
+    needs: [wheel-tests-distributed-ucxx-rerun-1]
+    if: >-
+      ${{
+        always() &&
+        (needs.wheel-tests-distributed-ucxx-rerun-1.result == 'success' ||
+        needs.wheel-tests-distributed-ucxx-rerun-1.result == 'failure')
+      }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    with:
+      build_type: pull-request
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      script: ci/test_wheel_distributed_ucxx.sh
+  wheel-tests-distributed-ucxx-rerun-3:
+    needs: [wheel-tests-distributed-ucxx-rerun-2]
+    if: >-
+      ${{
+        always() &&
+        (needs.wheel-tests-distributed-ucxx-rerun-2.result == 'success' ||
+        needs.wheel-tests-distributed-ucxx-rerun-2.result == 'failure')
+      }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    with:
+      build_type: pull-request
+      container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      script: ci/test_wheel_distributed_ucxx.sh
+  wheel-tests-distributed-ucxx-rerun-4:
+    needs: [wheel-tests-distributed-ucxx-rerun-3]
+    if: >-
+      ${{
+        always() &&
+        (needs.wheel-tests-distributed-ucxx-rerun-3.result == 'success' ||
+        needs.wheel-tests-distributed-ucxx-rerun-3.result == 'failure')
+      }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
     with:
       build_type: pull-request
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
