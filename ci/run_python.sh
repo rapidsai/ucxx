@@ -15,10 +15,11 @@ configure_ucx_tls
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 run_py_tests() {
+  FUTURE_TASK_SHUTDOWN_TEST="python/ucxx/ucxx/_lib/tests/test_future_task_shutdown.py"
   if [ "${DISABLE_CYTHON:-0}" -eq 0 ]; then
-    ARGS=("--run-cython")
+    ARGS=("--run-cython" "--ignore=${FUTURE_TASK_SHUTDOWN_TEST}")
   else
-    ARGS=()
+    ARGS=("--ignore=${FUTURE_TASK_SHUTDOWN_TEST}")
   fi
 
   CMD_LINE="python ${TIMEOUT_TOOL_PATH} --enable-python $((4*60)) python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ ${ARGS[*]}"
@@ -26,6 +27,24 @@ run_py_tests() {
   # Without append import mode, tests that create subprocess fail
   python "${TIMEOUT_TOOL_PATH}" --enable-python $((4*60)) \
     python -m pytest -n 4 --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ "${ARGS[@]}"
+}
+
+run_future_task_shutdown_test() {
+  FUTURE_TASK_SHUTDOWN_TEST="python/ucxx/ucxx/_lib/tests/test_future_task_shutdown.py"
+  REPEATS=${UCXX_FUTURE_TASK_SHUTDOWN_REPEATS:-5}
+  FAILED=0
+
+  for attempt in $(seq 1 "${REPEATS}"); do
+    log_message "Future task shutdown regression attempt ${attempt}/${REPEATS}"
+    if ! python "${TIMEOUT_TOOL_PATH}" --enable-python 60 \
+      python -m pytest --import-mode=append -vs "${FUTURE_TASK_SHUTDOWN_TEST}"; then
+      FAILED=1
+    fi
+  done
+
+  if [ "${FAILED}" -ne 0 ]; then
+    return 1
+  fi
 }
 
 run_py_tests_async() {
@@ -108,12 +127,17 @@ run_py_benchmark() {
 
   if [ "${LAST_STATUS}" -ne 0 ]; then
     echo "Failure running Python benchmark after ${MAX_ATTEMPTS} attempts"
+    if command -v nvidia-smi >/dev/null 2>&1; then
+      echo "GPU state after Python benchmark failure:"
+      nvidia-smi -q || true
+    fi
     exit "${LAST_STATUS}"
   fi
 }
 
 log_message "Python Core Tests"
 run_py_tests
+run_future_task_shutdown_test
 
 log_message "Python Async Tests"
 # run_py_tests_async PROGRESS_MODE   ENABLE_DELAYED_SUBMISSION ENABLE_PYTHON_FUTURE SKIP

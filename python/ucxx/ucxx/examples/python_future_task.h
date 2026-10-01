@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -8,6 +8,7 @@
 #include <ucxx/python/python_future_task.h>
 #include <ucxx/python/python_future_task_collector.h>
 
+#include <atomic>
 #include <chrono>
 #include <future>
 #include <memory>
@@ -31,19 +32,21 @@ typedef std::shared_ptr<FuturePool> FuturePoolPtr;
 
 class ApplicationThread {
  private:
-  std::thread _thread{};  ///< Thread object
-  bool _stop{false};      ///< Signal to stop on next iteration
+  std::thread _thread{};           ///< Thread object
+  std::atomic<bool> _stop{false};  ///< Signal to stop on next iteration
 
  public:
   ApplicationThread(PyObject* asyncioEventLoop,
                     std::shared_ptr<std::mutex> incomingPoolMutex,
-                    FuturePoolPtr incomingPool)
+                    FuturePoolPtr incomingPool,
+                    std::shared_ptr<std::promise<void>> taskAcceptedPromise)
   {
     ucxx_warn("Starting application thread");
     _thread = std::thread(ApplicationThread::progressUntilSync,
                           asyncioEventLoop,
                           incomingPoolMutex,
                           incomingPool,
+                          taskAcceptedPromise,
                           std::ref(_stop));
   }
 
@@ -55,8 +58,12 @@ class ApplicationThread {
       return;
     }
 
-    _stop = true;
+    _stop.store(true);
+    // The worker thread may need the GIL to complete a Python future before it exits.
+    // Do not hold the GIL while waiting for it to join.
+    auto* threadState = PyEval_SaveThread();
     _thread.join();
+    PyEval_RestoreThread(threadState);
   }
 
   static void submit(std::shared_ptr<std::mutex> incomingPoolMutex,
@@ -96,13 +103,19 @@ class ApplicationThread {
   static void progressUntilSync(PyObject* asyncioEventLoop,
                                 std::shared_ptr<std::mutex> incomingPoolMutex,
                                 FuturePoolPtr incomingPool,
-                                const bool& stop)
+                                std::shared_ptr<std::promise<void>> taskAcceptedPromise,
+                                const std::atomic<bool>& stop)
   {
     ucxx_warn("Application thread started");
     auto processingPool = std::make_shared<FuturePool>();
-    while (!stop) {
+    bool taskAccepted{false};
+    while (!stop.load()) {
       // ucxx_warn("Application thread loop");
       ApplicationThread::submit(incomingPoolMutex, incomingPool, processingPool);
+      if (!taskAccepted && !processingPool->empty()) {
+        taskAcceptedPromise->set_value();
+        taskAccepted = true;
+      }
       ApplicationThread::processLoop(processingPool);
     }
   }
@@ -115,6 +128,11 @@ class Application {
     std::make_shared<std::mutex>()};  ///< Mutex to access the Python futures pool
   FuturePoolPtr _incomingPool{std::make_shared<FuturePool>()};  ///< Incoming task pool
   PyObject* _asyncioEventLoop{nullptr};
+  std::shared_ptr<std::promise<void>> _taskAcceptedPromise{
+    std::make_shared<std::promise<void>>()};  ///< Signals when the progress thread accepts a task
+  std::shared_future<void> _taskAcceptedFuture{_taskAcceptedPromise->get_future().share()};
+  std::shared_ptr<std::promise<void>> _closePromise{std::make_shared<std::promise<void>>()};
+  std::shared_future<void> _closeFuture{_closePromise->get_future().share()};
 
  public:
   explicit Application(PyObject* asyncioEventLoop) : _asyncioEventLoop(asyncioEventLoop)
@@ -123,11 +141,18 @@ class Application {
 
     ucxx_warn("Launching application");
 
-    _thread =
-      std::make_unique<ApplicationThread>(_asyncioEventLoop, _incomingPoolMutex, _incomingPool);
+    _thread = std::make_unique<ApplicationThread>(
+      _asyncioEventLoop, _incomingPoolMutex, _incomingPool, _taskAcceptedPromise);
   }
 
-  ~Application() { ucxx::python::PythonFutureTaskCollector::get().collect(); }
+  ~Application()
+  {
+    _closePromise->set_value();
+    _thread.reset();
+    ucxx::python::PythonFutureTaskCollector::get().collect();
+  }
+
+  void waitUntilTaskAccepted() { _taskAcceptedFuture.wait(); }
 
   PyObject* submit(double duration = 1.0, size_t id = 0)
   {
@@ -149,6 +174,22 @@ class Application {
       _incomingPool->push_back(std::move(task));
       return handle;
     }
+  }
+
+  PyObject* submitUntilClose(size_t id)
+  {
+    auto task = ucxx::python::PythonFutureTask<size_t>(
+      std::packaged_task<size_t()>([id, closeFuture = _closeFuture]() {
+        closeFuture.wait();
+        return id;
+      }),
+      PyLong_FromSize_t,
+      _asyncioEventLoop);
+
+    std::lock_guard<std::mutex> lock(*_incomingPoolMutex);
+    auto handle = task.getHandle();
+    _incomingPool->push_back(std::move(task));
+    return handle;
   }
 };
 
