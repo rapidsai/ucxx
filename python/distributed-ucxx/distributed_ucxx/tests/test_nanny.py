@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from distributed import Nanny, Scheduler
@@ -16,7 +16,8 @@ class KeyboardInterruptWorker(Worker):
         self.loop.add_callback(raise_err)
 
 
-@gen_test(timeout=120)
+# `ucxx_loop` checks threads after stopping UCXX's notifier during fixture teardown.
+@gen_test(timeout=120, clean_kwargs={"threads": False})
 async def test_nanny_closed_by_keyboard_interrupt(ucxx_loop):
     async with Scheduler(protocol="ucx", dashboard_address=":0") as s:
         async with Nanny(
