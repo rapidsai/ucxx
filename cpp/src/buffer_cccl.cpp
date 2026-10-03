@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -20,6 +20,24 @@ namespace ucxx {
  * @brief Concrete CCCL buffer implementation.
  */
 struct CCCLBufferImpl {
+  struct ReadyDevicePool : ::cuda::device_memory_pool_ref {
+    explicit ReadyDevicePool(::cuda::device_memory_pool_ref pool) : device_memory_pool_ref{pool} {}
+
+    // Buffer exposes a pointer without a consumer-stream contract. Allocate
+    // synchronously on CCCL's allocation stream, not the application's default
+    // stream. Return memory on the same internal stream; consumers must finish
+    // accessing the buffer before it is destroyed.
+    void* allocate(::cuda::stream_ref, size_t bytes, size_t alignment)
+    {
+      return allocate_sync(bytes, alignment);
+    }
+
+    void deallocate(::cuda::stream_ref, void* ptr, size_t bytes, size_t alignment) noexcept
+    {
+      deallocate_sync(ptr, bytes, alignment);
+    }
+  };
+
   using cccl_buffer_type = ::cuda::buffer<::cuda::std::byte, ::cuda::mr::device_accessible>;
   cccl_buffer_type buffer;
 
@@ -32,7 +50,7 @@ struct CCCLBufferImpl {
   }
 
   explicit CCCLBufferImpl(const size_t size)
-    : buffer{::cudaStream_t{0}, get_device_pool(), size, ::cuda::no_init}
+    : buffer{::cudaStream_t{0}, ReadyDevicePool{get_device_pool()}, size, ::cuda::no_init}
   {
   }
 };
