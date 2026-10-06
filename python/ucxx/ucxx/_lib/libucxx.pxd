@@ -66,6 +66,7 @@ cdef class UCXRequest:
         bint _enable_python_future
         bint _completed
 
+    cdef Request* _request_ptr(self) except NULL
     cdef shared_ptr[Request] get_ucxx_shared_ptr(self) nogil
 
 
