@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import asyncio
 import os
+import struct
 from unittest.mock import patch
 
+import msgpack
 import pytest
 
 import dask
@@ -35,6 +37,16 @@ try:
     HOST = ucxx.get_address()
 except Exception:
     HOST = "127.0.0.1"
+
+
+def _msgpack_extradata_logs(records):
+    return [
+        record
+        for record in records
+        if record.name == "distributed.protocol.core"
+        and record.exc_info is not None
+        and isinstance(record.exc_info[1], msgpack.ExtraData)
+    ]
 
 
 def test_registered(ucxx_loop):
@@ -127,7 +139,6 @@ async def test_cancel_pending_close_leaves_comm_usable(ucxx_loop):
     paused_ep = PausedFrameSend(writer.ep)
     writer._ep = paused_ep
     write_task = asyncio.create_task(writer.write({"op": "first"}))
-    close_task = None
     try:
         await asyncio.wait_for(paused_ep.frame_started.wait(), 5)
         close_task = asyncio.create_task(writer.close())
@@ -148,6 +159,127 @@ async def test_cancel_pending_close_leaves_comm_usable(ucxx_loop):
         await asyncio.gather(write_task, return_exceptions=True)
         writer.abort()
         reader.abort()
+
+
+@gen_test()
+async def test_deserialization_error_aborts_comm(ucxx_loop, caplog):
+    writer, reader = await get_comm_pair()
+    try:
+        await writer.ep.send(struct.pack("?Q", False, 1))
+        await writer.ep.send(struct.pack("?Q", False, 2))
+        await writer.ep.send(b"\x01\x02")
+
+        with pytest.raises(msgpack.ExtraData):
+            await reader.read()
+        assert reader.closed()
+        assert _msgpack_extradata_logs(caplog.records)
+    finally:
+        writer.abort()
+        reader.abort()
+
+
+@gen_test()
+async def test_frame_trace_records_comm_roundtrip(ucxx_loop):
+    import importlib
+    from io import StringIO
+
+    from distributed_ucxx.frame_trace import FrameTrace
+
+    ucxx_comm = importlib.import_module("distributed_ucxx.ucxx")
+    trace = FrameTrace(capacity=32)
+    with patch.object(ucxx_comm, "frame_trace", trace):
+        writer, reader = await get_comm_pair()
+        try:
+            await writer.write({"op": "ping"})
+            assert await reader.read() == {"op": "ping"}
+            output = StringIO()
+            trace.dump(output)
+            events = output.getvalue()
+            assert "write-start" in events
+            assert "write-done" in events
+            assert "read-done" in events
+            assert "stage=tag-send-start part=control" in events
+            assert "stage=tag-send-done part=frame[0]" in events
+            assert "stage=tag-recv-done part=frame[0]" in events
+            assert f"tag=0x{writer.ep._tags['msg_send']:x}" in events
+            assert f"tag=0x{reader.ep._tags['msg_recv']:x}" in events
+            assert "ping" not in events
+        finally:
+            writer.abort()
+            reader.abort()
+
+
+@gen_test()
+async def test_frame_trace_records_close_header_before_abort(ucxx_loop):
+    import importlib
+    from io import StringIO
+
+    from distributed_ucxx.frame_trace import FrameTrace
+
+    ucxx_comm = importlib.import_module("distributed_ucxx.ucxx")
+    trace = FrameTrace(capacity=32)
+    with patch.object(ucxx_comm, "frame_trace", trace):
+        writer, reader = await get_comm_pair()
+        try:
+            tag = writer.ep._tags["msg_send"]
+            await writer.write({"op": "ping"})
+            assert await reader.read() == {"op": "ping"}
+            await writer.close()
+            output = StringIO()
+            trace.dump(output)
+            events = output.getvalue()
+            assert (
+                f"stage=close-send-start part=control tag=0x{tag:x} length=16" in events
+            )
+            assert (
+                f"stage=close-send-done part=control tag=0x{tag:x} length=16" in events
+            )
+            assert "stage=abort" in events
+            assert events.index("stage=tag-send-done part=frame[0]") < events.index(
+                "stage=close-send-start"
+            )
+            assert events.index("stage=close-send-done") < events.index("stage=abort")
+        finally:
+            writer.abort()
+            reader.abort()
+
+
+def test_frame_trace_is_bounded_and_does_not_log_payload():
+    from io import StringIO
+
+    from distributed_ucxx.frame_trace import FrameTrace
+
+    trace = FrameTrace(capacity=2)
+    for sequence in range(3):
+        trace.record(
+            "sample",
+            endpoint=1,
+            sequence=sequence,
+            frames=(b"secret payload",),
+        )
+    output = StringIO()
+    trace.dump(output)
+    events = output.getvalue()
+    assert "seq=0" not in events
+    assert "seq=1" in events
+    assert "seq=2" in events
+    assert "secret payload" not in events
+
+
+def test_frame_trace_detects_change_in_second_frame():
+    from io import StringIO
+
+    from distributed_ucxx.frame_trace import FrameTrace
+
+    trace = FrameTrace()
+    trace.record("sample", endpoint=1, sequence=1, frames=(b"header", b"first"))
+    trace.record("sample", endpoint=1, sequence=2, frames=(b"header", b"second"))
+    output = StringIO()
+    trace.dump(output)
+    first, second = (
+        line for line in output.getvalue().splitlines() if "stage=sample" in line
+    )
+    assert first.split("samples=", 1)[1] != second.split("samples=", 1)[1]
 
 
 @gen_test()
@@ -339,7 +471,7 @@ async def test_ping_pong_numba(ucxx_loop):
 @pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.parametrize("processes", [True, False])
 @gen_test()
-async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes):
+async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes, caplog):
     async with LocalCluster(
         protocol=protocol,
         host=HOST,
@@ -356,6 +488,11 @@ async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes):
             if not processes:
                 assert any(w.data == {x.key: 2} for w in cluster.workers.values())
             assert len(cluster.scheduler.workers) == 2
+
+    if not processes:
+        assert not _msgpack_extradata_logs(caplog.records), (
+            "A worker received malformed protocol frames without failing the test"
+        )
 
 
 @pytest.mark.slow

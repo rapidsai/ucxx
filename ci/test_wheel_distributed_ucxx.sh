@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -36,4 +36,9 @@ rapids-pip-retry install \
 print_system_stats
 
 rapids-logger "Run distributed-ucxx tests with wheels"
+if [[ "${RAPIDS_PY_VERSION}" == "3.11" ]] && \
+   nvidia-smi --query-gpu=name --format=csv,noheader | grep -Eqi '(^| )L4($| )'; then
+    export UCXX_DISTRIBUTED_FULL_SUITE_REPEATS=5
+    export UCXX_LOCALCLUSTER_STRESS_REPEATS=20
+fi
 ./ci/run_python_distributed.sh
