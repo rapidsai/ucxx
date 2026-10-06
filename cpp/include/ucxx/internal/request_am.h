@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <functional>
@@ -18,6 +18,7 @@
 namespace ucxx {
 
 class Buffer;
+class Endpoint;
 class InflightRequests;
 class RequestAm;
 class Request;
@@ -80,7 +81,21 @@ class RecvAmMessage {
   void callback(void* request, ucs_status_t status);
 };
 
-typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAm>>> AmPoolType;
+/**
+ * @brief Active-message receive queues owned by a UCXX endpoint.
+ *
+ * The queues outlive the UCP endpoint handle so completed, unmatched messages remain
+ * available while the owning `ucxx::Endpoint` object is alive.
+ */
+class AmEndpointData {
+ public:
+  std::queue<std::shared_ptr<RequestAm>> _recvPool{};  ///< Completed unmatched active messages
+  std::queue<std::shared_ptr<RequestAm>> _recvWait{};  ///< Posted receives waiting for a message
+  bool _closed{false};  ///< Whether the owning endpoint has been closed
+};
+
+typedef std::unordered_map<ucp_ep_h, std::weak_ptr<AmEndpointData>> AmEndpointMapType;
+typedef std::unordered_map<ucp_ep_h, std::queue<std::shared_ptr<RequestAm>>> AmUnroutedPoolType;
 typedef std::map<std::shared_ptr<RequestAm>,
                  std::shared_ptr<RecvAmMessage>,
                  std::owner_less<std::shared_ptr<RequestAm>>>
@@ -103,8 +118,11 @@ class AmData {
  public:
   std::weak_ptr<Worker> _worker{};  ///< The worker to which the Active Message callback belongs
   std::string _ownerString{};       ///< The owner string used for logging
-  AmPoolType _recvPool{};  ///< The pool of completed receive requests (waiting for user request)
-  AmPoolType _recvWait{};  ///< The pool of user receive requests (waiting for message arrival)
+  AmEndpointMapType _endpoints{};   ///< Active endpoint handle to stable receive state mapping
+  std::unordered_map<const Endpoint*, std::shared_ptr<AmEndpointData>>
+    _endpointStates{};  ///< Stable receive state retained for each live Endpoint object
+  AmUnroutedPoolType _unroutedRecvPool{};  ///< Completed messages received on UCP endpoints not yet
+                                           ///< owned by a `ucxx::Endpoint`.
   RecvAmMessageMapType
     _recvAmMessageMap{};  ///< The active messages waiting to be handled by callback
   AmReceiverCallbackOwnerMapType

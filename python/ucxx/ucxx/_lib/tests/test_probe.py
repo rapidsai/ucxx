@@ -69,6 +69,9 @@ def _server_probe(queue, probe_type, api_type="worker"):
     if probe_type == "am":
         while ep.am_probe() is False:
             worker.progress()
+        if api_type == "endpoint":
+            ep.close_blocking()
+            assert ep.am_probe()
         recv_req = ep.am_recv()
         wait_requests(worker, "blocking", recv_req)
         received = bytes(recv_req.recv_buffer)
