@@ -409,7 +409,7 @@ dependencies:
           - &numpy numpy>=2.0,<3.0
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
-          - cuda-core>=0.5.1,<2
+          - cuda-core>=1.0,<2
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -439,7 +439,8 @@ dependencies:
           - matrix:
               dependencies: "oldest"
             packages:
-              - cuda-core==0.5.1
+              # cuda-core 1.0.0 cannot import with CUDA 13.0.x bindings.
+              - cuda-core==1.0.1
               - numpy==2.0.*
           - matrix:
             packages:
