@@ -293,13 +293,20 @@ ucs_status_t RequestAm::recvCallback(void* arg,
       auto endpoint     = amData->_endpoints.find(ep);
       auto endpointData = endpoint == amData->_endpoints.end() ? nullptr : endpoint->second.lock();
       if (endpointData == nullptr) {
-        ucxx_error("No active UCXX endpoint state for incoming active message from UCP endpoint %p",
-                   ep);
-        return UCS_ERR_NOT_CONNECTED;
-      }
-
-      auto& recvWait = endpointData->_recvWait;
-      if (!recvWait.empty()) {
+        // The UCP endpoint is not (yet) owned by a `ucxx::Endpoint`. This happens, for
+        // example, when a remote peer connects via worker address and sends before the
+        // local side creates its endpoint: UCX creates an internal endpoint and later
+        // returns that same handle from `ucp_ep_create`. Keep the message under the raw
+        // handle so it is adopted when the matching `ucxx::Endpoint` is created.
+        req = std::shared_ptr<RequestAm>(new RequestAm(worker,
+                                                       data::AmReceive(),
+                                                       std::move("amReceive"),
+                                                       worker->isFutureEnabled(),
+                                                       nullptr,
+                                                       nullptr));
+        amData->_unroutedRecvPool[ep].push(req);
+        ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "unroutedRecvPool");
+      } else if (auto& recvWait = endpointData->_recvWait; !recvWait.empty()) {
         req = recvWait.front();
         recvWait.pop();
         ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");

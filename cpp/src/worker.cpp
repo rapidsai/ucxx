@@ -156,9 +156,19 @@ ucs_status_t internal::AmEndpointRegistry::createEndpoint(
   auto status = createEndpointFunction();
   if (status != UCS_OK) return status;
 
-  auto endpointData                                  = std::make_shared<internal::AmEndpointData>();
-  worker->_amData->_endpointStates[endpoint]         = endpointData;
-  worker->_amData->_endpoints[endpoint->getHandle()] = endpointData;
+  auto handle                                = endpoint->getHandle();
+  auto endpointData                          = std::make_shared<internal::AmEndpointData>();
+  worker->_amData->_endpointStates[endpoint] = endpointData;
+  worker->_amData->_endpoints[handle]        = endpointData;
+
+  // Adopt messages that arrived on this UCP endpoint before it was owned by a
+  // `ucxx::Endpoint`, e.g., when UCX matched it to an endpoint internally created for a
+  // remote peer that connected first.
+  auto unrouted = worker->_amData->_unroutedRecvPool.find(handle);
+  if (unrouted != worker->_amData->_unroutedRecvPool.end()) {
+    endpointData->_recvPool = std::move(unrouted->second);
+    worker->_amData->_unroutedRecvPool.erase(unrouted);
+  }
   return status;
 }
 
@@ -803,9 +813,13 @@ bool internal::AmEndpointRegistry::probe(const Worker* worker, ucp_ep_h endpoint
 
   std::lock_guard<std::mutex> lock(worker->_amData->_mutex);
   auto endpoint = worker->_amData->_endpoints.find(endpointHandle);
-  if (endpoint == worker->_amData->_endpoints.end()) return false;
-  auto endpointData = endpoint->second.lock();
-  return endpointData != nullptr && !endpointData->_recvPool.empty();
+  if (endpoint != worker->_amData->_endpoints.end()) {
+    auto endpointData = endpoint->second.lock();
+    if (endpointData != nullptr) return !endpointData->_recvPool.empty();
+  }
+
+  auto unrouted = worker->_amData->_unroutedRecvPool.find(endpointHandle);
+  return unrouted != worker->_amData->_unroutedRecvPool.end() && !unrouted->second.empty();
 }
 
 bool internal::AmEndpointRegistry::probeEndpoint(const Worker* worker, const Endpoint* endpoint)
