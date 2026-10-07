@@ -53,6 +53,8 @@ repos:
       - id: verify-alpha-spec
         args:
           - --fix
+          - --mode
+          - release
           - --rapids-version-file=RAPIDS_VERSION
       - id: verify-hardcoded-version
         exclude: |
@@ -153,6 +155,5 @@ repos:
     rev: v1.24.1
     hooks:
       - id: zizmor
-
 default_language_version:
   python: python3
