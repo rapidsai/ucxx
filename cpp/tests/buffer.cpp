@@ -1,12 +1,18 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <algorithm>
 #include <memory>
 #include <numeric>
 #include <tuple>
+#include <type_traits>
 #include <utility>
+#include <vector>
+
+#if UCXX_ENABLE_CCCL
+#include <cuda_runtime_api.h>
+#endif
 
 #include <gtest/gtest.h>
 
@@ -127,6 +133,30 @@ TEST_P(BufferAllocator, TestThrowAfterRelease)
 #endif
   }
   EXPECT_THROW(_buffer->data(), std::runtime_error);
+}
+
+TEST_P(BufferAllocator, TestUsableOnNonBlockingStream)
+{
+#if UCXX_ENABLE_CCCL
+  if (_type != ucxx::BufferType::CCCL) GTEST_SKIP() << "Requires a CCCL device buffer";
+
+  cudaStream_t stream;
+  ASSERT_EQ(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking), cudaSuccess);
+  const auto destroyStream = [](cudaStream_t s) { cudaStreamDestroy(s); };
+  const std::unique_ptr<std::remove_pointer_t<cudaStream_t>, decltype(destroyStream)> streamOwner{
+    stream, destroyStream};
+  std::vector<unsigned char> result(_size);
+
+  // Do not synchronize the allocation stream here: Buffer must already be ready
+  // for a consumer whose stream does not synchronize with the default stream.
+  ASSERT_EQ(cudaMemsetAsync(_buffer->data(), 0x5a, _size, stream), cudaSuccess);
+  ASSERT_EQ(cudaMemcpyAsync(result.data(), _buffer->data(), _size, cudaMemcpyDeviceToHost, stream),
+            cudaSuccess);
+  ASSERT_EQ(cudaStreamSynchronize(stream), cudaSuccess);
+  EXPECT_TRUE(std::all_of(result.begin(), result.end(), [](unsigned char v) { return v == 0x5a; }));
+#else
+  GTEST_SKIP() << "UCXX was not built with CCCL support";
+#endif
 }
 
 INSTANTIATE_TEST_SUITE_P(Host,
