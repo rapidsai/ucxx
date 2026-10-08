@@ -17,7 +17,7 @@ authors = [
     { name = "NVIDIA Corporation" },
 ]
 license = "BSD-3-Clause"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "cuda-core>=0.5.1,<2",
     "libucxx==0.53.*,>=0.0.0a0",
@@ -78,7 +78,7 @@ sdist.exclude = ["*tests*"]
 sdist.reproducible = true
 wheel.packages = ["ucxx"]
 wheel.exclude = ["*.pyx", "CMakeLists.txt"]
-wheel.py-api = "cp311"
+wheel.py-api = "cp312"
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
