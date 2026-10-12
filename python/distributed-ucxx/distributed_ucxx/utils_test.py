@@ -198,6 +198,62 @@ def ucxx_exception_handler(event_loop, context):
     print(msg)
 
 
+def _asyncio_task_snapshot():
+    """Return a compact snapshot of tasks and their suspended await chains."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return "asyncio_tasks=unavailable(no-running-loop)"
+
+    task_snapshots = []
+    tasks = sorted(
+        asyncio.all_tasks(loop), key=lambda task: (task.get_name(), id(task))
+    )
+    for task in tasks[:30]:
+        await_chain = []
+        awaited = task.get_coro()
+        seen = set()
+        while awaited is not None and len(await_chain) < 12 and id(awaited) not in seen:
+            seen.add(id(awaited))
+            frame = (
+                getattr(awaited, "cr_frame", None)
+                or getattr(awaited, "gi_frame", None)
+                or getattr(awaited, "ag_frame", None)
+            )
+            code = (
+                getattr(awaited, "cr_code", None)
+                or getattr(awaited, "gi_code", None)
+                or getattr(awaited, "ag_code", None)
+            )
+            if code is None:
+                await_chain.append(type(awaited).__name__)
+            else:
+                await_chain.append(
+                    {
+                        "function": code.co_name,
+                        "file": code.co_filename,
+                        "line": None if frame is None else frame.f_lineno,
+                    }
+                )
+            awaited = (
+                getattr(awaited, "cr_await", None)
+                or getattr(awaited, "gi_yieldfrom", None)
+                or getattr(awaited, "ag_await", None)
+            )
+
+        task_snapshots.append(
+            {
+                "id": hex(id(task)),
+                "name": task.get_name(),
+                "done": task.done(),
+                "cancelled": task.cancelled(),
+                "await_chain": await_chain,
+            }
+        )
+
+    return f"asyncio_tasks={task_snapshots} asyncio_task_count={len(tasks)}"
+
+
 def _nanny_lifecycle_snapshot(phase, include_objects=False):
     ctx = ucxx.core._ctx
     notifier = None if ctx is None else ctx.notifier_thread
@@ -301,6 +357,7 @@ def _nanny_lifecycle_snapshot(phase, include_objects=False):
             f" listeners={live_listeners[:20]} listener_count={len(live_listeners)}"
             f" comms={live_comms[:20]} comm_count={len(live_comms)}"
         )
+        details += f" {_asyncio_task_snapshot()}"
         frames = sys._current_frames()
         notifier_stacks = {
             thread.name: "".join(traceback.format_stack(frames[thread.ident]))

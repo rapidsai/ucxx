@@ -20,7 +20,10 @@ def test_future_task_shutdown_does_not_deadlock_waiting_for_gil():
             print("waiting for progress thread to accept task", flush=True)
             app.wait_until_task_accepted()
             print("progress thread accepted task", flush=True)
+            print("destroying application", flush=True)
             del app
+            print("application destroyed", flush=True)
+            print("awaiting future", flush=True)
             assert await future == 17
             print("future completed after application teardown", flush=True)
 
@@ -45,4 +48,7 @@ def test_future_task_shutdown_does_not_deadlock_waiting_for_gil():
         )
 
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert "destroying application" in result.stdout
+    assert "application destroyed" in result.stdout
+    assert "awaiting future" in result.stdout
     assert "future completed after application teardown" in result.stdout
