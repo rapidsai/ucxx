@@ -42,6 +42,7 @@ _NANNY_LIFECYCLE_DIAGNOSTIC_TESTS = {
     "test_nanny_closed_by_keyboard_interrupt",
     "test_ucxx_localcluster[True-ucxx]",
     "test_ucx_config_w_env_var[ucx]",
+    "test_ucxx_deserialize",
 }
 
 

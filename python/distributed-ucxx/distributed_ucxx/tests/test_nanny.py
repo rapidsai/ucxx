@@ -6,7 +6,10 @@ import asyncio
 from distributed import Nanny, Scheduler
 from distributed.utils_test import gen_test
 from distributed.worker import Worker
-from distributed_ucxx.utils_test import _asyncio_task_snapshot
+from distributed_ucxx.utils_test import (
+    _NANNY_LIFECYCLE_DIAGNOSTIC_TESTS,
+    _asyncio_task_snapshot,
+)
 
 
 class KeyboardInterruptWorker(Worker):
@@ -38,6 +41,10 @@ def test_nanny_lifecycle_snapshot_includes_asyncio_task_stacks():
     details = asyncio.run(snapshot_while_task_is_suspended())
     assert "lifecycle-diagnostic-probe" in details
     assert "wait_forever" in details
+
+
+def test_deserialize_teardown_is_lifecycle_diagnostic_target():
+    assert "test_ucxx_deserialize" in _NANNY_LIFECYCLE_DIAGNOSTIC_TESTS
 
 
 # `ucxx_loop` checks threads after stopping UCXX's notifier during fixture teardown.

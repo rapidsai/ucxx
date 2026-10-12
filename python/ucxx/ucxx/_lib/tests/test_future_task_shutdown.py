@@ -1,11 +1,36 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import asyncio
 import subprocess
 import sys
 import textwrap
 
 import pytest
+
+
+def test_future_task_example_snapshot_includes_suspended_tasks():
+    from ucxx.examples.python_future_task_example import _asyncio_task_snapshot
+
+    async def wait_forever():
+        await asyncio.Event().wait()
+
+    async def snapshot_while_task_is_suspended():
+        loop = asyncio.get_running_loop()
+        task = asyncio.create_task(wait_forever(), name="future-example-test-task")
+        await asyncio.sleep(0)
+        try:
+            return _asyncio_task_snapshot(loop)
+        finally:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    snapshot = asyncio.run(snapshot_while_task_is_suspended())
+    assert "future-example-test-task" in snapshot
+    assert "wait_forever" in snapshot
 
 
 def test_future_task_shutdown_does_not_deadlock_waiting_for_gil():
