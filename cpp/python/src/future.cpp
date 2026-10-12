@@ -113,7 +113,8 @@ PyObject* check_future_state(PyObject* future)
 
   PyGILState_STATE state = PyGILState_Ensure();
 
-  result = PyObject_VectorcallMethod(cancelled_str, &future, 1 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
+  result =
+    PyObject_VectorcallMethod(cancelled_str, &future, 1 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
   if (PyErr_Occurred()) {
     ucxx_error("ucxx::python::%s, error calling `cancelled()` from `asyncio.Future` object",
                __func__);
@@ -151,8 +152,9 @@ PyObject* future_set_result(PyObject* future, PyObject* value)
   }
 
   {
-    PyObject *args[] = {future, value};
-    result = PyObject_VectorcallMethod(set_result_str, args, 2 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
+    PyObject* args[] = {future, value};
+    result =
+      PyObject_VectorcallMethod(set_result_str, args, 2 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
   }
   if (PyErr_Occurred()) {
     ucxx_error("ucxx::python::%s, error calling `set_result()` from `asyncio.Future` object",
@@ -191,8 +193,9 @@ PyObject* future_set_exception(PyObject* future, PyObject* exception, const char
   if (formed_exception == NULL) goto err;
 
   {
-    PyObject *args[] = {future, formed_exception};
-    result = PyObject_VectorcallMethod(set_exception_str, args, 2 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
+    PyObject* args[] = {future, formed_exception};
+    result =
+      PyObject_VectorcallMethod(set_exception_str, args, 2 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
   }
 
   goto finish;
