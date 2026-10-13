@@ -10,7 +10,7 @@ dependencies:
 - c-compiler
 - cloudpickle
 - cmake>=4.0
-- cuda-core>=0.5.1,<2
+- cuda-core>=1.0,<2
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-version=12.9
@@ -26,7 +26,7 @@ dependencies:
 - libtool
 - make
 - ninja
-- numba-cuda>=0.22.1
+- numba-cuda>=0.30.2
 - numpy>=2.0,<3.0
 - nvidia-ml-py>=12
 - pip
