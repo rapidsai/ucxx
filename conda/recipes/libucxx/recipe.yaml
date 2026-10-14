@@ -74,7 +74,7 @@ outputs:
         - ${{ compiler("c") }}
         - ${{ compiler("cxx") }}
         - ${{ compiler("cuda") }}
-        - cmake ${{ cmake_version }}
+        - cmake
         - cuda-version =${{ cuda_version }}
         - ninja
         - ${{ stdlib("c") }}
@@ -102,7 +102,7 @@ outputs:
           - lib/libucxx.so
     requirements:
       build:
-        - cmake ${{ cmake_version }}
+        - cmake
         - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
@@ -166,7 +166,7 @@ outputs:
         overlinking_behavior: "error"
     requirements:
       build:
-        - cmake ${{ cmake_version }}
+        - cmake
         - ${{ stdlib("c") }}
       host:
         - ${{ pin_subpackage("libucxx", exact=True) }}
@@ -194,7 +194,7 @@ outputs:
         overlinking_behavior: "error"
     requirements:
       build:
-        - cmake ${{ cmake_version }}
+        - cmake
         - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
