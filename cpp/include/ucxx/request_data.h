@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -302,7 +302,8 @@ class TagReceive {
  */
 class TagReceiveWithHandle {
  public:
-  void* _buffer{nullptr};  ///< The raw pointer where received data should be stored.
+  void* _buffer{nullptr};   ///< The raw pointer where received data should be stored.
+  const size_t _length{0};  ///< The size in bytes of the receive buffer.
   const std::shared_ptr<TagProbeInfo> _probeInfo{
     nullptr};  ///< TagProbeInfo containing message length and handle
 
@@ -311,12 +312,13 @@ class TagReceiveWithHandle {
    *
    * Construct an object containing tag receive with handle-specific data.
    *
-   * @param[out] buffer      a raw pointer to the received data. The buffer must be large
-   *                         enough to hold the message data, otherwise the behavior is
-   *                         undefined. The buffer must be pre-allocated.
+   * @param[out] buffer      a raw pointer to the received data. The buffer must be pre-allocated.
+   * @param[in]  length      the size in bytes of the receive buffer.
    * @param[in]  probeInfo   the TagProbeInfo object containing message length and handle.
    */
-  explicit TagReceiveWithHandle(decltype(_buffer) buffer, std::shared_ptr<TagProbeInfo> probeInfo);
+  explicit TagReceiveWithHandle(decltype(_buffer) buffer,
+                                decltype(_length) length,
+                                std::shared_ptr<TagProbeInfo> probeInfo);
 
   TagReceiveWithHandle() = delete;
 };

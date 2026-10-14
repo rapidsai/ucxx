@@ -15,8 +15,6 @@ namespace ucxx {
 class Context;
 class Worker;
 
-namespace experimental {
-
 /**
  * @brief Builder class for constructing `std::shared_ptr<ucxx::Worker>` objects.
  *
@@ -24,21 +22,24 @@ namespace experimental {
  * optional parameters to be specified via method chaining. Construction happens when the
  * builder expression completes (via implicit conversion) or when `build()` is called.
  *
- * The `context` is required and must be provided to `createWorker()`.
- * The `enableDelayedSubmission()` and `enableFuture()` methods are optional.
+ * The `context` is required and must be provided to `workerBuilder()`.
+ * The `delayedSubmission()` and `pythonFuture()` methods are optional.
+ *
+ * `WorkerBuilder` objects are not thread-safe. Accessing the same builder object from multiple
+ * threads requires external synchronization. Distinct builder objects are independent.
  *
  * @code{.cpp}
  *   // Minimal usage (no options enabled)
- *   auto worker = ucxx::experimental::createWorker(context).build();
+ *   auto worker = ucxx::workerBuilder(context).build();
  *
  *   // With optional parameters
- *   auto worker = ucxx::experimental::createWorker(context)
- *                   .enableDelayedSubmission(true)
- *                   .enableFuture(true)
+ *   auto worker = ucxx::workerBuilder(context)
+ *                   .delayedSubmission(true)
+ *                   .pythonFuture(true)
  *                   .build();
  *
  *   // Using implicit conversion
- *   std::shared_ptr<ucxx::Worker> worker = ucxx::experimental::createWorker(context);
+ *   std::shared_ptr<ucxx::Worker> worker = ucxx::workerBuilder(context);
  * @endcode
  */
 class WorkerBuilder final {
@@ -72,7 +73,7 @@ class WorkerBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Worker>` object.
    */
-  operator std::shared_ptr<Worker>() const;
+  operator std::shared_ptr<Worker>();
 
   /**
    * @brief Configure delayed submission to the progress thread.
@@ -119,7 +120,7 @@ class WorkerBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Worker>` object.
    */
-  [[nodiscard]] std::shared_ptr<Worker> build() const;
+  [[nodiscard]] std::shared_ptr<Worker> build();
 
  private:
   struct Impl;
@@ -129,36 +130,34 @@ class WorkerBuilder final {
 /**
  * @brief Create a WorkerBuilder for constructing a `shared_ptr<ucxx::Worker>`.
  *
- * This function returns a builder object that allows setting optional context parameters
+ * This function returns a builder object that allows setting optional worker parameters
  * via method chaining. The context is required and must be provided as an argument. The
  * actual worker is constructed when the builder is converted to a `shared_ptr<Worker>`
  * or when `build()` is called.
  *
  * @code{.cpp}
- *   auto worker = ucxx::experimental::createWorker(context)
- *                   .enableDelayedSubmission()
+ *   auto worker = ucxx::workerBuilder(context)
+ *                   .delayedSubmission()
  *                   .build();
  * // Minimal usage (only context required)
- * auto worker = ucxx::experimental::createWorker().build();
+ * auto worker = ucxx::workerBuilder(context).build();
  *
  * // With optional enableDelayedSubmission
- * auto worker = ucxx::experimental::createContext(UCP_FEATURE_TAG)
- *                 .enableDelayedSubmission()
+ * auto worker = ucxx::workerBuilder(context)
+ *                 .delayedSubmission()
  *                 .build();
  *
  * // Using implicit conversion
- * std::shared_ptr<ucxx::Worker> worker = ucxx::experimental::createWorker();
+ * std::shared_ptr<ucxx::Worker> worker = ucxx::workerBuilder(context);
  *
  * @endcode
  *
  * @param[in] context context from which the worker will be created (required).
  * @return A WorkerBuilder object that can be used to set optional parameters.
  */
-inline WorkerBuilder createWorker(std::shared_ptr<Context> context)
+[[nodiscard]] inline WorkerBuilder workerBuilder(std::shared_ptr<Context> context)
 {
   return WorkerBuilder(std::move(context));
 }
-
-}  // namespace experimental
 
 }  // namespace ucxx

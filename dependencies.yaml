@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
@@ -6,7 +6,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.2"]
+      cuda: ["12.9", "13.3"]
       arch: [x86_64, aarch64]
     includes:
       - build_cpp
@@ -22,10 +22,12 @@ files:
       - run_python_ucxx
       - run_python_distributed_ucxx
       - test_cpp
-      - test_python_ucxx
+      - test_python_common
       - test_python_distributed_ucxx
+      - test_python_ucxx
       - depends_on_cudf
       - depends_on_cupy
+      - depends_on_numba_cuda
       - depends_on_rmm
       - depends_on_ucx_run
   test_cpp:
@@ -41,10 +43,13 @@ files:
     includes:
       - cuda_version
       - py_version
+      - test_python_common
+      - test_python_distributed_ucxx
       - test_python_ucxx
       - depends_on_cupy
       - depends_on_cudf
       - depends_on_libucxx
+      - depends_on_numba_cuda
       - depends_on_ucxx
       - depends_on_ucxx_tests
   test_python_distributed:
@@ -52,17 +57,18 @@ files:
     includes:
       - cuda_version
       - py_version
+      - test_python_common
       - test_python_distributed_ucxx
       - depends_on_cupy
       - depends_on_cudf
       - depends_on_libucxx
+      - depends_on_numba_cuda
       - depends_on_ucxx
       - depends_on_distributed_ucxx
   checks:
     output: none
     includes:
       - checks
-      - dev
       - py_version
   docs:
     output: none
@@ -73,6 +79,9 @@ files:
       - depends_on_ucxx
   py_build_libucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/libucxx
     extras:
       table: build-system
@@ -80,6 +89,9 @@ files:
       - rapids_build_skbuild
   py_rapids_build_libucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/libucxx
     extras:
       table: tool.rapids-build-backend
@@ -90,6 +102,9 @@ files:
       - depends_on_ucx_build
   py_run_libucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/libucxx
     extras:
       table: project
@@ -98,6 +113,9 @@ files:
       - depends_on_ucx_run
   py_build_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/ucxx
     extras:
       table: build-system
@@ -105,6 +123,9 @@ files:
       - rapids_build_skbuild
   py_rapids_build_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/ucxx
     extras:
       table: tool.rapids-build-backend
@@ -116,6 +137,9 @@ files:
       - depends_on_rmm
   py_run_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/ucxx
     extras:
       table: project
@@ -125,16 +149,24 @@ files:
       - depends_on_rmm
   py_test_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/ucxx
     extras:
       table: project.optional-dependencies
       key: test
     includes:
-      - test_python_ucxx
       - depends_on_cupy
       - depends_on_cudf
+      - depends_on_numba_cuda
+      - test_python_common
+      - test_python_ucxx
   py_build_distributed_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/distributed-ucxx
     extras:
       table: build-system
@@ -142,6 +174,9 @@ files:
       - rapids_build_setuptools
   py_run_distributed_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/distributed-ucxx
     extras:
       table: project
@@ -150,14 +185,19 @@ files:
       - depends_on_ucxx
   py_test_distributed_ucxx:
     output: pyproject
+    matrix:
+      use_cuda_wheels: ["true"]
+      cuda_suffixed: ["false"]
     pyproject_dir: python/distributed-ucxx
     extras:
       table: project.optional-dependencies
       key: test
     includes:
-      - test_python_distributed_ucxx
       - depends_on_cupy
       - depends_on_cudf
+      - depends_on_numba_cuda
+      - test_python_common
+      - test_python_distributed_ucxx
 channels:
   - rapidsai-nightly
   - rapidsai
@@ -170,7 +210,7 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - &cmake_ver cmake>=4.0
-          - librmm==26.8.*,>=0.0.0a0
+          - librmm==26.12.*,>=0.0.0a0
           - ninja
       - output_types: [requirements, pyproject]
         packages:
@@ -205,6 +245,9 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - pre-commit
+      - output_types: [conda]
+        packages:
+          - &doxygen doxygen=1.18.0 # pre-commit hook needs a specific version.
   # 'cuda_version' intentionally does not contain fallback entries... we want
   # a loud error if an unsupported 'cuda' value is passed
   cuda_version:
@@ -239,6 +282,10 @@ dependencies:
               cuda: "13.2"
             packages:
               - cuda-version=13.2
+          - matrix:
+              cuda: "13.3"
+            packages:
+              - cuda-version=13.3
       - output_types: requirements
         matrices:
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
@@ -289,6 +336,11 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==13.2.*
+          - matrix:
+              cuda: "13.3"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit==13.3.*
   cuda:
     common:
       - output_types: [conda]
@@ -302,8 +354,8 @@ dependencies:
           # These packages are useful for development but not otherwise required to build/run
           # RAPIDS
           - pip
-          - dask-cuda==26.8.*,>=0.0.0a0
-          - dask-cudf==26.8.*,>=0.0.0a0
+          - dask-cuda==26.12.*,>=0.0.0a0
+          - dask-cudf==26.12.*,>=0.0.0a0
           # UCX Build
           - libtool
           - automake
@@ -311,7 +363,7 @@ dependencies:
           # UCXX Build
           - pkg-config
           # Docs Build
-          - &doxygen doxygen=1.9.1 # pre-commit hook needs a specific version.
+          - *doxygen
   docs:
     common:
       - output_types: [conda]
@@ -332,10 +384,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.11"
-            packages:
-              - python=3.11
-          - matrix:
               py: "3.12"
             packages:
               - python=3.12
@@ -349,113 +397,128 @@ dependencies:
               - python=3.14
           - matrix:
             packages:
-              - python>=3.11
+              - python>=3.12
   run_python_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &numpy numpy>=1.23,<3.0
-          - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
-          - cuda-core>=1.0.0
+          - &numpy numpy>=2.0,<3.0
+          - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*,!=13.2.*,<14
+          - cuda-core>=1.0,<2
   run_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - rapids-dask-dependency==26.8.*,>=0.0.0a0
+          - rapids-dask-dependency==26.12.*,>=0.0.0a0
           - pyyaml>=6
-          - cuda-core>=0.3.2
+          - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*,!=13.2.*,<14
+          - cuda-core>=1.0,<2
   test_cpp:
     common:
       - output_types: conda
         packages:
           - *cmake_ver
-          - gdb  # Used for timeout_with_stack.py
-          - psutil  # Used for timeout_with_stack.py
-  test_python_ucxx:
+          - &gdb gdb  # Used for timeout_with_stack.py
+          - &psutil psutil  # Used for timeout_with_stack.py
+  test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cloudpickle
           - pytest
-          - pytest-asyncio>=1.0.0
-          - rapids-dask-dependency==26.8.*,>=0.0.0a0
           - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
-          - pytest-xdist
       - output_types: [conda]
         packages:
-          - gdb  # Used for timeout_with_stack.py
-          - &numba_cuda_test numba-cuda>=0.22.1,<0.29.0
-          - psutil  # Used for timeout_with_stack.py
+          - *gdb  # Used for timeout_with_stack.py
+          - *psutil  # Used for timeout_with_stack.py
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "true"
+              dependencies: "oldest"
             packages:
-              - &numba_cuda_cu12_test numba-cuda[cu12]>=0.22.1,<0.29.0
-          - matrix:
-              cuda: "13.*"
-              cuda_suffixed: "true"
-            packages:
-              - &numba_cuda_cu13_test numba-cuda[cu13]>=0.22.1,<0.29.0
-          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
+              # cuda-core 1.0.0 cannot import with CUDA 13.0.x bindings.
+              - cuda-core==1.0.1
+              - numpy==2.0.*
           - matrix:
             packages:
-              - *numba_cuda_test
   test_python_distributed_ucxx:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - *numpy
-          - pytest
-          - pytest-rerunfailures!=16.0.0  # See https://github.com/pytest-dev/pytest-rerunfailures/issues/302
-      - output_types: [conda]
+  test_python_ucxx:
+    common:
+      - output_types: [conda, requirements, pyproject]
         packages:
-          - gdb  # Used for timeout_with_stack.py
-          - *numba_cuda_test
-          - psutil  # Used for timeout_with_stack.py
-    specific:
-      - output_types: [requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-              cuda_suffixed: "true"
-            packages:
-              - *numba_cuda_cu12_test
-          - matrix:
-              cuda: "13.*"
-              cuda_suffixed: "true"
-            packages:
-              - *numba_cuda_cu13_test
-          - matrix:
-            packages:
-              - *numba_cuda_test
+          - cloudpickle
+          - pytest-asyncio>=1.0.0
+          - rapids-dask-dependency==26.12.*,>=0.0.0a0
+          - pytest-xdist
   depends_on_cupy:
     common:
       - output_types: conda
         packages:
-          - cupy>=13.6.0
+          - cupy>=14.0.1,!=14.1.0
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: requirements
         matrices:
           - matrix:
               cuda: "12.*"
             packages:
-              - cupy-cuda12x>=13.6.0
+              - &cupy_cu12 cupy-cuda12x>=14.0.1,!=14.1.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - &cupy_cuda13 cupy-cuda13x>=13.6.0
+              - &cupy_cu13 cupy-cuda13x>=14.0.1,!=14.1.0
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "false"
+            packages:
+              - *cupy_cu12
+          - matrix:
+              cuda: "13.*"
+              use_cuda_wheels: "false"
+            packages:
+              - *cupy_cu13
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "true"
+            packages:
+              - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+              use_cuda_wheels: "true"
+            packages:
+              - cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
+  depends_on_numba_cuda:
+    common:
+      - output_types: [conda]
+        packages:
+          - &numba_cuda numba-cuda>=0.30.2
+    specific:
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - numba-cuda[cu12]>=0.30.2
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - numba-cuda[cu13]>=0.30.2
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
+          - matrix:
+            packages:
+              - *numba_cuda
   depends_on_librmm:
     common:
       - output_types: conda
         packages:
-          - &librmm_unsuffixed librmm==26.8.*,>=0.0.0a0
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+          - &librmm_unsuffixed librmm==26.12.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -463,22 +526,21 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - librmm-cu12==26.8.*,>=0.0.0a0
+              - librmm-cu12==26.12.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - librmm-cu13==26.8.*,>=0.0.0a0
-          - {matrix: null, packages: [*librmm_unsuffixed]}
+              - librmm-cu13==26.12.*,>=0.0.0a0
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *librmm_unsuffixed
   depends_on_rmm:
     common:
       - output_types: conda
         packages:
-          - &rmm_unsuffixed rmm==26.8.*,>=0.0.0a0
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+          - &rmm_unsuffixed rmm==26.12.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -486,22 +548,21 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - rmm-cu12==26.8.*,>=0.0.0a0
+              - rmm-cu12==26.12.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - rmm-cu13==26.8.*,>=0.0.0a0
-          - {matrix: null, packages: [*rmm_unsuffixed]}
+              - rmm-cu13==26.12.*,>=0.0.0a0
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *rmm_unsuffixed
   depends_on_cudf:
     common:
       - output_types: [conda]
         packages:
-          - &cudf_unsuffixed cudf==26.8.*,>=0.0.0a0
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+          - &cudf_unsuffixed cudf==26.12.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -509,23 +570,26 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - cudf-cu12==26.8.*,>=0.0.0a0
+              - cudf-cu12==26.12.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - cudf-cu13==26.8.*,>=0.0.0a0
-          - {matrix: null, packages: [*cudf_unsuffixed]}
+              - cudf-cu13==26.12.*,>=0.0.0a0
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *cudf_unsuffixed
   depends_on_distributed_ucxx:
     common:
       - output_types: conda
         packages:
-          - distributed-ucxx==0.51.*,>=0.0.0a0
+          - distributed-ucxx==0.53.*,>=0.0.0a0
   depends_on_libucxx:
     common:
       - output_types: conda
         packages:
-          - &libucxx_unsuffixed libucxx==0.51.*,>=0.0.0a0
+          - &libucxx_unsuffixed libucxx==0.53.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -533,34 +597,31 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucxx-cu12==0.51.*,>=0.0.0a0
+              - libucxx-cu12==0.53.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libucxx-cu13==0.51.*,>=0.0.0a0
+              - libucxx-cu13==0.53.*,>=0.0.0a0
           - matrix:
+              cuda_suffixed: "false"
             packages:
               - *libucxx_unsuffixed
   depends_on_libucxx_examples:
     common:
       - output_types: conda
         packages:
-          - libucxx-examples==0.51.*,>=0.0.0a0
+          - libucxx-examples==0.53.*,>=0.0.0a0
   depends_on_libucxx_tests:
     common:
       - output_types: conda
         packages:
-          - libucxx-tests==0.51.*,>=0.0.0a0
+          - libucxx-tests==0.53.*,>=0.0.0a0
   depends_on_ucxx:
     common:
       - output_types: conda
         packages:
-          - &ucxx_unsuffixed ucxx==0.51.*,>=0.0.0a0
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+          - &ucxx_unsuffixed ucxx==0.53.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -568,18 +629,21 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - ucxx-cu12==0.51.*,>=0.0.0a0
+              - ucxx-cu12==0.53.*,>=0.0.0a0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - ucxx-cu13==0.51.*,>=0.0.0a0
-          - {matrix: null, packages: [*ucxx_unsuffixed]}
+              - ucxx-cu13==0.53.*,>=0.0.0a0
+          - matrix:
+              cuda_suffixed: "false"
+            packages:
+              - *ucxx_unsuffixed
   depends_on_ucxx_tests:
     common:
       - output_types: conda
         packages:
-          - ucxx-tests==0.51.*,>=0.0.0a0
+          - ucxx-tests==0.53.*,>=0.0.0a0
   depends_on_ucx_build:
     specific:
       - output_types: [conda]
@@ -587,11 +651,6 @@ dependencies:
           - matrix:
               no_libucx: "true"
             packages:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - ucx==1.18.0
-          # build against 1.19.0 on CUDA 13 (and make that the default when 'cuda' filter is not provided)
           - matrix:
             packages:
               - ucx==1.19.0
@@ -606,7 +665,7 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.18.0,<1.18.1
+              - libucx-cu12>=1.19.0,<1.19.1
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
@@ -623,13 +682,8 @@ dependencies:
               no_libucx: "true"
             packages:
           - matrix:
-              cuda: "12.*"
             packages:
-              - ucx>=1.18.0,<1.21
-          # require at least 1.19.0 on CUDA 13 (and make that the default when 'cuda' filter is not provided)
-          - matrix:
-            packages:
-              - ucx>=1.19.0,<1.21
+              - ucx>=1.19.0,<1.22
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
@@ -639,13 +693,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.18.0,<1.20
+              - libucx-cu12>=1.19.0,<1.22
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu13>=1.19.0,<1.21
-          # require at least 1.19.0 (CUDA 13 floor) if 'cuda' filter is not provided
+              - libucx-cu13>=1.19.0,<1.22
           - matrix:
             packages:
-              - libucx>=1.19.0,<1.21
+              - libucx>=1.19.0,<1.22

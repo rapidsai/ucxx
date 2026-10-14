@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -11,7 +11,11 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils import get_event_loop, hash64bits
-from ucxx._lib_async.utils_test import compute_timeouts
+from ucxx._lib_async.utils_test import (
+    compute_timeouts,
+    recv_close_receipt,
+    send_close_receipt,
+)
 from ucxx.testing import join_processes, run_in_subprocess, terminate_process
 
 mp = mp.get_context("spawn")
@@ -45,6 +49,8 @@ def _test_from_worker_address_server(queue, timeout):
         # Send data to client's endpoint
         send_msg = np.arange(10, dtype=np.int64)
         await ep.send(send_msg, tag=1, force_tag=True)
+        await recv_close_receipt(ep)
+        queue.put("receipt_received")
         await ep.close()
 
     loop = get_event_loop()
@@ -73,6 +79,8 @@ def _test_from_worker_address_client(queue, timeout):
         # Receive message from server
         recv_msg = np.empty(10, dtype=np.int64)
         await ep.recv(recv_msg, tag=1, force_tag=True)
+        await send_close_receipt(ep)
+        await asyncio.to_thread(queue.get)
         await ep.close()
 
         np.testing.assert_array_equal(recv_msg, np.arange(10, dtype=np.int64))

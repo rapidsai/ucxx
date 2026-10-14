@@ -34,8 +34,6 @@ cdef class UCXContext:
         shared_ptr[Context] _context
         dict _config
 
-    cpdef dict get_config(self)
-
     cdef shared_ptr[Context] get_ucxx_shared_ptr(self) nogil
 
 

@@ -1,19 +1,21 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
 
 #include <memory>
-#include <string>
 #include <string_view>
 
 #include <ucp/api/ucp.h>
 
+#include <ucxx/address_builder.h>
 #include <ucxx/component.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
+
+class Address;
 
 /**
  * @brief Component encapsulating the address of a UCP worker.
@@ -35,9 +37,8 @@ class Address : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::createAddressFromWorker()`
-   * - `ucxx::createAddressFromString()`
-   * - `ucxx::Worker::getAddress()`
+   * - `ucxx::AddressBuilder`
+   * - `ucxx::Worker::addressBuilder()`
    *
    * @param[in] worker  the parent `set::shared_ptr<Worker>` component.
    * @param[in] address UCP address handle.
@@ -54,29 +55,8 @@ class Address : public Component {
 
   ~Address();
 
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Address>` from worker.
-   *
-   * The constructor for a `shared_ptr<ucxx::Address>` object from a
-   * `std::shared_ptr<ucxx::Worker>` to obtain its address.
-   *
-   * @param[in] worker  parent worker from which to get the address.
-   *
-   * @returns The `shared_ptr<ucxx::Address>` object.
-   */
-  friend std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker);
-
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Address>` from string.
-   *
-   * The constructor for a `shared_ptr<ucxx::Address>` object from the address extracted
-   * as string from a remote `std::shared_ptr<ucxx::Worker>`.
-   *
-   * @param[in] addressString the string from which to create the address.
-   *
-   * @returns The `shared_ptr<ucxx::Address>` object.
-   */
-  friend std::shared_ptr<Address> createAddressFromString(std::string_view addressString);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Get the underlying `ucp_address_t*` handle.
@@ -117,17 +97,6 @@ class Address : public Component {
    * @returns The underlying `ucp_address_t` handle.
    */
   [[nodiscard]] std::string_view getStringView() const;
-
-  /**
-   * @brief Get the address as a string.
-   *
-   * Convenience method to copy the underlying address to a `std::string` and return it as
-   * a single object.
-   *
-   * @returns The underlying `ucp_address_t` handle.
-   */
-  [[deprecated("Removing in UCXX 0.51. Switch to `getStringView`.")]] [[nodiscard]] std::string
-  getString() const;
 };
 
 }  // namespace ucxx

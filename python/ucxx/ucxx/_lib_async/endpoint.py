@@ -1,11 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
 import array
 import asyncio
 import logging
-import warnings
 import weakref
 
 import ucxx._lib.libucxx as ucx_api
@@ -132,9 +131,12 @@ class Endpoint:
         self._ctx = None
 
     async def close(self, period=10**10, max_attempts=1):
-        """Close the endpoint cleanly.
-        This will attempt to flush outgoing buffers before actually
-        closing the underlying UCX endpoint.
+        """Close the endpoint.
+
+        This gives outstanding send coroutines an opportunity to make progress
+        before closing the underlying UCX endpoint. It does not confirm that a
+        peer received tagged messages. Applications that require that guarantee
+        must exchange an application-level acknowledgement before closing.
 
         A maximum timeout and number of attempts may be specified to prevent the
         underlying `Endpoint` object from failing to acquire the GIL, see `abort()`
@@ -208,6 +210,10 @@ class Endpoint:
     async def send(self, buffer, tag=None, force_tag=False):
         """Send `buffer` to connected peer.
 
+        Completion makes the local buffer safe to reuse, but does not confirm
+        that the peer received the message. Exchange an application-level
+        acknowledgement before force-closing when peer delivery is required.
+
         Parameters
         ----------
         buffer: exposing the buffer protocol or array/cuda interface
@@ -259,7 +265,11 @@ class Endpoint:
                 raise e
 
     async def send_multi(self, buffers, tag=None, force_tag=False):
-        """Send `buffer` to connected peer.
+        """Send `buffers` to connected peer.
+
+        Completion makes the local buffers safe to reuse, but does not confirm
+        that the peer received every frame. Exchange an application-level
+        acknowledgement before force-closing when peer delivery is required.
 
         Parameters
         ----------
@@ -443,15 +453,27 @@ class Endpoint:
         if not isinstance(tag, Tag):
             tag = Tag(tag)
 
+        probe_info = None
         try:
             self._ep.raise_on_error()
             if self.closed:
                 raise UCXCloseError("Endpoint closed")
-        except Exception as e:
+        except Exception:
             # Only probe the worker as last resort. To be reliable, probing for the tag
             # requires progressing the worker, thus prevent that happening too often.
-            if not self._ctx.worker.tag_probe(tag).matched:
-                raise e
+            worker = None if self._ctx is None else self._ctx.worker
+            if worker is None or not worker.tag_probe(tag).matched:
+                raise
+
+            if not isinstance(buffer, Array):
+                buffer = Array(buffer)
+
+            # Reserve the matched message and receive it directly on the worker. A tag
+            # receive submitted on an endpoint that has already closed would immediately
+            # be scheduled for cancelation.
+            probe_info = worker.tag_probe(tag, remove=True)
+            if not probe_info.matched:
+                raise
 
         if not isinstance(buffer, Array):
             buffer = Array(buffer)
@@ -470,8 +492,28 @@ class Endpoint:
 
         self._recv_count += 1
 
-        req = self._ep.tag_recv(buffer, tag, TagMaskFull)
-        ret = await req.wait()
+        if probe_info is None:
+            req = self._ep.tag_recv(buffer, tag, TagMaskFull)
+        else:
+            req = worker.tag_recv_with_handle(buffer, probe_info)
+
+        try:
+            ret = await req.wait()
+        except UCXCanceled:
+            # The endpoint may close after the initial status check but before a delayed
+            # receive is submitted. If its message is already queued on the worker,
+            # reserve and receive it there; otherwise preserve the cancelation. A
+            # worker-owned receive cancelation must always propagate.
+            if probe_info is not None:
+                raise
+            worker = None if self._ctx is None else self._ctx.worker
+            if worker is None:
+                raise
+            probe_info = worker.tag_probe(tag, remove=True)
+            if not probe_info.matched:
+                raise
+            req = worker.tag_recv_with_handle(buffer, probe_info)
+            ret = await req.wait()
 
         self._finished_recv_count += 1
         if (
@@ -572,7 +614,15 @@ class Endpoint:
 
         buffer_requests = self._ep.tag_recv_multi(tag, TagMaskFull)
         await buffer_requests.wait()
-        buffer_requests.check_error()
+        try:
+            buffer_requests.check_error()
+        except UCXError:
+            logger.error(
+                "recv_multi failed: aggregate status=%s, child statuses=%s",
+                buffer_requests.status,
+                [request.status for request in buffer_requests.requests],
+            )
+            raise
         for r in buffer_requests.requests:
             r.check_error()
         buffers = buffer_requests.py_buffers
@@ -615,54 +665,6 @@ class Endpoint:
         ret = allocator(nbytes)
         await self.recv(ret, tag=tag)
         return ret
-
-    def get_ucp_worker(self):
-        """Returns the underlying UCP worker handle (ucp_worker_h)
-        as a Python integer.
-        """
-        warnings.warn(
-            "Endpoint.get_ucp_worker() is deprecated and will soon be removed, "
-            "use the Endpoint.ucp_worker property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucp_worker
-
-    def get_ucxx_worker(self):
-        """Returns the underlying UCXX worker pointer (ucxx::Worker*)
-        as a Python integer.
-        """
-        warnings.warn(
-            "Endpoint.get_ucxx_worker() is deprecated and will soon be removed, "
-            "use the Endpoint.ucxx_worker property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucxx_worker
-
-    def get_ucp_endpoint(self):
-        """Returns the underlying UCP endpoint handle (ucp_ep_h)
-        as a Python integer.
-        """
-        warnings.warn(
-            "Endpoint.get_ucp_endpoint() is deprecated and will soon be removed, "
-            "use the Endpoint.ucp_endpoint property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucp_endpoint
-
-    def get_ucxx_endpoint(self):
-        """Returns the underlying UCXX endpoint pointer (ucxx::Endpoint*)
-        as a Python integer.
-        """
-        warnings.warn(
-            "Endpoint.get_ucxx_endpoint() is deprecated and will soon be removed, "
-            "use the Endpoint.ucxx_endpoint property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucxx_endpoint
 
     def close_after_n_recv(self, n, count_from_ep_creation=False):
         """Close the endpoint after `n` received messages.
@@ -719,12 +721,3 @@ class Endpoint:
         >>> ep.set_close_callback(lambda: print("Executing close callback"))
         """
         self._ep.set_close_callback(callback_func, cb_args, cb_kwargs)
-
-    def is_alive(self):
-        warnings.warn(
-            "Endpoint.is_alive() is deprecated and will soon be removed, "
-            "use the Endpoint.alive property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.alive

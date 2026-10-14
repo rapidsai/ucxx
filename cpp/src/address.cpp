@@ -1,12 +1,14 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <cstring>
 #include <memory>
 #include <stdexcept>
-#include <string>
 #include <string_view>
+#include <utility>
 
+#include <internal/constructors.h>
 #include <ucxx/address.h>
 #include <ucxx/utils/ucx.h>
 
@@ -30,7 +32,9 @@ Address::~Address()
   }
 }
 
-std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
+namespace detail {
+
+std::shared_ptr<Address> ConstructorFactory::createAddressFromWorker(std::shared_ptr<Worker> worker)
 {
   ucp_worker_h ucp_worker = worker->getHandle();
   ucp_address_t* address{nullptr};
@@ -40,7 +44,7 @@ std::shared_ptr<Address> createAddressFromWorker(std::shared_ptr<Worker> worker)
   return std::shared_ptr<Address>(new Address(worker, address, length));
 }
 
-std::shared_ptr<Address> createAddressFromString(std::string_view addressString)
+std::shared_ptr<Address> ConstructorFactory::createAddressFromString(std::string_view addressString)
 {
   size_t length = addressString.length();
   if (length == 0) throw std::invalid_argument("UCP address must not be empty");
@@ -50,6 +54,8 @@ std::shared_ptr<Address> createAddressFromString(std::string_view addressString)
   return std::shared_ptr<Address>(new Address(nullptr, address, length));
 }
 
+}  // namespace detail
+
 ucp_address_t* Address::getHandle() const { return _handle; }
 
 size_t Address::getLength() const { return _length; }
@@ -58,7 +64,5 @@ std::string_view Address::getStringView() const
 {
   return std::string_view{reinterpret_cast<const char*>(_handle), _length};
 }
-
-std::string Address::getString() const { return std::string{getStringView()}; }
 
 }  // namespace ucxx

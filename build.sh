@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # UCXX build script
@@ -47,6 +47,12 @@ UCXX_BUILD_DIR=${REPODIR}/python/ucxx/build
 
 BUILD_DIRS="${LIB_BUILD_DIR} ${PYTHON_BUILD_DIR} ${UCXX_BUILD_DIR}"
 
+CUDA_VERSION="${RAPIDS_CUDA_VERSION:-$(nvcc --version | sed -E -n "s/^.*release ([0-9]+\.[0-9]+).*$/\1/p")}"
+if [[ -z "$CUDA_VERSION" ]]; then
+    echo "Could not determine CUDA version. Please set RAPIDS_CUDA_VERSION or make sure your \$PATH contains a valid nvcc."
+    exit 1
+fi
+
 # Set defaults for vars modified by flags to this script
 VERBOSE_FLAG=""
 BUILD_TYPE=Release
@@ -56,7 +62,8 @@ BUILD_TESTS=OFF
 BUILD_EXAMPLES=OFF
 BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_COMPILE_COMMANDS=OFF
-UCXX_ENABLE_RMM=OFF
+UCXX_TESTS_ENABLE_RMM=OFF
+UCXX_BENCHMARKS_ENABLE_RMM=OFF
 UCXX_ENABLE_CCCL=OFF
 UCXX_BENCHMARKS_ENABLE_CUDA=OFF
 
@@ -151,7 +158,6 @@ if hasArg ucxx_tests && ! hasArg ucxx; then
 fi
 
 if buildAll || hasArg libucxx_python || hasArg libucxx_tests || hasArg libucxx_examples; then
-  UCXX_ENABLE_RMM=ON
   UCXX_ENABLE_CCCL=ON
 fi
 
@@ -188,7 +194,8 @@ if buildAll || hasArg libucxx; then
           -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=${BUILD_COMPILE_COMMANDS} \
-          -DUCXX_ENABLE_RMM=${UCXX_ENABLE_RMM} \
+          -DUCXX_TESTS_ENABLE_RMM=${UCXX_TESTS_ENABLE_RMM} \
+          -DUCXX_BENCHMARKS_ENABLE_RMM=${UCXX_BENCHMARKS_ENABLE_RMM} \
           -DUCXX_ENABLE_CCCL=${UCXX_ENABLE_CCCL} \
           -DUCXX_BENCHMARKS_ENABLE_CUDA=${UCXX_BENCHMARKS_ENABLE_CUDA} \
           "${EXTRA_CMAKE_ARGS[@]}"
@@ -275,6 +282,7 @@ if buildAll || hasArg ucxx; then
             --no-build-isolation \
             --no-deps \
             --config-settings rapidsai.disable-cuda=true \
+            --config-settings "rapidsai.matrix-entry=cuda=${CUDA_VERSION};cuda_suffixed=false;use_cuda_wheels=false" \
             --config-settings skbuild.install.components=ucxx \
             --config-settings skbuild.install.components=examples \
             "${PY_API_ARGS[@]}" \
@@ -288,5 +296,5 @@ fi
 if buildAll || hasArg distributed_ucxx; then
 
     cd "${REPODIR}/python/distributed-ucxx/"
-    python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true .
+    python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true --config-settings "rapidsai.matrix-entry=cuda=${CUDA_VERSION};cuda_suffixed=false;use_cuda_wheels=false" .
 fi

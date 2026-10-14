@@ -1,10 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
 import os
 import threading
-import warnings
 import weakref
 from queue import Queue
 
@@ -16,7 +15,7 @@ from ucxx.types import Tag
 from .continuous_ucx_progress import BlockingMode, PollingMode, ThreadMode
 from .endpoint import Endpoint
 from .exchange_peer_info import exchange_peer_info
-from .listener import ActiveClients, Listener, _listener_handler
+from .listener import Listener, _ListenerHandlerTracker, _listener_handler
 from .notifier_thread import _notifierThread
 from .utils import get_event_loop, hash64bits
 
@@ -50,9 +49,6 @@ class ApplicationContext:
     ):
         self.notifier_thread_q = None
         self.notifier_thread = None
-        self._listener_active_clients = ActiveClients()
-        self._next_listener_id = 0
-
         self.progress_mode = progress_mode
         self.enable_delayed_submission = enable_delayed_submission
         self.enable_python_future = enable_python_future
@@ -301,8 +297,7 @@ class ApplicationContext:
         loop = get_event_loop()
 
         logger.info("create_listener() - Start listening on port %d" % port)
-        listener_id = self._next_listener_id
-        self._next_listener_id += 1
+        handler_tracker = _ListenerHandlerTracker()
         ret = Listener(
             ucx_api.UCXListener.create(
                 worker=self.worker,
@@ -311,16 +306,15 @@ class ApplicationContext:
                 cb_args=(
                     loop,
                     callback_func,
-                    self,
+                    weakref.ref(self),
                     endpoint_error_handling,
                     connect_timeout,
-                    listener_id,
-                    self._listener_active_clients,
+                    handler_tracker,
                 ),
                 deliver_endpoint=True,
             ),
-            listener_id,
-            self._listener_active_clients,
+            handler_tracker,
+            self,
         )
         return ret
 
@@ -480,55 +474,6 @@ class ApplicationContext:
             task = BlockingMode(self.worker, loop)
 
         ProgressTasks[loop] = task
-
-    def get_ucp_worker(self):
-        """Returns the underlying UCP worker handle (ucp_worker_h)
-        as a Python integer.
-        """
-        warnings.warn(
-            "ApplicationContext.get_ucp_worker() is deprecated and will soon "
-            "be removed, use the ApplicationContext.ucp_worker property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucp_worker
-
-    def get_ucxx_worker(self):
-        """Returns the underlying UCXX worker pointer (ucxx::Worker*)
-        as a Python integer.
-        """
-        warnings.warn(
-            "ApplicationContext.get_ucxx_worker() is deprecated and will soon "
-            "be removed, use the ApplicationContext.ucxx_worker property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.ucxx_worker
-
-    def get_config(self):
-        """Returns all UCX configuration options as a dict.
-
-        Returns
-        -------
-        dict
-            The current UCX configuration options
-        """
-        warnings.warn(
-            "ApplicationContext.get_config() is deprecated and will soon "
-            "be removed, use the ApplicationContext.config property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.config
-
-    def get_worker_address(self):
-        warnings.warn(
-            "ApplicationContext.get_worker_address() is deprecated and will soon "
-            "be removed, use the ApplicationContext.worker_address property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.worker.address
 
     def tag_probe(self, tag, remove=False):
         """Probe for tag messages directly on worker without a local Endpoint.

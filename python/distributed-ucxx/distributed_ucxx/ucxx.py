@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
@@ -11,6 +11,7 @@ See :ref:`communications` for more.
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import gc
 import itertools
@@ -28,14 +29,10 @@ from distributed.comm.addressing import parse_host_port, unparse_host_port
 from distributed.comm.core import Comm, CommClosedError, Connector, Listener
 from distributed.comm.registry import Backend
 from distributed.comm.utils import ensure_concrete_host, from_frames, to_frames
-from distributed.diagnostics.nvml import (
-    CudaDeviceInfo,
-    get_device_index_and_uuid,
-    has_cuda_context,
-)
 from distributed.protocol.utils import host_array
 from distributed.utils import ensure_ip, get_ip, get_ipv6, log_errors, nbytes
 
+from ._cuda_info import CudaDeviceInfo, get_device_index_and_uuid, has_cuda_context
 from .config import get_rmm_config, get_ucx_config, setup_config
 
 logger = logging.getLogger(__name__)
@@ -244,12 +241,7 @@ def init_once():
         # nothing
         or ("cuda" in ucx_tls and "^cuda" not in ucx_tls)
     ):
-        try:
-            from ucxx._cuda_context import ensure_cuda_context
-        except ImportError as e:
-            raise ImportError(
-                "CUDA support with UCX requires cuda-core for context management."
-            ) from e
+        from ucxx._cuda_context import ensure_cuda_context
 
         cuda_visible_device = get_device_index_and_uuid(
             os.environ.get("CUDA_VISIBLE_DEVICES", "0").split(",")[0]
@@ -397,6 +389,8 @@ class UCXX(Comm):
         super().__init__(deserialize=deserialize)
         self._ep = ep
         self._ep_handle = int(self._ep._ep.handle)
+        self._write_lock = asyncio.Lock()
+        self._closed = False
         if local_addr:
             assert local_addr.startswith(("ucx://", "ucxx://"))
         assert peer_addr.startswith(("ucx://", "ucxx://"))
@@ -409,7 +403,6 @@ class UCXX(Comm):
             # is called.
             ref = weakref.ref(self)
             self._ep.set_close_callback(functools.partial(_close_comm, ref))
-            self._closed = False
             self._has_close_callback = True
         else:
             self._has_close_callback = False
@@ -441,9 +434,17 @@ class UCXX(Comm):
         serializers: Collection[str] | None = None,
         on_error: str = "message",
     ) -> int:
-        if self.closed():
-            raise CommClosedError("Endpoint is closed -- unable to send message")
+        async with self._write_lock:
+            if self._closed or self.closed():
+                raise CommClosedError("Endpoint is closed -- unable to send message")
+            return await self._write_unlocked(msg, serializers, on_error)
 
+    async def _write_unlocked(
+        self,
+        msg: dict,
+        serializers: Collection[str] | None,
+        on_error: str,
+    ) -> int:
         if serializers is None:
             serializers = ("cuda", "dask", "pickle", "error")
         # msg can also be a list of dicts when sending batched messages
@@ -593,26 +594,27 @@ class UCXX(Comm):
             raise CommClosedError("Aborted stream on truncated data")
 
     async def close(self):
-        self._closed = True
-        if self._ep is not None:
-            try:
-                if multi_buffer is True:
-                    await self.ep.send_multi([struct.pack("?", True)])
-                else:
-                    await self.ep.send(struct.pack("?Q", True, 0))
-            except (
-                ucxx.exceptions.UCXError,
-                ucxx.exceptions.UCXCloseError,
-                ucxx.exceptions.UCXCanceledError,
-                ucxx.exceptions.UCXConnectionResetError,
-                ucxx.exceptions.UCXUnreachableError,
-            ):
-                # If the other end is in the process of closing,
-                # UCX will sometimes raise a `Input/output` error,
-                # which we can ignore.
-                pass
-            self.abort()
-            self._ep = None
+        async with self._write_lock:
+            self._closed = True
+            if self._ep is not None:
+                try:
+                    if multi_buffer is True:
+                        await self.ep.send_multi([struct.pack("?", True)])
+                    else:
+                        await self.ep.send(struct.pack("?Q", True, 0))
+                except (
+                    ucxx.exceptions.UCXError,
+                    ucxx.exceptions.UCXCloseError,
+                    ucxx.exceptions.UCXCanceledError,
+                    ucxx.exceptions.UCXConnectionResetError,
+                    ucxx.exceptions.UCXUnreachableError,
+                ):
+                    # If the other end is in the process of closing,
+                    # UCX will sometimes raise a `Input/output` error,
+                    # which we can ignore.
+                    pass
+                self.abort()
+                self._ep = None
 
     def abort(self):
         self._closed = True

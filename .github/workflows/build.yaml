@@ -29,13 +29,16 @@ on:
         default: nightly
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ inputs.build_type || 'branch' }}
   cancel-in-progress: true
 
 permissions: {}
 
 jobs:
+  build-details:
+    uses: rapidsai/shared-workflows/.github/workflows/compute-build-details.yaml@main
   conda-cpp-build:
+    needs: [build-details]
     permissions:
       actions: read
       contents: read
@@ -46,13 +49,14 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       node_type: cpu8
       script: ci/build_cpp.sh
       sha: ${{ inputs.sha }}
   conda-python-build:
-    needs: conda-cpp-build
+    needs: [build-details, conda-cpp-build]
     permissions:
       actions: read
       contents: read
@@ -63,15 +67,23 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       script: ci/build_python.sh
       sha: ${{ inputs.sha }}
       # Build a conda package for each CUDA x ARCH x minimum supported Python version
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
+  docs-build-matrix:
+    permissions:
+      contents: read
+    uses: rapidsai/shared-workflows/.github/workflows/compute-matrix.yaml@main
+    with:
+      build_type: ${{ inputs.build_type || 'branch' }}
+      matrix_name: docs-build
   docs-build:
     if: github.ref_type == 'branch'
-    needs: conda-cpp-build
+    needs: [docs-build-matrix, conda-cpp-build]
     permissions:
       actions: read
       contents: read
@@ -80,13 +92,16 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.docs-build-matrix.outputs.matrix) }}
     with:
-      arch: "amd64"
+      arch: "${{ matrix.arch }}"
       branch: ${{ inputs.branch }}
       build_type: ${{ inputs.build_type || 'branch' }}
-      container_image: "rapidsai/ci-conda:26.08-latest"
+      container_image: "rapidsai/ci-conda:26.12-cuda${{ matrix.CUDA_VER }}-${{ matrix.LINUX_VER }}-py${{ matrix.PY_VER }}"
       date: ${{ inputs.date }}
-      node_type: "gpu-l4-latest-1"
+      node_type: "gpu-${{ matrix.GPU }}-${{ matrix.DRIVER }}-1"
       script: "ci/build_docs.sh"
       sha: ${{ inputs.sha }}
   upload-conda:
@@ -105,6 +120,7 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
   wheel-build-libucxx:
+    needs: [build-details]
     permissions:
       actions: read
       contents: read
@@ -115,6 +131,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
@@ -141,8 +158,9 @@ jobs:
       date: ${{ inputs.date }}
       package-name: libucxx
       package-type: cpp
+      publish-wheel-search-key: ucxx_wheel_cpp_libucxx
   wheel-build-ucxx:
-    needs: wheel-build-libucxx
+    needs: [build-details, wheel-build-libucxx]
     permissions:
       actions: read
       contents: read
@@ -153,6 +171,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
@@ -179,8 +198,9 @@ jobs:
       date: ${{ inputs.date }}
       package-name: ucxx
       package-type: python
-      publish-wheel-search-key: ucxx_wheel_python_abi3
+      publish-wheel-search-key: ucxx_wheel_python_ucxx
   wheel-build-distributed-ucxx:
+    needs: [build-details]
     permissions:
       actions: read
       contents: read
@@ -191,6 +211,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
@@ -216,4 +237,13 @@ jobs:
       date: ${{ inputs.date }}
       package-name: distributed_ucxx
       package-type: python
-      publish-wheel-search-key: "distributed-ucxx_wheel"
+      publish-wheel-search-key: "ucxx_wheel_python_distributed-ucxx"
+  devcontainers:
+    name: Build devcontainers
+    secrets: inherit  # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/build-devcontainers.yaml@main
+    permissions:
+      packages: write
+    with:
+      push: true
+      cuda: '["12.9", "13.3"]'

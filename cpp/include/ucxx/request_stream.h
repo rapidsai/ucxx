@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -11,6 +11,7 @@
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
 #include <ucxx/request_data.h>
+#include <ucxx/request_stream_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -32,9 +33,9 @@ class RequestStream : public Request {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Endpoint::streamRecv()`
-   * - `ucxx::Endpoint::streamSend()`
-   * - `ucxx::createRequestStream()`
+   * - `ucxx::Endpoint::streamRecvBuilder()`
+   * - `ucxx::Endpoint::streamSendBuilder()`
+   * - `ucxx::requestStreamBuilder()`
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
    * @param[in] requestData         container of the specified message type, including all
@@ -49,30 +50,11 @@ class RequestStream : public Request {
                 std::string operationName,
                 const bool enablePythonFuture = false);
 
- public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestStream>`.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RequestStream>` object, creating a send
-   * or receive stream request, returning a pointer to a request object that can be later
-   * awaited and checked for errors. This is a non-blocking operation, and the status of
-   * the transfer must be verified from the resulting request object before the data can be
-   * released (for a send operation) or consumed (for a receive operation).
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   *
-   * @returns The `shared_ptr<ucxx::RequestStream>` object
-   */
-  friend std::shared_ptr<RequestStream> createRequestStream(
-    std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::StreamSend, data::StreamReceive> requestData,
-    const bool enablePythonFuture);
+  void populateDelayedSubmissionImpl() override;
 
-  virtual void populateDelayedSubmission();
+ public:
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Create and submit a stream request.

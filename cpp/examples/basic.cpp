@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cassert>
@@ -18,8 +18,8 @@
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
 
-#if UCXX_ENABLE_RMM
-#include <rmm/device_buffer.hpp>
+#if UCXX_ENABLE_CCCL
+#include <cuda_runtime_api.h>
 #endif
 
 class ListenerContext {
@@ -46,7 +46,9 @@ class ListenerContext {
     if (!isAvailable()) throw std::runtime_error("Listener context already has an endpoint");
 
     static bool endpoint_error_handling = true;
-    _endpoint = _listener->createEndpointFromConnRequest(conn_request, endpoint_error_handling);
+    _endpoint                           = _listener->endpointBuilder(conn_request)
+                  .endpointErrorHandling(endpoint_error_handling)
+                  .build();
   }
 
   void releaseEndpoint() { _endpoint.reset(); }
@@ -91,14 +93,12 @@ static void printUsage()
   std::cerr << "              'thread-polling', 'thread-blocking' and 'wait' (default: 'blocking')"
             << std::endl;
   std::cerr << "  -p <port>   Port number to listen at" << std::endl;
-  std::cerr
-    << "  -s <send_buffer_type>   Send buffer type, valid values are: 'host', 'rmm', 'cccl' "
-       "(default: 'host')"
-    << std::endl;
-  std::cerr
-    << "  -r <recv_buffer_type>   Recv buffer type, valid values are: 'host', 'rmm', 'cccl' "
-       "(default: 'host')"
-    << std::endl;
+  std::cerr << "  -s <send_buffer_type>   Send buffer type, valid values are: 'host', 'cccl' "
+               "(default: 'host')"
+            << std::endl;
+  std::cerr << "  -r <recv_buffer_type>   Recv buffer type, valid values are: 'host', 'cccl' "
+               "(default: 'host')"
+            << std::endl;
   std::cerr << "  -h          Print this help" << std::endl;
   std::cerr << std::endl;
 }
@@ -124,14 +124,6 @@ struct args {
     auto parseBufferType = [](const std::string& bufferTypeString) {
       if (bufferTypeString == "host") {
         return ucxx::BufferType::Host;
-      } else if (bufferTypeString == "rmm") {
-#if UCXX_ENABLE_RMM
-        return ucxx::BufferType::RMM;
-#else
-        std::cerr << "RMM support not enabled, please compile with -DUCXX_ENABLE_RMM=1"
-                  << std::endl;
-        return ucxx::BufferType::Invalid;
-#endif
       } else if (bufferTypeString == "cccl") {
 #if UCXX_ENABLE_CCCL
         return ucxx::BufferType::CCCL;
@@ -228,15 +220,6 @@ std::shared_ptr<ucxx::Buffer> makeBuffer(ucxx::BufferType bufferType, T* values,
   switch (bufferType) {
     case ucxx::BufferType::Host:
       return std::make_shared<ucxx::HostBuffer>(values, size * sizeof(T));
-    case ucxx::BufferType::RMM:
-#if UCXX_ENABLE_RMM
-    {
-      auto buf =
-        std::make_unique<rmm::device_buffer>(values, size * sizeof(T), rmm::cuda_stream_default);
-      rmm::cuda_stream_default.synchronize();
-      return std::make_shared<ucxx::RMMBuffer>(std::move(buf));
-    }
-#endif
     case ucxx::BufferType::CCCL:
 #if UCXX_ENABLE_CCCL
     {
@@ -255,7 +238,7 @@ auto verify_buffers(ucxx::Buffer* expected, ucxx::Buffer* actual)
   std::vector<uint8_t> host_expected, host_actual;
   void *host_expected_ptr, *host_actual_ptr;
 
-#if UCXX_ENABLE_CCCL || UCXX_ENABLE_RMM
+#if UCXX_ENABLE_CCCL
   auto copy_to_host = [](auto& buffer, auto& host_buffer) {
     // copy device buffer to host
     host_buffer.resize(buffer->getSize());
@@ -272,14 +255,13 @@ auto verify_buffers(ucxx::Buffer* expected, ucxx::Buffer* actual)
   };
 #endif
 
-  if (expected->getType() == ucxx::BufferType::RMM ||
-      expected->getType() == ucxx::BufferType::CCCL) {
+  if (expected->getType() == ucxx::BufferType::CCCL) {
     host_expected_ptr = copy_to_host(expected, host_expected);
   } else {
     host_expected_ptr = expected->data();
   }
 
-  if (actual->getType() == ucxx::BufferType::RMM || actual->getType() == ucxx::BufferType::CCCL) {
+  if (actual->getType() == ucxx::BufferType::CCCL) {
     host_actual_ptr = copy_to_host(actual, host_actual);
   } else {
     host_actual_ptr = actual->data();
@@ -294,12 +276,14 @@ int main(int argc, char** argv)
   if (args.parse(argc, argv) != UCS_OK) return -1;
 
   // Setup: create UCP context, worker, listener and client endpoint.
-  auto context      = ucxx::createContext({}, ucxx::Context::defaultFeatureFlags);
-  auto worker       = context->createWorker();
+  auto context      = ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build();
+  auto worker       = context->workerBuilder().build();
   auto listener_ctx = std::make_unique<ListenerContext>(worker);
-  auto listener     = worker->createListener(args.listener_port, listener_cb, listener_ctx.get());
+  auto listener =
+    worker->listenerBuilder(args.listener_port, listener_cb, listener_ctx.get()).build();
   listener_ctx->setListener(listener);
-  auto endpoint = worker->createEndpointFromHostname("127.0.0.1", args.listener_port, true);
+  auto endpoint =
+    worker->endpointBuilder("127.0.0.1", args.listener_port).endpointErrorHandling().build();
 
   // Initialize worker progress
   if (args.progress_mode == ProgressMode::Blocking)
@@ -340,10 +324,15 @@ int main(int argc, char** argv)
     recvBuffers.push_back(allocateBuffer(args.recv_buf_type, v->getSize()));
 
   // Schedule small wireup messages to let UCX identify capabilities between endpoints
-  requests.push_back(listener_ctx->getEndpoint()->tagSend(
-    sendWireupBuffer->data(), sendWireupBuffer->getSize(), ucxx::Tag{0}));
-  requests.push_back(endpoint->tagRecv(
-    recvWireupBuffer->data(), sendWireupBuffer->getSize(), ucxx::Tag{0}, ucxx::TagMaskFull));
+  requests.push_back(
+    listener_ctx->getEndpoint()
+      ->tagSendBuilder(sendWireupBuffer->data(), sendWireupBuffer->getSize(), ucxx::Tag{0})
+      .build());
+  requests.push_back(
+    endpoint
+      ->tagRecvBuilder(
+        recvWireupBuffer->data(), sendWireupBuffer->getSize(), ucxx::Tag{0}, ucxx::TagMaskFull)
+      .build());
   ::waitRequests(args.progress_mode, worker, requests);
   requests.clear();
 
@@ -352,18 +341,32 @@ int main(int argc, char** argv)
   // tag 0: l_ctx_ep      ep
   // tag 1: ep            l_ctx_ep
   // tag 2: l_ctx_ep      ep
-  requests.push_back(listener_ctx->getEndpoint()->tagSend(
-    sendBuffers[0]->data(), sendBuffers[0]->getSize(), ucxx::Tag{0}));
-  requests.push_back(listener_ctx->getEndpoint()->tagRecv(
-    recvBuffers[1]->data(), recvBuffers[1]->getSize(), ucxx::Tag{1}, ucxx::TagMaskFull));
-  requests.push_back(listener_ctx->getEndpoint()->tagSend(
-    sendBuffers[2]->data(), sendBuffers[2]->getSize(), ucxx::Tag{2}, ucxx::TagMaskFull));
-  requests.push_back(endpoint->tagRecv(
-    recvBuffers[2]->data(), recvBuffers[2]->getSize(), ucxx::Tag{2}, ucxx::TagMaskFull));
   requests.push_back(
-    endpoint->tagSend(sendBuffers[1]->data(), sendBuffers[1]->getSize(), ucxx::Tag{1}));
-  requests.push_back(endpoint->tagRecv(
-    recvBuffers[0]->data(), recvBuffers[0]->getSize(), ucxx::Tag{0}, ucxx::TagMaskFull));
+    listener_ctx->getEndpoint()
+      ->tagSendBuilder(sendBuffers[0]->data(), sendBuffers[0]->getSize(), ucxx::Tag{0})
+      .build());
+  requests.push_back(
+    listener_ctx->getEndpoint()
+      ->tagRecvBuilder(
+        recvBuffers[1]->data(), recvBuffers[1]->getSize(), ucxx::Tag{1}, ucxx::TagMaskFull)
+      .build());
+  requests.push_back(
+    listener_ctx->getEndpoint()
+      ->tagSendBuilder(sendBuffers[2]->data(), sendBuffers[2]->getSize(), ucxx::Tag{2})
+      .build());
+  requests.push_back(
+    endpoint
+      ->tagRecvBuilder(
+        recvBuffers[2]->data(), recvBuffers[2]->getSize(), ucxx::Tag{2}, ucxx::TagMaskFull)
+      .build());
+  requests.push_back(
+    endpoint->tagSendBuilder(sendBuffers[1]->data(), sendBuffers[1]->getSize(), ucxx::Tag{1})
+      .build());
+  requests.push_back(
+    endpoint
+      ->tagRecvBuilder(
+        recvBuffers[0]->data(), recvBuffers[0]->getSize(), ucxx::Tag{0}, ucxx::TagMaskFull)
+      .build());
 
   // Wait for requests to be set, i.e., transfers complete
   ::waitRequests(args.progress_mode, worker, requests);

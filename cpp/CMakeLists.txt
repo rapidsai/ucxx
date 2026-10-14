@@ -1,6 +1,6 @@
 # =================================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # cmake-format: on
 # =================================================================================
@@ -42,19 +42,17 @@ option(BUILD_TESTS "Configure CMake to build tests" ON)
 option(BUILD_BENCHMARKS "Configure CMake to build benchmarks" OFF)
 option(BUILD_EXAMPLES "Configure CMake to build examples" OFF)
 option(BUILD_SHARED_LIBS "Build UCXX shared libraries" ON)
-option(UCXX_ENABLE_RMM "Enable support for CUDA multi-buffer transfer with RMM" OFF)
-# TODO: Flip UCXX_ENABLE_CCCL default to OFF once devcontainer builds pass -DUCXX_ENABLE_CCCL=ON
-option(UCXX_ENABLE_CCCL "Enable support for CUDA buffer with CCCL" ON)
+option(UCXX_TESTS_ENABLE_RMM "Enable RMM-backed test code paths" OFF)
+option(UCXX_BENCHMARKS_ENABLE_RMM "Enable RMM-backed benchmark code paths" OFF)
+option(UCXX_ENABLE_CCCL "Enable support for CUDA buffer with CCCL" OFF)
 option(DISABLE_DEPRECATION_WARNINGS "Disable warnings generated from deprecated declarations." OFF)
 
 message(VERBOSE "UCXX: Configure CMake to build tests: ${BUILD_TESTS}")
 message(VERBOSE "UCXX: Configure CMake to build benchmarks: ${BUILD_BENCHMARKS}")
 message(VERBOSE "UCXX: Configure CMake to build examples: ${BUILD_EXAMPLES}")
 message(VERBOSE "UCXX: Build UCXX shared libraries: ${BUILD_SHARED_LIBS}")
-message(
-  VERBOSE
-  "UCXX: Enable support for CUDA multi-buffer transfer with RMM (DEPRECATED): ${UCXX_ENABLE_RMM}"
-)
+message(VERBOSE "UCXX: Enable RMM-backed test code paths: ${UCXX_TESTS_ENABLE_RMM}")
+message(VERBOSE "UCXX: Enable RMM-backed benchmark code paths: ${UCXX_BENCHMARKS_ENABLE_RMM}")
 message(VERBOSE "UCXX: Enable support for CUDA buffer with CCCL: ${UCXX_ENABLE_CCCL}")
 message(
   VERBOSE
@@ -97,11 +95,13 @@ rapids_find_package(
 
 # add third party dependencies using CPM
 rapids_cpm_init()
-# find rmm
-if(UCXX_ENABLE_RMM)
-  message(DEPRECATION "UCXX_ENABLE_RMM is deprecated and will be removed in a future release. "
-                      "Use UCXX_ENABLE_CCCL instead."
-  )
+# find rmm for enabled test and benchmark code paths
+if((BUILD_TESTS AND UCXX_TESTS_ENABLE_RMM)
+   OR (BUILD_BENCHMARKS
+       AND UCXX_BENCHMARKS_ENABLE_CUDA
+       AND UCXX_BENCHMARKS_ENABLE_RMM
+      )
+)
   include(cmake/thirdparty/get_rmm.cmake)
 endif()
 # find cccl
@@ -129,8 +129,21 @@ add_library(
   src/context.cpp
   src/delayed_submission.cpp
   src/endpoint.cpp
-  src/experimental/context_builder.cpp
-  src/experimental/worker_builder.cpp
+  src/address_builder.cpp
+  src/context_builder.cpp
+  src/endpoint_builder.cpp
+  src/listener_builder.cpp
+  src/memory_handle_builder.cpp
+  src/remote_key_builder.cpp
+  src/request_am_builder.cpp
+  src/request_endpoint_close_builder.cpp
+  src/request_flush_builder.cpp
+  src/request_mem_builder.cpp
+  src/request_stream_builder.cpp
+  src/request_tag_builder.cpp
+  src/request_tag_multi_builder.cpp
+  src/tag_probe_builder.cpp
+  src/worker_builder.cpp
   src/header.cpp
   src/inflight_requests.cpp
   src/internal/request_am.cpp
@@ -175,18 +188,11 @@ target_compile_options(ucxx PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_FLAGS}
 target_include_directories(
   ucxx
   PUBLIC "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/include>"
-  PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>"
+  PRIVATE "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}/src>" "$<BUILD_INTERFACE:${UCXX_SOURCE_DIR}>"
   INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
 target_compile_definitions(ucxx PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${UCXX_CXX_DEFINITIONS}>")
-
-# Enable RMM if necessary
-if(UCXX_ENABLE_RMM)
-  target_link_libraries(ucxx PUBLIC rmm::rmm)
-
-  target_compile_definitions(ucxx PUBLIC UCXX_ENABLE_RMM)
-endif()
 
 # Enable CCCL if necessary
 if(UCXX_ENABLE_CCCL)

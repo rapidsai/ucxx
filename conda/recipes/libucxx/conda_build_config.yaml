@@ -16,9 +16,11 @@ c_stdlib_version:
 cmake:
   - ">=4.0"
 
-ucx:
-  - "==1.18.*"  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("12")]
-  - "==1.19.*"  # [not os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("12")]
+ucx_min:
+  - "1.19"
+
+ucx_max:
+  - "1.22"
 
 gmock:
   - ">=1.13.0"

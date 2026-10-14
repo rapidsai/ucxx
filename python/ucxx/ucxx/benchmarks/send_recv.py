@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
@@ -285,7 +285,7 @@ def parse_args():
         "--enable-am",
         default=False,
         action="store_true",
-        help="Use Active Message API instead of TAG for transfers",
+        help="Use the Active Message API instead of TAG for transfers",
     )
     parser.add_argument(
         "--rmm-managed-memory",
@@ -394,9 +394,6 @@ def parse_args():
                 "Could not import `gilknocker`. Make sure it is installed or "
                 "remove the `--report-gil-contention` argument."
             )
-
-    if args.enable_am:
-        raise RuntimeError("AM not implemented yet")
 
     return args
 

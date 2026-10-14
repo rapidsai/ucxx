@@ -1,15 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 context:
   version: ${{ env.get("UCXX_PACKAGE_VERSION") }}
   cuda_version: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[:2] | join(".") }}
   cuda_major: '${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}'
-  date_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
+  datetime_string: '${{ env.get("RAPIDS_DATETIME_STRING") }}'
   head_rev: '${{ git.head_rev(".")[:8] }}'
   rapids_version: '${{ env.get("RAPIDS_PACKAGE_DEPENDENCY") }}'
   py_abi_min: ${{ env.get("RAPIDS_PY_VERSION") }}
-  py_buildstring : ${{ py_abi_min | version_to_buildstring }}
+  py_buildstring: ${{ py_abi_min | version_to_buildstring }}
   py_runtime_latest: "3.14"
 
 recipe:
@@ -25,7 +25,7 @@ outputs:
     build:
       python:
         version_independent: true
-      string: cuda${{ cuda_major }}_cp${{ py_buildstring }}_abi3_${{ date_string }}_${{ head_rev }}
+      string: cuda${{ cuda_major }}_cp${{ py_buildstring }}_abi3_${{ datetime_string }}_${{ head_rev }}
       dynamic_linking:
         overlinking_behavior: "error"
         missing_dso_allowlist:
@@ -91,42 +91,39 @@ outputs:
         - python =${{ py_abi_min }}
         - python-abi3 ${{ py_abi_min }}.*
         - rapids-build-backend >=0.4.0,<0.5.0
-        - rmm ${{ rapids_version }}
         - scikit-build-core>=0.11.0
-        - ucx
+        - ucx =${{ ucx_min }}
         - libucxx =${{ version }}
         - cuda-cudart-dev
-        - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
-        - cuda-core>=1.0.0
+        - cuda-bindings >=12.9.6,!=13.0.*,!=13.1.*,!=13.2.*,<14
+        - cuda-core >=1.0,<2
       run:
-        - numpy >=1.23,<3.0
+        - numpy >=2.0,<3.0
         - python
-        - ucx >=1.18.0,<1.21.0
+        - ucx >=${{ ucx_min }},<${{ ucx_max }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - ${{ pin_compatible("rmm", upper_bound="x.x") }}
         - libucxx =${{ version }}
-        - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
-        - cuda-core>=1.0.0
+        - cuda-bindings >=12.9.6,!=13.0.*,!=13.1.*,!=13.2.*,<14
+        - cuda-core >=1.0,<2
       run_constraints:
-        - cupy >=13.6.0
+        - cupy >=14.0.1,!=14.1.0
       ignore_run_exports:
         by_name:
           - cuda-cudart
           - cuda-version
-          - librmm
           - libucxx
           - python_abi
           - ucx
     tests:
       - script:
-        - test -f $PREFIX/lib/libucxx_python.so
-        - test -f $PREFIX/include/ucxx/python/exception.h
-        - test -f $PREFIX/include/ucxx/python/future.h
-        - test -f $PREFIX/include/ucxx/python/api.h
-        - test -f $PREFIX/include/ucxx/python/constructors.h
-        - test -f $PREFIX/include/ucxx/python/notifier.h
-        - test -f $PREFIX/include/ucxx/python/python_future.h
-        - test -f $PREFIX/include/ucxx/python/worker.h
+          - test -f $PREFIX/lib/libucxx_python.so
+          - test -f $PREFIX/include/ucxx/python/exception.h
+          - test -f $PREFIX/include/ucxx/python/future.h
+          - test -f $PREFIX/include/ucxx/python/api.h
+          - test -f $PREFIX/include/ucxx/python/constructors.h
+          - test -f $PREFIX/include/ucxx/python/notifier.h
+          - test -f $PREFIX/include/ucxx/python/python_future.h
+          - test -f $PREFIX/include/ucxx/python/worker.h
       - python:
           imports:
             - ucxx
@@ -143,7 +140,7 @@ outputs:
     build:
       python:
         version_independent: true
-      string: cuda${{ cuda_major }}_cp${{ py_buildstring }}_abi3_${{ date_string }}_${{ head_rev }}
+      string: cuda${{ cuda_major }}_cp${{ py_buildstring }}_abi3_${{ datetime_string }}_${{ head_rev }}
       dynamic_linking:
         overlinking_behavior: "error"
         missing_dso_allowlist:
@@ -230,17 +227,18 @@ outputs:
       version: ${{ version }}
     build:
       noarch: python
-      string: ${{ date_string }}_${{ head_rev }}_h${{ hash }}
+      string: ${{ datetime_string }}_${{ head_rev }}_h${{ hash }}
       script: ./build.sh distributed_ucxx
     requirements:
       host:
         - pip
-        - python >=3.11
+        - python >=3.12
         - rapids-build-backend >=0.4.0,<0.5.0
         - setuptools>=77.0.0
         - wheel
       run:
-        - cuda-core>=1.0.0
+        - cuda-bindings >=12.9.6,!=13.0.*,!=13.1.*,!=13.2.*,<14
+        - cuda-core >=1.0,<2
         - python
         - pyyaml >=6
         - rapids-dask-dependency ${{ rapids_version }}

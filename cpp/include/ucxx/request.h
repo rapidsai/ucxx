@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -207,9 +207,12 @@ class Request : public Component {
    * to either execute (submit) it immediately or delay for the next iteration of its
    * progress loop, depending on the progress mode in use by the worker.
    *
+   * Submission is serialized with cancellation. If the request has already completed,
+   * the request-specific submission implementation is not invoked.
+   *
    * See `ucxx::DelayedSubmission::DelayedSubmission()` for more details.
    */
-  virtual void populateDelayedSubmission() = 0;
+  void populateDelayedSubmission();
 
   /**
    * @brief Get formatted string with owner type and handle address.
@@ -253,7 +256,7 @@ class Request : public Component {
    *
    * Returns the request attributes as a struct. The owning `ucxx::Worker` must have been
    * created with request attributes querying enabled (see
-   * `ucxx::experimental::WorkerBuilder::requestAttributes()`); otherwise the attributes
+   * `ucxx::WorkerBuilder::requestAttributes()`); otherwise the attributes
    * are never populated and this method throws. Querying the underlying UCP request is
    * an implementation detail performed eagerly when the request is submitted. All
    * non-status fields exposed by UCP are queried, use `getStatus()` to obtain the status.
@@ -261,7 +264,7 @@ class Request : public Component {
    * @throw ucxx::UnsupportedError if the owning worker was not built with request
    *                               attributes querying enabled. Requires `Worker`
    *                               created with
-   *                               `ucxx::experimental::WorkerBuilder::requestAttributes(true)`.
+   *                               `ucxx::WorkerBuilder::requestAttributes(true)`.
    * @throw ucxx::NoElemError      if attributes are unavailable for this specific
    *                               request: either because UCX took an inline-completion
    *                               path that produced no UCP request to query, or because
@@ -274,6 +277,14 @@ class Request : public Component {
   [[nodiscard]] Attributes queryAttributes();
 
  protected:
+  /**
+   * @brief Submit the request-specific UCX operation.
+   *
+   * Implemented by each concrete request and invoked only by
+   * `populateDelayedSubmission()` while holding the request mutex.
+   */
+  virtual void populateDelayedSubmissionImpl() = 0;
+
   /**
    * @brief Publish the UCP request handle and capture its attributes.
    *

@@ -1,17 +1,16 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
 #include <utility>
 
-#include <ucxx/experimental/builder_utils.h>
-#include <ucxx/experimental/worker_builder.h>
+#include <internal/constructors.h>
+#include <ucxx/detail/builder_utils.h>
 #include <ucxx/worker.h>
+#include <ucxx/worker_builder.h>
 
 namespace ucxx {
-
-namespace experimental {
 
 struct WorkerBuilder::Impl {
   std::shared_ptr<Context> context;
@@ -54,16 +53,14 @@ WorkerBuilder& WorkerBuilder::cudaBufferType(BufferType bufferType)
   return *this;
 }
 
-std::shared_ptr<Worker> WorkerBuilder::build() const
+std::shared_ptr<Worker> WorkerBuilder::build()
 {
-  auto worker =
-    ucxx::createWorker(_impl->context, _impl->enableDelayedSubmission, _impl->enableFuture);
+  auto worker = detail::ConstructorFactory::createWorker(
+    _impl->context, _impl->enableDelayedSubmission, _impl->enableFuture);
   worker->_enableRequestAttributes = _impl->enableRequestAttributes;
   if (_impl->cudaBufferType != BufferType::Invalid)
     worker->setCudaBufferType(_impl->cudaBufferType);
   return worker;
 }
-
-}  // namespace experimental
 
 }  // namespace ucxx

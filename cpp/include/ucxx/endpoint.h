@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -14,15 +14,34 @@
 
 #include <ucxx/address.h>
 #include <ucxx/component.h>
+#include <ucxx/endpoint_builder.h>
 #include <ucxx/exception.h>
 #include <ucxx/inflight_requests.h>
 #include <ucxx/listener.h>
+#include <ucxx/remote_key_builder.h>
 #include <ucxx/request.h>
+#include <ucxx/request_am_builder.h>
+#include <ucxx/request_endpoint_close_builder.h>
+#include <ucxx/request_flush_builder.h>
+#include <ucxx/request_mem_builder.h>
+#include <ucxx/request_stream_builder.h>
+#include <ucxx/request_tag_builder.h>
+#include <ucxx/request_tag_multi_builder.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
+
+class Component;
+class Request;
+class RequestEndpointClose;
+
+class RequestEndpointCloseBuilder;
+
+namespace detail {
+void registerInflightRequest(std::shared_ptr<Component> component, std::shared_ptr<Request> req);
+}  // namespace detail
 
 /**
  * @brief Deleter for a endpoint parameters object.
@@ -76,12 +95,9 @@ class Endpoint : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Listener::createEndpointFromConnRequest`
-   * - `ucxx::Worker::createEndpointFromHostname()`
-   * - `ucxx::Worker::createEndpointFromWorkerAddress()`
-   * - `ucxx::createEndpointFromConnRequest()`
-   * - `ucxx::createEndpointFromHostname()`
-   * - `ucxx::createEndpointFromWorkerAddress()`
+   * - `ucxx::Listener::endpointBuilder()`
+   * - `ucxx::Worker::endpointBuilder()`
+   * - `ucxx::endpointBuilder()`
    *
    * @param[in] workerOrListener      the parent component, which may either be a
    *                                  `std::shared_ptr<Listener>` or
@@ -105,7 +121,7 @@ class Endpoint : public Component {
    * @brief Register an inflight request.
    *
    * Called each time a new transfer request is made by the `Endpoint`, such that it may
-   * be canceled when necessary. Also schedule requests to be canceled immediately after
+   * be canceled when necessary. Also schedules requests to be canceled immediately after
    * registration if the endpoint error handler has been called with an error.
    *
    * @param[in] request the request to register.
@@ -113,6 +129,27 @@ class Endpoint : public Component {
    * @return the request that was registered (i.e., the `request` argument itself).
    */
   [[nodiscard]] std::shared_ptr<Request> registerInflightRequest(std::shared_ptr<Request> request);
+
+  /**
+   * @brief Create an endpoint close request while preserving endpoint close state.
+   *
+   * Marks the endpoint as closing before creating the close request, combines the per-request
+   * callback with the endpoint close callback, and registers the request as inflight.
+   *
+   * @param[in] force               force endpoint close if `true`, flush otherwise.
+   * @param[in] enablePythonFuture  whether a python future should be created and subsequently
+   *                                notified.
+   * @param[in] callbackFunction    user-defined callback function to call upon completion.
+   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
+   *
+   * @return Request to be subsequently checked for the completion and its state, or `nullptr`
+   *         if the endpoint has already closed or is already in process of closing.
+   */
+  [[nodiscard]] std::shared_ptr<RequestEndpointClose> closeRequest(
+    const bool force,
+    const bool enablePythonFuture,
+    EndpointCloseCallbackUserFunction callbackFunction,
+    EndpointCloseCallbackUserData callbackData);
 
   /**
    * @brief The error callback registered at endpoint creation time.
@@ -126,6 +163,17 @@ class Endpoint : public Component {
    */
   friend void endpointErrorCallback(void* arg, ucp_ep_h ep, ucs_status_t status);
 
+  /**
+   * @brief Allow the endpoint close builder to preserve endpoint close state.
+   */
+  friend class RequestEndpointCloseBuilder;
+
+  /**
+   * @brief Allow request builders to register newly-created requests.
+   */
+  friend void detail::registerInflightRequest(std::shared_ptr<Component> component,
+                                              std::shared_ptr<Request> req);
+
  public:
   Endpoint()                           = delete;
   Endpoint(const Endpoint&)            = delete;
@@ -135,81 +183,8 @@ class Endpoint : public Component {
 
   ~Endpoint();
 
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::Endpoint>` object, connecting to a listener
-   * from the given hostname or IP address and port pair.
-   *
-   * @code{.cpp}
-   * // worker is `std::shared_ptr<ucxx::Worker>`, with a presumed listener on
-   * // "localhost:12345"
-   * auto endpoint = worker->createEndpointFromHostname("localhost", 12345, true);
-   *
-   * // Equivalent to line above
-   * // auto endpoint = ucxx::createEndpointFromHostname(worker, "localhost", 12345, true);
-   * @endcode
-   *
-   * @param[in] worker                parent worker from which to create the endpoint.
-   * @param[in] ipAddress             hostname or IP address the listener is bound to.
-   * @param[in] port                  port the listener is bound to.
-   * @param[in] endpointErrorHandling whether to enable endpoint error handling.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object
-   */
-  friend std::shared_ptr<Endpoint> createEndpointFromHostname(std::shared_ptr<Worker> worker,
-                                                              std::string ipAddress,
-                                                              uint16_t port,
-                                                              bool endpointErrorHandling);
-
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::Endpoint>` object from a `ucp_conn_request_h`,
-   * as delivered by a `ucxx::Listener` connection callback.
-   *
-   * @code{.cpp}
-   * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
-   * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = listener->createEndpointFromConnRequest(connRequest, true);
-   *
-   * // Equivalent to line above
-   * // auto endpoint = ucxx::createEndpointFromConnRequest(listener, connRequest, true);
-   * @endcode
-   *
-   * @param[in] listener              listener from which to create the endpoint.
-   * @param[in] connRequest           handle to connection request delivered by a
-   *                                  listener callback.
-   * @param[in] endpointErrorHandling whether to enable endpoint error handling.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object
-   */
-  friend std::shared_ptr<Endpoint> createEndpointFromConnRequest(std::shared_ptr<Listener> listener,
-                                                                 ucp_conn_request_h connRequest,
-                                                                 bool endpointErrorHandling);
-
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::Endpoint>` object from a `shared_ptr<ucxx::Address>`.
-   *
-   * @code{.cpp}
-   * // worker is `std::shared_ptr<ucxx::Worker>`, address is `std::shared_ptr<ucxx::Address>`
-   * auto endpoint = worker->createEndpointFromWorkerAddress(address, true);
-   *
-   * // Equivalent to line above
-   * // auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, true);
-   * @endcode
-   *
-   * @param[in] worker                parent worker from which to create the endpoint.
-   * @param[in] address               address of the remote UCX worker
-   * @param[in] endpointErrorHandling whether to enable endpoint error handling.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object
-   */
-  friend std::shared_ptr<Endpoint> createEndpointFromWorkerAddress(std::shared_ptr<Worker> worker,
-                                                                   std::shared_ptr<Address> address,
-                                                                   bool endpointErrorHandling);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Get the underlying `ucp_ep_h` handle.
@@ -232,7 +207,7 @@ class Endpoint : public Component {
    * @brief Check whether the endpoint is still alive.
    *
    * Check whether the endpoint is still alive, generally `true` until `closeBlocking()` is
-   * called, `close()` is called and the returned request completes or the endpoint errors
+   * called, a request submitted by `closeBuilder()` completes or the endpoint errors
    * and the error handling procedure is executed. Always `true` if endpoint error handling
    * is disabled.
    *
@@ -330,515 +305,240 @@ class Endpoint : public Component {
                         EndpointCloseCallbackUserData closeCallbackArg);
 
   /**
-   * @brief Enqueue an active message send operation.
+   * @brief Create a builder for an active message send operation.
    *
-   * Enqueue an active message send operation, returning a `std::shared_ptr<ucxx::Request>`
-   * that can be later awaited and checked for errors. This is a non-blocking operation, and
-   * the status of the transfer must be verified from the resulting request object before
-   * the data can be released.
-   *
-   * An optional `receiverCallbackInfo` may be specified, in which case the remote worker
-   * obligatorily needs to have registered a callback with the same `receiverCallbackInfo`
-   * in order to execute the callback when the active message is received. When this is
-   * specified, `amRecv()` will _NOT_ match this message, which is instead handled by the
-   * remote worker's callback.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
    * @param[in] buffer                  a raw pointer to the data to be sent.
-   * @param[in] length                  the size in bytes of the tag message to be sent.
+   * @param[in] length                  the size in bytes of the message to be sent.
    * @param[in] memoryType              the memory type of the buffer.
-   * @param[in] receiverCallbackInfo    the owner name and unique identifier of the receiver
-                                        callback.
-   * @param[in] enablePythonFuture      whether a python future should be created and
-   *                                    subsequently notified.
-   * @param[in] callbackFunction        user-defined callback function to call upon
-                                        completion.
-   * @param[in] callbackData            user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> amSend(
-    const void* const buffer,
-    const size_t length,
-    const ucs_memory_type_t memoryType,
-    const std::optional<AmReceiverCallbackInfo> receiverCallbackInfo = std::nullopt,
-    const bool enablePythonFuture                                    = false,
-    RequestCallbackUserFunction callbackFunction                     = nullptr,
-    RequestCallbackUserData callbackData                             = nullptr);
+  [[nodiscard]] RequestAmBuilder amSendBuilder(const void* const buffer,
+                                               const size_t length,
+                                               const ucs_memory_type_t memoryType);
 
   /**
-   * @brief Enqueue an active message send operation with explicit policy parameters.
+   * @brief Create a builder for an active message send operation with explicit policy parameters.
    *
-   * This overload extends `amSend()` with explicit UCX datatype/flags controls and receive
-   * allocation policy metadata while keeping callback behavior identical to the legacy API.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
    * @param[in] length              the size in bytes of the message to be sent.
    * @param[in] params              active message send parameters.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> amSend(
-    const void* const buffer,
-    const size_t length,
-    const AmSendParams& params,
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestAmBuilder amSendBuilder(const void* const buffer,
+                                               const size_t length,
+                                               const AmSendParams& params);
 
   /**
-   * @brief Enqueue an active message send operation with IOV datatype.
+   * @brief Create a builder for an active message send operation with IOV datatype.
    *
-   * This overload submits `UCP_DATATYPE_IOV` active message sends.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
    * @param[in] iov                 vector of IOV segments to be sent.
    * @param[in] params              active message send parameters. Datatype must be
    *                                `UCP_DATATYPE_IOV`.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> amSend(
-    std::vector<ucp_dt_iov_t> iov,
-    const AmSendParams& params,
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestAmBuilder amSendBuilder(std::vector<ucp_dt_iov_t> iov,
+                                               const AmSendParams& params);
 
   /**
-   * @brief Enqueue an active message receive operation.
+   * @brief Create a builder for an active message receive operation.
    *
-   * Enqueue an active message receive operation, returning a
-   * `std::shared_ptr<ucxx::Request>` that can be later awaited and checked for errors,
-   * making data available via the return value's `getRecvBuffer()` method once the
-   * operation completes successfully. This is a non-blocking operation, and the status of
-   * the transfer must be verified from the resulting request object before the data can be
-   * consumed.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns Request to be subsequently checked for the completion state and data.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> amRecv(
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestAmBuilder amRecvBuilder();
 
   /**
-   * @brief Enqueue a memory put operation.
+   * @brief Create a builder for a memory put operation.
    *
-   * Enqueue a memory operation, returning a `std::shared<ucxx::Request>` that can be later
-   * awaited and checked for errors. This is a non-blocking operation, and the status of the
-   * transfer must be verified from the resulting request object before both local and
-   * remote data can be released and the remote data can be consumed.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
-   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] length              the size in bytes of the message to be sent.
    * @param[in] remoteAddr          the destination remote memory address to write to.
    * @param[in] rkey                the remote memory key associated with the remote memory
    *                                address.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> memPut(
-    const void* const buffer,
-    size_t length,
-    uint64_t remoteAddr,
-    ucp_rkey_h rkey,
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestMemBuilder memPutBuilder(const void* const buffer,
+                                                size_t length,
+                                                uint64_t remoteAddr,
+                                                ucp_rkey_h rkey);
 
   /**
-   * @brief Enqueue a memory put operation.
+   * @brief Create a builder for a memory put operation.
    *
-   * Enqueue a memory operation, returning a `std::shared<ucxx::Request>` that can be later
-   * awaited and checked for errors. This is a non-blocking operation, and the status of the
-   * transfer must be verified from the resulting request object before both local and
-   * remote data can be released and the remote data can be consumed.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
-   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] length              the size in bytes of the message to be sent.
    * @param[in] remoteKey           the remote memory key associated with the remote memory
    *                                address.
-   * @param[in] remoteAddrOffset    the destination remote memory address offset where to
-   *                                start writing to, `0` means start writing from beginning
-   *                                of the base address.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> memPut(
-    const void* const buffer,
-    size_t length,
-    std::shared_ptr<ucxx::RemoteKey> remoteKey,
-    uint64_t remoteAddrOffset                    = 0,
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestMemBuilder memPutBuilder(const void* const buffer,
+                                                size_t length,
+                                                std::shared_ptr<ucxx::RemoteKey> remoteKey);
 
   /**
-   * @brief Enqueue a memory get operation.
+   * @brief Create a builder for a memory get operation.
    *
-   * Enqueue a memory operation, returning a `std::shared<ucxx::Request>` that can be later
-   * awaited and checked for errors. This is a non-blocking operation, and the status of the
-   * transfer must be verified from the resulting request object before both local and
-   * remote data can be released and the local data can be consumed.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @param[in] buffer              a raw pointer to the data to be sent.
-   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] buffer              a raw pointer to the data to be received.
+   * @param[in] length              the size in bytes of the message to be received.
    * @param[in] remoteAddr          the source remote memory address to read from.
    * @param[in] rkey                the remote memory key associated with the remote memory
    *                                address.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> memGet(
-    void* buffer,
-    size_t length,
-    uint64_t remoteAddr,
-    ucp_rkey_h rkey,
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestMemBuilder memGetBuilder(void* buffer,
+                                                size_t length,
+                                                uint64_t remoteAddr,
+                                                ucp_rkey_h rkey);
 
   /**
-   * @brief Enqueue a memory get operation.
+   * @brief Create a builder for a memory get operation.
    *
-   * Enqueue a memory operation, returning a `std::shared<ucxx::Request>` that can be later
-   * awaited and checked for errors. This is a non-blocking operation, and the status of the
-   * transfer must be verified from the resulting request object before both local and
-   * remote data can be released and the local data can be consumed.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @param[in] buffer              a raw pointer to the data to be sent.
-   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] buffer              a raw pointer to the data to be received.
+   * @param[in] length              the size in bytes of the message to be received.
    * @param[in] remoteKey           the remote memory key associated with the remote memory
    *                                address.
-   * @param[in] remoteAddrOffset    the destination remote memory address offset where to
-   *                                start reading from, `0` means start writing from
-   *                                beginning of the base address.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> memGet(
-    void* buffer,
-    size_t length,
-    std::shared_ptr<ucxx::RemoteKey> remoteKey,
-    uint64_t remoteAddrOffset                    = 0,
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestMemBuilder memGetBuilder(void* buffer,
+                                                size_t length,
+                                                std::shared_ptr<ucxx::RemoteKey> remoteKey);
 
   /**
-   * @brief Enqueue a stream send operation.
+   * @brief Create a builder for a stream send operation.
    *
-   * Enqueue a stream send operation, returning a `std::shared<ucxx::Request>` that can
-   * be later awaited and checked for errors. This is a non-blocking operation, and the
-   * status of the transfer must be verified from the resulting request object before the
-   * data can be released.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
-   * @param[in] length              the size in bytes of the tag message to be sent.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
+   * @param[in] length              the size in bytes of the message to be sent.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> streamSend(const void* const buffer,
-                                                    size_t length,
-                                                    const bool enablePythonFuture);
+  [[nodiscard]] RequestStreamBuilder streamSendBuilder(const void* const buffer, size_t length);
 
   /**
-   * @brief Enqueue a stream receive operation.
+   * @brief Create a builder for a stream receive operation.
    *
-   * Enqueue a stream receive operation, returning a `std::shared<ucxx::Request>` that can
-   * be later awaited and checked for errors. This is a non-blocking operation, and the
-   * status of the transfer must be verified from the resulting request object before the
-   * data can be consumed.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
    *                                data will be stored.
-   * @param[in] length              the size in bytes of the tag message to be received.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
+   * @param[in] length              the size in bytes of the message to be received.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> streamRecv(void* buffer,
-                                                    size_t length,
-                                                    const bool enablePythonFuture);
+  [[nodiscard]] RequestStreamBuilder streamRecvBuilder(void* buffer, size_t length);
 
   /**
-   * @brief Enqueue a tag send operation.
+   * @brief Create a builder for a tag send operation.
    *
-   * Enqueue a tag send operation, returning a `std::shared<ucxx::Request>` that can
-   * be later awaited and checked for errors. This is a non-blocking operation, and the
-   * status of the transfer must be verified from the resulting request object before the
-   * data can be released.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
+   * Completion makes the local buffer safe to reuse, but does not confirm that the peer
+   * received the message. Applications requiring peer delivery before a force-close must use
+   * an application-level acknowledgement.
    *
    * @param[in] buffer              a raw pointer to the data to be sent.
-   * @param[in] length              the size in bytes of the tag message to be sent.
+   * @param[in] length              the size in bytes of the message to be sent.
    * @param[in] tag                 the tag to match.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> tagSend(
-    const void* const buffer,
-    size_t length,
-    Tag tag,
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestTagBuilder tagSendBuilder(const void* const buffer, size_t length, Tag tag);
 
   /**
-   * @brief Enqueue a tag receive operation.
+   * @brief Create a builder for a tag receive operation.
    *
-   * Enqueue a tag receive operation, returning a `std::shared<ucxx::Request>` that can
-   * be later awaited and checked for errors. This is a non-blocking operation, and the
-   * status of the transfer must be verified from the resulting request object before the
-   * data can be consumed.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
    * @param[in] buffer              a raw pointer to pre-allocated memory where resulting
    *                                data will be stored.
-   * @param[in] length              the size in bytes of the tag message to be received.
+   * @param[in] length              the size in bytes of the message to be received.
    * @param[in] tag                 the tag to match.
    * @param[in] tagMask             the tag mask to use.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> tagRecv(
-    void* buffer,
-    size_t length,
-    Tag tag,
-    TagMask tagMask,
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestTagBuilder tagRecvBuilder(void* buffer,
+                                                 size_t length,
+                                                 Tag tag,
+                                                 TagMask tagMask);
 
   /**
-   * @brief Enqueue a multi-buffer tag send operation.
+   * @brief Create a builder for a multi-buffer tag send operation.
    *
-   * Enqueue a multi-buffer tag send operation, returning a
-   * `std::shared<ucxx::RequestTagMulti>` that can be later awaited and checked for errors.
-   * This is a non-blocking operation, and the status of the transfer must be verified from
-   * the resulting request object before the data can be released.
-   *
-   * The primary use of multi-buffer transfers is in Python where we want to reduce the
-   * amount of futures needed to watch for, thus reducing Python overhead. However, this
-   * may be used as a convenience implementation for transfers that require multiple
-   * frames, internally this is implemented as one or more `tagSend` calls sending headers
-   * (depending on the number of frames being transferred), followed by one `tagSend` for
-   * each data frame.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @throws  std::runtime_error  if sizes of `buffer`, `size` and `isCUDA` do not match.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
+   * Completion makes the local buffers safe to reuse, but does not confirm that the peer
+   * received every frame. Applications requiring peer delivery before a force-close must use
+   * an application-level acknowledgement.
    *
    * @param[in] buffer              a vector of raw pointers to the data frames to be sent.
    * @param[in] size                a vector of size in bytes of each frame to be sent.
-   * @param[in] isCUDA              a vector of booleans (integers to prevent incoherence
-   *                                with other vector types) indicating whether frame is
-   *                                CUDA, to ensure proper memory allocation by the
-   *                                receiver.
+   * @param[in] isCUDA              a vector indicating whether each frame is CUDA memory.
    * @param[in] tag                 the tag to match.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> tagMultiSend(const std::vector<const void*>& buffer,
-                                                      const std::vector<size_t>& size,
-                                                      const std::vector<int>& isCUDA,
-                                                      const Tag tag,
-                                                      const bool enablePythonFuture);
+  [[nodiscard]] RequestTagMultiBuilder tagMultiSendBuilder(const std::vector<const void*>& buffer,
+                                                           const std::vector<size_t>& size,
+                                                           const std::vector<int>& isCUDA,
+                                                           const Tag tag);
 
   /**
-   * @brief Enqueue a multi-buffer tag receive operation.
+   * @brief Create a builder for a multi-buffer tag receive operation.
    *
-   * Enqueue a multi-buffer tag receive operation, returning a
-   * `std::shared<ucxx::RequestTagMulti>` that can be later awaited and checked for errors.
-   * This is a non-blocking operation, and because the receiver has no a priori knowledge
-   * of the data being received, memory allocations are automatically handled internally.
-   * The receiver must have the same capabilities of the sender, so that if the sender is
-   * compiled with RMM support to allow for CUDA transfers, the receiver must have the
-   * ability to understand and allocate CUDA memory.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
    * @param[in] tag                 the tag to match.
    * @param[in] tagMask             the tag mask to use.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
    *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> tagMultiRecv(const Tag tag,
-                                                      const TagMask tagMask,
-                                                      const bool enablePythonFuture);
+  [[nodiscard]] RequestTagMultiBuilder tagMultiRecvBuilder(const Tag tag, const TagMask tagMask);
 
   /**
-   * @brief Enqueue a flush operation.
+   * @brief Create a builder for a flush operation.
    *
-   * Enqueue request to flush outstanding AMO (Atomic Memory Operation) and RMA (Remote
-   * Memory Access) operations on the endpoint, returning a pointer to a request object that
-   * can be later awaited and checked for errors. This is a non-blocking operation, and its
-   * status must be verified from the resulting request object to confirm the flush
-   * operation has completed successfully.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
    *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns Request to be subsequently checked for the completion and its state.
+   * @returns Builder to configure optional parameters and submit the request.
    */
-  [[nodiscard]] std::shared_ptr<Request> flush(
-    const bool enablePythonFuture                = false,
-    RequestCallbackUserFunction callbackFunction = nullptr,
-    RequestCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RequestFlushBuilder flushBuilder();
 
   /**
    * @brief Get `ucxx::Worker` component from a worker or listener object.
@@ -853,74 +553,42 @@ class Endpoint : public Component {
   [[nodiscard]] std::shared_ptr<Worker> getWorker();
 
   /**
-   * @brief Enqueue a non-blocking endpoint close operation.
+   * @brief Create a builder for a remote key from serialized data.
    *
-   * Enqueue a non-blocking endpoint close operation, which will close the endpoint without
-   * requiring to destroy the object. This may be useful when other
-   * `std::shared_ptr<ucxx::Request>` objects are still alive, such as inflight transfers.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion unpacks the remote key using this endpoint.
    *
-   * This method returns a `std::shared<ucxx::Request>` that can be later awaited and
-   * checked for errors. This is a non-blocking operation, and the status of closing the
-   * endpoint must be verified from the resulting request object before the
-   * `std::shared_ptr<ucxx::Endpoint>` can be safely destroyed and the UCP endpoint assumed
-   * inactive (closed). If the endpoint is already closed or in process of closing, `nullptr`
-   * is returned instead.
-   *
-   * If the endpoint was created with error handling support, the error callback will be
-   * executed, implying the user-defined callback will also be executed.
-   *
-   * If a user-defined callback is specified via the `callbackFunction` argument then that
-   * callback will be executed, if not then the callback registered with `setCloseCallback()`
-   * will be executed, if neither was specified then no user-defined callback will be
-   * executed.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the close operation has completed. Requires UCXX Python support.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @warning Unlike its `closeBlocking()` counterpart, this method does not cancel any
-   * inflight requests prior to submitting the UCP close request. Before scheduling the
-   * endpoint close request, the caller must first call `cancelInflightRequests()` and
-   * progress the worker until `getCancelingSize()` returns `0`.
-   *
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns Request to be subsequently checked for the completion and its state, or
-   *          `nullptr` if the endpoint has already closed or is already in process of
-   *          closing.
+   * @param[in] serializedRemoteKey serialized remote key data.
+   * @returns Builder to create the remote key.
    */
-  [[nodiscard]] std::shared_ptr<Request> close(
-    const bool enablePythonFuture                      = false,
-    EndpointCloseCallbackUserFunction callbackFunction = nullptr,
-    EndpointCloseCallbackUserData callbackData         = nullptr);
+  [[nodiscard]] RemoteKeyBuilder remoteKeyBuilder(SerializedRemoteKey serializedRemoteKey);
+
+  /**
+   * @brief Create a builder for a non-blocking endpoint close operation.
+   *
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion submits the request.
+   *
+   * @returns Builder to configure optional parameters and submit the close request.
+   */
+  [[nodiscard]] RequestEndpointCloseBuilder closeBuilder();
 
   /**
    * @brief Close the endpoint while keeping the object alive.
    *
-   * Close the endpoint without requiring to destroy the object, blocking until the
-   * operation completes. This may be useful when `std::shared_ptr<ucxx::Request>` objects
-   * are still alive.
+   * Close the endpoint without requiring to destroy the object, first canceling inflight
+   * requests and then waiting for the close operation to complete when possible. This may
+   * be useful when `std::shared_ptr<ucxx::Request>` objects are still alive.
    *
    * If the endpoint was created with error handling support, the error callback will be
    * executed, implying the user-defined callback will also be executed if one was
    * registered with `setCloseCallback()`.
    *
-   * If the parent worker is running a progress thread, a maximum timeout may be specified
-   * for which the close operation will wait. This can be particularly important for cases
-   * where the progress thread might be attempting to acquire a resource (e.g., the Python
-   * GIL) while the current thread owns that resource. In particular for Python, the
-   * `~Endpoint()` will call this method for which we can't release the GIL when the garbage
-   * collector runs and destroys the object.
+   * If the parent worker is running a progress thread, `period` and `maxAttempts` bound how
+   * long this method waits for progress-thread submission and completion checks. If close
+   * completion cannot be observed before all attempts expire, the endpoint status is set to
+   * `UCS_ERR_ENDPOINT_TIMEOUT` before returning. Any UCP endpoint close request handle
+   * returned by `ucp_ep_close_nbx()` is released before this method returns.
    *
    * @param[in] period      maximum period to wait for a generic pre/post progress thread
    *                        operation will wait for.

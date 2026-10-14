@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -9,18 +9,19 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_flush.h>
 
 namespace ucxx {
 
-std::shared_ptr<RequestFlush> createRequestFlush(
+std::shared_ptr<RequestFlush> detail::ConstructorFactory::createRequestFlush(
   std::shared_ptr<Component> endpointOrWorker,
   const data::Flush requestData,
-  const bool enablePythonFuture                = false,
-  RequestCallbackUserFunction callbackFunction = nullptr,
-  RequestCallbackUserData callbackData         = nullptr)
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData)
 {
   auto req = std::shared_ptr<RequestFlush>(new RequestFlush(endpointOrWorker,
                                                             requestData,
@@ -80,7 +81,7 @@ void RequestFlush::request()
   publishRequest(request);
 }
 
-void RequestFlush::populateDelayedSubmission()
+void RequestFlush::populateDelayedSubmissionImpl()
 {
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {
     ucxx_warn("Endpoint was closed before it could be flushed");

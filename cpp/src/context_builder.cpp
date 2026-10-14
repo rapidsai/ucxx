@@ -1,17 +1,16 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
 #include <utility>
 
+#include <internal/constructors.h>
 #include <ucxx/context.h>
-#include <ucxx/experimental/builder_utils.h>
-#include <ucxx/experimental/context_builder.h>
+#include <ucxx/context_builder.h>
+#include <ucxx/detail/builder_utils.h>
 
 namespace ucxx {
-
-namespace experimental {
 
 struct ContextBuilder::Impl {
   ConfigMap configMap{};
@@ -32,11 +31,9 @@ ContextBuilder& ContextBuilder::configMap(ConfigMap configMap)
   return *this;
 }
 
-std::shared_ptr<Context> ContextBuilder::build() const
+std::shared_ptr<Context> ContextBuilder::build()
 {
-  return ucxx::createContext(_impl->configMap, _impl->featureFlags);
+  return detail::ConstructorFactory::createContext(_impl->configMap, _impl->featureFlags);
 }
-
-}  // namespace experimental
 
 }  // namespace ucxx

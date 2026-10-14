@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -63,13 +63,13 @@ class Worker : public ::ucxx::Worker {
    *
    * @code{.cpp}
    * // context is `std::shared_ptr<ucxx::Context>`
-   * auto worker = ucxx::createWorker(context, false, false);
+   * auto worker = ucxx::python::createWorker(context, false, false);
    * @endcode
    *
    * @cond Doxygen_Suppress
    *
    * Note: this parameter list is suppressed due to a warning in doxygen 1.9.1.
-   * It appears to conflict with the ucxx::createWorker docstring.
+   * It appears to conflict with the ucxx::python::createWorker docstring.
    *
    * @param[in] context the context from which to create the worker.
    * @param[in] enableDelayedSubmission if `true`, each `ucxx::Request` will not be

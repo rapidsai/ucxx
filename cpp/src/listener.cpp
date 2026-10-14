@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -9,8 +9,10 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/exception.h>
 #include <ucxx/listener.h>
+
 #include <ucxx/utils/callback_notifier.h>
 #include <ucxx/utils/sockaddr.h>
 #include <ucxx/utils/ucx.h>
@@ -18,6 +20,7 @@
 namespace ucxx {
 
 Listener::Listener(std::shared_ptr<Worker> worker,
+                   std::string host,
                    uint16_t port,
                    ucp_listener_conn_callback_t callback,
                    void* callbackArgs)
@@ -28,7 +31,7 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   ucp_listener_params_t params = {
     .field_mask   = UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER,
     .conn_handler = {.cb = callback, .arg = callbackArgs}};
-  auto info               = ucxx::utils::get_addrinfo(NULL, port);
+  auto info               = ucxx::utils::get_addrinfo(host.empty() ? nullptr : host.c_str(), port);
   params.sockaddr.addr    = info->ai_addr;
   params.sockaddr.addrlen = info->ai_addrlen;
 
@@ -65,20 +68,23 @@ Listener::~Listener()
   ucxx_trace("ucxx::Listener destroyed: %p, UCP handle: %p", this, _handle);
 }
 
-std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                         uint16_t port,
-                                         ucp_listener_conn_callback_t callback,
-                                         void* callbackArgs)
+namespace detail {
+
+std::shared_ptr<Listener> ConstructorFactory::createListener(std::shared_ptr<Worker> worker,
+                                                             std::string host,
+                                                             uint16_t port,
+                                                             ucp_listener_conn_callback_t callback,
+                                                             void* callbackArgs)
 {
-  return std::shared_ptr<Listener>(new Listener(worker, port, callback, callbackArgs));
+  return std::shared_ptr<Listener>(
+    new Listener(worker, std::move(host), port, callback, callbackArgs));
 }
 
-std::shared_ptr<Endpoint> Listener::createEndpointFromConnRequest(ucp_conn_request_h connRequest,
-                                                                  bool endpointErrorHandling)
+}  // namespace detail
+
+EndpointBuilder Listener::endpointBuilder(ucp_conn_request_h connRequest)
 {
-  auto listener = std::dynamic_pointer_cast<Listener>(shared_from_this());
-  auto endpoint = ucxx::createEndpointFromConnRequest(listener, connRequest, endpointErrorHandling);
-  return endpoint;
+  return EndpointBuilder(std::static_pointer_cast<Listener>(shared_from_this()), connRequest);
 }
 
 ucp_listener_h Listener::getHandle() { return _handle; }

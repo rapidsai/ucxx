@@ -24,6 +24,8 @@ python/ucxx/ucxx/_lib/*.h
 wheels/
 *.egg-info/
 _skbuild/
+*.tar.gz
+*.whl
 
 ## Doxygen
 cpp/doxygen/html

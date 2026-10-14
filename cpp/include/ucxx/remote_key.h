@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -13,8 +13,11 @@
 #include <ucxx/component.h>
 #include <ucxx/endpoint.h>
 #include <ucxx/memory_handle.h>
+#include <ucxx/remote_key_builder.h>
 
 namespace ucxx {
+
+class RemoteKey;
 
 /**
  * @brief Type for hashing serialized remote keys.
@@ -53,8 +56,8 @@ class RemoteKey : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::MemoryHandle::createRemoteKey()`
-   * - `ucxx::createRemoteKeyFromMemoryHandle()`
+   * - `ucxx::MemoryHandle::remoteKeyBuilder()`
+   * - `ucxx::RemoteKeyBuilder`
    *
    * @param[in] memoryHandle the memory handle mapped on the local process.
    */
@@ -70,7 +73,8 @@ class RemoteKey : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::createRemoteKeyFromSerialized()`
+   * - `ucxx::Endpoint::remoteKeyBuilder()`
+   * - `ucxx::RemoteKeyBuilder`
    *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component.
    * @param[in] serializedRemoteKey the remote key that was serialized by the owner of
@@ -97,57 +101,8 @@ class RemoteKey : public Component {
   void deserialize(const SerializedRemoteKey& serializedHeader);
 
  public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RemoteKey>` from local memory handle.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RemoteKey>` object from a local
-   * `std::shared_ptr<ucxx::MemoryHandle>`, mapping a local memory buffer to be made
-   * accessible from a remote endpoint to perform RMA (Remote Memory Access) on the memory.
-   *
-   * @code{.cpp}
-   * // `memoryHandle` is `std::shared_ptr<ucxx::MemoryHandle>`
-   * auto remoteKey = memoryHandle->createRemoteKey();
-   *
-   * // Equivalent to line above
-   * // auto remoteKey = ucxx::createRemoteKeyFromMemoryHandle(memoryHandle);
-   * @endcode
-   *
-   * @throws ucxx::Error if `ucp_rkey_pack` fails.
-   *
-   * @param[in] memoryHandle the memory handle mapped on the local process.
-   *
-   * @returns The `shared_ptr<ucxx::RemoteKey>` object
-   */
-  friend std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
-    std::shared_ptr<MemoryHandle> memoryHandle);
-
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RemoteKey>` from remote.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RemoteKey>` object from a serialized
-   * `std::shared_ptr<ucxx::RemoteKey>`, mapping a remote memory buffer to be made
-   * accessible via a local endpoint to perform RMA (Remote Memory Access) on the memory.
-   *
-   * @code{.cpp}
-   * // `serializedRemoteKey` is `ucxx::SerializedRemoteKey>`, created on a remote worker
-   * // after a call to `ucxx::RemoteKey::serialize()` and transferred over-the-wire.
-   * auto remoteKey = ucxx::createRemoteKeyFromSerialized(serializedRemoteKey);
-   *
-   * // Equivalent to line above
-   * // auto remoteKey = ucxx::createRemoteKeyFromMemoryHandle(memoryHandle);
-   * @endcode
-   *
-   * @throws ucxx::Error if `ucp_ep_rkey_unpack` fails.
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component.
-   * @param[in] serializedRemoteKey the remote key that was serialized by the owner of
-   *                                the memory handle and transferred over-the-wire for
-   *                                reconstruction and remote access.
-   *
-   * @returns The `shared_ptr<ucxx::RemoteKey>` object
-   */
-  friend std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(
-    std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   ~RemoteKey();
 
@@ -172,7 +127,7 @@ class RemoteKey : public Component {
    * @brief Get the size of the memory allocation.
    *
    * Get the size of the memory allocation the remote key packs, which is at least the
-   * number of bytes specified with the `size` argument passed to `createMemoryHandle()`.
+   * number of bytes specified with the `size` argument passed to `memoryHandleBuilder()`.
    *
    * @code{.cpp}
    * // remoteKey is `std::shared_ptr<ucxx::RemoteKey>`
@@ -188,7 +143,7 @@ class RemoteKey : public Component {
    *
    * Get the base address of the memory allocation the remote key packs, which is going
    * to be used as the remote address to put or get memory via the
-   * `ucxx::Endpoint::memPut()` or `ucxx::Endpoint::memGet()` methods.
+   * `ucxx::Endpoint::memPutBuilder()` or `ucxx::Endpoint::memGetBuilder()` methods.
    *
    * @code{.cpp}
    * // remoteKey is `std::shared_ptr<ucxx::RemoteKey>`

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -8,8 +8,8 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucs/memory/memory_type.h>
-#include <ucxx/constructors.h>
 #include <ucxx/log.h>
 #include <ucxx/memory_handle.h>
 #include <ucxx/utils/ucx.h>
@@ -59,7 +59,7 @@ MemoryHandle::MemoryHandle(std::shared_ptr<Context> context,
 
 MemoryHandle::~MemoryHandle()
 {
-  ucp_mem_unmap(std::dynamic_pointer_cast<Context>(getParent())->getHandle(), _handle);
+  ucp_mem_unmap(std::static_pointer_cast<Context>(getParent())->getHandle(), _handle);
   ucxx_trace(
     "ucxx::MemoryHandle destroyed: %p, UCP handle: %p, base address: 0x%lx, size: %lu, type: %d",
     this,
@@ -69,10 +69,11 @@ MemoryHandle::~MemoryHandle()
     _memoryType);
 }
 
-std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
-                                                 const size_t size,
-                                                 void* buffer,
-                                                 const ucs_memory_type_t memoryType)
+std::shared_ptr<MemoryHandle> detail::ConstructorFactory::createMemoryHandle(
+  std::shared_ptr<Context> context,
+  const size_t size,
+  void* buffer,
+  const ucs_memory_type_t memoryType)
 {
   return std::shared_ptr<MemoryHandle>(new MemoryHandle(context, size, buffer, memoryType));
 }
@@ -85,10 +86,9 @@ uint64_t MemoryHandle::getBaseAddress() { return _baseAddress; }
 
 ucs_memory_type_t MemoryHandle::getMemoryType() { return _memoryType; }
 
-std::shared_ptr<RemoteKey> MemoryHandle::createRemoteKey()
+RemoteKeyBuilder MemoryHandle::remoteKeyBuilder()
 {
-  return createRemoteKeyFromMemoryHandle(
-    std::dynamic_pointer_cast<MemoryHandle>(shared_from_this()));
+  return RemoteKeyBuilder(std::static_pointer_cast<MemoryHandle>(shared_from_this()));
 }
 
 }  // namespace ucxx

@@ -12,10 +12,6 @@
 
 #include <ucxx/api.h>
 
-#if UCXX_ENABLE_RMM
-#include <rmm/device_buffer.hpp>
-#endif
-
 namespace {
 
 class BufferAllocator : public ::testing::Test,
@@ -48,17 +44,6 @@ TEST_P(BufferAllocator, TestType)
     ASSERT_EQ(buffer->getType(), ucxx::BufferType::Invalid);
 
     free(releasedBuffer);
-  } else if (_type == ucxx::BufferType::RMM) {
-#if UCXX_ENABLE_RMM
-    auto buffer = std::dynamic_pointer_cast<ucxx::RMMBuffer>(_buffer);
-    ASSERT_EQ(buffer->getType(), _type);
-
-    auto releasedBuffer = buffer->release();
-
-    ASSERT_EQ(buffer->getType(), ucxx::BufferType::Invalid);
-#else
-    GTEST_SKIP() << "UCXX was not built with RMM support";
-#endif
   } else if (_type == ucxx::BufferType::CCCL) {
 #if UCXX_ENABLE_CCCL
     auto buffer = std::dynamic_pointer_cast<ucxx::CCCLBuffer>(_buffer);
@@ -85,17 +70,6 @@ TEST_P(BufferAllocator, TestSize)
     ASSERT_EQ(buffer->getSize(), 0u);
 
     free(releasedBuffer);
-  } else if (_type == ucxx::BufferType::RMM) {
-#if UCXX_ENABLE_RMM
-    auto buffer = std::dynamic_pointer_cast<ucxx::RMMBuffer>(_buffer);
-    ASSERT_EQ(buffer->getSize(), _size);
-
-    auto releasedBuffer = buffer->release();
-
-    ASSERT_EQ(buffer->getSize(), 0u);
-#else
-    GTEST_SKIP() << "UCXX was not built with RMM support";
-#endif
   } else if (_type == ucxx::BufferType::CCCL) {
 #if UCXX_ENABLE_CCCL
     auto buffer = std::dynamic_pointer_cast<ucxx::CCCLBuffer>(_buffer);
@@ -122,19 +96,6 @@ TEST_P(BufferAllocator, TestData)
     ASSERT_NE(releasedBuffer, nullptr);
 
     free(releasedBuffer);
-  } else if (_type == ucxx::BufferType::RMM) {
-#if UCXX_ENABLE_RMM
-    auto buffer = std::dynamic_pointer_cast<ucxx::RMMBuffer>(_buffer);
-    ASSERT_EQ(buffer->data(), _buffer->data());
-
-    auto releasedBuffer = buffer->release();
-
-    EXPECT_THROW(buffer->data(), std::runtime_error);
-
-    ASSERT_NE(releasedBuffer, nullptr);
-#else
-    GTEST_SKIP() << "UCXX was not built with RMM support";
-#endif
   } else if (_type == ucxx::BufferType::CCCL) {
 #if UCXX_ENABLE_CCCL
     auto buffer = std::dynamic_pointer_cast<ucxx::CCCLBuffer>(_buffer);
@@ -158,16 +119,6 @@ TEST_P(BufferAllocator, TestThrowAfterRelease)
     EXPECT_THROW(std::ignore = buffer->release(), std::runtime_error);
 
     free(releasedBuffer);
-  } else if (_type == ucxx::BufferType::RMM) {
-#if UCXX_ENABLE_RMM
-    auto buffer         = std::dynamic_pointer_cast<ucxx::RMMBuffer>(_buffer);
-    auto releasedBuffer = buffer->release();
-
-    EXPECT_THROW(buffer->data(), std::runtime_error);
-    EXPECT_THROW(std::ignore = buffer->release(), std::runtime_error);
-#else
-    GTEST_SKIP() << "UCXX was not built with RMM support";
-#endif
   } else if (_type == ucxx::BufferType::CCCL) {
 #if UCXX_ENABLE_CCCL
     GTEST_SKIP() << "CCCLBuffer does not expose release()";
@@ -183,14 +134,6 @@ INSTANTIATE_TEST_SUITE_P(Host,
                          testing::Values(std::make_pair(ucxx::BufferType::Host, 1),
                                          std::make_pair(ucxx::BufferType::Host, 1000),
                                          std::make_pair(ucxx::BufferType::Host, 1000000)));
-
-#if UCXX_ENABLE_RMM
-INSTANTIATE_TEST_SUITE_P(RMM,
-                         BufferAllocator,
-                         testing::Values(std::make_pair(ucxx::BufferType::RMM, 1),
-                                         std::make_pair(ucxx::BufferType::RMM, 1000),
-                                         std::make_pair(ucxx::BufferType::RMM, 1000000)));
-#endif
 
 #if UCXX_ENABLE_CCCL
 INSTANTIATE_TEST_SUITE_P(CCCL,

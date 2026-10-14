@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -6,7 +6,11 @@ import asyncio
 import pytest
 
 import ucxx as ucxx
-from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import (
+    recv_close_receipt,
+    send_close_receipt,
+    wait_listener_client_handlers,
+)
 
 
 @pytest.mark.asyncio
@@ -19,6 +23,7 @@ async def test_tag_match():
         await asyncio.sleep(1)  # Let msg1 finish
         f2 = ep.send(msg2, tag="msg2")
         await asyncio.gather(f1, f2)
+        await recv_close_receipt(ep)
 
     lf = ucxx.create_listener(server_node)
     ep = await ucxx.create_endpoint(ucxx.get_address(), lf.port)
@@ -39,4 +44,5 @@ async def test_tag_match():
     assert m1 == msg1
     await f2
     assert m2 == msg2
+    await send_close_receipt(ep)
     await wait_listener_client_handlers(lf)

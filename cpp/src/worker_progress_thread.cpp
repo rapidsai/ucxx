@@ -1,8 +1,9 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <stdexcept>
 
 #include <ucxx/log.h>
 #include <ucxx/utils/callback_notifier.h>
@@ -12,7 +13,7 @@ namespace ucxx {
 
 void WorkerProgressThread::progressUntilSync(
   std::function<bool(void)> progressFunction,
-  std::shared_ptr<bool> stop,
+  std::shared_ptr<std::atomic<bool>> stop,
   std::function<void(void)> setThreadId,
   ProgressThreadStartCallback startCallback,
   ProgressThreadStartCallbackArg startCallbackArg,
@@ -27,7 +28,7 @@ void WorkerProgressThread::progressUntilSync(
 
   if (startCallback) startCallback(startCallbackArg);
 
-  while (!*stop) {
+  while (!stop->load(std::memory_order_acquire)) {
     delayedSubmissionCollection->processPre();
 
     progressFunction();
@@ -61,7 +62,7 @@ WorkerProgressThread::WorkerProgressThread(
 
 WorkerProgressThread::~WorkerProgressThread() { stop(); }
 
-void WorkerProgressThread::stop()
+void WorkerProgressThread::stop(StopConfig stopConfig)
 {
   if (!_thread.joinable()) {
     ucxx_debug("Worker progress thread not running or already stopped");
@@ -72,18 +73,30 @@ void WorkerProgressThread::stop()
   auto idPre = _delayedSubmissionCollection->registerGenericPre(
     [&callbackNotifierPre]() { callbackNotifierPre.set(); });
   _signalWorkerFunction();
-  if (!callbackNotifierPre.wait(3000000000)) {
-    _delayedSubmissionCollection->cancelGenericPre(idPre);
+  if (!callbackNotifierPre.wait(
+        stopConfig.callbackTimeoutNs, _signalWorkerFunction, stopConfig.signalIntervalNs)) {
+    try {
+      _delayedSubmissionCollection->cancelGenericPre(idPre);
+    } catch (const std::runtime_error&) {
+      // The callback started concurrently with cancellation and will signal the notifier.
+    }
   }
 
   utils::CallbackNotifier callbackNotifierPost{};
   auto idPost = _delayedSubmissionCollection->registerGenericPost([this, &callbackNotifierPost]() {
-    *_stop = true;
+    _stop->store(true, std::memory_order_release);
     callbackNotifierPost.set();
   });
   _signalWorkerFunction();
-  if (!callbackNotifierPost.wait(3000000000)) {
-    _delayedSubmissionCollection->cancelGenericPost(idPost);
+  if (!callbackNotifierPost.wait(
+        stopConfig.callbackTimeoutNs, _signalWorkerFunction, stopConfig.signalIntervalNs)) {
+    _stop->store(true, std::memory_order_release);
+    _signalWorkerFunction();
+    try {
+      _delayedSubmissionCollection->cancelGenericPost(idPost);
+    } catch (const std::runtime_error&) {
+      // The callback started concurrently with cancellation and will signal the notifier.
+    }
   }
 
   _thread.join();

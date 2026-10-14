@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -11,6 +11,7 @@
 
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
+#include <ucxx/request_tag_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -23,6 +24,8 @@ namespace ucxx {
  */
 class RequestTag : public Request {
  private:
+  bool _cancelRequested{false};  ///< Whether to cancel immediately after delayed submission.
+
   /**
    * @brief Private constructor of `ucxx::RequestTag`.
    *
@@ -32,10 +35,10 @@ class RequestTag : public Request {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Endpoint::tagRecv()`
-   * - `ucxx::Endpoint::tagSend()`
-   * - `ucxx::Worker::tagRecv()`
-   * - `ucxx::createRequestTag()`
+   * - `ucxx::Endpoint::tagRecvBuilder()`
+   * - `ucxx::Endpoint::tagSendBuilder()`
+   * - `ucxx::Worker::tagRecvBuilder()`
+   * - `ucxx::requestTagBuilder()`
    *
    * @throws ucxx::Error  if send is `true` and `endpointOrWorker` is not a
    *                      `std::shared_ptr<ucxx::Endpoint>`.
@@ -60,46 +63,20 @@ class RequestTag : public Request {
     RequestCallbackUserFunction callbackFunction = nullptr,
     RequestCallbackUserData callbackData         = nullptr);
 
- public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestTag>`.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RequestTag>` object, creating a send or
-   * receive tag request, returning a pointer to a request object that can be later awaited
-   * and checked for errors. This is a non-blocking operation, and the status of the
-   * transfer must be verified from the resulting request object before the data can be
-   * released (for a send operation) or consumed (for a receive operation).
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @throws ucxx::Error  if send is `true` and `endpointOrWorker` is not a
-   *                      `std::shared_ptr<ucxx::Endpoint>`.
-   *
-   * @param[in] endpointOrWorker    the parent component, which may either be a
-   *                                `std::shared_ptr<Endpoint>` or
-   *                                `std::shared_ptr<Worker>`.
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns The `shared_ptr<ucxx::RequestTag>` object
-   */
-  friend std::shared_ptr<RequestTag> createRequestTag(
-    std::shared_ptr<Component> endpointOrWorker,
-    const std::variant<data::TagSend, data::TagReceive, data::TagReceiveWithHandle> requestData,
-    const bool enablePythonFuture,
-    RequestCallbackUserFunction callbackFunction,
-    RequestCallbackUserData callbackData);
+  void populateDelayedSubmissionImpl() override;
 
-  virtual void populateDelayedSubmission();
+ public:
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
+
+  /**
+   * @brief Cancel the tag request.
+   *
+   * A receive created from a probed message handle must consume that handle before it can
+   * be canceled. If delayed submission has not occurred yet, defer cancelation until the
+   * progress context has submitted and processed the receive.
+   */
+  void cancel() override;
 
   /**
    * @brief Create and submit a tag request.

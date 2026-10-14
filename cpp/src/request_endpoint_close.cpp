@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ucxx/request_data.h"
@@ -10,18 +10,19 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_endpoint_close.h>
 
 namespace ucxx {
 
-std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
+std::shared_ptr<RequestEndpointClose> detail::ConstructorFactory::createRequestEndpointClose(
   std::shared_ptr<Endpoint> endpoint,
   const data::EndpointClose requestData,
-  const bool enablePythonFuture                = false,
-  RequestCallbackUserFunction callbackFunction = nullptr,
-  RequestCallbackUserData callbackData         = nullptr)
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData)
 {
   std::shared_ptr<RequestEndpointClose> req =
     std::shared_ptr<RequestEndpointClose>(new RequestEndpointClose(endpoint,
@@ -81,7 +82,7 @@ void RequestEndpointClose::request()
   publishRequest(request);
 }
 
-void RequestEndpointClose::populateDelayedSubmission()
+void RequestEndpointClose::populateDelayedSubmissionImpl()
 {
   if (_endpoint != nullptr && _endpoint->getHandle() == nullptr) {
     ucxx_warn("Endpoint is already closed");

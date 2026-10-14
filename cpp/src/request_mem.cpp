@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -9,18 +9,19 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_mem.h>
 
 namespace ucxx {
 
-std::shared_ptr<RequestMem> createRequestMem(
+std::shared_ptr<RequestMem> detail::ConstructorFactory::createRequestMem(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::MemPut, data::MemGet> requestData,
-  const bool enablePythonFuture                = false,
-  RequestCallbackUserFunction callbackFunction = nullptr,
-  RequestCallbackUserData callbackData         = nullptr)
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData)
 {
   std::shared_ptr<RequestMem> req = std::visit(
     data::dispatch{
@@ -130,7 +131,7 @@ void RequestMem::request()
   publishRequest(request);
 }
 
-void RequestMem::populateDelayedSubmission()
+void RequestMem::populateDelayedSubmissionImpl()
 {
   bool terminate =
     std::visit(data::dispatch{

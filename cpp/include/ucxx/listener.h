@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -10,10 +10,13 @@
 #include <ucp/api/ucp.h>
 
 #include <ucxx/component.h>
+#include <ucxx/endpoint_builder.h>
+#include <ucxx/listener_builder.h>
 #include <ucxx/worker.h>
 
 namespace ucxx {
 
+class Listener;
 /**
  * @brief Component encapsulating a UCP listener.
  *
@@ -30,17 +33,25 @@ class Listener : public Component {
    * @brief Private constructor of `ucxx::Listener`.
    *
    * This is the internal implementation of `ucxx::Listener` constructor, made private not
-   * to be called directly. Instead the user should call `worker::createListener()` or
-   * `ucxx::createListener()`.
+   * to be called directly.
+   *
+   * Instead the user should use one of the following:
+   *
+   * - `ucxx::Worker::listenerBuilder()`
+   * - `ucxx::ListenerBuilder`
    *
    *
    * @param[in] worker        the worker from which to create the listener.
+   * @param[in] host          the hostname or IP address which the listener should be
+   *                          bound to, an empty string binds to all interfaces
+   *                          (wildcard).
    * @param[in] port          the port which the listener should be bound to.
    * @param[in] callback      user-defined callback to be executed on incoming client
    *                          connections.
    * @param[in] callbackArgs  argument to be passed to the callback.
    */
   Listener(std::shared_ptr<Worker> worker,
+           std::string host,
            uint16_t port,
            ucp_listener_conn_callback_t callback,
            void* callbackArgs);
@@ -54,72 +65,19 @@ class Listener : public Component {
 
   ~Listener();
 
-  /**
-   * @brief Constructor of `shared_ptr<ucxx::Listener>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::Listener>` object. The default constructor is
-   * made private to ensure all UCXX objects are shared pointers for correct lifetime
-   * management.
-   *
-   * @code{.cpp}
-   *
-   * typedef struct ClientContext {
-   *   std::shared_ptr<ucxx::Endpoint> endpoint{nullptr};
-   *   std::shared_ptr<ucxx::Listener> listener{nullptr};
-   * } ClientContextType;
-   *
-   * void myCallback(ucp_conn_request_h connRequest, void* arg) {
-   *   ClientContextType clientContext = (ClientContextType*);
-   *   clientContext->endpoint =
-   *     clientContext->listener->createEndpointFromConnRequest(connRequest);
-   * }
-   *
-   * ClientContext clientContext;
-   *
-   * // worker is `std::shared_ptr<ucxx::Worker>`
-   * auto listener = worker->createListener(12345, myCallback, clientContext);
-   * clientContext->listener = listener;
-   *
-   * // Equivalent to line above
-   * // auto listener = ucxx::createListener(worker, 12345, myCallback, clientContext);
-   * @endcode
-   *
-   * @param[in] worker        the worker from which to create the listener.
-   * @param[in] port          the port which the listener should be bound to.
-   * @param[in] callback      user-defined callback to be executed on incoming client
-   *                          connections.
-   * @param[in] callbackArgs  argument to be passed to the callback.
-   *
-   * @returns The `shared_ptr<ucxx::Listener>` object.
-   */
-  friend std::shared_ptr<Listener> createListener(std::shared_ptr<Worker> worker,
-                                                  uint16_t port,
-                                                  ucp_listener_conn_callback_t callback,
-                                                  void* callbackArgs);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   /**
-   * @brief Constructor for `shared_ptr<ucxx::Endpoint>`.
+   * @brief Create a builder for an endpoint from a connection request.
    *
-   * The constructor for a `shared_ptr<ucxx::Endpoint>` object from a `ucp_conn_request_h`,
-   * as delivered by a `ucxx::Listener` connection callback.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion creates the endpoint from this listener.
    *
-   * @code{.cpp}
-   * // listener is `std::shared_ptr<ucxx::Listener>`, with a `ucp_conn_request_h` delivered
-   * // by a `ucxx::Listener` connection callback.
-   * auto endpoint = listener->createEndpointFromConnRequest(connRequest, true);
-   *
-   * // Equivalent to line above
-   * // auto endpoint = ucxx::createEndpointFromConnRequest(listener, connRequest, true);
-   * @endcode
-   *
-   * @param[in] connRequest           handle to connection request delivered by a
-   *                                  listener callback.
-   * @param[in] endpointErrorHandling whether to enable endpoint error handling.
-   *
-   * @returns The `shared_ptr<ucxx::Endpoint>` object.
+   * @param[in] connRequest handle to connection request delivered by a listener callback.
+   * @returns Builder to configure optional endpoint parameters.
    */
-  [[nodiscard]] std::shared_ptr<Endpoint> createEndpointFromConnRequest(
-    ucp_conn_request_h connRequest, bool endpointErrorHandling = true);
+  [[nodiscard]] EndpointBuilder endpointBuilder(ucp_conn_request_h connRequest);
 
   /**
    * @brief Get the underlying `ucp_listener_h` handle.

@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -11,6 +11,8 @@
 
 #include <ucxx/component.h>
 #include <ucxx/context.h>
+#include <ucxx/memory_handle_builder.h>
+#include <ucxx/remote_key_builder.h>
 
 namespace ucxx {
 
@@ -40,8 +42,8 @@ class MemoryHandle : public Component {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Context::createMemoryHandle`
-   * - `ucxx::createMemoryHandle()`
+   * - `ucxx::Context::memoryHandleBuilder()`
+   * - `ucxx::MemoryHandleBuilder`
    *
    * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
    *
@@ -63,56 +65,8 @@ class MemoryHandle : public Component {
   MemoryHandle(MemoryHandle&& o)               = delete;
   MemoryHandle& operator=(MemoryHandle&& o)    = delete;
 
-  /**
-   * @brief Constructor for `shared_ptr<ucxx::MemoryHandle>`.
-   *
-   * The constructor for a `shared_ptr<ucxx::MemoryHandle>` object, mapping a memory buffer
-   * with UCP to provide RMA (Remote Memory Access) to.
-   *
-   * The allocation requires a `size` and a `buffer`.  The `buffer` provided may be either
-   * a `nullptr`, in which case UCP will allocate a new memory region for it, or an already
-   * existing allocation, in which case UCP will only map it for RMA and it's the caller's
-   * responsibility to keep `buffer` alive until this object is destroyed. When the UCP
-   * allocates `buffer` (i.e., when the value passed is `nullptr`), the actual size of the
-   * allocation may be larger than requested, and can later be found calling the `getSize()`
-   * method, if a preallocated buffer is passed `getSize()` will return the same value
-   * specified for `size`.
-   *
-   * @code{.cpp}
-   * // `context` is `std::shared_ptr<ucxx::Context>`
-   * // Allocate a 128-byte buffer with UCP.
-   * auto memoryHandle = context->createMemoryHandle(128, nullptr);
-   *
-   * // Equivalent to line above
-   * // auto memoryHandle = ucxx::createMemoryHandle(context, 128, nullptr);
-   *
-   * // Map an existing 128-byte buffer with UCP.
-   * size_t allocationSize = 128;
-   * auto buffer = new uint8_t[allocationSize];
-   * auto memoryHandleFromBuffer = context->createMemoryHandle(
-   *    allocationSize * sizeof(*buffer), reinterpret_cast<void*>(buffer)
-   * );
-   *
-   * // Equivalent to line above
-   * // auto memoryHandleFromBuffer = ucxx::createMemoryHandle(
-   * //    context, allocationSize * sizeof(*buffer), reinterpret_cast<void*>(buffer)
-   * // );
-   * @endcode
-   *
-   * @throws ucxx::Error if either `ucp_mem_map` or `ucp_mem_query` fail.
-   *
-   * @param[in] context     parent context where to map memory.
-   * @param[in] size        the minimum size of the memory allocation
-   * @param[in] buffer      the pointer to an existing allocation or `nullptr` to allocate a
-   *                        new memory region.
-   * @param[in] memoryType  the type of memory the handle points to.
-   *
-   * @returns The `shared_ptr<ucxx::MemoryHandle>` object
-   */
-  friend std::shared_ptr<MemoryHandle> createMemoryHandle(std::shared_ptr<Context> context,
-                                                          const size_t size,
-                                                          void* buffer,
-                                                          const ucs_memory_type_t memoryType);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   ~MemoryHandle();
 
@@ -137,7 +91,7 @@ class MemoryHandle : public Component {
    * @brief Get the size of the memory allocation.
    *
    * Get the size of the memory allocation, which is at least the number of bytes specified
-   * with the `size` argument passed to `createMemoryHandle()`.
+   * with the `size` argument passed to `memoryHandleBuilder()`.
    *
    * @code{.cpp}
    * // memoryHandle is `std::shared_ptr<ucxx::MemoryHandle>`
@@ -152,8 +106,8 @@ class MemoryHandle : public Component {
    * @brief Get the base address of the memory allocation.
    *
    * Get the base address of the memory allocation, which is going to be used as the remote
-   * address to put or get memory via the `ucxx::Endpoint::memPut()` or
-   * `ucxx::Endpoint::memGet()` methods.
+   * address to put or get memory via the `ucxx::Endpoint::memPutBuilder()` or
+   * `ucxx::Endpoint::memGetBuilder()` methods.
    *
    * @code{.cpp}
    * // memoryHandle is `std::shared_ptr<ucxx::MemoryHandle>`
@@ -175,14 +129,14 @@ class MemoryHandle : public Component {
   [[nodiscard]] ucs_memory_type_t getMemoryType();
 
   /**
-   * @brief Create a remote key for the memory allocation.
+   * @brief Create a builder for a remote key from this memory allocation.
    *
-   * Create a remote key that can be used by a remote endpoint to access this memory
-   * allocation. The remote key is required for remote memory access operations.
+   * Calling this method only creates the builder. Finalizing it with `.build()` or
+   * implicit conversion creates a remote key that can be used by a remote endpoint.
    *
-   * @returns A shared pointer to the created remote key.
+   * @returns Builder to create the remote key.
    */
-  [[nodiscard]] std::shared_ptr<RemoteKey> createRemoteKey();
+  [[nodiscard]] RemoteKeyBuilder remoteKeyBuilder();
 };
 
 }  // namespace ucxx

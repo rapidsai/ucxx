@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -31,7 +31,7 @@ inline void waitRequests(std::shared_ptr<ucxx::Worker> worker,
   while (!remainingRequests.empty()) {
     auto updatedRequests = std::exchange(remainingRequests, decltype(remainingRequests)());
     for (auto const& r : updatedRequests) {
-      if (progressWorker) progressWorker();
+      if (progressWorker && !r->isCompleted()) progressWorker();
       if (!r->isCompleted())
         remainingRequests.push_back(r);
       else

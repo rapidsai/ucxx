@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -7,10 +7,12 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/remote_key.h>
 #include <ucxx/utils/ucx.h>
 
@@ -22,7 +24,7 @@ RemoteKey::RemoteKey(std::shared_ptr<MemoryHandle> memoryHandle)
   setParent(memoryHandle);
 
   utils::ucsErrorThrow(
-    ucp_rkey_pack(std::dynamic_pointer_cast<Context>(memoryHandle->getParent())->getHandle(),
+    ucp_rkey_pack(std::static_pointer_cast<Context>(memoryHandle->getParent())->getHandle(),
                   memoryHandle->getHandle(),
                   &_packedRemoteKey,
                   &_packedRemoteKeySize));
@@ -72,17 +74,21 @@ RemoteKey::~RemoteKey()
   }
 }
 
-std::shared_ptr<RemoteKey> createRemoteKeyFromMemoryHandle(
+namespace detail {
+
+std::shared_ptr<RemoteKey> ConstructorFactory::createRemoteKeyFromMemoryHandle(
   std::shared_ptr<MemoryHandle> memoryHandle)
 {
   return std::shared_ptr<RemoteKey>(new RemoteKey(memoryHandle));
 }
 
-std::shared_ptr<RemoteKey> createRemoteKeyFromSerialized(std::shared_ptr<Endpoint> endpoint,
-                                                         SerializedRemoteKey serializedRemoteKey)
+std::shared_ptr<RemoteKey> ConstructorFactory::createRemoteKeyFromSerialized(
+  std::shared_ptr<Endpoint> endpoint, SerializedRemoteKey serializedRemoteKey)
 {
   return std::shared_ptr<RemoteKey>(new RemoteKey(endpoint, serializedRemoteKey));
 }
+
+}  // namespace detail
 
 size_t RemoteKey::getSize() const { return _memorySize; }
 

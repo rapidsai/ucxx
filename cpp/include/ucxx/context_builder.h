@@ -13,8 +13,6 @@ namespace ucxx {
 // Forward declarations
 class Context;
 
-namespace experimental {
-
 /**
  * @brief Builder class for constructing `std::shared_ptr<ucxx::Context>` objects.
  *
@@ -23,20 +21,23 @@ namespace experimental {
  * when the builder expression completes, ensuring one-time construction with immediate
  * evaluation.
  *
- * The feature flags are required and must be provided to `createContext()`.
+ * The feature flags are required and must be provided to `contextBuilder()`.
  * The `configMap()` method is optional.
+ *
+ * `ContextBuilder` objects are not thread-safe. Accessing the same builder object from multiple
+ * threads requires external synchronization. Distinct builder objects are independent.
  *
  * @code{.cpp}
  *   // Minimal usage (only featureFlags required)
- *   auto ctx = ucxx::experimental::createContext(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP).build();
+ *   auto ctx = ucxx::contextBuilder(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP).build();
  *
  *   // With optional configMap
- *   auto context = ucxx::experimental::createContext(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP)
+ *   auto context = ucxx::contextBuilder(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP)
  *                    .configMap({{"TLS", "tcp"}})
  *                    .build();
  *
  *   // Using implicit conversion
- *   std::shared_ptr<ucxx::Context> ctx = ucxx::experimental::createContext(UCP_FEATURE_RMA);
+ *   std::shared_ptr<ucxx::Context> ctx = ucxx::contextBuilder(UCP_FEATURE_RMA);
  * @endcode
  */
 class ContextBuilder final {
@@ -70,7 +71,7 @@ class ContextBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Context>` object.
    */
-  operator std::shared_ptr<Context>() const;
+  operator std::shared_ptr<Context>();
 
   /**
    * @brief Set the configuration map for the context.
@@ -88,7 +89,7 @@ class ContextBuilder final {
    *
    * @return The constructed `shared_ptr<ucxx::Context>` object.
    */
-  [[nodiscard]] std::shared_ptr<Context> build() const;
+  [[nodiscard]] std::shared_ptr<Context> build();
 
  private:
   struct Impl;
@@ -105,22 +106,23 @@ class ContextBuilder final {
  *
  * @code{.cpp}
  *   // Minimal usage (only featureFlags required)
- *   auto context = ucxx::experimental::createContext(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP).build();
+ *   auto context = ucxx::contextBuilder(UCP_FEATURE_TAG | UCP_FEATURE_WAKEUP).build();
  *
  *   // With optional configMap
- *   auto context = ucxx::experimental::createContext(UCP_FEATURE_TAG)
+ *   auto context = ucxx::contextBuilder(UCP_FEATURE_TAG)
  *                    .configMap({{"TLS", "tcp"}})
  *                    .build();
  *
  *   // Using implicit conversion
- *   std::shared_ptr<ucxx::Context> context = ucxx::experimental::createContext(UCP_FEATURE_RMA);
+ *   std::shared_ptr<ucxx::Context> context = ucxx::contextBuilder(UCP_FEATURE_RMA);
  * @endcode
  *
  * @param[in] featureFlags feature flags to be used at UCP context construction time (required).
  * @return A ContextBuilder object that can be used to set optional parameters.
  */
-inline ContextBuilder createContext(uint64_t featureFlags) { return ContextBuilder(featureFlags); }
-
-}  // namespace experimental
+[[nodiscard]] inline ContextBuilder contextBuilder(uint64_t featureFlags)
+{
+  return ContextBuilder(featureFlags);
+}
 
 }  // namespace ucxx

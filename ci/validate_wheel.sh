@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -33,10 +33,20 @@ rapids-logger "validate packages with 'pydistcheck'"
 
 pydistcheck \
     --inspect \
-    "$(echo "${wheel_dir_relative_path}"/*.whl)"
+    "${wheel_dir_relative_path}"/*.whl
 
 rapids-logger "validate packages with 'twine'"
 
 twine check \
     --strict \
-    "$(echo "${wheel_dir_relative_path}"/*.whl)"
+    "${wheel_dir_relative_path}"/*.whl
+
+rapids-logger "validate packages with 'abi3audit'"
+
+# 'abi3audit' fails on wheels that contain DSOs but don't have an ABI tag (like 'libucxx').
+# This '-name' filtering avoids trying those.
+find \
+    "${wheel_dir_relative_path}" \
+    -type f \
+    -name '*abi*' \
+    -exec abi3audit --strict --summary --verbose '{}' \+

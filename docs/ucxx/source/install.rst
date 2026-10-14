@@ -42,7 +42,7 @@ Change `cuda-version` to pin to a different CUDA minor version if you'd like.
 
     # CUDA 13
     conda create -n ucx -c conda-forge -c rapidsai \
-      cuda-version=13.2 ucxx
+      cuda-version=13.3 ucxx
 
     # CUDA 12
     conda create -n ucx -c conda-forge -c rapidsai \
@@ -113,17 +113,17 @@ Only necessary to build also UCX from source.
         automake make libtool pkg-config
 
 
-UCX >= 1.18.0
+UCX >= 1.19.0
 ^^^^^^^^^^^^^
 
-Instructions for building UCX >= 1.18.0 (minimum version supported by UCXX), make sure to change ``git checkout v1.18.0`` to a newer version if desired:
+Instructions for building UCX >= 1.19.0 (minimum version supported by UCXX), make sure to change ``git checkout v1.19.0`` to a newer version if desired:
 
 ::
 
     conda activate ucx
     git clone https://github.com/openucx/ucx
     cd ucx
-    git checkout v1.18.0
+    git checkout v1.19.0
     ./autogen.sh
     mkdir build
     cd build
@@ -144,13 +144,13 @@ It is possible to enable InfiniBand support via the conda-forge rdma-core packag
     conda install -n ucxx -c conda-forge rdma-core
 
 
-After installing the necessary dependencies, it's now time to build UCX from source, make sure to change ``git checkout v1.18.0`` to a newer version if desired:
+After installing the necessary dependencies, it's now time to build UCX from source, make sure to change ``git checkout v1.19.0`` to a newer version if desired:
 
 ::
 
     git clone https://github.com/openucx/ucx
     cd ucx
-    git checkout v1.18.0
+    git checkout v1.19.0
     ./autogen.sh
     mkdir build
     cd build

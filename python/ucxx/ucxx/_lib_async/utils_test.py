@@ -1,7 +1,6 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import asyncio
 import io
 import logging
 import os
@@ -23,6 +22,19 @@ normal_env = {
     "UCX_TLS": "rc,cuda_copy,cuda_ipc",
     "CUDA_VISIBLE_DEVICES": "0",
 }
+
+
+CLOSE_RECEIPT_TAG = 0x434F4E4649524D
+
+
+async def send_close_receipt(ep):
+    await ep.send(np.array([1], dtype=np.uint8), tag=CLOSE_RECEIPT_TAG, force_tag=True)
+
+
+async def recv_close_receipt(ep):
+    receipt = np.empty(1, dtype=np.uint8)
+    await ep.recv(receipt, tag=CLOSE_RECEIPT_TAG, force_tag=True)
+    np.testing.assert_array_equal(receipt, [1])
 
 
 def set_env():
@@ -195,10 +207,7 @@ async def am_recv(ep):
 
 
 async def wait_listener_client_handlers(listener):
-    while listener.active_clients > 0:
-        # Minimal delay to yield to the event loop so call_soon_threadsafe callbacks
-        # run. Using a very short positive sleep ensures pending callbacks are
-        # processed and significantly reduces "coroutine never awaited" warnings.
-        await asyncio.sleep(1e-9)
-        if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
-            ucxx.progress()
+    progress = None
+    if not ucxx.core._get_ctx().progress_mode.startswith("thread"):
+        progress = ucxx.progress
+    await listener._wait_for_active_clients(progress=progress)

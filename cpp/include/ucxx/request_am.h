@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -13,6 +13,7 @@
 
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
+#include <ucxx/request_am_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -46,10 +47,9 @@ class RequestAm : public Request {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Endpoint::amSend()`
-   * - `ucxx::createRequestAmSend()`
-   * - `ucxx::Endpoint::amReceive()`
-   * - `ucxx::createRequestAmReceive()`
+   * - `ucxx::Endpoint::amSendBuilder()`
+   * - `ucxx::Endpoint::amRecvBuilder()`
+   * - `ucxx::requestAmBuilder()`
    *
    * @throws ucxx::Error  if `endpoint` is not a valid `std::shared_ptr<ucxx::Endpoint>`.
    *
@@ -70,44 +70,11 @@ class RequestAm : public Request {
             RequestCallbackUserFunction callbackFunction = nullptr,
             RequestCallbackUserData callbackData         = nullptr);
 
+  void populateDelayedSubmissionImpl() override;
+
  public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestAm>`.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RequestAm>` object, creating an active
-   * message request, returning a pointer to a request object that can be later awaited and
-   * checked for errors. This is a non-blocking operation, and the status of the transfer
-   * must be verified from the resulting request object before the data can be released if
-   * this is a send operation, or consumed if this is a receive operation. Received data is
-   * available via the `getRecvBuffer()` method if the receive transfer request completed
-   * successfully.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @throws ucxx::Error  if `endpoint` is not a valid
-   *                      `std::shared_ptr<ucxx::Endpoint>`.
-   *
-   * @param[in] endpoint            the parent endpoint.
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns The `shared_ptr<ucxx::RequestAm>` object
-   */
-  friend std::shared_ptr<RequestAm> createRequestAm(
-    std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::AmSend, data::AmReceive> requestData,
-    const bool enablePythonFuture,
-    RequestCallbackUserFunction callbackFunction,
-    RequestCallbackUserData callbackData);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Cancel the request.
@@ -116,8 +83,6 @@ class RequestAm : public Request {
    * destructor but may be called by the user to cancel the request as well.
    */
   void cancel() override;
-
-  void populateDelayedSubmission() override;
 
   /**
    * @brief Create and submit an active message send request.

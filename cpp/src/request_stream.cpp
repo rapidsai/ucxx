@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -9,6 +9,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request_stream.h>
 
@@ -34,10 +35,10 @@ RequestStream::RequestStream(std::shared_ptr<Endpoint> endpoint,
              requestData);
 }
 
-std::shared_ptr<RequestStream> createRequestStream(
+std::shared_ptr<RequestStream> detail::ConstructorFactory::createRequestStream(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::StreamSend, data::StreamReceive> requestData,
-  const bool enablePythonFuture = false)
+  const bool enablePythonFuture)
 {
   std::shared_ptr<RequestStream> req =
     std::visit(data::dispatch{
@@ -94,7 +95,7 @@ void RequestStream::request()
   publishRequest(request);
 }
 
-void RequestStream::populateDelayedSubmission()
+void RequestStream::populateDelayedSubmissionImpl()
 {
   bool terminate =
     std::visit(data::dispatch{

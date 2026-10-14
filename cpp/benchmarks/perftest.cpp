@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <sched.h>   // for cpu_set_t, CPU_SET, CPU_ZERO, sched_setaffinity
@@ -184,7 +184,8 @@ class ListenerContext {
   {
     if (!isAvailable()) throw std::runtime_error("Listener context already has an endpoint");
 
-    _endpoint    = _listener->createEndpointFromConnRequest(connRequest, _endpointErrorHandling);
+    _endpoint =
+      _listener->endpointBuilder(connRequest).endpointErrorHandling(_endpointErrorHandling).build();
     _isAvailable = false;
   }
 
@@ -707,7 +708,7 @@ struct Results {
    *
    * @throws std::invalid_argument If the percentile is outside the range [0.0, 100.0].
    */
-  double calculatePercentile(double percentile = 50.0)
+  double calculatePercentile(double percentile = 50.0) const
   {
     if (percentile < 0.0 || percentile > 100.0) {
       throw std::invalid_argument("Percentile must be between 0.0 and 100.0");
@@ -718,14 +719,12 @@ struct Results {
     }
 
     std::vector<decltype(Result::duration)> timingVector;
-    decltype(_timingQueue) tmpQueue;
-    while (!_timingQueue.empty()) {
-      auto duration = _timingQueue.front();
-      _timingQueue.pop();
+    auto timingQueue = _timingQueue;
+    while (!timingQueue.empty()) {
+      auto duration = timingQueue.front();
+      timingQueue.pop();
       timingVector.push_back(duration);
-      tmpQueue.push(duration);
     }
-    std::swap(tmpQueue, _timingQueue);
 
     std::sort(timingVector.begin(), timingVector.end());
 
@@ -742,6 +741,18 @@ struct Results {
    * @brief Resets the current result metrics to their default values.
    */
   void resetCurrent() { current = Result{}; }
+
+  /**
+   * @brief Adds synchronization time without counting it as a payload transfer.
+   *
+   * The final ACK in an unidirectional tag benchmark is part of the elapsed
+   * time, but does not represent a measured payload message or byte.
+   */
+  void addSynchronizationDuration(decltype(Result::duration) duration)
+  {
+    total.duration += duration;
+    current.duration += duration;
+  }
 };
 
 /**
@@ -800,13 +811,17 @@ class Application {
                                             {DirectionType::Recv, std::vector<char>(3, 0)}});
 
     // Schedule small wireup messages to let UCX identify capabilities between endpoints
-    requests.push_back(_endpoint->tagSend((*wireupBufferMap)[DirectionType::Send].data(),
+    requests.push_back(_endpoint
+                         ->tagSendBuilder((*wireupBufferMap)[DirectionType::Send].data(),
                                           (*wireupBufferMap)[DirectionType::Send].size(),
-                                          (*_tagMap)[DirectionType::Send]));
-    requests.push_back(_endpoint->tagRecv((*wireupBufferMap)[DirectionType::Recv].data(),
+                                          (*_tagMap)[DirectionType::Send])
+                         .build());
+    requests.push_back(_endpoint
+                         ->tagRecvBuilder((*wireupBufferMap)[DirectionType::Recv].data(),
                                           (*wireupBufferMap)[DirectionType::Recv].size(),
                                           (*_tagMap)[DirectionType::Recv],
-                                          ucxx::TagMaskFull));
+                                          ucxx::TagMaskFull)
+                         .build());
 
     // In loopback mode, also schedule the peer (server-side) wireup
     std::shared_ptr<BufferMap> peerWireupBufferMap;
@@ -815,13 +830,17 @@ class Application {
         std::make_shared<BufferMap>(BufferMap{{DirectionType::Send, std::vector<char>{1, 2, 3}},
                                               {DirectionType::Recv, std::vector<char>(3, 0)}});
 
-      requests.push_back(_peerEndpoint->tagSend((*peerWireupBufferMap)[DirectionType::Send].data(),
-                                                (*peerWireupBufferMap)[DirectionType::Send].size(),
-                                                (*_peerTagMap)[DirectionType::Send]));
-      requests.push_back(_peerEndpoint->tagRecv((*peerWireupBufferMap)[DirectionType::Recv].data(),
-                                                (*peerWireupBufferMap)[DirectionType::Recv].size(),
-                                                (*_peerTagMap)[DirectionType::Recv],
-                                                ucxx::TagMaskFull));
+      requests.push_back(_peerEndpoint
+                           ->tagSendBuilder((*peerWireupBufferMap)[DirectionType::Send].data(),
+                                            (*peerWireupBufferMap)[DirectionType::Send].size(),
+                                            (*_peerTagMap)[DirectionType::Send])
+                           .build());
+      requests.push_back(_peerEndpoint
+                           ->tagRecvBuilder((*peerWireupBufferMap)[DirectionType::Recv].data(),
+                                            (*peerWireupBufferMap)[DirectionType::Recv].size(),
+                                            (*_peerTagMap)[DirectionType::Recv],
+                                            ucxx::TagMaskFull)
+                           .build());
     }
 
     // Wait for wireup requests and clear requests
@@ -882,44 +901,92 @@ class Application {
 
     auto start = std::chrono::high_resolution_clock::now();
     if (_appContext.testAttributes->testType == TestType::PingPong) {
-      requests = {
-        _endpoint->tagSend(
-          bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send]),
-        _endpoint->tagRecv(bufferInterface->getRecvPtr(),
-                           _appContext.messageSize,
-                           (*_tagMap)[DirectionType::Recv],
-                           ucxx::TagMaskFull)};
       if (_appContext.loopback) {
-        requests.push_back(_peerEndpoint->tagSend(peerBufferInterface->getSendPtr(),
-                                                  _appContext.messageSize,
-                                                  (*_peerTagMap)[DirectionType::Send]));
-        requests.push_back(_peerEndpoint->tagRecv(peerBufferInterface->getRecvPtr(),
-                                                  _appContext.messageSize,
-                                                  (*_peerTagMap)[DirectionType::Recv],
-                                                  ucxx::TagMaskFull));
+        requests = {_endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])
+                      .build(),
+                    _endpoint
+                      ->tagRecvBuilder(bufferInterface->getRecvPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)
+                      .build()};
+        requests.push_back(_peerEndpoint
+                             ->tagSendBuilder(peerBufferInterface->getSendPtr(),
+                                              _appContext.messageSize,
+                                              (*_peerTagMap)[DirectionType::Send])
+                             .build());
+        requests.push_back(_peerEndpoint
+                             ->tagRecvBuilder(peerBufferInterface->getRecvPtr(),
+                                              _appContext.messageSize,
+                                              (*_peerTagMap)[DirectionType::Recv],
+                                              ucxx::TagMaskFull)
+                             .build());
+        waitRequests(requests);
+      } else if (_isServer) {
+        // Match tag_lat: server receives before replying.
+        auto recv = _endpoint
+                      ->tagRecvBuilder(bufferInterface->getRecvPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)
+                      .build();
+        waitRequests({recv});
+        auto send = _endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])
+                      .build();
+        waitRequests({send});
+      } else {
+        // Match tag_lat: client sends before receiving the reply.
+        auto send = _endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])
+                      .build();
+        waitRequests({send});
+        auto recv = _endpoint
+                      ->tagRecvBuilder(bufferInterface->getRecvPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)
+                      .build();
+        waitRequests({recv});
       }
     } else {
       if (_appContext.loopback) {
-        requests = {_endpoint->tagSend(bufferInterface->getSendPtr(),
+        requests = {_endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
                                        _appContext.messageSize,
-                                       (*_tagMap)[DirectionType::Send]),
-                    _peerEndpoint->tagRecv(peerBufferInterface->getRecvPtr(),
-                                           _appContext.messageSize,
-                                           (*_peerTagMap)[DirectionType::Recv],
-                                           ucxx::TagMaskFull)};
+                                       (*_tagMap)[DirectionType::Send])
+                      .build(),
+                    _peerEndpoint
+                      ->tagRecvBuilder(peerBufferInterface->getRecvPtr(),
+                                       _appContext.messageSize,
+                                       (*_peerTagMap)[DirectionType::Recv],
+                                       ucxx::TagMaskFull)
+                      .build()};
       } else if (_isServer) {
-        requests = {_endpoint->tagRecv(bufferInterface->getRecvPtr(),
+        requests = {_endpoint
+                      ->tagRecvBuilder(bufferInterface->getRecvPtr(),
                                        _appContext.messageSize,
                                        (*_tagMap)[DirectionType::Recv],
-                                       ucxx::TagMaskFull)};
+                                       ucxx::TagMaskFull)
+                      .build()};
       } else {
-        requests = {_endpoint->tagSend(
-          bufferInterface->getSendPtr(), _appContext.messageSize, (*_tagMap)[DirectionType::Send])};
+        requests = {_endpoint
+                      ->tagSendBuilder(bufferInterface->getSendPtr(),
+                                       _appContext.messageSize,
+                                       (*_tagMap)[DirectionType::Send])
+                      .build()};
       }
     }
 
-    // Wait for requests and clear requests
-    waitRequests(requests);
+    // Wait for requests and clear requests.
+    if (!requests.empty()) waitRequests(requests);
     auto stop = std::chrono::high_resolution_clock::now();
 
     if (_appContext.verifyResults) {
@@ -927,7 +994,35 @@ class Application {
       if (peerBufferInterface) { peerBufferInterface->verifyResults(_appContext.messageSize); }
     }
 
-    return stop - start;
+    return std::chrono::duration<double>{stop - start};
+  }
+
+  /**
+   * @brief Confirms completion of a unidirectional tag transfer.
+   *
+   * After receiving all payloads, the server sends one normal tagged ACK and
+   * the client waits for it. This is skipped in loopback mode.
+   */
+  auto doUnidirectionalAck()
+  {
+    if (_appContext.loopback || _appContext.testAttributes->testType != TestType::Unidirectional) {
+      return std::chrono::duration<double>{0};
+    }
+
+    uint8_t ack{0};
+    auto start = std::chrono::high_resolution_clock::now();
+    auto request =
+      _isServer
+        ? _endpoint->tagSendBuilder(&ack, sizeof(ack), (*_tagMap)[DirectionType::Send]).build()
+        : _endpoint
+            ->tagRecvBuilder(&ack, sizeof(ack), (*_tagMap)[DirectionType::Recv], ucxx::TagMaskFull)
+            .build();
+    waitRequests({request});
+    auto stop = std::chrono::high_resolution_clock::now();
+
+    if (!_isServer && ack != 0) { throw std::runtime_error("Invalid unidirectional ACK"); }
+
+    return std::chrono::duration<double>{stop - start};
   }
 
   void printServerHeader(std::string_view description, MemoryType sendMemory, MemoryType recvMemory)
@@ -999,6 +1094,41 @@ class Application {
               << appendSpaces(floatToString(messageRateOverall), 0) << std::endl;
   }
 
+  /**
+   * @brief Computes and prints the collected benchmark results.
+   *
+   * @param results Benchmark results to report.
+   * @param factor Number of transfers represented by one measured operation.
+   */
+  void printResults(const Results& results, double factor)
+  {
+    const auto percentile = results.calculatePercentile(_appContext.percentileRank) / factor * 1e6;
+    const auto currentLatency =
+      results.current.duration.count() / results.current.iterations / factor * 1e6;
+    const auto totalLatency =
+      results.total.duration.count() / results.total.iterations / factor * 1e6;
+
+    const auto currentSeconds = results.current.duration.count();
+    const auto totalSeconds   = results.total.duration.count();
+    const auto currentBandwidth =
+      (currentSeconds > 0.0) ? results.current.bytes / (currentSeconds * 1e6) : 0.0;
+    const auto totalBandwidth =
+      (totalSeconds > 0.0) ? results.total.bytes / (totalSeconds * 1e6) : 0.0;
+    const auto currentMessageRate =
+      (currentSeconds > 0.0) ? results.current.messages / currentSeconds : 0.0;
+    const auto totalMessageRate =
+      (totalSeconds > 0.0) ? results.total.messages / totalSeconds : 0.0;
+
+    printProgress(results.total.iterations,
+                  percentile,
+                  currentLatency,
+                  totalLatency,
+                  currentBandwidth,
+                  totalBandwidth,
+                  currentMessageRate,
+                  totalMessageRate);
+  }
+
  public:
   explicit Application(ApplicationContext&& appContext)
     : _appContext(appContext), _isServer(appContext.serverAddress == NULL && !appContext.loopback)
@@ -1017,8 +1147,8 @@ class Application {
         appContext.progressMode == ProgressMode::Wait) {
       ucpFeatures |= UCP_FEATURE_WAKEUP;
     }
-    _context = UCXX_EXIT_ON_ERROR(ucxx::createContext({}, ucpFeatures), "Context creation");
-    _worker  = UCXX_EXIT_ON_ERROR(_context->createWorker(), "Worker creation");
+    _context = UCXX_EXIT_ON_ERROR(ucxx::contextBuilder(ucpFeatures).build(), "Context creation");
+    _worker  = UCXX_EXIT_ON_ERROR(_context->workerBuilder().build(), "Worker creation");
 
     if (_appContext.loopback) {
       // In loopback mode, _endpoint acts as the "client" side and
@@ -1042,7 +1172,8 @@ class Application {
       _listenerContext =
         std::make_unique<ListenerContext>(_worker, _appContext.endpointErrorHandling);
       _listener = UCXX_EXIT_ON_ERROR(
-        _worker->createListener(_appContext.listenerPort, listenerCallback, _listenerContext.get()),
+        _worker->listenerBuilder(_appContext.listenerPort, listenerCallback, _listenerContext.get())
+          .build(),
         "Listener creation");
       _listenerContext->setListener(_listener);
     }
@@ -1059,10 +1190,10 @@ class Application {
 
     if (_appContext.loopback) {
       // Connect to our own listener
-      _endpoint = UCXX_EXIT_ON_ERROR(
-        _worker->createEndpointFromHostname(
-          "127.0.0.1", _appContext.listenerPort, _appContext.endpointErrorHandling),
-        "Self-endpoint creation");
+      _endpoint = UCXX_EXIT_ON_ERROR(_worker->endpointBuilder("127.0.0.1", _appContext.listenerPort)
+                                       .endpointErrorHandling(_appContext.endpointErrorHandling)
+                                       .build(),
+                                     "Self-endpoint creation");
 
       // Wait for the listener to accept our connection
       while (_listenerContext->isAvailable())
@@ -1085,8 +1216,9 @@ class Application {
         appContext.testAttributes->description, appContext.memoryType, appContext.memoryType);
     } else {
       _endpoint = UCXX_EXIT_ON_ERROR(
-        _worker->createEndpointFromHostname(
-          _appContext.serverAddress, _appContext.listenerPort, _appContext.endpointErrorHandling),
+        _worker->endpointBuilder(_appContext.serverAddress, _appContext.listenerPort)
+          .endpointErrorHandling(_appContext.endpointErrorHandling)
+          .build(),
         "Endpoint creation");
       printClientHeader(appContext.testAttributes->category);
     }
@@ -1121,6 +1253,7 @@ class Application {
     // Warmup
     for (size_t n = 0; n < _appContext.numWarmupIterations; ++n)
       UCXX_EXIT_ON_ERROR(doTransfer(), "Warmup iteration " + std::to_string(n));
+    UCXX_EXIT_ON_ERROR(doUnidirectionalAck(), "Warmup completion ACK");
 
     auto lastPrintTime = std::chrono::steady_clock::now();
 
@@ -1137,35 +1270,18 @@ class Application {
       auto elapsedTime =
         std::chrono::duration_cast<std::chrono::seconds>(currentTime - lastPrintTime);
 
-      if (!_isServer &&
-          (elapsedTime.count() >= 1 || results.total.iterations == _appContext.numIterations)) {
-        const auto percentile =
-          results.calculatePercentile(_appContext.percentileRank) / factor * 1e6;
-        const auto currentLatency =
-          results.current.duration.count() / results.current.iterations / factor * 1e6;
-        const auto totalLatency =
-          results.total.duration.count() / results.total.iterations / factor * 1e6;
-
-        const auto curSec           = results.current.duration.count();
-        const auto totalSec         = results.total.duration.count();
-        const auto currentBandwidth = (curSec > 0.0) ? results.current.bytes / (curSec * 1e6) : 0.0;
-        const auto totalBandwidth = (totalSec > 0.0) ? results.total.bytes / (totalSec * 1e6) : 0.0;
-        const auto currentMessageRate = (curSec > 0.0) ? results.current.messages / curSec : 0.0;
-        const auto totalMessageRate   = (totalSec > 0.0) ? results.total.messages / totalSec : 0.0;
-
-        printProgress(results.total.iterations,
-                      percentile,
-                      currentLatency,
-                      totalLatency,
-                      currentBandwidth,
-                      totalBandwidth,
-                      currentMessageRate,
-                      totalMessageRate);
+      if (!_isServer && elapsedTime.count() >= 1 && n + 1 < _appContext.numIterations) {
+        printResults(results, factor);
 
         results.resetCurrent();
         lastPrintTime = currentTime;
       }
     }
+
+    results.addSynchronizationDuration(
+      UCXX_EXIT_ON_ERROR(doUnidirectionalAck(), "Benchmark completion ACK"));
+
+    if (!_isServer && results.total.iterations != 0) printResults(results, factor);
   }
 };
 

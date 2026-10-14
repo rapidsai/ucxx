@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstdio>
@@ -18,11 +18,14 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
+#include <internal/constructors.h>
 #include <ucxx/buffer.h>
 #include <ucxx/internal/request_am.h>
 #include <ucxx/request_am.h>
 #include <ucxx/request_flush.h>
+#include <ucxx/request_flush_builder.h>
 #include <ucxx/request_tag.h>
+#include <ucxx/request_tag_builder.h>
 #include <ucxx/tag_probe.h>
 #include <ucxx/typedefs.h>
 #include <ucxx/utils/callback_notifier.h>
@@ -41,8 +44,6 @@ Worker::Worker(std::shared_ptr<Context> context,
     throw std::runtime_error("Context not initialized");
 #if UCXX_ENABLE_CCCL
   _cudaBufferType = BufferType::CCCL;
-#elif UCXX_ENABLE_RMM
-  _cudaBufferType = BufferType::RMM;
 #endif
 
   ucp_worker_params_t params = {.field_mask  = UCP_WORKER_PARAM_FIELD_THREAD_MODE,
@@ -77,20 +78,12 @@ Worker::Worker(std::shared_ptr<Context> context,
     enableDelayedSubmission,
     _enableFuture);
 
-  setParent(std::dynamic_pointer_cast<Component>(context));
-}
-
-static void _drainCallback(void* request,
-                           ucs_status_t status,
-                           const ucp_tag_recv_info_t* /* info */,
-                           void* /* arg */)
-{
-  *reinterpret_cast<ucs_status_t*>(request) = status;
+  setParent(context);
 }
 
 void Worker::drainWorkerTagRecv()
 {
-  auto context = std::dynamic_pointer_cast<Context>(_parent);
+  auto context = std::static_pointer_cast<Context>(_parent);
   if (!(context->getFeatureFlags() & UCP_FEATURE_TAG)) return;
 
   ucp_tag_message_h message;
@@ -108,17 +101,21 @@ void Worker::drainWorkerTagRecv()
 
     std::vector<char> buf(info.length);
 
-    ucp_request_param_t param = {
-      .op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_DATATYPE,
-      .cb           = {.recv = _drainCallback},
-      .datatype     = ucp_dt_make_contig(1)};
+    ucp_request_param_t param = {.op_attr_mask = UCP_OP_ATTR_FIELD_DATATYPE,
+                                 .datatype     = ucp_dt_make_contig(1)};
 
     ucs_status_ptr_t status =
       ucp_tag_msg_recv_nbx(_handle, buf.data(), info.length, message, &param);
 
-    if (status != nullptr) {
-      while (UCS_PTR_STATUS(status) == UCS_INPROGRESS)
+    if (UCS_PTR_IS_PTR(status)) {
+      while (ucp_request_check_status(status) == UCS_INPROGRESS)
         progress();
+
+      ucp_request_free(status);
+    } else if (UCS_PTR_IS_ERR(status)) {
+      ucxx_debug("ucxx::Worker::%s failed to drain tag receive: %s",
+                 __func__,
+                 ucs_status_string(UCS_PTR_STATUS(status)));
     }
   }
 }
@@ -135,6 +132,7 @@ std::shared_ptr<RequestAm> Worker::getAmRecv(
   if (reqs != recvPool.end() && !reqs->second.empty()) {
     auto req = reqs->second.front();
     reqs->second.pop();
+    if (reqs->second.empty()) recvPool.erase(reqs);
     return req;
   } else {
     auto req        = createAmRecvRequestFunction();
@@ -144,9 +142,9 @@ std::shared_ptr<RequestAm> Worker::getAmRecv(
   }
 }
 
-std::shared_ptr<Worker> createWorker(std::shared_ptr<Context> context,
-                                     const bool enableDelayedSubmission,
-                                     const bool enableFuture)
+std::shared_ptr<Worker> detail::ConstructorFactory::createWorker(std::shared_ptr<Context> context,
+                                                                 const bool enableDelayedSubmission,
+                                                                 const bool enableFuture)
 {
   auto worker = std::shared_ptr<Worker>(new Worker(context, enableDelayedSubmission, enableFuture));
   // We can only get a `shared_ptr<Worker>` for the Active Messages callback after it's
@@ -171,7 +169,7 @@ Worker::~Worker()
              _handle,
              canceled);
 
-  if (_progressThread.isRunning()) {
+  if (isProgressThreadRunning()) {
     ucxx_warn(
       "The progress thread should be explicitly stopped with `stopProgressThread()` to prevent "
       "unintended effects, such as destructors being called from that thread.");
@@ -230,8 +228,8 @@ BufferType Worker::getCudaBufferType() const { return _cudaBufferType; }
 
 void Worker::setCudaBufferType(BufferType bufferType)
 {
-  if (bufferType != BufferType::RMM && bufferType != BufferType::CCCL)
-    throw std::invalid_argument("cudaBufferType must be BufferType::RMM or BufferType::CCCL");
+  if (bufferType != BufferType::CCCL)
+    throw std::invalid_argument("cudaBufferType must be BufferType::CCCL");
   _cudaBufferType = bufferType;
 }
 
@@ -376,7 +374,7 @@ bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t
      * it will ensure the request is dispatched.
      */
     std::function<void()> signalWorkerFunction = []() {};
-    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+    if (isProgressThreadRunning() && !_progressThreadPollingMode.load(std::memory_order_acquire)) {
       signalWorkerFunction = [this]() { return this->signal(); };
     }
     signalWorkerFunction();
@@ -423,7 +421,7 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
      * it will ensure the request is dispatched.
      */
     std::function<void()> signalWorkerFunction = []() {};
-    if (_progressThread.isRunning() && !_progressThread.pollingMode()) {
+    if (isProgressThreadRunning() && !_progressThreadPollingMode.load(std::memory_order_acquire)) {
       signalWorkerFunction = [this]() { return this->signal(); };
     }
     signalWorkerFunction();
@@ -474,7 +472,7 @@ void Worker::setProgressThreadStartCallback(std::function<void(void*)> callback,
 
 void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
 {
-  if (_progressThread.isRunning()) {
+  if (isProgressThreadRunning()) {
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread "
       "already running",
@@ -495,7 +493,12 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
     signalWorkerFunction = [this]() { return this->signal(); };
   }
 
-  auto setThreadId = [this]() { _progressThreadId = std::this_thread::get_id(); };
+  _progressThreadId.store(std::thread::id(), std::memory_order_release);
+  _progressThreadPollingMode.store(pollingMode, std::memory_order_release);
+
+  auto setThreadId = [this]() {
+    _progressThreadId.store(std::this_thread::get_id(), std::memory_order_release);
+  };
 
   _progressThread = WorkerProgressThread(pollingMode,
                                          progressFunction,
@@ -504,13 +507,20 @@ void Worker::startProgressThread(const bool pollingMode, const int epollTimeout)
                                          _progressThreadStartCallback,
                                          _progressThreadStartCallbackArg,
                                          _delayedSubmissionCollection);
+
+  _progressThreadRunning.store(true, std::memory_order_release);
 }
 
-void Worker::stopProgressThreadNoWarn() { _progressThread.stop(); }
+void Worker::stopProgressThreadNoWarn()
+{
+  _progressThread.stop();
+  _progressThreadRunning.store(false, std::memory_order_release);
+  _progressThreadId.store(std::thread::id(), std::memory_order_release);
+}
 
 void Worker::stopProgressThread()
 {
-  if (!_progressThread.isRunning())
+  if (!isProgressThreadRunning())
     ucxx_debug(
       "ucxx::Worker::%s, Worker: %p, UCP handle: %p, worker progress thread not "
       "running or already stopped",
@@ -521,9 +531,15 @@ void Worker::stopProgressThread()
     stopProgressThreadNoWarn();
 }
 
-bool Worker::isProgressThreadRunning() { return _progressThread.isRunning(); }
+bool Worker::isProgressThreadRunning()
+{
+  return _progressThreadRunning.load(std::memory_order_acquire);
+}
 
-std::thread::id Worker::getProgressThreadId() { return _progressThreadId; }
+std::thread::id Worker::getProgressThreadId()
+{
+  return _progressThreadId.load(std::memory_order_acquire);
+}
 
 size_t Worker::cancelInflightRequests(uint64_t period, uint64_t maxAttempts)
 {
@@ -617,33 +633,29 @@ std::shared_ptr<TagProbeInfo> Worker::tagProbe(const Tag tag,
   ucp_tag_message_h tag_message = ucp_tag_probe_nb(_handle, tag, tagMask, remove ? 1 : 0, &info);
 
   if (tag_message != NULL) {
-    return createTagProbeInfo(info, remove ? tag_message : nullptr);
+    return detail::ConstructorFactory::createTagProbeInfo(info, remove ? tag_message : nullptr);
   } else {
-    return createTagProbeInfo();
+    return detail::ConstructorFactory::createTagProbeInfo();
   }
 }
 
-std::shared_ptr<Request> Worker::tagRecv(void* buffer,
-                                         size_t length,
-                                         Tag tag,
-                                         TagMask tagMask,
-                                         const bool enableFuture,
-                                         RequestCallbackUserFunction callbackFunction,
-                                         RequestCallbackUserData callbackData)
+RequestTagBuilder Worker::tagRecvBuilder(void* buffer, size_t length, Tag tag, TagMask tagMask)
 {
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(createRequestTag(worker,
-                                                  data::TagReceive(buffer, length, tag, tagMask),
-                                                  enableFuture,
-                                                  callbackFunction,
-                                                  callbackData));
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
+  return RequestTagBuilder(std::move(worker), data::TagReceive(buffer, length, tag, tagMask));
 }
 
-std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
-                                                   std::shared_ptr<TagProbeInfo> probeInfo,
-                                                   const bool enableFuture,
-                                                   RequestCallbackUserFunction callbackFunction,
-                                                   RequestCallbackUserData callbackData)
+RequestTagBuilder Worker::tagRecvWithHandleBuilder(void* buffer,
+                                                   std::shared_ptr<TagProbeInfo> probeInfo)
+{
+  if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
+  const auto length = probeInfo->getInfo().length;
+  return tagRecvWithHandleBuilder(buffer, length, std::move(probeInfo));
+}
+
+RequestTagBuilder Worker::tagRecvWithHandleBuilder(void* buffer,
+                                                   size_t length,
+                                                   std::shared_ptr<TagProbeInfo> probeInfo)
 {
   if (!probeInfo->isMatched()) { throw std::invalid_argument("TagProbeInfo must be matched"); }
 
@@ -654,48 +666,33 @@ std::shared_ptr<Request> Worker::tagRecvWithHandle(void* buffer,
     throw std::logic_error(std::string("TagProbeInfo handle validation failed: ") + e.what());
   }
 
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto request =
-    registerInflightRequest(createRequestTag(worker,
-                                             data::TagReceiveWithHandle(buffer, probeInfo),
-                                             enableFuture,
-                                             callbackFunction,
-                                             callbackData));
-
-  return request;
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
+  return RequestTagBuilder(std::move(worker),
+                           data::TagReceiveWithHandle(buffer, length, probeInfo));
 }
 
-std::shared_ptr<Address> Worker::getAddress()
+AddressBuilder Worker::addressBuilder()
 {
-  auto worker  = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto address = ucxx::createAddressFromWorker(worker);
-  return address;
+  return AddressBuilder(std::static_pointer_cast<Worker>(shared_from_this()));
 }
 
-std::shared_ptr<Endpoint> Worker::createEndpointFromHostname(std::string ipAddress,
-                                                             uint16_t port,
-                                                             bool endpointErrorHandling)
+EndpointBuilder Worker::endpointBuilder(std::string ipAddress, uint16_t port)
 {
-  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto endpoint = ucxx::createEndpointFromHostname(worker, ipAddress, port, endpointErrorHandling);
-  return endpoint;
+  return EndpointBuilder(
+    std::static_pointer_cast<Worker>(shared_from_this()), std::move(ipAddress), port);
 }
 
-std::shared_ptr<Endpoint> Worker::createEndpointFromWorkerAddress(std::shared_ptr<Address> address,
-                                                                  bool endpointErrorHandling)
+EndpointBuilder Worker::endpointBuilder(std::shared_ptr<Address> address)
 {
-  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto endpoint = ucxx::createEndpointFromWorkerAddress(worker, address, endpointErrorHandling);
-  return endpoint;
+  return EndpointBuilder(std::static_pointer_cast<Worker>(shared_from_this()), std::move(address));
 }
 
-std::shared_ptr<Listener> Worker::createListener(uint16_t port,
-                                                 ucp_listener_conn_callback_t callback,
-                                                 void* callbackArgs)
+ListenerBuilder Worker::listenerBuilder(uint16_t port,
+                                        ucp_listener_conn_callback_t callback,
+                                        void* callbackArgs)
 {
-  auto worker   = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  auto listener = ucxx::createListener(worker, port, callback, callbackArgs);
-  return listener;
+  return ListenerBuilder(
+    std::static_pointer_cast<Worker>(shared_from_this()), port, callback, callbackArgs);
 }
 
 void Worker::registerAmAllocator(ucs_memory_type_t memoryType, AmAllocatorType allocator)
@@ -720,16 +717,14 @@ void Worker::registerAmReceiverCallback(AmReceiverCallbackInfo info,
 
 bool Worker::amProbe(const ucp_ep_h endpointHandle) const
 {
+  std::lock_guard<std::mutex> lock(_amData->_mutex);
   return _amData->_recvPool.find(endpointHandle) != _amData->_recvPool.end();
 }
 
-std::shared_ptr<Request> Worker::flush(const bool enableFuture,
-                                       RequestCallbackUserFunction callbackFunction,
-                                       RequestCallbackUserData callbackData)
+RequestFlushBuilder Worker::flushBuilder()
 {
-  auto worker = std::dynamic_pointer_cast<Worker>(shared_from_this());
-  return registerInflightRequest(
-    createRequestFlush(worker, data::Flush(), enableFuture, callbackFunction, callbackData));
+  auto worker = std::static_pointer_cast<Worker>(shared_from_this());
+  return RequestFlushBuilder(std::move(worker), data::Flush());
 }
 
 }  // namespace ucxx

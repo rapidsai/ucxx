@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -11,6 +11,7 @@
 
 #include <ucxx/delayed_submission.h>
 #include <ucxx/request.h>
+#include <ucxx/request_endpoint_close_builder.h>
 #include <ucxx/typedefs.h>
 
 namespace ucxx {
@@ -31,8 +32,8 @@ class RequestEndpointClose : public Request {
    *
    * Instead the user should use one of the following:
    *
-   * - `ucxx::Endpoint::close()`
-   * - `ucxx::createRequestEndpointClose()`
+   * - `ucxx::Endpoint::closeBuilder()`
+   * - `ucxx::requestEndpointCloseBuilder()`
    *
    * @throws ucxx::Error  if `endpoint` is not a valid `std::shared_ptr<ucxx::Endpoint>`.
    *
@@ -53,43 +54,11 @@ class RequestEndpointClose : public Request {
                        RequestCallbackUserFunction callbackFunction = nullptr,
                        RequestCallbackUserData callbackData         = nullptr);
 
- public:
-  /**
-   * @brief Constructor for `std::shared_ptr<ucxx::RequestEndpointClose>`.
-   *
-   * The constructor for a `std::shared_ptr<ucxx::RequestEndpointClose>` object, creating a
-   * request to close a UCP endpoint, returning a pointer to the request object that can be
-   * later awaited and checked for errors. This is a non-blocking operation, and its status
-   * must be verified from the resulting request object to confirm the close operation has
-   * completed successfully.
-   *
-   * @note If a `callbackFunction` is specified, the lifetime of `callbackData` and of any
-   * other objects used in the scope of `callbackFunction` must be guaranteed by the caller
-   * until it executes or `isCompleted()` becomes true. The `callbackFunction` executes in
-   * the thread progressing the `ucxx::Worker`, unless the request completes immediately,
-   * in which case the callback will also execute immediately within the calling thread and
-   * before the method returns.
-   *
-   * @throws ucxx::Error  `endpoint` is not a valid `std::shared_ptr<ucxx::Endpoint>`.
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component.
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   * @param[in] callbackFunction    user-defined callback function to call upon completion.
-   * @param[in] callbackData        user-defined data to pass to the `callbackFunction`.
-   *
-   * @returns The `shared_ptr<ucxx::RequestEndpointClose>` object.
-   */
-  friend std::shared_ptr<RequestEndpointClose> createRequestEndpointClose(
-    std::shared_ptr<Endpoint> endpoint,
-    const data::EndpointClose requestData,
-    const bool enablePythonFuture,
-    RequestCallbackUserFunction callbackFunction,
-    RequestCallbackUserData callbackData);
+  void populateDelayedSubmissionImpl() override;
 
-  virtual void populateDelayedSubmission();
+ public:
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief Create and submit an endpoint close request.

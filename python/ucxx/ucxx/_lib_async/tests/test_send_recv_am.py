@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -8,7 +8,11 @@ import numpy as np
 import pytest
 
 import ucxx
-from ucxx._lib_async.utils_test import wait_listener_client_handlers
+from ucxx._lib_async.utils_test import (
+    recv_close_receipt,
+    send_close_receipt,
+    wait_listener_client_handlers,
+)
 
 msg_sizes = [0] + [2**i for i in range(0, 25, 4)]
 
@@ -58,6 +62,7 @@ def simple_server(size, recv):
     async def server(ep):
         recv = await ep.am_recv()
         await ep.am_send(recv)
+        await recv_close_receipt(ep)
         await ep.close()
 
     return server
@@ -96,5 +101,5 @@ async def test_send_recv_am(size, recv_wait, data):
         else:
             data["validator"](recv_msg, msg)
 
-    await asyncio.gather(*(c.close() for c in clients))
+    await asyncio.gather(*(send_close_receipt(c) for c in clients))
     await wait_listener_client_handlers(listener)

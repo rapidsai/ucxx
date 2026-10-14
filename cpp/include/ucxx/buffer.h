@@ -8,11 +8,6 @@
 
 #include <ucxx/log.h>
 
-namespace rmm {
-// Forward declaration to prevent symbols from being added to symbol table unnecessarily.
-class device_buffer;
-}  // namespace rmm
-
 namespace ucxx {
 /**
  * @brief The type of a buffer.
@@ -21,7 +16,6 @@ namespace ucxx {
  */
 enum class BufferType {
   Host = 0,
-  RMM,
   CCCL,
   Invalid,
 };
@@ -194,106 +188,6 @@ class HostBuffer : public Buffer {
    */
   [[nodiscard]] void* data() override;
 };
-
-#if UCXX_ENABLE_RMM
-/**
- * @brief A simple object containing a RMM (CUDA) buffer.
- *
- * A buffer encapsulating an RMM (CUDA) buffer with its properties.
- */
-class RMMBuffer : public Buffer {
- private:
-  std::unique_ptr<rmm::device_buffer> _buffer;  ///< RMM-allocated device buffer
-
- public:
-  RMMBuffer()                            = delete;
-  RMMBuffer(const RMMBuffer&)            = delete;
-  RMMBuffer& operator=(RMMBuffer const&) = delete;
-  RMMBuffer(RMMBuffer&& o)               = delete;
-  RMMBuffer& operator=(RMMBuffer&& o)    = delete;
-
-  ~RMMBuffer() override;
-
-  /**
-   * @brief Constructor of concrete type `RMMBuffer`.
-   *
-   * Constructor to materialize a buffer holding device memory. The internal
-   * buffer holds a `std::unique_ptr<rmm::device_buffer>` and is destroyed
-   * when the object goes out-of-scope or is explicitly deleted.
-   *
-   * @param[in] size the size of the device buffer to allocate.
-   *
-   * @code{.cpp}
-   * // Allocate host buffer of 1KiB
-   * auto buffer = RMMBuffer(1024);
-   * @endcode
-   */
-  [[deprecated(
-    "RMMBuffer is deprecated and will be removed in a future release. Use CCCL buffers instead "
-    "(UCXX_ENABLE_CCCL).")]]
-  explicit RMMBuffer(const size_t size);
-
-  /**
-   * @brief Construct from an existing `rmm::device_buffer`.
-   *
-   * @param[in] rmm_buffer the `rmm::device_buffer` to hold.
-   */
-  [[deprecated(
-    "RMMBuffer is deprecated and will be removed in a future release. Use CCCL buffers instead "
-    "(UCXX_ENABLE_CCCL).")]]
-  explicit RMMBuffer(std::unique_ptr<rmm::device_buffer> rmm_buffer);
-
-  /**
-   * @brief Release the allocated `rmm::device_buffer` to the caller.
-   *
-   * Release ownership of the `rmm::device_buffer` to the caller. After this
-   * method is called, the caller becomes responsible for the destruction of
-   * the object once it is not needed anymore. The `rmm::device_buffer` is held
-   * owned by the `unique_ptr` and will be deallocated once it goes out-of-scope
-   * or gets explicitly deleted.
-   *
-   * The original `RMMBuffer` object becomes invalid.
-   *
-   * @code{.cpp}
-   * // Allocate RMM buffer of 1KiB
-   * auto buffer = RMMBuffer(1024);
-   * std::unique_ptr<RMMBuffer> rmmBuffer= buffer.release();
-   *
-   * // do work on rmmBuffer
-   *
-   * // `rmm::device_buffer` is destroyed and device Memory is freed once
-   * // `rmmBuffer` goes out-of-scope.
-   * @endcode
-   *
-   * @throws std::runtime_error if object has been released.
-   *
-   * @return the void pointer to the buffer.
-   */
-  [[nodiscard]] std::unique_ptr<rmm::device_buffer> release();
-
-  /**
-   * @brief Get a pointer to the allocated raw device buffer.
-   *
-   * Get a pointer to the underlying buffer, but does not release ownership.
-   *
-   * @code{.cpp}
-   * // Allocate device buffer of 1KiB
-   * auto buffer = RMMBuffer(1024);
-   * void* bufferPtr = buffer.data();
-   *
-   * // do work on bufferPtr
-   *
-   * // `rmm::device_buffer` is destroyed and device Memory is freed once
-   * // `buffer` goes out-of-scope.
-   * @endcode
-   *
-   * @throws std::runtime_error if object has been released.
-   *
-   * @return the void pointer to the device buffer.
-   */
-  [[nodiscard]] void* data() override;
-};
-#endif
 
 #if UCXX_ENABLE_CCCL
 /**

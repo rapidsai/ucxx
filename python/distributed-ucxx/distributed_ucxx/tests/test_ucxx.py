@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
@@ -15,12 +15,6 @@ from distributed.comm import connect, listen, parse_address
 from distributed.comm.core import CommClosedError
 from distributed.comm.registry import get_backend
 from distributed.deploy.local import LocalCluster
-from distributed.diagnostics.nvml import (
-    device_get_count,
-    get_device_index_and_uuid,
-    get_device_mig_mode,
-    has_cuda_context,
-)
 from distributed.protocol import to_serialize
 from distributed.utils import wait_for
 from distributed.utils_test import inc
@@ -28,6 +22,12 @@ from distributed.utils_test import inc
 import ucxx
 
 import distributed_ucxx  # noqa: E402
+from distributed_ucxx._cuda_info import (
+    device_get_count,
+    get_device_index_and_uuid,
+    get_device_mig_mode,
+    has_cuda_context,
+)
 from distributed_ucxx.ucxx import UCXXListener
 from distributed_ucxx.utils_test import gen_test
 
@@ -59,6 +59,24 @@ async def get_comm_pair(
         return (comm, serv_comm)
 
 
+class PausedFrameSend:
+    def __init__(self, ep):
+        self.ep = ep
+        self.calls = 0
+        self.frame_started = asyncio.Event()
+        self.release_frame = asyncio.Event()
+
+    async def send(self, buffer):
+        self.calls += 1
+        if self.calls == 3:
+            self.frame_started.set()
+            await self.release_frame.wait()
+        return await self.ep.send(buffer)
+
+    def __getattr__(self, name):
+        return getattr(self.ep, name)
+
+
 @gen_test()
 async def test_ping_pong(ucxx_loop):
     com, serv_com = await get_comm_pair()
@@ -75,6 +93,61 @@ async def test_ping_pong(ucxx_loop):
 
     await com.close()
     await serv_com.close()
+
+
+@gen_test()
+async def test_close_waits_for_inflight_write_frames(ucxx_loop):
+    writer, reader = await get_comm_pair()
+    paused_ep = PausedFrameSend(writer.ep)
+    writer._ep = paused_ep
+    write_task = asyncio.create_task(writer.write({"op": "ping"}))
+    close_task = None
+    try:
+        await asyncio.wait_for(paused_ep.frame_started.wait(), 5)
+        close_task = asyncio.create_task(writer.close())
+        await asyncio.sleep(0)
+        assert not close_task.done()
+        assert paused_ep.calls == 3
+        paused_ep.release_frame.set()
+        await write_task
+        assert await reader.read() == {"op": "ping"}
+        await close_task
+    finally:
+        paused_ep.release_frame.set()
+        if close_task is not None:
+            await asyncio.gather(close_task, return_exceptions=True)
+        await asyncio.gather(write_task, return_exceptions=True)
+        writer.abort()
+        reader.abort()
+
+
+@gen_test()
+async def test_cancel_pending_close_leaves_comm_usable(ucxx_loop):
+    writer, reader = await get_comm_pair()
+    paused_ep = PausedFrameSend(writer.ep)
+    writer._ep = paused_ep
+    write_task = asyncio.create_task(writer.write({"op": "first"}))
+    close_task = None
+    try:
+        await asyncio.wait_for(paused_ep.frame_started.wait(), 5)
+        close_task = asyncio.create_task(writer.close())
+        await asyncio.sleep(0)
+        assert not close_task.done()
+        close_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await close_task
+
+        paused_ep.release_frame.set()
+        await write_task
+        assert await reader.read() == {"op": "first"}
+        await writer.write({"op": "second"})
+        assert await reader.read() == {"op": "second"}
+        await writer.close()
+    finally:
+        paused_ep.release_frame.set()
+        await asyncio.gather(write_task, return_exceptions=True)
+        writer.abort()
+        reader.abort()
 
 
 @gen_test()
@@ -265,10 +338,6 @@ async def test_ping_pong_numba(ucxx_loop):
 
 @pytest.mark.parametrize("protocol", ["ucx", "ucxx"])
 @pytest.mark.parametrize("processes", [True, False])
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_ucxx_localcluster(ucxx_loop, cleanup, protocol, processes):
     async with LocalCluster(
@@ -345,9 +414,7 @@ async def test_cuda_context(
     except StopIteration:
         pytest.skip("No CUDA device in non-MIG mode available")
 
-    with patch.dict(
-        os.environ, {"CUDA_VISIBLE_DEVICES": device_info.uuid.decode("utf-8")}
-    ):
+    with patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": device_info.uuid}):
         with dask.config.set({"distributed.comm.ucx.create-cuda-context": True}):
             async with LocalCluster(
                 protocol="ucx", n_workers=1, asynchronous=True
@@ -365,10 +432,6 @@ async def test_cuda_context(
                     )
 
 
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_transpose(
     ucxx_loop,
@@ -423,10 +486,6 @@ async def test_comm_closed_on_read_error():
     assert writer.closed()
 
 
-@pytest.mark.flaky(
-    reruns=3,
-    only_rerun="Trying to reset UCX but not all Endpoints and/or Listeners are closed",
-)
 @gen_test()
 async def test_embedded_cupy_array(
     ucxx_loop,

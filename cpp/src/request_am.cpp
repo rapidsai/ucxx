@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <cstring>
@@ -12,6 +12,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/constructors.h>
 #include <ucs/memory/memory_type.h>
 #include <ucxx/buffer.h>
 #include <ucxx/delayed_submission.h>
@@ -118,12 +119,12 @@ struct AmHeader {
   }
 };
 
-std::shared_ptr<RequestAm> createRequestAm(
+std::shared_ptr<RequestAm> detail::ConstructorFactory::createRequestAm(
   std::shared_ptr<Endpoint> endpoint,
   const std::variant<data::AmSend, data::AmReceive> requestData,
-  const bool enablePythonFuture                = false,
-  RequestCallbackUserFunction callbackFunction = nullptr,
-  RequestCallbackUserData callbackData         = nullptr)
+  const bool enablePythonFuture,
+  RequestCallbackUserFunction callbackFunction,
+  RequestCallbackUserData callbackData)
 {
   std::shared_ptr<RequestAm> req = std::visit(
     data::dispatch{
@@ -280,6 +281,7 @@ ucs_status_t RequestAm::recvCallback(void* arg,
     } else if (reqs != recvWait.end() && !reqs->second.empty()) {
       req = reqs->second.front();
       reqs->second.pop();
+      if (reqs->second.empty()) recvWait.erase(reqs);
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
     } else {
       req             = std::shared_ptr<RequestAm>(new RequestAm(worker,
@@ -477,7 +479,7 @@ void RequestAm::request()
     _requestData);
 }
 
-void RequestAm::populateDelayedSubmission()
+void RequestAm::populateDelayedSubmissionImpl()
 {
   bool terminate =
     std::visit(data::dispatch{

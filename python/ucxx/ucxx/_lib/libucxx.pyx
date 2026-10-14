@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 
@@ -7,7 +7,6 @@ import enum
 import functools
 from pickle import PickleBuffer
 import logging
-import warnings
 import weakref
 from typing import Optional
 
@@ -25,7 +24,6 @@ from libcpp.memory cimport (
     shared_ptr,
     static_pointer_cast,
 )
-from libcpp.optional cimport nullopt
 from libcpp.string cimport string
 from libcpp.string_view cimport string_view
 from libcpp.utility cimport move
@@ -38,8 +36,6 @@ cdef extern from "cuda_runtime.h" nogil:
                    cudaMemcpyKind kind)
 
 import numpy as np
-
-from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
 from .arr cimport Array
 from .ucxx_api cimport *
@@ -187,21 +183,11 @@ cdef class HostBufferAdapter:
         free(self._ptr)
 
 
-def _get_rmm_buffer(uintptr_t recv_buffer_ptr):
-    cdef RMMBuffer* rmm_buffer = <RMMBuffer*>recv_buffer_ptr
-    return DeviceBuffer.c_from_unique_ptr(move(rmm_buffer.release()))
-
-
 def _get_host_buffer(uintptr_t recv_buffer_ptr):
     cdef HostBuffer* host_buffer = <HostBuffer*>recv_buffer_ptr
     return np.asarray(HostBufferAdapter._from_host_buffer(host_buffer))
 
 
-cdef shared_ptr[Buffer] _rmm_am_allocator(size_t length) noexcept nogil:
-    cdef shared_ptr[RMMBuffer] rmm_buffer = make_shared[RMMBuffer](length)
-    return dynamic_pointer_cast[Buffer, RMMBuffer](rmm_buffer)
-
-# Unlike RMM which has a Python DeviceBuffer class (from the rmm package),
 # CCCL has no Python buffer equivalent. This wrapper provides __cuda_array_interface__
 # for interoperability with CuPy/cuDF without requiring an external CCCL Python package.
 cdef class CCCLBufferWrapper:
@@ -444,15 +430,6 @@ cdef class UCXConfig():
             for item in config_map
         }
 
-    def get(self) -> dict:
-        warnings.warn(
-            "UCXConfig.get() is deprecated and will soon be removed, "
-            "use the UCXConfig.config property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.config
-
 
 cdef class UCXContext():
     """Python representation of `ucp_context_h`
@@ -555,15 +532,6 @@ cdef class UCXContext():
 
         return info.decode("utf-8")
 
-    cpdef dict get_config(self):
-        warnings.warn(
-            "UCXContext.get_config() is deprecated and will soon be removed, "
-            "use the UCXContext.config property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.config
-
 
 cdef class UCXAddress():
     def __init__(self) -> None:
@@ -577,10 +545,12 @@ cdef class UCXAddress():
     @classmethod
     def create_from_worker(cls, UCXWorker worker) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
+        cdef unique_ptr[AddressBuilder] builder
 
         address._bytes = None
         with nogil:
-            address._address = worker._worker.get().getAddress()
+            builder = make_unique[AddressBuilder](worker._worker)
+            address._address = builder.get().build()
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
             address._string = address._address.get().getStringView()
@@ -591,27 +561,17 @@ cdef class UCXAddress():
     def create_from_buffer(cls, const uint8_t[::1] buf) -> UCXAddress:
         cdef UCXAddress address = UCXAddress.__new__(UCXAddress)
         cdef string_view address_strv = string_view(<const char*>&buf[0], len(buf))
+        cdef unique_ptr[AddressBuilder] builder
 
         address._bytes = None
         with nogil:
-            address._address = createAddressFromString(address_strv)
+            builder = make_unique[AddressBuilder](address_strv)
+            address._address = builder.get().build()
             address._handle = address._address.get().getHandle()
             address._length = address._address.get().getLength()
             address._string = address._address.get().getStringView()
 
         return address
-
-    # For old UCX-Py API compatibility
-    @classmethod
-    def from_worker(cls, UCXWorker worker) -> UCXAddress:
-        warnings.warn(
-            "UCXAddress.from_worker() is deprecated and will soon be removed, "
-            "use UCXAddress.create_from_worker() instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-
-        return cls.create_from_worker(worker)
 
     @property
     def address(self) -> int:
@@ -680,7 +640,6 @@ cdef class UCXWorker():
     ) -> None:
         cdef bint ucxx_enable_delayed_submission = enable_delayed_submission
         cdef bint ucxx_enable_python_future = enable_python_future
-        cdef AmAllocatorType rmm_am_allocator
         cdef AmAllocatorType cccl_am_allocator
 
         self._context_feature_flags = <uint64_t>(context.feature_flags)
@@ -697,22 +656,7 @@ cdef class UCXWorker():
             self._enable_python_future = self._worker.get().isFutureEnabled()
 
             if self._context_feature_flags & UCP_FEATURE_AM:
-                if self._worker.get().getCudaBufferType() == BufferType.RMM:
-                    with gil:
-                        warnings.warn(
-                            "RMM CUDA buffer support is deprecated and "
-                            "will be removed in a future release. Use "
-                            "CCCL buffers instead (set "
-                            "UCXX_ENABLE_CCCL=ON and "
-                            "UCXX_ENABLE_RMM=OFF).",
-                            FutureWarning,
-                            stacklevel=2,
-                        )
-                    rmm_am_allocator = <AmAllocatorType>(&_rmm_am_allocator)
-                    self._worker.get().registerAmAllocator(
-                        UCS_MEMORY_TYPE_CUDA, rmm_am_allocator
-                    )
-                elif self._worker.get().getCudaBufferType() == BufferType.CCCL:
+                if self._worker.get().getCudaBufferType() == BufferType.CCCL:
                     cccl_am_allocator = <AmAllocatorType>(&_cccl_am_allocator)
                     self._worker.get().registerAmAllocator(
                         UCS_MEMORY_TYPE_CUDA, cccl_am_allocator
@@ -768,25 +712,14 @@ cdef class UCXWorker():
 
     @property
     def cuda_buffer_type(self) -> str:
-        """Return the preferred CUDA buffer type ('rmm', 'cccl', or 'none')."""
+        """Return the preferred CUDA buffer type ('cccl', or 'none')."""
         cdef BufferType bt
         with nogil:
             bt = self._worker.get().getCudaBufferType()
-        if bt == BufferType.RMM:
-            return "rmm"
-        elif bt == BufferType.CCCL:
+        if bt == BufferType.CCCL:
             return "cccl"
         else:
             return "none"
-
-    def get_address(self) -> UCXAddress:
-        warnings.warn(
-            "UCXWorker.get_address() is deprecated and will soon be removed, "
-            "use the UCXWorker.address property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.address
 
     def create_endpoint_from_hostname(
             self,
@@ -956,24 +889,6 @@ cdef class UCXWorker():
         with nogil:
             self._worker.get().clearFuturesPool()
 
-    def is_delayed_submission_enabled(self) -> bool:
-        warnings.warn(
-            "UCXWorker.is_delayed_submission_enabled() is deprecated and will soon "
-            "be removed, use the UCXWorker.enable_delayed_submission property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.enable_delayed_submission
-
-    def is_python_future_enabled(self) -> bool:
-        warnings.warn(
-            "UCXWorker.is_python_future_enabled() is deprecated and will soon be "
-            "removed, use the UCXWorker.enable_python_future property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.enable_python_future
-
     def tag_recv(
         self,
         Array arr,
@@ -983,6 +898,7 @@ cdef class UCXWorker():
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+        cdef unique_ptr[RequestTagBuilder] builder
         cdef Tag cpp_tag = <Tag><size_t>tag.value
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
 
@@ -990,13 +906,13 @@ cdef class UCXWorker():
             raise ValueError("UCXContext must be created with `Feature.TAG`")
 
         with nogil:
-            req = self._worker.get().tagRecv(
-                buf,
-                nbytes,
-                cpp_tag,
-                cpp_tag_mask,
-                self._enable_python_future
+            builder = make_unique[RequestTagBuilder](
+                self._worker.get().tagRecvBuilder(
+                    buf, nbytes, cpp_tag, cpp_tag_mask
+                )
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1011,7 +927,9 @@ cdef class UCXWorker():
         the message matching queue again.
         """
         cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+        cdef unique_ptr[RequestTagBuilder] builder
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
@@ -1020,11 +938,13 @@ cdef class UCXWorker():
             raise ValueError("TagProbeResult must be matched")
 
         with nogil:
-            req = self._worker.get().tagRecvWithHandle(
-                buf,
-                probe_result._probe_info_ptr,
-                self._enable_python_future
+            builder = make_unique[RequestTagBuilder](
+                self._worker.get().tagRecvWithHandleBuilder(
+                    buf, nbytes, probe_result._probe_info_ptr
+                )
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1083,7 +1003,7 @@ cdef class UCXRequest():
         return <object>future_ptr
 
     @property
-    def recv_buffer(self) -> None|np.ndarray|DeviceBuffer:
+    def recv_buffer(self) -> object:
         cdef shared_ptr[Buffer] buf
         cdef BufferType bufType
 
@@ -1094,30 +1014,10 @@ cdef class UCXRequest():
         # If buf == NULL, it's not allocated by the request but rather the user
         if buf == NULL:
             return None
-        elif bufType == BufferType.RMM:
-            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
         elif bufType == BufferType.CCCL:
             return _get_cccl_buffer(buf)
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
-
-    def is_completed(self) -> bool:
-        warnings.warn(
-            "UCXRequest.is_completed() is deprecated and will soon be removed, "
-            "use the UCXRequest.completed property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.completed
-
-    def get_status(self) -> ucs_status_t:
-        warnings.warn(
-            "UCXRequest.get_status() is deprecated and will soon be removed, "
-            "use the UCXRequest.status property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.status
 
     def check_error(self) -> None:
         with nogil:
@@ -1129,29 +1029,11 @@ cdef class UCXRequest():
                 return self.check_error()
             await asyncio.sleep(0)
 
-    def get_future(self) -> object:
-        warnings.warn(
-            "UCXRequest.get_future() is deprecated and will soon be removed, "
-            "use the UCXRequest.future property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.future
-
     async def wait(self) -> None:
         if self._enable_python_future:
             await self.future
         else:
             await self.wait_yield()
-
-    def get_recv_buffer(self) -> None|np.ndarray|DeviceBuffer:
-        warnings.warn(
-            "UCXRequest.get_recv_buffer() is deprecated and will soon be removed, "
-            "use the UCXRequest.recv_buffer property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.recv_buffer
 
 
 cdef class UCXBufferRequest:
@@ -1175,7 +1057,7 @@ cdef class UCXBufferRequest:
         )
 
     @property
-    def py_buffer(self) -> None|np.ndarray|DeviceBuffer:
+    def py_buffer(self) -> object:
         cdef shared_ptr[Buffer] buf
         cdef BufferType bufType
 
@@ -1186,30 +1068,10 @@ cdef class UCXBufferRequest:
         # If buf == NULL, it holds a header
         if buf == NULL:
             return None
-        elif bufType == BufferType.RMM:
-            return _get_rmm_buffer(<uintptr_t><void*>buf.get())
         elif bufType == BufferType.CCCL:
             return _get_cccl_buffer(buf)
         elif bufType == BufferType.Host:
             return _get_host_buffer(<uintptr_t><void*>buf.get())
-
-    def get_request(self) -> UCXRequest:
-        warnings.warn(
-            "UCXBufferRequest.get_request() is deprecated and will soon be removed, "
-            "use the UCXBufferRequest.request property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.request
-
-    def get_py_buffer(self) -> None|np.ndarray|DeviceBuffer:
-        warnings.warn(
-            "UCXBufferRequest.get_py_buffer() is deprecated and will soon be removed, "
-            "use the UCXBufferRequest.py_buffer property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.py_buffer
 
 
 cdef class UCXBufferRequests:
@@ -1289,7 +1151,7 @@ cdef class UCXBufferRequests:
         return <object>future_ptr
 
     @property
-    def py_buffers(self) -> tuple[None|np.ndarray|DeviceBuffer, ...]:
+    def py_buffers(self) -> tuple[object, ...]:
         if not self.completed:
             raise RuntimeError("Some requests are not completed yet")
 
@@ -1304,36 +1166,9 @@ cdef class UCXBufferRequests:
         self._populate_requests()
         return self._requests
 
-    def is_completed(self) -> bool:
-        warnings.warn(
-            "UCXBufferRequests.is_completed() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.completed property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.completed
-
-    def is_completed_all(self) -> bool:
-        warnings.warn(
-            "UCXBufferRequests.is_completed_all() is deprecated and will soon be "
-            "removed, use the UCXBufferRequests.all_completed property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.all_completed
-
     def check_error(self) -> None:
         with nogil:
             self._ucxx_request_tag_multi.get().checkError()
-
-    def get_status(self) -> ucs_status_t:
-        warnings.warn(
-            "UCXBufferRequests.get_status() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.status property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.status
 
     async def wait_yield(self) -> None:
         while True:
@@ -1343,38 +1178,11 @@ cdef class UCXBufferRequests:
                 return
             await asyncio.sleep(0)
 
-    def get_future(self) -> object:
-        warnings.warn(
-            "UCXBufferRequests.get_future() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.future property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.future
-
     async def wait(self) -> None:
         if self._enable_python_future:
             await self.future
         else:
             await self.wait_yield()
-
-    def get_requests(self) -> tuple[UCXRequest, ...]:
-        warnings.warn(
-            "UCXBufferRequests.get_requests() is deprecated and will soon be removed, "
-            "use the UCXBufferRequests.requests property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.requests
-
-    def get_py_buffers(self) -> tuple[None|np.ndarray|DeviceBuffer, ...]:
-        warnings.warn(
-            "UCXBufferRequests.get_py_buffers() is deprecated and will soon be "
-            "removed, use the UCXBufferRequests.py_buffers property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.py_buffers
 
 
 cdef void _endpoint_close_callback(ucs_status_t status, shared_ptr[void] args) with gil:
@@ -1412,6 +1220,7 @@ cdef class UCXEndpoint():
         cdef UCXEndpoint endpoint = UCXEndpoint.__new__(UCXEndpoint)
         cdef shared_ptr[Context] ucxx_context
         cdef string addr = ip_address.encode("utf-8")
+        cdef unique_ptr[EndpointBuilder] builder
 
         endpoint._enable_python_future = worker.enable_python_future
 
@@ -1422,9 +1231,11 @@ cdef class UCXEndpoint():
 
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
-            endpoint._endpoint = worker._worker.get().createEndpointFromHostname(
-                addr, port, endpoint_error_handling
+            builder = make_unique[EndpointBuilder](
+                worker._worker.get().endpointBuilder(addr, port)
             )
+            builder.get().endpointErrorHandling(endpoint_error_handling)
+            endpoint._endpoint = builder.get().build()
 
         return endpoint
 
@@ -1438,6 +1249,7 @@ cdef class UCXEndpoint():
         cdef UCXEndpoint endpoint = UCXEndpoint.__new__(UCXEndpoint)
         cdef shared_ptr[Context] ucxx_context
         cdef shared_ptr[Worker] ucxx_worker
+        cdef unique_ptr[EndpointBuilder] builder
 
         endpoint._enable_python_future = listener.enable_python_future
 
@@ -1451,9 +1263,13 @@ cdef class UCXEndpoint():
 
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
-            endpoint._endpoint = listener._listener.get().createEndpointFromConnRequest(
-                <ucp_conn_request_h>conn_request, endpoint_error_handling
+            builder = make_unique[EndpointBuilder](
+                listener._listener.get().endpointBuilder(
+                    <ucp_conn_request_h>conn_request
+                )
             )
+            builder.get().endpointErrorHandling(endpoint_error_handling)
+            endpoint._endpoint = builder.get().build()
 
         return endpoint
 
@@ -1467,6 +1283,7 @@ cdef class UCXEndpoint():
         cdef UCXEndpoint endpoint = UCXEndpoint.__new__(UCXEndpoint)
         cdef shared_ptr[Context] ucxx_context
         cdef shared_ptr[Address] ucxx_address = address._address
+        cdef unique_ptr[EndpointBuilder] builder
 
         endpoint._enable_python_future = worker.enable_python_future
 
@@ -1477,9 +1294,11 @@ cdef class UCXEndpoint():
 
             endpoint._context_feature_flags = ucxx_context.get().getFeatureFlags()
             endpoint._cuda_support = ucxx_context.get().hasCudaSupport()
-            endpoint._endpoint = worker._worker.get().createEndpointFromWorkerAddress(
-                ucxx_address, endpoint_error_handling
+            builder = make_unique[EndpointBuilder](
+                worker._worker.get().endpointBuilder(ucxx_address)
             )
+            builder.get().endpointErrorHandling(endpoint_error_handling)
+            endpoint._endpoint = builder.get().build()
 
         return endpoint
 
@@ -1533,11 +1352,14 @@ cdef class UCXEndpoint():
 
     def close(self) -> None:
         cdef shared_ptr[Request] req
+        cdef unique_ptr[RequestEndpointCloseBuilder] builder
 
         with nogil:
-            req = self._endpoint.get().close(
-                self._enable_python_future
+            builder = make_unique[RequestEndpointCloseBuilder](
+                self._endpoint.get().closeBuilder()
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1565,29 +1387,37 @@ cdef class UCXEndpoint():
         cdef size_t nbytes = arr.nbytes
         cdef bint cuda_array = arr.cuda
         cdef shared_ptr[Request] req
+        cdef unique_ptr[RequestAmBuilder] builder
 
         if not self._context_feature_flags & Feature.AM.value:
             raise ValueError("UCXContext must be created with `Feature.AM`")
 
         with nogil:
-            req = self._endpoint.get().amSend(
-                buf,
-                nbytes,
-                UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST,
-                nullopt,
-                self._enable_python_future
+            builder = make_unique[RequestAmBuilder](
+                self._endpoint.get().amSendBuilder(
+                    buf,
+                    nbytes,
+                    UCS_MEMORY_TYPE_CUDA if cuda_array else UCS_MEMORY_TYPE_HOST
+                )
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
     def am_recv(self) -> UCXRequest:
         cdef shared_ptr[Request] req
+        cdef unique_ptr[RequestAmBuilder] builder
 
         if not self._context_feature_flags & Feature.AM.value:
             raise ValueError("UCXContext must be created with `Feature.AM`")
 
         with nogil:
-            req = self._endpoint.get().amRecv(self._enable_python_future)
+            builder = make_unique[RequestAmBuilder](
+                self._endpoint.get().amRecvBuilder()
+            )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1595,6 +1425,7 @@ cdef class UCXEndpoint():
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+        cdef unique_ptr[RequestStreamBuilder] builder
 
         if not self._context_feature_flags & Feature.STREAM.value:
             raise ValueError("UCXContext must be created with `Feature.STREAM`")
@@ -1607,11 +1438,11 @@ cdef class UCXEndpoint():
             )
 
         with nogil:
-            req = self._endpoint.get().streamSend(
-                buf,
-                nbytes,
-                self._enable_python_future
+            builder = make_unique[RequestStreamBuilder](
+                self._endpoint.get().streamSendBuilder(buf, nbytes)
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1619,6 +1450,7 @@ cdef class UCXEndpoint():
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+        cdef unique_ptr[RequestStreamBuilder] builder
 
         if not self._context_feature_flags & Feature.STREAM.value:
             raise ValueError("UCXContext must be created with `Feature.STREAM`")
@@ -1631,11 +1463,11 @@ cdef class UCXEndpoint():
             )
 
         with nogil:
-            req = self._endpoint.get().streamRecv(
-                buf,
-                nbytes,
-                self._enable_python_future
+            builder = make_unique[RequestStreamBuilder](
+                self._endpoint.get().streamRecvBuilder(buf, nbytes)
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1643,6 +1475,7 @@ cdef class UCXEndpoint():
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+        cdef unique_ptr[RequestTagBuilder] builder
         cdef Tag cpp_tag = <Tag><size_t>tag.value
 
         if not self._context_feature_flags & Feature.TAG.value:
@@ -1656,12 +1489,11 @@ cdef class UCXEndpoint():
             )
 
         with nogil:
-            req = self._endpoint.get().tagSend(
-                buf,
-                nbytes,
-                cpp_tag,
-                self._enable_python_future
+            builder = make_unique[RequestTagBuilder](
+                self._endpoint.get().tagSendBuilder(buf, nbytes, cpp_tag)
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1674,6 +1506,7 @@ cdef class UCXEndpoint():
         cdef void* buf = <void*>arr.ptr
         cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
+        cdef unique_ptr[RequestTagBuilder] builder
         cdef Tag cpp_tag = <Tag><size_t>tag.value
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
 
@@ -1688,13 +1521,13 @@ cdef class UCXEndpoint():
             )
 
         with nogil:
-            req = self._endpoint.get().tagRecv(
-                buf,
-                nbytes,
-                cpp_tag,
-                cpp_tag_mask,
-                self._enable_python_future
+            builder = make_unique[RequestTagBuilder](
+                self._endpoint.get().tagRecvBuilder(
+                    buf, nbytes, cpp_tag, cpp_tag_mask
+                )
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1709,8 +1542,10 @@ cdef class UCXEndpoint():
         the message matching queue again.
         """
         cdef void* buf = <void*>arr.ptr
+        cdef size_t nbytes = arr.nbytes
         cdef shared_ptr[Request] req
         cdef shared_ptr[Worker] worker
+        cdef unique_ptr[RequestTagBuilder] builder
 
         if not self._context_feature_flags & Feature.TAG.value:
             raise ValueError("UCXContext must be created with `Feature.TAG`")
@@ -1720,11 +1555,13 @@ cdef class UCXEndpoint():
 
         with nogil:
             worker = self._endpoint.get().getWorker()
-            req = worker.get().tagRecvWithHandle(
-                buf,
-                probe_result._probe_info_ptr,
-                self._enable_python_future
+            builder = make_unique[RequestTagBuilder](
+                worker.get().tagRecvWithHandleBuilder(
+                    buf, nbytes, probe_result._probe_info_ptr
+                )
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            req = builder.get().build()
 
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
@@ -1733,6 +1570,7 @@ cdef class UCXEndpoint():
         cdef vector[size_t] v_size
         cdef vector[int] v_is_cuda
         cdef shared_ptr[Request] ucxx_buffer_requests
+        cdef unique_ptr[RequestTagMultiBuilder] builder
         cdef Tag cpp_tag = <Tag><size_t>tag.value
 
         for arr in arrays:
@@ -1754,13 +1592,13 @@ cdef class UCXEndpoint():
             v_is_cuda.push_back(arr.cuda)
 
         with nogil:
-            ucxx_buffer_requests = self._endpoint.get().tagMultiSend(
-                v_buffer,
-                v_size,
-                v_is_cuda,
-                cpp_tag,
-                self._enable_python_future,
+            builder = make_unique[RequestTagMultiBuilder](
+                self._endpoint.get().tagMultiSendBuilder(
+                    v_buffer, v_size, v_is_cuda, cpp_tag
+                )
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            ucxx_buffer_requests = builder.get().build()
 
         return UCXBufferRequests(
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
@@ -1772,26 +1610,20 @@ cdef class UCXEndpoint():
         UCXXTagMask tag_mask = UCXXTagMaskFull,
     ) -> UCXBufferRequests:
         cdef shared_ptr[Request] ucxx_buffer_requests
+        cdef unique_ptr[RequestTagMultiBuilder] builder
         cdef Tag cpp_tag = <Tag><size_t>tag.value
         cdef TagMask cpp_tag_mask = <TagMask><size_t>tag_mask.value
 
         with nogil:
-            ucxx_buffer_requests = self._endpoint.get().tagMultiRecv(
-                cpp_tag, cpp_tag_mask, self._enable_python_future
+            builder = make_unique[RequestTagMultiBuilder](
+                self._endpoint.get().tagMultiRecvBuilder(cpp_tag, cpp_tag_mask)
             )
+            builder.get().pythonFuture(self._enable_python_future)
+            ucxx_buffer_requests = builder.get().build()
 
         return UCXBufferRequests(
             <uintptr_t><void*>&ucxx_buffer_requests, self._enable_python_future,
         )
-
-    def is_alive(self) -> bool:
-        warnings.warn(
-            "UCXEndpoint.is_alive() is deprecated and will soon be removed, "
-            "use the UCXEndpoint.alive property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.alive
 
     def raise_on_error(self) -> None:
         with nogil:
@@ -1888,6 +1720,7 @@ cdef class UCXListener():
         cdef ucp_listener_conn_callback_t listener_cb = (
             <ucp_listener_conn_callback_t>_listener_callback
         )
+        cdef unique_ptr[ListenerBuilder] builder
         cdef dict cb_data = {
             "cb_func": cb_func,
             "cb_args": cb_args,
@@ -1900,9 +1733,10 @@ cdef class UCXListener():
         listener._enable_python_future = worker.enable_python_future
 
         with nogil:
-            listener._listener = worker._worker.get().createListener(
-                port, listener_cb, <void*>listener._cb_data
+            builder = make_unique[ListenerBuilder](
+                worker._worker, port, listener_cb, <void*>listener._cb_data
             )
+            listener._listener = builder.get().build()
 
         return listener
 
@@ -1948,15 +1782,6 @@ cdef class UCXListener():
         return UCXEndpoint.create_from_conn_request(
             self, conn_request, endpoint_error_handling,
         )
-
-    def is_python_future_enabled(self) -> bool:
-        warnings.warn(
-            "UCXListener.is_python_future_enabled() is deprecated and will soon be "
-            "removed, use the UCXListener.enable_python_future property instead",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.enable_python_future
 
 
 def get_current_options() -> dict:

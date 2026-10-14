@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -15,6 +15,7 @@
 #include <ucxx/endpoint.h>
 #include <ucxx/future.h>
 #include <ucxx/request.h>
+#include <ucxx/request_tag_multi_builder.h>
 
 namespace ucxx {
 
@@ -59,7 +60,7 @@ typedef std::shared_ptr<BufferRequest> BufferRequestPtr;
  */
 class RequestTagMulti : public Request {
  private:
-  size_t _totalFrames{0};  ///< The total number of frames handled by this request
+  size_t _totalRequests{0};  ///< The total number of child requests tracked for completion
   std::mutex
     _completedRequestsMutex{};   ///< Mutex to control access to completed requests container
   size_t _completedRequests{0};  ///< Count requests that already completed
@@ -88,6 +89,12 @@ class RequestTagMulti : public Request {
    * the initial setup is complete, `callback()` is called to initiate receiving by posting
    * the first request to receive a header.
    *
+   * Instead the user should use one of the following:
+   *
+   * - `ucxx::Endpoint::tagMultiRecvBuilder()`
+   * - `ucxx::Endpoint::tagMultiSendBuilder()`
+   * - `ucxx::requestTagMultiBuilder()`
+   *
    * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
    * @param[in] requestData         container of the specified message type, including all
    *                                type-specific data.
@@ -100,6 +107,8 @@ class RequestTagMulti : public Request {
                   const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
                   std::string operationName,
                   const bool enablePythonFuture);
+
+  void populateDelayedSubmissionImpl() override;
 
   /**
    * @brief Receive all frames.
@@ -135,46 +144,8 @@ class RequestTagMulti : public Request {
   void send();
 
  public:
-  /**
-   * @brief Enqueue a multi-buffer tag send operation.
-   *
-   * Initiate a multi-buffer tag operation, returning a `std::shared<ucxx::RequestTagMulti>`
-   * that can be later awaited and checked for errors.
-   *
-   * This is a non-blocking operation, and the status of a send transfer must be verified
-   * from the resulting request object before the data can be released. If this is a receive
-   * transfer and because the receiver has no a priori knowledge of the data being received,
-   * memory allocations are automatically handled internally.  The receiver must have the
-   * same capabilities of the sender, so that if the sender is compiled with RMM support to
-   * allow for CUDA transfers, the receiver must have the ability to understand and allocate
-   * CUDA memory.
-   *
-   * The primary use of multi-buffer transfers is in Python where we want to reduce the
-   * amount of futures needed to watch for, thus reducing Python overhead. However, this
-   * may be used as a convenience implementation for transfers that require multiple
-   * frames, internally this is implemented as one or more `ucxx::RequestTag` calls sending
-   * headers (depending on the number of frames being transferred), followed by one
-   * `ucxx::RequestTag` for each data frame.
-   *
-   * Using a Python future may be requested by specifying `enablePythonFuture`. If a
-   * Python future is requested, the Python application must then await on this future to
-   * ensure the transfer has completed. Requires UCXX to be compiled with
-   * `UCXX_ENABLE_PYTHON=1`.
-   *
-   * @throws  std::runtime_error  if sizes of `buffer`, `size` and `isCUDA` do not match.
-   *
-   * @param[in] endpoint            the `std::shared_ptr<Endpoint>` parent component
-   * @param[in] requestData         container of the specified message type, including all
-   *                                type-specific data.
-   * @param[in] enablePythonFuture  whether a python future should be created and
-   *                                subsequently notified.
-   *
-   * @returns Request to be subsequently checked for the completion and its state.
-   */
-  friend std::shared_ptr<RequestTagMulti> createRequestTagMulti(
-    std::shared_ptr<Endpoint> endpoint,
-    const std::variant<data::TagMultiSend, data::TagMultiReceive> requestData,
-    const bool enablePythonFuture);
+  // Allow internal construction without exposing factory functions.
+  friend class detail::ConstructorFactory;
 
   /**
    * @brief `ucxx::RequestTagMulti` destructor.
@@ -191,11 +162,11 @@ class RequestTagMulti : public Request {
    * executed when that completes.
    *
    * When this method is called, the request that completed will be pushed into a container
-   * which will be later used to evaluate if all frames completed and set the final status
-   * of the multi-transfer request and the Python future, if enabled. The final status is
-   * either `UCS_OK` if all underlying requests completed successfully, otherwise it will
-   * contain the status of the first failing request, for granular information the user
-   * may still verify each of the underlying requests individually.
+   * which will be later used to evaluate if all tracked requests completed and set the
+   * final status of the multi-transfer request and the Python future, if enabled. The final
+   * status is either `UCS_OK` if all underlying requests completed successfully, otherwise
+   * it will contain the status of the first failing request, for granular information the
+   * user may still verify each of the underlying requests individually.
    *
    * @param[in] status the status of the request being completed.
    */
@@ -218,8 +189,6 @@ class RequestTagMulti : public Request {
    * @throws std::runtime_error if called by a send request.
    */
   void recvCallback(ucs_status_t status);
-
-  void populateDelayedSubmission() override;
 
   void cancel() override;
 };
