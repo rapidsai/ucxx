@@ -45,7 +45,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -62,7 +62,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -88,7 +88,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.docs-build-matrix.outputs.matrix) }}
@@ -111,7 +111,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -125,7 +125,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -148,7 +148,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       publish_to_pypi: false # PyPI publication is handled by Kitmaker.
@@ -166,7 +166,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -189,7 +189,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       publish_to_pypi: false # PyPI publication is handled by Kitmaker.
@@ -207,7 +207,7 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       build-datetime: ${{ needs.build-details.outputs.build-datetime }}
@@ -229,7 +229,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@45cb998acd60279c1af3d9ebe1ed98ab96369c04
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@db1cddb6cdf80d1836de64085bb653bea4571867
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       publish_to_pypi: false # PyPI publication is handled by Kitmaker.
