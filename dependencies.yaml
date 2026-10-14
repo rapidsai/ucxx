@@ -652,9 +652,9 @@ dependencies:
             packages:
           - matrix:
             packages:
-              - ucx==1.19.0
+              - ucx==1.20.0
       # very tight >=x.x.x,<x.x.(x+1) on these wheel dependencies, instead of '==',
-      # to allow for installation of post release like 1.19.0.post1
+      # to allow for installation of post release like 1.20.0.post1
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
@@ -664,15 +664,15 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.19.0,<1.19.1
+              - libucx-cu12>=1.20.0,<1.20.1
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu13>=1.19.0,<1.19.1
+              - libucx-cu13>=1.20.0,<1.20.1
           - matrix:
             packages:
-              - libucx>=1.19.0,<1.19.1
+              - libucx>=1.20.0,<1.20.1
   depends_on_ucx_run:
     specific:
       - output_types: [conda]
@@ -682,7 +682,7 @@ dependencies:
             packages:
           - matrix:
             packages:
-              - ucx>=1.19.0,<1.22
+              - ucx>=1.20.0,<1.23
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
@@ -692,12 +692,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.19.0,<1.22
+              - libucx-cu12>=1.20.0,<1.23
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu13>=1.19.0,<1.22
+              - libucx-cu13>=1.20.0,<1.23
           - matrix:
             packages:
-              - libucx>=1.19.0,<1.22
+              - libucx>=1.20.0,<1.23
