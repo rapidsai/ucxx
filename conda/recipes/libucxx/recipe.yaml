@@ -153,7 +153,7 @@ outputs:
       name: libucxx-examples
       version: ${{ version }}
     build:
-      string: ${{ datetime_string }}_${{ head_rev }}
+      string: cuda${{ cuda_major }}_${{ datetime_string }}_${{ head_rev }}
       script: cmake --install cpp/build --component examples
       dynamic_linking:
         overlinking_behavior: "error"

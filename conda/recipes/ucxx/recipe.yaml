@@ -228,7 +228,7 @@ outputs:
       version: ${{ version }}
     build:
       noarch: python
-      string: ${{ datetime_string }}_${{ head_rev }}_h${{ hash }}
+      string: cuda${{ cuda_major }}_${{ datetime_string }}_${{ head_rev }}_h${{ hash }}
       script: ./build.sh distributed_ucxx
     requirements:
       host:
@@ -242,6 +242,8 @@ outputs:
         - pyyaml >=6
         - rapids-dask-dependency ${{ rapids_version }}
         - ${{ pin_subpackage("ucxx", upper_bound="x.x") }}
+      run_constraints:
+        - cuda-version ${{ cuda_major }}.*
       ignore_run_exports:
         from_package:
           - ${{ compiler("c") }}

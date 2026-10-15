@@ -45,5 +45,11 @@ sccache --stop-server >/dev/null 2>&1 || true
 # See https://github.com/prefix-dev/rattler-build/issues/1424
 rm -rf "$RAPIDS_CONDA_BLD_OUTPUT_DIR"/build_cache
 
+ci/release/select-candidate-noarch-output.sh \
+    "${RAPIDS_CONDA_BLD_OUTPUT_DIR:-}" \
+    "$(uname -m)" \
+    "${RAPIDS_CUDA_VERSION:-}" \
+    "${RAPIDS_RELEASE_CANDIDATE:-false}"
+
 RAPIDS_PACKAGE_NAME="$(rapids-artifact-name conda_python ucxx ucxx --stable --cuda)"
 export RAPIDS_PACKAGE_NAME
