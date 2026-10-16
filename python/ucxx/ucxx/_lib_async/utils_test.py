@@ -13,6 +13,9 @@ import ucxx
 
 from ucxx._lib_async.pytest_stash_keys import ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY
 
+from cuda.core import system
+
+
 normal_env = {
     "UCX_RNDV_SCHEME": "put_zcopy",
     "UCX_MEMTYPE_CACHE": "n",
@@ -39,12 +42,7 @@ def set_env():
 
 
 def get_num_gpus():
-    import pynvml
-
-    pynvml.nvmlInit()
-    ngpus = pynvml.nvmlDeviceGetCount()
-    pynvml.nvmlShutdown()
-    return ngpus
+    return system.Device.get_device_count()
 
 
 def get_cuda_devices():
