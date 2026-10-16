@@ -334,6 +334,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
 
     cdef cppclass Endpoint(Component):
         ucp_ep_h getHandle()
+        bint amProbe() const
         RequestEndpointCloseBuilder closeBuilder()
         void closeBlocking(uint64_t period, uint64_t maxAttempts)
         RequestAmBuilder amSendBuilder(
