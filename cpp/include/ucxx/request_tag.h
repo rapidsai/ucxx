@@ -26,6 +26,8 @@ class RequestTag : public Request {
  private:
   bool _cancelRequested{false};  ///< Whether to cancel immediately after delayed submission.
 
+  void diagnoseReceiveLength(const ucp_tag_recv_info_t* info, const char* completionPath) const;
+
   /**
    * @brief Private constructor of `ucxx::RequestTag`.
    *

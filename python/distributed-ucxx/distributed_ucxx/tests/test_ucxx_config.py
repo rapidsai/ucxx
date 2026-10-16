@@ -1,12 +1,14 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
 
 import os
 import pathlib
+import sys
+from importlib import import_module, metadata
 from contextlib import contextmanager
-from time import sleep, time
+from time import monotonic_ns, sleep, time
 
 import pytest
 import yaml
@@ -182,6 +184,15 @@ def start_dask_scheduler(
     reason="Workers running without a `Nanny` can't be closed properly",
 )
 def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
+    def log_process(stage, process):
+        print(
+            f"test_ucx_config_w_env_var time_ns={monotonic_ns()} "
+            f"parent_pid={os.getpid()} "
+            f"test=test_ucx_config_w_env_var[{protocol}] stage={stage} "
+            f"process_pid={process.pid} returncode={process.poll()}",
+            flush=True,
+        )
+
     def current_device_resource_is_pool():
         import rmm
 
@@ -210,7 +221,7 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
                 "--no-nanny",
             ],
             env=env,
-        ):
+        ) as worker_process:
             with Client(sched_addr, loop=loop, timeout=60) as c:
                 while not c.scheduler_info()["workers"]:
                     sleep(0.1)
@@ -222,12 +233,57 @@ def test_ucx_config_w_env_var(ucxx_loop, cleanup, loop, protocol):
                 rmm_resource_workers = c.run(current_device_resource_is_pool)
                 assert all(rmm_resource_workers.values())
 
+            log_process("client closed", worker_process)
+
+        log_process("worker stopped", worker_process)
+        log_process("before scheduler stop", scheduler_process)
+
+    log_process("scheduler stopped", scheduler_process)
+
 
 def test_schema():
+    if os.environ.get("UCXX_CONFIG_TRACE") == "1":
+        versions = {}
+        for package in ("attrs", "jsonschema", "pytest", "distributed"):
+            try:
+                versions[package] = metadata.version(package)
+            except metadata.PackageNotFoundError:
+                versions[package] = "not-installed"
+        ucxx_module = sys.modules.get("ucxx")
+        versions["ucxx"] = getattr(ucxx_module, "__version__", "unknown")
+        print(
+            f"UCXX_CONFIG_TRACE time_ns={monotonic_ns()} pid={os.getpid()} "
+            f"phase=before-jsonschema-import python={sys.version!r} "
+            f"versions={versions} "
+            f"progress_mode={os.environ.get('UCXPY_PROGRESS_MODE')} "
+            f"delayed_submission={os.environ.get('UCXPY_ENABLE_DELAYED_SUBMISSION')} "
+            f"python_future={os.environ.get('UCXPY_ENABLE_PYTHON_FUTURE')}",
+            flush=True,
+        )
+        try:
+            trace = getattr(import_module("distributed_ucxx.ucxx"), "frame_trace", None)
+            if trace is not None:
+                trace.dump()
+        except Exception as e:
+            print(f"UCXX_CONFIG_TRACE frame-dump-error={e!r}", flush=True)
+
     jsonschema = pytest.importorskip("jsonschema")
+
+    if os.environ.get("UCXX_CONFIG_TRACE") == "1":
+        print(
+            f"UCXX_CONFIG_TRACE time_ns={monotonic_ns()} pid={os.getpid()} "
+            f"phase=jsonschema-imported version={metadata.version('jsonschema')}",
+            flush=True,
+        )
 
     root_dir = pathlib.Path(__file__).parent.parent
     config = yaml.safe_load((root_dir / "distributed-ucxx.yaml").read_text())
     schema = yaml.safe_load((root_dir / "distributed-ucxx-schema.yaml").read_text())
 
     jsonschema.validate(config, schema)
+    if os.environ.get("UCXX_CONFIG_TRACE") == "1":
+        print(
+            f"UCXX_CONFIG_TRACE time_ns={monotonic_ns()} pid={os.getpid()} "
+            "phase=schema-validation-complete",
+            flush=True,
+        )
