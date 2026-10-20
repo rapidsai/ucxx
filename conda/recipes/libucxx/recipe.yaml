@@ -109,7 +109,7 @@ outputs:
         - ucx =${{ ucx_min }}
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - ucx >=${{ ucx_min }},<${{ ucx_max }}
+        - ucx >=${{ ucx_min }},<${{ ucx_max }},!=1.22.0
       run_exports:
         - ${{ pin_subpackage("libucxx", upper_bound="x.x") }}
       ignore_run_exports:
@@ -171,7 +171,7 @@ outputs:
       host:
         - ${{ pin_subpackage("libucxx", exact=True) }}
       run:
-        - ucx >=${{ ucx_min }},<${{ ucx_max }}
+        - ucx >=${{ ucx_min }},<${{ ucx_max }},!=1.22.0
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
         by_name:
@@ -203,7 +203,7 @@ outputs:
         - ${{ pin_subpackage("libucxx", exact=True) }}
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - ucx >=${{ ucx_min }},<${{ ucx_max }}
+        - ucx >=${{ ucx_min }},<${{ ucx_max }},!=1.22.0
         - ${{ pin_subpackage("libucxx", exact=True) }}
       ignore_run_exports:
         by_name:

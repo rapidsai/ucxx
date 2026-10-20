@@ -673,6 +673,9 @@ dependencies:
           - matrix:
             packages:
               - libucx>=1.20.0,<1.20.1
+  # UCX 1.22.0 is excluded: it can segfault inside libcuda in
+  # cuMemGetHandleForAddressRange. Fixed on UCX main (openucx/ucx#11922).
+  # See https://github.com/rapidsai/ucxx/issues/783
   depends_on_ucx_run:
     specific:
       - output_types: [conda]
@@ -682,7 +685,7 @@ dependencies:
             packages:
           - matrix:
             packages:
-              - ucx>=1.20.0,<1.23
+              - ucx>=1.20.0,<1.23,!=1.22.0
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
@@ -692,12 +695,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu12>=1.20.0,<1.23
+              - libucx-cu12>=1.20.0,<1.23,!=1.22.0
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - libucx-cu13>=1.20.0,<1.23
+              - libucx-cu13>=1.20.0,<1.23,!=1.22.0
           - matrix:
             packages:
-              - libucx>=1.20.0,<1.23
+              - libucx>=1.20.0,<1.23,!=1.22.0
