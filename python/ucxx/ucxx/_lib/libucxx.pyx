@@ -1371,14 +1371,10 @@ cdef class UCXEndpoint():
             self._endpoint.get().closeBlocking(c_period, c_max_attempts)
 
     def am_probe(self) -> bool:
-        cdef ucp_ep_h handle
-        cdef shared_ptr[Worker] worker
         cdef bint ep_matched
 
         with nogil:
-            handle = self._endpoint.get().getHandle()
-            worker = self._endpoint.get().getWorker()
-            ep_matched = worker.get().amProbe(handle)
+            ep_matched = self._endpoint.get().amProbe()
 
         return ep_matched
 

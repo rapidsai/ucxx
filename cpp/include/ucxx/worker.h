@@ -51,6 +51,8 @@ class RequestAm;
 
 namespace internal {
 class AmData;
+class AmEndpointData;
+class AmEndpointRegistry;
 }  // namespace internal
 
 /**
@@ -83,6 +85,7 @@ class Worker : public Component {
     nullptr};  ///< Collection of enqueued delayed submissions
 
   friend class detail::ConstructorFactory;
+  friend class internal::AmEndpointRegistry;
 
  protected:
   bool _enableFuture{
@@ -105,23 +108,6 @@ class Worker : public Component {
    * not to generate UCX warnings.
    */
   void drainWorkerTagRecv();
-
-  /**
-   * @brief Get active message receive request.
-   *
-   * Returns an active message request from the pool if the worker has already begun
-   * handling a request with the active messages callback, otherwise creates a new request
-   * that is later populated with status and buffer by the active messages callback.
-   *
-   * @param[in] ep  the endpoint handle where receiving the message, the same handle that
-   *                will later be used to reply to the message.
-   * @param[in] createAmRecvRequestFunction function to create a new request if one is not
-   *                                        already available in the pool.
-   *
-   * @returns Request to be subsequently checked for the completion state and data.
-   */
-  [[nodiscard]] std::shared_ptr<RequestAm> getAmRecv(
-    ucp_ep_h ep, std::function<std::shared_ptr<RequestAm>()> createAmRecvRequestFunction);
 
   /**
    * @brief Stop the progress thread if running without raising warnings.
@@ -947,6 +933,9 @@ class Worker : public Component {
    * @endcode
    *
    * @returns `true` if any uncaught messages were received, `false` otherwise.
+   *
+   * @note `endpointHandle` must refer to a live UCP endpoint. Use
+   *       `Endpoint::amProbe()` to inspect messages retained after endpoint closure.
    */
   [[nodiscard]] bool amProbe(const ucp_ep_h endpointHandle) const;
 
