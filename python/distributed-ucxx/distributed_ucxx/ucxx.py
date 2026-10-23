@@ -29,14 +29,10 @@ from distributed.comm.addressing import parse_host_port, unparse_host_port
 from distributed.comm.core import Comm, CommClosedError, Connector, Listener
 from distributed.comm.registry import Backend
 from distributed.comm.utils import ensure_concrete_host, from_frames, to_frames
-from distributed.diagnostics.nvml import (
-    CudaDeviceInfo,
-    get_device_index_and_uuid,
-    has_cuda_context,
-)
 from distributed.protocol.utils import host_array
 from distributed.utils import ensure_ip, get_ip, get_ipv6, log_errors, nbytes
 
+from ._cuda_info import CudaDeviceInfo, get_device_index_and_uuid, has_cuda_context
 from .config import get_rmm_config, get_ucx_config, setup_config
 
 logger = logging.getLogger(__name__)

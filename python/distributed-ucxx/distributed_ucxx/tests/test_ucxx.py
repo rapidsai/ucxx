@@ -15,12 +15,6 @@ from distributed.comm import connect, listen, parse_address
 from distributed.comm.core import CommClosedError
 from distributed.comm.registry import get_backend
 from distributed.deploy.local import LocalCluster
-from distributed.diagnostics.nvml import (
-    device_get_count,
-    get_device_index_and_uuid,
-    get_device_mig_mode,
-    has_cuda_context,
-)
 from distributed.protocol import to_serialize
 from distributed.utils import wait_for
 from distributed.utils_test import inc
@@ -28,6 +22,12 @@ from distributed.utils_test import inc
 import ucxx
 
 import distributed_ucxx  # noqa: E402
+from distributed_ucxx._cuda_info import (
+    device_get_count,
+    get_device_index_and_uuid,
+    get_device_mig_mode,
+    has_cuda_context,
+)
 from distributed_ucxx.ucxx import UCXXListener
 from distributed_ucxx.utils_test import gen_test
 
@@ -414,9 +414,7 @@ async def test_cuda_context(
     except StopIteration:
         pytest.skip("No CUDA device in non-MIG mode available")
 
-    with patch.dict(
-        os.environ, {"CUDA_VISIBLE_DEVICES": device_info.uuid.decode("utf-8")}
-    ):
+    with patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": device_info.uuid}):
         with dask.config.set({"distributed.comm.ucx.create-cuda-context": True}):
             async with LocalCluster(
                 protocol="ucx", n_workers=1, asynchronous=True
