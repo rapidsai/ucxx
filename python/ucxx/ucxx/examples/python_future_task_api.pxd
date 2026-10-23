@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # distutils: language = c++
@@ -17,4 +17,6 @@ cdef extern from "python_future_task.h" namespace "ucxx::python_future_task" nog
     cdef cppclass Application:
         Application(PyObject* asyncio_event_loop)
         PyObject* submit(double duration, long long id)
+        PyObject* submitUntilClose(long long id)
+        void waitUntilTaskAccepted()
         void* getFuture() except +raise_py_error

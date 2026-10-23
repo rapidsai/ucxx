@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # distutils: language = c++
@@ -29,3 +29,15 @@ cdef class PythonFutureTaskApplication():
             future_ptr = self._application.get().submit(cpp_duration, cpp_id)
 
         return <object>future_ptr
+
+    def submit_until_close(self, id=0):
+        cdef long long cpp_id = id
+        cdef PyObject* future_ptr
+
+        with nogil:
+            future_ptr = self._application.get().submitUntilClose(cpp_id)
+
+        return <object>future_ptr
+
+    def wait_until_task_accepted(self):
+        self._application.get().waitUntilTaskAccepted()
