@@ -31,8 +31,11 @@ source rapids-telemetry-setup
 # --no-build-id allows for caching with `sccache`
 # more info is available at
 # https://rattler.build/latest/tips_and_tricks/#using-sccache-or-ccache-with-rattler-build
+# Package tests install the newly built outputs and therefore require runtime
+# packages from the complete RAPIDS build. Run those in the separate test jobs.
 rapids-telemetry-record build.log rattler-build build \
     --recipe conda/recipes/ucxx \
+    --test skip \
     --experimental \
     --no-build-id \
     --output-dir "$RAPIDS_CONDA_BLD_OUTPUT_DIR" \
