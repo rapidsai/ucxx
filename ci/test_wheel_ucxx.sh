@@ -18,7 +18,7 @@ LIBUCXX_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_c
 UCXX_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_python ucxx ucxx --stable --cuda "$RAPIDS_CUDA_VERSION")")
 
 # generate constraints (possibly pinning to oldest support versions of dependencies)
-rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}" constraints
+rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
 
 python -m venv libucxx-env
 . libucxx-env/bin/activate

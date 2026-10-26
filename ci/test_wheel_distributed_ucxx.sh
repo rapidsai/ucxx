@@ -17,7 +17,7 @@ UCXX_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_pyth
 DISTRIBUTED_UCXX_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_python distributed-ucxx ucxx --pure --cuda "$RAPIDS_CUDA_VERSION" --arch any)")
 
 # generate constraints (possibly pinning to oldest support versions of dependencies)
-rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}" constraints
+rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
 
 # notes:
 #
