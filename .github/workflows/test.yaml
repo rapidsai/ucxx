@@ -41,6 +41,7 @@ jobs:
       script: ci/test_cpp.sh
       sha: ${{ inputs.sha }}
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      matrix_type: cuda-13-4-nightly,nightly
   conda-python-tests:
     permissions:
       actions: read
@@ -57,6 +58,7 @@ jobs:
       script: ci/test_python.sh
       sha: ${{ inputs.sha }}
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      matrix_type: cuda-13-4-nightly,nightly
   conda-python-distributed-tests:
     permissions:
       actions: read
@@ -73,6 +75,7 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
+      matrix_type: cuda-13-4-nightly,nightly
   wheel-tests-ucxx:
     permissions:
       actions: read
@@ -89,6 +92,7 @@ jobs:
       sha: ${{ inputs.sha }}
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_wheel_ucxx.sh
+      matrix_type: cuda-13-4-nightly,nightly
   wheel-tests-distributed-ucxx:
     permissions:
       actions: read
@@ -105,3 +109,4 @@ jobs:
       sha: ${{ inputs.sha }}
       container-options: "--cap-add CAP_SYS_PTRACE --shm-size=8g --ulimit=nofile=1000000:1000000"
       script: ci/test_wheel_distributed_ucxx.sh
+      matrix_type: cuda-13-4-nightly,nightly
