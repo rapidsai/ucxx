@@ -44,6 +44,7 @@ outputs:
           set +x
 
           # We rebuild libucxx_python here so we can link against the correct `libpython`
+          sccache --stop-server || :
           ./build.sh libucxx_python ucxx
         secrets:
           - AWS_ACCESS_KEY_ID
@@ -160,6 +161,7 @@ outputs:
           set +x
 
           # We rebuild libucxx_python here so we can link against the correct `libpython`
+          sccache --stop-server || :
           ./build.sh libucxx_python ucxx ucxx_tests
         secrets:
           - AWS_ACCESS_KEY_ID
