@@ -46,5 +46,6 @@ rapids-pip-retry install \
 
 print_system_stats
 
-rapids-logger "Run Python tests with wheels"
-DISABLE_CYTHON=1 ./ci/run_python.sh
+# TEMPORARY: only run the benchmark that hangs on V100 in nightly CI, in a loop, with UCX tracing.
+rapids-logger "Run hanging benchmark in a loop with UCX_LOG_LEVEL=trace"
+DISABLE_CYTHON=1 ./ci/debug_benchmark_loop.sh
