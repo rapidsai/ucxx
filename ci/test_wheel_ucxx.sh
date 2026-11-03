@@ -46,6 +46,22 @@ rapids-pip-retry install \
 
 print_system_stats
 
-# TEMPORARY: only run the benchmark that hangs on V100 in nightly CI, in a loop, with UCX tracing.
+# TEMPORARY debugging of the hang seen in nightly CI on V100. Both steps always run, so that a
+# failure in one does not hide the result of the other; the job fails if either failed.
+#
+# 1. Standalone CUDA driver API reproducer (no UCX/ucxx), built and run in a loop. Exit status 3
+#    means it could not be built and was skipped.
+rapids-logger "Run standalone cuMemRetainAllocationHandle reproducer in a loop"
+repro_status=0
+./ci/debug/build_and_run_retain_repro.sh || repro_status=$?
+
+# 2. The benchmark that hangs, in a loop, with UCX_LOG_LEVEL=trace.
 rapids-logger "Run hanging benchmark in a loop with UCX_LOG_LEVEL=trace"
-DISABLE_CYTHON=1 ./ci/debug_benchmark_loop.sh
+benchmark_status=0
+DISABLE_CYTHON=1 ./ci/debug_benchmark_loop.sh || benchmark_status=$?
+
+rapids-logger "Summary: standalone reproducer status=${repro_status} (0=clean, 3=skipped, other=failed), benchmark loop status=${benchmark_status}"
+if [ "${repro_status}" -ne 0 ] && [ "${repro_status}" -ne 3 ]; then
+  exit "${repro_status}"
+fi
+exit "${benchmark_status}"
