@@ -46,22 +46,49 @@ rapids-pip-retry install \
 
 print_system_stats
 
-# TEMPORARY debugging of the hang seen in nightly CI on V100. Both steps always run, so that a
-# failure in one does not hide the result of the other; the job fails if either failed.
+# TEMPORARY debugging of the hang seen in nightly CI on V100. Nothing below fails the script early;
+# every step runs and the job's exit status reflects all of them.
 #
-# 1. Standalone CUDA driver API reproducer (no UCX/ucxx), built and run in a loop. Exit status 3
-#    means it could not be built and was skipped.
-rapids-logger "Run standalone cuMemRetainAllocationHandle reproducer in a loop"
+# 1. Standalone CUDA driver API reproducer (no UCX/ucxx), one short run (it was clean in 10x60s
+#    runs already, so this is just for the record). Exit status 3 means it could not be built.
+rapids-logger "Run standalone cuMemRetainAllocationHandle reproducer (short)"
 repro_status=0
-./ci/debug/build_and_run_retain_repro.sh || repro_status=$?
+N_REPRO_ATTEMPTS=1 REPRO_DURATION=20 ./ci/debug/build_and_run_retain_repro.sh || repro_status=$?
 
-# 2. The benchmark that hangs, in a loop, with UCX_LOG_LEVEL=trace.
-rapids-logger "Run hanging benchmark in a loop with UCX_LOG_LEVEL=trace"
-benchmark_status=0
-DISABLE_CYTHON=1 ./ci/debug_benchmark_loop.sh || benchmark_status=$?
+# 2. A/B of the receive-buffer allocator used by ucxx (UCXX_DEBUG_CCCL_BUFFER_ALLOCATOR, see
+#    cpp/src/buffer_cccl.cpp) on this very runner with the same wheels:
+#      pool        = CCCL's stream-ordered default device memory pool (the shipping behavior)
+#      cudamalloc  = plain cudaMalloc/cudaFree
+#    Each case is a loop that stops at its first failure. Case 1 should hang if this runner is
+#    "bad"; if so, it also confirms the runner is a valid test bed for the other cases.
+declare -a case_names=()
+declare -a case_status=()
 
-rapids-logger "Summary: standalone reproducer status=${repro_status} (0=clean, 3=skipped, other=failed), benchmark loop status=${benchmark_status}"
-if [ "${repro_status}" -ne 0 ] && [ "${repro_status}" -ne 3 ]; then
-  exit "${repro_status}"
+run_case() {
+  local name="$1" allocator="$2" log_level="$3" attempts="$4"
+  rapids-logger "CASE ${name}: allocator=${allocator}, UCX_LOG_LEVEL=${log_level}, up to ${attempts} attempts"
+  local status=0
+  UCXX_DEBUG_CCCL_BUFFER_ALLOCATOR="${allocator}" \
+  BENCH_UCX_LOG_LEVEL="${log_level}" \
+  N_ATTEMPTS="${attempts}" \
+  DISABLE_CYTHON=1 ./ci/debug_benchmark_loop.sh || status=$?
+  case_names+=("${name}")
+  case_status+=("${status}")
+}
+
+run_case "pool-trace"        pool       trace 3
+run_case "cudamalloc-trace"  cudamalloc trace 10
+run_case "pool-info"         pool       info  5
+run_case "cudamalloc-info"   cudamalloc info  10
+
+rapids-logger "SUMMARY (0 = all attempts passed, 124 = timeout/hang, other = failure)"
+echo "standalone reproducer: status=${repro_status} (0=clean, 3=skipped)"
+overall=0
+for i in "${!case_names[@]}"; do
+  printf '%-20s status=%s\n' "${case_names[$i]}" "${case_status[$i]}"
+  if [ "${case_status[$i]}" -ne 0 ] && [ "${overall}" -eq 0 ]; then overall="${case_status[$i]}"; fi
+done
+if [ "${repro_status}" -ne 0 ] && [ "${repro_status}" -ne 3 ] && [ "${overall}" -eq 0 ]; then
+  overall="${repro_status}"
 fi
-exit "${benchmark_status}"
+exit "${overall}"
