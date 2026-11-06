@@ -245,12 +245,7 @@ def init_once():
         # nothing
         or ("cuda" in ucx_tls and "^cuda" not in ucx_tls)
     ):
-        try:
-            from ucxx._cuda_context import ensure_cuda_context
-        except ImportError as e:
-            raise ImportError(
-                "CUDA support with UCX requires cuda-core for context management."
-            ) from e
+        from ucxx._cuda_context import ensure_cuda_context
 
         cuda_visible_device = get_device_index_and_uuid(
             os.environ.get("CUDA_VISIBLE_DEVICES", "0").split(",")[0]

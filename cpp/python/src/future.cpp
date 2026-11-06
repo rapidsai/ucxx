@@ -113,8 +113,8 @@ PyObject* check_future_state(PyObject* future)
 
   PyGILState_STATE state = PyGILState_Ensure();
 
-  // TODO: replace with PyObject_CallMethodNoArgs() when minimum Python version moves to 3.12
-  result = PyObject_CallMethodObjArgs(future, cancelled_str, NULL);
+  result =
+    PyObject_VectorcallMethod(cancelled_str, &future, 1 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
   if (PyErr_Occurred()) {
     ucxx_error("ucxx::python::%s, error calling `cancelled()` from `asyncio.Future` object",
                __func__);
@@ -123,8 +123,7 @@ PyObject* check_future_state(PyObject* future)
     goto finish;
   }
 
-  // TODO: replace with PyObject_CallMethodNoArgs() when minimum Python version moves to 3.12
-  result = PyObject_CallMethodObjArgs(future, done_str, NULL);
+  result = PyObject_VectorcallMethod(done_str, &future, 1 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
   if (PyErr_Occurred()) {
     ucxx_error("ucxx::python::%s, error calling `done()` from `asyncio.Future` object", __func__);
   } else if (PyObject_IsTrue(result)) {
@@ -152,8 +151,11 @@ PyObject* future_set_result(PyObject* future, PyObject* value)
     goto finish;
   }
 
-  // TODO: replace with PyObject_CallMethodOneArg() when minimum Python version moves to 3.12
-  result = PyObject_CallMethodObjArgs(future, set_result_str, value, NULL);
+  {
+    PyObject* args[] = {future, value};
+    result =
+      PyObject_VectorcallMethod(set_result_str, args, 2 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
+  }
   if (PyErr_Occurred()) {
     ucxx_error("ucxx::python::%s, error calling `set_result()` from `asyncio.Future` object",
                __func__);
@@ -190,8 +192,11 @@ PyObject* future_set_exception(PyObject* future, PyObject* exception, const char
   formed_exception = PyObject_Call(exception, message_tuple, NULL);
   if (formed_exception == NULL) goto err;
 
-  // TODO: replace with PyObject_CallMethodOneArg() when minimum Python version moves to 3.12
-  result = PyObject_CallMethodObjArgs(future, set_exception_str, formed_exception, NULL);
+  {
+    PyObject* args[] = {future, formed_exception};
+    result =
+      PyObject_VectorcallMethod(set_exception_str, args, 2 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
+  }
 
   goto finish;
 
