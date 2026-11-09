@@ -5,6 +5,7 @@ import asyncio
 import multiprocessing
 import os
 import random
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -16,7 +17,6 @@ from ucxx._lib_async.utils_test import (
     am_send,
     compute_timeouts,
     get_cuda_devices,
-    get_num_gpus,
     recv,
     send,
     wait_listener_client_handlers,
@@ -204,7 +204,9 @@ def cupy_obj():
 
 
 @pytest.mark.slow
-@pytest.mark.skipif(get_num_gpus() <= 2, reason="Machine needs at least two GPUs")
+@pytest.mark.skipif(
+    len(get_cuda_devices()) < 2, reason="Machine needs at least two GPUs"
+)
 @pytest.mark.parametrize(
     "cuda_obj_generator", [dataframe, empty_dataframe, series, cupy_obj]
 )
@@ -212,13 +214,8 @@ def cupy_obj():
 def test_send_recv_cu(pytestconfig, cuda_obj_generator, comm_api):
     async_timeout, join_timeout = compute_timeouts(pytestconfig)
 
-    base_env = os.environ
-    env_client = base_env.copy()
-    # Grab first two devices
-    cvd = get_cuda_devices()[:2]
-    cvd = ",".join(map(str, cvd))
-    # Reverse CVD for client
-    env_client["CUDA_VISIBLE_DEVICES"] = cvd[::-1]
+    # Grab first two devices and reverse their order for the client
+    client_cvd = ",".join(map(str, reversed(get_cuda_devices()[:2])))
 
     port = random.randint(13000, 15500)
 
@@ -246,8 +243,8 @@ def test_send_recv_cu(pytestconfig, cuda_obj_generator, comm_api):
     # cuDF will ping the driver for validity of device, this will influence
     # device on which a cuda context is created. Workaround is to update
     # env with new CVD before spawning
-    os.environ.update(env_client)
-    client_process.start()
+    with patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": client_cvd}):
+        client_process.start()
 
     # Increase timeout by an additional 5s to give subprocesses a chance to
     # timeout before being forcefully terminated.
