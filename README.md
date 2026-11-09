@@ -66,6 +66,10 @@ cd python
 python setup.py install
 ```
 
+### Building and testing against a custom UCX installation
+
+UCXX's conda packages and wheels depend on UCX from conda-forge and the `libucx-cu*` wheels, respectively. To run UCXX's CI scripts against a UCX installation provided by other means (e.g., built from source), set `UCXX_NO_LIBUCX=true`. This is intended for testing only and has several non-obvious requirements and limitations (for example, conda builds require UCX to be installed under `/usr/local`); see [ci/README.md](ci/README.md) before using it.
+
 ## Running benchmarks
 
 ### C++

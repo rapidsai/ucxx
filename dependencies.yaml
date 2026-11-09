@@ -643,6 +643,9 @@ dependencies:
       - output_types: conda
         packages:
           - ucxx-tests==0.53.*,>=0.0.0a0
+  # The 'no_libucx: "true"' entries below omit UCX entirely, for building/testing against a
+  # UCX installation not provided by conda or wheels. Enabled in ci/ scripts with
+  # UCXX_NO_LIBUCX=true; see ci/README.md for requirements and known limitations.
   depends_on_ucx_build:
     specific:
       - output_types: [conda]

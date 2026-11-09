@@ -8,6 +8,10 @@ context:
   datetime_string: '${{ env.get("RAPIDS_DATETIME_STRING") }}'
   head_rev: '${{ git.head_rev(".")[:8] }}'
   rapids_version: '${{ env.get("RAPIDS_PACKAGE_DEPENDENCY") }}'
+  # Set UCXX_NO_LIBUCX=true to build against a UCX installation not managed by conda.
+  # For testing only, with significant limitations (e.g., UCX must be under /usr/local);
+  # see ci/README.md.
+  no_libucx: ${{ env.get("UCXX_NO_LIBUCX", default="false") == "true" }}
   py_abi_min: ${{ env.get("RAPIDS_PY_VERSION") }}
   py_buildstring: ${{ py_abi_min | version_to_buildstring }}
   py_runtime_latest: "3.14"
@@ -30,6 +34,13 @@ outputs:
         overlinking_behavior: "error"
         missing_dso_allowlist:
           - lib/libpython*.so.*
+          # UCX is provided outside of conda (e.g., a system installation)
+          - if: no_libucx
+            then:
+              - "**/libucp.so*"
+              - "**/libucs.so*"
+              - "**/libuct.so*"
+              - "**/libucm.so*"
       prefix_detection:
         ignore:
           - lib/libucxx_python.so
@@ -94,7 +105,9 @@ outputs:
         - python-abi3 ${{ py_abi_min }}.*
         - rapids-build-backend >=0.4.0,<0.5.0
         - scikit-build-core>=0.11.0
-        - ucx =${{ ucx_min }}
+        - if: not no_libucx
+          then:
+            - ucx =${{ ucx_min }}
         - libucxx =${{ version }}
         - cuda-cudart-dev
       run:
@@ -103,7 +116,9 @@ outputs:
         # 'nvidia-ml-py' provides the 'pynvml' module
         - nvidia-ml-py>=12
         - python
-        - ucx >=${{ ucx_min }},<${{ ucx_max }}
+        - if: not no_libucx
+          then:
+            - ucx >=${{ ucx_min }},<${{ ucx_max }}
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - libucxx =${{ version }}
       run_constraints:
@@ -146,6 +161,13 @@ outputs:
         overlinking_behavior: "error"
         missing_dso_allowlist:
           - lib/libpython*.so.*
+          # UCX is provided outside of conda (e.g., a system installation)
+          - if: no_libucx
+            then:
+              - "**/libucp.so*"
+              - "**/libucs.so*"
+              - "**/libuct.so*"
+              - "**/libucm.so*"
       script:
         content: |
           # Remove `-fdebug-prefix-map` line from CFLAGS and CXXFLAGS so the
