@@ -64,12 +64,15 @@ works by side effect of CMake defaults, which leads to the following:
 2. **UCX installed in a prefix outside CMake's default search path (e.g., `/opt/ucx`,
    `$HOME/ucx`) is expected not to work** (untested). `find_package(ucx REQUIRED)` only
    searches CMake's system prefixes (`/usr/local`, `/usr`, `/`), and the conda compiler
-   activation overwrites `CMAKE_PREFIX_PATH`. There is currently no recipe hook to
-   pass `ucx_ROOT`/`ucx_DIR`, and whether `rattler-build` forwards such variables from the
-   calling environment has not been verified.
+   activation overwrites `CMAKE_PREFIX_PATH`. `rattler-build` runs builds in isolated
+   environments that only receive variables explicitly forwarded by the recipe's `env:`
+   sections, and the recipes do not forward `ucx_ROOT`/`ucx_DIR`, so there is currently
+   no way to point the build at another location.
 3. **No UCX version constraint.** The `ucx_min`/`ucx_max` bounds in
    `conda_build_config.yaml` are not applied, and CMake does not require a specific UCX
-   version, so any UCX found is accepted at build time. Only UCX 1.20.0 was tested.
+   version, so any UCX found is accepted at build time. This includes UCX 1.22.0, which
+   regular builds exclude because it can segfault
+   ([#783](https://github.com/rapidsai/ucxx/issues/783)). Only UCX 1.20.0 was tested.
 4. **No UCX location is recorded.** `rattler-build` removes rpaths pointing outside the
    conda prefix (e.g., `/usr/local/lib64`), so UCX must be found by the loader at runtime
    (see [Requirements](#requirements-on-the-ucx-installation)).
@@ -94,7 +97,7 @@ Wheels are built with the CI image's system compiler (gcc-toolset), not a sysroo
    `CMAKE_PREFIX_PATH` environment variable.
 2. **The wheels are not portable.** They carry manylinux tags but require a system UCX at
    runtime; `auditwheel repair` already excludes `libucp.so.0`, so UCX is not bundled.
-3. **No UCX version constraint**, as for conda.
+3. **No UCX version constraint**, as for conda (including the excluded UCX 1.22.0).
 4. With UCX at prefix `/usr`, only the `libucxx` wheel build was verified; the `ucxx` and
    `distributed-ucxx` wheel builds and wheel tests were verified with `/usr/local` only.
 

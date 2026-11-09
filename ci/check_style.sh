@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -21,10 +21,9 @@ conda activate checks
 
 RAPIDS_BRANCH="$(cat "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../RAPIDS_BRANCH)"
 
-FORMAT_FILE_URL="https://raw.githubusercontent.com/rapidsai/rapids-cmake/${RAPIDS_BRANCH}/cmake-format-rapids-cmake.json"
 export RAPIDS_CMAKE_FORMAT_FILE=/tmp/rapids_cmake_ci/cmake-format-rapids-cmake.json
 mkdir -p "$(dirname "${RAPIDS_CMAKE_FORMAT_FILE}")"
-wget -O ${RAPIDS_CMAKE_FORMAT_FILE} "${FORMAT_FILE_URL}"
+rapids-github-fetch rapidsai/rapids-cmake cmake-format-rapids-cmake.json "${RAPIDS_BRANCH}" > "${RAPIDS_CMAKE_FORMAT_FILE}"
 
 # Run pre-commit checks
 pre-commit run --all-files --show-diff-on-failure
