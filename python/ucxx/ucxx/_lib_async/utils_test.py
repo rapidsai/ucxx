@@ -23,15 +23,14 @@ normal_env = {
 
 CLOSE_RECEIPT_TAG = 0x434F4E4649524D
 
-# xdist group used to serialize the largest GPU transfer test cases on a single
-# pytest-xdist worker, preventing several of them from contending for the same GPU
-# at once. Only effective with `pytest --dist loadgroup`.
-GPU_HEAVY_XDIST_GROUP = "gpu_heavy"
-
 
 def gpu_heavy_params(values, is_heavy):
     """
-    Wrap parametrize values, adding the ``GPU_HEAVY_XDIST_GROUP`` group to heavy ones.
+    Wrap parametrize values, adding the ``gpu_heavy`` marker to heavy ones.
+
+    Tests marked ``gpu_heavy`` never run concurrently with each other, even across
+    ``pytest-xdist`` workers, preventing several of them from contending for the
+    same GPU at once. See ``pytest_runtest_protocol`` in ``tests/conftest.py``.
 
     Parameters
     ----------
@@ -43,12 +42,10 @@ def gpu_heavy_params(values, is_heavy):
     Returns
     -------
     List of values, where heavy values are wrapped in ``pytest.param`` with the
-    ``xdist_group`` marker. Test IDs are unchanged.
+    ``gpu_heavy`` marker. Test IDs are unchanged.
     """
     return [
-        pytest.param(v, marks=pytest.mark.xdist_group(GPU_HEAVY_XDIST_GROUP))
-        if is_heavy(v)
-        else v
+        pytest.param(v, marks=pytest.mark.gpu_heavy) if is_heavy(v) else v
         for v in values
     ]
 

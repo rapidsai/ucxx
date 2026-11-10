@@ -17,7 +17,7 @@ np = pytest.importorskip("numpy")
 
 msg_sizes = [0, *(2**i for i in range(0, 25, 4))]
 dtypes = ["|u1", "<i8", "f8"]
-# Largest GPU cases run serially on one xdist worker, see `gpu_heavy_params`.
+# Largest GPU cases never run concurrently, see `gpu_heavy_params`.
 gpu_msg_sizes = gpu_heavy_params(msg_sizes, lambda s: s == max(msg_sizes))
 
 
