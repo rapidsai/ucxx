@@ -73,6 +73,7 @@ outputs:
           RAPIDS_CUDA_VERSION: ${{ env.get("RAPIDS_CUDA_VERSION") }}
           # Location of a UCX installation not managed by conda, see ci/README.md
           ucx_ROOT: ${{ env.get("ucx_ROOT", default="") }}
+          UCX_ROOT: ${{ env.get("UCX_ROOT", default="") }}
           RAPIDS_PY_VERSION: ${{ py_abi_min }}
           SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET", default="") }}
           SCCACHE_CONF: ${{ env.get("SCCACHE_CONF", default="") }}
@@ -203,6 +204,7 @@ outputs:
           RAPIDS_CUDA_VERSION: ${{ env.get("RAPIDS_CUDA_VERSION") }}
           # Location of a UCX installation not managed by conda, see ci/README.md
           ucx_ROOT: ${{ env.get("ucx_ROOT", default="") }}
+          UCX_ROOT: ${{ env.get("UCX_ROOT", default="") }}
           RAPIDS_PY_VERSION: ${{ py_abi_min }}
           SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET", default="") }}
           SCCACHE_CONF: ${{ env.get("SCCACHE_CONF", default="") }}

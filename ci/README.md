@@ -42,8 +42,11 @@ any of the following applies, in order of precedence:
    `export ucx_ROOT=/opt/hpcx/ucx`. Conda recipes forward it into their isolated build
    environments; wheel builds pass the environment to CMake directly. It must be an
    environment variable: `build_wheel_libucxx.sh` overwrites `SKBUILD_CMAKE_ARGS`, so
-   `-Ducx_ROOT=...` cannot be passed that way. Use lowercase `ucx_ROOT`: CMake also reads
-   `UCX_ROOT`, but the conda recipes only forward `ucx_ROOT`.
+   `-Ducx_ROOT=...` cannot be passed that way. `UCX_ROOT` works as well, but `ucx_ROOT`
+   is preferred and takes precedence if both are set: UCX treats `UCX_*` variables as
+   its own configuration and prints `unused environment variable: UCX_ROOT` warnings in
+   every process that initializes UCX, including test jobs (suppress with
+   `UCX_WARN_UNUSED_ENV_VARS=n`).
 2. **`<prefix>/bin` is on `PATH`.** CMake also searches the parent of every `bin`
    directory on `PATH`, and `rattler-build` preserves the caller's `PATH`. Since conda test
    jobs need `ucx_info` on `PATH` anyway, this often applies without further setup.
