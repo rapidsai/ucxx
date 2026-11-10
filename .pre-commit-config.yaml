@@ -57,7 +57,6 @@ repos:
           - --fix
           - --rapids-version-file=RAPIDS_VERSION
       - id: verify-hardcoded-version
-        args: ["--version-scheme=semver"]
         exclude: |
           (?x)
             devcontainer[.]json$|
