@@ -5,6 +5,7 @@ import pytest
 
 import ucxx
 from ucxx._lib_async.utils_test import (
+    gpu_heavy_params,
     recv_close_receipt,
     send_close_receipt,
     wait_listener_client_handlers,
@@ -16,6 +17,8 @@ msg_sizes = [2**i for i in range(0, 25, 4)]
 # multi_sizes = [0, 1, 2, 3, 4, 8]
 multi_sizes = [1, 2, 3, 4, 8]
 dtypes = ["|u1", "<i8", "f8"]
+# Largest GPU cases run serially on one xdist worker, see `gpu_heavy_params`.
+gpu_msg_sizes = gpu_heavy_params(msg_sizes, lambda s: s == max(msg_sizes))
 
 
 def make_echo_server():
@@ -71,7 +74,7 @@ async def test_send_recv_numpy(size, multi_size, dtype):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("size", msg_sizes)
+@pytest.mark.parametrize("size", gpu_msg_sizes)
 @pytest.mark.parametrize("multi_size", multi_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.flaky(reruns=3)
@@ -91,7 +94,7 @@ async def test_send_recv_cupy(size, multi_size, dtype):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("size", msg_sizes)
+@pytest.mark.parametrize("size", gpu_msg_sizes)
 @pytest.mark.parametrize("multi_size", multi_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.flaky(reruns=3)

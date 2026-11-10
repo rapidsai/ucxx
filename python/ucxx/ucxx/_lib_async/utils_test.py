@@ -23,6 +23,35 @@ normal_env = {
 
 CLOSE_RECEIPT_TAG = 0x434F4E4649524D
 
+# xdist group used to serialize the largest GPU transfer test cases on a single
+# pytest-xdist worker, preventing several of them from contending for the same GPU
+# at once. Only effective with `pytest --dist loadgroup`.
+GPU_HEAVY_XDIST_GROUP = "gpu_heavy"
+
+
+def gpu_heavy_params(values, is_heavy):
+    """
+    Wrap parametrize values, adding the ``GPU_HEAVY_XDIST_GROUP`` group to heavy ones.
+
+    Parameters
+    ----------
+    values
+        Values to be passed to ``pytest.mark.parametrize``.
+    is_heavy
+        Callable receiving a value and returning whether it's a heavy case.
+
+    Returns
+    -------
+    List of values, where heavy values are wrapped in ``pytest.param`` with the
+    ``xdist_group`` marker. Test IDs are unchanged.
+    """
+    return [
+        pytest.param(v, marks=pytest.mark.xdist_group(GPU_HEAVY_XDIST_GROUP))
+        if is_heavy(v)
+        else v
+        for v in values
+    ]
+
 
 async def send_close_receipt(ep):
     await ep.send(np.array([1], dtype=np.uint8), tag=CLOSE_RECEIPT_TAG, force_tag=True)
