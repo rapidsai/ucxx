@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #pragma once
@@ -220,6 +220,13 @@ class CCCLBuffer : public Buffer {
    * Constructor to materialize a buffer holding device memory. The internal
    * buffer holds a `std::unique_ptr<CCCLBufferImpl>` and is destroyed
    * when the object goes out-of-scope or is explicitly deleted.
+   * Construction waits for the pool allocation to complete, so the
+   * buffer can immediately be used by UCX or on any CUDA stream.
+   * Destruction returns the memory to the pool without waiting for
+   * work on any application or UCX stream. Before destroying the
+   * buffer, callers must ensure that all work accessing `data()` has
+   * completed. For example, synchronize the streams used or wait for
+   * all UCX requests using the buffer to complete.
    *
    * @param[in] size the size of the device buffer to allocate.
    *
