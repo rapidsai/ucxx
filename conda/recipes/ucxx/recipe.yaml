@@ -9,8 +9,8 @@ context:
   head_rev: '${{ git.head_rev(".")[:8] }}'
   rapids_version: '${{ env.get("RAPIDS_PACKAGE_DEPENDENCY") }}'
   # Set UCXX_NO_LIBUCX=true to build against a UCX installation not managed by conda.
-  # For testing only, with significant limitations (e.g., UCX must be under /usr/local);
-  # see ci/README.md.
+  # For testing only, with significant limitations (e.g., UCX must not be installed with
+  # prefix /usr; use ucx_ROOT to locate it); see ci/README.md.
   no_libucx: ${{ env.get("UCXX_NO_LIBUCX", default="false") == "true" }}
   py_abi_min: ${{ env.get("RAPIDS_PY_VERSION") }}
   py_buildstring: ${{ py_abi_min | version_to_buildstring }}
@@ -71,6 +71,8 @@ outputs:
           PARALLEL_LEVEL: ${{ env.get("PARALLEL_LEVEL", default="8") }}
           RAPIDS_ARTIFACTS_DIR: ${{ env.get("RAPIDS_ARTIFACTS_DIR", default="") }}
           RAPIDS_CUDA_VERSION: ${{ env.get("RAPIDS_CUDA_VERSION") }}
+          # Location of a UCX installation not managed by conda, see ci/README.md
+          ucx_ROOT: ${{ env.get("ucx_ROOT", default="") }}
           RAPIDS_PY_VERSION: ${{ py_abi_min }}
           SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET", default="") }}
           SCCACHE_CONF: ${{ env.get("SCCACHE_CONF", default="") }}
@@ -199,6 +201,8 @@ outputs:
           PARALLEL_LEVEL: ${{ env.get("PARALLEL_LEVEL", default="8") }}
           RAPIDS_ARTIFACTS_DIR: ${{ env.get("RAPIDS_ARTIFACTS_DIR", default="") }}
           RAPIDS_CUDA_VERSION: ${{ env.get("RAPIDS_CUDA_VERSION") }}
+          # Location of a UCX installation not managed by conda, see ci/README.md
+          ucx_ROOT: ${{ env.get("ucx_ROOT", default="") }}
           RAPIDS_PY_VERSION: ${{ py_abi_min }}
           SCCACHE_BUCKET: ${{ env.get("SCCACHE_BUCKET", default="") }}
           SCCACHE_CONF: ${{ env.get("SCCACHE_CONF", default="") }}
