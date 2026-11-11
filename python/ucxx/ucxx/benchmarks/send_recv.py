@@ -17,6 +17,7 @@ from ucxx.benchmarks.backends.ucxx_async import (
     UCXPyAsyncServer,
 )
 from ucxx.benchmarks.backends.ucxx_core import UCXPyCoreClient, UCXPyCoreServer
+from ucxx.benchmarks.utils import get_cuda_visible_device
 from ucxx.utils import (
     format_bytes,
     parse_bytes,
@@ -56,7 +57,7 @@ def _set_cuda_device(object_type, device):
     if object_type in ["cupy", "rmm"]:
         from ucxx._cuda_context import ensure_cuda_context
 
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
+        os.environ["CUDA_VISIBLE_DEVICES"] = get_cuda_visible_device(device)
         ensure_cuda_context(0)
 
 
@@ -230,7 +231,8 @@ def parse_args():
         metavar="N",
         default=0,
         type=int,
-        help="GPU device on server (default 0).",
+        help="GPU device on server, relative to CUDA_VISIBLE_DEVICES if set "
+        "(default 0).",
     )
     parser.add_argument(
         "-e",
@@ -238,7 +240,8 @@ def parse_args():
         metavar="N",
         default=0,
         type=int,
-        help="GPU device on client (default 0).",
+        help="GPU device on client, relative to CUDA_VISIBLE_DEVICES if set "
+        "(default 0).",
     )
     parser.add_argument(
         "--reuse-alloc",
@@ -401,6 +404,11 @@ def parse_args():
 def main():
     args = parse_args()
     server_address = args.server_address
+
+    if args.object_type in ["cupy", "rmm"]:
+        # Validate devices before spawning, a failing child would block `main()`
+        get_cuda_visible_device(args.server_dev)
+        get_cuda_visible_device(args.client_dev)
 
     # if you are the server, only start the `server process`
     # if you are the client, only start the `client process`
