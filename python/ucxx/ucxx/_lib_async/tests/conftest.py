@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
+import fcntl
 import functools
 import gc
 import inspect
 import os
+import tempfile
 import weakref
 
 import pytest
@@ -27,6 +29,34 @@ os.environ["RAPIDS_NO_INITIALIZE"] = "True"
 
 def pytest_runtest_teardown(item, nextitem):
     gc.collect()
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    """
+    Prevent tests marked ``gpu_heavy`` from running concurrently.
+
+    With ``pytest-xdist``, all workers of the same session hold an exclusive lock on
+    a file shared by the session (identified by the xdist ``testrunuid``) during
+    setup, call and teardown of ``gpu_heavy`` tests, so at most one of them runs at
+    a time while other tests keep running on the remaining workers. Without xdist,
+    tests already run serially and no lock is taken.
+
+    The time spent waiting for the lock is not included in test durations.
+    """
+    workerinput = getattr(item.config, "workerinput", None)
+    if workerinput is None or item.get_closest_marker("gpu_heavy") is None:
+        return (yield)
+
+    lock_path = os.path.join(
+        tempfile.gettempdir(), f"ucxx-gpu-heavy-{workerinput['testrunuid']}.lock"
+    )
+    with open(lock_path, "a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            return (yield)
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
 def pytest_addoption(parser):
@@ -303,3 +333,8 @@ def pytest_configure(config: pytest.Config):
         "of reruns",
     )
     config.addinivalue_line("markers", "slow: mark test as slow to run")
+    config.addinivalue_line(
+        "markers",
+        "gpu_heavy: test never runs concurrently with other `gpu_heavy` tests, "
+        "including across pytest-xdist workers",
+    )

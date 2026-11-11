@@ -4,8 +4,8 @@
 import pytest
 
 import ucxx
-from ucxx._compat import UCX_LT_1_22_0
 from ucxx._lib_async.utils_test import (
+    gpu_heavy_params,
     recv_close_receipt,
     send_close_receipt,
     wait_listener_client_handlers,
@@ -17,16 +17,8 @@ msg_sizes = [2**i for i in range(0, 25, 4)]
 # multi_sizes = [0, 1, 2, 3, 4, 8]
 multi_sizes = [1, 2, 3, 4, 8]
 dtypes = ["|u1", "<i8", "f8"]
-
-
-def skip_nonminimal_gpu_case_on_old_ucx(size, multi_size):
-    # UCX versions before 1.22 require disabling CUDA IPC in CI to avoid a same-process,
-    # same-GPU OOM bug (https://github.com/rapidsai/ucxx/issues/733). Without
-    # CUDA IPC, the larger multi-buffer GPU cases are prohibitively slow and
-    # can exhaust the test-suite timeout. Keep one minimal case per dtype to
-    # retain coverage of both GPU array implementations.
-    if UCX_LT_1_22_0 and (size != min(msg_sizes) or multi_size != min(multi_sizes)):
-        pytest.skip("UCX < 1.22 is prohibitively slow for nonminimal GPU cases")
+# Largest GPU cases never run concurrently, see `gpu_heavy_params`.
+gpu_msg_sizes = gpu_heavy_params(msg_sizes, lambda s: s == max(msg_sizes))
 
 
 def make_echo_server():
@@ -82,12 +74,11 @@ async def test_send_recv_numpy(size, multi_size, dtype):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("size", msg_sizes)
+@pytest.mark.parametrize("size", gpu_msg_sizes)
 @pytest.mark.parametrize("multi_size", multi_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.flaky(reruns=3)
 async def test_send_recv_cupy(size, multi_size, dtype):
-    skip_nonminimal_gpu_case_on_old_ucx(size, multi_size)
     cupy = pytest.importorskip("cupy")
 
     send_msg = [cupy.arange(size, dtype=dtype)] * multi_size
@@ -103,12 +94,11 @@ async def test_send_recv_cupy(size, multi_size, dtype):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("size", msg_sizes)
+@pytest.mark.parametrize("size", gpu_msg_sizes)
 @pytest.mark.parametrize("multi_size", multi_sizes)
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.flaky(reruns=3)
 async def test_send_recv_numba(size, multi_size, dtype):
-    skip_nonminimal_gpu_case_on_old_ucx(size, multi_size)
     cuda = pytest.importorskip("numba.cuda")
 
     ary = np.arange(size, dtype=dtype)

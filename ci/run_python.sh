@@ -21,11 +21,11 @@ run_py_tests() {
     ARGS=()
   fi
 
-  CMD_LINE="python ${TIMEOUT_TOOL_PATH} --enable-python $((4*60)) python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ ${ARGS[*]}"
+  CMD_LINE="python ${TIMEOUT_TOOL_PATH} --enable-python $((4*60)) python -m pytest -n 4 --dist loadgroup --durations=50 --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ ${ARGS[*]}"
   log_command "${CMD_LINE}"
   # Without append import mode, tests that create subprocess fail
   python "${TIMEOUT_TOOL_PATH}" --enable-python $((4*60)) \
-    python -m pytest -n 4 --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ "${ARGS[@]}"
+    python -m pytest -n 4 --dist loadgroup --durations=50 --import-mode=append -vs python/ucxx/ucxx/_lib/tests/ "${ARGS[@]}"
 }
 
 run_py_tests_async() {
@@ -34,7 +34,7 @@ run_py_tests_async() {
   ENABLE_PYTHON_FUTURE=$3
   SKIP=$4
 
-  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((30*60)) python -m pytest --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow"
+  CMD_LINE="UCXPY_PROGRESS_MODE=${PROGRESS_MODE} UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} python ${TIMEOUT_TOOL_PATH} --enable-python $((30*60)) python -m pytest -n 4 --dist loadgroup --durations=50 --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow"
 
   if [ "$SKIP" -ne 0 ]; then
     echo -e "\e[1;33mSkipping unstable test: ${CMD_LINE}\e[0m"
@@ -45,7 +45,7 @@ run_py_tests_async() {
     UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
     UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
     python "${TIMEOUT_TOOL_PATH}" --enable-python $((30*60)) \
-    python -m pytest -n 4 --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow
+    python -m pytest -n 4 --dist loadgroup --durations=50 --import-mode=append -vs python/ucxx/ucxx/_lib_async/tests/ --runslow
   fi
 }
 

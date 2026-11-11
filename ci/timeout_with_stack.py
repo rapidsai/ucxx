@@ -254,6 +254,21 @@ def terminate_process_tree(pid: int) -> None:
         pass
 
 
+def print_node_health() -> None:
+    """
+    Print node health information using ``node_health.py``, if available.
+
+    This is best-effort and never raises.
+    """
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "node_health.py")
+    if not os.path.isfile(script):
+        return
+    print("Node health at time of timeout:", flush=True)
+    with suppress(Exception):
+        subprocess.run([sys.executable, script], timeout=120, check=False)
+    sys.stdout.flush()
+
+
 def run_with_timeout(
     cmd: Sequence[str], timeout: float, *, enable_python: bool = False
 ) -> int:
@@ -305,6 +320,11 @@ def run_with_timeout(
             time.sleep(0.1)
 
         print(f"\nProcess timed out after {timeout} seconds")
+
+        # Report node health at the time of the timeout, helps attributing
+        # timeouts to degraded CI nodes.
+        print_node_health()
+
         print("Capturing stack traces for all processes...")
 
         # Capture stacks for parent and all children
