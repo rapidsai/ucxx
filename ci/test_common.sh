@@ -31,6 +31,14 @@ print_system_stats() {
 
   rapids-logger "Check maximum number of pending connections (somaxconn)"
   cat /proc/sys/net/core/somaxconn
+
+  print_node_health
+}
+
+print_node_health() {
+  # Report-only: helps attributing failures to degraded CI nodes, never fails the job.
+  rapids-logger "Node health"
+  python "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/node_health.py" || true
 }
 
 print_ucx_config() {
