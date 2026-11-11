@@ -69,6 +69,11 @@ run_py_benchmark() {
   # Workaround for https://github.com/rapidsai/ucxx/issues/15
   CMD_LINE="UCX_KEEPALIVE_INTERVAL=1ms ${CMD_LINE}"
 
+  # Without CUDA IPC, device buffers are staged through 8 KiB TCP segments, one
+  # cudaMemcpy each. On WSL2 each small device-to-host copy takes ~1 ms, so an
+  # 8 MiB transfer takes >1 s and the benchmark exceeds its timeout.
+  CMD_LINE="UCX_TCP_TX_SEG_SIZE=1M UCX_TCP_RX_SEG_SIZE=1M ${CMD_LINE}"
+
   log_command "${CMD_LINE}"
   if [ "$SLOW" -ne 0 ]; then
     echo -e "\e[1;33mSLOW BENCHMARK: it may seem like a deadlock but will eventually complete.\e[0m"
@@ -82,6 +87,8 @@ run_py_benchmark() {
     echo "Attempt ${attempt}/${MAX_ATTEMPTS} to run Python benchmark"
 
     UCX_KEEPALIVE_INTERVAL=1ms \
+    UCX_TCP_TX_SEG_SIZE=1M \
+    UCX_TCP_RX_SEG_SIZE=1M \
     UCXPY_ENABLE_DELAYED_SUBMISSION=${ENABLE_DELAYED_SUBMISSION} \
     UCXPY_ENABLE_PYTHON_FUTURE=${ENABLE_PYTHON_FUTURE} \
     python "${TIMEOUT_TOOL_PATH}" --enable-python $((2*60)) \
