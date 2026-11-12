@@ -24,6 +24,32 @@ normal_env = {
 CLOSE_RECEIPT_TAG = 0x434F4E4649524D
 
 
+def gpu_heavy_params(values, is_heavy):
+    """
+    Wrap parametrize values, adding the ``gpu_heavy`` marker to heavy ones.
+
+    Tests marked ``gpu_heavy`` never run concurrently with each other, even across
+    ``pytest-xdist`` workers, preventing several of them from contending for the
+    same GPU at once. See ``pytest_runtest_protocol`` in ``tests/conftest.py``.
+
+    Parameters
+    ----------
+    values
+        Values to be passed to ``pytest.mark.parametrize``.
+    is_heavy
+        Callable receiving a value and returning whether it's a heavy case.
+
+    Returns
+    -------
+    List of values, where heavy values are wrapped in ``pytest.param`` with the
+    ``gpu_heavy`` marker. Test IDs are unchanged.
+    """
+    return [
+        pytest.param(v, marks=pytest.mark.gpu_heavy) if is_heavy(v) else v
+        for v in values
+    ]
+
+
 async def send_close_receipt(ep):
     await ep.send(np.array([1], dtype=np.uint8), tag=CLOSE_RECEIPT_TAG, force_tag=True)
 
