@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -20,7 +20,7 @@ conda config --set channel_priority strict
 rapids-dependency-file-generator \
   --output conda \
   --file-key test_python_distributed \
-  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION};dependencies=${RAPIDS_DEPENDENCIES}" \
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION};dependencies=${RAPIDS_DEPENDENCIES};no_libucx=${UCXX_NO_LIBUCX:-false}" \
   --prepend-channel "${CPP_CHANNEL}" \
   --prepend-channel "${PYTHON_CHANNEL}" \
   | tee env.yaml

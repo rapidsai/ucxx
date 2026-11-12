@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import ctypes
@@ -33,16 +33,23 @@ def _load_wheel_installation(soname: str):
 
 def load_library():
     """Dynamically load libucxx.so and its dependencies"""
-    # If libucx was installed as a wheel, we must request it to load the library
-    # symbols. Otherwise, we assume that the library was installed in a system path
-    # that ld can find.
+    # If librmm/libucx were installed as wheels, we must request them to load the
+    # library symbols. Otherwise, we assume that the libraries were installed in a
+    # system path that ld can find. Each is handled independently, as libucx may be
+    # intentionally absent when building against a system UCX installation.
     try:
         import librmm
-        import libucx
     except ModuleNotFoundError:
         pass
     else:
         librmm.load_library()
+        del librmm
+
+    try:
+        import libucx
+    except ModuleNotFoundError:
+        pass
+    else:
         libucx.load_library()
         del libucx
 

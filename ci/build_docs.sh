@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 set -euo pipefail
@@ -23,7 +23,7 @@ ENV_YAML_DIR="$(mktemp -d)"
 rapids-dependency-file-generator \
   --output conda \
   --file-key docs \
-  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION};no_libucx=${UCXX_NO_LIBUCX:-false}" \
   --prepend-channel "${CPP_CHANNEL}" \
   --prepend-channel "${PYTHON_CHANNEL}" \
   | tee "${ENV_YAML_DIR}/env.yaml"
