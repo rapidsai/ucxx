@@ -12,6 +12,7 @@
 
 #include <ucp/api/ucp.h>
 
+#include <internal/am_endpoint_registry.h>
 #include <internal/constructors.h>
 #include <ucs/memory/memory_type.h>
 #include <ucxx/buffer.h>
@@ -156,7 +157,18 @@ std::shared_ptr<RequestAm> detail::ConstructorFactory::createRequestAm(
                                                             callbackFunction,
                                                             callbackData));
           };
-        return worker->getAmRecv(endpoint->getHandle(), createRequest);
+        auto req =
+          internal::AmEndpointRegistry::getAmRecv(worker.get(), endpoint.get(), createRequest);
+        if (req != nullptr) return req;
+
+        req = std::shared_ptr<RequestAm>(new RequestAm(worker,
+                                                       amReceive,
+                                                       std::move("amReceive"),
+                                                       enablePythonFuture,
+                                                       callbackFunction,
+                                                       callbackData));
+        req->setEndpointClosedStatus();
+        return req;
       },
     },
     requestData);
@@ -186,6 +198,8 @@ RequestAm::RequestAm(std::shared_ptr<Component> endpointOrWorker,
              },
              requestData);
 }
+
+void RequestAm::setEndpointClosedStatus() { setStatus(UCS_ERR_NOT_CONNECTED); }
 
 void RequestAm::cancel()
 {
@@ -238,8 +252,6 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   internal::AmData* amData = static_cast<internal::AmData*>(arg);
   auto worker              = amData->_worker.lock();
   auto& ownerString        = amData->_ownerString;
-  auto& recvPool           = amData->_recvPool;
-  auto& recvWait           = amData->_recvWait;
 
   if ((param->recv_attr & UCP_AM_RECV_ATTR_FIELD_REPLY_EP) == 0)
     ucxx_error("UCP_AM_RECV_ATTR_FIELD_REPLY_EP not set");
@@ -269,7 +281,6 @@ ucs_status_t RequestAm::recvCallback(void* arg,
   {
     std::lock_guard<std::mutex> lock(amData->_mutex);
 
-    auto reqs = recvWait.find(ep);
     if (amHeader.receiverCallbackInfo) {
       req = std::shared_ptr<RequestAm>(new RequestAm(worker,
                                                      data::AmReceive(),
@@ -278,21 +289,37 @@ ucs_status_t RequestAm::recvCallback(void* arg,
                                                      nullptr,
                                                      nullptr));
       ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "receiverCallback");
-    } else if (reqs != recvWait.end() && !reqs->second.empty()) {
-      req = reqs->second.front();
-      reqs->second.pop();
-      if (reqs->second.empty()) recvWait.erase(reqs);
-      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
     } else {
-      req             = std::shared_ptr<RequestAm>(new RequestAm(worker,
-                                                     data::AmReceive(),
-                                                     std::move("amReceive"),
-                                                     worker->isFutureEnabled(),
-                                                     nullptr,
-                                                     nullptr));
-      auto [queue, _] = recvPool.try_emplace(ep, std::queue<std::shared_ptr<RequestAm>>());
-      queue->second.push(req);
-      ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvPool");
+      auto endpoint     = amData->_endpoints.find(ep);
+      auto endpointData = endpoint == amData->_endpoints.end() ? nullptr : endpoint->second.lock();
+      if (endpointData == nullptr) {
+        // The UCP endpoint is not (yet) owned by a `ucxx::Endpoint`. This happens, for
+        // example, when a remote peer connects via worker address and sends before the
+        // local side creates its endpoint: UCX creates an internal endpoint and later
+        // returns that same handle from `ucp_ep_create`. Keep the message under the raw
+        // handle so it is adopted when the matching `ucxx::Endpoint` is created.
+        req = std::shared_ptr<RequestAm>(new RequestAm(worker,
+                                                       data::AmReceive(),
+                                                       std::move("amReceive"),
+                                                       worker->isFutureEnabled(),
+                                                       nullptr,
+                                                       nullptr));
+        amData->_unroutedRecvPool[ep].push(req);
+        ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "unroutedRecvPool");
+      } else if (auto& recvWait = endpointData->_recvWait; !recvWait.empty()) {
+        req = recvWait.front();
+        recvWait.pop();
+        ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvWait");
+      } else {
+        req = std::shared_ptr<RequestAm>(new RequestAm(worker,
+                                                       data::AmReceive(),
+                                                       std::move("amReceive"),
+                                                       worker->isFutureEnabled(),
+                                                       nullptr,
+                                                       nullptr));
+        endpointData->_recvPool.push(req);
+        ucxx_trace_req_f(ownerString.c_str(), req.get(), nullptr, "amRecv", "recvPool");
+      }
     }
   }
 
