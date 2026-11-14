@@ -14,7 +14,7 @@ c_stdlib_version:
   - "2.28"
 
 cmake:
-  - ">=4.0"
+  - ">=4.0,<4.5"
 
 ucx_min:
   - "1.20"
