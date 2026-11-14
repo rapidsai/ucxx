@@ -209,7 +209,7 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - &cmake_ver cmake>=4.0
+          - &cmake_ver cmake>=4.0,<4.5
           - librmm==27.2.*,>=0.0.0a0
           - ninja
       - output_types: [requirements, constraints, pyproject]
@@ -652,6 +652,9 @@ dependencies:
       - output_types: conda
         packages:
           - ucxx-tests==0.54.*,>=0.0.0a0
+  # The 'no_libucx: "true"' entries below omit UCX entirely, for building/testing against a
+  # UCX installation not provided by conda or wheels. Enabled in ci/ scripts with
+  # UCXX_NO_LIBUCX=true; see ci/README.md for requirements and known limitations.
   depends_on_ucx_build:
     specific:
       - output_types: [conda]
