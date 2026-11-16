@@ -54,6 +54,15 @@ outputs:
           export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
           set +x
 
+          # With UCXX_NO_LIBUCX=true, importing ucxx (e.g., scikit-build-core loads its
+          # 'cmake.prefix' entry point when building ucxx-tests) requires the UCX libraries,
+          # but LD_LIBRARY_PATH is not forwarded to this isolated environment. Make UCX
+          # loadable from ucx_ROOT/UCX_ROOT, the same precedence CMake uses to locate it.
+          ucx_prefix="${ucx_ROOT:-${UCX_ROOT:-}}"
+          if [[ -n "${ucx_prefix}" ]]; then
+            export LD_LIBRARY_PATH="${ucx_prefix}/lib:${ucx_prefix}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+          fi
+
           # We rebuild libucxx_python here so we can link against the correct `libpython`
           sccache --stop-server || :
           ./build.sh libucxx_python ucxx
@@ -147,11 +156,15 @@ outputs:
           - test -f $PREFIX/include/ucxx/python/notifier.h
           - test -f $PREFIX/include/ucxx/python/python_future.h
           - test -f $PREFIX/include/ucxx/python/worker.h
-      - python:
-          imports:
-            - ucxx
-          python_version: ${{ py_runtime_latest }}.*
-          pip_check: false
+      # With UCXX_NO_LIBUCX=true, UCX is outside the isolated test environment, which does not
+      # inherit LD_LIBRARY_PATH; imports are covered by the ci/test_python*.sh jobs instead.
+      - if: not no_libucx
+        then:
+          - python:
+              imports:
+                - ucxx
+              python_version: ${{ py_runtime_latest }}.*
+              pip_check: false
     about:
       homepage: ${{ load_from_file("python/ucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/ucxx/pyproject.toml").project.license }}
@@ -184,6 +197,15 @@ outputs:
           export CFLAGS=$(echo $CFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
           export CXXFLAGS=$(echo $CXXFLAGS | sed -E 's@\-fdebug\-prefix\-map[^ ]*@@g')
           set +x
+
+          # With UCXX_NO_LIBUCX=true, importing ucxx (e.g., scikit-build-core loads its
+          # 'cmake.prefix' entry point when building ucxx-tests) requires the UCX libraries,
+          # but LD_LIBRARY_PATH is not forwarded to this isolated environment. Make UCX
+          # loadable from ucx_ROOT/UCX_ROOT, the same precedence CMake uses to locate it.
+          ucx_prefix="${ucx_ROOT:-${UCX_ROOT:-}}"
+          if [[ -n "${ucx_prefix}" ]]; then
+            export LD_LIBRARY_PATH="${ucx_prefix}/lib:${ucx_prefix}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+          fi
 
           # We rebuild libucxx_python here so we can link against the correct `libpython`
           sccache --stop-server || :
@@ -292,10 +314,14 @@ outputs:
           - libucxx
           - ucx
     tests:
-      - python:
-          imports:
-            - distributed_ucxx
-          pip_check: false
+      # With UCXX_NO_LIBUCX=true, UCX is outside the isolated test environment, which does not
+      # inherit LD_LIBRARY_PATH; imports are covered by the ci/test_python*.sh jobs instead.
+      - if: not no_libucx
+        then:
+          - python:
+              imports:
+                - distributed_ucxx
+              pip_check: false
     about:
       homepage: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/distributed-ucxx/pyproject.toml").project.license }}
