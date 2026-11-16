@@ -67,6 +67,11 @@ UCX installed with prefix `/usr` does not work for conda builds, even with `ucx_
 - **Runtime:** UCX libraries must be found by the dynamic loader without help from UCXX,
   i.e., registered with `ldconfig` (e.g., via `/etc/ld.so.conf.d/`) or present in
   `LD_LIBRARY_PATH`. Neither conda packages nor wheels record UCX's location.
+  `LD_LIBRARY_PATH` is not passed into `rattler-build`'s isolated environments; the CI
+  test jobs inherit it normally. Conda builds load UCX while building `ucxx-tests`, so if
+  UCX is not registered with `ldconfig`, `ucx_ROOT` (or `UCX_ROOT`) must be set: the
+  build then adds `<prefix>/lib` and `<prefix>/lib64` to its own `LD_LIBRARY_PATH`.
+  Package import tests are skipped regardless (see [Conda limitations](#conda-limitations)).
 - **`ucx_info` must be on `PATH`** in conda test jobs (`test_cpp.sh`, `test_python.sh`,
   `test_python_distributed.sh`), which call it unconditionally to print the UCX
   configuration. Wheel test jobs fall back to querying the version from Python.
@@ -105,6 +110,13 @@ following:
 6. **glibc compatibility is not checked.** Packages declare `__glibc >=2.28`, matching
    the conda sysroot. A system UCX built against a newer glibc may fail to link, or yield
    packages whose real glibc requirement is higher than declared (untested).
+7. **Package import tests are skipped.** The `ucxx` and `distributed-ucxx` recipes run
+   `import ucxx`/`import distributed_ucxx` tests in isolated `rattler-build` environments,
+   which cannot load UCX unless it is registered with `ldconfig` (unlike builds, tests
+   do not receive `ucx_ROOT`/`UCX_ROOT`). These tests are skipped
+   with `UCXX_NO_LIBUCX=true`; imports are exercised by `test_python.sh` and
+   `test_python_distributed.sh` instead. Other package tests (e.g., file presence) still
+   run.
 
 ### Wheel limitations
 
