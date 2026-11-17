@@ -25,8 +25,9 @@
   }                                                                         \
   BuilderClass& BuilderClass::operator=(const BuilderClass& other)          \
   {                                                                         \
-    if (this != &other)                                                     \
+    if (this != &other) {                                                   \
       _impl = std::make_unique<Impl>(*other._impl);                         \
+    }                                                                       \
     return *this;                                                           \
   }                                                                         \
   BuilderClass::operator std::shared_ptr<TargetClass>() { return build(); }
