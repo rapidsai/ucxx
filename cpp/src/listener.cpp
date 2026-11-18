@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <mutex>
 #include <netinet/in.h>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include <ucp/api/ucp.h>
@@ -51,21 +53,51 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   setParent(worker);
 }
 
-Listener::~Listener()
+Listener::~Listener() { close(); }
+
+void Listener::close()
 {
+  // Only the first caller destroys the handle, concurrent/subsequent calls are no-ops.
+  if (_closing.exchange(true)) return;
+
+  auto handle = getHandle();
+  if (handle == nullptr) return;
+
+  // The handle is only reset after it is destroyed, so that a listener callback that
+  // is executing concurrently (e.g., in the progress thread) can still use it. The
+  // `_handleMutex` lock must not be held while waiting for the progress thread to
+  // destroy the handle, otherwise such a callback could deadlock.
+  auto destroy = [this, handle]() {
+    ucp_listener_destroy(handle);
+    std::lock_guard<std::mutex> lock(_handleMutex);
+    _handle = nullptr;
+  };
+
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
   if (worker->isProgressThreadRunning()) {
-    std::ignore = worker->registerGenericPre([this]() { ucp_listener_destroy(_handle); },
-                                             10000000000 /* 10s */);
-
-    std::ignore = worker->registerGenericPost([]() {}, 10000000000 /* 10s */);
+    // `registerGenericPre` executes the callback immediately if called from the progress
+    // thread.
+    if (worker->registerGenericPre(destroy, 10000000000 /* 10s */)) {
+      std::ignore = worker->registerGenericPost([]() {}, 10000000000 /* 10s */);
+    } else {
+      ucxx_warn("ucxx::Listener %p timed out destroying UCP handle %p", this, handle);
+      // Allow a subsequent call (e.g., from the destructor) to retry.
+      _closing.store(false);
+      return;
+    }
   } else {
-    ucp_listener_destroy(_handle);
+    destroy();
     worker->progress();
   }
 
-  ucxx_trace("ucxx::Listener destroyed: %p, UCP handle: %p", this, _handle);
+  ucxx_trace("ucxx::Listener closed: %p, UCP handle: %p", this, handle);
+}
+
+bool Listener::isClosed()
+{
+  std::lock_guard<std::mutex> lock(_handleMutex);
+  return _handle == nullptr;
 }
 
 namespace detail {
@@ -87,7 +119,11 @@ EndpointBuilder Listener::endpointBuilder(ucp_conn_request_h connRequest)
   return EndpointBuilder(std::static_pointer_cast<Listener>(shared_from_this()), connRequest);
 }
 
-ucp_listener_h Listener::getHandle() { return _handle; }
+ucp_listener_h Listener::getHandle()
+{
+  std::lock_guard<std::mutex> lock(_handleMutex);
+  return _handle;
+}
 
 uint16_t Listener::getPort() { return _port; }
 

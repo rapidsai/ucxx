@@ -373,6 +373,8 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
         shared_ptr[Worker] getWorker()
 
     cdef cppclass Listener(Component):
+        void close()
+        cpp_bool isClosed()
         uint16_t getPort()
         string getIp()
         EndpointBuilder endpointBuilder(

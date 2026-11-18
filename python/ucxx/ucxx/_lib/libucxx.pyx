@@ -1679,13 +1679,22 @@ cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with g
     cdef dict cb_data = <dict> args
 
     try:
+        if 'listener' in cb_data:
+            listener = cb_data['listener']()
+            if listener is None:
+                # `UCXListener.__dealloc__` is running concurrently, waiting for the
+                # progress thread to destroy the UCP listener after this returns.
+                logger.debug("Listener is being destroyed, ignoring connection request")
+                return
+            conn_request_arg = listener.create_endpoint_from_conn_request(
+                int(<uintptr_t>conn_request), True
+            )
+            listener = None
+        else:
+            conn_request_arg = int(<uintptr_t>conn_request)
+
         cb_data['cb_func'](
-            (
-                cb_data['listener']().create_endpoint_from_conn_request(
-                    int(<uintptr_t>conn_request), True
-                ) if 'listener' in cb_data else
-                int(<uintptr_t>conn_request)
-            ),
+            conn_request_arg,
             *cb_data['cb_args'],
             **cb_data['cb_kwargs']
         )
@@ -1698,8 +1707,34 @@ cdef class UCXListener():
         raise TypeError("UCXListener cannot be instantiated directly.")
 
     def __dealloc__(self) -> None:
+        # Endpoints created from connection requests hold a reference to the C++
+        # listener, so resetting `_listener` alone does not destroy the UCP listener.
+        # Close it explicitly so that `_listener_callback` cannot be called with
+        # `_cb_data` after it is released. The GIL must be released, the progress
+        # thread may need it to complete an ongoing `_listener_callback`.
         with nogil:
+            if self._listener != nullptr:
+                self._listener.get().close()
             self._listener.reset()
+
+    def close(self) -> None:
+        """Stop listening for new connections.
+
+        Destroy the underlying UCP listener, after this returns the listener callback
+        is not called anymore. Endpoints previously created from this listener are
+        not affected. Calling this method more than once is a no-op.
+        """
+        with nogil:
+            self._listener.get().close()
+
+    @property
+    def closed(self) -> bool:
+        cdef bint closed
+
+        with nogil:
+            closed = self._listener.get().isClosed()
+
+        return closed
 
     @classmethod
     def create(

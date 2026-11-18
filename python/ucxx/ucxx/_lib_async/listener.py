@@ -164,6 +164,10 @@ class Listener:
 
     def close(self):
         """Closing the listener"""
+        if self._listener is not None:
+            # Stop accepting connections now, endpoints created from this listener
+            # may keep the underlying C++ listener alive beyond this object.
+            self._listener.close()
         self._listener = None
         self._ctx = None
 

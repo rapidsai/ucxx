@@ -9,6 +9,8 @@ import weakref
 
 import pytest
 
+import ucxx
+import ucxx._lib.libucxx as ucx_api
 from ucxx._lib_async import listener as listener_mod
 
 
@@ -196,3 +198,66 @@ async def test_listener_handler_ignores_expired_context():
     )
 
     assert callback_called is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("explicit_close", [True, False])
+async def test_listener_released_while_server_endpoint_alive(explicit_close):
+    """Listener callback must not run after the listener is closed or released.
+
+    Server endpoints keep the C++ listener alive, releasing the Python listener must
+    still stop the UCP listener, otherwise new connection requests would execute the
+    listener callback with its already released callback data.
+    """
+    server_endpoints = []
+
+    async def handler(ep):
+        server_endpoints.append(ep)
+
+    log_handler = _LogCaptureHandler()
+    ucx_logger = logging.getLogger("ucx")
+    ucx_logger.addHandler(log_handler)
+    client = None
+    try:
+        listener = ucxx.create_listener(handler)
+        port = listener.port
+        client = await ucxx.create_endpoint(ucxx.get_address(), port)
+        while not server_endpoints:
+            await asyncio.sleep(0.01)
+
+        listener_ref = weakref.ref(listener._listener)
+        if explicit_close:
+            listener.close()
+            assert listener.closed
+        del listener
+        gc.collect()
+        assert listener_ref() is None
+
+        # Reuse memory of the released callback data.
+        junk = [{"x": i, "y": str(i)} for i in range(200000)]
+
+        # Connect with a low-level endpoint: with the listener closed the connection
+        # is rejected, the listener callback must not run.
+        ctx = ucxx.core._get_ctx()
+        ucx_ep = ucx_api.UCXEndpoint.create(ctx.worker, ucxx.get_address(), port, True)
+        deadline = asyncio.get_running_loop().time() + 1.0
+        while asyncio.get_running_loop().time() < deadline:
+            if not ctx.progress_mode.startswith("thread"):
+                ctx.worker.progress()
+            await asyncio.sleep(0.01)
+        del ucx_ep, ctx, junk
+
+        assert len(server_endpoints) == 1
+        errors = [
+            r.getMessage()
+            for r in log_handler.records
+            if "listener callback" in r.getMessage()
+        ]
+        assert errors == []
+    finally:
+        ucx_logger.removeHandler(log_handler)
+        if client is not None:
+            await client.close()
+        for ep in server_endpoints:
+            await ep.close()
+        server_endpoints.clear()
