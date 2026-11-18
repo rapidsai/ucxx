@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <atomic>
@@ -40,12 +40,15 @@ void CallbackNotifier::set()
   if (_useSpinlock) {
     _flag.store(true, std::memory_order_release);
   } else {
-    {
-      std::lock_guard lock(_mutex);
-      // This can be relaxed because the mutex is providing
-      // ordering.
-      _flag.store(true, std::memory_order_relaxed);
-    }
+    std::lock_guard lock(_mutex);
+    // This can be relaxed because the mutex is providing ordering.
+    _flag.store(true, std::memory_order_relaxed);
+    // Notify while still holding the lock. The waiter commonly owns this object (e.g., as a
+    // stack local) and may destroy it as soon as it observes `_flag == true`, which it may do
+    // without being notified (e.g., timed wake-ups in `wait()`). Notifying after unlocking
+    // would thus risk accessing `_conditionVariable` after it was destroyed. While the lock is
+    // held the waiter cannot return from `wait()`, and POSIX permits destroying a mutex
+    // immediately after it is unlocked.
     _conditionVariable.notify_one();
   }
 }
@@ -68,6 +71,7 @@ bool CallbackNotifier::wait(uint64_t period,
             lock, std::chrono::duration<uint64_t, std::nano>(signalInterval), [this]() {
               return _flag.load(std::memory_order_relaxed) == true;
             });
+          if (ret) break;
           if (signalWorkerFunction) signalWorkerFunction();
         }
         return ret;

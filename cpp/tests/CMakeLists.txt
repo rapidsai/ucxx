@@ -53,8 +53,20 @@ endfunction()
 # ##################################################################################################
 # * ucxx tests ------------------------------------------------------------------------------------
 ConfigureTest(
-  UCXX_TEST buffer.cpp component_builders.cpp config.cpp context.cpp endpoint.cpp header.cpp
-  listener.cpp request.cpp request_builders.cpp rma.cpp utils.cpp worker.cpp
+  UCXX_TEST
+  buffer.cpp
+  callback_notifier.cpp
+  component_builders.cpp
+  config.cpp
+  context.cpp
+  endpoint.cpp
+  header.cpp
+  listener.cpp
+  request.cpp
+  request_builders.cpp
+  rma.cpp
+  utils.cpp
+  worker.cpp
 )
 
 # ##################################################################################################
