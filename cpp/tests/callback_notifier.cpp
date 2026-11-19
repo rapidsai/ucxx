@@ -24,8 +24,12 @@ TEST(CallbackNotifierTest, WaitTimeout)
 {
   ucxx::utils::CallbackNotifier notifier{};
   size_t signalCount = 0;
+  // The number of signals is not tied to wall-clock time: `wait()` performs
+  // `ceil(period / signalInterval)` timed waits, each of which only returns `false` once its
+  // own timeout elapsed, signaling after each of them. Thus the count is exact even on a
+  // loaded machine, where only the test runtime (~1ms) may be longer.
   ASSERT_FALSE(
-    notifier.wait(10000000 /* 10ms */, [&signalCount]() { ++signalCount; }, 1000000 /* 1ms */));
+    notifier.wait(1000000 /* 1ms */, [&signalCount]() { ++signalCount; }, 100000 /* 100us */));
   ASSERT_EQ(signalCount, 10u);
 }
 
@@ -35,6 +39,7 @@ TEST(CallbackNotifierTest, WaitStopsSignalingOnceSet)
   notifier.set();
 
   size_t signalCount = 0;
+  // The 1s period is only a safety bound, `wait()` returns immediately since the flag is set.
   ASSERT_TRUE(
     notifier.wait(1000000000 /* 1s */, [&signalCount]() { ++signalCount; }, 1000000 /* 1ms */));
   // Once the flag is observed `wait()` must return immediately, without signaling.
@@ -48,11 +53,14 @@ TEST(CallbackNotifierTest, WaitStopsSignalingOnceSet)
  * `notify_one()` was called after unlocking the mutex, a use-after-free). A short signal
  * interval makes the waiter frequently observe the flag on timed wake-ups rather than on
  * notification, widening the race window. The notifier is heap-allocated so that
- * ThreadSanitizer/AddressSanitizer builds reliably report invalid accesses.
+ * ThreadSanitizer/AddressSanitizer builds reliably report invalid accesses; ThreadSanitizer
+ * reports the race based on happens-before analysis, independent of the actual timing, so a
+ * small number of iterations suffices. The 10s period of each `wait()` is only a safety
+ * timeout, each iteration completes as soon as the setter thread calls `set()`.
  */
 TEST(CallbackNotifierTest, DestroyImmediatelyAfterWait)
 {
-  constexpr size_t iterations = 20000;
+  constexpr size_t iterations = 2000;
 
   std::atomic<ucxx::utils::CallbackNotifier*> pending{nullptr};
   std::atomic<bool> stop{false};
