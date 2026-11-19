@@ -8,13 +8,12 @@
 #
 # Env (all optional):
 #   UCXX_UCX_REPOSITORY  UCX repository to fetch (default: openucx/ucx)
-#   UCXX_UCX_REF         ref to fetch from it (default: the upstreaming PR)
+#   UCXX_UCX_REF         ref to fetch from it (default: master)
 #   UCXX_UCX_SRC_DIR     UCX checkout to use; fetched unless it already holds
 #                        a git checkout, which is then used as is
 
 UCXX_UCX_REPOSITORY="${UCXX_UCX_REPOSITORY:-https://github.com/openucx/ucx}"
-# TODO: switch to 'master' once https://github.com/openucx/ucx/pull/12364 is merged.
-UCXX_UCX_REF="${UCXX_UCX_REF:-pull/12364/head}"
+UCXX_UCX_REF="${UCXX_UCX_REF:-master}"
 UCXX_UCX_SRC_DIR="${UCXX_UCX_SRC_DIR:-${TMPDIR:-/tmp}/ucx-src}"
 
 # Root of this (ucxx) repository.

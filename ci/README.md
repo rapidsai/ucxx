@@ -6,7 +6,7 @@ The scripts in this directory are run by UCXX's GitHub Actions workflows (see
 
 ## UCXX tree in the UCX repository
 
-UCXX is moving into the UCX repository, under `bindings/ucxx`
+UCXX is maintained in the UCX repository, under `bindings/ucxx`
 ([openucx/ucx#12364](https://github.com/openucx/ucx/pull/12364)). The CI entry points
 for `libucxx` and `ucxx` (`build_cpp.sh`, `build_python.sh`, `build_docs.sh`,
 `build_wheel_libucxx.sh`, `build_wheel_ucxx.sh`, `test_cpp.sh`, `test_python.sh`,
@@ -16,7 +16,7 @@ same name from it, through `ucx_bindings.sh`:
 | Variable | Default | Meaning |
 |---|---|---|
 | `UCXX_UCX_REPOSITORY` | `https://github.com/openucx/ucx` | UCX repository to fetch |
-| `UCXX_UCX_REF` | `pull/12364/head` | ref to fetch from it |
+| `UCXX_UCX_REF` | `master` | ref to fetch from it |
 | `UCXX_UCX_SRC_DIR` | `${TMPDIR:-/tmp}/ucx-src` | UCX checkout; fetched unless it already holds a git checkout, which is then used as is |
 
 - Package versions still come from the tags of this repository (`rapids-generate-version`
