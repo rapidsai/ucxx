@@ -2,11 +2,10 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <thread>
 #include <tuple>
 #include <ucs/config/types.h>
 #include <ucs/type/status.h>
@@ -642,30 +641,40 @@ TEST_F(ListenerHostTest, BindToInvalidHost)
 
 struct ListenerCloseContainer {
   std::mutex mutex{};
+  std::condition_variable cv{};
   std::shared_ptr<ucxx::Listener> listener{nullptr};
   std::vector<std::shared_ptr<ucxx::Endpoint>> endpoints{};
-  std::atomic<size_t> callbackCount{0};
+  size_t callbackCount{0};
   bool closeFromCallback{false};
 };
 
 static void listenerCloseCallback(ucp_conn_request_h connRequest, void* arg)
 {
   auto container = reinterpret_cast<ListenerCloseContainer*>(arg);
-  std::lock_guard<std::mutex> lock(container->mutex);
-  container->endpoints.push_back(
-    container->listener->endpointBuilder(connRequest).endpointErrorHandling(true).build());
-  if (container->closeFromCallback) container->listener->close();
-  ++container->callbackCount;
+  {
+    std::lock_guard<std::mutex> lock(container->mutex);
+    ++container->callbackCount;
+    try {
+      container->endpoints.push_back(
+        container->listener->endpointBuilder(connRequest).endpointErrorHandling(true).build());
+    } catch (const ucxx::Error&) {
+      // Must not happen, a callback after `close()` fails the test via `callbackCount`.
+    }
+    if (container->closeFromCallback) container->listener->close();
+  }
+  container->cv.notify_all();
 }
 
 class ListenerCloseTest : public ::testing::Test,
                           public ::testing::WithParamInterface<ProgressMode> {
  protected:
+  // Safety net only to prevent hangs, tests synchronize on state changes.
+  static constexpr std::chrono::seconds SafetyTimeout{30};
+
   std::shared_ptr<ucxx::Context> _context{
     ucxx::contextBuilder(ucxx::Context::defaultFeatureFlags).build()};
   std::shared_ptr<ucxx::Worker> _worker{nullptr};
   ProgressMode _progressMode{ProgressMode::Polling};
-  std::function<void()> _progress{};
   ListenerCloseContainer _container{};
   std::vector<std::shared_ptr<ucxx::Endpoint>> _clients{};
 
@@ -677,7 +686,6 @@ class ListenerCloseTest : public ::testing::Test,
       _worker->startProgressThread(true);
     else if (_progressMode == ProgressMode::ThreadBlocking)
       _worker->startProgressThread(false);
-    _progress = getProgressFunction(_worker, _progressMode);
   }
 
   void TearDown() override
@@ -688,9 +696,13 @@ class ListenerCloseTest : public ::testing::Test,
       _container.endpoints.clear();
       _container.listener = nullptr;
     }
-    if (_progressMode == ProgressMode::ThreadPolling ||
-        _progressMode == ProgressMode::ThreadBlocking)
-      _worker->stopProgressThread();
+    if (isProgressThreadMode()) _worker->stopProgressThread();
+  }
+
+  bool isProgressThreadMode() const
+  {
+    return _progressMode == ProgressMode::ThreadPolling ||
+           _progressMode == ProgressMode::ThreadBlocking;
   }
 
   std::shared_ptr<ucxx::Listener> buildListener()
@@ -700,31 +712,53 @@ class ListenerCloseTest : public ::testing::Test,
     return _container.listener;
   }
 
-  void connect(uint16_t port)
+  std::shared_ptr<ucxx::Endpoint> connect(uint16_t port)
   {
-    try {
-      _clients.push_back(
-        _worker->endpointBuilder("127.0.0.1", port).endpointErrorHandling(true).build());
-    } catch (const ucxx::Error&) {
-      // Connecting to a closed listener may fail immediately.
-    }
+    auto ep = _worker->endpointBuilder("127.0.0.1", port).endpointErrorHandling(true).build();
+    _clients.push_back(ep);
+    return ep;
   }
 
-  bool waitForCallbacks(size_t count, std::chrono::milliseconds timeout)
+  size_t callbackCount()
   {
-    return loopWithTimeout(timeout, [this, count]() {
-      if (_progress) _progress();
-      return _container.callbackCount.load() >= count;
+    std::lock_guard<std::mutex> lock(_container.mutex);
+    return _container.callbackCount;
+  }
+
+  /**
+   * Wait until the listener callback has been called `count` times.
+   *
+   * Progress is driven explicitly in polling mode, otherwise wait for the progress thread
+   * to notify.
+   */
+  bool waitForCallbacks(size_t count)
+  {
+    if (isProgressThreadMode()) {
+      std::unique_lock<std::mutex> lock(_container.mutex);
+      return _container.cv.wait_for(
+        lock, SafetyTimeout, [this, count]() { return _container.callbackCount >= count; });
+    }
+    return loopWithTimeout(SafetyTimeout, [this, count]() {
+      _worker->progress();
+      return callbackCount() >= count;
     });
   }
 
-  void progressFor(std::chrono::milliseconds duration)
+  /**
+   * Wait until `client` reached a terminal state or the listener callback was called
+   * more than `count` times.
+   *
+   * The connection attempt to a closed listener is rejected and the client endpoint
+   * errors. Once that happened the server will never deliver a connection request for
+   * it, proving the callback was not called. If the listener was not closed the
+   * callback is called instead and the wait finishes too.
+   */
+  bool waitForRejectionOrCallback(std::shared_ptr<ucxx::Endpoint> client, size_t count)
   {
-    auto end = std::chrono::steady_clock::now() + duration;
-    while (std::chrono::steady_clock::now() < end) {
-      if (_progress) _progress();
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    return loopWithTimeout(SafetyTimeout, [this, client, count]() {
+      if (!isProgressThreadMode()) _worker->progress();
+      return !client->isAlive() || callbackCount() > count;
+    });
   }
 };
 
@@ -734,7 +768,7 @@ TEST_P(ListenerCloseTest, CloseStopsCallbacks)
   auto port     = listener->getPort();
 
   connect(port);
-  ASSERT_TRUE(waitForCallbacks(1, std::chrono::milliseconds(5000)));
+  ASSERT_TRUE(waitForCallbacks(1));
 
   ASSERT_FALSE(listener->isClosed());
   ASSERT_NE(listener->getHandle(), nullptr);
@@ -749,18 +783,15 @@ TEST_P(ListenerCloseTest, CloseStopsCallbacks)
   ASSERT_TRUE(listener->isClosed());
 
   // The server endpoint keeps the listener object alive.
-  {
-    std::lock_guard<std::mutex> lock(_container.mutex);
-    _container.listener = nullptr;
-  }
   std::weak_ptr<ucxx::Listener> weakListener = listener;
   listener                                   = nullptr;
   ASSERT_FALSE(weakListener.expired());
 
   // The callback must not be called for connections after `close()`.
-  connect(port);
-  progressFor(std::chrono::milliseconds(500));
-  ASSERT_EQ(_container.callbackCount.load(), 1u);
+  auto client = connect(port);
+  ASSERT_TRUE(waitForRejectionOrCallback(client, 1));
+  ASSERT_EQ(callbackCount(), 1u);
+  ASSERT_FALSE(client->isAlive());
 }
 
 TEST_P(ListenerCloseTest, CloseFromCallback)
@@ -770,12 +801,13 @@ TEST_P(ListenerCloseTest, CloseFromCallback)
   auto port                    = listener->getPort();
 
   connect(port);
-  ASSERT_TRUE(waitForCallbacks(1, std::chrono::milliseconds(5000)));
+  ASSERT_TRUE(waitForCallbacks(1));
   ASSERT_TRUE(listener->isClosed());
 
-  connect(port);
-  progressFor(std::chrono::milliseconds(500));
-  ASSERT_EQ(_container.callbackCount.load(), 1u);
+  auto client = connect(port);
+  ASSERT_TRUE(waitForRejectionOrCallback(client, 1));
+  ASSERT_EQ(callbackCount(), 1u);
+  ASSERT_FALSE(client->isAlive());
 }
 
 INSTANTIATE_TEST_SUITE_P(ProgressModes,

@@ -11,6 +11,7 @@ import pytest
 
 import ucxx
 import ucxx._lib.libucxx as ucx_api
+from ucxx._lib_async import application_context
 from ucxx._lib_async import listener as listener_mod
 
 
@@ -200,30 +201,66 @@ async def test_listener_handler_ignores_expired_context():
     assert callback_called is False
 
 
+async def _wait_until(predicate, progress=None, timeout=30):
+    """Wait until ``predicate()`` is true, ``timeout`` is only a safety net."""
+
+    async def _wait():
+        while not predicate():
+            if progress is not None:
+                progress()
+            # Only yield to the event loop, timing is never a pass criterion.
+            await asyncio.sleep(0.001)
+
+    await asyncio.wait_for(_wait(), timeout)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("explicit_close", [True, False])
-async def test_listener_released_while_server_endpoint_alive(explicit_close):
+async def test_listener_released_while_server_endpoint_alive(
+    monkeypatch, explicit_close
+):
     """Listener callback must not run after the listener is closed or released.
 
     Server endpoints keep the C++ listener alive, releasing the Python listener must
     still stop the UCP listener, otherwise new connection requests would execute the
     listener callback with its already released callback data.
     """
+    listener_callbacks = []
+    listener_handler = application_context._listener_handler
+
+    def counting_listener_handler(*args, **kwargs):
+        listener_callbacks.append(None)
+        return listener_handler(*args, **kwargs)
+
+    monkeypatch.setattr(
+        application_context, "_listener_handler", counting_listener_handler
+    )
+
     server_endpoints = []
+    server_endpoint_received = asyncio.Event()
 
     async def handler(ep):
         server_endpoints.append(ep)
+        server_endpoint_received.set()
 
     log_handler = _LogCaptureHandler()
     ucx_logger = logging.getLogger("ucx")
     ucx_logger.addHandler(log_handler)
+
+    def callback_errors():
+        return [
+            r.getMessage()
+            for r in log_handler.records
+            if "listener callback" in r.getMessage()
+        ]
+
     client = None
     try:
         listener = ucxx.create_listener(handler)
         port = listener.port
         client = await ucxx.create_endpoint(ucxx.get_address(), port)
-        while not server_endpoints:
-            await asyncio.sleep(0.01)
+        await asyncio.wait_for(server_endpoint_received.wait(), 30)
+        assert len(listener_callbacks) == 1
 
         listener_ref = weakref.ref(listener._listener)
         if explicit_close:
@@ -233,27 +270,24 @@ async def test_listener_released_while_server_endpoint_alive(explicit_close):
         gc.collect()
         assert listener_ref() is None
 
-        # Reuse memory of the released callback data.
-        junk = [{"x": i, "y": str(i)} for i in range(200000)]
-
-        # Connect with a low-level endpoint: with the listener closed the connection
-        # is rejected, the listener callback must not run.
+        # Connect with a low-level endpoint and wait until either the connection is
+        # rejected (the listener is closed, the callback will never run for it) or the
+        # listener callback runs/fails because the UCP listener is still alive.
         ctx = ucxx.core._get_ctx()
+        progress = (
+            None if ctx.progress_mode.startswith("thread") else ctx.worker.progress
+        )
         ucx_ep = ucx_api.UCXEndpoint.create(ctx.worker, ucxx.get_address(), port, True)
-        deadline = asyncio.get_running_loop().time() + 1.0
-        while asyncio.get_running_loop().time() < deadline:
-            if not ctx.progress_mode.startswith("thread"):
-                ctx.worker.progress()
-            await asyncio.sleep(0.01)
-        del ucx_ep, ctx, junk
+        await _wait_until(
+            lambda: (
+                not ucx_ep.alive or len(listener_callbacks) > 1 or callback_errors()
+            ),
+            progress=progress,
+        )
 
-        assert len(server_endpoints) == 1
-        errors = [
-            r.getMessage()
-            for r in log_handler.records
-            if "listener callback" in r.getMessage()
-        ]
-        assert errors == []
+        assert callback_errors() == []
+        assert len(listener_callbacks) == 1
+        assert not ucx_ep.alive
     finally:
         ucx_logger.removeHandler(log_handler)
         if client is not None:
