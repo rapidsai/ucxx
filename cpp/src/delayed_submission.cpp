@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
@@ -92,8 +92,11 @@ ItemIdType DelayedSubmissionCollection::registerGenericPost(DelayedSubmissionCal
   return _genericPost.schedule(callback);
 }
 
-void DelayedSubmissionCollection::cancelGenericPre(ItemIdType id) { _genericPre.cancel(id); }
+bool DelayedSubmissionCollection::cancelGenericPre(ItemIdType id) { return _genericPre.cancel(id); }
 
-void DelayedSubmissionCollection::cancelGenericPost(ItemIdType id) { _genericPost.cancel(id); }
+bool DelayedSubmissionCollection::cancelGenericPost(ItemIdType id)
+{
+  return _genericPost.cancel(id);
+}
 
 }  // namespace ucxx

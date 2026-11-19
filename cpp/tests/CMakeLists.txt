@@ -26,7 +26,7 @@ function(ConfigureTest CMAKE_TEST_NAME)
   )
 
   target_link_libraries(
-    ${CMAKE_TEST_NAME} PRIVATE ucxx GTest::gmock_main GTest::gtest_main
+    ${CMAKE_TEST_NAME} PRIVATE ucxx ucx::ucs GTest::gmock_main GTest::gtest_main
                                $<TARGET_NAME_IF_EXISTS:conda_env>
   )
   if(UCXX_ENABLE_CCCL)
@@ -53,8 +53,21 @@ endfunction()
 # ##################################################################################################
 # * ucxx tests ------------------------------------------------------------------------------------
 ConfigureTest(
-  UCXX_TEST buffer.cpp component_builders.cpp config.cpp context.cpp endpoint.cpp header.cpp
-  listener.cpp request.cpp request_builders.cpp rma.cpp utils.cpp worker.cpp
+  UCXX_TEST
+  buffer.cpp
+  callback_notifier.cpp
+  component_builders.cpp
+  config.cpp
+  context.cpp
+  delayed_submission.cpp
+  endpoint.cpp
+  header.cpp
+  listener.cpp
+  request.cpp
+  request_builders.cpp
+  rma.cpp
+  utils.cpp
+  worker.cpp
 )
 
 # ##################################################################################################
