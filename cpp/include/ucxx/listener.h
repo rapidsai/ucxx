@@ -114,14 +114,22 @@ class Listener : public Component {
    * executing may still use the listener, e.g., to create an endpoint from its
    * connection request.
    *
-   * If the worker progress thread is running, the UCP listener is destroyed from the
-   * progress thread (immediately if this method is called from the progress thread
-   * itself, e.g., from within the listener callback), otherwise it is destroyed from the
-   * calling thread. This method is idempotent and is called by the destructor. When the
-   * progress thread is running it is also thread-safe, and every call returns only after
-   * the UCP listener was destroyed. Without a progress thread it must be called from the
-   * thread that progresses the worker, like any other operation on the worker, it may
-   * also be called from within the listener callback.
+   * This method is idempotent and is called by the destructor. Every call returns only
+   * after the UCP listener was destroyed, unless the timeout described below expires.
+   *
+   * When the worker progress thread is running, this method may be called from any
+   * thread. Called from the progress thread, the UCP listener is destroyed immediately.
+   * Called from any other thread, it blocks until the progress thread has destroyed the
+   * UCP listener (or a 10 second timeout expires), so the caller must not hold resources
+   * the progress thread may need to make progress (e.g., the Python GIL). Without a
+   * progress thread, the UCP listener is destroyed on the calling thread, which must be
+   * the thread that progresses the worker.
+   *
+   * Calling this method from within this listener's own callback is supported in all
+   * progress modes. Calling it from within any other callback executed during worker
+   * progress (e.g., endpoint or request callbacks) is not supported, and the same applies
+   * to releasing the last reference to the listener there, since the destructor calls
+   * this method.
    *
    * If the progress thread does not destroy the UCP listener within 10 seconds an error
    * is logged and `isClosed()` remains `false`, in that case the callback argument must
