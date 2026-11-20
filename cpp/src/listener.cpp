@@ -56,27 +56,6 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   setParent(worker);
 }
 
-namespace {
-
-/**
- * @brief Number of listener callbacks the current thread is executing.
- *
- * Used to prevent `close()` from progressing the worker from within a listener
- * callback, which executes within `ucp_worker_progress()` that must not be nested.
- */
-thread_local size_t listenerCallbackDepth{0};
-
-struct ListenerCallbackScope {
-  ListenerCallbackScope() { ++listenerCallbackDepth; }
-  ~ListenerCallbackScope() { --listenerCallbackDepth; }
-  ListenerCallbackScope(const ListenerCallbackScope&)            = delete;
-  ListenerCallbackScope& operator=(const ListenerCallbackScope&) = delete;
-  ListenerCallbackScope(ListenerCallbackScope&&)                 = delete;
-  ListenerCallbackScope& operator=(ListenerCallbackScope&&)      = delete;
-};
-
-}  // namespace
-
 Listener::~Listener() { close(); }
 
 void Listener::connCallback(ucp_conn_request_h connRequest, void* arg)
@@ -84,14 +63,12 @@ void Listener::connCallback(ucp_conn_request_h connRequest, void* arg)
   auto listener = reinterpret_cast<Listener*>(arg);
 
   if (listener->_closing.load()) {
-    // Do not call the user callback, its argument may be released once `close()` returns.
     ucxx_debug(
       "ucxx::Listener %p is closing, rejecting connection request %p", listener, connRequest);
     listener->reject(connRequest);
     return;
   }
 
-  ListenerCallbackScope scope{};
   listener->_callback(connRequest, listener->_callbackArgs);
 }
 
@@ -132,9 +109,6 @@ void Listener::close()
     std::ignore = worker->registerGenericPost([]() {}, 10000000000 /* 10s */);
   } else {
     destroyHandle();
-    // Progressing the worker from within the listener callback would nest
-    // `ucp_worker_progress()`, which UCX does not allow.
-    if (listenerCallbackDepth == 0) worker->progress();
   }
 }
 
