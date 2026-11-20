@@ -6,6 +6,8 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <thread>
 #include <tuple>
 #include <ucs/config/types.h>
 #include <ucs/type/status.h>
@@ -639,13 +641,20 @@ TEST_F(ListenerHostTest, BindToInvalidHost)
                ucxx::Error);
 }
 
+enum class ListenerCloseAction {
+  Accept,
+  AcceptAndClose,
+  Reject,
+};
+
 struct ListenerCloseContainer {
   std::mutex mutex{};
   std::condition_variable cv{};
   std::shared_ptr<ucxx::Listener> listener{nullptr};
   std::vector<std::shared_ptr<ucxx::Endpoint>> endpoints{};
+  std::vector<std::string> errors{};
   size_t callbackCount{0};
-  bool closeFromCallback{false};
+  ListenerCloseAction action{ListenerCloseAction::Accept};
 };
 
 static void listenerCloseCallback(ucp_conn_request_h connRequest, void* arg)
@@ -654,13 +663,19 @@ static void listenerCloseCallback(ucp_conn_request_h connRequest, void* arg)
   {
     std::lock_guard<std::mutex> lock(container->mutex);
     ++container->callbackCount;
-    try {
-      container->endpoints.push_back(
-        container->listener->endpointBuilder(connRequest).endpointErrorHandling(true).build());
-    } catch (const ucxx::Error&) {
-      // Must not happen, a callback after `close()` fails the test via `callbackCount`.
+    if (container->listener == nullptr) {
+      container->errors.push_back("callback called after the listener was released");
+    } else if (container->action == ListenerCloseAction::Reject) {
+      container->listener->reject(connRequest);
+    } else {
+      try {
+        container->endpoints.push_back(
+          container->listener->endpointBuilder(connRequest).endpointErrorHandling(true).build());
+      } catch (const ucxx::Error& e) {
+        container->errors.push_back(std::string("endpoint creation failed: ") + e.what());
+      }
+      if (container->action == ListenerCloseAction::AcceptAndClose) container->listener->close();
     }
-    if (container->closeFromCallback) container->listener->close();
   }
   container->cv.notify_all();
 }
@@ -725,6 +740,18 @@ class ListenerCloseTest : public ::testing::Test,
     return _container.callbackCount;
   }
 
+  std::vector<std::string> callbackErrors()
+  {
+    std::lock_guard<std::mutex> lock(_container.mutex);
+    return _container.errors;
+  }
+
+  size_t serverEndpointCount()
+  {
+    std::lock_guard<std::mutex> lock(_container.mutex);
+    return _container.endpoints.size();
+  }
+
   /**
    * Wait until the listener callback has been called `count` times.
    *
@@ -748,10 +775,15 @@ class ListenerCloseTest : public ::testing::Test,
    * Wait until `client` reached a terminal state or the listener callback was called
    * more than `count` times.
    *
-   * The connection attempt to a closed listener is rejected and the client endpoint
+   * The connection attempt to a closed listener is refused and the client endpoint
    * errors. Once that happened the server will never deliver a connection request for
    * it, proving the callback was not called. If the listener was not closed the
    * callback is called instead and the wait finishes too.
+   *
+   * The port of the closed listener cannot be taken by another listener in the
+   * meantime: the accepted connection of the server endpoint, which the tests keep
+   * alive, remains bound to it, and Linux never assigns a port that is still bound
+   * when binding to port 0, even with `SO_REUSEADDR`.
    */
   bool waitForRejectionOrCallback(std::shared_ptr<ucxx::Endpoint> client, size_t count)
   {
@@ -769,6 +801,8 @@ TEST_P(ListenerCloseTest, CloseStopsCallbacks)
 
   connect(port);
   ASSERT_TRUE(waitForCallbacks(1));
+  ASSERT_EQ(callbackErrors(), std::vector<std::string>{});
+  ASSERT_EQ(serverEndpointCount(), 1u);
 
   ASSERT_FALSE(listener->isClosed());
   ASSERT_NE(listener->getHandle(), nullptr);
@@ -782,7 +816,11 @@ TEST_P(ListenerCloseTest, CloseStopsCallbacks)
   listener->close();
   ASSERT_TRUE(listener->isClosed());
 
-  // The server endpoint keeps the listener object alive.
+  // Only the server endpoint keeps the listener object alive.
+  {
+    std::lock_guard<std::mutex> lock(_container.mutex);
+    _container.listener = nullptr;
+  }
   std::weak_ptr<ucxx::Listener> weakListener = listener;
   listener                                   = nullptr;
   ASSERT_FALSE(weakListener.expired());
@@ -791,23 +829,77 @@ TEST_P(ListenerCloseTest, CloseStopsCallbacks)
   auto client = connect(port);
   ASSERT_TRUE(waitForRejectionOrCallback(client, 1));
   ASSERT_EQ(callbackCount(), 1u);
+  ASSERT_EQ(callbackErrors(), std::vector<std::string>{});
   ASSERT_FALSE(client->isAlive());
 }
 
 TEST_P(ListenerCloseTest, CloseFromCallback)
 {
-  _container.closeFromCallback = true;
-  auto listener                = buildListener();
-  auto port                    = listener->getPort();
+  _container.action = ListenerCloseAction::AcceptAndClose;
+  auto listener     = buildListener();
+  auto port         = listener->getPort();
 
   connect(port);
   ASSERT_TRUE(waitForCallbacks(1));
   ASSERT_TRUE(listener->isClosed());
+  ASSERT_EQ(callbackErrors(), std::vector<std::string>{});
+  ASSERT_EQ(serverEndpointCount(), 1u);
 
   auto client = connect(port);
   ASSERT_TRUE(waitForRejectionOrCallback(client, 1));
   ASSERT_EQ(callbackCount(), 1u);
+  ASSERT_EQ(callbackErrors(), std::vector<std::string>{});
   ASSERT_FALSE(client->isAlive());
+}
+
+TEST_P(ListenerCloseTest, RejectFromCallback)
+{
+  _container.action = ListenerCloseAction::Reject;
+  auto listener     = buildListener();
+
+  auto client = connect(listener->getPort());
+  ASSERT_TRUE(waitForCallbacks(1));
+  ASSERT_TRUE(waitForRejectionOrCallback(client, 1));
+  ASSERT_EQ(callbackCount(), 1u);
+  ASSERT_EQ(callbackErrors(), std::vector<std::string>{});
+  ASSERT_EQ(serverEndpointCount(), 0u);
+  ASSERT_FALSE(client->isAlive());
+}
+
+TEST_P(ListenerCloseTest, ConcurrentClose)
+{
+  if (!isProgressThreadMode())
+    GTEST_SKIP() << "Without a progress thread `close()` must be called from the thread "
+                    "progressing the worker";
+
+  auto listener = buildListener();
+
+  constexpr size_t numThreads = 8;
+  std::mutex mutex{};
+  std::condition_variable cv{};
+  bool start = false;
+  std::vector<int> closedAfterReturn(numThreads, -1);
+  std::vector<std::thread> threads;
+  for (size_t i = 0; i < numThreads; ++i) {
+    threads.emplace_back([&, i]() {
+      {
+        std::unique_lock<std::mutex> lock(mutex);
+        cv.wait(lock, [&start]() { return start; });
+      }
+      listener->close();
+      // Every caller must observe the listener closed once `close()` returns.
+      closedAfterReturn[i] = listener->isClosed();
+    });
+  }
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    start = true;
+  }
+  cv.notify_all();
+  for (auto& t : threads)
+    t.join();
+
+  ASSERT_EQ(closedAfterReturn, std::vector<int>(numThreads, 1));
 }
 
 INSTANTIATE_TEST_SUITE_P(ProgressModes,

@@ -168,6 +168,12 @@ class Listener:
             # Stop accepting connections now, endpoints created from this listener
             # may keep the underlying C++ listener alive beyond this object.
             self._listener.close()
+            if not self._listener.closed:
+                logger.error(
+                    "Listener could not be closed, keeping it open, call close() "
+                    "again to retry"
+                )
+                return
         self._listener = None
         self._ctx = None
 

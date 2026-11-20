@@ -271,8 +271,10 @@ async def test_listener_released_while_server_endpoint_alive(
         assert listener_ref() is None
 
         # Connect with a low-level endpoint and wait until either the connection is
-        # rejected (the listener is closed, the callback will never run for it) or the
-        # listener callback runs/fails because the UCP listener is still alive.
+        # refused (the listener is closed, the callback will never run for it) or the
+        # listener callback runs/fails because the UCP listener is still alive. The port
+        # cannot be taken by another listener meanwhile, the server endpoint's accepted
+        # connection keeps it bound and Linux never assigns a bound port to port 0.
         ctx = ucxx.core._get_ctx()
         progress = (
             None if ctx.progress_mode.startswith("thread") else ctx.worker.progress

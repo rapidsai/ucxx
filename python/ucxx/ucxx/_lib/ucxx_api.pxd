@@ -375,6 +375,7 @@ cdef extern from "<ucxx/api.h>" namespace "ucxx" nogil:
     cdef cppclass Listener(Component):
         void close()
         cpp_bool isClosed()
+        void reject(ucp_conn_request_h conn_request)
         uint16_t getPort()
         string getIp()
         EndpointBuilder endpointBuilder(

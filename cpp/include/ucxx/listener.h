@@ -27,11 +27,13 @@ class Listener;
  */
 class Listener : public Component {
  private:
-  ucp_listener_h _handle{nullptr};    ///< The UCP listener handle
-  std::mutex _handleMutex{};          ///< Mutex protecting `_handle`
-  std::atomic<bool> _closing{false};  ///< Whether `close()` was called
-  std::string _ip{};                  ///< The IP address to which the listener is bound to
-  uint16_t _port{0};                  ///< The port to which the listener is bound to
+  ucp_listener_h _handle{nullptr};                  ///< The UCP listener handle
+  std::mutex _handleMutex{};                        ///< Mutex protecting `_handle`
+  std::atomic<bool> _closing{false};                ///< Whether `close()` was called
+  ucp_listener_conn_callback_t _callback{nullptr};  ///< User-defined connection callback
+  void* _callbackArgs{nullptr};                     ///< Argument to `_callback`
+  std::string _ip{};  ///< The IP address to which the listener is bound to
+  uint16_t _port{0};  ///< The port to which the listener is bound to
 
   /**
    * @brief Private constructor of `ucxx::Listener`.
@@ -59,6 +61,22 @@ class Listener : public Component {
            uint16_t port,
            ucp_listener_conn_callback_t callback,
            void* callbackArgs);
+
+  /**
+   * @brief Connection handler registered with UCP.
+   *
+   * Reject connection requests once `close()` was called, without calling the
+   * user-defined callback, otherwise call the user-defined callback.
+   *
+   * @param[in] connRequest handle to the connection request.
+   * @param[in] arg         pointer to the `ucxx::Listener` object.
+   */
+  static void connCallback(ucp_conn_request_h connRequest, void* arg);
+
+  /**
+   * @brief Destroy the underlying `ucp_listener_h`, if not yet destroyed.
+   */
+  void destroyHandle();
 
  public:
   Listener()                           = delete;
@@ -91,16 +109,24 @@ class Listener : public Component {
    * connection requests that were already received but not yet delivered, and it is
    * thus safe to release any resources referenced by the callback argument. Endpoints
    * previously created from this listener remain valid and may continue to keep this
-   * object alive.
+   * object alive. Connection requests that are delivered after `close()` was called are
+   * rejected without calling the listener callback, a listener callback that was already
+   * executing may still use the listener, e.g., to create an endpoint from its
+   * connection request.
    *
    * If the worker progress thread is running, the UCP listener is destroyed from the
    * progress thread (immediately if this method is called from the progress thread
    * itself, e.g., from within the listener callback), otherwise it is destroyed from the
-   * calling thread. This method is idempotent and thread-safe, and it is called by the
-   * destructor. If multiple threads call it concurrently, only the first call destroys
-   * the handle and waits for its destruction, all others return immediately. A listener
-   * callback executing concurrently with `close()` may still use the listener, e.g., to
-   * create an endpoint from the connection request.
+   * calling thread. This method is idempotent and is called by the destructor. When the
+   * progress thread is running it is also thread-safe, and every call returns only after
+   * the UCP listener was destroyed. Without a progress thread it must be called from the
+   * thread that progresses the worker, like any other operation on the worker, it may
+   * also be called from within the listener callback.
+   *
+   * If the progress thread does not destroy the UCP listener within 10 seconds an error
+   * is logged and `isClosed()` remains `false`, in that case the callback argument must
+   * not be released. Connection requests delivered afterwards are still rejected, and
+   * the destructor retries destroying the UCP listener.
    *
    * @code{.cpp}
    * // listener is `std::shared_ptr<ucxx::Listener>`
@@ -109,6 +135,17 @@ class Listener : public Component {
    * @endcode
    */
   void close();
+
+  /**
+   * @brief Reject a connection request.
+   *
+   * Reject a connection request delivered to the listener callback, the client is
+   * notified the connection was rejected. Must be called before the listener is closed,
+   * for example from the listener callback.
+   *
+   * @param[in] connRequest handle to connection request delivered by a listener callback.
+   */
+  void reject(ucp_conn_request_h connRequest);
 
   /**
    * @brief Check whether the listener has been closed.
