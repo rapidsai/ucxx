@@ -4,6 +4,32 @@ The scripts in this directory are run by UCXX's GitHub Actions workflows (see
 `.github/workflows/`), using the RAPIDS CI images (`rapidsai/ci-conda`,
 `rapidsai/ci-wheel`, `rapidsai/citestwheel`) and the `rapids-*` helpers they provide.
 
+## UCXX tree in the UCX repository
+
+UCXX is maintained in the UCX repository, under `bindings/ucxx`
+([openucx/ucx#12364](https://github.com/openucx/ucx/pull/12364)). The CI entry points
+for `libucxx` and `ucxx` (`build_cpp.sh`, `build_python.sh`, `build_docs.sh`,
+`build_wheel_libucxx.sh`, `build_wheel_ucxx.sh`, `test_cpp.sh`, `test_python.sh`,
+`test_wheel_ucxx.sh` and `check_style.sh`) fetch that tree and run the script of the
+same name from it, through `ucx_bindings.sh`:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `UCXX_UCX_REPOSITORY` | `https://github.com/openucx/ucx` | UCX repository to fetch |
+| `UCXX_UCX_REF` | `master` | ref to fetch from it |
+| `UCXX_UCX_SRC_DIR` | `${TMPDIR:-/tmp}/ucx-src` | UCX checkout; fetched unless it already holds a git checkout, which is then used as is |
+
+- Package versions still come from the tags of this repository (`rapids-generate-version`
+  runs here), and dependency pins from the fetched tree, so `VERSION` must match in both;
+  the entry points fail otherwise.
+- `check_style.sh` runs the checks through `buildlib/tools/build_ucxx.sh checks` of the
+  fetched UCX tree, which runs the UCXX pre-commit hooks in a repository made of the UCXX
+  tree alone. Files only in this repository are not checked.
+- The devcontainer job builds this checkout in place: `overlay_ucx_bindings.sh` replaces
+  `cpp`, `python/libucxx` and `python/ucxx` with the fetched ones first.
+- `distributed-ucxx` is not part of the UCX tree. Its scripts still run from this
+  repository, against the `libucxx`/`ucxx` packages built from the fetched tree.
+
 ## Building and testing against a non-conda/non-wheel UCX (`UCXX_NO_LIBUCX`)
 
 By default, UCXX conda packages depend on the conda-forge `ucx` package and UCXX wheels
