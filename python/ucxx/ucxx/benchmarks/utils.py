@@ -19,11 +19,29 @@ from ucxx.utils import get_address
 logger = logging.getLogger("ucx")
 
 
+def get_cuda_visible_device(index):
+    """Return the ``CUDA_VISIBLE_DEVICES`` entry for a device index.
+
+    If ``CUDA_VISIBLE_DEVICES`` is set, ``index`` refers to the devices it lists,
+    as in any CUDA application, and the matching entry (index, UUID or MIG UUID)
+    is returned. Otherwise ``index`` is returned unchanged.
+    """
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if visible is None:
+        return str(index)
+    devices = [d.strip() for d in visible.split(",") if d.strip()]
+    if not 0 <= index < len(devices):
+        raise ValueError(
+            f"Device {index} is not visible with CUDA_VISIBLE_DEVICES={visible!r}"
+        )
+    return devices[index]
+
+
 def _ensure_cuda_device(devs, rank):
     from ucxx._cuda_context import ensure_cuda_context
 
-    dev_id = devs[rank % len(devs)]
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(dev_id)
+    dev_id = get_cuda_visible_device(devs[rank % len(devs)])
+    os.environ["CUDA_VISIBLE_DEVICES"] = dev_id
     logger.debug(f"{dev_id=}, {rank=}")
     ensure_cuda_context(0)
 
