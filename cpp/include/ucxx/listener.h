@@ -28,8 +28,9 @@ class Listener;
 class Listener : public Component {
  private:
   ucp_listener_h _handle{nullptr};                  ///< The UCP listener handle
-  std::mutex _handleMutex{};                        ///< Mutex protecting `_handle`
+  std::mutex _handleMutex{};                        ///< Protects `_handle`, `_destroying`
   std::atomic<bool> _closing{false};                ///< Whether `close()` was called
+  bool _destroying{false};                          ///< Whether `_handle` is being destroyed
   ucp_listener_conn_callback_t _callback{nullptr};  ///< User-defined connection callback
   void* _callbackArgs{nullptr};                     ///< Argument to `_callback`
   std::string _ip{};  ///< The IP address to which the listener is bound to
@@ -114,16 +115,23 @@ class Listener : public Component {
    * executing may still use the listener, e.g., to create an endpoint from its
    * connection request.
    *
-   * This method is idempotent and is called by the destructor. Every call returns only
-   * after the UCP listener was destroyed, unless the timeout described below expires.
+   * This method is idempotent and is called by the destructor.
    *
    * When the worker progress thread is running, this method may be called from any
-   * thread. Called from the progress thread, the UCP listener is destroyed immediately.
-   * Called from any other thread, it blocks until the progress thread has destroyed the
-   * UCP listener (or a 10 second timeout expires), so the caller must not hold resources
-   * the progress thread may need to make progress (e.g., the Python GIL). Without a
-   * progress thread, the UCP listener is destroyed on the calling thread, which must be
-   * the thread that progresses the worker.
+   * thread, and every call returns only after the UCP listener was destroyed, unless the
+   * timeout described below expires. Called from the progress thread, the UCP listener
+   * is destroyed immediately. Called from any other thread, it blocks until the progress
+   * thread has destroyed the UCP listener, so the caller must not hold resources the
+   * progress thread may need to make progress (e.g., the Python GIL).
+   *
+   * Without a progress thread, the UCP listener is destroyed on the calling thread, and
+   * calling this method from the thread that progresses the worker is recommended. If
+   * called from another thread while the worker is being progressed, it blocks until the
+   * ongoing progress call returns, a listener callback executing in it may still use the
+   * listener meanwhile. If another thread is already destroying the UCP listener, this
+   * call returns without waiting for it to complete: connection requests delivered
+   * afterwards are still rejected without calling the listener callback, but a listener
+   * callback that was already executing may not have returned yet.
    *
    * Calling this method from within this listener's own callback is supported in all
    * progress modes. Calling it from within any other callback executed during worker

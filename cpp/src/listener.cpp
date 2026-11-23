@@ -74,11 +74,24 @@ void Listener::connCallback(ucp_conn_request_h connRequest, void* arg)
 
 void Listener::destroyHandle()
 {
-  std::lock_guard<std::mutex> lock(_handleMutex);
-  if (_handle == nullptr) return;
+  ucp_listener_h handle{nullptr};
+  {
+    std::lock_guard<std::mutex> lock(_handleMutex);
+    if (_handle == nullptr || _destroying) return;
+    _destroying = true;
+    handle      = _handle;
+  }
 
-  ucp_listener_destroy(_handle);
-  ucxx_trace("ucxx::Listener closed: %p, UCP handle: %p", this, _handle);
+  // `_handleMutex` must not be held while destroying. Without a progress thread, another
+  // thread may be progressing the multi-threaded UCP worker, holding the worker's async
+  // lock that `ucp_listener_destroy()` waits for, and a listener callback executing in that
+  // progress call may need `_handleMutex` (e.g., via `getHandle()` or `reject()`). UCP
+  // keeps the listener valid for such a callback until `ucp_listener_destroy()` acquires
+  // the lock.
+  ucp_listener_destroy(handle);
+  ucxx_trace("ucxx::Listener closed: %p, UCP handle: %p", this, handle);
+
+  std::lock_guard<std::mutex> lock(_handleMutex);
   _handle = nullptr;
 }
 
@@ -114,14 +127,16 @@ void Listener::close()
 
 void Listener::reject(ucp_conn_request_h connRequest)
 {
-  std::lock_guard<std::mutex> lock(_handleMutex);
-  if (_handle == nullptr) {
+  // Do not hold `_handleMutex` while rejecting (see `destroyHandle()`), UCP keeps the
+  // listener alive until the listener callback this is called from returns.
+  auto handle = getHandle();
+  if (handle == nullptr) {
     ucxx_warn(
       "ucxx::Listener %p is closed, cannot reject connection request %p", this, connRequest);
     return;
   }
 
-  auto status = ucp_listener_reject(_handle, connRequest);
+  auto status = ucp_listener_reject(handle, connRequest);
   if (status != UCS_OK)
     ucxx_warn("ucxx::Listener %p failed to reject connection request %p: %s",
               this,

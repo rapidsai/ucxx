@@ -1725,16 +1725,21 @@ cdef class UCXListener():
             if self._listener != nullptr:
                 self._listener.get().close()
                 closed = self._listener.get().isClosed()
+                if not closed:
+                    # The UCP listener could not be destroyed (see the error logged by
+                    # `ucxx::Listener::close()`) and may still call its connection
+                    # handler with the C++ listener as argument, deliberately leak a
+                    # reference to keep the C++ listener alive.
+                    new shared_ptr[Listener](self._listener)
             self._listener.reset()
 
         if not closed:
-            # The UCP listener could not be destroyed (see the error logged by
-            # `ucxx::Listener::close()`), a listener callback that is executing may
-            # still access `_cb_data`, leak it instead of risking a use-after-free.
+            # A listener callback that is executing may still access `_cb_data`, leak
+            # it instead of risking a use-after-free.
             Py_INCREF(self._cb_data)
             logger.error(
-                "UCXListener could not be closed, leaking its callback data to prevent "
-                "a use-after-free"
+                "UCXListener could not be closed, leaking it and its callback data to "
+                "prevent a use-after-free"
             )
 
     def close(self) -> None:

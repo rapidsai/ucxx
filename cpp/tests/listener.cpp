@@ -2,8 +2,13 @@
  * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
+#include <functional>
+#include <future>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -655,11 +660,13 @@ struct ListenerCloseContainer {
   std::vector<std::string> errors{};
   size_t callbackCount{0};
   ListenerCloseAction action{ListenerCloseAction::Accept};
+  std::function<void()> onCallbackEnter{};  ///< Called on entry, without holding `mutex`
 };
 
 static void listenerCloseCallback(ucp_conn_request_h connRequest, void* arg)
 {
   auto container = reinterpret_cast<ListenerCloseContainer*>(arg);
+  if (container->onCallbackEnter) container->onCallbackEnter();
   {
     std::lock_guard<std::mutex> lock(container->mutex);
     ++container->callbackCount;
@@ -900,6 +907,110 @@ TEST_P(ListenerCloseTest, ConcurrentClose)
     t.join();
 
   ASSERT_EQ(closedAfterReturn, std::vector<int>(numThreads, 1));
+}
+
+/**
+ * Close the listener from another thread while a listener callback is executing in a
+ * `progress()` call on the thread progressing the worker, without a progress thread.
+ *
+ * `close()` then blocks in `ucp_listener_destroy()` until the ongoing progress call
+ * returns, the listener callback must still be able to use the listener meanwhile.
+ */
+static void closeFromOtherThreadDuringCallback(ListenerCloseContainer* container,
+                                               std::shared_ptr<ucxx::Worker> worker,
+                                               std::shared_ptr<ucxx::Listener> listener,
+                                               std::function<void()> connect,
+                                               std::chrono::seconds safetyTimeout)
+{
+  std::mutex mutex{};
+  std::condition_variable cv{};
+  bool inCallback            = false;
+  bool closing               = false;
+  container->onCallbackEnter = [&]() {
+    std::unique_lock<std::mutex> lock(mutex);
+    inCallback = true;
+    cv.notify_all();
+    cv.wait(lock, [&closing]() { return closing; });
+    lock.unlock();
+    // Give `close()` time to block waiting for this progress call to return. This only
+    // makes the interleaving that used to deadlock likely, the test passes regardless.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  };
+
+  std::atomic<bool> stop{false};
+  std::thread progressThread([&]() {
+    while (!stop) {
+      worker->progress();
+      std::this_thread::yield();
+    }
+  });
+
+  connect();
+  bool callbackEntered = false;
+  {
+    std::unique_lock<std::mutex> lock(mutex);
+    callbackEntered = cv.wait_for(lock, safetyTimeout, [&inCallback]() { return inCallback; });
+  }
+  if (!callbackEntered) {
+    stop = true;
+    progressThread.join();
+    FAIL() << "The listener callback was not called";
+  }
+
+  auto closeFuture = std::async(std::launch::async, [&]() {
+    {
+      std::lock_guard<std::mutex> lock(mutex);
+      closing = true;
+    }
+    cv.notify_all();
+    listener->close();
+  });
+  if (closeFuture.wait_for(safetyTimeout) != std::future_status::ready) {
+    // The threads are deadlocked and cannot be joined.
+    std::cerr << "close() did not complete, deadlock" << std::endl;
+    std::abort();
+  }
+
+  stop = true;
+  progressThread.join();
+  container->onCallbackEnter = nullptr;
+
+  ASSERT_TRUE(listener->isClosed());
+}
+
+TEST_P(ListenerCloseTest, CloseFromOtherThreadDuringAcceptingCallback)
+{
+  if (isProgressThreadMode()) GTEST_SKIP() << "Requires progressing the worker explicitly";
+
+  auto listener = buildListener();
+  closeFromOtherThreadDuringCallback(
+    &_container,
+    _worker,
+    listener,
+    [this, port = listener->getPort()]() { connect(port); },
+    SafetyTimeout);
+
+  ASSERT_EQ(callbackCount(), 1u);
+  ASSERT_EQ(callbackErrors(), std::vector<std::string>{});
+  ASSERT_EQ(serverEndpointCount(), 1u);
+}
+
+TEST_P(ListenerCloseTest, CloseFromOtherThreadDuringRejectingCallback)
+{
+  if (isProgressThreadMode()) GTEST_SKIP() << "Requires progressing the worker explicitly";
+
+  _container.action = ListenerCloseAction::Reject;
+  auto listener     = buildListener();
+  closeFromOtherThreadDuringCallback(
+    &_container,
+    _worker,
+    listener,
+    [this, port = listener->getPort()]() { connect(port); },
+    SafetyTimeout);
+
+  ASSERT_EQ(callbackCount(), 1u);
+  ASSERT_EQ(callbackErrors(), std::vector<std::string>{});
+  ASSERT_EQ(serverEndpointCount(), 0u);
 }
 
 INSTANTIATE_TEST_SUITE_P(ProgressModes,
