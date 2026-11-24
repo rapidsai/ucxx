@@ -71,8 +71,12 @@ bool CallbackNotifier::wait(uint64_t period,
             lock, std::chrono::duration<uint64_t, std::nano>(signalInterval), [this]() {
               return _flag.load(std::memory_order_relaxed) == true;
             });
-          if (ret) break;
-          if (signalWorkerFunction) signalWorkerFunction();
+          if (ret) {
+            break;
+          }
+          if (signalWorkerFunction) {
+            signalWorkerFunction();
+          }
         }
         return ret;
       } else {
