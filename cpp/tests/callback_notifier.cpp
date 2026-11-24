@@ -55,8 +55,7 @@ TEST(CallbackNotifierTest, WaitStopsSignalingOnceSet)
  * notification, widening the race window. The notifier is heap-allocated so that
  * ThreadSanitizer/AddressSanitizer builds reliably report invalid accesses; ThreadSanitizer
  * reports the race based on happens-before analysis, independent of the actual timing, so a
- * small number of iterations suffices. The 10s period of each `wait()` is only a safety
- * timeout, each iteration completes as soon as the setter thread calls `set()`.
+ * small number of iterations suffices.
  */
 TEST(CallbackNotifierTest, DestroyImmediatelyAfterWait)
 {
@@ -68,10 +67,11 @@ TEST(CallbackNotifierTest, DestroyImmediatelyAfterWait)
   std::thread setter([&pending, &stop]() {
     while (!stop.load(std::memory_order_acquire)) {
       auto notifier = pending.exchange(nullptr, std::memory_order_acq_rel);
-      if (notifier != nullptr)
+      if (notifier != nullptr) {
         notifier->set();
-      else
+      } else {
         std::this_thread::yield();
+      }
     }
   });
 
