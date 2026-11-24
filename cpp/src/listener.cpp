@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <memory>
+#include <mutex>
 #include <netinet/in.h>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include <ucp/api/ucp.h>
@@ -29,9 +31,12 @@ Listener::Listener(std::shared_ptr<Worker> worker,
     throw ucxx::Error("Worker not initialized");
   }
 
+  _callback     = callback;
+  _callbackArgs = callbackArgs;
+
   ucp_listener_params_t params = {
     .field_mask   = UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER,
-    .conn_handler = {.cb = callback, .arg = callbackArgs}};
+    .conn_handler = {.cb = connCallback, .arg = this}};
   auto info               = ucxx::utils::get_addrinfo(host.empty() ? nullptr : host.c_str(), port);
   params.sockaddr.addr    = info->ai_addr;
   params.sockaddr.addrlen = info->ai_addrlen;
@@ -52,21 +57,98 @@ Listener::Listener(std::shared_ptr<Worker> worker,
   setParent(worker);
 }
 
-Listener::~Listener()
+Listener::~Listener() { close(); }
+
+void Listener::connCallback(ucp_conn_request_h connRequest, void* arg)
 {
+  auto listener = reinterpret_cast<Listener*>(arg);
+
+  if (listener->_closing.load()) {
+    ucxx_debug(
+      "ucxx::Listener %p is closing, rejecting connection request %p", listener, connRequest);
+    listener->reject(connRequest);
+    return;
+  }
+
+  listener->_callback(connRequest, listener->_callbackArgs);
+}
+
+void Listener::destroyHandle()
+{
+  ucp_listener_h handle{nullptr};
+  {
+    std::lock_guard<std::mutex> lock(_handleMutex);
+    if (_handle == nullptr || _destroying) return;
+    _destroying = true;
+    handle      = _handle;
+  }
+
+  // `_handleMutex` must not be held while destroying. Without a progress thread, another
+  // thread may be progressing the multi-threaded UCP worker, holding the worker's async
+  // lock that `ucp_listener_destroy()` waits for, and a listener callback executing in that
+  // progress call may need `_handleMutex` (e.g., via `getHandle()` or `reject()`). UCP
+  // keeps the listener valid for such a callback until `ucp_listener_destroy()` acquires
+  // the lock.
+  ucp_listener_destroy(handle);
+  ucxx_trace("ucxx::Listener closed: %p, UCP handle: %p", this, handle);
+
+  std::lock_guard<std::mutex> lock(_handleMutex);
+  _handle = nullptr;
+}
+
+void Listener::close()
+{
+  // Reject connection requests delivered from now on, without calling the user callback.
+  _closing.store(true);
+
+  if (isClosed()) return;
+
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
   if (worker->isProgressThreadRunning()) {
-    std::ignore = worker->registerGenericPre([this]() { ucp_listener_destroy(_handle); },
-                                             10000000000 /* 10s */);
-
+    // Every caller waits for the handle to be destroyed. `registerGenericPre` executes the
+    // callback immediately if called from the progress thread (e.g., from within the
+    // listener callback), so the progress thread never waits for itself. The handle
+    // remains valid until destroyed, so that a listener callback that is executing
+    // concurrently can still use it, therefore `_handleMutex` must not be held while
+    // waiting.
+    if (!worker->registerGenericPre([this]() { destroyHandle(); }, 10000000000 /* 10s */)) {
+      ucxx_error(
+        "ucxx::Listener %p timed out waiting for the progress thread to destroy the UCP "
+        "listener %p, the listener callback argument must not be released",
+        this,
+        getHandle());
+      return;
+    }
     std::ignore = worker->registerGenericPost([]() {}, 10000000000 /* 10s */);
   } else {
-    ucp_listener_destroy(_handle);
-    worker->progress();
+    destroyHandle();
+  }
+}
+
+void Listener::reject(ucp_conn_request_h connRequest)
+{
+  // Do not hold `_handleMutex` while rejecting (see `destroyHandle()`), UCP keeps the
+  // listener alive until the listener callback this is called from returns.
+  auto handle = getHandle();
+  if (handle == nullptr) {
+    ucxx_warn(
+      "ucxx::Listener %p is closed, cannot reject connection request %p", this, connRequest);
+    return;
   }
 
-  ucxx_trace("ucxx::Listener destroyed: %p, UCP handle: %p", this, _handle);
+  auto status = ucp_listener_reject(handle, connRequest);
+  if (status != UCS_OK)
+    ucxx_warn("ucxx::Listener %p failed to reject connection request %p: %s",
+              this,
+              connRequest,
+              ucs_status_string(status));
+}
+
+bool Listener::isClosed()
+{
+  std::lock_guard<std::mutex> lock(_handleMutex);
+  return _handle == nullptr;
 }
 
 namespace detail {
@@ -88,7 +170,11 @@ EndpointBuilder Listener::endpointBuilder(ucp_conn_request_h connRequest)
   return EndpointBuilder(std::static_pointer_cast<Listener>(shared_from_this()), connRequest);
 }
 
-ucp_listener_h Listener::getHandle() { return _handle; }
+ucp_listener_h Listener::getHandle()
+{
+  std::lock_guard<std::mutex> lock(_handleMutex);
+  return _handle;
+}
 
 uint16_t Listener::getPort() { return _port; }
 

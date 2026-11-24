@@ -11,7 +11,7 @@ import weakref
 from typing import Optional
 
 from cpython.buffer cimport PyBuffer_FillInfo
-from cpython.ref cimport PyObject
+from cpython.ref cimport Py_INCREF, PyObject
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uint8_t, uintptr_t
 from libc.stdlib cimport free
@@ -1677,15 +1677,30 @@ cdef class UCXEndpoint():
 cdef void _listener_callback(ucp_conn_request_h conn_request, void *args) with gil:
     """Callback function used by UCXListener"""
     cdef dict cb_data = <dict> args
+    cdef Listener* ucxx_listener
 
     try:
+        if 'listener' in cb_data:
+            listener = cb_data['listener']()
+            if listener is None:
+                # `UCXListener.__dealloc__` is running concurrently, waiting for the
+                # progress thread to destroy the UCP listener after this returns. The
+                # C++ listener is kept alive by `UCXListener` until then, reject the
+                # request so that the client is notified.
+                logger.debug("Listener is being destroyed, rejecting connection request")
+                ucxx_listener = <Listener*><uintptr_t>cb_data['ucxx_listener']
+                with nogil:
+                    ucxx_listener.reject(conn_request)
+                return
+            conn_request_arg = listener.create_endpoint_from_conn_request(
+                int(<uintptr_t>conn_request), True
+            )
+            listener = None
+        else:
+            conn_request_arg = int(<uintptr_t>conn_request)
+
         cb_data['cb_func'](
-            (
-                cb_data['listener']().create_endpoint_from_conn_request(
-                    int(<uintptr_t>conn_request), True
-                ) if 'listener' in cb_data else
-                int(<uintptr_t>conn_request)
-            ),
+            conn_request_arg,
             *cb_data['cb_args'],
             **cb_data['cb_kwargs']
         )
@@ -1698,8 +1713,55 @@ cdef class UCXListener():
         raise TypeError("UCXListener cannot be instantiated directly.")
 
     def __dealloc__(self) -> None:
+        # Endpoints created from connection requests hold a reference to the C++
+        # listener, so resetting `_listener` alone does not destroy the UCP listener.
+        # Close it explicitly so that `_listener_callback` cannot be called with
+        # `_cb_data` after it is released. The GIL must be released, the progress
+        # thread may need it to complete an ongoing `_listener_callback`.
+        cdef bint closed = True
+
+        # `_listener` is not set if `create()` failed to build the listener.
         with nogil:
+            if self._listener != nullptr:
+                self._listener.get().close()
+                closed = self._listener.get().isClosed()
+                if not closed:
+                    # The UCP listener could not be destroyed (see the error logged by
+                    # `ucxx::Listener::close()`) and may still call its connection
+                    # handler with the C++ listener as argument, deliberately leak a
+                    # reference to keep the C++ listener alive.
+                    new shared_ptr[Listener](self._listener)
             self._listener.reset()
+
+        if not closed:
+            # A listener callback that is executing may still access `_cb_data`, leak
+            # it instead of risking a use-after-free.
+            Py_INCREF(self._cb_data)
+            logger.error(
+                "UCXListener could not be closed, leaking it and its callback data to "
+                "prevent a use-after-free"
+            )
+
+    def close(self) -> None:
+        """Stop listening for new connections.
+
+        Destroy the underlying UCP listener, after this returns the listener callback
+        is not called anymore. Endpoints previously created from this listener are
+        not affected. Calling this method more than once is a no-op. If the UCP
+        listener could not be destroyed an error is logged and `closed` remains
+        `False`.
+        """
+        with nogil:
+            self._listener.get().close()
+
+    @property
+    def closed(self) -> bool:
+        cdef bint closed
+
+        with nogil:
+            closed = self._listener.get().isClosed()
+
+        return closed
 
     @classmethod
     def create(
@@ -1737,6 +1799,11 @@ cdef class UCXListener():
                 worker._worker, port, listener_cb, <void*>listener._cb_data
             )
             listener._listener = builder.get().build()
+
+        if deliver_endpoint is True:
+            # Raw pointer used to reject connection requests if the callback runs while
+            # `UCXListener.__dealloc__` waits for the listener to close.
+            cb_data["ucxx_listener"] = <uintptr_t>listener._listener.get()
 
         return listener
 
