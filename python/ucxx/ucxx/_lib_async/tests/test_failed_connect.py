@@ -4,12 +4,14 @@
 import asyncio
 import gc
 import os
+import sys
 import weakref
 
 import pytest
 
 import ucxx
 import ucxx._lib.libucxx as ucx_api
+from conftest import _clear_failed_test_frames
 from ucxx._lib.libucxx import UCXCanceled
 
 # Safety nets only, the tests synchronize on events and request states.
@@ -160,3 +162,46 @@ async def test_failed_create_endpoint_releases_resources(
     ucxx.reset()
     assert ctx_ref() is None
 
+
+@pytest.mark.asyncio
+async def test_clear_failed_test_frames():
+    """The teardown helper clears frames retained by the failed test's exception."""
+
+    async def fail(sentinel):
+        raise RuntimeError("failed")
+
+    async def fail_in_task_group(sentinel):
+        # The frames of the exceptions of the tasks are only reachable through
+        # `ExceptionGroup.exceptions`.
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(fail(sentinel))
+
+    for failing in (fail, fail_in_task_group):
+        sentinel = Sentinel()
+        sentinel_ref = weakref.ref(sentinel)
+        try:
+            await failing(sentinel)
+        except BaseException as e:
+            sys.last_exc = e
+            # pytest accesses `f_locals` when formatting the traceback, which (until
+            # Python 3.13) caches a snapshot of the frame locals. Skip this frame,
+            # which is still executing.
+            tbs = [e.__traceback__.tb_next]
+            tbs += [inner.__traceback__ for inner in getattr(e, "exceptions", ())]
+            for tb in tbs:
+                while tb is not None:
+                    tb.tb_frame.f_locals
+                    tb = tb.tb_next
+            del tbs
+        del sentinel
+        # The event loop handle that resumed this coroutine may reference a task.
+        await asyncio.sleep(0)
+        gc.collect()
+        assert sentinel_ref() is not None
+
+        try:
+            _clear_failed_test_frames()
+            gc.collect()
+            assert sentinel_ref() is None
+        finally:
+            del sys.last_exc

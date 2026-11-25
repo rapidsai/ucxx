@@ -7,6 +7,7 @@ import functools
 import gc
 import inspect
 import os
+import sys
 import tempfile
 import weakref
 
@@ -186,6 +187,39 @@ class _CreatedResources:
         return live
 
 
+def _clear_failed_test_frames():
+    """Clear the locals of the frames in the traceback of the failed test.
+
+    pytest (``sys.last_exc``) and pytest-rerunfailures keep the exception of a failed
+    test until after teardown. The frames in its traceback reference objects such as
+    the ``ApplicationContext`` (e.g., ``self`` of a failed ``create_endpoint()``),
+    which would otherwise make ``ucxx.reset()`` fail. The report has already been
+    generated at this point.
+    """
+    pending = [getattr(sys, "last_exc", None)]
+    seen = set()
+    while pending:
+        exc = pending.pop()
+        if exc is None or id(exc) in seen:
+            continue
+        seen.add(id(exc))
+        tb = exc.__traceback__
+        while tb is not None:
+            frame = tb.tb_frame
+            try:
+                frame.clear()
+            except RuntimeError:
+                pass  # The frame is still executing
+            else:
+                # Until Python 3.13, accessing `f_locals` (as pytest does) caches a
+                # snapshot of the locals in the frame, accessing it again after
+                # `clear()` synchronizes it with the cleared locals.
+                frame.f_locals
+            tb = tb.tb_next
+        pending += [exc.__cause__, exc.__context__]
+        pending += getattr(exc, "exceptions", ())
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def ucxx_setup_teardown(monkeypatch, request):
     """Setup UCXX and verify implicit resource cleanup before closing the loop."""
@@ -230,6 +264,7 @@ async def ucxx_setup_teardown(monkeypatch, request):
     else:
         # Failed-test tracebacks retain local resources until after teardown.
         await resources.close()
+        _clear_failed_test_frames()
     ucxx.reset()
 
 

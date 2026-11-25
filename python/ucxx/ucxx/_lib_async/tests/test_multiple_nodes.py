@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -45,6 +45,20 @@ async def client_node(port, connect_timeout):
     # assert isinstance(ep.ucx_info(), str)
 
 
+async def _gather_all(coroutines):
+    """Run coroutines concurrently, wait for all of them and raise the first error.
+
+    Unlike `asyncio.gather()`, the remaining coroutines don't keep running (and
+    referencing UCXX resources) beyond the test if one fails. Unlike
+    `asyncio.TaskGroup`, they are not canceled either, which would interrupt their
+    communication with the listener and delay the completion of its handlers.
+    """
+    results = await asyncio.gather(*coroutines, return_exceptions=True)
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("num_servers", [1, 2, 4])
 @pytest.mark.parametrize(
@@ -75,17 +89,13 @@ async def test_many_servers_many_clients(num_servers, num_clients):
     # We ensure no more than `somaxconn` connections are submitted
     # at once. Doing otherwise can block and hang indefinitely.
     for batch_start in range(0, num_endpoints, somaxconn):
-        clients = []
-        for endpoint_index in range(
-            batch_start, min(batch_start + somaxconn, num_endpoints)
-        ):
-            clients.append(
-                client_node(
-                    listeners[endpoint_index % num_servers].port,
-                    connect_timeout=connect_timeout,
-                )
+        await _gather_all(
+            client_node(
+                listeners[endpoint_index % num_servers].port,
+                connect_timeout=connect_timeout,
             )
-        await asyncio.gather(*clients)
-    await asyncio.gather(
-        *(wait_listener_client_handlers(listener) for listener in listeners)
-    )
+            for endpoint_index in range(
+                batch_start, min(batch_start + somaxconn, num_endpoints)
+            )
+        )
+    await _gather_all(wait_listener_client_handlers(listener) for listener in listeners)

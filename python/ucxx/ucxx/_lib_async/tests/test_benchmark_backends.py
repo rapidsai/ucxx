@@ -4,6 +4,7 @@
 import asyncio
 import subprocess
 import sys
+import traceback
 
 import pytest
 
@@ -130,6 +131,7 @@ def test_cuda_am_rendezvous_uses_cuda_array_interface():
 
 
 if __name__ == "__main__":
+    failed = False
     # Session fixtures do not apply to this subprocess, see
     # `ucxx.testing.run_in_subprocess_with_cuda_context`.
     with retain_cuda_primary_context():
@@ -144,8 +146,15 @@ if __name__ == "__main__":
                         sys.argv[1] == "True", sys.argv[2] == "True"
                     )
                 )
+        except Exception:
+            # Report and release the error before resetting, the frames referenced by
+            # its traceback reference UCXX resources and would make `ucxx.reset()` fail.
+            traceback.print_exc()
+            failed = True
         finally:
             ucxx.reset()
+    if failed:
+        sys.exit(1)
 
 
 def test_am_benchmark_accepts_device_memory(monkeypatch):
