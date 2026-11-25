@@ -10,6 +10,7 @@ __pytestcache__
 __pycache__
 build
 compile_commands.json
+devcontainer-lock.json
 
 # Python build directories and artifcats
 dask-worker-space
