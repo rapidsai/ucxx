@@ -949,6 +949,41 @@ cdef class UCXWorker():
         return UCXRequest(<uintptr_t><void*>&req, self._enable_python_future)
 
 
+async def _wait_python_future(future, check_error) -> None:
+    """Await a request's Python future without propagating the future's exception.
+
+    The future is owned by the C++ request, which in turn is owned by the Python
+    request object. If the exception stored in the future were raised, the traceback of
+    every frame it propagates through would be attached to that exception, and those
+    frames reference the request (e.g., ``self`` of ``wait()``) and often other objects
+    such as endpoints or the ``ApplicationContext``. That forms a reference cycle
+    through C++ that the garbage collector cannot see, and therefore never frees.
+    Instead, raise a new exception created from the request status, the same way
+    ``wait_yield()`` does.
+
+    Parameters
+    ----------
+    future: asyncio.Future
+        The future of the request, owned by the C++ request.
+    check_error: callable
+        Callable raising the request error, if any.
+    """
+    try:
+        await future
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        # The future keeps `e`, drop the frames attached to it while propagating to
+        # this frame.
+        e.__traceback__ = None
+    else:
+        return
+    check_error()
+    # The request status should always match the future exception, but re-raise it
+    # rather than silently succeeding if it doesn't.
+    future.result()
+
+
 cdef class UCXRequest():
     def __init__(self, uintptr_t shared_ptr_request, bint enable_python_future) -> None:
         self._request = deref(<shared_ptr[Request] *> shared_ptr_request)
@@ -1031,7 +1066,7 @@ cdef class UCXRequest():
 
     async def wait(self) -> None:
         if self._enable_python_future:
-            await self.future
+            await _wait_python_future(self.future, self.check_error)
         else:
             await self.wait_yield()
 
@@ -1180,7 +1215,7 @@ cdef class UCXBufferRequests:
 
     async def wait(self) -> None:
         if self._enable_python_future:
-            await self.future
+            await _wait_python_future(self.future, self.check_error)
         else:
             await self.wait_yield()
 
