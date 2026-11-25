@@ -408,8 +408,11 @@ bool Worker::registerGenericPre(DelayedSubmissionCallbackType callback, uint64_t
       auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
       try {
+        // If the callback is not pending anymore it has already completed (and thus has set
+        // `callbackNotifier`) after `wait()` timed out, in which case it must be considered
+        // successful, otherwise the caller may wrongly retry an operation that already ran.
         if (!ret) {
-          _delayedSubmissionCollection->cancelGenericPre(id);
+          ret = !_delayedSubmissionCollection->cancelGenericPre(id);
         }
         return ret;
       } catch (const std::runtime_error& e) {
@@ -458,8 +461,11 @@ bool Worker::registerGenericPost(DelayedSubmissionCallbackType callback, uint64_
       auto ret = callbackNotifier.wait(period, signalWorkerFunction);
 
       try {
+        // If the callback is not pending anymore it has already completed (and thus has set
+        // `callbackNotifier`) after `wait()` timed out, in which case it must be considered
+        // successful, otherwise the caller may wrongly retry an operation that already ran.
         if (!ret) {
-          _delayedSubmissionCollection->cancelGenericPost(id);
+          ret = !_delayedSubmissionCollection->cancelGenericPost(id);
         }
         return ret;
       } catch (const std::runtime_error& e) {

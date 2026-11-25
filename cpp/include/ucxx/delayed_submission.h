@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <deque>
 #include <functional>
 #include <memory>
@@ -185,16 +186,27 @@ class BaseDelayedSubmissionCollection {
    *                            possible anymore.
    *
    * @param[in] id        the ID of the scheduled item, as returned by `schedule()`.
+   *
+   * @returns `true` if the item was pending and has been canceled, or `false` if the item
+   *          is not pending anymore because it has already been processed.
    */
-  void cancel(ItemIdType id)
+  bool cancel(ItemIdType id)
   {
     std::lock_guard<std::mutex> lock(_mutex);
     if (_processing.has_value() && _processing.value() == id) {
       throw std::runtime_error("Cannot cancel, item is being processed.");
     }
 
+    if (std::none_of(_collection.begin(), _collection.end(), [id](const auto& item) {
+          return item.first == id;
+        })) {
+      ucxx_trace_req("Item already processed, cannot cancel: %lu", id);
+      return false;
+    }
+
     _canceled.insert(id);
     ucxx_trace_req("Canceled item: %lu", id);
+    return true;
   }
 };
 
@@ -363,23 +375,35 @@ class DelayedSubmissionCollection {
    * `registerGenericPre()` has given up and will not anymore be able to guarantee the
    * lifetime of the callback.
    *
+   * @throws std::runtime_error if the callback is being executed and canceling is not
+   *                            possible anymore.
+   *
    * @param[in] id        the ID of the scheduled item, as returned
    *                      by `registerGenericPre()`.
+   *
+   * @returns `true` if the callback was pending and has been canceled, or `false` if the
+   *          callback has already been executed.
    */
-  void cancelGenericPre(ItemIdType id);
+  bool cancelGenericPre(ItemIdType id);
 
   /**
    * @brief Cancel a generic callback scheduled for `processPost()` execution.
    *
    * Cancel the execution of a generic callback that has been previously scheduled for
-   * execution during `processPos()`. This can be useful if the caller of
-   * `registerGenericPre()` has given up and will not anymore be able to guarantee the
+   * execution during `processPost()`. This can be useful if the caller of
+   * `registerGenericPost()` has given up and will not anymore be able to guarantee the
    * lifetime of the callback.
    *
+   * @throws std::runtime_error if the callback is being executed and canceling is not
+   *                            possible anymore.
+   *
    * @param[in] id        the ID of the scheduled item, as returned
-   *                      by `registerGenericPos()`.
+   *                      by `registerGenericPost()`.
+   *
+   * @returns `true` if the callback was pending and has been canceled, or `false` if the
+   *          callback has already been executed.
    */
-  void cancelGenericPost(ItemIdType id);
+  bool cancelGenericPost(ItemIdType id);
 
   /**
    * @brief Inquire if delayed request submission is enabled.

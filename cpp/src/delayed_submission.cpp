@@ -96,8 +96,11 @@ ItemIdType DelayedSubmissionCollection::registerGenericPost(DelayedSubmissionCal
   return _genericPost.schedule(callback);
 }
 
-void DelayedSubmissionCollection::cancelGenericPre(ItemIdType id) { _genericPre.cancel(id); }
+bool DelayedSubmissionCollection::cancelGenericPre(ItemIdType id) { return _genericPre.cancel(id); }
 
-void DelayedSubmissionCollection::cancelGenericPost(ItemIdType id) { _genericPost.cancel(id); }
+bool DelayedSubmissionCollection::cancelGenericPost(ItemIdType id)
+{
+  return _genericPost.cancel(id);
+}
 
 }  // namespace ucxx

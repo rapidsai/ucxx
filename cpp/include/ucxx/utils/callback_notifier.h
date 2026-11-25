@@ -1,10 +1,14 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#pragma once
+
 #include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <mutex>
+
 namespace ucxx {
 
 namespace utils {
@@ -50,6 +54,10 @@ class CallbackNotifier {
    *
    * Set the flag to true and notify a single thread blocked by a call to `wait()`.
    * See also `std::condition_variable::notify_one`.
+   *
+   * The notifier is not accessed anymore by `set()` after a thread blocked by `wait()` is
+   * allowed to return, thus the waiting thread may destroy the notifier as soon as `wait()`
+   * returns, even if `set()` has not returned yet.
    */
   void set();
 

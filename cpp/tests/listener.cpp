@@ -686,7 +686,9 @@ struct ListenerCloseContainer {
 static void listenerCloseCallback(ucp_conn_request_h connRequest, void* arg)
 {
   auto container = reinterpret_cast<ListenerCloseContainer*>(arg);
-  if (container->onCallbackEnter) container->onCallbackEnter();
+  if (container->onCallbackEnter) {
+    container->onCallbackEnter();
+  }
   {
     std::lock_guard<std::mutex> lock(container->mutex);
     ++container->callbackCount;
@@ -701,7 +703,9 @@ static void listenerCloseCallback(ucp_conn_request_h connRequest, void* arg)
       } catch (const ucxx::Error& e) {
         container->errors.push_back(std::string("endpoint creation failed: ") + e.what());
       }
-      if (container->action == ListenerCloseAction::AcceptAndClose) container->listener->close();
+      if (container->action == ListenerCloseAction::AcceptAndClose) {
+        container->listener->close();
+      }
     }
   }
   container->cv.notify_all();
@@ -724,10 +728,11 @@ class ListenerCloseTest : public ::testing::Test,
   {
     _progressMode = GetParam();
     _worker       = _context->workerBuilder().build();
-    if (_progressMode == ProgressMode::ThreadPolling)
+    if (_progressMode == ProgressMode::ThreadPolling) {
       _worker->startProgressThread(true);
-    else if (_progressMode == ProgressMode::ThreadBlocking)
+    } else if (_progressMode == ProgressMode::ThreadBlocking) {
       _worker->startProgressThread(false);
+    }
   }
 
   void TearDown() override
@@ -738,7 +743,9 @@ class ListenerCloseTest : public ::testing::Test,
       _container.endpoints.clear();
       _container.listener = nullptr;
     }
-    if (isProgressThreadMode()) _worker->stopProgressThread();
+    if (isProgressThreadMode()) {
+      _worker->stopProgressThread();
+    }
   }
 
   bool isProgressThreadMode() const
@@ -815,7 +822,9 @@ class ListenerCloseTest : public ::testing::Test,
   bool waitForRejectionOrCallback(std::shared_ptr<ucxx::Endpoint> client, size_t count)
   {
     return loopWithTimeout(SafetyTimeout, [this, client, count]() {
-      if (!isProgressThreadMode()) _worker->progress();
+      if (!isProgressThreadMode()) {
+        _worker->progress();
+      }
       return !client->isAlive() || callbackCount() > count;
     });
   }
@@ -895,9 +904,10 @@ TEST_P(ListenerCloseTest, RejectFromCallback)
 
 TEST_P(ListenerCloseTest, ConcurrentClose)
 {
-  if (!isProgressThreadMode())
+  if (!isProgressThreadMode()) {
     GTEST_SKIP() << "Without a progress thread `close()` must be called from the thread "
                     "progressing the worker";
+  }
 
   auto listener = buildListener();
 
@@ -923,8 +933,9 @@ TEST_P(ListenerCloseTest, ConcurrentClose)
     start = true;
   }
   cv.notify_all();
-  for (auto& t : threads)
+  for (auto& t : threads) {
     t.join();
+  }
 
   ASSERT_EQ(closedAfterReturn, std::vector<int>(numThreads, 1));
 }
@@ -1000,7 +1011,9 @@ static void closeFromOtherThreadDuringCallback(ListenerCloseContainer* container
 
 TEST_P(ListenerCloseTest, CloseFromOtherThreadDuringAcceptingCallback)
 {
-  if (isProgressThreadMode()) GTEST_SKIP() << "Requires progressing the worker explicitly";
+  if (isProgressThreadMode()) {
+    GTEST_SKIP() << "Requires progressing the worker explicitly";
+  }
 
   auto listener = buildListener();
   closeFromOtherThreadDuringCallback(
@@ -1017,7 +1030,9 @@ TEST_P(ListenerCloseTest, CloseFromOtherThreadDuringAcceptingCallback)
 
 TEST_P(ListenerCloseTest, CloseFromOtherThreadDuringRejectingCallback)
 {
-  if (isProgressThreadMode()) GTEST_SKIP() << "Requires progressing the worker explicitly";
+  if (isProgressThreadMode()) {
+    GTEST_SKIP() << "Requires progressing the worker explicitly";
+  }
 
   _container.action = ListenerCloseAction::Reject;
   auto listener     = buildListener();
