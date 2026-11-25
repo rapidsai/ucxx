@@ -390,15 +390,15 @@ class DelayedSubmissionCollection {
    * @brief Cancel a generic callback scheduled for `processPost()` execution.
    *
    * Cancel the execution of a generic callback that has been previously scheduled for
-   * execution during `processPos()`. This can be useful if the caller of
-   * `registerGenericPre()` has given up and will not anymore be able to guarantee the
+   * execution during `processPost()`. This can be useful if the caller of
+   * `registerGenericPost()` has given up and will not anymore be able to guarantee the
    * lifetime of the callback.
    *
    * @throws std::runtime_error if the callback is being executed and canceling is not
    *                            possible anymore.
    *
    * @param[in] id        the ID of the scheduled item, as returned
-   *                      by `registerGenericPos()`.
+   *                      by `registerGenericPost()`.
    *
    * @returns `true` if the callback was pending and has been canceled, or `false` if the
    *          callback has already been executed.
