@@ -1,14 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
 
+import contextlib
 import queue as _queue_module
 import traceback as _traceback_module
 import time
 from multiprocessing.process import BaseProcess
 from multiprocessing.queues import Queue as _MPQueue
-from typing import Any, Callable, Optional, Type, Union
+from typing import Any, Callable, Iterator, Optional, Type, Union
 
 
 def run_in_subprocess(
@@ -133,3 +134,59 @@ def wait_requests(worker, progress_mode, requests):
 
     for r in requests:
         r.check_error()
+
+
+@contextlib.contextmanager
+def retain_cuda_primary_context(device_id: int = 0) -> Iterator[bool]:
+    """Retain the primary CUDA context of a device while the context is active.
+
+    The context is retained with ``cuDevicePrimaryCtxRetain`` without making it
+    current on the calling thread, and released with ``cuDevicePrimaryCtxRelease``
+    on exit. If CUDA is unavailable (e.g., no ``cuda.bindings``, no driver, or no
+    visible devices), nothing is retained.
+
+    This is meant for test suites, see the session fixtures in the ``conftest.py``
+    files that use it. In thread progress mode, every progress thread first runs
+    ``ucxx._lib_async.continuous_ucx_progress._create_context()``, which makes the
+    primary context of device ``0`` current, creating it if no other thread
+    retains it, and the last thread retaining it releases (destroys) it when it
+    exits. Tests call ``ucxx.reset()`` for each test, thus without another holder
+    each test re-creates the context in its new progress thread. Under load from
+    other processes on the GPU that can take several seconds, while the main
+    thread waits for the progress thread to create endpoints with a limited
+    budget, causing spurious ``UCXXTimedOutError``. Retaining the context for the
+    lifetime of the test process makes subsequent retains by progress threads
+    cheap, without changing the context lifetime in the library itself, which
+    applications may rely on.
+
+    Parameters
+    ----------
+    device_id : int, optional
+        The CUDA device ordinal, relative to ``CUDA_VISIBLE_DEVICES`` (default: 0,
+        matching the device used by the progress thread start callback).
+
+    Yields
+    ------
+    bool
+        Whether the primary context was retained.
+    """
+    device = None
+    try:
+        from cuda.bindings import driver
+
+        (err,) = driver.cuInit(0)
+        if err == driver.CUresult.CUDA_SUCCESS:
+            err, dev = driver.cuDeviceGet(device_id)
+        if err == driver.CUresult.CUDA_SUCCESS:
+            err, _ = driver.cuDevicePrimaryCtxRetain(dev)
+        if err == driver.CUresult.CUDA_SUCCESS:
+            device = dev
+    except Exception:
+        # Treat any failure to load or use the CUDA driver as CUDA unavailable.
+        pass
+
+    try:
+        yield device is not None
+    finally:
+        if device is not None:
+            driver.cuDevicePrimaryCtxRelease(device)

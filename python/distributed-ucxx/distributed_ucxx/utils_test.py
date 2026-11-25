@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from distributed.utils_test import (  # noqa: F401
 )
 
 import ucxx
+from ucxx.testing import retain_cuda_primary_context
 
 try:
     from pytest_timeout import is_debugging
@@ -57,6 +58,18 @@ def ucxx_exception_handler(event_loop, context):
 
 # Let's make sure that UCX gets time to cancel
 # progress tasks before closing the event loop.
+@pytest.fixture(scope="session", autouse=True)
+def ucxx_retain_cuda_primary_context():
+    """Retain the CUDA primary context used by progress threads for the session.
+
+    Avoids re-creating the context in each test's progress thread, which may take
+    several seconds on a loaded GPU and cause endpoint creation to time out. See
+    ``ucxx.testing.retain_cuda_primary_context`` for details.
+    """
+    with retain_cuda_primary_context(0) as retained:
+        yield retained
+
+
 @pytest.fixture(scope="function")
 def ucxx_loop(request):
     """Allows UCX to cancel progress tasks before closing event loop.
