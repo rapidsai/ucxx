@@ -78,7 +78,9 @@ void Listener::destroyHandle()
   ucp_listener_h handle{nullptr};
   {
     std::lock_guard<std::mutex> lock(_handleMutex);
-    if (_handle == nullptr || _destroying) return;
+    if (_handle == nullptr || _destroying) {
+      return;
+    }
     _destroying = true;
     handle      = _handle;
   }
@@ -101,7 +103,9 @@ void Listener::close()
   // Reject connection requests delivered from now on, without calling the user callback.
   _closing.store(true);
 
-  if (isClosed()) return;
+  if (isClosed()) {
+    return;
+  }
 
   auto worker = std::static_pointer_cast<Worker>(_parent);
 
@@ -138,11 +142,12 @@ void Listener::reject(ucp_conn_request_h connRequest)
   }
 
   auto status = ucp_listener_reject(handle, connRequest);
-  if (status != UCS_OK)
+  if (status != UCS_OK) {
     ucxx_warn("ucxx::Listener %p failed to reject connection request %p: %s",
               this,
               connRequest,
               ucs_status_string(status));
+  }
 }
 
 bool Listener::isClosed()
