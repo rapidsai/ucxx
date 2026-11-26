@@ -12,6 +12,7 @@ from ucxx._lib.arr import Array
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 from ucxx.benchmarks.backends.ucxx_async import _recv_terminal_ack, _send_terminal_ack
 from ucxx.benchmarks.send_recv import parse_args
+from ucxx.testing import retain_cuda_primary_context
 
 CUDA_UNAVAILABLE_EXIT_CODE = 77
 
@@ -129,19 +130,22 @@ def test_cuda_am_rendezvous_uses_cuda_array_interface():
 
 
 if __name__ == "__main__":
-    try:
-        if sys.argv[1] == "cuda":
-            if not _cuda_available():
-                sys.exit(CUDA_UNAVAILABLE_EXIT_CODE)
-            asyncio.run(_test_cuda_am_rendezvous_uses_cuda_array_interface())
-        else:
-            asyncio.run(
-                _test_async_benchmark_terminal_ack_waits_for_client(
-                    sys.argv[1] == "True", sys.argv[2] == "True"
+    # Session fixtures do not apply to this subprocess, see
+    # `ucxx.testing.run_in_subprocess_with_cuda_context`.
+    with retain_cuda_primary_context():
+        try:
+            if sys.argv[1] == "cuda":
+                if not _cuda_available():
+                    sys.exit(CUDA_UNAVAILABLE_EXIT_CODE)
+                asyncio.run(_test_cuda_am_rendezvous_uses_cuda_array_interface())
+            else:
+                asyncio.run(
+                    _test_async_benchmark_terminal_ack_waits_for_client(
+                        sys.argv[1] == "True", sys.argv[2] == "True"
+                    )
                 )
-            )
-    finally:
-        ucxx.reset()
+        finally:
+            ucxx.reset()
 
 
 def test_am_benchmark_accepts_device_memory(monkeypatch):

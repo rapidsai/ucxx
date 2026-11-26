@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -16,7 +16,7 @@ from ucxx._lib_async.utils_test import (
     compute_timeouts,
     wait_listener_client_handlers,
 )
-from ucxx.testing import run_in_subprocess, terminate_process
+from ucxx.testing import run_in_subprocess_with_cuda_context, terminate_process
 
 mp = mp.get_context("spawn")
 
@@ -133,7 +133,7 @@ def test_shutdown_unexpected_closed_peer(pytestconfig, caplog, endpoint_error_ha
     p1_error_q = mp.Queue()
     p2_error_q = mp.Queue()
     p1 = mp.Process(
-        target=run_in_subprocess,
+        target=run_in_subprocess_with_cuda_context,
         args=(
             _test_shutdown_unexpected_closed_peer_server,
             p1_error_q,
@@ -145,7 +145,7 @@ def test_shutdown_unexpected_closed_peer(pytestconfig, caplog, endpoint_error_ha
     )
     p1.start()
     p2 = mp.Process(
-        target=run_in_subprocess,
+        target=run_in_subprocess_with_cuda_context,
         args=(
             _test_shutdown_unexpected_closed_peer_client,
             p2_error_q,

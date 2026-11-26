@@ -12,6 +12,7 @@ import pytest
 import ucxx
 
 from ucxx._lib_async.pytest_stash_keys import ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY
+from ucxx.testing import retain_cuda_primary_context
 
 normal_env = {
     "UCX_RNDV_SCHEME": "put_zcopy",
@@ -19,6 +20,25 @@ normal_env = {
     "UCX_TLS": "rc,cuda_copy,cuda_ipc",
     "CUDA_VISIBLE_DEVICES": "0",
 }
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ucxx_retain_cuda_primary_context():
+    """Retain the CUDA primary context used by progress threads for the session.
+
+    Each test resets UCXX, thus in thread progress mode each test starts a new
+    progress thread that makes the device 0 primary context current. Without
+    another holder, the context is destroyed when the previous progress thread
+    exits and re-created by the next one, which may take several seconds on a
+    loaded GPU and cause endpoint creation to time out (``UCXXTimedOutError``).
+    Hold it for the session (i.e., per pytest-xdist worker) so progress threads
+    only retain an existing context. See
+    ``ucxx.testing.retain_cuda_primary_context`` for details.
+
+    Import it in a ``conftest.py`` to enable it for a test suite.
+    """
+    with retain_cuda_primary_context(0) as retained:
+        yield retained
 
 
 CLOSE_RECEIPT_TAG = 0x434F4E4649524D

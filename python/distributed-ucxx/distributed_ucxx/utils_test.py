@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from distributed.utils_test import (  # noqa: F401
 )
 
 import ucxx
+from ucxx._lib_async.utils_test import ucxx_retain_cuda_primary_context  # noqa: F401
 
 try:
     from pytest_timeout import is_debugging

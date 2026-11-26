@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import asyncio
@@ -21,7 +21,11 @@ from ucxx._lib_async.utils_test import (
     send,
     wait_listener_client_handlers,
 )
-from ucxx.testing import join_processes, run_in_subprocess, terminate_process
+from ucxx.testing import (
+    join_processes,
+    run_in_subprocess_with_cuda_context,
+    terminate_process,
+)
 
 cupy = pytest.importorskip("cupy")
 rmm = pytest.importorskip("rmm")
@@ -233,12 +237,12 @@ def test_send_recv_cu(pytestconfig, cuda_obj_generator, comm_api):
     client_error_q = ctx.Queue()
     server_process = ctx.Process(
         name="server",
-        target=run_in_subprocess,
+        target=run_in_subprocess_with_cuda_context,
         args=(server, server_error_q, port, func, comm_api, async_timeout),
     )
     client_process = ctx.Process(
         name="client",
-        target=run_in_subprocess,
+        target=run_in_subprocess_with_cuda_context,
         args=(client, client_error_q, port, func, comm_api, async_timeout),
     )
 

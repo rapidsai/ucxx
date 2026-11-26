@@ -15,6 +15,7 @@ import pytest_asyncio
 
 import ucxx
 from ucxx._lib_async.pytest_stash_keys import ASYNCIO_PLUGIN_TIMEOUT_STASH_KEY
+from ucxx._lib_async.utils_test import ucxx_retain_cuda_primary_context  # noqa: F401
 
 
 _CALL_REPORT_STASH_KEY = pytest.StashKey[pytest.TestReport]()
