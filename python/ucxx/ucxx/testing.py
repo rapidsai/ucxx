@@ -7,6 +7,7 @@ import contextlib
 import queue as _queue_module
 import traceback as _traceback_module
 import time
+import warnings
 from multiprocessing.process import BaseProcess
 from multiprocessing.queues import Queue as _MPQueue
 from typing import Any, Callable, Iterator, Optional, Type, Union
@@ -173,8 +174,10 @@ def retain_cuda_primary_context(device_id: int = 0) -> Iterator[bool]:
 
     The context is retained with ``cuDevicePrimaryCtxRetain`` without making it
     current on the calling thread, and released with ``cuDevicePrimaryCtxRelease``
-    on exit. If CUDA is unavailable (e.g., no ``cuda.bindings``, no driver, or no
-    visible devices), nothing is retained.
+    on exit. If CUDA is unavailable (no ``cuda.bindings``, no driver or no visible
+    devices), nothing is retained. Any other failure (e.g., the driver failing to
+    retain the context) is reported with a ``RuntimeWarning`` and nothing is
+    retained.
 
     This is meant for test suites, see the session fixtures in the ``conftest.py``
     files that use it. In thread progress mode, every progress thread first runs
@@ -201,23 +204,69 @@ def retain_cuda_primary_context(device_id: int = 0) -> Iterator[bool]:
     bool
         Whether the primary context was retained.
     """
+    driver = None
     device = None
     try:
         from cuda.bindings import driver
-
-        (err,) = driver.cuInit(0)
-        if err == driver.CUresult.CUDA_SUCCESS:
-            err, dev = driver.cuDeviceGet(device_id)
-        if err == driver.CUresult.CUDA_SUCCESS:
-            err, _ = driver.cuDevicePrimaryCtxRetain(dev)
-        if err == driver.CUresult.CUDA_SUCCESS:
-            device = dev
-    except Exception:
-        # Treat any failure to load or use the CUDA driver as CUDA unavailable.
+    except ImportError:
+        # No CUDA Python bindings (e.g., a CPU-only environment), nothing to retain.
         pass
+    else:
+        try:
+            device = _retain_cuda_primary_context(driver, device_id)
+        except Exception as e:
+            warnings.warn(
+                f"Failed to retain the CUDA primary context of device {device_id}: "
+                f"{e!r}. Endpoint creation in thread progress mode may time out "
+                "while the progress thread creates the context.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
 
     try:
         yield device is not None
     finally:
         if device is not None:
-            driver.cuDevicePrimaryCtxRelease(device)
+            (err,) = driver.cuDevicePrimaryCtxRelease(device)
+            if err != driver.CUresult.CUDA_SUCCESS:
+                warnings.warn(
+                    f"Failed to release the CUDA primary context of device "
+                    f"{device_id}: {err!r}",
+                    RuntimeWarning,
+                    stacklevel=3,
+                )
+
+
+def _retain_cuda_primary_context(driver: Any, device_id: int) -> Optional[Any]:
+    """Retain the primary CUDA context of ``device_id``.
+
+    Returns the ``CUdevice`` whose primary context was retained, or ``None`` if
+    CUDA is unavailable (no driver or no visible device). Raises ``RuntimeError``
+    on any other CUDA driver error, e.g., if retaining the primary context fails.
+    """
+    try:
+        from cuda.pathfinder import DynamicLibNotFoundError
+    except ImportError:
+        DynamicLibNotFoundError = ()  # Older `cuda.bindings`, catch nothing.
+
+    try:
+        (err,) = driver.cuInit(0)
+    except DynamicLibNotFoundError:
+        # No NVIDIA driver installed.
+        return None
+    if err in (
+        driver.CUresult.CUDA_ERROR_NO_DEVICE,
+        driver.CUresult.CUDA_ERROR_STUB_LIBRARY,
+    ):
+        # No (visible) CUDA device, e.g., `CUDA_VISIBLE_DEVICES=""`, or only the
+        # driver stub library is available.
+        return None
+    if err != driver.CUresult.CUDA_SUCCESS:
+        raise RuntimeError(f"cuInit failed: {err!r}")
+    err, device = driver.cuDeviceGet(device_id)
+    if err != driver.CUresult.CUDA_SUCCESS:
+        raise RuntimeError(f"cuDeviceGet({device_id}) failed: {err!r}")
+    err, _ = driver.cuDevicePrimaryCtxRetain(device)
+    if err != driver.CUresult.CUDA_SUCCESS:
+        raise RuntimeError(f"cuDevicePrimaryCtxRetain failed: {err!r}")
+    return device

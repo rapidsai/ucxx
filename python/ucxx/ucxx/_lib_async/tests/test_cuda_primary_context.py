@@ -4,6 +4,7 @@
 import pytest
 
 import ucxx
+import ucxx.testing
 from ucxx._lib_async.utils_test import wait_listener_client_handlers
 
 
@@ -56,3 +57,16 @@ async def test_cuda_primary_context_retained_across_reset(
         # Stops (joins) the progress thread
         ucxx.reset()
         assert _primary_context_active()
+
+
+def test_retain_cuda_primary_context_failure_warns(monkeypatch):
+    """A failure to retain the context is reported instead of silently ignored."""
+    pytest.importorskip("cuda.bindings")
+
+    def failing_retain(driver, device_id):
+        raise RuntimeError("cuDevicePrimaryCtxRetain failed: <injected>")
+
+    monkeypatch.setattr(ucxx.testing, "_retain_cuda_primary_context", failing_retain)
+    with pytest.warns(RuntimeWarning, match="cuDevicePrimaryCtxRetain failed"):
+        with ucxx.testing.retain_cuda_primary_context(0) as retained:
+            assert not retained
