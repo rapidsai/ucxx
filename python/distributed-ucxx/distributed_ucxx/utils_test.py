@@ -18,7 +18,7 @@ from distributed.utils_test import (  # noqa: F401
 )
 
 import ucxx
-from ucxx.testing import retain_cuda_primary_context
+from ucxx._lib_async.utils_test import ucxx_retain_cuda_primary_context  # noqa: F401
 
 try:
     from pytest_timeout import is_debugging
@@ -58,18 +58,6 @@ def ucxx_exception_handler(event_loop, context):
 
 # Let's make sure that UCX gets time to cancel
 # progress tasks before closing the event loop.
-@pytest.fixture(scope="session", autouse=True)
-def ucxx_retain_cuda_primary_context():
-    """Retain the CUDA primary context used by progress threads for the session.
-
-    Avoids re-creating the context in each test's progress thread, which may take
-    several seconds on a loaded GPU and cause endpoint creation to time out. See
-    ``ucxx.testing.retain_cuda_primary_context`` for details.
-    """
-    with retain_cuda_primary_context(0) as retained:
-        yield retained
-
-
 @pytest.fixture(scope="function")
 def ucxx_loop(request):
     """Allows UCX to cancel progress tasks before closing event loop.
