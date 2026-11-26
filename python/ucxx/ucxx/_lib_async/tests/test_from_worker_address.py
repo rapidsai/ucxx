@@ -16,7 +16,11 @@ from ucxx._lib_async.utils_test import (
     recv_close_receipt,
     send_close_receipt,
 )
-from ucxx.testing import join_processes, run_in_subprocess, terminate_process
+from ucxx.testing import (
+    join_processes,
+    run_in_subprocess_with_cuda_context,
+    terminate_process,
+)
 
 mp = mp.get_context("spawn")
 
@@ -102,13 +106,13 @@ def test_from_worker_address(pytestconfig):
     client_error_q = mp.Queue()
 
     server = mp.Process(
-        target=run_in_subprocess,
+        target=run_in_subprocess_with_cuda_context,
         args=(_test_from_worker_address_server, server_error_q, queue, async_timeout),
     )
     server.start()
 
     client = mp.Process(
-        target=run_in_subprocess,
+        target=run_in_subprocess_with_cuda_context,
         args=(_test_from_worker_address_client, client_error_q, queue, async_timeout),
     )
     client.start()
@@ -248,7 +252,7 @@ def test_from_worker_address_multinode(pytestconfig, num_nodes):
     server_error_q = mp.Queue()
 
     server = mp.Process(
-        target=run_in_subprocess,
+        target=run_in_subprocess_with_cuda_context,
         args=(
             _test_from_worker_address_server_fixedsize,
             server_error_q,
@@ -264,7 +268,7 @@ def test_from_worker_address_multinode(pytestconfig, num_nodes):
     for i in range(num_nodes):
         client_error_q = mp.Queue()
         client = mp.Process(
-            target=run_in_subprocess,
+            target=run_in_subprocess_with_cuda_context,
             args=(
                 _test_from_worker_address_client_fixedsize,
                 client_error_q,

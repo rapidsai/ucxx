@@ -13,7 +13,11 @@ import pytest
 import ucxx
 from ucxx._lib_async.utils import get_event_loop
 from ucxx._lib_async.utils_test import compute_timeouts
-from ucxx.testing import join_processes, run_in_subprocess, terminate_process
+from ucxx.testing import (
+    join_processes,
+    run_in_subprocess_with_cuda_context,
+    terminate_process,
+)
 
 mp = mp.get_context("spawn")
 
@@ -189,7 +193,7 @@ def test_from_worker_address_error(pytestconfig, error_type):
     client_error_q = mp.Queue()
 
     server = mp.Process(
-        target=run_in_subprocess,
+        target=run_in_subprocess_with_cuda_context,
         args=(
             _test_from_worker_address_error_server,
             server_error_q,
@@ -202,7 +206,7 @@ def test_from_worker_address_error(pytestconfig, error_type):
     server.start()
 
     client = mp.Process(
-        target=run_in_subprocess,
+        target=run_in_subprocess_with_cuda_context,
         args=(
             _test_from_worker_address_error_client,
             client_error_q,

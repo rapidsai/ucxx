@@ -47,6 +47,37 @@ def run_in_subprocess(
         raise
 
 
+def run_in_subprocess_with_cuda_context(
+    target: Callable[..., Any],
+    error_queue: _MPQueue[str],
+    *args: Any,
+    **kwargs: Any,
+) -> None:
+    """Like :func:`run_in_subprocess`, retaining the CUDA primary context.
+
+    Retains the primary context of device ``0`` (relative to the subprocess'
+    ``CUDA_VISIBLE_DEVICES``) from the subprocess' main thread before running
+    ``target``, see :func:`retain_cuda_primary_context`. Use it for subprocesses
+    using UCXX in thread progress mode (i.e., ``ucxx`` asyncio API), whose progress
+    thread would otherwise create the context while the first endpoint creation
+    waits for it, which may take long enough on a loaded GPU for endpoint
+    creation to time out. The session fixtures do not apply to subprocesses.
+
+    Parameters
+    ----------
+    target : callable
+        The function to run in the subprocess.
+    error_queue : multiprocessing.Queue
+        Queue that receives the formatted traceback string on failure.
+    *args
+        Positional arguments forwarded to ``target``.
+    **kwargs
+        Keyword arguments forwarded to ``target``.
+    """
+    with retain_cuda_primary_context():
+        run_in_subprocess(target, error_queue, *args, **kwargs)
+
+
 def join_processes(
     processes: list[Type[BaseProcess]],
     timeout: Union[float, int],
