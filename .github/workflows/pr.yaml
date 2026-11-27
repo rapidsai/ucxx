@@ -470,6 +470,7 @@ jobs:
         SCCACHE_SERVER_LOG=sccache=debug
         SCCACHE_DIST_FALLBACK_TO_LOCAL_COMPILE=false
       build_command: |
+        ci/overlay_ucx_bindings.sh;
         sccache --zero-stats;
         build-all -j0 --verbose;
         sccache --show-adv-stats;
