@@ -11,6 +11,7 @@ import pytest
 
 import ucxx
 import ucxx._lib.libucxx as ucx_api
+import ucxx.exceptions
 from conftest import _clear_failed_test_frames
 from ucxx._lib.libucxx import UCXCanceled
 
@@ -141,7 +142,9 @@ async def test_failed_create_endpoint_releases_resources(
     if peer == "silent":
         assert excinfo.type is asyncio.TimeoutError
     else:
-        assert excinfo.type is not asyncio.TimeoutError
+        # The exact error depends on timing (e.g., the connection being reset or the
+        # exchange being canceled), but must be a UCXX error rather than a timeout.
+        assert issubclass(excinfo.type, ucxx.exceptions.UCXError), excinfo.value
     del client, excinfo
     # The event loop handle that resumed this coroutine references the client task.
     await asyncio.sleep(0)
