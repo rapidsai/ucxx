@@ -224,3 +224,40 @@ async def test_wait_python_future_status_mismatch_raises_new_exception():
     stored = future.exception()
     assert isinstance(stored, ValueError)
     assert stored.__traceback__ is None
+
+
+@pytest.mark.asyncio
+async def test_clear_failed_test_frames_skips_live_coroutines():
+    """Frames of coroutines that are still alive are not cleared.
+
+    Until Python 3.13, clearing the frame of a suspended coroutine closes it, so a
+    coroutine whose frame is in the traceback of the failed test but which is still
+    in use (e.g., it caught the exception) must be left alone.
+    """
+    caught = asyncio.Event()
+    resume = asyncio.Event()
+
+    async def fail():
+        raise RuntimeError("failed")
+
+    async def catch_and_wait(sentinel):
+        try:
+            await fail()
+        except RuntimeError as e:
+            sys.last_exc = e
+            caught.set()
+        # Suspended, while its frame is in the traceback of `sys.last_exc`.
+        await resume.wait()
+        return sentinel
+
+    sentinel = Sentinel()
+    task = asyncio.create_task(catch_and_wait(sentinel))
+    try:
+        await asyncio.wait_for(caught.wait(), timeout=SAFETY_TIMEOUT)
+        _clear_failed_test_frames()
+        assert not task.done()
+        resume.set()
+        assert await asyncio.wait_for(task, timeout=SAFETY_TIMEOUT) is sentinel
+    finally:
+        resume.set()
+        sys.__dict__.pop("last_exc", None)

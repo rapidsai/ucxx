@@ -9,6 +9,7 @@ import inspect
 import os
 import sys
 import tempfile
+import types
 import weakref
 
 import pytest
@@ -187,6 +188,28 @@ class _CreatedResources:
         return live
 
 
+def _live_generator_frames():
+    """Return the IDs of the frames of all coroutines and generators still alive.
+
+    A coroutine, generator or asynchronous generator keeps its frame while suspended
+    or running, and drops it (``cr_frame``, ``gi_frame`` or ``ag_frame`` is ``None``)
+    once finished.
+    """
+    frames = set()
+    for obj in gc.get_objects():
+        if isinstance(obj, types.CoroutineType):
+            frame = obj.cr_frame
+        elif isinstance(obj, types.GeneratorType):
+            frame = obj.gi_frame
+        elif isinstance(obj, types.AsyncGeneratorType):
+            frame = obj.ag_frame
+        else:
+            continue
+        if frame is not None:
+            frames.add(id(frame))
+    return frames
+
+
 def _clear_failed_test_frames():
     """Clear the locals of the frames in the traceback of the failed test.
 
@@ -195,7 +218,13 @@ def _clear_failed_test_frames():
     the ``ApplicationContext`` (e.g., ``self`` of a failed ``create_endpoint()``),
     which would otherwise make ``ucxx.reset()`` fail. The report has already been
     generated at this point.
+
+    Frames of coroutines and generators that are still alive (suspended or running)
+    are skipped: until Python 3.13, ``frame.clear()`` closes a suspended coroutine
+    rather than raising ``RuntimeError``, and such a coroutine (e.g., one that caught
+    the exception) may still be in use.
     """
+    live_frames = _live_generator_frames()
     pending = [getattr(sys, "last_exc", None)]
     seen = set()
     while pending:
@@ -206,6 +235,9 @@ def _clear_failed_test_frames():
         tb = exc.__traceback__
         while tb is not None:
             frame = tb.tb_frame
+            if id(frame) in live_frames:
+                tb = tb.tb_next
+                continue
             try:
                 frame.clear()
             except RuntimeError:
