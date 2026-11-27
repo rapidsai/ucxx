@@ -367,19 +367,34 @@ class ApplicationContext:
         seed = os.urandom(16)
         msg_tag = hash64bits("msg_tag", seed, ucx_ep.handle)
         try:
-            peer_info = await exchange_peer_info(
-                endpoint=ucx_ep,
-                msg_tag=msg_tag,
-                listener=False,
-                connect_timeout=connect_timeout,
-            )
-        except UCXMessageTruncatedError as e:
-            # A truncated message occurs if the remote endpoint closed before
-            # exchanging peer info, in that case we should raise the endpoint
-            # error, if available.
-            ucx_ep.raise_on_error()
-            # If no endpoint error is available, re-raise exception.
-            raise e
+            try:
+                peer_info = await exchange_peer_info(
+                    endpoint=ucx_ep,
+                    msg_tag=msg_tag,
+                    listener=False,
+                    connect_timeout=connect_timeout,
+                )
+            except UCXMessageTruncatedError as e:
+                # A truncated message occurs if the remote endpoint closed before
+                # exchanging peer info, in that case we should raise the endpoint
+                # error, if available.
+                ucx_ep.raise_on_error()
+                # If no endpoint error is available, re-raise exception.
+                raise e
+        except BaseException:
+            # Close the endpoint now, cancelling a pending exchange, rather than when
+            # it is destroyed. The traceback of the exception references this frame,
+            # and thus the endpoint, so it would otherwise remain open for as long as
+            # the exception is alive, or until the garbage collector frees this frame
+            # along with the buffers of the pending exchange.
+            #
+            # Note this blocks the event loop, also when the connection is cancelled
+            # (`asyncio.CancelledError`), like `Endpoint.abort()`. It normally takes
+            # milliseconds, but if the progress thread does not service the close
+            # it may block for the timeouts of cancelling in-flight requests and of
+            # the close itself, tens of seconds in the worst case.
+            ucx_ep.close_blocking(period=10**10, max_attempts=1)
+            raise
 
         tags = {
             "msg_send": peer_info["msg_tag"],

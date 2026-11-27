@@ -1,0 +1,266 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+import asyncio
+import gc
+import os
+import sys
+import weakref
+
+import pytest
+
+import ucxx
+import ucxx._lib.libucxx as ucx_api
+import ucxx.exceptions
+from conftest import _clear_failed_test_frames
+from ucxx._lib.libucxx import UCXCanceled
+
+# Safety nets only, the tests synchronize on events and request states.
+SAFETY_TIMEOUT = 30.0
+
+
+class Sentinel:
+    """Object whose lifetime is observed through a weak reference."""
+
+
+def _init(enable_python_future):
+    progress_mode = os.environ.get("UCXPY_PROGRESS_MODE", "thread")
+    if enable_python_future and not progress_mode.startswith("thread"):
+        pytest.skip(f"Python futures are not supported in '{progress_mode}' mode")
+    ucxx.init(enable_python_future=enable_python_future)
+    assert ucxx.core._ctx.worker.enable_python_future == enable_python_future
+
+
+async def _wait_until(predicate, progress=None):
+    while not predicate():
+        if progress is not None:
+            progress()
+        await asyncio.sleep(0)
+
+
+def _progress():
+    ctx = ucxx.core._ctx
+    return None if ctx.progress_mode.startswith("thread") else ctx.worker.progress
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enable_python_future", [False, True])
+async def test_failed_request_releases_awaiting_frames(enable_python_future):
+    """A failed request must not keep the frames that awaited it alive.
+
+    With Python futures, the exception raised by ``UCXRequest.wait()`` used to be
+    the one stored in the future owned by the C++ request, and its traceback
+    references the awaiting frames, which reference the request: a reference cycle
+    through C++ that the garbage collector cannot free.
+    """
+    _init(enable_python_future)
+
+    server_eps = []
+    listener = ucxx.create_listener(server_eps.append)
+    ep = await ucxx.create_endpoint(ucxx.get_address(), listener.port)
+    await _wait_until(lambda: len(server_eps) == 1, _progress())
+
+    async def recv(sentinel):
+        await ep.recv(bytearray(8))
+
+    sentinel = Sentinel()
+    sentinel_ref = weakref.ref(sentinel)
+    task = asyncio.create_task(recv(sentinel))
+    del sentinel
+    # The request is submitted in the same step that increments the counter.
+    await _wait_until(lambda: ep._recv_count == 1)
+
+    ep.abort()
+    with pytest.raises(UCXCanceled):
+        await asyncio.wait_for(task, timeout=SAFETY_TIMEOUT)
+    del task
+    # The event loop handle that resumed this coroutine references the task.
+    await asyncio.sleep(0)
+    gc.collect()
+
+    assert sentinel_ref() is None
+
+    server_eps[0].abort()
+    listener.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enable_python_future", [False, True])
+@pytest.mark.parametrize("peer", ["closes", "silent"])
+async def test_failed_create_endpoint_releases_resources(
+    monkeypatch, enable_python_future, peer
+):
+    """A failed ``create_endpoint()`` must close its endpoint and release the context.
+
+    The peer is a raw listener that never exchanges peer information: it either
+    closes the endpoint after accepting the connection, failing the exchange, or keeps
+    it open without answering, so that the exchange times out.
+    """
+    _init(enable_python_future)
+    loop = asyncio.get_running_loop()
+    ctx_ref = weakref.ref(ucxx.core._ctx)
+
+    accepted = asyncio.Event()
+    server_eps = []
+
+    def on_connection(server_ep):
+        server_eps.append(server_ep)
+        loop.call_soon_threadsafe(accepted.set)
+
+    raw_listener = ucx_api.UCXListener.create(
+        worker=ucxx.core._ctx.worker,
+        port=0,
+        cb_func=on_connection,
+        deliver_endpoint=True,
+    )
+
+    client_eps = []
+    create = ucx_api.UCXEndpoint.create
+
+    def recording_create(*args, **kwargs):
+        client_eps.append(create(*args, **kwargs))
+        return client_eps[-1]
+
+    monkeypatch.setattr(ucx_api.UCXEndpoint, "create", recording_create)
+
+    connect_timeout = SAFETY_TIMEOUT if peer == "closes" else 0.1
+    client = asyncio.create_task(
+        ucxx.create_endpoint(
+            ucxx.get_address(), raw_listener.port, connect_timeout=connect_timeout
+        )
+    )
+    progress = _progress()
+    while not accepted.is_set():
+        if progress is not None:
+            progress()
+        await asyncio.sleep(0)
+    if peer == "closes":
+        server_eps[0].close_blocking(period=10**10, max_attempts=1)
+
+    with pytest.raises(Exception) as excinfo:
+        await asyncio.wait_for(client, timeout=2 * SAFETY_TIMEOUT)
+    if peer == "silent":
+        assert excinfo.type is asyncio.TimeoutError
+    else:
+        # The exact error depends on timing (e.g., the connection being reset or the
+        # exchange being canceled), but must be a UCXX error rather than a timeout.
+        assert issubclass(excinfo.type, ucxx.exceptions.UCXError), excinfo.value
+    del client, excinfo
+    # The event loop handle that resumed this coroutine references the client task.
+    await asyncio.sleep(0)
+
+    # The endpoint is closed even though it is still referenced (here by
+    # `client_eps`, usually by the traceback of the exception).
+    assert len(client_eps) == 1
+    assert not client_eps[0].alive
+
+    monkeypatch.undo()
+    client_eps.clear()
+    for server_ep in server_eps:
+        server_ep.close_blocking(period=10**10, max_attempts=1)
+    server_eps.clear()
+    raw_listener.close()
+    del raw_listener
+
+    ucxx.reset()
+    assert ctx_ref() is None
+
+
+@pytest.mark.asyncio
+async def test_clear_failed_test_frames():
+    """The teardown helper clears frames retained by the failed test's exception."""
+
+    async def fail(sentinel):
+        raise RuntimeError("failed")
+
+    async def fail_in_task_group(sentinel):
+        # The frames of the exceptions of the tasks are only reachable through
+        # `ExceptionGroup.exceptions`.
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(fail(sentinel))
+
+    for failing in (fail, fail_in_task_group):
+        sentinel = Sentinel()
+        sentinel_ref = weakref.ref(sentinel)
+        try:
+            await failing(sentinel)
+        except BaseException as e:
+            sys.last_exc = e
+            # pytest accesses `f_locals` when formatting the traceback, which (until
+            # Python 3.13) caches a snapshot of the frame locals. Skip this frame,
+            # which is still executing.
+            tbs = [e.__traceback__.tb_next]
+            tbs += [inner.__traceback__ for inner in getattr(e, "exceptions", ())]
+            for tb in tbs:
+                while tb is not None:
+                    tb.tb_frame.f_locals
+                    tb = tb.tb_next
+            del tbs
+        del sentinel
+        # The event loop handle that resumed this coroutine may reference a task.
+        await asyncio.sleep(0)
+        gc.collect()
+        assert sentinel_ref() is not None
+
+        try:
+            _clear_failed_test_frames()
+            gc.collect()
+            assert sentinel_ref() is None
+        finally:
+            del sys.last_exc
+
+
+@pytest.mark.asyncio
+async def test_wait_python_future_status_mismatch_raises_new_exception():
+    """If the future failed but the request status is OK, a new exception is raised.
+
+    Re-raising the exception stored in the (C++-owned) future would attach the
+    awaiting frames to it again, recreating the reference cycle.
+    """
+    future = asyncio.get_running_loop().create_future()
+    future.set_exception(ValueError("stored in the future"))
+
+    match = "request status is OK.*stored in the future"
+    with pytest.raises(RuntimeError, match=match):
+        await ucx_api._wait_python_future(future, check_error=lambda: None)
+
+    stored = future.exception()
+    assert isinstance(stored, ValueError)
+    assert stored.__traceback__ is None
+
+
+@pytest.mark.asyncio
+async def test_clear_failed_test_frames_skips_live_coroutines():
+    """Frames of coroutines that are still alive are not cleared.
+
+    Until Python 3.13, clearing the frame of a suspended coroutine closes it, so a
+    coroutine whose frame is in the traceback of the failed test but which is still
+    in use (e.g., it caught the exception) must be left alone.
+    """
+    caught = asyncio.Event()
+    resume = asyncio.Event()
+
+    async def fail():
+        raise RuntimeError("failed")
+
+    async def catch_and_wait(sentinel):
+        try:
+            await fail()
+        except RuntimeError as e:
+            sys.last_exc = e
+            caught.set()
+        # Suspended, while its frame is in the traceback of `sys.last_exc`.
+        await resume.wait()
+        return sentinel
+
+    sentinel = Sentinel()
+    task = asyncio.create_task(catch_and_wait(sentinel))
+    try:
+        await asyncio.wait_for(caught.wait(), timeout=SAFETY_TIMEOUT)
+        _clear_failed_test_frames()
+        assert not task.done()
+        resume.set()
+        assert await asyncio.wait_for(task, timeout=SAFETY_TIMEOUT) is sentinel
+    finally:
+        resume.set()
+        sys.__dict__.pop("last_exc", None)
