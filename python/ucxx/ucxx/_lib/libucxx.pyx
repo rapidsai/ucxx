@@ -968,6 +968,7 @@ async def _wait_python_future(future, check_error) -> None:
     check_error: callable
         Callable raising the request error, if any.
     """
+    failed = False
     try:
         await future
     except asyncio.CancelledError:
@@ -976,12 +977,17 @@ async def _wait_python_future(future, check_error) -> None:
         # The future keeps `e`, drop the frames attached to it while propagating to
         # this frame.
         e.__traceback__ = None
-    else:
-        return
-    check_error()
-    # The request status should always match the future exception, but re-raise it
-    # rather than silently succeeding if it doesn't.
-    future.result()
+        future_error = repr(e)
+        failed = True
+
+    if failed:
+        check_error()
+        # The request status should always match the future exception. If it does
+        # not, raise a new exception rather than the future's, which would attach
+        # the awaiting frames to it again.
+        raise RuntimeError(
+            f"Request future failed but request status is OK: {future_error}"
+        )
 
 
 cdef class UCXRequest():

@@ -205,3 +205,22 @@ async def test_clear_failed_test_frames():
             assert sentinel_ref() is None
         finally:
             del sys.last_exc
+
+
+@pytest.mark.asyncio
+async def test_wait_python_future_status_mismatch_raises_new_exception():
+    """If the future failed but the request status is OK, a new exception is raised.
+
+    Re-raising the exception stored in the (C++-owned) future would attach the
+    awaiting frames to it again, recreating the reference cycle.
+    """
+    future = asyncio.get_running_loop().create_future()
+    future.set_exception(ValueError("stored in the future"))
+
+    match = "request status is OK.*stored in the future"
+    with pytest.raises(RuntimeError, match=match):
+        await ucx_api._wait_python_future(future, check_error=lambda: None)
+
+    stored = future.exception()
+    assert isinstance(stored, ValueError)
+    assert stored.__traceback__ is None
