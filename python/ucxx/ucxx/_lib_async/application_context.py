@@ -387,6 +387,12 @@ class ApplicationContext:
             # and thus the endpoint, so it would otherwise remain open for as long as
             # the exception is alive, or until the garbage collector frees this frame
             # along with the buffers of the pending exchange.
+            #
+            # Note this blocks the event loop, also when the connection is cancelled
+            # (`asyncio.CancelledError`), like `Endpoint.abort()`. It normally takes
+            # milliseconds, but if the progress thread does not service the close
+            # it may block for the timeouts of cancelling in-flight requests and of
+            # the close itself, tens of seconds in the worst case.
             ucx_ep.close_blocking(period=10**10, max_attempts=1)
             raise
 
